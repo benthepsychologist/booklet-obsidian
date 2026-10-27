@@ -8,3 +8,4 @@ export * from "./write";
 export * from "./words";
 export * from "./widgets";
 export * from "./each";
+export * from "./earlier";

@@ -17,7 +17,7 @@
  * they leave it. Its pair stays in the answer, not drawn, and a copy comes back for it (at the end) when the pick is
  * made again.
  */
-import { pairFor, pairsOf, pickKey, pickWords, setPair, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
+import { earlierOptions, pairFor, pickKey, pickWords, setPair, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
 import { choiceBody, picksOf, type Label, type QuestionHost, type Target } from "./questions";
 
 interface Copy {
@@ -52,16 +52,11 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 				const next = setPair(host.answerOf(t, q), p, list);
 				host.answer(t, q, next.length ? next : undefined);
 			},
-			// the reader's own options under the other picks now, then in earlier entries (every pick's), as for `open`
+			// the reader's own options under the other picks the source holds now, then in the kept entries (the
+			// pairs whose pick each entry's source holds), as for `open` (core/earlier.ts)
 			offered: (now) => {
-				if (!q.open) return [];
-				const others = pairsOf(host.answerOf(t, q)).filter((x) => x.pick !== p);
-				return host.earlierOwn(
-					t,
-					q,
-					now,
-					others.flatMap((x) => picksOf(x.a).filter((y): y is string => typeof y === "string")),
-				);
+				const { record, entries } = host.earlierOf(t);
+				return earlierOptions(t.activity, q, record, entries, now, p);
 			},
 			ownKey: `${key}#own:${pickKey(p)}`,
 		});

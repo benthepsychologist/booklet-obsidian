@@ -72,7 +72,7 @@ export function assertOutsideUnchanged(orig, next, what = "") {
  * these (e2e/plugin-check.js keeps the same list).
  */
 export const EXPECTED_LINT = {
-	"Check-in.booklet.md": [/a multi line takes no `each:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/],
+	"Check-in.booklet.md": [/a multi line takes no `each:` setting/, /a lines line takes no `earlier:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/],
 };
 
 /** The expected errors for a note, by its file name (none for any other). */

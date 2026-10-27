@@ -10,12 +10,13 @@ import {
 	RecordsWriteError,
 	answerWords,
 	designKey,
+	earlierEntries,
 	eachWords,
-	pairsOf,
 	finalizeDraft,
 	holdsSomething,
 	isoSecond,
 	localDay,
+	newestFirst,
 	parseBooklet,
 	setAnswer,
 	shapeIssue,
@@ -33,7 +34,7 @@ import {
 	type ShownDraft,
 	type WordPart,
 } from "./core";
-import { drawQuestion, keyOf, picksOf, plainWords, sameWords, type QuestionHost, type Target } from "./questions";
+import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
 import type { LeafMode } from "./switch";
 
 export const VIEW_TYPE = "booklet";
@@ -58,9 +59,6 @@ const UNSUPPORTED: Record<string, string> = {
 	"in-callout": "a question inside a callout",
 };
 
-/** How many of the reader's own options are offered again (booklet.html ownEarlier). */
-const OWN_OFFERED = 12;
-
 interface Pending {
 	t: Target;
 	q: Question;
@@ -78,12 +76,6 @@ function when(ts: unknown): string {
 	if (!Number.isFinite(t)) return String(ts);
 	return new Date(t).toLocaleString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
-
-const newestFirst = (a: Entry, b: Entry) => {
-	const x = Date.parse(String(a.ts));
-	const y = Date.parse(String(b.ts));
-	return Number.isFinite(x) && Number.isFinite(y) ? y - x : String(b.ts).localeCompare(String(a.ts));
-};
 
 export class BookletView extends TextFileView implements QuestionHost {
 	/** The note's text as last read or written by this view: what getViewData returns. */
@@ -325,27 +317,12 @@ export class BookletView extends TextFileView implements QuestionHost {
 		return p ? { value: p.value } : null;
 	}
 
-	earlierOwn(t: Target, q: Question, now: Array<number | string>, first: string[] = []): string[] {
-		const listed = q.options.map((o) => plainWords(o.text));
-		const out: string[] = [];
-		// listed words, words in the answer now and repeats are left out before the count, as booklet.html's ownEarlier does
-		const take = (x: unknown): boolean => {
-			if (typeof x !== "string" || !x.trim()) return false;
-			const s = x.trim();
-			if (listed.some((o) => sameWords(o, s)) || now.some((o) => typeof o === "string" && sameWords(o, s)) || out.some((o) => sameWords(o, s))) return false;
-			out.push(s);
-			return out.length >= OWN_OFFERED;
-		};
-		for (const x of first) if (take(x)) return out;
-		if (!t.activity.repeat) return out;
-		const kept = [...(this.book?.records.entries[t.scope]?.[t.activity.id] ?? [])].sort(newestFirst);
-		for (const e of kept) {
-			const v = e[q.id];
-			if (shapeIssue(q, v)) continue;
-			// a question asked for each pick: the own options under every pick of the entry, picks taken back among them
-			for (const x of q.each ? pairsOf(v).flatMap((p) => picksOf(p.a)) : picksOf(v)) if (take(x)) return out;
-		}
-		return out;
+	earlierOf(t: Target): { record: Record<string, unknown>; entries: Entry[] } {
+		if (!this.book) return { record: nullMap<unknown>(), entries: [] };
+		// the record being written as it is shown (a daily draft with nothing in it shows today's entry), and the kept
+		// entries, newest first, without today's in a daily activity: the draft will replace it (core/earlier.ts)
+		const record = t.activity.repeat ? this.shown(t.activity).values : (this.book.records.answers[t.scope] ?? nullMap<unknown>());
+		return { record, entries: earlierEntries(this.book, t.scope, t.activity, this.dayRule()) };
 	}
 
 	reshow(): void {

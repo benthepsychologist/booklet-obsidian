@@ -13,7 +13,7 @@
  * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
-import { holdsSomething, type Activity, type AnswerValue, type Question } from "./core";
+import { earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type Question } from "./core";
 import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
 
@@ -47,12 +47,11 @@ export interface QuestionHost {
 	heldOf(key: string): string;
 	hold(key: string, words: string): void;
 	/**
-	 * The reader's own options to offer again, unpressed: `first` (for a question asked for each pick, the own options
-	 * under its other picks now), then those in the activity's earlier kept entries, newest first. Words listed as an
-	 * option, words in `now` (the answer shown) and repeats are left out first, and then at most 12 are taken
-	 * (booklet.html ownEarlier).
+	 * Where a question's earlier words come from (core/earlier.ts): the record being written, as shown (a daily draft
+	 * with nothing in it shows today's entry), and the activity's kept entries, newest first, without today's in a
+	 * `repeat daily` activity, which the draft will replace. An activity that does not repeat has no entries.
 	 */
-	earlierOwn(t: Target, q: Question, now: Array<number | string>, first?: string[]): string[];
+	earlierOf(t: Target): { record: Record<string, unknown>; entries: Entry[] };
 	/** Shows every question's answer again (waits while a press is under way). */
 	reshow(): void;
 	/** A new id for an element of this drawing. */
@@ -72,15 +71,8 @@ export const keyOf = (t: Target, q: Question): string => `${t.scope}/${t.activit
 export const picksOf = (v: unknown): Array<number | string> =>
 	(Array.isArray(v) ? v : v === null || v === undefined || v === "" ? [] : [v]).filter((x): x is number | string => typeof x === "number" || typeof x === "string");
 
-/** Markdown's words without their marks: what a reader's own option is compared with (SPEC section 5). */
-export const plainWords = (md: string): string =>
-	md
-		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
-		.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
-		.replace(/[*_~=`]/g, "")
-		.replace(/\\(.)/g, "$1");
-
-export const sameWords = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+/** What a reader's own option is compared with, and how (SPEC section 5): kept in the core (core/earlier.ts). */
+export { plainWords, sameWords };
 
 const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
 
@@ -283,16 +275,31 @@ function drawLines(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 		add("");
 	};
 	const linesOf = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && holdsSomething(x)) : []);
+	// earlier lines, only where the line sets `earlier:<n>` (core/earlier.ts): a press fills the empty line at the end
+	// with its words and opens a new empty line under it, as typing in it does; no line typed in is changed
+	const take = (words: string) => {
+		const last = inputs[inputs.length - 1];
+		if (last && last.value === "") last.value = words;
+		else add(words);
+		add("");
+		commit();
+		host.flushTyped(t, q);
+	};
+	const earlier = q.earlier ? earlierGroup(host, box, locked, take) : null;
+	const showEarlier = () => {
+		if (earlier) earlier(earlierLines(q, host.earlierOf(t).entries, inputs.map((i) => i.value)));
+	};
 	const show = () => {
-		if (host.pendingOf(t, q) || list.contains(list.ownerDocument.activeElement)) return;
+		const busy = host.pendingOf(t, q) || list.contains(list.ownerDocument.activeElement);
 		const next = linesOf(host.answerOf(t, q));
 		// the fields are made again only when the answer differs from what they hold, so a field that focus is
 		// moving into is never taken away from under the pointer
-		if (JSON.stringify(next) === JSON.stringify(inputs.map((i) => i.value).filter((v) => holdsSomething(v)))) return;
-		fill(next);
+		if (!busy && JSON.stringify(next) !== JSON.stringify(inputs.map((i) => i.value).filter((v) => holdsSomething(v)))) fill(next);
+		showEarlier();
 	};
 	const typed = host.pendingOf(t, q);
 	fill(linesOf(typed ? typed.value : host.answerOf(t, q)));
+	showEarlier();
 	host.onShow(key, show);
 }
 
@@ -320,6 +327,47 @@ function drawScale(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 	host.onShow(key, show);
 }
 
+/**
+ * A group of the reader's earlier words as unpressed buttons, under the words "Earlier words" (core/earlier.ts): a body
+ * widget's place and a lines question draw one. A press on a word calls `take` with its words, which goes down the
+ * path typing those words goes down. Returns the function that shows a list of words: the buttons are made again
+ * only when the list changes, and a group with none is not shown. A long word is shortened to two lines on screen
+ * (styles.css), and its full words are its button's name. When the button in focus goes (its word taken), focus
+ * goes to the button now in its place, so a keyboard is not sent back to the top of the note.
+ */
+export function earlierGroup(host: QuestionHost, into: HTMLElement, locked: boolean, take: (words: string) => void): (words: readonly string[]) => void {
+	const box = into.createDiv({ cls: "booklet-earlier booklet-earlier-none" });
+	const headId = host.uid();
+	box.createDiv({ cls: "booklet-earlier-label", text: "Earlier words", attr: { id: headId } });
+	const row = box.createDiv({ cls: "booklet-choices" });
+	row.setAttr("role", "group");
+	row.setAttr("aria-labelledby", headId);
+	let sig: string | null = null;
+	return (words) => {
+		const now = JSON.stringify(words);
+		if (now === sig) return;
+		sig = now;
+		const buttons = () => Array.from(row.querySelectorAll("button"));
+		const active = row.ownerDocument.activeElement;
+		const at = active && row.contains(active) ? buttons().indexOf(active as HTMLButtonElement) : -1;
+		row.empty();
+		box.toggleClass("booklet-earlier-none", !words.length);
+		for (const w of words) {
+			const b = row.createEl("button", { cls: "booklet-choice booklet-earlier-word" });
+			b.createSpan({ cls: "booklet-words", text: w });
+			b.setAttr("aria-label", w);
+			pressed(b, false);
+			b.disabled = locked;
+			b.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				take(w);
+			});
+		}
+		const next = buttons();
+		if (at >= 0 && next.length) next[Math.min(at, next.length - 1)]!.focus();
+	};
+}
+
 export function pressed(b: HTMLElement, on: boolean): void {
 	b.toggleClass("mod-cta", on);
 	b.toggleClass("is-selected", on);
@@ -332,7 +380,10 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	const show = choiceBody(host, box, q, label, locked, {
 		picks,
 		put: (list) => host.answer(t, q, multi ? (list.length ? list : undefined) : list.length ? list[list.length - 1] : undefined),
-		offered: (now) => (q.open ? host.earlierOwn(t, q, now) : []),
+		offered: (now) => {
+			const { record, entries } = host.earlierOf(t);
+			return earlierOptions(t.activity, q, record, entries, now);
+		},
 		ownKey: `${key}#own`,
 	});
 	if (q.options.some((o) => o.correct)) box.createDiv({ cls: "booklet-muted", text: "Marking an answer right or wrong is not yet supported." });
@@ -346,7 +397,7 @@ export interface ChoiceIO {
 	picks(): Array<number | string>;
 	/** The picks set to `list` (empty: none). */
 	put(list: Array<number | string>): void;
-	/** Own options to offer again, unpressed, given the picks shown now (QuestionHost.earlierOwn). */
+	/** Own options to offer again, unpressed, given the picks shown now (core/earlier.ts earlierOptions). */
 	offered(now: Array<number | string>): string[];
 	/** The key under which the view holds what is typed in the Add your own field and not added yet. */
 	ownKey: string;
@@ -421,8 +472,11 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, q: Question, la
 				});
 			}
 			for (const s of earlier) {
-				const b = ownBox.createEl("button", { cls: "booklet-choice booklet-own" });
+				// an earlier own option, drawn as today after the listed ones; a long one is shortened to two lines on
+				// screen, and its full words are its name
+				const b = ownBox.createEl("button", { cls: "booklet-choice booklet-own booklet-earlier-word" });
 				b.createSpan({ cls: "booklet-words", text: s });
+				b.setAttr("aria-label", s);
 				pressed(b, false);
 				b.disabled = locked;
 				b.addEventListener("click", (evt) => {

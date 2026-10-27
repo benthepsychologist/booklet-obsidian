@@ -28,7 +28,7 @@ Take a moment. There are no right answers here.
 
 > [!multi|where open menu:spots] Where were you today?
 
-> [!lines|thoughts] What is on your mind?
+> [!lines|thoughts earlier:12] What is on your mind?
 
 > [!module|day-check end] End of A short check-in
 
