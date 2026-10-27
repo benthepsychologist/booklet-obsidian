@@ -89,6 +89,66 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 	return out;
 }
 
+/**
+ * What each kind of booklet line takes after its id: a flag is a bare word, `key:` a setting written key:value.
+ * This is SPEC section 4's table for format 0.15, with the two settings this plugin draws ahead of format 0.16:
+ * `each:` on every question kind, and `earlier:` on a choice, a multi, a lines and a widget. A kind outside the
+ * table is an unknown kind, said on its own.
+ */
+export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
+	module: ["end", "icon:"],
+	activity: ["repeat", "daily", "hidden", "icon:", "parent:", "status:", "tab:"],
+	row: ["end"],
+	text: ["long", "each:"],
+	lines: ["each:", "earlier:"],
+	scale: ["each:"],
+	matrix: ["each:"],
+	date: ["each:"],
+	menu: [],
+	hint: [],
+	solution: [],
+	data: [],
+	records: [],
+	manifest: [],
+	notice: [],
+	group: [],
+	diff: [],
+	law: [],
+	opinion: [],
+	tab: [],
+	choice: ["open", "menu:", "each:", "earlier:"],
+	multi: ["open", "menu:", "each:", "earlier:"],
+	number: ["min:", "max:", "step:", "each:"],
+	widget: ["readonly", "describe", "each:", "earlier:"],
+};
+
+/**
+ * The settings a line's kind does not take (SPEC section 4): each is said, and taken off the line so that it is
+ * ignored. `where` begins the problem ("Line 12"). A kind outside KIND_SETTINGS gives nothing here.
+ */
+export function settingProblems(kind: string, w: Words, where: string): string[] {
+	const allowed = Object.prototype.hasOwnProperty.call(KIND_SETTINGS, kind) ? KIND_SETTINGS[kind] : undefined;
+	if (!allowed) return [];
+	const out: string[] = [];
+	const a = /^[aeiou]/.test(kind) ? "an" : "a";
+	for (const key of Object.keys(w.set)) {
+		if (allowed.includes(key + ":")) continue;
+		out.push(`${where}: ${a} ${kind} line takes no \`${key}:\` setting, so it was ignored.`);
+		delete w.set[key];
+	}
+	for (const f of [...w.flags]) {
+		if (allowed.includes(f)) continue;
+		out.push(`${where}: ${a} ${kind} line takes no \`${f}\` setting, so it was ignored.`);
+		w.flags.delete(f);
+	}
+	return out;
+}
+
+/** `earlier:`'s value: a whole number written in digits only (`[0-9]+`, so `012` is 12), or null when it is not one. */
+export function earlierValue(v: string): number | null {
+	return /^[0-9]+$/.test(v) ? Number(v) : null;
+}
+
 /** The index past the `>` lines that belong to the Booklet line at `i` (a `> [!` line ends them). */
 export function bodyEnd(lines: readonly string[], i: number): number {
 	let k = i + 1;

@@ -12,8 +12,10 @@ import {
 	FENCE_OPEN,
 	bodyEnd,
 	calloutWords,
+	earlierValue,
 	fenceEnd,
 	isBlank,
+	settingProblems,
 	splitLines,
 } from "./lines";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
@@ -113,6 +115,13 @@ export interface Question {
 	 * of `{ "pick", "a" }` pairs (format 0.16, which this plugin draws ahead of the format). Null otherwise.
 	 */
 	each: string | null;
+	/**
+	 * `earlier:<n>` on a choice, a multi, a lines or a widget line (format 0.16, which this plugin draws ahead of the
+	 * format): how many of the reader's earlier words are offered at each place. Null when the line does not set it
+	 * or sets a value that is not digits (reported), and the question offers its default: 12 for own options and a
+	 * body widget's places, none for a lines question.
+	 */
+	earlier: number | null;
 }
 
 export interface Prose {
@@ -573,6 +582,13 @@ export function parseBooklet(text: string): Booklet {
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
+			problems.push(...settingProblems(kind, w, at(i)));
+			const earlier = w.set["earlier"];
+			if (earlier !== undefined && earlierValue(earlier) === null) {
+				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
+				problems.push(`${at(i)}: \`earlier:${earlier}\` is not a whole number written in digits, so it was ignored and the question offers its default.`);
+				delete w.set["earlier"];
+			}
 			if (kind === "module") {
 				endActivity();
 				section = "content";
@@ -687,6 +703,7 @@ export function parseBooklet(text: string): Booklet {
 						readonly: kind === "widget" && w.flags.has("readonly"),
 						describe: kind === "widget" && w.flags.has("describe"),
 						each: null,
+						earlier: w.set["earlier"] !== undefined ? earlierValue(w.set["earlier"]) : null,
 					};
 					if (w.set["each"] !== undefined) eachUses.push({ q, act, source: w.set["each"].trim(), line: i + 1 });
 					const after = bodyEnd(lines, i);

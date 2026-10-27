@@ -3,7 +3,7 @@
  * Found the way booklet.html's splitItems and lint-booklet.py's records_regions find it, and read the
  * way booklet.html's onRecordFence reads it: answers, drafts and entries, each block on its own.
  */
-import { CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, isBlank } from "./lines";
+import { CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, isBlank, settingProblems } from "./lines";
 
 export interface Region {
 	/** First line: the `%%` before the records line, or the records line itself. */
@@ -210,6 +210,7 @@ export function readRecords(lines: readonly string[], from: number, ctx: Records
 			if (m && m[1] && m[1].toLowerCase() === "records") {
 				closeGroup(i - 1);
 				const w = calloutWords("records", m[2]);
+				problems.push(...settingProblems("records", w, at(i)));
 				scope = scopeOfRecordsId(w.id, ctx);
 				if (scope === null) problems.push(`${at(i)}: the records line names "${w.id ?? ""}", which is no module of this file, so its records are kept and not read.`);
 				current = { line: i, groupEnd: r.end, region: ri, id: w.id, scope };
