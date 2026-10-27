@@ -1,12 +1,14 @@
 /*
  * Booklet. Every rule uses Obsidian's own CSS variables, so the view follows the theme,
- * light and dark, and any community theme. Every class starts with booklet-.
+ * light and dark, and any community theme. Colours and fonts are the theme's: the rules here
+ * only lay the view out and keep it legible. Every class starts with booklet-.
  */
 
 .booklet-page {
 	max-width: var(--file-line-width);
 	margin: 0 auto;
-	padding: var(--size-4-4) var(--size-4-3) var(--size-4-12);
+	/* room at the foot, so the status bar (and a phone's toolbar) does not cover the last card */
+	padding: var(--size-4-4) var(--size-4-3) calc(var(--size-4-12) * 3);
 }
 
 .booklet-card {
@@ -96,6 +98,158 @@
 
 .booklet-text {
 	width: 100%;
+}
+
+/* a text field inside a card in a dark theme: the theme's stronger border, so the box can be seen */
+.theme-dark .booklet-view .booklet-text {
+	border-color: var(--background-modifier-border-focus);
+}
+
+.booklet-number-field {
+	max-width: 12em;
+}
+
+.booklet-field-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-field-row .booklet-text {
+	flex: 1 1 12em;
+	width: auto;
+}
+
+.booklet-field-row .booklet-date-field {
+	flex: 0 1 14em;
+}
+
+.booklet-lines {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+/* the reader's own options sit in the same row as the listed ones */
+.booklet-own-picks {
+	display: contents;
+}
+
+.booklet-own {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.booklet-own-x {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-own-row {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-replies:empty {
+	display: none;
+}
+
+.booklet-reply {
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border-focus);
+	padding: var(--size-4-1) var(--size-4-3);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-reply-line p,
+.booklet-inline p,
+.booklet-entry dt p {
+	margin: 0;
+}
+
+.booklet-inline,
+.booklet-inline p {
+	display: inline;
+}
+
+.booklet-seed:empty {
+	display: none;
+}
+
+.booklet-finish {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+	margin-top: var(--size-4-6);
+}
+
+.booklet-finish .booklet-muted {
+	flex: 1 1 14em;
+}
+
+.booklet-entries {
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	margin-top: var(--size-4-5);
+	padding-top: var(--size-4-3);
+}
+
+.booklet-entries-title {
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-entry {
+	padding: var(--size-4-2) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-entry:last-of-type {
+	border-bottom: none;
+}
+
+.booklet-entry-when {
+	font-weight: var(--font-semibold);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-entry dl {
+	display: grid;
+	grid-template-columns: minmax(8em, max-content) 1fr;
+	gap: var(--size-4-1) var(--size-4-3);
+	margin: var(--size-4-1) 0 0;
+}
+
+.booklet-entry dt {
+	color: var(--text-muted);
+}
+
+.booklet-entry dd {
+	margin: 0;
+}
+
+.booklet-entry dd ul {
+	margin: 0;
+	padding-inline-start: var(--size-4-4);
+}
+
+.booklet-more {
+	margin-top: var(--size-4-2);
+}
+
+/* on a phone, every control is a full touch target, and an entry's answers sit under their questions */
+.is-mobile .booklet-view button,
+.is-mobile .booklet-view .booklet-text {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+}
+
+.is-phone .booklet-entry dl {
+	grid-template-columns: 1fr;
+}
+
+.is-phone .booklet-entry dd {
+	margin-bottom: var(--size-4-1);
 }
 
 .booklet-long {

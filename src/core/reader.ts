@@ -1,7 +1,8 @@
 /*
  * Reads a booklet's design: its front matter and marker, its module fences, its activities, and the
- * question kinds this plugin draws. Everything else is recorded, by kind
- * and title, as not yet supported. Plain TypeScript: nothing here imports Obsidian.
+ * seven common question kinds this plugin draws (choice, multi, scale, text, lines, number, date).
+ * Everything else is recorded, by kind and title, as not yet supported. Plain TypeScript: nothing here
+ * imports Obsidian.
  */
 import {
 	CALLOUT_ANY,
@@ -16,12 +17,17 @@ import {
 } from "./lines";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 
+/** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
+const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+
 export const FORMAT_VERSION = "0.15";
 
 export interface Option {
 	text: string;
 	/** `[x]`: a correct option in a study booklet. Never an answer given. */
 	correct: boolean;
+	/** The option's reply: the bullets nested under it, one line each, as inline Markdown. Content, never an answer. */
+	reply: string[];
 }
 
 export interface Anchor {
@@ -30,7 +36,9 @@ export interface Anchor {
 	text: string;
 }
 
-export type QuestionKind = "choice" | "scale" | "text";
+/** The question kinds this plugin draws and answers. */
+export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date"] as const;
+export type QuestionKind = (typeof COMMON_KINDS)[number];
 
 export interface Question {
 	type: "question";
@@ -40,9 +48,18 @@ export interface Question {
 	/** The `>` lines under the question line, as Markdown. */
 	help: string;
 	line: number;
+	/** A choice's or a multi's options, in order: an answer is a position from 1. */
 	options: Option[];
+	/** A scale's anchors: an answer is an anchor's number. */
 	anchors: Anchor[];
+	/** A text's `long`: a bigger box. */
 	long: boolean;
+	/** A choice's or a multi's `open`: the reader may add options of their own, stored as their words. */
+	open: boolean;
+	/** A number's `min:`, `max:` and `step:`, when they are numbers. */
+	min: number | null;
+	max: number | null;
+	step: number | null;
 }
 
 export interface Prose {
@@ -60,6 +77,7 @@ export interface TabHeading {
 
 export interface Unsupported {
 	type: "unsupported";
+	/** The line's kind, or `query`, `menu-list` (a choice or multi whose options come from a shared menu), `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
 	kind: string;
 	id: string | null;
 	title: string;
@@ -74,8 +92,13 @@ export interface Activity {
 	/** The module the activity is in, or "" for a bare activity (the module with no name). */
 	scope: string;
 	line: number;
+	/** `repeat`: each completion is kept as a dated entry; what is typed is kept as its draft until then. */
 	repeat: boolean;
+	/** `repeat daily`: one kept entry per day; completing again replaces today's. */
+	daily: boolean;
 	hidden: boolean;
+	/** A thematic break (`***`) in its text: a page break, which this view does not page by (pages are drawn one under another). */
+	pages: boolean;
 	segments: Segment[];
 }
 
@@ -98,7 +121,16 @@ export interface Booklet {
 	activities: Activity[];
 	/** What could not be read, first among them a note about another 0.x marker. */
 	problems: string[];
+	/** Parts of the design this view does not draw yet, outside every activity: a module's (or the booklet's) opening, a module's notice. */
+	unshown: Unshown[];
 	records: RecordsRead;
+}
+
+/** A part outside every activity that is not drawn yet: `scope` is the module's id ("" outside every module). */
+export interface Unshown {
+	kind: "opening" | "notice";
+	scope: string;
+	line: number;
 }
 
 /* ---- front matter ---- */
@@ -160,6 +192,13 @@ export function designText(text: string): string {
 	return s;
 }
 
+/**
+ * What decides whether the view must draw a note again: its design, with the records region(s) and the
+ * blank lines and spaces at its end left out. A first answer adds one blank line between the body and
+ * the new records region; that line changes nothing that is drawn, so it is not a change of design.
+ */
+export const designKey = (text: string): string => designText(text).replace(/\s+$/, "");
+
 /* ---- the design ---- */
 
 const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "scale", "number", "date", "matrix"]);
@@ -168,6 +207,8 @@ const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
 	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
 ]);
+
+const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);
 
 const OPTION_RE = /^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+(.*)$/;
 const ANCHOR_RE = /^[ \t]*(\d+)[.)][ \t]+(.*)$/;
@@ -195,7 +236,7 @@ function optionsUnder(lines: readonly string[], i: number): { items: Option[]; n
 		const ln = lines[j] ?? "";
 		const m = OPTION_RE.exec(ln);
 		if (m) {
-			items.push({ text: (m[2] ?? "").trim(), correct: /[xX]/.test(m[1] ?? "") });
+			items.push({ text: (m[2] ?? "").trim(), correct: /[xX]/.test(m[1] ?? ""), reply: [] });
 			at = textColOf(ln);
 			bullet = -1;
 			continue;
@@ -203,11 +244,16 @@ function optionsUnder(lines: readonly string[], i: number): { items: Option[]; n
 		const b = /^[ \t]*[-*+][ \t]+(.*)$/.exec(ln);
 		const ind = indentOf(ln);
 		if (!items.length || !ln.trim()) break;
+		const reply = items[items.length - 1]!.reply;
 		if (b && ind >= at) {
 			bullet = ind;
+			reply.push((b[1] ?? "").trim()); // each nested bullet is one line of the reply
 			continue;
 		}
-		if (!b && bullet >= 0 && ind > bullet) continue;
+		if (!b && bullet >= 0 && ind > bullet) {
+			if (reply.length) reply[reply.length - 1] += " " + ln.trim(); // a deeper line goes on with the line above
+			continue;
+		}
 		break;
 	}
 	return items.length ? { items, next: j } : null;
@@ -274,6 +320,7 @@ export function parseBooklet(text: string): Booklet {
 	const modules: Module[] = [];
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
+	const unshown: Unshown[] = [];
 	const at = (i: number) => `Line ${i + 1}`;
 
 	let mod: Module | null = null;
@@ -298,6 +345,10 @@ export function parseBooklet(text: string): Booklet {
 		buf = [];
 	};
 	const pushText = (ls: readonly string[], i: number) => {
+		if (!act && section === "content" && ls.some((l) => l.trim())) {
+			const scope = mod ? mod.id : "";
+			if (!unshown.some((u) => u.kind === "opening" && u.scope === scope)) unshown.push({ kind: "opening", scope, line: i + 1 });
+		}
 		if (!act || section !== "content") return;
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
@@ -359,10 +410,21 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "activity") {
 				endActivity();
 				section = "content";
-				if (!w.id) problems.push(`${at(i)}: an activity line has no id, so it is named from its title here.`);
+				if (!w.id) problems.push(`${at(i)}: an activity line has no id, so it cannot keep entries here.`);
 				claimId(w.id, i);
 				const repeat = w.flags.has("repeat");
-				act = { id: w.id ?? "", title: title || w.id || "Activity", scope: mod ? mod.id : "", line: i, repeat, hidden: w.flags.has("hidden"), segments: [] };
+				if (w.flags.has("daily") && !repeat) problems.push(`${at(i)}: \`daily\` needs \`repeat\`, so it was ignored.`);
+				act = {
+					id: w.id ?? "",
+					title: title || w.id || "Activity",
+					scope: mod ? mod.id : "",
+					line: i,
+					repeat,
+					daily: repeat && w.flags.has("daily"),
+					hidden: w.flags.has("hidden"),
+					pages: false,
+					segments: [],
+				};
 				activities.push(act);
 				i = bodyEnd(lines, i) - 1; // the `>` lines under it are its card's status line, drawn nowhere else
 				continue;
@@ -379,6 +441,7 @@ export function parseBooklet(text: string): Booklet {
 			}
 			if (kind === "notice" || kind === "manifest" || kind === "row" || kind === "records") {
 				flush();
+				if (kind === "notice") unshown.push({ kind: "notice", scope: mod ? mod.id : "", line: i + 1 });
 				i = bodyEnd(lines, i) - 1; // a row's two marker lines: its cells are drawn one under another
 				continue;
 			}
@@ -404,13 +467,29 @@ export function parseBooklet(text: string): Booklet {
 					continue;
 				}
 				if (!KNOWN_KINDS.has(kind)) problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
-				if ((kind === "choice" || kind === "scale" || kind === "text") && w.id) {
+				const menu = (kind === "choice" || kind === "multi") && w.set["menu"] !== undefined;
+				if (isCommon(kind) && w.id && !menu) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
-					const q: Question = { type: "question", kind, id: w.id, title, help: body.join("\n").trim(), line: i + 1, options: [], anchors: [], long: w.flags.has("long") };
+					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
+					const q: Question = {
+						type: "question",
+						kind,
+						id: w.id,
+						title,
+						help: body.join("\n").trim(),
+						line: i + 1,
+						options: [],
+						anchors: [],
+						long: kind === "text" && w.flags.has("long"),
+						open: (kind === "choice" || kind === "multi") && w.flags.has("open"),
+						min: kind === "number" ? num(w.set["min"]) : null,
+						max: kind === "number" ? num(w.set["max"]) : null,
+						step: kind === "number" ? num(w.set["step"]) : null,
+					};
 					const after = bodyEnd(lines, i);
-					if (kind === "choice") {
+					if (kind === "choice" || kind === "multi") {
 						const r = optionsUnder(lines, after);
-						if (!r) problems.push(`${at(i)}: the choice "${w.id}" has no options under it.`);
+						if (!r) problems.push(`${at(i)}: the ${kind} "${w.id}" has no options under it.`);
 						q.options = r?.items ?? [];
 					} else if (kind === "scale") {
 						const r = listUnder(lines, after, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() }));
@@ -420,7 +499,7 @@ export function parseBooklet(text: string): Booklet {
 					act.segments.push(q);
 				} else {
 					if (!w.id && QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a ${kind} question has no id, so it cannot hold an answer.`);
-					act.segments.push({ type: "unsupported", kind, id: w.id, title, line: i + 1 });
+					act.segments.push({ type: "unsupported", kind: menu ? "menu-list" : kind, id: w.id, title, line: i + 1 });
 				}
 				i = k - 1;
 				continue;
@@ -434,6 +513,13 @@ export function parseBooklet(text: string): Booklet {
 					return !!mm && QUESTION_KINDS.has((mm[1] ?? "").toLowerCase());
 				});
 				if (nested !== undefined) problems.push(`${at(i)}: a question inside a ${kind} callout is drawn as text here, not as a question (not yet supported).`);
+				pushText(lines.slice(i, k), i);
+				if (nested !== undefined) {
+					flush();
+					act.segments.push({ type: "unsupported", kind: kind === "group" ? "group" : "in-callout", id: null, title, line: i + 1 });
+				}
+				i = k - 1;
+				continue;
 			}
 			pushText(lines.slice(i, k), i);
 			i = k - 1;
@@ -441,7 +527,9 @@ export function parseBooklet(text: string): Booklet {
 		}
 		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
 		if (section !== "content") continue;
-		pushText([ln], i); // a page break (`***`) stays in the prose: pages are drawn one under another
+		// a page break (`***`, SPEC section 3) stays in the prose: pages are drawn one under another
+		if (act && section === "content" && THEMATIC_BREAK.test(ln) && isBlank(lines[i - 1])) act.pages = true;
+		pushText([ln], i);
 	}
 	endActivity();
 	if (mod) refusals.push(`The module "${mod.id}" is opened and never closed.`);
@@ -464,6 +552,7 @@ export function parseBooklet(text: string): Booklet {
 		modules,
 		activities,
 		problems: [...refusals.slice(1), ...problems],
+		unshown,
 		records,
 	};
 }

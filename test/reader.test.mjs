@@ -1,4 +1,4 @@
-/* The reader: markers, modules and scopes, the three question kinds, and what it records as not supported. */
+/* The reader: markers, modules and scopes, the seven common question kinds, and what it records as not supported. */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core, corpusDirs, corpusFiles, norm, read } from "./helpers.mjs";
@@ -19,7 +19,7 @@ test("the marker: none, or not 0.x, is refused; another 0.x opens with the notic
 	assert.equal(core.parseBooklet(fm('booklet: "0.10"') + body).ok, true, "0.10 is a 0.x version, not 0.1");
 });
 
-test("activities, modules and scopes; the three question kinds with their options and anchors", () => {
+test("activities, modules and scopes; question kinds with their options, replies and anchors", () => {
 	const text = `${fm('booklet: "0.15"')}
 > [!activity|bare] Bare one
 > A status line, drawn nowhere else
@@ -62,7 +62,10 @@ Opening prose of M, not drawn.
 	const [choice, scale, text1] = segs.filter((s) => s.type === "question");
 	assert.equal(choice.kind, "choice");
 	assert.equal(choice.help, "Help for the choice.");
-	assert.deepEqual(norm(choice.options), [{ text: "First", correct: false }, { text: "Second, marked correct", correct: true }]);
+	assert.deepEqual(norm(choice.options), [
+		{ text: "First", correct: false, reply: ["a reply, which is not an option"] },
+		{ text: "Second, marked correct", correct: true, reply: [] },
+	]);
 	assert.deepEqual(scale.anchors.map((a) => a.n), [0, 1, 2]);
 	assert.equal(text1.long, true);
 	assert.deepEqual(b.activities[1].segments.find((s) => s.type === "question").anchors.map((a) => a.n), [1, 2]);
@@ -70,7 +73,7 @@ Opening prose of M, not drawn.
 	assert.ok(!JSON.stringify(b.activities).includes("Opening prose of M"), "a module's opening is not an activity's");
 });
 
-test("every other kind is recorded, with its title, as not yet supported; reading callouts stay prose", () => {
+test("the seven common kinds are questions; every other kind is recorded, with its title, as not yet supported; reading callouts stay prose", () => {
 	const text = `${fm('booklet: "0.15"')}
 > [!activity|a] A
 
@@ -78,12 +81,29 @@ test("every other kind is recorded, with its title, as not yet supported; readin
 - [ ] One
 - [ ] Two
 
-> [!number|n min:0] A number
+> [!number|n min:0 max:10 step:0.5] A number
+
+> [!date|d] A date
+
+> [!lines|l] Some lines
 
 > [!widget|w] A widget
 > ![[#^data]]
 
 > [!mystery|z] A kind nobody defined
+
+> [!matrix|grid] A grid
+- Row one
+- Row two
+
+1. Low
+2. High
+
+> [!menu|places] Places
+- Home
+- Away
+
+> [!multi|from-menu menu:places] From a menu
 
 > [!tip] A tip
 > Shown as Obsidian shows a callout.
@@ -96,12 +116,32 @@ from: a
 `;
 	const b = core.parseBooklet(text);
 	const segs = b.activities[0].segments;
-	const un = segs.filter((s) => s.type === "unsupported").map((s) => [s.kind, s.title]);
-	assert.deepEqual(un, [["multi", "Pick any"], ["number", "A number"], ["widget", "A widget"], ["mystery", "A kind nobody defined"], ["query", "A query of kept entries or data"]]);
+	const qs = segs.filter((s) => s.type === "question");
+	assert.deepEqual(qs.map((q) => [q.kind, q.id]), [["multi", "m"], ["number", "n"], ["date", "d"], ["lines", "l"]]);
+	assert.equal(qs[0].open, true);
+	assert.deepEqual([qs[1].min, qs[1].max, qs[1].step], [0, 10, 0.5]);
+	const un = segs.filter((s) => s.type === "unsupported").map((s) => s.kind);
+	for (const k of ["widget", "mystery", "matrix", "menu-list", "query"]) assert.ok(un.includes(k), `${k} is recorded as not supported: ${un.join(", ")}`);
+	assert.ok(segs.some((s) => s.type === "unsupported" && s.kind === "widget" && s.title === "A widget"));
 	assert.ok(segs.some((s) => s.type === "prose" && s.markdown.startsWith("> [!tip] A tip")));
 	assert.ok(segs.some((s) => s.type === "tab" && s.title === "A tab"));
 	assert.ok(b.problems.some((p) => /"mystery" is not a kind/.test(p)));
 	assert.ok(!segs.some((s) => s.type === "prose" && /- \[ \] One/.test(s.markdown)), "a multi's options are its own, not prose");
+	assert.deepEqual([...core.COMMON_KINDS], ["choice", "multi", "scale", "text", "lines", "number", "date"]);
+});
+
+test("repeat and daily: daily needs repeat; a repeating activity with no id is said", () => {
+	const head = fm('booklet: "0.15"');
+	const b = core.parseBooklet(`${head}\n> [!activity|log repeat daily] Log\n\n> [!text|q] Q\n\n> [!activity|other daily] Other\n\n> [!text|r] R\n`);
+	assert.deepEqual(b.activities.map((a) => [a.id, a.repeat, a.daily]), [["log", true, true], ["other", false, false]]);
+	assert.ok(b.problems.some((p) => /`daily` needs `repeat`/.test(p)), b.problems.join("; "));
+});
+
+test("a question inside a group is not drawn as a question yet; the group's words stay", () => {
+	const b = core.parseBooklet(`${fm('booklet: "0.15"')}\n> [!activity|a] A\n\n> [!group] A group\n> > [!text|inside] Inside\n\n> [!text|outside] Outside\n`);
+	const segs = b.activities[0].segments;
+	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["outside"]);
+	assert.ok(segs.some((s) => s.type === "unsupported" && s.kind === "group"), JSON.stringify(segs.map((s) => s.type + ":" + (s.kind ?? ""))));
 });
 
 test("refused: a module opened and not closed, closed and not opened, overlapping; an id used twice in a module", () => {
