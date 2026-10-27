@@ -2,7 +2,7 @@
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.15"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 0.1.0. It reads format 0.15 (`SPEC.md` in the Booklet repository). It is not desktop-only; on a phone-sized screen it has so far been checked only under Obsidian's own mobile emulation.
+Version 0.2.0. It reads format 0.15 (`SPEC.md` in the Booklet repository). It is not desktop-only: 0.1.0 has been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
