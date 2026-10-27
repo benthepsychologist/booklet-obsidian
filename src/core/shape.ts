@@ -26,6 +26,13 @@ const isPick = (x: unknown): boolean => isWhole(x, 1) || typeof x === "string";
 const isMultiAnswer = (v: unknown): boolean => Array.isArray(v) && v.every(isPick);
 
 /**
+ * One pair of a question asked for each pick (`each:`, each.ts): an object with the pick exactly as the source stores
+ * it (a number or a string) and its answer `a`. Other keys a hand edit gave it are kept.
+ */
+export const isPair = (x: unknown): x is { pick: number | string; a: unknown } & Record<string, unknown> =>
+	isObj(x) && (isNum(x["pick"]) || typeof x["pick"] === "string") && Object.prototype.hasOwnProperty.call(x, "a");
+
+/**
  * What is wrong with an answer's shape for its question, in words ("a text question keeps a string"), or null when
  * its shape is the kind's. An answer that holds nothing (nothing at all, `null`, a blank string, an empty list) is
  * no answer, whatever its type: it is never of the wrong shape. A question this plugin does not draw (a widget of an
@@ -48,6 +55,8 @@ export function shapeIssue(q: Question, v: unknown): string | null {
 		case "choice":
 			return isPick(v) ? null : "a choice question keeps an option's position from 1, or the reader's own option";
 		case "multi":
+			// asked for each pick: a list of pairs, and anything else, a plain multi's list among them, is of the wrong shape
+			if (q.each) return Array.isArray(v) && v.every((p) => isPair(p) && isMultiAnswer(p.a)) ? null : "a question asked for each pick keeps a list of pairs, each a pick and its answer";
 			return isMultiAnswer(v) ? null : "a multi question keeps a list of option positions from 1 and the reader's own options";
 		case "widget": {
 			const engine = q.widget ? engineOf(q.widget.data) : "";

@@ -7,3 +7,4 @@ export * from "./shape";
 export * from "./write";
 export * from "./words";
 export * from "./widgets";
+export * from "./each";

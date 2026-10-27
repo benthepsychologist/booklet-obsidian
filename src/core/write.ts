@@ -9,7 +9,8 @@ import { appendItem, removeItem, removeMember, replaceItem, setMember } from "./
 import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines, type Line } from "./lines";
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
-import { holdsSomething, shapeIssue } from "./shape";
+import { pairsOf, pickKey, recordFilled } from "./each";
+import { holdsSomething, isPair, shapeIssue } from "./shape";
 
 /**
  * What one question holds (SPEC section 5): a choice's option position (from 1) or the reader's own
@@ -306,15 +307,27 @@ export interface ShownDraft {
 /**
  * What an activity's draft shows: what is in its draft records, or, for a `repeat daily` activity whose
  * draft holds nothing, today's kept entry, so finishing again changes it rather than starting blank
- * (booklet.html seedUpsertDraft).
+ * (booklet.html seedUpsertDraft). With the activity's questions (`segments`), a draft whose only answers
+ * are pairs for picks taken back counts as empty (each.ts recordFilled); those pairs are shown over the
+ * entry's, pick by pick, as they are the reader's newer work: nothing written in the draft is lost, and an entry's
+ * pair for a pick the draft has no pair for is kept beside them.
  */
-export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity, "id" | "daily">, rule?: DayRule): ShownDraft {
+export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity, "id" | "daily"> & Partial<Pick<Activity, "segments">>, rule?: DayRule): ShownDraft {
 	const values = book.records.drafts[scope]?.[activity.id] ?? (Object.create(null) as Record<string, unknown>);
-	if (anyFilled(values) || !activity.daily || !rule) return { values, seededFrom: null };
+	if (recordFilled(activity, values) || !activity.daily || !rule) return { values, seededFrom: null };
 	const today = todaysEntry(book, scope, activity.id, rule);
 	if (!today) return { values, seededFrom: null };
 	const seeded = Object.create(null) as Record<string, unknown>;
 	for (const [k, v] of Object.entries(today)) if (k !== "ts") seeded[k] = v;
+	for (const [k, v] of Object.entries(values)) {
+		if (!holdsSomething(v)) continue;
+		const q = activity.segments?.find((x): x is Question => x.type === "question" && x.id === k);
+		const was = seeded[k];
+		if (q?.each && Array.isArray(v) && Array.isArray(was) && !shapeIssue(q, v) && !shapeIssue(q, was)) {
+			const mine = new Set(pairsOf(v).map((x) => pickKey(x.pick)));
+			seeded[k] = [...v, ...was.filter((x) => !(isPair(x) && mine.has(pickKey(x.pick))))];
+		} else seeded[k] = v;
+	}
 	return { values: seeded, seededFrom: today };
 }
 
@@ -342,7 +355,7 @@ export function setDraftAnswer(text: string, scope: string, activityId: string, 
 		const next = Object.create(null) as Record<string, unknown>;
 		for (const [k, v] of Object.entries(shown.values)) if (k !== questionId || value !== undefined) next[k] = v;
 		if (value !== undefined) next[questionId] = value;
-		if (same(next, shown.values) || !anyFilled(next)) return text;
+		if (same(next, shown.values) || !recordFilled(act, next)) return text;
 		const last = blocks[blocks.length - 1];
 		if (last) {
 			let code: string | null = last.code;
@@ -404,7 +417,8 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	if (!act.repeat) throw new RecordsWriteError(`The activity "${activityId}" does not repeat, so it keeps no entries.`);
 	const drafts = readable(d, "draft", scope, activityId);
 	const merged = d.book.records.drafts[scope]?.[activityId];
-	if (!anyFilled(merged)) {
+	// a draft whose only answers are pairs for picks taken back is empty too (each.ts recordFilled)
+	if (!recordFilled(act, merged)) {
 		const keptToday = act.daily && opts.rule && todaysEntry(d.book, scope, activityId, opts.rule);
 		throw new RecordsWriteError(keptToday ? "Today's entry is already kept. Change an answer to keep it again." : "Nothing to keep yet: the entry is empty.");
 	}

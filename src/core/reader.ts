@@ -107,6 +107,12 @@ export interface Question {
 	/** A widget line's `readonly` (shown, not operated) and `describe` (what each part says about itself). */
 	readonly: boolean;
 	describe: boolean;
+	/**
+	 * A multi's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
+	 * in the same activity. The question is asked once for each pick in the source's answer, and its answer is a list
+	 * of `{ "pick", "a" }` pairs (format 0.16, which this plugin draws ahead of the format). Null otherwise.
+	 */
+	each: string | null;
 }
 
 export interface Prose {
@@ -124,8 +130,12 @@ export interface TabHeading {
 
 export interface Unsupported {
 	type: "unsupported";
-	/** The line's kind, or `query`, `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
+	/**
+	 * The line's kind, or `query`, `group` (questions inside a group), `in-callout` (questions inside another reading
+	 * callout) or `each` (a question of a kind other than `multi` asked for each pick of another, `of` its kind).
+	 */
 	kind: string;
+	of?: string;
 	id: string | null;
 	title: string;
 	line: number;
@@ -375,6 +385,52 @@ function openingMarkdown(ls: readonly string[], title: string): string {
 	return ls.slice(from, to).join("\n");
 }
 
+/** A question line with an `each:` setting, as read: `source` is the id the setting names. */
+interface EachUse {
+	q: Question;
+	act: Activity;
+	source: string;
+	line: number;
+}
+
+/** The kinds a source of `each:` may be: their picks are identities, added and taken away but never edited. */
+const SOURCE_KINDS = new Set(["choice", "multi", "widget"]);
+
+/**
+ * `each:<id>` on a question line (format 0.16, which this plugin draws ahead of the format): the question is asked
+ * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
+ * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
+ * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and
+ * ignored, and the question is drawn as its kind. A `multi` follows its source; a question of another kind asked for each pick is not drawn yet ("not yet
+ * supported"), and its answers are kept as written.
+ */
+function readEach(uses: readonly EachUse[], problems: string[]): void {
+	for (const u of uses) {
+		const { q, act, source } = u;
+		if (!act.segments.includes(q)) continue; // not drawn (its shared menu was not found), already said
+		const said = `Line ${u.line}: the ${q.kind} "${q.id}" is to be asked for each pick`;
+		const ignored = "so its each: is ignored";
+		const src = act.segments.find((x) => (x.type === "question" || x.type === "unsupported") && x.id === source);
+		const why = !source
+			? `${said}, and its each: names nothing, ${ignored}.`
+			: source === q.id
+				? `${said} of itself, ${ignored}.`
+				: !src
+					? `${said} of "${source}", which is no question or widget in its activity, ${ignored}.`
+					: uses.some((o) => o.act === act && o.q.id === source)
+						? `${said} of "${source}", which is itself asked for each pick of another (one level only), ${ignored}.`
+						: src.type !== "question" || !SOURCE_KINDS.has(src.kind)
+							? `${said} of "${source}", a ${src.type === "question" || src.type === "unsupported" ? src.kind : "part"}: only a choice, a multi or a widget can be a source, ${ignored}.`
+							: null;
+		if (why) {
+			problems.push(why);
+			continue;
+		}
+		if (q.kind === "multi") q.each = source;
+		else act.segments = act.segments.map((x): Segment => (x === q ? { type: "unsupported", kind: "each", of: q.kind, id: q.id, title: q.title, line: q.line } : x));
+	}
+}
+
 /**
  * Reads a booklet. Never throws on a file's content: what it cannot read goes into `problems`, and a
  * file it must refuse (no marker, a non-0.x marker, broken module fences, an id used twice in a
@@ -406,6 +462,7 @@ export function parseBooklet(text: string): Booklet {
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const menuUses: { q: Question; act: Activity; menu: string; module: string | null; line: number }[] = [];
+	const eachUses: EachUse[] = [];
 	const openingLines = new Map<string | null, { lines: string[]; line: number }>();
 	const at = (i: number) => `Line ${i + 1}`;
 
@@ -629,7 +686,9 @@ export function parseBooklet(text: string): Booklet {
 						widget: null,
 						readonly: kind === "widget" && w.flags.has("readonly"),
 						describe: kind === "widget" && w.flags.has("describe"),
+						each: null,
 					};
+					if (w.set["each"] !== undefined) eachUses.push({ q, act, source: w.set["each"].trim(), line: i + 1 });
 					const after = bodyEnd(lines, i);
 					let drawn = true;
 					if (kind === "choice" || kind === "multi") {
@@ -704,6 +763,7 @@ export function parseBooklet(text: string): Booklet {
 		u.q.options = hit.items.map((text) => ({ text, correct: false, reply: [] }));
 		u.q.menu = hit.id;
 	}
+	readEach(eachUses, problems);
 	// a widget line's block: in its own module first (its fence, then its data section), then a shared one (booklet.html widgetOf)
 	for (const a of activities)
 		for (const s of a.segments)
