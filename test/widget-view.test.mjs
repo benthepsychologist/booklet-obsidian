@@ -39,7 +39,7 @@ function open(text = NOTE) {
 		card,
 		grid: () => widget(1),
 		places: () => widget(0),
-		menu: () => card().querySelector(".booklet-kind-multi"),
+		menu: () => card().querySelector(`[data-booklet-q="where"]`),
 		/** The note changed elsewhere: the vault holds the new text, and the view is handed it. */
 		changed(edit) {
 			disk.text = edit(disk.text);
@@ -77,51 +77,51 @@ test("the grid: its cells in the widget's colours, its edge labels, and presses 
 	const v = open();
 	const g = v.grid();
 	assert.deepEqual([...g.querySelectorAll(".booklet-cell")].map((c) => [c.getAttribute("data-booklet-cell"), c.className]), [
-		["stormy", "booklet-cell booklet-colour-warm"],
-		["bright", "booklet-cell booklet-colour-green"],
-		["overcast", "booklet-cell booklet-colour-slate"],
-		["calm", "booklet-cell booklet-colour-teal"],
+		["agitating", "booklet-cell booklet-colour-warm"],
+		["invigorating", "booklet-cell booklet-colour-green"],
+		["draining", "booklet-cell booklet-colour-blue"],
+		["soothing", "booklet-cell booklet-colour-purple"],
 	]);
 	assert.deepEqual([...g.querySelectorAll(".booklet-axis")].map((a) => a.textContent), ["more energy", "less pleasant", "more pleasant", "less energy"]);
-	assert.equal(g.querySelector(".booklet-prompt").textContent, "What is the weather inside?");
+	assert.equal(g.querySelector(".booklet-prompt").textContent, "How do you feel?");
 	assert.equal(g.querySelector(".booklet-help").textContent, "Press the words that fit, in any of the four.");
-	button(cell(v, "bright"), "Cheerful").click();
-	button(cell(v, "stormy"), "Tense").click();
-	button(cell(v, "bright"), "Lively").click();
-	const field = cell(v, "bright").querySelector(".booklet-own-row input");
+	button(cell(v, "invigorating"), "Cheerful").click();
+	button(cell(v, "agitating"), "Tense").click();
+	button(cell(v, "invigorating"), "Lively").click();
+	const field = cell(v, "invigorating").querySelector(".booklet-own-row input");
 	field.focus();
 	typeInto(field, "fizzy, cheerful");
 	press(field, "Enter");
 	await v.settled();
 	// the cell's words are written again in the field's order (its items in the widget's order, then the reader's)
-	assert.deepEqual(v.draft().weather, ["tense", "lively", "cheerful", "x|bright|fizzy"]);
-	assert.equal(button(cell(v, "bright"), "Lively").getAttribute("aria-pressed"), "true");
+	assert.deepEqual(v.draft().feelings, ["tense", "lively", "cheerful", "x|invigorating|fizzy"]);
+	assert.equal(button(cell(v, "invigorating"), "Lively").getAttribute("aria-pressed"), "true");
 	// the reader's own word is a pressed button in its cell; a press takes it out
-	const own = cell(v, "bright").querySelector(".booklet-own");
+	const own = cell(v, "invigorating").querySelector(".booklet-own");
 	assert.equal(own.textContent, "fizzy");
 	own.click();
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["tense", "lively", "cheerful"]);
+	assert.deepEqual(v.draft().feelings, ["tense", "lively", "cheerful"]);
 	for (const x of ["Tense", "Lively", "Cheerful"]) button(v.grid(), x).click();
 	await v.settled();
-	assert.equal(v.draft().weather, undefined, "a grid with nothing pressed holds no answer");
+	assert.equal(v.draft().feelings, undefined, "a grid with nothing pressed holds no answer");
 	v.close();
 });
 
 test("the grid: a cell's field keeps its words while the note changes under it, and adds them to what the note then holds", async () => {
 	const v = open();
-	const field = cell(v, "calm").querySelector(".booklet-own-row input");
+	const field = cell(v, "soothing").querySelector(".booklet-own-row input");
 	field.focus();
 	typeInto(field, "Unhurried");
 	const before = v.card();
-	v.changed((t) => storedDraft("weather", ["settled", "x|stormy|loud"])(prose("MARK-GRID")(t)));
+	v.changed((t) => storedDraft("feelings", ["settled", "x|agitating|loud"])(prose("MARK-GRID")(t)));
 	assert.ok(field.isConnected && w.document.activeElement === field, "the field the reader is in was replaced");
 	assert.equal(field.value, "Unhurried");
 	assert.equal(v.card(), before, "the view was drawn again while the reader was in a field");
-	assert.equal(button(cell(v, "calm"), "Settled").getAttribute("aria-pressed"), "true", "the cell's buttons show the note's answer");
+	assert.equal(button(cell(v, "soothing"), "Settled").getAttribute("aria-pressed"), "true", "the cell's buttons show the note's answer");
 	press(field, "Enter");
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["x|stormy|loud", "settled", "x|calm|Unhurried"]);
+	assert.deepEqual(v.draft().feelings, ["x|agitating|loud", "settled", "x|soothing|Unhurried"]);
 	field.blur();
 	await v.settled(50);
 	assert.ok(v.view.contentEl.textContent.includes("MARK-GRID"), "after the reader left the field, the view is drawn again");
@@ -197,7 +197,7 @@ test("a shared list's options are drawn, and its answer is a position in the men
 	assert.deepEqual(v.draft().where, [3, 1]);
 	const text = v.view.contentEl.textContent;
 	assert.ok(text.includes("A made-up check-in for testing the Booklet plugin."), "the booklet's opening");
-	assert.ok(text.includes("Four short questions about the day"), "the module's opening");
+	assert.ok(text.includes("Five short questions about the day"), "the module's opening");
 	assert.ok(!text.includes("# Check-in"), "the heading that repeats the title is drawn once, as the title");
 	assert.equal(v.view.contentEl.querySelector(".booklet-booklet-title").textContent, "Check-in");
 	assert.ok(!/Not yet supported: the opening/.test(text));
@@ -206,14 +206,14 @@ test("a shared list's options are drawn, and its answer is a position in the men
 
 test("Finalize keeps the widgets' answers, and the kept entry shows them in words", async () => {
 	const v = open();
-	button(cell(v, "overcast"), "Tired").click();
+	button(cell(v, "draining"), "Tired").click();
 	button(v.places(), "Feet").click();
 	button(v.places(), "Restless").click();
 	await v.settled();
 	button(v.card(), "Finalize").click();
 	await v.settled();
 	const e = core.parseBooklet(v.disk.text).records.entries["day-check"].today[0];
-	assert.deepEqual(norm([e.weather, e.places]), [["tired"], [{ id: "feet", s: ["restless"] }]]);
+	assert.deepEqual(norm([e.feelings, e.places]), [["tired"], [{ id: "feet", s: ["restless"] }]]);
 	const shown = [...v.card().querySelectorAll(".booklet-entry dd")].map((d) => d.textContent);
 	assert.deepEqual(shown, ["Feet — Restless", "Tired"]);
 	v.close();
@@ -249,24 +249,24 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	view.setViewData(NOTE, true);
 	const grid = () => view.contentEl.querySelectorAll('[data-booklet-activity="day-check/today"] .booklet-kind-widget')[1];
 	const cellOf = (id) => grid().querySelector(`[data-booklet-cell="${id}"]`);
-	const weather = () => norm(core.parseBooklet(buffer).records.drafts["day-check"]?.today?.weather);
-	button(cellOf("stormy"), "Tense").click();
-	button(cellOf("bright"), "Cheerful").click();
+	const feelings = () => norm(core.parseBooklet(buffer).records.drafts["day-check"]?.today?.feelings);
+	button(cellOf("agitating"), "Tense").click();
+	button(cellOf("invigorating"), "Cheerful").click();
 	await view.writes;
 	// the Markdown pane saves here (as it loses focus), and the press on Lively lands in its editor before the
 	// saved text is handed to the view
 	const saved = buffer;
-	button(cellOf("bright"), "Lively").click();
+	button(cellOf("invigorating"), "Lively").click();
 	await view.writes;
 	view.setViewData(saved, false);
 	assert.equal(view.getViewData(), buffer, "the view took the saved text, older than the editor's");
-	assert.equal(button(cellOf("bright"), "Lively").getAttribute("aria-pressed"), "true");
-	const field = cellOf("bright").querySelector(".booklet-own-row input");
+	assert.equal(button(cellOf("invigorating"), "Lively").getAttribute("aria-pressed"), "true");
+	const field = cellOf("invigorating").querySelector(".booklet-own-row input");
 	field.focus();
 	typeInto(field, "fizzy");
 	press(field, "Enter");
 	await view.writes;
-	assert.deepEqual(weather(), ["tense", "lively", "cheerful", "x|bright|fizzy"], "the press on Lively was taken back");
+	assert.deepEqual(feelings(), ["tense", "lively", "cheerful", "x|invigorating|fizzy"], "the press on Lively was taken back");
 	field.blur();
 	// a change made to the file elsewhere is handed to the view before the Markdown pane takes it into its editor
 	const changed = prose("MARK-ELSEWHERE")(buffer);
@@ -283,22 +283,22 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 
 test("readonly: a grid shows its words and the body widget names its places from `regions`, with nothing to press; describe lists the notes; a figure is a line saying it is not drawn", () => {
 	const text = NOTE.replace("> [!widget|places] Where", "> [!widget|places readonly] Where")
-		.replace("> [!widget|weather] What", "> [!widget|weather readonly describe] What")
+		.replace("> [!widget|feelings] How", "> [!widget|feelings readonly describe] How")
 		.replace('"chips": [', '"figures": [{ "id": "front", "svg": "<svg></svg>" }],\n  "chips": [');
 	const v = open(text);
-	v.changed((t) => storedDraft("weather", ["tired", "x|calm|Unhurried"])(t));
+	v.changed((t) => storedDraft("feelings", ["tired", "x|soothing|Unhurried"])(t));
 	const p = v.places(), g = v.grid();
 	assert.equal(p.querySelectorAll("button").length, 0, "nothing to press in the places");
 	assert.deepEqual([...p.querySelectorAll(".booklet-word")].map((x) => x.textContent), ["Head", "Jaw", "Neck", "Shoulders", "Chest", "Arms", "Hands", "Stomach", "Back", "Legs", "Feet"]);
 	assert.ok(p.textContent.includes("Not yet supported: drawing the widget's figure."));
 	assert.ok(!p.querySelector("svg"), "no figure is drawn");
 	assert.equal(g.querySelectorAll("button, input").length, 0, "nothing to press or type in the grid");
-	assert.deepEqual([...cell(v, "calm").querySelectorAll(".booklet-word")].map((x) => x.textContent), ["Settled", "Content", "Unhurried"]);
+	assert.deepEqual([...cell(v, "soothing").querySelectorAll(".booklet-word")].map((x) => x.textContent), ["Settled", "Content", "Unhurried"]);
 	assert.deepEqual([...g.querySelectorAll(".booklet-note")].map((x) => x.textContent), [
-		"Stormy Lots of energy, and not pleasant.",
-		"Bright Lots of energy, and pleasant.",
-		"Overcast Little energy, and not pleasant.",
-		"Calm Little energy, and pleasant.",
+		"Agitating Lots of energy, and not pleasant.",
+		"Invigorating Lots of energy, and pleasant.",
+		"Draining Little energy, and not pleasant.",
+		"Soothing Little energy, and pleasant.",
 	]);
 	v.close();
 });
@@ -322,11 +322,11 @@ const typeOnly = (field, words) => {
 
 test("own words: leaving the field adds what was typed in it, in a grid cell and in a place", async () => {
 	const v = open();
-	const f = cell(v, "bright").querySelector(".booklet-own-row input");
+	const f = cell(v, "invigorating").querySelector(".booklet-own-row input");
 	typeOnly(f, "fizzy, zingy");
 	f.blur();
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["x|bright|fizzy", "x|bright|zingy"]);
+	assert.deepEqual(v.draft().feelings, ["x|invigorating|fizzy", "x|invigorating|zingy"]);
 	assert.equal(f.value, "", "the field is emptied");
 	assert.notEqual(w.document.activeElement, f, "and not focused again");
 	button(v.places(), "Neck").click();
@@ -346,13 +346,13 @@ test("own words: leaving the field adds what was typed in it, in a grid cell and
 
 test("own words: a press that leaves the field lands after the words are added, as in booklet.html", async () => {
 	const v = open();
-	// the grid: Tense, then fizzy typed in Bright, then Settled pressed in Calm
-	button(cell(v, "stormy"), "Tense").click();
-	const f = cell(v, "bright").querySelector(".booklet-own-row input");
+	// the grid: Tense, then fizzy typed in Invigorating, then Settled pressed in Soothing
+	button(cell(v, "agitating"), "Tense").click();
+	const f = cell(v, "invigorating").querySelector(".booklet-own-row input");
 	typeOnly(f, "fizzy");
-	assert.ok(pressFrom(f, button(cell(v, "calm"), "Settled")));
+	assert.ok(pressFrom(f, button(cell(v, "soothing"), "Settled")));
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["tense", "x|bright|fizzy", "settled"]);
+	assert.deepEqual(v.draft().feelings, ["tense", "x|invigorating|fizzy", "settled"]);
 	// a place: Tight, then achy typed, then Warm pressed in the same panel
 	button(v.places(), "Shoulders").click();
 	button(v.places(), "Tight").click();
@@ -374,18 +374,18 @@ test("own words: a press that leaves the field lands after the words are added, 
 
 test("own words: the button under a press is kept until its click, though leaving the field changed what it shows", async () => {
 	const v = open();
-	const f = cell(v, "bright").querySelector(".booklet-own-row input");
+	const f = cell(v, "invigorating").querySelector(".booklet-own-row input");
 	typeOnly(f, "zest");
 	press(f, "Enter");
 	await v.settled();
 	// typing in the field again, then pressing out the word already there: adding fizzy would draw the cell's own words
 	// again, which waits for the click
 	typeOnly(f, "fizzy");
-	const zest = cell(v, "bright").querySelector(".booklet-own");
+	const zest = cell(v, "invigorating").querySelector(".booklet-own");
 	assert.ok(pressFrom(f, zest), "the pressed word was taken out of the page before its click");
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["x|bright|fizzy"]);
-	assert.deepEqual([...cell(v, "bright").querySelectorAll(".booklet-own")].map((b) => b.textContent), ["fizzy"]);
+	assert.deepEqual(v.draft().feelings, ["x|invigorating|fizzy"]);
+	assert.deepEqual([...cell(v, "invigorating").querySelectorAll(".booklet-own")].map((b) => b.textContent), ["fizzy"]);
 	// the same for the summary's x, after typing in the open place's field
 	button(v.places(), "Hands").click();
 	button(v.places(), "Cool").click();
@@ -407,12 +407,12 @@ test("own words: Add after the field is left by its own press adds them once", a
 		writes++;
 		return process(file, fn);
 	};
-	const f = cell(v, "bright").querySelector(".booklet-own-row input");
+	const f = cell(v, "invigorating").querySelector(".booklet-own-row input");
 	typeOnly(f, "fizzy");
-	const add = cell(v, "bright").querySelector(".booklet-add");
+	const add = cell(v, "invigorating").querySelector(".booklet-add");
 	assert.ok(pressFrom(f, add));
 	await v.settled();
-	assert.deepEqual(v.draft().weather, ["x|bright|fizzy"]);
+	assert.deepEqual(v.draft().feelings, ["x|invigorating|fizzy"]);
 	assert.equal(writes, 1, "one write: leaving the field added the words, and Add found the field empty");
 	assert.equal(w.document.activeElement, f, "Add puts the reader back in the field");
 	v.close();
@@ -420,13 +420,13 @@ test("own words: Add after the field is left by its own press adds them once", a
 
 test("own words typed and not added: Finalize keeps them, and so does the view letting go of the note", async () => {
 	const v = open();
-	button(cell(v, "overcast"), "Tired").click();
-	const f = cell(v, "overcast").querySelector(".booklet-own-row input");
+	button(cell(v, "draining"), "Tired").click();
+	const f = cell(v, "draining").querySelector(".booklet-own-row input");
 	typeOnly(f, "drowsy");
 	button(v.card(), "Finalize").click();
 	await v.settled();
 	const e = core.parseBooklet(v.disk.text).records.entries["day-check"].today[0];
-	assert.deepEqual(norm(e.weather), ["tired", "x|overcast|drowsy"]);
+	assert.deepEqual(norm(e.feelings), ["tired", "x|draining|drowsy"]);
 	v.close();
 
 	const u = open();

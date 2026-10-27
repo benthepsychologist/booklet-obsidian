@@ -65,6 +65,32 @@ export function assertOutsideUnchanged(orig, next, what = "") {
 	assert.deepEqual(b.parts, a.parts, `${what}: text outside the records region changed`);
 }
 
+/**
+ * The errors the reference linter (format 0.15) is expected to report on a test-vault note, and no others: what the
+ * plugin draws ahead of the format. The check-in note asks a question for each feeling picked (`each:`, format 0.16)
+ * and colours two cells `blue` and `purple`, which 0.15 does not name. Every check that lints a note expects exactly
+ * these (e2e/plugin-check.js keeps the same list).
+ */
+export const EXPECTED_LINT = {
+	"Check-in.booklet.md": [/a multi line takes no `each:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/],
+};
+
+/** The expected errors for a note, by its file name (none for any other). */
+export const expectedLint = (file) => EXPECTED_LINT[String(file).split("/").pop()] ?? [];
+
+/**
+ * Whether a linter run reports exactly the expected errors, each once, and nothing else: null if so, else what differs.
+ */
+export function lintDiffers(r, expected = []) {
+	const errors = r.out.split("\n").filter((l) => l.startsWith("ERROR"));
+	const unmatched = errors.filter((l) => !expected.some((re) => re.test(l)));
+	const missing = expected.filter((re) => errors.filter((l) => re.test(l)).length !== 1);
+	const count = new RegExp(` ${expected.length} errors? `);
+	if (unmatched.length || missing.length || !count.test(r.out) || r.status !== (expected.length ? 1 : 0))
+		return `exit ${r.status}; unexpected: ${JSON.stringify(unmatched)}; expected once and not so: ${missing.map(String).join(", ")}\n${r.out}`;
+	return null;
+}
+
 /** Runs the reference linter on `text` saved as a booklet file. Returns null when it cannot run. */
 export function lint(text, name = "written.booklet.md") {
 	if (!existsSync(LINTER)) return null;

@@ -9,8 +9,11 @@
  * do not make is kept as it is, and a value that is not a list is read as no answer.
  */
 
-/** The colour names a widget may give a cell (SPEC section 7); anything else is no colour. */
-export const COLOUR_NAMES = ["warm", "green", "amber", "slate", "teal"] as const;
+/**
+ * The colour names a widget may give a cell (SPEC section 7); anything else is no colour. `blue` and `purple` are drawn
+ * ahead of the format: they are not colour names in format 0.15, and go to 0.16 with `each:`.
+ */
+export const COLOUR_NAMES = ["warm", "green", "amber", "slate", "teal", "blue", "purple"] as const;
 export type ColourName = (typeof COLOUR_NAMES)[number];
 
 /** The engines this plugin draws. */
