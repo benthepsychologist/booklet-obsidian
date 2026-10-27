@@ -1,6 +1,6 @@
 /* Shared by the tests: the bundled core, the byte-identity check, and the linter. */
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import assert from "node:assert/strict";
@@ -72,8 +72,9 @@ export function lint(text, name = "written.booklet.md") {
 	const file = join(dir, name);
 	writeFileSync(file, text);
 	const r = spawnSync("python3", [LINTER, file], { encoding: "utf8", timeout: 60000 });
+	rmSync(dir, { recursive: true, force: true });
 	if (r.error) return null;
-	return { status: r.status, out: (r.stdout || "") + (r.stderr || ""), file };
+	return { status: r.status, out: (r.stdout || "") + (r.stderr || "") };
 }
 
 export const pythonAvailable = () => {
