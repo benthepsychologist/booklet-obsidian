@@ -16,6 +16,7 @@ import {
 	localDay,
 	parseBooklet,
 	setAnswer,
+	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
 	type Activity,
@@ -285,13 +286,31 @@ export class BookletView extends TextFileView implements QuestionHost {
 		else this.held.delete(key);
 	}
 
-	answerOf(t: Target, q: Question): unknown {
+	/** The answer the note holds for a question, as written. */
+	private heldAnswer(t: Target, q: Question): unknown {
 		if (t.activity.repeat) {
 			const d = this.shown(t.activity).values;
 			return own(d, q.id) ? d[q.id] : undefined;
 		}
 		const a = this.book?.records.answers[t.scope];
 		return a && own(a, q.id) ? a[q.id] : undefined;
+	}
+
+	answerOf(t: Target, q: Question): unknown {
+		// an answer of the wrong shape is shown as no answer: its question is drawn read-only, with a notice (wrongOf)
+		const v = this.heldAnswer(t, q);
+		return shapeIssue(q, v) ? undefined : v;
+	}
+
+	wrongOf(t: Target, q: Question): { issue: string; kept: string } | null {
+		const v = this.heldAnswer(t, q);
+		const issue = shapeIssue(q, v);
+		return issue ? { issue, kept: JSON.stringify(v) } : null;
+	}
+
+	redrawSoon(): void {
+		this.stale = true;
+		this.settleSoon(0);
 	}
 
 	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null {
@@ -304,7 +323,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 		const kept = [...(this.book?.records.entries[t.scope]?.[t.activity.id] ?? [])].sort(newestFirst);
 		const out: string[] = [];
 		for (const e of kept)
-			for (const x of picksOf(e[q.id])) {
+			for (const x of shapeIssue(q, e[q.id]) ? [] : picksOf(e[q.id])) {
 				if (typeof x !== "string" || !x.trim() || out.some((o) => o.trim().toLowerCase() === x.trim().toLowerCase())) continue;
 				out.push(x.trim());
 				if (out.length >= 12) return out;
@@ -508,7 +527,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 				rows++;
 				this.md(q.title || q.id, dl.createEl("dt", { cls: "markdown-rendered" }));
 				const dd = dl.createEl("dd");
-				if ("list" in w) {
+				if ("kept" in w) {
+					// an answer of the wrong shape is not put in words: it is said, and shown as written
+					dd.createSpan({ cls: "booklet-muted", text: `Kept as written, not in the shape this question keeps (${w.issue}): ` });
+					dd.createEl("code", { text: w.kept });
+				} else if ("list" in w) {
 					const ul = dd.createEl("ul");
 					for (const l of w.list) ul.createEl("li", { text: l });
 				} else
@@ -637,6 +660,13 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private commit(t: Target, q: Question, value: AnswerValue | undefined): void {
 		const file = this.file;
 		if (!file) return;
+		// an answer of the wrong shape is kept as written: nothing typed or pressed replaces it (the writer refuses too)
+		const wrong = this.wrongOf(t, q);
+		if (wrong) {
+			new Notice(`Booklet: the answer was not saved. The note holds an answer to "${q.title || q.id}" that is not in the shape this question keeps, and it is kept as written.`);
+			this.syncWidgets();
+			return;
+		}
 		if (this.book) {
 			const rec = this.book.records;
 			if (t.activity.repeat) {

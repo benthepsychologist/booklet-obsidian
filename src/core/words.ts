@@ -7,18 +7,25 @@
  * names the regions only. Plain TypeScript: nothing here imports Obsidian.
  */
 import type { Question } from "./reader";
+import { shapeIssue } from "./shape";
 import { engineOf, gridNames, gridOf, regionSummary, regionsOf } from "./widgets";
 
 /** A piece of an answer in words: `md` is the file's own inline Markdown (an option, an anchor), `text` is plain words. */
 export type WordPart = { md: string } | { text: string };
 
-/** An answer in words: pieces on one line, or a list (a lines question's lines); null when it holds nothing to show. */
-export type AnswerWords = { parts: WordPart[] } | { list: string[] } | null;
+/**
+ * An answer in words: pieces on one line, or a list (a lines question's lines); null when it holds nothing to show.
+ * An answer of the wrong shape for its question (shape.ts) is not put in words: `kept` is the answer as written, as
+ * JSON, and `issue` what the question keeps.
+ */
+export type AnswerWords = { parts: WordPart[] } | { list: string[] } | { kept: string; issue: string } | null;
 
 const filled = (s: unknown): s is string => typeof s === "string" && s.trim() !== "";
 
 export function answerWords(q: Question, v: unknown): AnswerWords {
 	if (v === undefined || v === null) return null;
+	const issue = shapeIssue(q, v);
+	if (issue) return { kept: JSON.stringify(v), issue };
 	switch (q.kind) {
 		case "choice":
 		case "multi": {

@@ -56,14 +56,14 @@ export class TextFileView extends Component {
 /** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file. */
 export const MarkdownView = (globalThis.__bookletStubMarkdownView ??= class MarkdownView {});
 
-/** Every notice's words, in order. */
-export class Notice {
+/** Every notice's words, in order (one class, shared as MarkdownView is, so a test reads what the view said). */
+export const Notice = (globalThis.__bookletStubNotice ??= class Notice {
+	static said = [];
 	constructor(message) {
 		Notice.said.push(String(message));
 	}
 	hide() {}
-}
-Notice.said = [];
+});
 
 /** Markdown is drawn as its plain words: enough to see which text a drawing came from. */
 export const MarkdownRenderer = {

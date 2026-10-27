@@ -49,6 +49,13 @@ export interface QuestionHost {
 	earlierOwn(t: Target, q: Question): string[];
 	/** A new id for an element of this drawing. */
 	uid(): string;
+	/**
+	 * An answer of the wrong shape for its question (core/shape.ts): what the question keeps, and the answer as written
+	 * (as JSON), or null. `answerOf` shows such an answer as no answer, and nothing writes over it.
+	 */
+	wrongOf(t: Target, q: Question): { issue: string; kept: string } | null;
+	/** Draws the view again once the reader is not in a field or a press (when a question's answer changes shape). */
+	redrawSoon(): void;
 }
 
 export const keyOf = (t: Target, q: Question): string => `${t.scope}/${t.activity.id}/${q.id}`;
@@ -69,12 +76,50 @@ const sameWords = (a: string, b: string) => a.trim().toLowerCase() === b.trim().
 
 const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
 
-/** Draws one question into `card`. `locked`: shown, and not answerable. */
+/**
+ * Draws one question into `card`. `locked`: shown, and not answerable. A question whose answer is of the wrong shape
+ * (core/shape.ts) is drawn read-only, its answer shown as no answer, with a notice that says what the note holds.
+ */
 export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
-	if (q.kind === "widget") {
-		drawWidget(host, card, t, q, locked);
-		return;
-	}
+	const wrong = host.wrongOf(t, q);
+	const box = q.kind === "widget" ? drawWidget(host, card, t, q, locked || !!wrong) : drawCommon(host, card, t, q, locked || !!wrong);
+	box.setAttr("data-booklet-q", q.id);
+	guardShape(host, box, t, q, !!wrong);
+}
+
+/**
+ * The notice for an answer of the wrong shape, under the question's words, kept up to date as the note changes. An
+ * answer that comes to be of the wrong shape while the question is drawn has every control of the question switched
+ * off at once; one that stops being so has the view drawn again (the reader's field and press are kept, see the view).
+ */
+function guardShape(host: QuestionHost, box: HTMLElement, t: Target, q: Question, drawnWrong: boolean): void {
+	const note = box.createDiv({ cls: "booklet-kept-note" });
+	const words = Array.from(box.children).filter((c) => c.matches(".booklet-prompt, .booklet-help")).pop();
+	if (words) words.after(note);
+	else box.prepend(note);
+	let sig: string | null = null;
+	const show = () => {
+		const w = host.wrongOf(t, q);
+		note.toggleClass("booklet-none", !w);
+		// the field the reader is in keeps working until they leave it (what they typed is then not written over the answer)
+		if (w) for (const el of Array.from(box.querySelectorAll<HTMLButtonElement | HTMLInputElement | HTMLTextAreaElement>("button, input, textarea"))) if (el !== el.ownerDocument.activeElement) el.disabled = true;
+		const now = w ? w.kept : "";
+		if (now !== sig) {
+			sig = now;
+			note.empty();
+			if (w) {
+				note.createSpan({ text: `Kept as written: this answer is not in the shape this question keeps (${w.issue}), so it cannot be changed here. It can be changed in Markdown. The note holds ` });
+				note.createEl("code", { text: w.kept });
+			}
+		}
+		if (!!w !== drawnWrong) host.redrawSoon();
+	};
+	show();
+	host.onShow(`${keyOf(t, q)}#shape`, show);
+}
+
+/** One of the seven common kinds. */
+function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): HTMLElement {
 	const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind}` });
 	const promptId = host.uid();
 	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered", attr: { id: promptId } }));
@@ -95,6 +140,7 @@ export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q
 	else if (q.kind === "lines") drawLines(host, box, t, q, key, label, locked);
 	else if (q.kind === "scale") drawScale(host, box, t, q, key, label, locked);
 	else drawChoice(host, box, t, q, key, label, locked);
+	return box;
 }
 
 type Label = (el: HTMLElement) => void;

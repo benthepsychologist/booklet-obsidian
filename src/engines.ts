@@ -38,8 +38,8 @@ import { keyOf, pressed, type QuestionHost, type Target } from "./questions";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-/** Draws a widget question into `card`. `locked`: shown, and not answerable. */
-export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
+/** Draws a widget question into `card`, and returns its box. `locked`: shown, and not answerable. */
+export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): HTMLElement {
 	const box = card.createDiv({ cls: "booklet-question booklet-kind-widget" });
 	const data = q.widget?.data;
 	const C = data ? copyOf(data) : (Object.create(null) as Record<string, string>);
@@ -55,12 +55,13 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	for (const k of ["stance", "invite"]) if (C[k]) box.createEl("p", { cls: "booklet-muted", text: C[k] });
 	if (!data) {
 		box.createEl("p", { cls: "booklet-muted", text: `This widget needs a widget block the note does not carry (^${q.embed ?? "?"}).` });
-		return;
+		return box;
 	}
 	const engine = engineOf(data);
 	if (engine === "grid-select") drawGrid(host, box, t, q, data, promptId, locked);
 	else if (engine === "svg-regions") drawRegions(host, box, t, q, data, C, promptId, locked);
 	else box.createEl("p", { cls: "booklet-muted", text: `Not yet supported: a widget drawn by the engine "${engine || "?"}".` });
+	return box;
 }
 
 /**

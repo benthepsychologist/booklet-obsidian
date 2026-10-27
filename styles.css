@@ -544,3 +544,23 @@
 	border-radius: var(--radius-l);
 	padding: var(--size-4-4);
 }
+
+/* an answer of the wrong shape for its question: kept as written, and said, with what the note holds */
+.booklet-kept-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	border-left: var(--size-2-1) solid var(--color-orange);
+	padding: var(--size-2-2) var(--size-4-2);
+	margin: var(--size-4-1) 0 var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.booklet-kept-note code,
+.booklet-entry dd code {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.booklet-none {
+	display: none;
+}
