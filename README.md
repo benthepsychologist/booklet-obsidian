@@ -30,6 +30,7 @@ Version 0.2.0. It reads format 0.15 (`SPEC.md` in the Booklet repository). It is
   | `svg-regions` | places as buttons; a place's words; a summary | `[{"id": place, "s": [word ids, own words]}]` |
 
   **The grid** (`grid-select`, the feelings grid) draws each cell with its name in the cell's colour, its items to press and a field for words of your own. Words of your own in a cell go into the list after the other cells' answers, with the cell's items in the widget's order, as the reference renderer orders them. **The body widget** (`svg-regions`) is drawn without its figure: the places listed in `chips` are buttons, pressing one shows its words in their `senses` groups and a field for words of your own, and a summary under it lists each place marked, with its words and a button to clear it. A word you type that is one of the place's words (in any case) is stored as that word's id. With `readonly`, a grid shows its words and the body widget names its places (from `regions`), with nothing to press. With `describe`, the cells' and places' notes are listed. A kept entry shows a grid's answer as its words, and a body widget's as each place with its words.
+- **A question asked for each pick of another** (`each:<id>`, which format 0.16 will add; the plugin draws it ahead of the format, from the approved design). A `multi` with `each:` names a `choice`, a `multi` or a widget in the same activity, its source, and is asked once for each pick in the source's answer: the question's title and help once, then a copy of its options (its own, or a shared list's, and `open`) under each pick's words (an option's words, an item's or a place's label, or your own words; for a grid's `x|cell|word`, the word). Nothing is drawn while nothing is picked. The answer is a list of pairs, `[{"pick": <the pick as the source stores it>, "a": <the multi's answer>}]`, one for each pick with an answer. Taking a pick back keeps its pair, not drawn, and picking it again brings it back; a kept entry keeps it too and shows one line for each pick its source holds, "<title> · <pick>". A draft whose only answers are pairs for picks taken back counts as empty. Your own options under one pick are offered under every pick, and in later entries. An `each:` that names nothing in its activity, names the question itself, names a question of another kind or chains (names a question that is itself asked for each pick) is listed among the note's problems and ignored. The format 0.15 linter reports `each:` as a setting a `multi` does not take; that error stays until 0.16.
 - **Activities that repeat** (`repeat`): what you type is kept as the activity's draft (a `booklet draft <activity>` block), so it is still there when you come back. **Finalize** keeps the draft as a dated entry (in a `booklet entries <activity>` block, with a `ts` such as `2026-10-27T18:30:00Z`) and empties the fields. The kept entries are listed under the activity, newest first, each with its date and its answers in words from the note's own lists.
 - **`repeat daily`**: one kept entry a day. Once today's is kept, the fields show it; change an answer and Finalize again to replace it. "Today" is the device's own calendar day.
 
@@ -46,6 +47,7 @@ Each of these says "Not yet supported" in the view, and is left in the note exac
 - pages: a page break (`***`) is drawn as a rule, with the pages one under another; steps (a group at a time) are not drawn either
 - a module's notice
 - marking an answer right or wrong (`[x]` options): the options are shown, with a note that marking is not supported
+- a question of a kind other than `multi` asked for each pick (`each:`): its answers are kept
 
 Also not done yet: deleting or editing a kept entry, an activity's `icon:`, `parent:`, `status:` and `tab:` settings, data sections, themes, and languages other than English for the view's own words. Activities marked `hidden` are not drawn, as the format says.
 
@@ -54,6 +56,7 @@ Also not done yet: deleting or editing a kept entry, an activity's `icon:`, `par
 - **It sends nothing anywhere and reads nothing from the network.** It has no settings, no telemetry and no account. It uses no Node or Electron API, only Obsidian's.
 - **It changes only what you changed.** An answer, a draft or an entry is written into the records region, and inside it only into the one block that holds it, and inside that block only the one answer or entry. Every other byte of the note, every other record block, and every answer or entry you did not touch stay exactly as they were written: no respacing, no re-sorting, no trimming. A note with no records gets a records region added after its text, separated from it by one blank line.
 - If the note is also open as Markdown, the change goes into that editor, so nothing typed there is lost; otherwise it is written with Obsidian's `Vault.process`. While the note is open as Markdown, the view reads the note from that editor too, which holds the newest text: the file as last saved can be older, and taking it would take back an answer just given.
+- **An answer of the wrong shape is kept as written** (the rule format 0.16 adds to the records, followed here ahead of it). An answer whose shape is not its question's kind, such as pairs under a plain `multi`, a list under a `scale` or a number under a `text`, typed by hand or written by another renderer, is never rewritten: its question is drawn read-only with a notice saying what the note holds, no press or Finalize changes it, and a kept entry shows it as written. It can be changed in Markdown. What each kind keeps is under *Choices made* below.
 - **A field you are in is never overwritten.** This holds for a widget's fields for words of your own too. When the note changes while you are typing in the view, or have a field selected (words typed in its Markdown pane, a change from Sync or from another plugin), the field keeps what you typed, the caret and the selection. It shows what the note holds once you leave it, and if the change was to the same question, what you typed is written over it, as the newer change. If the change was to the note's text, the view is drawn again once you leave the field and no press is under way. Words typed in *Add your own* and not added yet are kept too.
 
 ## Try it by hand
@@ -92,7 +95,9 @@ npm test         # bundles src/core and src/view.ts with esbuild, then runs node
 | `BOOKLET_LINTER` | its `lint-booklet.py` (default `$BOOKLET_REPO/lint-booklet.py`); needs `python3` |
 | `BOOKLET_STARTERS` | a folder of kit starter booklets |
 
-`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, eleven checks in all; see `e2e/README.md`.
+`npm test` also runs the wrong-shape guard over a corpus of answers of the wrong shape for every kind and widget (in answers, drafts and kept entries), and `each:` from the setting's mistakes to the pairs on disk, the empty-draft rule, kept entries and the reader's field as copies come and go. The test vault's check-in note asks a question for each feeling picked and colours two cells `blue` and `purple`, so the linter reports exactly three errors on it, and every test that lints it expects those three and nothing else.
+
+`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, twelve checks in all; see `e2e/README.md`.
 
 ## Releasing
 
@@ -120,6 +125,23 @@ Once Booklet is listed, the directory takes every new release straight from GitH
 - `repeat daily` replaces the first entry kept on the same day where it stands.
 - A widget's colour names are Obsidian's own colour variables, so they follow the theme in light and dark: `warm` is `--color-red` (the colour of `--text-error`; warm is the format's colour for the tone bad), `green` is `--color-green` (`--text-success`, the tone good), `amber` is `--color-orange` (`--text-warning`, the tone warn), `teal` is `--color-cyan`, and `slate` is `--text-muted` on a faint wash of the text colour (Obsidian has no blue-grey). A cell is a pale wash of its colour with a band of the full colour along its top; its words stay in the theme's text colour.
 - Words of your own in a widget are added on *Add*, on Enter, on leaving the field, or on leaving the note (opening another note in the pane, closing it, or Finalize), one or several with commas between them; the reference renderer uses a tag field that adds them on a comma, on Enter and on leaving the field, so nothing typed is dropped. When the field is left by a press on another button, the words are added first and then the press, in the reference renderer's order. That renderer redraws a cell's buttons and the places' summary when the words are added, so a press on one of those right after typing is lost there; here the button is kept under the press and the press lands. The *Add your own* field of a choice or multi question adds only on Enter or its *Add* button, as in the reference renderer.
+- **What each kind keeps** (the wrong-shape guard), from SPEC sections 5 and 7. An answer that holds nothing (no answer, `null`, `""`, `[]`, `{}`) is no answer, never of the wrong shape.
+
+  | Kind | Kept as its shape |
+  | --- | --- |
+  | `text`, `date` | a string (a date written another way is shown as kept) |
+  | `lines` | a list of strings |
+  | `number` | a finite number |
+  | `scale` | a whole number from 0 |
+  | `choice` | a whole number from 1, or a string |
+  | `multi` | a list of whole numbers from 1 and strings |
+  | `multi` with `each:` | a list of pairs: `pick` a number or a string, `a` a multi's answer |
+  | `grid-select` | a list of strings |
+  | `svg-regions` | a list of `{"id": string, "s": [strings]}` |
+
+  Other keys in a pair or a place are kept and allowed. A widget of an engine the plugin does not draw is not checked. Finalize keeps an answer of the wrong shape as written, a `lines` one with its blank lines too.
+- **`each:`**: the copies are drawn in the order the source's answer holds the picks. While the view is open, a new pick's copy is added at the end and nothing already on screen moves, even when the source's answer changes order (a grid stores the other cells' answers, then the cell's own, when a word is written in a cell); a drawing of the view (opening the note, or a change to its text) takes the answer's order again. That order is the view's, like the open place, and is not stored. A copy whose pick is taken back while you are in its field stays until you leave it. A pick's own options are offered under every pick from the pairs of every pick, taken back or not, then from earlier entries, newest first; words listed as an option, words already in that pick's answer and repeats are left out before the 12 are taken (the same for a plain `open` question, as `booklet.html`'s `ownEarlier`). If a hand edit gives a pick two pairs, the first is shown and changed, and the others are kept as written. A `repeat daily` draft holding only pairs for picks taken back shows today's entry, with the draft's pairs over the entry's, pick by pick.
+- **`blue` and `purple`** are colour names ahead of the format, from `--color-blue` and `--color-purple`, drawn as the other colour names are. The 0.15 linter reports them as not colour names until 0.16.
 - The booklet's title is drawn above its opening, and a module's title above the module's opening.
 - The place open in a body widget is the view's, kept across drawings of the view, not part of the answer.
 
