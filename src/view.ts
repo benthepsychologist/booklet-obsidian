@@ -39,6 +39,8 @@ export interface ViewHost {
 
 /** How long a text field waits after the last key before its answer is written. */
 const TYPING_PAUSE_MS = 700;
+/** After a press ends with no click (a touch that scrolled, say), how long a drawing that waits is held back still. */
+const PRESS_END_MS = 300;
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;
 
@@ -86,6 +88,13 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private widgets = new Map<string, () => void>();
 	/** Text typed and not yet written, by question. */
 	private pending = new Map<string, Pending>();
+	/** Words typed in a field that are not an answer yet (Add your own), by field: kept across drawings. */
+	private held = new Map<string, string>();
+	/** The note's design changed while the reader was in a field or pressing: the view is drawn again when they are done. */
+	private stale = false;
+	/** A pointer press in the view has begun and not ended: a button under it must not be taken away. */
+	private pressing = false;
+	private settleTimer: number | null = null;
 	/** Writes run one after another. */
 	private writes: Promise<void> = Promise.resolve();
 	/** Activities whose whole list of kept entries is open. */
@@ -106,6 +115,15 @@ export class BookletView extends TextFileView implements QuestionHost {
 	override onload(): void {
 		super.onload();
 		this.addAction("file-text", "Show Markdown", () => void this.host.setMode(this.leaf, "markdown"));
+		// A drawing that waits (see update) is made once the reader has left the field and no press is under way. A
+		// press moves focus out of a field before its click, so the button under the pointer is kept until the click.
+		this.registerDomEvent(this.contentEl, "focusout", () => this.settleSoon(0));
+		this.registerDomEvent(this.contentEl, "click", () => this.settleSoon(0));
+		this.registerDomEvent(this.contentEl, "pointerdown", () => this.pressBegan(), { capture: true });
+		this.register(() => {
+			this.cancelSettle();
+			this.pressing = false;
+		});
 	}
 
 	override async save(_clear?: boolean): Promise<void> {
@@ -137,21 +155,21 @@ export class BookletView extends TextFileView implements QuestionHost {
 		}
 		// Obsidian hands the view its own write back: nothing to draw, and a text field keeps its focus.
 		if (data === this.text) return;
-		// The note changed elsewhere (the Markdown tab, sync): draw again if its design changed, else
-		// only show the answers it now holds.
+		// The note changed elsewhere (a Markdown pane of the same note, Sync, another plugin): draw again if its
+		// design changed, else only show the answers it now holds. Either way, a field the reader is in is left as it is.
 		const designChanged = designKey(data) !== designKey(this.text);
 		this.text = data;
 		this.data = data;
-		if (designChanged) this.draw(false);
-		else {
-			this.book = parseBooklet(data);
-			this.syncWidgets();
-		}
+		this.update(designChanged);
 	}
 
 	clear(): void {
 		for (const p of this.pending.values()) if (p.timer !== null) window.clearTimeout(p.timer);
 		this.pending.clear();
+		this.held.clear();
+		this.cancelSettle();
+		this.stale = false;
+		this.pressing = false;
 		this.widgets.clear();
 		this.showAll.clear();
 		this.text = "";
@@ -196,6 +214,15 @@ export class BookletView extends TextFileView implements QuestionHost {
 
 	onShow(key: string, show: () => void): void {
 		this.widgets.set(key, show);
+	}
+
+	heldOf(key: string): string {
+		return this.held.get(key) ?? "";
+	}
+
+	hold(key: string, words: string): void {
+		if (words) this.held.set(key, words);
+		else this.held.delete(key);
 	}
 
 	answerOf(t: Target, q: Question): unknown {
@@ -255,7 +282,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 	/* ---- drawing ---- */
 
 	private draw(opened: boolean): void {
-		const focus = this.focusedField();
+		this.stale = false;
+		this.cancelSettle();
 		const book = parseBooklet(this.text);
 		this.book = book;
 		this.widgets.clear();
@@ -297,7 +325,6 @@ export class BookletView extends TextFileView implements QuestionHost {
 		const shown = book.activities.filter((a) => !a.hidden);
 		if (!shown.length) page.createEl("p", { cls: "booklet-muted", text: "This booklet has no activity to draw." });
 		for (const a of shown) this.drawActivity(page, a);
-		this.restoreFocus(focus);
 	}
 
 	private drawActivity(page: HTMLElement, a: Activity): void {
@@ -432,26 +459,64 @@ export class BookletView extends TextFileView implements QuestionHost {
 		for (const show of this.widgets.values()) show();
 	}
 
-	/** The text field that has focus, so a drawing can give it back with its caret where it was. */
-	private focusedField(): { key: string; start: number | null; end: number | null } | null {
-		const el = this.contentEl.ownerDocument.activeElement;
-		if (!el || !(el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement)) || !this.contentEl.contains(el)) return null;
-		const key = el.getAttribute("data-booklet-key");
-		if (!key) return null;
-		const typed = el.instanceOf(HTMLTextAreaElement) || el.type === "text";
-		return { key, start: typed ? el.selectionStart : null, end: typed ? el.selectionEnd : null };
-	}
-
-	private restoreFocus(f: { key: string; start: number | null; end: number | null } | null): void {
-		if (!f) return;
-		for (const el of Array.from(this.contentEl.querySelectorAll("[data-booklet-key]"))) {
-			if (el.getAttribute("data-booklet-key") !== f.key) continue;
-			if (el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement)) {
-				el.focus();
-				if (f.start !== null && f.end !== null) el.setSelectionRange(f.start, f.end);
-			}
+	/*
+	 * The rule for a change to the note (from elsewhere, or carried back by the view's own write): a field the reader
+	 * is in is never overwritten or replaced. Each question's updater leaves a field alone while it has focus or holds
+	 * typing not yet written, and brings it up to date when the reader leaves it (questions.ts). A change to the
+	 * design would draw the whole view again, replacing every field: while the reader is in a field, or in the middle
+	 * of a press, that drawing waits, and the answers are shown in the drawing there is. Typing not yet written is then
+	 * written when the reader leaves the field, over whatever the change held for that question: it is the newer change.
+	 */
+	private update(designChanged: boolean): void {
+		if (designChanged && !this.busy()) {
+			this.draw(false);
 			return;
 		}
+		if (designChanged) this.stale = true;
+		this.book = parseBooklet(this.text);
+		this.syncWidgets();
+	}
+
+	/** Is the reader in the middle of an answer (a field of this view has focus, or holds typing not yet written) or of a press? */
+	private busy(): boolean {
+		if (this.pressing || this.pending.size) return true;
+		const el = this.contentEl.ownerDocument.activeElement;
+		return !!el && this.contentEl.contains(el) && (el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement));
+	}
+
+	/** A drawing that waits is made after `ms`, if the reader is done by then (else at the next chance). */
+	private settleSoon(ms: number): void {
+		if (!this.stale) return;
+		this.cancelSettle();
+		this.settleTimer = window.setTimeout(() => {
+			this.settleTimer = null;
+			if (this.stale && !this.busy()) this.draw(false);
+		}, ms);
+	}
+
+	private cancelSettle(): void {
+		if (this.settleTimer !== null) window.clearTimeout(this.settleTimer);
+		this.settleTimer = null;
+	}
+
+	private pressBegan(): void {
+		this.pressing = true;
+		// the press ends wherever the pointer is let go, in the window the view is in now (a pane can move to a window of its own)
+		const doc = this.contentEl.ownerDocument;
+		const end = () => {
+			doc.removeEventListener("pointerup", end, true);
+			doc.removeEventListener("pointercancel", end, true);
+			this.pressEnded();
+		};
+		doc.addEventListener("pointerup", end, true);
+		doc.addEventListener("pointercancel", end, true);
+	}
+
+	private pressEnded(): void {
+		if (!this.pressing) return;
+		this.pressing = false;
+		// the click that ends most presses comes next and settles at once; this is for a press with no click
+		this.settleSoon(PRESS_END_MS);
 	}
 
 	/* ---- answering ---- */
@@ -558,13 +623,10 @@ export class BookletView extends TextFileView implements QuestionHost {
 			if (failure) throw failure instanceof Error ? failure : new Error("The answer could not be written.");
 		}
 		if (this.file !== file) return;
+		// the text written can carry a change the view had not seen (words typed in a Markdown pane, not yet saved)
 		const designChanged = designKey(result) !== designKey(this.text);
 		this.text = result;
 		this.data = result;
-		if (designChanged) this.draw(false);
-		else {
-			this.book = parseBooklet(result);
-			this.syncWidgets();
-		}
+		this.update(designChanged);
 	}
 }

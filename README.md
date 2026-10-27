@@ -44,6 +44,7 @@ Also not done yet: deleting or editing a kept entry, an activity's `icon:`, `par
 - **It sends nothing anywhere and reads nothing from the network.** It has no settings, no telemetry and no account. It uses no Node or Electron API, only Obsidian's.
 - **It changes only what you changed.** An answer, a draft or an entry is written into the records region, and inside it only into the one block that holds it, and inside that block only the one answer or entry. Every other byte of the note, every other record block, and every answer or entry you did not touch stay exactly as they were written: no respacing, no re-sorting, no trimming. A note with no records gets a records region added after its text, separated from it by one blank line.
 - If the note is also open as Markdown, the change goes into that editor, so nothing typed there is lost; otherwise it is written with Obsidian's `Vault.process`.
+- **A field you are in is never overwritten.** When the note changes while you are typing in the view, or have a field selected (words typed in its Markdown pane, a change from Sync or from another plugin), the field keeps what you typed, the caret and the selection. It shows what the note holds once you leave it, and if the change was to the same question, what you typed is written over it, as the newer change. If the change was to the note's text, the view is drawn again once you leave the field and no press is under way. Words typed in *Add your own* and not added yet are kept too.
 
 ## Try it by hand
 
@@ -59,10 +60,10 @@ To use it in a vault of your own, copy `main.js`, `manifest.json` and `styles.cs
 ```
 npm install
 npm run build    # type-checks, builds main.js, copies main.js, manifest.json and styles.css into test-vault/.obsidian/plugins/booklet/
-npm test         # bundles src/core with esbuild, then runs node --test over test/*.test.mjs
+npm test         # bundles src/core and src/view.ts with esbuild, then runs node --test over test/*.test.mjs
 ```
 
-`npm test` runs the reader, the records writer, drafts and kept entries, the JSON edits, and a check that the plugin uses no HTML sinks, no inline styles and no Node or Electron module. Its corpus test goes over every booklet example in the Booklet repository, every kit starter and every test-vault note: it answers every question of the seven kinds, finalizes every repeating activity (and finishes a daily one twice in a day), clears every answer, and after each step checks that nothing outside the records region changed, that every record it did not need to change is byte for byte the same, and that `lint-booklet.py` passes on the written file. The corpus is found through these environment variables; a folder that is not there is a skipped test, with a message, not a failure:
+`npm test` runs the reader, the records writer, drafts and kept entries, the JSON edits, and a check that the plugin uses no HTML sinks, no inline styles and no Node or Electron module. It also runs the view itself over a jsdom document, with the few parts of Obsidian's API it uses stubbed (`test/obsidian-stub.mjs`), to check that a change to the note arriving while a field is being edited leaves that field and what was typed in it alone. Its corpus test goes over every booklet example in the Booklet repository, every kit starter and every test-vault note: it answers every question of the seven kinds, finalizes every repeating activity (and finishes a daily one twice in a day), clears every answer, and after each step checks that nothing outside the records region changed, that every record it did not need to change is byte for byte the same, and that `lint-booklet.py` passes on the written file. The corpus is found through these environment variables; a folder that is not there is a skipped test, with a message, not a failure:
 
 | Variable | What it points at |
 | --- | --- |

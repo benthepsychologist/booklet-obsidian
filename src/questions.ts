@@ -1,8 +1,11 @@
 /*
  * The seven common question kinds, drawn with Obsidian's own elements (buttons, text fields) and theme.
  * Each question registers a function that shows its answer again, so a write, or a change made to the
- * note elsewhere, updates the question without drawing the view again (a field being typed in keeps
- * its focus). What a question stores is the reference renderer's shape (SPEC section 5's table; booklet.html
+ * note elsewhere, updates the question without drawing the view again. That function leaves a field
+ * alone while the reader is in it (it has focus, or holds typing not yet written), and is called again
+ * when the reader leaves the field, so that the field then shows what the note holds.
+ *
+ * What a question stores is the reference renderer's shape (SPEC section 5's table; booklet.html
  * drawChoice, drawScale, drawText, drawLines, drawNumber): a choice's option position from 1 or the
  * reader's own words, a multi's list of those in the order picked, a scale's anchor number, a text's
  * string, a lines question's list of strings, a number, a date's `YYYY-MM-DD`.
@@ -31,6 +34,9 @@ export interface QuestionHost {
 	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null;
 	/** Registers the function that shows the question's answer again. */
 	onShow(key: string, show: () => void): void;
+	/** Words typed in a field that are not an answer yet (Add your own), kept across drawings of the view. */
+	heldOf(key: string): string;
+	hold(key: string, words: string): void;
 	/** The reader's own options for this question in the activity's earlier kept entries, newest first. */
 	earlierOwn(t: Target, q: Question): string[];
 	/** A new id for an element of this drawing. */
@@ -96,7 +102,10 @@ function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 	else show();
 	host.onShow(key, show);
 	field.addEventListener("input", () => host.typed(t, q, field.value));
-	field.addEventListener("blur", () => host.flushTyped(t, q));
+	field.addEventListener("blur", () => {
+		host.flushTyped(t, q);
+		show();
+	});
 }
 
 function drawNumber(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
@@ -123,7 +132,10 @@ function drawNumber(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 		const n = Number(raw);
 		host.typed(t, q, raw === "" || !Number.isFinite(n) ? undefined : n);
 	});
-	field.addEventListener("blur", () => host.flushTyped(t, q));
+	field.addEventListener("blur", () => {
+		host.flushTyped(t, q);
+		show();
+	});
 }
 
 function drawDate(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
@@ -149,7 +161,10 @@ function drawDate(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 	show();
 	host.onShow(key, show);
 	field.addEventListener("input", () => host.typed(t, q, field.value || undefined));
-	field.addEventListener("blur", () => host.flushTyped(t, q));
+	field.addEventListener("blur", () => {
+		host.flushTyped(t, q);
+		show();
+	});
 	clear.addEventListener("click", (evt) => {
 		evt.preventDefault();
 		field.value = "";
@@ -186,10 +201,13 @@ function drawLines(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 		});
 		inputs.push(inp);
 	};
-	// what was typed is written when focus leaves the list, not when it moves from one line to the next
+	// what was typed is written when focus leaves the list, not when it moves from one line to the next; the lines
+	// then show what the note holds
 	list.addEventListener("focusout", (evt) => {
 		const to = evt.relatedTarget;
-		if (!(to instanceof Node) || !list.contains(to)) host.flushTyped(t, q);
+		if (to instanceof Node && list.contains(to)) return;
+		host.flushTyped(t, q);
+		show();
 	});
 	const fill = (values: string[]) => {
 		list.empty();
@@ -338,14 +356,19 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	if (q.open) {
 		const ownRow = box.createDiv({ cls: "booklet-field-row booklet-own-row" });
 		const field = ownRow.createEl("input", { cls: "booklet-text", type: "text", attr: { placeholder: "Add your own", autocomplete: "off" } });
-		field.setAttr("data-booklet-key", `${key}#own`);
+		const ownKey = `${key}#own`;
+		field.setAttr("data-booklet-key", ownKey);
 		label(field);
 		field.disabled = locked;
+		// words typed and not added yet are not an answer; they are kept if the view is drawn again
+		field.value = host.heldOf(ownKey);
+		field.addEventListener("input", () => host.hold(ownKey, field.value));
 		const add = ownRow.createEl("button", { cls: "booklet-add", text: "Add" });
 		add.disabled = locked;
 		const go = () => {
 			const s = field.value;
 			field.value = "";
+			host.hold(ownKey, "");
 			addOwn(s);
 		};
 		field.addEventListener("keydown", (evt) => {
