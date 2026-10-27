@@ -207,3 +207,14 @@ test("designText leaves out exactly the records region", () => {
 	assert.equal(core.designText(w), t + "\n");
 	assert.equal(core.designText(core.setAnswer(w, "", "q", "y")), core.designText(w));
 });
+
+test("the design key ignores the records region and the blank line a new region brings, so a first answer draws nothing again", () => {
+	const t = `${fm('booklet: "0.15"')}\n> [!activity|a] A\n\n> [!text|q] Q\n`;
+	for (const body of [t, t.replace(/\n$/, ""), `${t}\n\n  \n`]) {
+		const w = core.setAnswer(body, "", "q", "x");
+		assert.notEqual(w, body);
+		assert.equal(core.designKey(w), core.designKey(body), JSON.stringify(body.slice(-8)));
+	}
+	// a change to the design is seen
+	assert.notEqual(core.designKey(t.replace("> [!text|q] Q", "> [!text|q] Changed")), core.designKey(t));
+});
