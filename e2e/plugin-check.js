@@ -12,7 +12,8 @@
 // 9 layout: a text box's border in the dark theme, room at the view's foot, the grid's cell names on their colours,
 // touch sizes (the tracker, and the check-in note with a place open, also in a window a phone's width), and the
 // tracker's and check-in note's screenshots in light, dark and mobile emulation; 11 the check-in note's widgets and shared list: drawn, answered and
-// cleared on disk with words of the reader's own, a widget's own field kept while the note changes, finished and kept,
+// cleared on disk with words of the reader's own, a widget's own field kept while the note changes, its words added
+// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), finished and kept,
 // in one pane and with a Markdown pane; 10 (run last) no error or warning from the plugin in Obsidian's console, over
 // every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
@@ -483,7 +484,7 @@ function over(top, under) {
 
 /* ================= CHECK 6 ================= */
 async function check6() {
-  const c = new Check(6, "every common kind is answered and cleared, checked on disk; the first answer does not redraw the view; a change on disk leaves a field being edited alone");
+  const c = new Check(6, "every common kind, a shared list and a grid are answered and cleared, checked on disk; the first answer does not redraw the view; a change on disk leaves a field being edited alone");
   await withApp("c6", async (o, vault) => {
     const file = path.join(vault, EVERY), orig = fs.readFileSync(file, "utf8");
     await openNote(o, EVERY);
@@ -1009,19 +1010,19 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   await blurNow(o);
   say(await viewShows(o, W("PLACES")), "once the reader left the field, the view is drawn again with the changed prose");
 
-  // words typed and not added are kept across a drawing of the view, with the place they were typed for
+  // words typed and not added: the field keeps them while the note changes; leaving the field adds them, as
+  // booklet.html's tag field does, and the view is drawn again with the place they were typed for still open
   await place(o, "Neck").click();
   await typeIn(o, placeField(o), "Stiff", false); await markFocused(o);
   await changeUnder(o, route, W("HELD"), null, null, CHECKIN, "booklet draft today"); added.push(W("HELD"));
   m = await marked(o);
   say(m.same && m.value === "Stiff", "a change to the prose alone, while the field holds words not added: the same field and its words " + JSON.stringify(m.value));
   await blurNow(o);
-  say(await viewShows(o, W("HELD")), "the view is drawn again once the field is left");
-  const kept = await o.evaluate(sel => { const pl = document.querySelector(sel).querySelectorAll(".booklet-kind-widget")[0], f = pl.querySelector(".booklet-panel .booklet-own-row input"); return { open: (pl.querySelector(".booklet-panel-title") || {}).textContent, value: f && f.value, sameNode: f === window.__f }; }, cardSel(CK));
-  say(kept.open === "Neck" && kept.value === "Stiff" && !kept.sameNode, "drawn again, Neck is still open and its (new) field still holds the words not added: " + JSON.stringify(kept));
-  await placeField(o).click(); await o.page.keyboard.press("End"); await o.page.keyboard.press("Enter");
   d = await waitDisk(file, t => same((draftOf(t) || {}).places, [{ id: "chest", s: ["heavy", "Flutter"] }, { id: "neck", s: ["Stiff"] }]));
-  say(d.ok, "and Enter adds them: places " + JSON.stringify((draftOf(d.text) || {}).places));
+  say(d.ok, "leaving the field adds its words, with no Add and no Enter: places " + JSON.stringify((draftOf(d.text) || {}).places));
+  say(await viewShows(o, W("HELD")), "the view is drawn again once the field is left");
+  const kept = await o.evaluate(sel => { const pl = document.querySelector(sel).querySelectorAll(".booklet-kind-widget")[0], f = pl.querySelector(".booklet-panel .booklet-own-row input"); return { open: (pl.querySelector(".booklet-panel-title") || {}).textContent, value: f && f.value, own: [...pl.querySelectorAll(".booklet-panel .booklet-own-words button.booklet-own")].map(b => b.textContent.trim()) }; }, cardSel(CK));
+  say(kept.open === "Neck" && kept.value === "" && same(kept.own, ["Stiff"]), "drawn again, Neck is still open, its field is empty and Stiff is one of its own words: " + JSON.stringify(kept));
   c.info(tag + ": the draft before clearing: " + draftBody(d.text));
 
   // clear every widget and the shared list: own words pressed out, an item, a place's own word, Clear, the summary's x
@@ -1045,24 +1046,73 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   const s0 = await checkinShown(o);
   say(same({ ...s0, open: undefined }, { ...NOTHING, open: undefined }), "the view shows nothing answered: " + JSON.stringify(s0));
 
-  // answered again and finished: the kept entry, in words
-  await gridItem(o, "overcast", "Tired").click();
+  // answered again, with words typed in an own field and never added with Add or Enter: the reader leaves the field
+  // by a press elsewhere in the widget (the words are added first, then the press, as booklet.html takes them; its
+  // JSON for the same presses, from its own engines, is BH below), by a click elsewhere in the view, by opening
+  // another note, and by Finalize
+  const BH = { 1: '["tense","x|bright|fizzy","settled"]', 2: '[{"id":"shoulders","s":["tight","achy","warm"]}]', 3: '[{"id":"shoulders","s":["tight","achy","warm"]}]' };
+  const typeOnly = (field, words) => typeIn(o, field, words, false);
+  const order = (n, what, got) => say(got === BH[n], "press order " + n + ", " + what + ": Obsidian " + got + " | booklet.html " + BH[n] + " | same: " + (got === BH[n]));
+  // 1: Tense; "fizzy" typed in Bright's field; Settled pressed in Calm
+  await gridItem(o, "stormy", "Tense").click();
+  await typeOnly(cellField(o, "bright"), "fizzy");
+  await gridItem(o, "calm", "Settled").click();
+  d = await waitDisk(file, t => JSON.stringify((draftOf(t) || {}).weather) === BH[1]);
+  order(1, "the grid: Tense; fizzy typed in Bright; Settled pressed in Calm", JSON.stringify((draftOf(d.text) || {}).weather));
+  // 2: Shoulders, Tight; "achy" typed in its field; Warm pressed
+  await place(o, "Shoulders").click(); await sense(o, "Tight").click();
+  await typeOnly(placeField(o), "achy");
+  await sense(o, "Warm").click();
+  d = await waitDisk(file, t => JSON.stringify((draftOf(t) || {}).places) === BH[2]);
+  order(2, "the places: Shoulders, Tight; achy typed; Warm pressed", JSON.stringify((draftOf(d.text) || {}).places));
+  // 3: Hands, Cool; "numb" typed in its field; Clear this place pressed (the words are added, then the place cleared)
+  await place(o, "Hands").click(); await sense(o, "Cool").click();
+  await waitDisk(file, t => ((draftOf(t) || {}).places || []).some(p => p.id === "hands"));
+  await typeOnly(placeField(o), "numb");
+  await placesQ(o).locator(".booklet-panel button.booklet-clear").click();
+  d = await waitDisk(file, t => JSON.stringify((draftOf(t) || {}).places) === BH[3]);
+  order(3, "then Hands, Cool; numb typed; Clear this place pressed", JSON.stringify((draftOf(d.text) || {}).places));
+  // a click elsewhere in the view: "Drowsy" typed in Overcast's field, then the card's title clicked
+  await typeOnly(cellField(o, "overcast"), "Drowsy");
+  await inCard(o, CK, ".booklet-card-title").click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).weather, ["tense", "x|bright|fizzy", "settled", "x|overcast|Drowsy"]));
+  say(d.ok, "typed in a cell's field, then a click elsewhere in the view: the words are on disk: weather " + JSON.stringify((draftOf(d.text) || {}).weather));
+  // another note opened in the booklet's pane: Feet, Restless; "Sore" typed; Every kind opened, then the check-in again
   await place(o, "Feet").click(); await sense(o, "Restless").click();
-  await typeIn(o, placeField(o), "Sore");
-  await blurNow(o);
-  d = await waitDisk(file, t => same(draftOf(t), { weather: ["tired"], places: [{ id: "feet", s: ["restless", "Sore"] }] }));
-  say(d.ok, "the draft before Finalize: " + draftBody(d.text));
+  await typeOnly(placeField(o), "Sore");
+  const openHere = rel => o.evaluate(async rel => { await app.workspace.getLeavesOfType("booklet")[0].openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
+  await openHere(EVERY);
+  const away = await o.page.waitForFunction(rel => { const v = app.workspace.getLeavesOfType("booklet")[0].view; return v.file && v.file.path === rel && !!document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-card[data-booklet-activity='/kinds']"); }, EVERY, { timeout: 8000, polling: 50 }).then(() => true, () => false);
+  await openHere(CHECKIN);
+  await o.page.waitForSelector(cardSel(CK) + " .booklet-place", { timeout: 8000 }); await sleep(300);
+  const back = await checkinShown(o);
+  const wantPlaces = [{ id: "shoulders", s: ["tight", "achy", "warm"] }, { id: "feet", s: ["restless", "Sore"] }];
+  d = await waitDisk(file, t => same((draftOf(t) || {}).places, wantPlaces));
+  say(away && d.ok && same(back.summary, ["Shoulders— Tight, achy, Warm", "Feet— Restless, Sore"]), "typed in a place's field, then another note opened in the pane (" + (away ? "it was drawn" : "it was NOT drawn") + ") and the check-in opened again: the words are on disk and shown: places " + JSON.stringify((draftOf(d.text) || {}).places) + ", summary " + JSON.stringify(back.summary));
+  c.info(tag + ": the draft before Finalize: " + draftBody(d.text));
+  // Finalize pressed while "Yawning" is typed in Overcast's field: the words are in the kept entry
+  await typeOnly(cellField(o, "overcast"), "Yawning");
   const t0 = Date.now();
   await inCard(o, CK, "button.booklet-finalize").click();
   const f = await waitDisk(file, t => !draftBlocks(t).length && ((json((blocksNamed(t, "booklet entries today")[0] || {}).body) || {}).items || []).length === 1);
   const body = (blocksNamed(f.text, "booklet entries today")[0] || {}).body || "";
   const e = ((json(body) || {}).items || [])[0] || {};
-  say(f.ok && same(Object.keys(e), ["ts", "weather", "places"]) && same(e.weather, ["tired"]) && same(e.places, [{ id: "feet", s: ["restless", "Sore"] }]) && Math.abs(Date.parse(e.ts) - t0) < 15000, "Finalize kept the entry, verbatim: " + JSON.stringify(body));
+  const wantWeather = ["tense", "x|bright|fizzy", "settled", "x|overcast|Drowsy", "x|overcast|Yawning"];
+  say(f.ok && same(Object.keys(e), ["ts", "weather", "places"]) && same(e.weather, wantWeather) && same(e.places, wantPlaces) && Math.abs(Date.parse(e.ts) - t0) < 15000, "typed in a cell's field, then Finalize: the words are in the kept entry, verbatim: " + JSON.stringify(body));
   await sleep(500);
-  const listed = await listedEntries(o, CK);
-  say(listed.length === 1 && same(listed[0].words, ["Feet — Restless, Sore", "Tired"]), "the kept entry shows the place with its words and the grid's labels: " + JSON.stringify(listed));
+  const listed = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-entry")].map(x => [...x.querySelectorAll("dd")].map(dd => dd.querySelector("li") ? [...dd.querySelectorAll("li")].map(l => l.textContent) : dd.textContent)), cardSel(CK));
+  say(listed.length === 1 && same(listed[0], [["Shoulders — Tight, achy, Warm", "Feet — Restless, Sore"], "Tense, fizzy, Settled, Drowsy, Yawning"]), "the kept entry shows each place with its words, and the grid's labels and own words: " + JSON.stringify(listed));
   const seeded = await checkinShown(o);
-  say(same(seeded.grid, ["stormy: ", "bright: ", "overcast: Tired", "calm: "]) && same(seeded.marked, ["Feet2"]), "the widgets show today's entry, to finish again: " + JSON.stringify(seeded));
+  say(same(seeded.grid, ["stormy: Tense", "bright: fizzy", "overcast: Drowsy, Yawning", "calm: Settled"]) && same(seeded.marked, ["Shoulders3", "Feet2"]), "the widgets show today's entry, to finish again: " + JSON.stringify(seeded));
+  if (!typeInMd) {
+    // the pane closed while "Twitchy" is typed in Overcast's field: the words are in the draft on disk, and shown when
+    // the note is opened again
+    await typeOnly(cellField(o, "overcast"), "Twitchy");
+    await reopen(o, CHECKIN);
+    d = await waitDisk(file, t => ((draftOf(t) || {}).weather || []).includes("x|overcast|Twitchy"));
+    const s = await checkinShown(o);
+    say(d.ok && s.grid[2] === "overcast: Drowsy, Yawning, Twitchy", "typed in a cell's field, then the pane closed: the words are in the draft on disk (" + draftBody(d.text) + ") and shown when the note is opened again: " + JSON.stringify(s.grid[2]));
+  }
   if (typeInMd) await sleep(3500);   // the Markdown view saves its editor about 2 s after the last change
   const last = fs.readFileSync(file, "utf8");
   say(strip(last) === (regionAt(orig) >= 0 ? head(orig) : orig + "\n"), "after Finalize, outside the records region only the added words are new");
@@ -1072,7 +1122,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
 
 /* ================= CHECK 11 ================= */
 async function check11() {
-  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, a kept entry in words; in one pane and with a Markdown pane");
+  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, own words added when the field is left (a press, in booklet.html's order; a click elsewhere; another note; Finalize; the pane closed), a kept entry in words; in one pane and with a Markdown pane");
   await withApp("c11", async (o, vault) => {
     await openNote(o, CHECKIN);
     await checkinFlow(c, o, vault, "one pane", "disk", null);
