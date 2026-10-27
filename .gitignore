@@ -1,0 +1,8 @@
+# npm
+node_modules/
+
+# the build output at the root (the copy inside test-vault/ is kept, so the vault opens with no Node)
+/main.js
+
+# what the tests build for themselves
+test/.build/
