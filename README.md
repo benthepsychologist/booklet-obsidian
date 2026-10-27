@@ -53,7 +53,17 @@ Also not done yet: deleting or editing a kept entry, an activity's `icon:`, `par
 3. If the vault also has the earlier "Booklet (spike)" plugin, turn that one off first: both open booklet notes, and only one should.
 4. Open `Daily tracker`, `Every kind`, `Kept records` or `Evening check-in`. All their content is made up. The header button switches views (*Show Markdown* on the booklet view, *Open as booklet* on the Markdown view), and so does the command *Booklet: Toggle between booklet view and Markdown*.
 
-To use it in a vault of your own, copy `main.js`, `manifest.json` and `styles.css` from `test-vault/.obsidian/plugins/booklet/` into `<your vault>/.obsidian/plugins/booklet/`, then turn it on under *Community plugins*.
+To use it in a vault of your own, install it with BRAT (below), or copy `main.js`, `manifest.json` and `styles.css` from `test-vault/.obsidian/plugins/booklet/` into `<your vault>/.obsidian/plugins/booklet/`, then turn it on under *Community plugins*.
+
+## Install a test build with BRAT
+
+Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository, which BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs and updates; Obsidian's developer docs recommend it for testing a plugin before it is listed.
+
+1. In *Settings → Community plugins*, browse for **BRAT**, install it and turn it on.
+2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release; turn Booklet on under *Community plugins* if BRAT has not.
+3. To get a later build, check for updates in BRAT.
+
+If the earlier "Booklet (spike)" plugin is in the vault, turn it off first: both open booklet notes.
 
 ## Build and test
 
@@ -73,6 +83,22 @@ npm test         # bundles src/core and src/view.ts with esbuild, then runs node
 | `BOOKLET_STARTERS` | a folder of kit starter booklets |
 
 `e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, ten checks in all; see `e2e/README.md`.
+
+## Releasing
+
+Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. Until Booklet is listed, every release is marked a pre-release, and nothing is submitted to the directory from here.
+
+1. **Set the version** on the branch that carries the change: `npm version 0.2.0`. npm writes it into `package.json`, and `version-bump.mjs` writes it into `manifest.json` and adds it to `versions.json` with the manifest's `minAppVersion`; `.npmrc` stops npm from committing or tagging. Versions are plain `x.y.z`: Obsidian does not order `0.2.0-beta.1` the way semver does, and its directory takes no other kind.
+2. **Test and merge:** `npm test` and the real-Obsidian check (`e2e/`), then merge to `main`.
+3. **Tag `main` and push the tag:**
+   ```
+   git checkout main && git pull --ff-only
+   git tag -a 0.2.0 -m 0.2.0
+   git push origin 0.2.0
+   ```
+4. **The workflow** refuses a tag that is not on `main`, is not a plain `x.y.z`, or is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`). Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
+
+Once Booklet is listed, the directory takes every new release straight from GitHub, so a release is then a release to everyone.
 
 ## Choices made where the format is silent
 
