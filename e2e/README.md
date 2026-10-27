@@ -50,22 +50,28 @@ plugins" on the restricted-mode prompt (fallback `app.plugins.setEnable(true)`),
   if no modal is open and the editor has focus (`app.workspace.activeEditor.editor.focus()`).
 
 ## Run the plugin check (`plugin-check.js`)
-Drives the "Booklet" plugin in the real Obsidian and checks five things, each on its own fresh Obsidian launch,
+Drives the "Booklet" plugin in the real Obsidian and checks ten things, each on its own fresh Obsidian launch,
 its own fresh copy of the vault and its own scratch config folder (all under `<out>/work-<time>/`; `--vault` itself is
 never written to):
 1. a booklet note opens as the `booklet` view (file-explorer click and `getLeaf().openFile`), toggles to `markdown` and back (header actions and the command), and `Ordinary note.md` stays `markdown`;
 2. it draws natively: 3 choice buttons, 5 scale buttons, 1 text input, Obsidian-rendered markdown, no `iframe`; screenshots in light and dark in `<out>/shots/`;
 3. answers reach the records on disk (read with Node `fs`; text before the records region compared byte for byte; `lint-booklet.py` run), clearing an answer, and `Kept records.booklet.md` keeping every other record block;
 4. with the note open in a second pane as Markdown, real keyboard typing in that editor interleaved with answers in the booklet pane (both orders): nothing lost or doubled, buffer equals disk, cursor where typing left it;
-5. the booklet text field keeps focus (and every character) across its own debounced write, alone and with a Markdown pane open.
-It also lists console errors/warnings, `pageerror`s and Obsidian's stdout/stderr error lines, and the time each launch and check took.
+5. the booklet text field keeps focus (and every character) across its own debounced write, alone and with a Markdown pane open;
+6. `Every kind.booklet.md`: every common kind (choice, multi with an option of the reader's own, scale, long text, lines, number, date) answered and then cleared, with the answers block on disk compared to the expected values and to the reference renderer's layout; the first answer to a note with no records does not draw the view again; a new view shows every answer; each part not drawn yet says so;
+7. `Kept records.booklet.md` (`repeat`) and `Daily tracker.booklet.md` (`repeat daily`): answers go into the activity's draft on disk, survive the view being closed and opened again, and Finalize turns the draft into a dated entry (earlier entries byte for byte the same, the list in the view newest first, in words); for the daily one, the fields then show today's entry, Finalize with nothing changed is refused, and finishing again after a change replaces today's entry (still one entry for the day);
+8. check 7's two flows again with the note also open in a Markdown pane, with words typed into that editor between the steps: buffer equals disk, each typed word once, one entries block, no draft left, no `ts` twice;
+9. layout: in the dark theme a text box's border against its card (contrast measured), room at the view's foot (the last card ends above the status bar when scrolled to the end), and under Obsidian's own mobile emulation every control at least 44 px high; screenshots of the daily tracker (`tracker-light.png`, `tracker-dark.png`, and `-entries` scrolled to the kept days, `tracker-mobile.png`);
+10. no console error or warning that names the plugin, and no uncaught page error, over every check that ran.
+It also lists every console error/warning, `pageerror`s and Obsidian's stdout/stderr error lines, and the time each launch and check took.
 ```
 S=<the scratch folder of the setup above>
 PLAYWRIGHT=$S/npm/node_modules node plugin-check.js --obsidian $S/app/obsidian-1.14.5/obsidian \
   --vault ../test-vault --out $S/plugin-runs/<name> [--only 1,3] [--lint /workspace/booklet/lint-booklet.py]
 ```
-One `PASS`/`FAIL` line per check with its evidence lines indented under it; exit 1 on any FAIL. A full run takes about 70 s.
+One `PASS`/`FAIL` line per check with its evidence lines indented under it; exit 1 on any FAIL. A full run takes about two and a half minutes.
 Gotchas learned writing it: `executeCommandById` returns `true` for any registered command id even when its `checkCallback`
 refuses (use `app.commands.listCommands()` to see availability); a `workspace.iterate*Leaves` callback that returns a truthy
 value stops the iteration (so `l => r.push(x)` sees one leaf); with a Markdown pane open, answers go through its editor and
-reach disk only after Obsidian's own ~2 s autosave of that pane.
+reach disk only after Obsidian's own ~2 s autosave of that pane; Obsidian 1.14 draws a `Notice` in a window of its own, not in
+the main document, so the check finds that document through a probe notice; `app.emulateMobile(true)` reloads the app.
