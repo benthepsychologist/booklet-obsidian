@@ -16,8 +16,11 @@
 // when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), finished and kept,
 // in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
 // taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
-// left alone, in one pane and with a Markdown pane; 10 (run last) no error or warning from the plugin in Obsidian's
-// console, over every check that ran.
+// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16
+// ahead of the format): under every body place and under the thoughts, in a group named Earlier words, a tap storing
+// what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
+// Markdown pane, then touch sizes and screenshots at a phone's width; 10 (run last) no error or warning from the plugin
+// in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -27,7 +30,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1335,6 +1338,207 @@ async function check12() {
   return c;
 }
 
+/* ---------- the reader's earlier words offered again (earlier:): check 13, in one pane, with a Markdown pane, on a phone ---------- */
+// The check-in note is given kept entries first, written on disk before it is opened: two earlier days, and today's
+// entry (which the daily draft shows, and will replace). Every word in them is made up.
+const LONG13 = "A made-up thought that runs on for a long while, about a garden fence and the paint for it and the brushes and the weather " +
+  "that week, and then about the shed beside it and the rake and the hose and who might borrow them, so that it needs more than two lines anywhere";
+function withEarlier(file) {
+  const orig = fs.readFileSync(file, "utf8");
+  const day = n => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
+  const items = [
+    { ts: day(2) + "T09:00:00Z", feelings: ["tense"], felt: [{ pick: "tense", a: [5, "Elbow"] }], places: [{ id: "chest", s: ["prickly", "hollow", "tight"] }], where: [2, "Garden shed"], thoughts: ["The dentist on Friday", "rent"] },
+    { ts: day(1) + "T09:00:00Z", feelings: ["lively"], felt: [{ pick: "tense", a: ["Taken-back word"] }, { pick: "lively", a: [1, "Wrist"] }], places: [{ id: "stomach", s: ["buzzing"] }], thoughts: ["The car service", "Seeds to sow", LONG13] },
+    { ts: new Date(Date.now() - 60000).toISOString().replace(/\.\d{3}Z$/, "Z"), places: [{ id: "jaw", s: ["today-tingle"] }], thoughts: ["Today's own line"] },
+  ];
+  const body = '{"items": [\n' + items.map(e => JSON.stringify(e)).join(",\n") + "\n]}";
+  const text = orig.replace(/\s*$/, "\n\n") + "%%\n> [!records] App record — do not edit below this line\n\n> [!records|day-check] A short check-in\n\n```booklet entries today\n" + body + "\n```\n%%\n";
+  fs.writeFileSync(file, text);
+  return { text, body };
+}
+const thoughtsQ = o => inCard(o, CK, "[data-booklet-q='thoughts']");
+// the words offered in a group named Earlier words (none when it is not shown), and the group's name
+const earlierIn = (o, sel) => o.evaluate(sel => {
+  const g = document.querySelector(sel + " .booklet-earlier");
+  if (!g) return { drawn: false, words: [] };
+  const label = g.querySelector(".booklet-earlier-label"), row = g.querySelector("[role=group]");
+  return { drawn: true, shown: !g.classList.contains("booklet-earlier-none"), label: label && label.textContent, named: !!row && !!label && row.getAttribute("aria-labelledby") === label.id,
+    words: g.classList.contains("booklet-earlier-none") ? [] : [...g.querySelectorAll("button")].map(b => b.textContent.trim()), unpressed: [...g.querySelectorAll("button")].every(b => b.getAttribute("aria-pressed") === "false") };
+}, sel);
+const PANEL = cardSel(CK) + " [data-booklet-q='places'] .booklet-panel", THOUGHTS = cardSel(CK) + " [data-booklet-q='thoughts']";
+const earlierButton = (o, sel, words) => o.page.locator(sel + " .booklet-earlier button").filter({ hasText: words.length > 40 ? words.slice(0, 40) : new RegExp("^\\s*" + words + "\\s*$") }).first();
+const ownOffered = (o, sel) => o.evaluate(sel => [...document.querySelectorAll(sel + " button.booklet-own[aria-pressed=false]")].map(b => b.textContent.trim()), sel);
+// a long earlier word: shortened to two lines on screen, its full words its button's name
+const clampOf = (o, sel, words) => o.evaluate(([sel, words]) => {
+  const b = [...document.querySelectorAll(sel + " .booklet-earlier-word")].find(x => x.textContent.trim() === words);
+  if (!b) return null;
+  const s = b.querySelector(".booklet-words"), cs = getComputedStyle(s), lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.3;
+  return { name: b.getAttribute("aria-label") === words, clamp: cs.webkitLineClamp || cs.getPropertyValue("-webkit-line-clamp"), shown: Math.round(s.clientHeight), full: Math.round(s.scrollHeight), lines: +(s.clientHeight / lh).toFixed(1), height: Math.round(b.getBoundingClientRect().height) };
+}, [sel, words]);
+
+async function earlierFlow(c, o, vault, tag, typeInMd, prepped) {
+  const file = path.join(vault, CHECKIN);
+  const say = (cond, msg) => c.ok(cond, tag + ": " + msg);
+  const added = [];
+  const md = async w => { if (typeInMd) { await typeInMd(w); added.push(w); await viewShows(o, w); await sleep(400); } };
+  const strip = t => added.reduce((x, w) => x.split(" " + w).join(""), head(t));
+  const entriesBody = t => (blocksNamed(t, "booklet entries today")[0] || {}).body;
+  lintOk(c, file, tag, "with the earlier entries");
+  const problems = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems li")].map(x => x.textContent));
+  say(!problems.some(p => /takes no|earlier/.test(p)), "no setting of the note reported (each: and earlier: are drawn): " + JSON.stringify(problems));
+
+  // a body place: the earlier words under every place, after the widget's words; the answer's other places first
+  await place(o, "Feet").click(); await sleep(300);
+  let g = await earlierIn(o, PANEL);
+  say(g.shown && g.label === "Earlier words" && g.named && g.unpressed && same(g.words, ["today-tingle", "buzzing", "prickly", "hollow"]), "under Feet, a group named Earlier words: today's answer's other place first (it is the answer being written), then the earlier days' words, newest first, no word id: " + JSON.stringify(g));
+  const order = await o.evaluate(sel => [...document.querySelector(sel).children].map(x => x.className.split(" ").find(k => /^booklet-(sense-group|earlier|own-words|field-row)$/.test(k)) || "").filter(Boolean), PANEL);
+  say(order.lastIndexOf("booklet-sense-group") < order.indexOf("booklet-earlier") && order.indexOf("booklet-earlier") < order.indexOf("booklet-own-words"), "after the widget's words, before the reader's words at the place and the field: " + order.join(", "));
+  await place(o, "Jaw").click(); await sleep(300);
+  g = await earlierIn(o, PANEL);
+  say(same(g.words, ["buzzing", "prickly", "hollow"]), "under Jaw, where today-tingle is: " + JSON.stringify(g.words));
+  // today's word taken out: it does not come back from today's kept entry, which the draft will replace
+  await placesQ(o).locator(".booklet-panel .booklet-own-words button.booklet-own", { hasText: "today-tingle" }).click();
+  let d = await waitDisk(file, t => draftBody(t) === JSON.stringify({ thoughts: ["Today's own line"] }));
+  say(d.ok, "today-tingle pressed out: the draft holds today's entry's other answers: " + draftBody(d.text));
+  await place(o, "Feet").click(); await sleep(300);
+  g = await earlierIn(o, PANEL);
+  say(same(g.words, ["buzzing", "prickly", "hollow"]), "under Feet, today's kept entry is not a source: " + JSON.stringify(g.words));
+  await place(o, "Jaw").click(); await sleep(300);
+  // a tap: the words at the end of the place's row, a new row at the end of the answer, as typing them there stores them
+  await earlierButton(o, PANEL, "prickly").click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).places, [{ id: "jaw", s: ["prickly"] }]));
+  say(d.ok && draftBody(d.text) === JSON.stringify({ thoughts: ["Today's own line"], places: [{ id: "jaw", s: ["prickly"] }] }), "a tap on prickly under Jaw stores what typing it there stores: " + draftBody(d.text));
+  g = await earlierIn(o, PANEL);
+  say(same(g.words, ["buzzing", "hollow"]), "prickly is now at Jaw, and no longer offered there: " + JSON.stringify(g.words));
+  // half a word typed, then a tap: leaving the field adds what is typed, then the tap adds its words; nothing is dropped
+  await typeIn(o, placeField(o), "hol", false);
+  await earlierButton(o, PANEL, "hollow").click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).places, [{ id: "jaw", s: ["prickly", "hol", "hollow"] }]));
+  say(d.ok, "\"hol\" typed, then a tap on hollow: both stored, the typed words first: " + JSON.stringify((draftOf(d.text) || {}).places));
+  // Enter in the empty field takes no offered word
+  const was = draftBody(d.text);
+  await placeField(o).click(); await o.page.keyboard.press("Enter"); await sleep(1500);
+  say(draftBody(fs.readFileSync(file, "utf8")) === was, "Enter in the empty field takes no offered word");
+  await md("MD-BODY");
+
+  // the thoughts: earlier lines under the fields, as the line sets earlier:12
+  let t = await earlierIn(o, THOUGHTS);
+  const under = await o.evaluate(sel => { const g = document.querySelector(sel + " .booklet-earlier"); return !!g && !!g.previousElementSibling && g.previousElementSibling.classList.contains("booklet-lines"); }, THOUGHTS);
+  say(t.shown && t.label === "Earlier words" && t.named && under && same(t.words, ["The car service", "Seeds to sow", LONG13, "The dentist on Friday", "rent"]), "the thoughts: a group named Earlier words under the fields, newest first: " + JSON.stringify(t.words.map(w => w.slice(0, 24))));
+  const cl = await clampOf(o, THOUGHTS, LONG13);
+  say(!!cl && cl.name && String(cl.clamp) === "2" && cl.full > cl.shown + 4 && cl.lines <= 2.2, "the long line is shortened to two lines on screen, its full words its name: " + JSON.stringify(cl));
+  // today's line taken out: not offered, from today's entry
+  const lineField = n => thoughtsQ(o).locator("input.booklet-line").nth(n);
+  await lineField(0).click(); await o.page.keyboard.press("Control+A"); await o.page.keyboard.press("Backspace");
+  await blurNow(o);
+  d = await waitDisk(file, t => !("thoughts" in (draftOf(t) || {})));
+  t = await earlierIn(o, THOUGHTS);
+  say(d.ok && same(t.words, ["The car service", "Seeds to sow", LONG13, "The dentist on Friday", "rent"]), "today's line emptied: the draft has no thoughts, and today's kept entry is not a source: " + draftBody(d.text));
+  const fields = () => o.evaluate(sel => [...document.querySelectorAll(sel + " input.booklet-line")].map(i => i.value), THOUGHTS);
+  let before = await fields();
+  // a tap fills the empty line at the end and opens a new one, as typing in it does; the emptied line is left as it is
+  await earlierButton(o, THOUGHTS, "rent").click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).thoughts, ["", "rent", ""]));
+  say(d.ok && same(await fields(), ["", "rent", ""]), "a tap on rent: the empty last line takes it, a new empty line follows, the line emptied before is untouched (fields were " + JSON.stringify(before) + "): " + draftBody(d.text));
+  await typeIn(o, lineField(2), "Plan the week", false); await blurNow(o);
+  d = await waitDisk(file, t => same((draftOf(t) || {}).thoughts, ["", "rent", "Plan the week", ""]));
+  say(d.ok, "a line typed: " + JSON.stringify((draftOf(d.text) || {}).thoughts));
+  await earlierButton(o, THOUGHTS, LONG13).click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).thoughts, ["", "rent", "Plan the week", LONG13, ""]));
+  say(d.ok && same(await fields(), ["", "rent", "Plan the week", LONG13, ""]), "a tap on the long line stores its full words, the typed line unchanged");
+  const was2 = draftBody(d.text);
+  await lineField(4).click(); await o.page.keyboard.press("Enter"); await sleep(1500); await blurNow(o); await sleep(800);
+  say(draftBody(fs.readFileSync(file, "utf8")) === was2, "Enter in the empty line takes no offered word");
+  t = await earlierIn(o, THOUGHTS);
+  say(same(t.words, ["The car service", "Seeds to sow", "The dentist on Friday"]), "what is left offered: " + JSON.stringify(t.words));
+  await md("MD-THOUGHTS");
+
+  // own options: a shared list's, and a question asked for each feeling, only from the pairs whose pick is held
+  const where = await ownOffered(o, cardSel(CK) + " [data-booklet-q='where']");
+  say(same(where, ["Garden shed"]), "the list of places: its earlier own option offered: " + JSON.stringify(where));
+  await gridItem(o, "draining", "Tired").click(); await sleep(600);
+  const felt = await ownOffered(o, cardSel(CK) + " [data-booklet-q='felt'] .booklet-copy[data-booklet-pick='s:tired']");
+  say(same(felt, ["Wrist", "Elbow"]), "under Tired: the own places from the pairs whose feeling the entry holds, not Taken-back word: " + JSON.stringify(felt));
+  await copyOf(o, "s:tired").locator("button.booklet-own", { hasText: "Elbow" }).click();
+  d = await waitDisk(file, t => same((draftOf(t) || {}).felt, [{ pick: "tired", a: ["Elbow"] }]));
+  say(d.ok, "a tap on Elbow under Tired stores it as Add your own would: " + JSON.stringify((draftOf(d.text) || {}).felt));
+
+  if (typeInMd) await sleep(3500);
+  const last = fs.readFileSync(file, "utf8");
+  say(entriesBody(last) === prepped.body, "the kept entries are byte for byte as written");
+  say(strip(last) === head(prepped.text), "outside the records region only the words typed in the Markdown pane are new");
+  lintOk(c, file, tag, "at the end");
+  return { last, added };
+}
+
+/* ================= CHECK 13 ================= */
+async function check13() {
+  const c = new Check(13, "the reader's earlier words offered again (earlier:) on the check-in note with kept entries: under every body place and under the thoughts in a group named Earlier words, a tap storing what typing stores, today's entry not a source, own options only from pairs whose pick is held, a long line shortened; in one pane, with a Markdown pane, and at a phone's width (touch sizes, screenshots)");
+  await withApp("c13", async (o, vault) => {
+    const prepped = withEarlier(path.join(vault, CHECKIN));
+    await openNote(o, CHECKIN);
+    await earlierFlow(c, o, vault, "one pane", null, prepped);
+  });
+  await withApp("c13-md", async (o, vault) => {
+    const prepped = withEarlier(path.join(vault, CHECKIN));
+    await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
+    const s = await splitWithMarkdown(o, c, CHECKIN);
+    c.ok(same(s.types, ["booklet", "markdown"]) && s.leaves.every(l => l.file === CHECKIN), "with Markdown: two leaves on the same file: " + JSON.stringify(s.leaves.map(l => l.type)));
+    await o.page.waitForSelector(BOOK + " .booklet-place", { timeout: 8000 }); await sleep(800);
+    const typeInMd = async word => {
+      await o.evaluate(() => {
+        let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
+        app.workspace.setActiveLeaf(leaf, { focus: true });
+        const ed = leaf.view.editor; const n = ed.getValue().split("\n").findIndex(x => x.includes("any answer will do."));
+        ed.setCursor({ line: n, ch: ed.getLine(n).length }); ed.focus();
+      });
+      await o.page.keyboard.type(" " + word);
+    };
+    const { last, added } = await earlierFlow(c, o, vault, "with Markdown", typeInMd, prepped);
+    const buf = await mdBuffer(o);
+    c.ok(buf === last, "with Markdown: the Markdown buffer equals the file on disk: " + (buf === last) + (buf === last ? "" : " (buffer " + buf.length + ", disk " + last.length + ")"));
+    c.ok(added.every(w => count(last, w) === 1 && count(buf, w) === 1), "with Markdown: each added word once on disk and in the buffer: " + added.map(w => w + " x" + count(last, w)).join(", "));
+  });
+  // at a phone's width, under Obsidian's own mobile emulation: the groups drawn, every control at least 44 px high, no
+  // sideways scroll, and screenshots of the Earlier words under a body place and under the thoughts, light and dark
+  await withApp("c13-phone", async (o, vault) => {
+    withEarlier(path.join(vault, CHECKIN));
+    const canEmulate = await o.evaluate(() => typeof app.emulateMobile === "function");
+    if (!canEmulate) { c.ok(false, "phone: app.emulateMobile is not there"); return; }
+    await o.evaluate(() => app.emulateMobile(true));
+    await sleep(3000);
+    await o.page.waitForFunction(() => window.app && app.workspace && app.workspace.layoutReady, null, { timeout: 15000 }).catch(() => {});
+    const narrowed = await o.page.setViewportSize({ width: 390, height: 844 }).then(() => true, e => String(e).slice(0, 120));
+    c.ok(narrowed === true, "phone: the window made 390 px wide: " + narrowed);
+    await sleep(1200);
+    await openNote(o, CHECKIN);
+    await place(o, "Jaw").click(); await sleep(600);
+    const w = await o.evaluate(sel => {
+      const card = document.querySelector(sel);
+      const els = [...card.querySelectorAll("button, input.booklet-text")].filter(e => e.offsetParent);
+      const hs = els.map(e => ({ h: Math.round(e.getBoundingClientRect().height), what: e.className + " " + (e.textContent || e.placeholder || "").trim().slice(0, 20) }));
+      const view = document.querySelector(".workspace-leaf-content[data-type='booklet'] .view-content");
+      return { width: window.innerWidth, phone: document.body.classList.contains("is-phone"), n: els.length, min: Math.min(...hs.map(x => x.h)), small: hs.filter(x => x.h < 44), earlier: els.filter(e => e.closest(".booklet-earlier")).length, sideways: view.scrollWidth > view.clientWidth };
+    }, cardSel(CK));
+    c.ok(w.phone && w.min >= 44 && !w.sideways && w.earlier === 8, "phone (window " + w.width + " px, is-phone " + w.phone + "): " + w.n + " controls, " + w.earlier + " of them earlier words, the smallest " + w.min + " px high" + (w.small.length ? "; under 44: " + JSON.stringify(w.small) : "") + "; the view scrolls sideways: " + w.sideways);
+    const g = await earlierIn(o, PANEL), t = await earlierIn(o, THOUGHTS);
+    c.ok(same(g.words, ["buzzing", "prickly", "hollow"]) && same(t.words, ["The car service", "Seeds to sow", LONG13, "The dentist on Friday", "rent"]), "phone: under Jaw " + JSON.stringify(g.words) + "; under the thoughts " + t.words.length + " lines");
+    const cl = await clampOf(o, THOUGHTS, LONG13);
+    c.ok(!!cl && cl.name && cl.full > cl.shown + 4 && cl.lines <= 2.2 && cl.height >= 44, "phone: the long line shortened to two lines, its full words its name: " + JSON.stringify(cl));
+    for (const scheme of ["light", "dark"]) {
+      await o.setScheme(scheme); await sleep(700);
+      for (const [part, sel] of [["body", PANEL + " .booklet-earlier"], ["thoughts", THOUGHTS]]) {
+        await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "center" }), sel); await sleep(400);
+        c.info("phone, " + scheme + ", the Earlier words " + (part === "body" ? "under a body place" : "under the thoughts") + ": " + await o.screenshot(path.join(SHOTS, "earlier-" + part + "-phone-" + scheme + ".png")));
+        const box = part === "body" ? PANEL : THOUGHTS, f = path.join(SHOTS, "earlier-" + part + "-phone-" + scheme + "-close.png");
+        await o.page.locator(box).screenshot({ path: f });
+        c.info("phone, " + scheme + ", close up: " + f);
+      }
+    }
+  });
+  return c;
+}
+
 /* ================= CHECK 9 ================= */
 async function check9() {
   const c = new Check(9, "layout: the dark theme's text-box border, room at the view's foot, the grid's cell names on their colours, touch sizes (the tracker; the check-in note, also at a phone's width); the tracker's and check-in note's screenshots");
@@ -1458,6 +1662,7 @@ async function check10() {
   c.info("other console errors and warnings (Obsidian's own): " + otherPage.length + (otherPage.length ? " " + JSON.stringify(otherPage.map(r => r.where + ": " + r.text.slice(0, 160))) : ""));
   c.ok(!only.includes(11) || ["c11", "c11-md"].every(x => sessions.includes(x)), "the sessions watched include the widget check's two (one pane, with a Markdown pane): " + sessions.join(", "));
   c.ok(!only.includes(12) || ["c12", "c12-md"].every(x => sessions.includes(x)), "and the each: check's two: " + sessions.join(", "));
+  c.ok(!only.includes(13) || ["c13", "c13-md", "c13-phone"].every(x => sessions.includes(x)), "and the earlier words check's three (one pane, with a Markdown pane, at a phone's width): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }
@@ -1465,7 +1670,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
-  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12 };
+  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13 };
   for (const n of only) {
     const t0 = Date.now();
     let c;
