@@ -14,6 +14,7 @@
  */
 import { setIcon } from "obsidian";
 import { holdsSomething, type Activity, type AnswerValue, type Question } from "./core";
+import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
 
 /** Where a question's answer is kept: its module (scope), and its activity (a repeating one keeps a draft). */
@@ -45,8 +46,15 @@ export interface QuestionHost {
 	/** Words typed in a field that are not an answer yet (Add your own), kept across drawings of the view. */
 	heldOf(key: string): string;
 	hold(key: string, words: string): void;
-	/** The reader's own options for this question in the activity's earlier kept entries, newest first. */
-	earlierOwn(t: Target, q: Question): string[];
+	/**
+	 * The reader's own options to offer again, unpressed: `first` (for a question asked for each pick, the own options
+	 * under its other picks now), then those in the activity's earlier kept entries, newest first. Words listed as an
+	 * option, words in `now` (the answer shown) and repeats are left out first, and then at most 12 are taken
+	 * (booklet.html ownEarlier).
+	 */
+	earlierOwn(t: Target, q: Question, now: Array<number | string>, first?: string[]): string[];
+	/** Shows every question's answer again (waits while a press is under way). */
+	reshow(): void;
 	/** A new id for an element of this drawing. */
 	uid(): string;
 	/**
@@ -72,7 +80,7 @@ export const plainWords = (md: string): string =>
 		.replace(/[*_~=`]/g, "")
 		.replace(/\\(.)/g, "$1");
 
-const sameWords = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase();
+export const sameWords = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
 
 const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
 
@@ -139,11 +147,12 @@ function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Questio
 	else if (q.kind === "date") drawDate(host, box, t, q, key, label, locked);
 	else if (q.kind === "lines") drawLines(host, box, t, q, key, label, locked);
 	else if (q.kind === "scale") drawScale(host, box, t, q, key, label, locked);
+	else if (q.each) drawEach(host, box, t, q, key, label, locked);
 	else drawChoice(host, box, t, q, key, label, locked);
 	return box;
 }
 
-type Label = (el: HTMLElement) => void;
+export type Label = (el: HTMLElement) => void;
 
 function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const field = q.long ? box.createEl("textarea", { cls: "booklet-text booklet-long", attr: { rows: 4 } }) : box.createEl("input", { cls: "booklet-text", type: "text" });
@@ -319,21 +328,50 @@ export function pressed(b: HTMLElement, on: boolean): void {
 
 function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const multi = q.kind === "multi";
+	const picks = () => picksOf(host.answerOf(t, q));
+	const show = choiceBody(host, box, q, label, locked, {
+		picks,
+		put: (list) => host.answer(t, q, multi ? (list.length ? list : undefined) : list.length ? list[list.length - 1] : undefined),
+		offered: (now) => (q.open ? host.earlierOwn(t, q, now) : []),
+		ownKey: `${key}#own`,
+	});
+	if (q.options.some((o) => o.correct)) box.createDiv({ cls: "booklet-muted", text: "Marking an answer right or wrong is not yet supported." });
+	show();
+	host.onShow(key, show);
+}
+
+/** Where a choice's or a multi's options read and write their answer: the question's own, or one pick's (each:). */
+export interface ChoiceIO {
+	/** The positions and own options picked now. */
+	picks(): Array<number | string>;
+	/** The picks set to `list` (empty: none). */
+	put(list: Array<number | string>): void;
+	/** Own options to offer again, unpressed, given the picks shown now (QuestionHost.earlierOwn). */
+	offered(now: Array<number | string>): string[];
+	/** The key under which the view holds what is typed in the Add your own field and not added yet. */
+	ownKey: string;
+}
+
+/**
+ * A choice's or a multi's options as buttons, the reader's own options (pressed, and offered again), the picked
+ * options' replies, and with `open` a field to add one's own (Enter or Add, as booklet.html's drawChoice). Returns the
+ * function that shows the picks again.
+ */
+export function choiceBody(host: QuestionHost, box: HTMLElement, q: Question, label: Label, locked: boolean, io: ChoiceIO): () => void {
+	const multi = q.kind === "multi";
 	const graded = q.options.some((o) => o.correct);
 	const row = box.createDiv({ cls: "booklet-choices" });
 	row.setAttr("role", "group");
 	label(row);
-	const picks = () => picksOf(host.answerOf(t, q));
-	const put = (list: Array<number | string>) => host.answer(t, q, multi ? (list.length ? list : undefined) : list.length ? list[list.length - 1] : undefined);
 	const toggle = (n: number | string) => {
-		const c = picks();
+		const c = io.picks();
 		const on = c.includes(n);
-		put(on ? c.filter((x) => x !== n) : multi ? [...c, n] : [n]);
+		io.put(on ? c.filter((x) => x !== n) : multi ? [...c, n] : [n]);
 	};
 	const addOwn = (words: string) => {
 		const s = words.trim();
 		if (!s) return;
-		const c = picks();
+		const c = io.picks();
 		// words equal to a listed option press that option instead (SPEC section 5)
 		const at = q.options.findIndex((o) => sameWords(plainWords(o.text), s));
 		if (at >= 0) {
@@ -341,7 +379,7 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			return;
 		}
 		if (c.some((x) => typeof x === "string" && sameWords(x, s))) return;
-		put(multi ? [...c, s] : [s]);
+		io.put(multi ? [...c, s] : [s]);
 	};
 
 	const listed = q.options.map((o, idx) => {
@@ -354,19 +392,18 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 		});
 		return button;
 	});
-	// the reader's own options (`open`): those in the answer, pressed; those from earlier kept entries, offered again
+	// the reader's own options (`open`): those in the answer, pressed; those offered again, after them
 	const ownBox = row.createDiv({ cls: "booklet-own-picks" });
 	const replies = box.createDiv({ cls: "booklet-replies" });
 	replies.setAttr("aria-live", "polite");
-	if (graded) box.createDiv({ cls: "booklet-muted", text: "Marking an answer right or wrong is not yet supported." });
 
 	let ownSig = "";
 	let replySig = "";
 	const show = () => {
-		const c = picks();
+		const c = io.picks();
 		listed.forEach((b, n) => pressed(b, c.includes(n + 1)));
 		const own = c.filter((x): x is string => typeof x === "string");
-		const earlier = q.open ? host.earlierOwn(t, q).filter((s) => !own.some((x) => sameWords(x, s)) && !q.options.some((o) => sameWords(plainWords(o.text), s))) : [];
+		const earlier = io.offered(c);
 		const sig = JSON.stringify([own, earlier]);
 		if (sig !== ownSig) {
 			ownSig = sig;
@@ -380,7 +417,7 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 				b.disabled = locked;
 				b.addEventListener("click", (evt) => {
 					evt.preventDefault();
-					put(picks().filter((x) => x !== s));
+					io.put(io.picks().filter((x) => x !== s));
 				});
 			}
 			for (const s of earlier) {
@@ -408,25 +445,22 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			}
 		}
 	};
-	show();
-	host.onShow(key, show);
 
 	if (q.open) {
 		const ownRow = box.createDiv({ cls: "booklet-field-row booklet-own-row" });
 		const field = ownRow.createEl("input", { cls: "booklet-text", type: "text", attr: { placeholder: "Add your own", autocomplete: "off" } });
-		const ownKey = `${key}#own`;
-		field.setAttr("data-booklet-key", ownKey);
+		field.setAttr("data-booklet-key", io.ownKey);
 		label(field);
 		field.disabled = locked;
 		// words typed and not added yet are not an answer; they are kept if the view is drawn again
-		field.value = host.heldOf(ownKey);
-		field.addEventListener("input", () => host.hold(ownKey, field.value));
+		field.value = host.heldOf(io.ownKey);
+		field.addEventListener("input", () => host.hold(io.ownKey, field.value));
 		const add = ownRow.createEl("button", { cls: "booklet-add", text: "Add" });
 		add.disabled = locked;
 		const go = () => {
 			const s = field.value;
 			field.value = "";
-			host.hold(ownKey, "");
+			host.hold(io.ownKey, "");
 			addOwn(s);
 		};
 		field.addEventListener("keydown", (evt) => {
@@ -440,4 +474,5 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			field.focus();
 		});
 	}
+	return show;
 }

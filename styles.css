@@ -564,3 +564,35 @@
 .booklet-none {
 	display: none;
 }
+
+/* a question asked for each pick (each:): one copy for each pick, under a subheading in the pick's words */
+.booklet-each-none {
+	display: none;
+}
+
+.booklet-copies {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-4);
+}
+
+.booklet-copy {
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+	padding-inline-start: var(--size-4-3);
+}
+
+.booklet-pick-head {
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pick-head p {
+	display: inline;
+	margin: 0;
+}
+
+/* a copy whose pick was taken back while the reader was in it: it goes when they leave it */
+.booklet-copy-gone {
+	opacity: 0.6;
+}
