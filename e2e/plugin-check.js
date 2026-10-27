@@ -501,7 +501,7 @@ async function check6() {
     await question(o, K, "number").locator("input").click(); await o.page.keyboard.type("7");
     await question(o, K, "date").locator("input[type=date]").fill("2026-10-20");
     await o.evaluate(() => document.activeElement && document.activeElement.blur());
-    const want = { fruit: 1, tools: [3, 1, "Glue"], sure: 3, thoughts: "Fold along the line", steps: ["Cut", "Fold"], boxes: 7, "fold-day": "2026-10-20" };
+    const want = { fruit: 1, tools: [3, 1, "Glue"], sure: 3, thoughts: "Fold along the line", steps: ["Cut", "Fold", ""], boxes: 7, "fold-day": "2026-10-20" };
     const got = await waitDisk(file, t => same(answersOf(t), want));
     c.ok(got.ok, "every common kind on disk: " + JSON.stringify(answersOf(got.text)));
     const body = (blocksNamed(got.text, "booklet answers")[0] || {}).body;

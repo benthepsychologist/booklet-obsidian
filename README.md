@@ -15,11 +15,11 @@ Version 0.1.0. It reads format 0.15 (`SPEC.md` in the Booklet repository). It is
   | `multi` | buttons that toggle | a list of positions, in the order picked |
   | `scale` | one button per anchor | the anchor's number |
   | `text` | a text field (`long`: a larger box) | the text as typed |
-  | `lines` | one field per line, a new one as you type | a list of strings |
+  | `lines` | one field per line, a new one as you type | a list of strings, one per field |
   | `number` | a number field (`min:`, `max:`, `step:`) | a number |
   | `date` | a date field, with Clear | `YYYY-MM-DD` |
 
-  A `choice` or `multi` with `open` takes options of your own, stored as their words; in a repeating activity, the ones from earlier entries are offered again. An option's reply (the indented lines under it) shows when it is picked.
+  A `lines` answer lists every field as the reference renderer does, so a blank line, and the empty field at the end, are in it as `""`; a kept entry leaves them out. A `choice` or `multi` with `open` takes options of your own, stored as their words; in a repeating activity, the ones from earlier entries are offered again. An option's reply (the indented lines under it) shows when it is picked.
 - **Activities that repeat** (`repeat`): what you type is kept as the activity's draft (a `booklet draft <activity>` block), so it is still there when you come back. **Finalize** keeps the draft as a dated entry (in a `booklet entries <activity>` block, with a `ts` such as `2026-10-27T18:30:00Z`) and empties the fields. The kept entries are listed under the activity, newest first, each with its date and its answers in words from the note's own lists.
 - **`repeat daily`**: one kept entry a day. Once today's is kept, the fields show it; change an answer and Finalize again to replace it. "Today" is the device's own calendar day.
 

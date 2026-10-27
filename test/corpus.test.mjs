@@ -26,7 +26,10 @@ const canLint = pythonAvailable();
 if (!canLint) console.log("# (d) skipped: python3 or the linter (BOOKLET_LINTER) is not available");
 
 const TEXT_ANSWER = 'A made-up answer, with "quotes", a backslash \\ and %% in it';
-const LINES = ["A first made-up line", 'A second, with "quotes"'];
+/** A lines answer as the view (and the reference renderer) stores it: every field, the empty one at the end included. */
+const LINES = ["A first made-up line", 'A second, with "quotes"', ""];
+/** What a kept entry holds for an answer: a lines answer without its blank lines. */
+const keptValue = (q, v) => (q.kind === "lines" && Array.isArray(v) ? v.filter((x) => x.trim()) : v);
 const DATE = "2026-10-27";
 /** A fixed calendar, so the run does not depend on the machine's clock or time zone. */
 const RULE = { today: "2026-10-27", dayOf: (ts) => String(ts).slice(0, 10) };
@@ -211,7 +214,7 @@ for (const file of corpusFiles()) {
 			const e = norm(now.find((x) => x.ts === f.entry.ts));
 			assert.ok(e, `${a.id}: the new entry is there`);
 			assert.match(e.ts, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
-			for (const s of set.filter((x) => x.act === a)) assert.deepEqual(e[s.q.id], norm(s.value), `${a.id}: the entry keeps ${s.q.id}`);
+			for (const s of set.filter((x) => x.act === a)) assert.deepEqual(e[s.q.id], norm(keptValue(s.q, s.value)), `${a.id}: the entry keeps ${s.q.id}`);
 			for (const old of was) if (!(f.replaced && RULE.dayOf(old.ts) === RULE.today)) assert.ok(now.some((x) => x.ts === old.ts), `${a.id}: the entry ${old.ts} is kept`);
 			assertLints(kept, `finalize ${a.id}`);
 

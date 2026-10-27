@@ -162,9 +162,11 @@ function drawLines(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 	list.setAttr("role", "group");
 	label(list);
 	let inputs: HTMLInputElement[] = [];
+	// every field's text, blank ones and the empty one at the end included, as the reference renderer stores a
+	// lines answer (booklet.html drawLines); a kept entry leaves the blank lines out (finalizeDraft)
 	const commit = () => {
-		const lines = inputs.map((i) => i.value).filter((v) => holdsSomething(v));
-		host.typed(t, q, lines.length ? lines : undefined);
+		const lines = inputs.map((i) => i.value);
+		host.typed(t, q, lines.some((v) => holdsSomething(v)) ? lines : undefined);
 	};
 	const add = (value: string) => {
 		const inp = list.createEl("input", { cls: "booklet-text booklet-line", type: "text" });
