@@ -98,6 +98,13 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private writes: Promise<void> = Promise.resolve();
 	/** The note's text was handed over while a Markdown pane of it held a different text: follow that pane's next change. */
 	private following = false;
+	/** A press has ended and its click has not come yet: the buttons are still kept (see syncWidgets). */
+	private pressTail = false;
+	private tailTimer: number | null = null;
+	/** Answers to show again once the press under way is over. */
+	private showPending = false;
+	/** Each widget field for words of the reader's own, by key: what adds the words typed in it (see keepOwn). */
+	private ownFields = new Map<string, { t: Target; commit: () => void }>();
 	/** Activities whose whole list of kept entries is open. */
 	private showAll = new Set<string>();
 	private seq = 0;
@@ -119,7 +126,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 		// A drawing that waits (see update) is made once the reader has left the field and no press is under way. A
 		// press moves focus out of a field before its click, so the button under the pointer is kept until the click.
 		this.registerDomEvent(this.contentEl, "focusout", () => this.settleSoon(0));
-		this.registerDomEvent(this.contentEl, "click", () => this.settleSoon(0));
+		this.registerDomEvent(this.contentEl, "click", () => {
+			// the click's own handler has run: what waited to be shown is shown now
+			this.endPressTail();
+			this.settleSoon(0);
+		});
 		this.registerDomEvent(this.contentEl, "pointerdown", () => this.pressBegan(), { capture: true });
 		// a change to the file that a Markdown pane of the note takes into its editor after this view was handed it (see setViewData)
 		this.registerEvent(
@@ -132,6 +143,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.register(() => {
 			this.cancelSettle();
 			this.pressing = false;
+			this.endPressTail();
 		});
 	}
 
@@ -156,23 +168,24 @@ export class BookletView extends TextFileView implements QuestionHost {
 	}
 
 	setViewData(data: string, clear: boolean): void {
-		if (clear || !this.book) {
-			this.text = data;
-			this.data = data;
-			this.draw(true);
-			return;
-		}
 		// While the note is also open as Markdown, that pane's editor holds the newest text: what was typed there, and
 		// every answer this view has written into it since it was last saved. The text handed over is the file as last
 		// saved, which can be older (a Markdown pane saves as it loses focus, so a press in this view can land in the
-		// editor before the save's text is handed over), and taking it would take back answers just given. So the
-		// editor's text is taken. A change made to the file elsewhere reaches that editor a moment after this view is
-		// handed it, and is followed from there.
+		// editor before the save's text is handed over; and a note opened again here while that pane has not saved
+		// yet is handed the file), and taking it would take back answers just given. So the editor's text is taken. A
+		// change made to the file elsewhere reaches that editor a moment after this view is handed it, and is followed
+		// from there.
 		const md = this.file ? this.markdownViewOf(this.file) : null;
 		const live = md ? md.editor.getValue() : "";
 		if (md && live && live !== data) {
 			this.following = true;
 			data = live;
+		}
+		if (clear || !this.book) {
+			this.text = data;
+			this.data = data;
+			this.draw(true);
+			return;
 		}
 		this.take(data);
 	}
@@ -202,8 +215,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.cancelSettle();
 		this.stale = false;
 		this.pressing = false;
+		this.endPressTail();
+		this.showPending = false;
 		this.following = false;
 		this.widgets.clear();
+		this.ownFields.clear();
 		this.showAll.clear();
 		this.text = "";
 		this.data = "";
@@ -214,8 +230,10 @@ export class BookletView extends TextFileView implements QuestionHost {
 	}
 
 	override async onUnloadFile(file: TFile): Promise<void> {
-		// write what was typed and is still waiting, before the view lets go of the file
+		// write what was typed and is still waiting, and a widget's own words typed and not added yet, before the view
+		// lets go of the file
 		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
+		this.flushOwn(null);
 		await this.writes;
 		await super.onUnloadFile(file);
 	}
@@ -247,6 +265,15 @@ export class BookletView extends TextFileView implements QuestionHost {
 
 	onShow(key: string, show: () => void): void {
 		this.widgets.set(key, show);
+	}
+
+	keepOwn(key: string, t: Target, commit: () => void): void {
+		this.ownFields.set(key, { t, commit });
+	}
+
+	/** Adds the own words typed and not added yet in widget fields (of one activity, or all), as leaving each field would. */
+	private flushOwn(a: Activity | null): void {
+		for (const [key, f] of [...this.ownFields]) if (this.held.get(key) && (!a || sameAct(f.t.activity, a))) f.commit();
 	}
 
 	heldOf(key: string): string {
@@ -320,6 +347,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 		const book = parseBooklet(this.text);
 		this.book = book;
 		this.widgets.clear();
+		this.ownFields.clear();
 		if (this.drawing) this.removeChild(this.drawing);
 		this.drawing = this.addChild(new Component());
 		const root = this.contentEl;
@@ -516,8 +544,27 @@ export class BookletView extends TextFileView implements QuestionHost {
 		return shownDraft(this.book, a.scope, a, this.dayRule());
 	}
 
+	/**
+	 * Shows every question's answer again. While a press is under way (from the pointer going down to its click), this
+	 * waits: leaving a field for words of the reader's own adds them at once (the press's blur), and showing that could
+	 * take away the button under the pointer (a summary row, an own word) before its click. The click's handler reads
+	 * the answer as it is then, so it lands after the added words, as in booklet.html; then everything is shown.
+	 */
 	private syncWidgets(): void {
+		if (this.pressing || this.pressTail) {
+			this.showPending = true;
+			return;
+		}
+		this.showPending = false;
 		for (const show of this.widgets.values()) show();
+	}
+
+	/** The press is over (its click has come, or it never will): show what waited. */
+	private endPressTail(): void {
+		if (this.tailTimer !== null) window.clearTimeout(this.tailTimer);
+		this.tailTimer = null;
+		this.pressTail = false;
+		if (this.showPending && !this.pressing) this.syncWidgets();
 	}
 
 	/*
@@ -538,9 +585,9 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.syncWidgets();
 	}
 
-	/** Is the reader in the middle of an answer (a field of this view has focus, or holds typing not yet written) or of a press? */
+	/** Is the reader in the middle of an answer (a field of this view has focus, or holds typing not yet written) or of a press (until its click)? */
 	private busy(): boolean {
-		if (this.pressing || this.pending.size) return true;
+		if (this.pressing || this.pressTail || this.pending.size) return true;
 		const el = this.contentEl.ownerDocument.activeElement;
 		return !!el && this.contentEl.contains(el) && (el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement));
 	}
@@ -576,7 +623,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private pressEnded(): void {
 		if (!this.pressing) return;
 		this.pressing = false;
-		// the click that ends most presses comes next and settles at once; this is for a press with no click
+		// the click that ends most presses comes next and settles at once; this is for a press with no click (on a
+		// touch screen the field is left, and the click comes, only after the pointer is lifted)
+		this.pressTail = true;
+		if (this.tailTimer !== null) window.clearTimeout(this.tailTimer);
+		this.tailTimer = window.setTimeout(() => this.endPressTail(), PRESS_END_MS);
 		this.settleSoon(PRESS_END_MS);
 	}
 
@@ -609,6 +660,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */
 	private finalize(a: Activity): void {
 		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, a)) this.flushTyped(p.t, p.q);
+		this.flushOwn(a);
 		const file = this.file;
 		if (!file) return;
 		let done: Finalized | null = null;

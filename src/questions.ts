@@ -37,6 +37,11 @@ export interface QuestionHost {
 	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null;
 	/** Registers the function that shows the question's answer again. */
 	onShow(key: string, show: () => void): void;
+	/**
+	 * A widget's field for words of the reader's own: `commit` adds what is typed in it, as leaving the field does. The
+	 * view calls it for words typed and not added yet before it lets go of the note, and before a Finalize.
+	 */
+	keepOwn(key: string, t: Target, commit: () => void): void;
 	/** Words typed in a field that are not an answer yet (Add your own), kept across drawings of the view. */
 	heldOf(key: string): string;
 	hold(key: string, words: string): void;
