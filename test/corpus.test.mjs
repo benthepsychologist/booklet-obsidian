@@ -1,8 +1,12 @@
 /*
  * Over every example in the booklet repository, every kit starter and every test-vault note, as the
  * reader would use them:
- *   answer   every question of the seven common kinds, in every activity: into the answers of an
- *            activity answered once, into the draft of a `repeat` one;
+ *   answer   every question of the seven common kinds (a choice or a multi whose options come from a
+ *            shared menu among them), and every widget the plugin draws (a grid-select: an item pressed
+ *            and a word of the reader's own; an svg-regions: a sense word and a word of the reader's own
+ *            in one region, a word of their own in another), worked out by the core's engine functions
+ *            as the view works them out, in every activity: into the answers of an activity answered
+ *            once, into the draft of a `repeat` one;
  *   keep     Finalize every `repeat` activity that holds a draft; for a `repeat daily` one, change an
  *            answer and finalize again the same day, which replaces that day's entry;
  *   clear    clear every answer that was set.
@@ -36,9 +40,37 @@ const RULE = { today: "2026-10-27", dayOf: (ts) => String(ts).slice(0, 10) };
 const TS = "2026-10-27T12:00:00Z";
 const TS_AGAIN = "2026-10-27T18:30:00Z";
 
+const OWN_WORD = 'a made-up "word" of my own';
+
+/** Whether the view lets the reader answer this question (a widget it draws, not read-only). */
+const answerable = (q) => q.kind !== "widget" || (!!q.widget && !q.readonly && core.ENGINES.includes(core.engineOf(q.widget.data)));
+
+/** A widget's answer, made by the core's engine functions as the view makes it from presses and typing. */
+function widgetValue(q) {
+	if (!answerable(q)) return undefined;
+	const data = q.widget.data;
+	if (core.engineOf(data) === "grid-select") {
+		const g = core.gridOf(data);
+		let v = [];
+		if (g.items.length) v = core.gridToggle(v, g.items[0].id);
+		if (g.cells.length) v = core.gridAddOwn(g, v, g.cells[0].id, OWN_WORD);
+		return v.length ? v : undefined;
+	}
+	const rg = core.regionsOf(data);
+	const places = [...new Set([...rg.chips, ...rg.regions.map((r) => r.id)])];
+	if (!places.length) return undefined;
+	const word = rg.senses.flatMap((x) => x.words)[0];
+	let v = word ? core.regionToggleWord([], places[0], word.id) : [];
+	v = core.regionAddOwn(rg, v, places[0], OWN_WORD);
+	if (places[1]) v = core.regionAddOwn(rg, v, places[1], "another made-up word");
+	return v;
+}
+
 /** The value each common kind is given: the reference renderer's stored shape for it. */
 function valueFor(q) {
 	switch (q.kind) {
+		case "widget":
+			return widgetValue(q);
 		case "choice":
 			return q.options.length ? q.options.length : "An option of my own";
 		case "multi": {
@@ -67,6 +99,7 @@ function otherValueFor(q) {
 	if (q.kind === "lines") return ["Only one line now"];
 	if (q.kind === "scale" && q.anchors.length) return q.anchors[0].n;
 	if (q.kind === "choice" && q.options.length) return 1;
+	if (q.kind === "widget") return core.engineOf(q.widget.data) === "grid-select" ? ["x|cell|changed later"] : [{ id: "somewhere", s: ["changed later"] }];
 	return ["Something else of my own"];
 }
 
@@ -171,7 +204,7 @@ for (const file of corpusFiles()) {
 			}
 		}
 		const kinds = new Set(set.map((s) => s.q.kind));
-		const common = new Set(book.activities.flatMap((a) => a.segments.filter((s) => s.type === "question").map((s) => s.kind)));
+		const common = new Set(book.activities.flatMap((a) => a.segments.filter((s) => s.type === "question" && answerable(s)).map((s) => s.kind)));
 		for (const k of common) assert.ok(kinds.has(k), `the ${k} questions were answered`);
 		if (!set.length) {
 			// a file with no question this plugin draws (a status page of queries): an answer for an id the
@@ -214,7 +247,11 @@ for (const file of corpusFiles()) {
 			const e = norm(now.find((x) => x.ts === f.entry.ts));
 			assert.ok(e, `${a.id}: the new entry is there`);
 			assert.match(e.ts, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
-			for (const s of set.filter((x) => x.act === a)) assert.deepEqual(e[s.q.id], norm(keptValue(s.q, s.value)), `${a.id}: the entry keeps ${s.q.id}`);
+			for (const s of set.filter((x) => x.act === a)) {
+				assert.deepEqual(e[s.q.id], norm(keptValue(s.q, s.value)), `${a.id}: the entry keeps ${s.q.id}`);
+				// a kept widget answer, a menu's positions among them, reads back in words
+				if (s.q.kind === "widget" || s.q.menu) assert.ok(core.answerWords(s.q, e[s.q.id]), `${a.id}: the kept ${s.q.id} reads back in words`);
+			}
 			for (const old of was) if (!(f.replaced && RULE.dayOf(old.ts) === RULE.today)) assert.ok(now.some((x) => x.ts === old.ts), `${a.id}: the entry ${old.ts} is kept`);
 			assertLints(kept, `finalize ${a.id}`);
 

@@ -5,3 +5,4 @@ export * from "./records";
 export * from "./reader";
 export * from "./write";
 export * from "./words";
+export * from "./widgets";

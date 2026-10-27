@@ -1,8 +1,9 @@
 /*
- * Reads a booklet's design: its front matter and marker, its module fences, its activities, and the
- * seven common question kinds this plugin draws (choice, multi, scale, text, lines, number, date).
- * Everything else is recorded, by kind and title, as not yet supported. Plain TypeScript: nothing here
- * imports Obsidian.
+ * Reads a booklet's design: its front matter and marker, its module fences, the booklet's and each
+ * module's opening, its activities, the seven common question kinds (choice, multi, scale, text, lines,
+ * number, date), the widget questions with the widget blocks they embed, and the shared menus a choice
+ * or a multi takes its options from. Everything else is recorded, by kind and title, as not yet
+ * supported. Plain TypeScript: nothing here imports Obsidian.
  */
 import {
 	CALLOUT_ANY,
@@ -38,7 +39,44 @@ export interface Anchor {
 
 /** The question kinds this plugin draws and answers. */
 export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date"] as const;
-export type QuestionKind = (typeof COMMON_KINDS)[number];
+/** The question kinds this plugin draws and answers: the seven common ones, and a widget (SPEC section 7). */
+export type QuestionKind = (typeof COMMON_KINDS)[number] | "widget";
+
+/**
+ * A `booklet widget` block: JSON data, never code (SPEC section 7). It belongs to the module whose fence
+ * holds it, or whose data section (`> [!data|module-id]`) it sits in; `module` is null for a shared one
+ * (outside every fence, or in the plain data section), as booklet.html reads it.
+ */
+export interface WidgetBlock {
+	id: string;
+	module: string | null;
+	/** The block's JSON object, as read. */
+	data: Record<string, unknown>;
+	line: number;
+}
+
+/** A shared menu (`> [!menu|id]` and its bullets): `module` as for a widget block. */
+export interface MenuBlock {
+	id: string;
+	module: string | null;
+	/** Each bullet's words, inline Markdown. */
+	items: string[];
+	line: number;
+}
+
+/**
+ * The booklet's opening (`module` null) or a module's (SPEC section 3): the prose and reading callouts
+ * before the file's first module or activity line, or inside a module's fence before its first activity
+ * (its notice and tab lines aside). `title` is what the opening stands under: the booklet's front matter
+ * title or the module's title. A leading heading that repeats it is taken out of `markdown`, since the
+ * title is drawn once (SPEC section 3).
+ */
+export interface Opening {
+	module: string | null;
+	title: string;
+	markdown: string;
+	line: number;
+}
 
 export interface Question {
 	type: "question";
@@ -60,6 +98,15 @@ export interface Question {
 	min: number | null;
 	max: number | null;
 	step: number | null;
+	/** A choice's or a multi's shared menu (`menu:id`) when its options came from it, else null. Its answers are positions in the menu. */
+	menu: string | null;
+	/** A widget question: the block id its body embeds (`![[#^id]]`). */
+	embed: string | null;
+	/** The widget block found for the embed, looked up as SPEC section 4 says (its own module, then the shared blocks); null when there is none. */
+	widget: WidgetBlock | null;
+	/** A widget line's `readonly` (shown, not operated) and `describe` (what each part says about itself). */
+	readonly: boolean;
+	describe: boolean;
 }
 
 export interface Prose {
@@ -77,7 +124,7 @@ export interface TabHeading {
 
 export interface Unsupported {
 	type: "unsupported";
-	/** The line's kind, or `query`, `menu-list` (a choice or multi whose options come from a shared menu), `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
+	/** The line's kind, or `query`, `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
 	kind: string;
 	id: string | null;
 	title: string;
@@ -121,14 +168,18 @@ export interface Booklet {
 	activities: Activity[];
 	/** What could not be read, first among them a note about another 0.x marker. */
 	problems: string[];
-	/** Parts of the design this view does not draw yet, outside every activity: a module's (or the booklet's) opening, a module's notice. */
+	/** The booklet's opening and each module's, in file order. */
+	openings: Opening[];
+	widgets: WidgetBlock[];
+	menus: MenuBlock[];
+	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
 	unshown: Unshown[];
 	records: RecordsRead;
 }
 
-/** A part outside every activity that is not drawn yet: `scope` is the module's id ("" outside every module). */
+/** A part outside every activity that is not drawn yet: `scope` is the module's id. */
 export interface Unshown {
-	kind: "opening" | "notice";
+	kind: "notice";
 	scope: string;
 	line: number;
 }
@@ -293,6 +344,37 @@ function claimEnd(kind: string, lines: readonly string[], i: number): number {
 
 const stripQuote = (l: string) => l.replace(/^>[ \t]?/, "");
 
+/** The embed in a widget line's body that names its data block (booklet.html's widget question). */
+const WIDGET_EMBED = /!\[\[[^\]#|]*#\^([A-Za-z0-9-]+)[^\]]*\]\]/;
+/** A heading line's words, trailing spaces and marks off (booklet.html HEADING_WORDS). */
+const HEADING_WORDS = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/;
+/** The scope of the ids of menus shared by every module (outside every fence, or in the plain data section). */
+const SHARED = "\u0000shared";
+
+/** Inline Markdown's words without their marks, compared without case or the spaces around them. */
+const plainWords = (md: string): string =>
+	md
+		.replace(/!?\[([^\]]*)\]\([^)]*\)/g, "$1")
+		.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, "$1")
+		.replace(/[*_~=`]/g, "")
+		.replace(/\\(.)/g, "$1")
+		.trim()
+		.toLowerCase();
+
+/** An opening's lines as Markdown: the blank lines around it off, and a leading heading that repeats `title` off too. */
+function openingMarkdown(ls: readonly string[], title: string): string {
+	let from = 0;
+	let to = ls.length;
+	while (from < to && isBlank(ls[from])) from++;
+	while (to > from && isBlank(ls[to - 1])) to--;
+	const h = from < to ? HEADING_WORDS.exec(ls[from] ?? "") : null;
+	if (h && title && plainWords(h[1] ?? "") === plainWords(title)) {
+		from++;
+		while (from < to && isBlank(ls[from])) from++;
+	}
+	return ls.slice(from, to).join("\n");
+}
+
 /**
  * Reads a booklet. Never throws on a file's content: what it cannot read goes into `problems`, and a
  * file it must refuse (no marker, a non-0.x marker, broken module fences, an id used twice in a
@@ -321,21 +403,57 @@ export function parseBooklet(text: string): Booklet {
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
 	const unshown: Unshown[] = [];
+	const widgets: WidgetBlock[] = [];
+	const menus: MenuBlock[] = [];
+	const menuUses: { q: Question; act: Activity; menu: string; module: string | null; line: number }[] = [];
+	const openingLines = new Map<string | null, { lines: string[]; line: number }>();
 	const at = (i: number) => `Line ${i + 1}`;
 
 	let mod: Module | null = null;
 	let act: Activity | null = null;
 	let section: "content" | "data" = "content";
+	/** The module a data section's blocks belong to (`> [!data|module-id]`), or null for the plain data section. */
+	let dataMod: Module | null = null;
+	/** A module or an activity line has been met: text outside every activity is no longer the booklet's opening. */
+	let started = false;
 	let buf: string[] = [];
 	let bufAt = 0;
 
-	const claimId = (id: string | null, i: number) => {
+	/** The module a block or a menu here belongs to, or null for a shared one (booklet.html scopeMod). */
+	const blockModule = (): string | null => (section === "content" ? (mod ? mod.id : null) : dataMod ? dataMod.id : null);
+	const claimId = (id: string | null, i: number, scope: string = mod ? mod.id : "") => {
 		if (!id) return;
-		const scope = mod ? mod.id : "";
 		const set = idsByScope.get(scope) ?? new Set<string>();
 		idsByScope.set(scope, set);
-		if (set.has(id)) refusals.push(`${at(i)}: the id "${id}" is used twice in ${scope ? `the module "${scope}"` : "the activities outside every module"}.`);
+		const where = scope === SHARED ? "the menus every module shares" : scope ? `the module "${scope}"` : "the activities outside every module";
+		if (set.has(id)) refusals.push(`${at(i)}: the id "${id}" is used twice in ${where}.`);
 		set.add(id);
+	};
+	const readMenu = (id: string | null, i: number) => {
+		const module = blockModule();
+		claimId(id, i, module ?? SHARED);
+		const r = listUnder(lines, bodyEnd(lines, i), BULLET_RE, (m) => (m[1] ?? "").trim());
+		// a menu with no bullets under it holds nothing a question could take (booklet.html onMenu)
+		if (id && r) menus.push({ id, module, items: r.items, line: i + 1 });
+	};
+	const readWidget = (i: number, close: number, id: string | null) => {
+		const where = at(i);
+		let data: unknown;
+		try {
+			data = JSON.parse(lines.slice(i + 1, Math.min(close, lines.length)).join("\n"));
+		} catch {
+			problems.push(`${where}: a widget block that is not JSON, so nothing can draw it.`);
+			return;
+		}
+		if (!data || typeof data !== "object" || Array.isArray(data)) {
+			problems.push(`${where}: a widget block that is not a JSON object, so nothing can draw it.`);
+			return;
+		}
+		if (!id) {
+			problems.push(`${where}: a widget block with no block id (^id) after it, so no widget line can embed it.`);
+			return;
+		}
+		widgets.push({ id, module: blockModule(), data: data as Record<string, unknown>, line: i + 1 });
 	};
 	const flush = () => {
 		if (act && buf.some((l) => l.trim())) {
@@ -345,9 +463,16 @@ export function parseBooklet(text: string): Booklet {
 		buf = [];
 	};
 	const pushText = (ls: readonly string[], i: number) => {
-		if (!act && section === "content" && ls.some((l) => l.trim())) {
-			const scope = mod ? mod.id : "";
-			if (!unshown.some((u) => u.kind === "opening" && u.scope === scope)) unshown.push({ kind: "opening", scope, line: i + 1 });
+		if (!act && section === "content") {
+			// before a module's first activity, the module's opening; before the file's first module or activity
+			// line, the booklet's; text anywhere else outside every activity belongs to nothing that is drawn
+			const key = mod ? mod.id : !started ? null : undefined;
+			if (key === undefined) return;
+			const o = openingLines.get(key) ?? { lines: [], line: i + 1 };
+			if (!o.lines.some((l) => l.trim())) o.line = i + 1;
+			o.lines.push(...ls);
+			openingLines.set(key, o);
+			return;
 		}
 		if (!act || section !== "content") return;
 		if (!buf.length) bufAt = i;
@@ -374,7 +499,10 @@ export function parseBooklet(text: string): Booklet {
 			const info = (f[2] ?? "").trim().split(/\s+/);
 			if (/^booklet$/i.test(info[0] ?? "")) {
 				flush();
-				if (act && section === "content" && (info[1] ?? "").toLowerCase() === "query")
+				const what = (info[1] ?? "").toLowerCase();
+				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
+				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
+				if (act && section === "content" && what === "query")
 					act.segments.push({ type: "unsupported", kind: "query", id: null, title: "A query of kept entries or data", line: i + 1 });
 			} else if (hasId) {
 				flush(); // a figure or data block placed by reference: drawn at its embed, not here
@@ -391,6 +519,8 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "module") {
 				endActivity();
 				section = "content";
+				dataMod = null;
+				started = true;
 				if (w.flags.has("end")) {
 					if (!mod) refusals.push(`${at(i)}: a module is closed that was never opened.`);
 					else if (w.id !== mod.id) refusals.push(`${at(i)}: the module "${mod.id}" is closed by a line naming "${w.id ?? ""}".`);
@@ -410,6 +540,8 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "activity") {
 				endActivity();
 				section = "content";
+				dataMod = null;
+				started = true;
 				if (!w.id) problems.push(`${at(i)}: an activity line has no id, so it cannot keep entries here.`);
 				claimId(w.id, i);
 				const repeat = w.flags.has("repeat");
@@ -432,10 +564,16 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "data") {
 				endActivity();
 				section = "data";
+				// the module id on a data line says whose its blocks are, until the next data, module or activity line;
+				// a module this file does not open is said, and its blocks are read as shared (booklet.html onData)
+				dataMod = w.id ? (modules.find((x) => x.id === w.id) ?? null) : null;
+				if (w.id && !dataMod) problems.push(`${at(i)}: a data section for the module "${w.id}", which this file does not open; its blocks are read as shared.`);
 				i = bodyEnd(lines, i) - 1;
 				continue;
 			}
 			if (section === "data") {
+				// in a data section only its blocks are read: a shared menu among them
+				if (kind === "menu") readMenu(w.id, i);
 				i = claimEnd(kind, lines, i) - 1;
 				continue;
 			}
@@ -456,27 +594,28 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "menu" || QUESTION_KINDS.has(kind) || (!KNOWN_KINDS.has(kind) && hasWords)) {
 				flush();
 				const k = claimEnd(kind, lines, i);
-				if (kind === "menu" || QUESTION_KINDS.has(kind)) claimId(w.id, i);
 				if (kind === "menu") {
-					i = k - 1; // a shared menu is never drawn
+					readMenu(w.id, i); // a shared menu is never drawn: its list is kept for the questions that name it
+					i = k - 1;
 					continue;
 				}
+				if (QUESTION_KINDS.has(kind)) claimId(w.id, i);
 				if (!act) {
 					if (QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a question before the first activity belongs to no activity, so it is not drawn.`);
 					i = k - 1;
 					continue;
 				}
 				if (!KNOWN_KINDS.has(kind)) problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
-				const menu = (kind === "choice" || kind === "multi") && w.set["menu"] !== undefined;
-				if (isCommon(kind) && w.id && !menu) {
+				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
 					const q: Question = {
 						type: "question",
-						kind,
+						kind: kind as QuestionKind,
 						id: w.id,
 						title,
-						help: body.join("\n").trim(),
+						// a widget line's embed is not its help (booklet.html helpOf)
+						help: (kind === "widget" ? body.filter((l) => !/^\s*!\[\[/.test(l)) : body).join("\n").trim(),
 						line: i + 1,
 						options: [],
 						anchors: [],
@@ -485,21 +624,37 @@ export function parseBooklet(text: string): Booklet {
 						min: kind === "number" ? num(w.set["min"]) : null,
 						max: kind === "number" ? num(w.set["max"]) : null,
 						step: kind === "number" ? num(w.set["step"]) : null,
+						menu: null,
+						embed: null,
+						widget: null,
+						readonly: kind === "widget" && w.flags.has("readonly"),
+						describe: kind === "widget" && w.flags.has("describe"),
 					};
 					const after = bodyEnd(lines, i);
+					let drawn = true;
 					if (kind === "choice" || kind === "multi") {
+						// options of its own are its options; with none, `menu:` names the shared menu they come from
+						// (booklet.html choiceBlock), found once the whole file is read
 						const r = optionsUnder(lines, after);
-						if (!r) problems.push(`${at(i)}: the ${kind} "${w.id}" has no options under it.`);
-						q.options = r?.items ?? [];
+						if (r) q.options = r.items;
+						else if (w.set["menu"]) menuUses.push({ q, act, menu: w.set["menu"], module: mod ? mod.id : null, line: i + 1 });
+						else problems.push(`${at(i)}: the ${kind} "${w.id}" has no options under it.`);
 					} else if (kind === "scale") {
 						const r = listUnder(lines, after, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() }));
 						if (!r) problems.push(`${at(i)}: the scale "${w.id}" has no anchors under it.`);
 						q.anchors = r?.items ?? [];
+					} else if (kind === "widget") {
+						const emb = WIDGET_EMBED.exec(body.join("\n"));
+						if (emb) q.embed = emb[1] ?? null;
+						else {
+							problems.push(`${at(i)}: the widget "${w.id}" embeds no widget block (a ![[#^id]] line under it), so it is not drawn.`);
+							drawn = false;
+						}
 					}
-					act.segments.push(q);
+					if (drawn) act.segments.push(q);
 				} else {
 					if (!w.id && QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a ${kind} question has no id, so it cannot hold an answer.`);
-					act.segments.push({ type: "unsupported", kind: menu ? "menu-list" : kind, id: w.id, title, line: i + 1 });
+					act.segments.push({ type: "unsupported", kind, id: w.id, title, line: i + 1 });
 				}
 				i = k - 1;
 				continue;
@@ -529,10 +684,40 @@ export function parseBooklet(text: string): Booklet {
 		if (section !== "content") continue;
 		// a page break (`***`, SPEC section 3) stays in the prose: pages are drawn one under another
 		if (act && section === "content" && THEMATIC_BREAK.test(ln) && isBlank(lines[i - 1])) act.pages = true;
+		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
+		if (!act && THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
 		pushText([ln], i);
 	}
 	endActivity();
 	if (mod) refusals.push(`The module "${mod.id}" is opened and never closed.`);
+
+	// a question that names a shared menu takes its options from it: from its own module's menus first, then
+	// from the shared ones, never from another module's (SPEC section 4; booklet.html resolveMenus)
+	for (const u of menuUses) {
+		const hit = menus.find((x) => x.id === u.menu && x.module === u.module) ?? menus.find((x) => x.id === u.menu && x.module === null);
+		if (!hit) {
+			const sees = u.module ? `the module "${u.module}"` : "the activities outside every module";
+			problems.push(`Line ${u.line}: the ${u.q.kind} "${u.q.id}" takes its options from the menu "${u.menu}", which ${sees} cannot see, so it is not drawn.`);
+			u.act.segments = u.act.segments.filter((s) => s !== u.q);
+			continue;
+		}
+		u.q.options = hit.items.map((text) => ({ text, correct: false, reply: [] }));
+		u.q.menu = hit.id;
+	}
+	// a widget line's block: in its own module first (its fence, then its data section), then a shared one (booklet.html widgetOf)
+	for (const a of activities)
+		for (const s of a.segments)
+			if (s.type === "question" && s.kind === "widget" && s.embed)
+				s.widget = (a.scope ? widgets.find((x) => x.id === s.embed && x.module === a.scope) : undefined) ?? widgets.find((x) => x.id === s.embed && x.module === null) ?? null;
+
+	// a file with no module and no activity line is one activity, and so has no opening (SPEC section 3)
+	const openings: Opening[] = [];
+	if (started)
+		for (const [key, o] of openingLines) {
+			const title = key === null ? (frontMatter["title"] ?? "") : (modules.find((x) => x.id === key)?.title ?? "");
+			const markdown = openingMarkdown(o.lines, title);
+			if (markdown || o.lines.some((l) => l.trim())) openings.push({ module: key, title, markdown, line: o.line });
+		}
 
 	const moduleIds = new Set(modules.map((x) => x.id).filter(Boolean));
 	const bareActivityIds = new Set(activities.filter((a) => !a.scope && a.id).map((a) => a.id));
@@ -552,6 +737,9 @@ export function parseBooklet(text: string): Booklet {
 		modules,
 		activities,
 		problems: [...refusals.slice(1), ...problems],
+		openings,
+		widgets,
+		menus,
 		unshown,
 		records,
 	};
