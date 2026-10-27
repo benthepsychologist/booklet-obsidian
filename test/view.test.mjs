@@ -28,7 +28,7 @@ function open(text = NOTE) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {} },
+		workspace: { iterateAllLeaves() {}, on() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Every kind.booklet.md", basename: "Every kind.booklet" };

@@ -96,6 +96,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private settleTimer: number | null = null;
 	/** Writes run one after another. */
 	private writes: Promise<void> = Promise.resolve();
+	/** The note's text was handed over while a Markdown pane of it held a different text: follow that pane's next change. */
+	private following = false;
 	/** Activities whose whole list of kept entries is open. */
 	private showAll = new Set<string>();
 	private seq = 0;
@@ -119,6 +121,14 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.registerDomEvent(this.contentEl, "focusout", () => this.settleSoon(0));
 		this.registerDomEvent(this.contentEl, "click", () => this.settleSoon(0));
 		this.registerDomEvent(this.contentEl, "pointerdown", () => this.pressBegan(), { capture: true });
+		// a change to the file that a Markdown pane of the note takes into its editor after this view was handed it (see setViewData)
+		this.registerEvent(
+			this.app.workspace.on("editor-change", (_editor, info) => {
+				if (!this.following || !this.file || info.file !== this.file) return;
+				this.following = false;
+				window.setTimeout(() => this.followMarkdown(), 0);
+			}),
+		);
 		this.register(() => {
 			this.cancelSettle();
 			this.pressing = false;
@@ -152,6 +162,29 @@ export class BookletView extends TextFileView implements QuestionHost {
 			this.draw(true);
 			return;
 		}
+		// While the note is also open as Markdown, that pane's editor holds the newest text: what was typed there, and
+		// every answer this view has written into it since it was last saved. The text handed over is the file as last
+		// saved, which can be older (a Markdown pane saves as it loses focus, so a press in this view can land in the
+		// editor before the save's text is handed over), and taking it would take back answers just given. So the
+		// editor's text is taken. A change made to the file elsewhere reaches that editor a moment after this view is
+		// handed it, and is followed from there.
+		const md = this.file ? this.markdownViewOf(this.file) : null;
+		const live = md ? md.editor.getValue() : "";
+		if (md && live && live !== data) {
+			this.following = true;
+			data = live;
+		}
+		this.take(data);
+	}
+
+	/** The text a Markdown pane of the note holds now, if it differs from the view's (see setViewData). */
+	private followMarkdown(): void {
+		const md = this.file && this.book ? this.markdownViewOf(this.file) : null;
+		const live = md ? md.editor.getValue() : "";
+		if (live) this.take(live);
+	}
+
+	private take(data: string): void {
 		// Obsidian hands the view its own write back: nothing to draw, and a text field keeps its focus.
 		if (data === this.text) return;
 		// The note changed elsewhere (a Markdown pane of the same note, Sync, another plugin): draw again if its
@@ -169,6 +202,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.cancelSettle();
 		this.stale = false;
 		this.pressing = false;
+		this.following = false;
 		this.widgets.clear();
 		this.showAll.clear();
 		this.text = "";

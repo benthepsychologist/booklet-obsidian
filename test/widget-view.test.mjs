@@ -25,7 +25,7 @@ function open(text = NOTE) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {} },
+		workspace: { iterateAllLeaves() {}, on() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
@@ -218,4 +218,66 @@ test("Finalize keeps the widgets' answers, and the kept entry shows them in word
 	const shown = [...v.card().querySelectorAll(".booklet-entry dd")].map((d) => d.textContent);
 	assert.deepEqual(shown, ["Feet — Restless", "Tired"]);
 	v.close();
+});
+
+test("with the note open as Markdown, a saved text older than that pane's editor is not taken back, and a change the pane takes in later is followed", async () => {
+	const { MarkdownView } = await import("./obsidian-stub.mjs");
+	const file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
+	// the Markdown pane of the same note: the view writes into its editor
+	let buffer = NOTE;
+	const md = Object.assign(new MarkdownView(), {
+		file,
+		editor: {
+			getValue: () => buffer,
+			offsetToPos: (n) => n,
+			replaceRange(text, from, to) {
+				buffer = buffer.slice(0, from) + text + buffer.slice(to);
+			},
+		},
+	});
+	const listeners = [];
+	const app = {
+		vault: {
+			process: async () => {
+				throw new Error("with a Markdown pane open, the view writes into its editor");
+			},
+		},
+		workspace: { iterateAllLeaves: (fn) => fn({ view: md }), on: (name, cb) => (listeners.push([name, cb]), {}) },
+	};
+	const view = new BookletView({ app }, { setMode: async () => {} });
+	view.file = file;
+	view.load();
+	view.setViewData(NOTE, true);
+	const grid = () => view.contentEl.querySelectorAll('[data-booklet-activity="day-check/today"] .booklet-kind-widget')[1];
+	const cellOf = (id) => grid().querySelector(`[data-booklet-cell="${id}"]`);
+	const weather = () => norm(core.parseBooklet(buffer).records.drafts["day-check"]?.today?.weather);
+	button(cellOf("stormy"), "Tense").click();
+	button(cellOf("bright"), "Cheerful").click();
+	await view.writes;
+	// the Markdown pane saves here (as it loses focus), and the press on Lively lands in its editor before the
+	// saved text is handed to the view
+	const saved = buffer;
+	button(cellOf("bright"), "Lively").click();
+	await view.writes;
+	view.setViewData(saved, false);
+	assert.equal(view.getViewData(), buffer, "the view took the saved text, older than the editor's");
+	assert.equal(button(cellOf("bright"), "Lively").getAttribute("aria-pressed"), "true");
+	const field = cellOf("bright").querySelector(".booklet-own-row input");
+	field.focus();
+	typeInto(field, "fizzy");
+	press(field, "Enter");
+	await view.writes;
+	assert.deepEqual(weather(), ["tense", "lively", "cheerful", "x|bright|fizzy"], "the press on Lively was taken back");
+	field.blur();
+	// a change made to the file elsewhere is handed to the view before the Markdown pane takes it into its editor
+	const changed = prose("MARK-ELSEWHERE")(buffer);
+	view.setViewData(changed, false);
+	assert.ok(!view.contentEl.textContent.includes("MARK-ELSEWHERE"));
+	buffer = changed;
+	for (const [name, cb] of listeners) if (name === "editor-change") cb(md.editor, md);
+	await sleep(20);
+	assert.equal(view.getViewData(), changed);
+	assert.ok(view.contentEl.textContent.includes("MARK-ELSEWHERE"), "the change, once in the Markdown pane's editor, is drawn");
+	view.unload();
+	view.containerEl.remove();
 });
