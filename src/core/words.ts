@@ -6,22 +6,32 @@
  * gridNames). An svg-regions answer is shown as each marked region with its words, where booklet.html
  * names the regions only. Plain TypeScript: nothing here imports Obsidian.
  */
-import type { Question } from "./reader";
+import { pickWords as pickWordsOf, shownPairs, sourceOf } from "./each";
+import type { Activity, Question } from "./reader";
+import { holdsSomething, shapeIssue } from "./shape";
 import { engineOf, gridNames, gridOf, regionSummary, regionsOf } from "./widgets";
 
 /** A piece of an answer in words: `md` is the file's own inline Markdown (an option, an anchor), `text` is plain words. */
 export type WordPart = { md: string } | { text: string };
 
-/** An answer in words: pieces on one line, or a list (a lines question's lines); null when it holds nothing to show. */
-export type AnswerWords = { parts: WordPart[] } | { list: string[] } | null;
+/**
+ * An answer in words: pieces on one line, or a list (a lines question's lines); null when it holds nothing to show.
+ * An answer of the wrong shape for its question (shape.ts) is not put in words: `kept` is the answer as written, as
+ * JSON, and `issue` what the question keeps.
+ */
+export type AnswerWords = { parts: WordPart[] } | { list: string[] } | { kept: string; issue: string } | null;
 
 const filled = (s: unknown): s is string => typeof s === "string" && s.trim() !== "";
 
 export function answerWords(q: Question, v: unknown): AnswerWords {
 	if (v === undefined || v === null) return null;
+	const issue = shapeIssue(q, v);
+	if (issue) return { kept: JSON.stringify(v), issue };
 	switch (q.kind) {
 		case "choice":
 		case "multi": {
+			// a question asked for each pick is put in words by eachWords, one line for each pick
+			if (q.each) return null;
 			const picks = (Array.isArray(v) ? v : [v]).filter((x) => (typeof x === "string" ? x.trim() !== "" : x !== null && x !== undefined));
 			if (!picks.length) return null;
 			const parts: WordPart[] = [];
@@ -60,4 +70,19 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 			return null;
 		}
 	}
+}
+
+/**
+ * A question asked for each pick (each.ts), in a kept entry: one line for each pick its source holds in the entry, in
+ * the source's order, "<title> · <pick's words>", with that pick's answer in words. A pair for a pick the entry's
+ * source does not hold is kept and not shown. An answer of the wrong shape is said as for any question.
+ */
+export function eachWords(act: Pick<Activity, "segments">, q: Question, entry: Record<string, unknown>): { kept: string; issue: string } | { pick: WordPart; words: AnswerWords }[] {
+	const v = entry[q.id];
+	const issue = shapeIssue(q, v);
+	if (issue) return { kept: JSON.stringify(v), issue };
+	const src = sourceOf(act, q);
+	if (!src) return [];
+	const plain: Question = { ...q, each: null };
+	return shownPairs(src, entry, q).flatMap(({ pick, pair }) => (pair && holdsSomething(pair.a) ? [{ pick: pickWordsOf(src, pick), words: answerWords(plain, pair.a) }] : []));
 }

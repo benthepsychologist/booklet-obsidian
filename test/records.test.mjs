@@ -215,11 +215,11 @@ test("what cannot be written is refused, not guessed", () => {
 });
 
 test("two records regions (two files pasted together): read as one, and only regions change", () => {
-	const orig = `${MOD}\n%%\n${core.RECORDS_HEADER}\n\n\`\`\`booklet answers\n{"a": "one"}\n\`\`\`\n%%\n\nBetween the two.\n\n%%\n> [!records|m] A module\n\n\`\`\`booklet answers\n{"q": 1}\n\`\`\`\n%%\n`;
+	const orig = `${MOD}\n%%\n${core.RECORDS_HEADER}\n\n\`\`\`booklet answers\n{"a": "one"}\n\`\`\`\n%%\n\nBetween the two.\n\n%%\n> [!records|m] A module\n\n\`\`\`booklet answers\n{"q": "one"}\n\`\`\`\n%%\n`;
 	const book = core.parseBooklet(orig);
 	assert.equal(book.records.regions.length, 2);
-	assert.deepEqual(norm(book.records.answers), { "": { a: "one" }, m: { q: 1 } });
-	const next = core.setAnswer(core.setAnswer(orig, "m", "q", 2), "", "a", "two");
+	assert.deepEqual(norm(book.records.answers), { "": { a: "one" }, m: { q: "one" } });
+	const next = core.setAnswer(core.setAnswer(orig, "m", "q", "two"), "", "a", "two");
 	assertOutsideUnchanged(orig, next, "two regions");
-	assert.deepEqual(norm(core.parseBooklet(next).records.answers), { "": { a: "two" }, m: { q: 2 } });
+	assert.deepEqual(norm(core.parseBooklet(next).records.answers), { "": { a: "two" }, m: { q: "two" } });
 });

@@ -10,12 +10,15 @@ import {
 	RecordsWriteError,
 	answerWords,
 	designKey,
+	eachWords,
+	pairsOf,
 	finalizeDraft,
 	holdsSomething,
 	isoSecond,
 	localDay,
 	parseBooklet,
 	setAnswer,
+	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
 	type Activity,
@@ -23,12 +26,14 @@ import {
 	type Booklet,
 	type DayRule,
 	type Entry,
+	type AnswerWords,
 	type Finalized,
 	type Opening,
 	type Question,
 	type ShownDraft,
+	type WordPart,
 } from "./core";
-import { drawQuestion, keyOf, picksOf, type QuestionHost, type Target } from "./questions";
+import { drawQuestion, keyOf, picksOf, plainWords, sameWords, type QuestionHost, type Target } from "./questions";
 import type { LeafMode } from "./switch";
 
 export const VIEW_TYPE = "booklet";
@@ -52,6 +57,9 @@ const UNSUPPORTED: Record<string, string> = {
 	group: "questions inside a group",
 	"in-callout": "a question inside a callout",
 };
+
+/** How many of the reader's own options are offered again (booklet.html ownEarlier). */
+const OWN_OFFERED = 12;
 
 interface Pending {
 	t: Target;
@@ -285,7 +293,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 		else this.held.delete(key);
 	}
 
-	answerOf(t: Target, q: Question): unknown {
+	/** The answer the note holds for a question, as written. */
+	private heldAnswer(t: Target, q: Question): unknown {
 		if (t.activity.repeat) {
 			const d = this.shown(t.activity).values;
 			return own(d, q.id) ? d[q.id] : undefined;
@@ -294,22 +303,53 @@ export class BookletView extends TextFileView implements QuestionHost {
 		return a && own(a, q.id) ? a[q.id] : undefined;
 	}
 
+	answerOf(t: Target, q: Question): unknown {
+		// an answer of the wrong shape is shown as no answer: its question is drawn read-only, with a notice (wrongOf)
+		const v = this.heldAnswer(t, q);
+		return shapeIssue(q, v) ? undefined : v;
+	}
+
+	wrongOf(t: Target, q: Question): { issue: string; kept: string } | null {
+		const v = this.heldAnswer(t, q);
+		const issue = shapeIssue(q, v);
+		return issue ? { issue, kept: JSON.stringify(v) } : null;
+	}
+
+	redrawSoon(): void {
+		this.stale = true;
+		this.settleSoon(0);
+	}
+
 	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null {
 		const p = this.pending.get(keyOf(t, q));
 		return p ? { value: p.value } : null;
 	}
 
-	earlierOwn(t: Target, q: Question): string[] {
-		if (!t.activity.repeat) return [];
-		const kept = [...(this.book?.records.entries[t.scope]?.[t.activity.id] ?? [])].sort(newestFirst);
+	earlierOwn(t: Target, q: Question, now: Array<number | string>, first: string[] = []): string[] {
+		const listed = q.options.map((o) => plainWords(o.text));
 		const out: string[] = [];
-		for (const e of kept)
-			for (const x of picksOf(e[q.id])) {
-				if (typeof x !== "string" || !x.trim() || out.some((o) => o.trim().toLowerCase() === x.trim().toLowerCase())) continue;
-				out.push(x.trim());
-				if (out.length >= 12) return out;
-			}
+		// listed words, words in the answer now and repeats are left out before the count, as booklet.html's ownEarlier does
+		const take = (x: unknown): boolean => {
+			if (typeof x !== "string" || !x.trim()) return false;
+			const s = x.trim();
+			if (listed.some((o) => sameWords(o, s)) || now.some((o) => typeof o === "string" && sameWords(o, s)) || out.some((o) => sameWords(o, s))) return false;
+			out.push(s);
+			return out.length >= OWN_OFFERED;
+		};
+		for (const x of first) if (take(x)) return out;
+		if (!t.activity.repeat) return out;
+		const kept = [...(this.book?.records.entries[t.scope]?.[t.activity.id] ?? [])].sort(newestFirst);
+		for (const e of kept) {
+			const v = e[q.id];
+			if (shapeIssue(q, v)) continue;
+			// a question asked for each pick: the own options under every pick of the entry, picks taken back among them
+			for (const x of q.each ? pairsOf(v).flatMap((p) => picksOf(p.a)) : picksOf(v)) if (take(x)) return out;
+		}
 		return out;
+	}
+
+	reshow(): void {
+		this.syncWidgets();
 	}
 
 	answer(t: Target, q: Question, value: AnswerValue | undefined): void {
@@ -457,7 +497,9 @@ export class BookletView extends TextFileView implements QuestionHost {
 				if (!inCallout) this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
 					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
-					: `Not yet supported: ${UNSUPPORTED[s.kind] ?? `the kind "${s.kind}"`}.${inCallout ? " The callout above is shown as Markdown." : ""}`;
+					: s.kind === "each"
+						? `Not yet supported: a ${s.of ?? "question"} question asked for each pick (each:). Its answers are kept.`
+						: `Not yet supported: ${UNSUPPORTED[s.kind] ?? `the kind "${s.kind}"`}.${inCallout ? " The callout above is shown as Markdown." : ""}`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
 			} else drawQuestion(this, card, t, s, a.repeat && !a.id);
 		}
@@ -503,19 +545,37 @@ export class BookletView extends TextFileView implements QuestionHost {
 			const dl = item.createEl("dl");
 			let rows = 0;
 			for (const q of qs) {
-				const w = answerWords(q, e[q.id]);
-				if (!w) continue;
-				rows++;
-				this.md(q.title || q.id, dl.createEl("dt", { cls: "markdown-rendered" }));
-				const dd = dl.createEl("dd");
-				if ("list" in w) {
-					const ul = dd.createEl("ul");
-					for (const l of w.list) ul.createEl("li", { text: l });
-				} else
-					for (const p of w.parts) {
-						if ("md" in p) this.md(p.md, dd.createSpan({ cls: "booklet-inline markdown-rendered" }));
-						else dd.appendText(p.text);
+				// a question asked for each pick: one line for each pick its source holds in the entry, "<title> · <pick>"
+				const rowsOf: { pick: WordPart | null; w: AnswerWords }[] = q.each
+					? (() => {
+							const ew = eachWords(a, q, e);
+							return Array.isArray(ew) ? ew.map((x) => ({ pick: x.pick, w: x.words })) : [{ pick: null, w: ew }];
+						})()
+					: [{ pick: null, w: answerWords(q, e[q.id]) }];
+				for (const { pick, w } of rowsOf) {
+					if (!w) continue;
+					rows++;
+					const dt = dl.createEl("dt", { cls: "markdown-rendered" });
+					this.md(q.title || q.id, pick ? dt.createSpan({ cls: "booklet-inline markdown-rendered" }) : dt);
+					if (pick) {
+						dt.appendText(" · ");
+						if ("md" in pick) this.md(pick.md, dt.createSpan({ cls: "booklet-inline markdown-rendered" }));
+						else dt.appendText(pick.text);
 					}
+					const dd = dl.createEl("dd");
+					if ("kept" in w) {
+						// an answer of the wrong shape is not put in words: it is said, and shown as written
+						dd.createSpan({ cls: "booklet-muted", text: `Kept as written, not in the shape this question keeps (${w.issue}): ` });
+						dd.createEl("code", { text: w.kept });
+					} else if ("list" in w) {
+						const ul = dd.createEl("ul");
+						for (const l of w.list) ul.createEl("li", { text: l });
+					} else
+						for (const p of w.parts) {
+							if ("md" in p) this.md(p.md, dd.createSpan({ cls: "booklet-inline markdown-rendered" }));
+							else dd.appendText(p.text);
+						}
+				}
 			}
 			const ids = new Set(qs.map((q) => q.id));
 			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && holdsSomething(e[k])).length;
@@ -637,6 +697,13 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private commit(t: Target, q: Question, value: AnswerValue | undefined): void {
 		const file = this.file;
 		if (!file) return;
+		// an answer of the wrong shape is kept as written: nothing typed or pressed replaces it (the writer refuses too)
+		const wrong = this.wrongOf(t, q);
+		if (wrong) {
+			new Notice(`Booklet: the answer was not saved. The note holds an answer to "${q.title || q.id}" that is not in the shape this question keeps, and it is kept as written.`);
+			this.syncWidgets();
+			return;
+		}
 		if (this.book) {
 			const rec = this.book.records;
 			if (t.activity.repeat) {

@@ -7,8 +7,10 @@
  */
 import { appendItem, removeItem, removeMember, replaceItem, setMember } from "./json-edit";
 import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines, type Line } from "./lines";
-import { parseBooklet, type Activity, type Booklet, type Module } from "./reader";
+import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
+import { pairsOf, pickKey, recordFilled } from "./each";
+import { holdsSomething, isPair, shapeIssue } from "./shape";
 
 /**
  * What one question holds (SPEC section 5): a choice's option position (from 1) or the reader's own
@@ -33,14 +35,6 @@ export const entriesJson = (items: readonly Record<string, unknown>[]): string =
 
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
-
-/** Whether anything was typed or picked, at any depth: a blank string, an empty list and nothing at all are no answer (booklet.html holdsSomething). */
-export function holdsSomething(v: unknown): boolean {
-	if (typeof v === "string") return v.trim().length > 0;
-	if (Array.isArray(v)) return v.some(holdsSomething);
-	if (v && typeof v === "object") return Object.values(v).some(holdsSomething);
-	return typeof v === "number" || v === true;
-}
 
 /** Whether a draft or an entry holds any answer. */
 export const anyFilled = (o: Record<string, unknown> | undefined): boolean => !!o && Object.keys(o).some((k) => holdsSomething(o[k]));
@@ -109,6 +103,21 @@ function endsInsideFence(lines: readonly string[], from: number): boolean {
 		i = k;
 	}
 	return false;
+}
+
+/** The question with this id in a scope (ids are unique within a module, across kinds), or null. */
+function questionIn(book: Booklet, scope: string, questionId: string): Question | null {
+	for (const a of book.activities) if (a.scope === scope) for (const s of a.segments) if (s.type === "question" && s.id === questionId) return s;
+	return null;
+}
+
+/**
+ * The rule for an answer of the wrong shape (shape.ts): one the note holds is kept as written, so nothing replaces or
+ * clears it here.
+ */
+function checkShape(q: Question | null, held: unknown): void {
+	const was = q ? shapeIssue(q, held) : null;
+	if (q && was) throw new RecordsWriteError(`The note holds an answer to "${q.title || q.id}" that is not in the shape this question keeps (${was}). It is kept as written, and not changed here.`);
 }
 
 /** The blocks of one kind the writer may write into: read as records, closed, in this scope (and for this activity). */
@@ -254,6 +263,8 @@ export function setAnswer(text: string, scope: string, questionId: string, value
 	if (!holdsSomething(value)) value = undefined;
 	const d = openDoc(text, scope);
 	const blocks = readable(d, "answers", scope);
+	const held = d.book.records.answers[scope];
+	checkShape(questionIn(d.book, scope, questionId), held && own(held, questionId) ? held[questionId] : undefined);
 
 	if (value === undefined) {
 		const holding = blocks.filter((b) => own(b.value, questionId));
@@ -296,15 +307,27 @@ export interface ShownDraft {
 /**
  * What an activity's draft shows: what is in its draft records, or, for a `repeat daily` activity whose
  * draft holds nothing, today's kept entry, so finishing again changes it rather than starting blank
- * (booklet.html seedUpsertDraft).
+ * (booklet.html seedUpsertDraft). With the activity's questions (`segments`), a draft whose only answers
+ * are pairs for picks taken back counts as empty (each.ts recordFilled); those pairs are shown over the
+ * entry's, pick by pick, as they are the reader's newer work: nothing written in the draft is lost, and an entry's
+ * pair for a pick the draft has no pair for is kept beside them.
  */
-export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity, "id" | "daily">, rule?: DayRule): ShownDraft {
+export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity, "id" | "daily"> & Partial<Pick<Activity, "segments">>, rule?: DayRule): ShownDraft {
 	const values = book.records.drafts[scope]?.[activity.id] ?? (Object.create(null) as Record<string, unknown>);
-	if (anyFilled(values) || !activity.daily || !rule) return { values, seededFrom: null };
+	if (recordFilled(activity, values) || !activity.daily || !rule) return { values, seededFrom: null };
 	const today = todaysEntry(book, scope, activity.id, rule);
 	if (!today) return { values, seededFrom: null };
 	const seeded = Object.create(null) as Record<string, unknown>;
 	for (const [k, v] of Object.entries(today)) if (k !== "ts") seeded[k] = v;
+	for (const [k, v] of Object.entries(values)) {
+		if (!holdsSomething(v)) continue;
+		const q = activity.segments?.find((x): x is Question => x.type === "question" && x.id === k);
+		const was = seeded[k];
+		if (q?.each && Array.isArray(v) && Array.isArray(was) && !shapeIssue(q, v) && !shapeIssue(q, was)) {
+			const mine = new Set(pairsOf(v).map((x) => pickKey(x.pick)));
+			seeded[k] = [...v, ...was.filter((x) => !(isPair(x) && mine.has(pickKey(x.pick))))];
+		} else seeded[k] = v;
+	}
 	return { values: seeded, seededFrom: today };
 }
 
@@ -326,12 +349,13 @@ export function setDraftAnswer(text: string, scope: string, activityId: string, 
 	const act = activityIn(d, scope, activityId);
 	const blocks = readable(d, "draft", scope, activityId);
 	const shown = shownDraft(d.book, scope, act, rule);
+	checkShape(questionIn(d.book, scope, questionId), own(shown.values, questionId) ? shown.values[questionId] : undefined);
 
 	if (shown.seededFrom) {
 		const next = Object.create(null) as Record<string, unknown>;
 		for (const [k, v] of Object.entries(shown.values)) if (k !== questionId || value !== undefined) next[k] = v;
 		if (value !== undefined) next[questionId] = value;
-		if (same(next, shown.values) || !anyFilled(next)) return text;
+		if (same(next, shown.values) || !recordFilled(act, next)) return text;
 		const last = blocks[blocks.length - 1];
 		if (last) {
 			let code: string | null = last.code;
@@ -393,7 +417,8 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	if (!act.repeat) throw new RecordsWriteError(`The activity "${activityId}" does not repeat, so it keeps no entries.`);
 	const drafts = readable(d, "draft", scope, activityId);
 	const merged = d.book.records.drafts[scope]?.[activityId];
-	if (!anyFilled(merged)) {
+	// a draft whose only answers are pairs for picks taken back is empty too (each.ts recordFilled)
+	if (!recordFilled(act, merged)) {
 		const keptToday = act.daily && opts.rule && todaysEntry(d.book, scope, activityId, opts.rule);
 		throw new RecordsWriteError(keptToday ? "Today's entry is already kept. Change an answer to keep it again." : "Nothing to keep yet: the entry is empty.");
 	}
@@ -407,8 +432,10 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	entry.ts = ts;
 	for (const [k, v] of Object.entries(merged!)) {
 		if (k === "ts" || !holdsSomething(v)) continue;
-		// lines typed and left blank are not kept
-		entry[k] = Array.isArray(v) && v.every((x) => typeof x === "string") ? v.filter((x) => holdsSomething(x)) : v;
+		// a lines question's lines typed and left blank are not kept; every other answer is kept as written, one of
+		// the wrong shape among them (shape.ts)
+		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === k);
+		entry[k] = q && q.kind === "lines" && !shapeIssue(q, v) && Array.isArray(v) ? v.filter((x) => holdsSomething(x)) : v;
 	}
 	const itemText = JSON.stringify(entry);
 	const entryBlocks = readable(d, "entries", scope, activityId);

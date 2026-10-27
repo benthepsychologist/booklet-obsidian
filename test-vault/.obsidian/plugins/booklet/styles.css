@@ -285,6 +285,8 @@
  *   green -> --color-green   the colour of --text-success, as green is the colour of the tone good
  *   amber -> --color-orange  the colour of --text-warning, as amber is the colour of the tone warn
  *   teal  -> --color-cyan    Obsidian's blue-green; teal has no tone
+ *   blue  -> --color-blue    ahead of the format (not a colour name in 0.15); blue has no tone
+ *   purple -> --color-purple ahead of the format (not a colour name in 0.15); purple has no tone
  *   slate -> --text-muted, on a wash of --mono-rgb-100 (the theme's text colour): Obsidian has no
  *            blue-grey, and its own muted grey is the nearest neutral; slate has no tone
  * A cell is a pale wash of its colour with a band of the full colour at its top; its words stay in the
@@ -313,6 +315,16 @@
 .booklet-colour-slate {
 	--booklet-tone: var(--text-muted);
 	--booklet-tone-rgb: var(--mono-rgb-100);
+}
+
+.booklet-colour-blue {
+	--booklet-tone: var(--color-blue);
+	--booklet-tone-rgb: var(--color-blue-rgb);
+}
+
+.booklet-colour-purple {
+	--booklet-tone: var(--color-purple);
+	--booklet-tone-rgb: var(--color-purple-rgb);
 }
 
 /* the edge labels around the cells: top and bottom across, left and right read upwards and downwards */
@@ -543,4 +555,56 @@
 	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-l);
 	padding: var(--size-4-4);
+}
+
+/* an answer of the wrong shape for its question: kept as written, and said, with what the note holds */
+.booklet-kept-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	border-left: var(--size-2-1) solid var(--color-orange);
+	padding: var(--size-2-2) var(--size-4-2);
+	margin: var(--size-4-1) 0 var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.booklet-kept-note code,
+.booklet-entry dd code {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.booklet-none {
+	display: none;
+}
+
+/* a question asked for each pick (each:): one copy for each pick, under a subheading in the pick's words */
+.booklet-each-none {
+	display: none;
+}
+
+.booklet-copies {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-4);
+}
+
+.booklet-copy {
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+	padding-inline-start: var(--size-4-3);
+}
+
+.booklet-pick-head {
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pick-head p {
+	display: inline;
+	margin: 0;
+}
+
+/* a copy whose pick was taken back while the reader was in it: it goes when they leave it */
+.booklet-copy-gone {
+	opacity: 0.6;
 }

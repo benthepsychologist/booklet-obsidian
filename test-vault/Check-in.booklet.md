@@ -11,7 +11,7 @@ A made-up check-in for testing the Booklet plugin. Nothing in it is about a real
 
 > [!module|day-check] A short check-in
 
-Four short questions about the day, kept once a day. Finalizing again the same day replaces that day's entry.
+Five short questions about the day, kept once a day. Finalizing again the same day replaces that day's entry.
 
 > [!activity|today repeat daily] Today
 
@@ -20,8 +20,11 @@ Take a moment. There are no right answers here.
 > [!widget|places] Where do you notice it?
 > ![[#^body-places]]
 
-> [!widget|weather] What is the weather inside?
-> ![[#^inner-weather]]
+> [!widget|feelings] How do you feel?
+> ![[#^feelings-grid]]
+
+> [!multi|felt each:feelings open menu:body-parts] Where do you feel it?
+> Press the places that fit, for each feeling you picked. Add a place of your own if it is not listed.
 
 > [!multi|where open menu:spots] Where were you today?
 
@@ -71,26 +74,39 @@ Take a moment. There are no right answers here.
 { "engine": "grid-select",
   "axes": { "top": "more energy", "bottom": "less energy", "left": "less pleasant", "right": "more pleasant" },
   "cells": [
-    { "id": "stormy", "label": "Stormy", "note": "Lots of energy, and not pleasant.", "color": "warm" },
-    { "id": "bright", "label": "Bright", "note": "Lots of energy, and pleasant.", "color": "green" },
-    { "id": "overcast", "label": "Overcast", "note": "Little energy, and not pleasant.", "color": "slate" },
-    { "id": "calm", "label": "Calm", "note": "Little energy, and pleasant.", "color": "teal" }
+    { "id": "agitating", "label": "Agitating", "note": "Lots of energy, and not pleasant.", "color": "warm" },
+    { "id": "invigorating", "label": "Invigorating", "note": "Lots of energy, and pleasant.", "color": "green" },
+    { "id": "draining", "label": "Draining", "note": "Little energy, and not pleasant.", "color": "blue" },
+    { "id": "soothing", "label": "Soothing", "note": "Little energy, and pleasant.", "color": "purple" }
   ],
   "items": [
-    { "id": "rushed", "cell": "stormy", "label": "Rushed" },
-    { "id": "tense", "cell": "stormy", "label": "Tense" },
-    { "id": "lively", "cell": "bright", "label": "Lively" },
-    { "id": "cheerful", "cell": "bright", "label": "Cheerful" },
-    { "id": "flat", "cell": "overcast", "label": "Flat" },
-    { "id": "tired", "cell": "overcast", "label": "Tired" },
-    { "id": "settled", "cell": "calm", "label": "Settled" },
-    { "id": "content", "cell": "calm", "label": "Content" } ],
-  "copy": { "h": "Inner weather", "p": "Press the words that fit, in any of the four." } }
+    { "id": "rushed", "cell": "agitating", "label": "Rushed" },
+    { "id": "tense", "cell": "agitating", "label": "Tense" },
+    { "id": "lively", "cell": "invigorating", "label": "Lively" },
+    { "id": "cheerful", "cell": "invigorating", "label": "Cheerful" },
+    { "id": "flat", "cell": "draining", "label": "Flat" },
+    { "id": "tired", "cell": "draining", "label": "Tired" },
+    { "id": "settled", "cell": "soothing", "label": "Settled" },
+    { "id": "content", "cell": "soothing", "label": "Content" } ],
+  "copy": { "h": "Four kinds of feeling", "p": "Press the words that fit, in any of the four." } }
 ```
-^inner-weather
+^feelings-grid
 
 > [!menu|spots]
 - At home
 - At work
 - Outdoors
 - Travelling
+
+> [!menu|body-parts]
+- Head
+- Jaw
+- Neck
+- Shoulders
+- Chest
+- Arms
+- Hands
+- Stomach
+- Back
+- Legs
+- Feet

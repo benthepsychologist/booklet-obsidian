@@ -20,7 +20,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, lint, norm, pythonAvailable, read } from "./helpers.mjs";
+import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, expectedLint, lint, lintDiffers, norm, pythonAvailable, read } from "./helpers.mjs";
 
 // the external corpus exists only on the box the plugin was built on: a folder that is not there is skipped, not failed
 for (const d of corpusDirs())
@@ -67,7 +67,13 @@ function widgetValue(q) {
 }
 
 /** The value each common kind is given: the reference renderer's stored shape for it. */
-function valueFor(q) {
+function valueFor(q, act) {
+	// a question asked for each pick (each:): a pair for every pick of its source's value, each with a multi's answer
+	if (q.each) {
+		const src = core.sourceOf(act, q);
+		const picks = src ? core.sourcePicks(src, valueFor(src, act)) : [];
+		return picks.length ? picks.map((pick, i) => ({ pick, a: i ? [1] : valueFor({ ...q, each: null }, act) })) : undefined;
+	}
 	switch (q.kind) {
 		case "widget":
 			return widgetValue(q);
@@ -163,12 +169,13 @@ function assertRecordsKept(before, after, may, what) {
 	for (const key of nk.keys()) if (!ok.has(key)) assert.ok(may.has(key), `${what}: a new ${key} block`);
 }
 
-function assertLints(text, what) {
+/** (d): the linter reports no error, or for a note the plugin draws ahead of the format, exactly its expected ones. */
+function assertLints(text, what, expected = []) {
 	if (!canLint) return;
 	const r = lint(text);
 	assert.ok(r, "the linter could not run");
-	assert.equal(r.status, 0, `${what}: lint-booklet.py reports errors on the written file:\n${r.out}`);
-	assert.match(r.out, / 0 errors/);
+	const d = lintDiffers(r, expected);
+	assert.equal(d, null, `${what}: lint-booklet.py does not report what is expected on the written file: ${d}`);
 }
 
 const add = (may, key, ...ids) => {
@@ -180,6 +187,7 @@ const add = (may, key, ...ids) => {
 for (const file of corpusFiles()) {
 	test(`corpus: ${file.split("/").slice(-2).join("/")}`, () => {
 		const orig = read(file);
+		const lintWant = expectedLint(file);
 		const book = core.parseBooklet(orig);
 		assert.ok(book.ok, `the file is refused: ${book.refusal}`);
 
@@ -191,7 +199,7 @@ for (const file of corpusFiles()) {
 			if (a.repeat && !a.id) continue;
 			for (const q of a.segments) {
 				if (q.type !== "question") continue;
-				const value = valueFor(q);
+				const value = valueFor(q, a);
 				if (value === undefined) continue;
 				if (a.repeat) {
 					text = core.setDraftAnswer(text, a.scope, a.id, q.id, value, a.daily ? RULE : undefined);
@@ -226,7 +234,7 @@ for (const file of corpusFiles()) {
 		for (const [scope, answers] of Object.entries(book.records.answers))
 			for (const [k, v] of Object.entries(answers))
 				if (!set.some((s) => !s.act.repeat && s.scope === scope && s.q.id === k)) assert.deepEqual(norm(back.records.answers[scope]?.[k]), norm(v), `the answer ${scope}/${k} is kept`);
-		assertLints(answered, "answered");
+		assertLints(answered, "answered", lintWant);
 
 		/* ---- keep: Finalize every repeating activity that holds a draft ---- */
 		let kept = answered;
@@ -250,10 +258,11 @@ for (const file of corpusFiles()) {
 			for (const s of set.filter((x) => x.act === a)) {
 				assert.deepEqual(e[s.q.id], norm(keptValue(s.q, s.value)), `${a.id}: the entry keeps ${s.q.id}`);
 				// a kept widget answer, a menu's positions among them, reads back in words
-				if (s.q.kind === "widget" || s.q.menu) assert.ok(core.answerWords(s.q, e[s.q.id]), `${a.id}: the kept ${s.q.id} reads back in words`);
+				if (s.q.each) assert.ok(core.eachWords(a, s.q, e).length, `${a.id}: the kept ${s.q.id} reads back in words, one line for each pick`);
+				else if (s.q.kind === "widget" || s.q.menu) assert.ok(core.answerWords(s.q, e[s.q.id]), `${a.id}: the kept ${s.q.id} reads back in words`);
 			}
 			for (const old of was) if (!(f.replaced && RULE.dayOf(old.ts) === RULE.today)) assert.ok(now.some((x) => x.ts === old.ts), `${a.id}: the entry ${old.ts} is kept`);
-			assertLints(kept, `finalize ${a.id}`);
+			assertLints(kept, `finalize ${a.id}`, lintWant);
 
 			if (!a.daily) continue;
 			// the same day again: the draft shows today's entry; one change, and Finalize replaces it
@@ -268,7 +277,7 @@ for (const file of corpusFiles()) {
 			assert.equal(after.filter((x) => RULE.dayOf(x.ts) === RULE.today).length, 1);
 			assertRecordsKept(kept, g.text, new Map([[`draft|${a.scope}|${a.id}`, new Set()], [`entries|${a.scope}|${a.id}`, new Set([f.entry.ts])]]), `again ${a.id}`);
 			assertOutsideUnchanged(orig, g.text, `again ${a.id}`);
-			assertLints(g.text, `again ${a.id}`);
+			assertLints(g.text, `again ${a.id}`, lintWant);
 			kept = g.text;
 		}
 
@@ -294,6 +303,6 @@ for (const file of corpusFiles()) {
 			if (!book.records.drafts[a.scope]?.[a.id]) assert.equal(c.drafts[a.scope]?.[a.id], undefined, `${a.id}: a draft cleared of every answer is gone`);
 		// the records that were there before any of this are all still there, as written
 		assertRecordsKept(orig, cleared, may, "cleared, against the original");
-		assertLints(cleared, "cleared");
+		assertLints(cleared, "cleared", lintWant);
 	});
 }

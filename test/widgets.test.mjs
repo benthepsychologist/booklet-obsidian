@@ -235,8 +235,8 @@ test("grid-select: reading the data, and an own word compared as booklet.html co
 	const g = core.gridOf(GRID);
 	assert.deepEqual(g.cells.map((c) => [c.id, c.colour]), [["loud-slow", "warm"], ["loud-fast", "green"], ["quiet-slow", "slate"], ["quiet-fast", "teal"]]);
 	assert.deepEqual(g.axes, GRID.axes);
-	assert.equal(core.gridOf({ cells: [{ id: "a", color: "purple" }, { label: "no id" }] }).cells.length, 1);
-	assert.equal(core.gridOf({ cells: [{ id: "a", color: "purple" }] }).cells[0].colour, null, "a colour that is no colour name is no colour");
+	assert.equal(core.gridOf({ cells: [{ id: "a", color: "magenta" }, { label: "no id" }] }).cells.length, 1);
+	assert.equal(core.gridOf({ cells: [{ id: "a", color: "magenta" }] }).cells[0].colour, null, "a colour that is no colour name is no colour");
 	// curly quotes, long dashes and runs of spaces read as the same word
 	const v = core.gridAddOwn(g, [], "loud-slow", "it’s  here — now");
 	assert.equal(core.gridAddOwn(g, v, "loud-slow", "it's here - now"), v);

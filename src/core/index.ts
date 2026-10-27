@@ -3,6 +3,8 @@ export * from "./lines";
 export * from "./json-edit";
 export * from "./records";
 export * from "./reader";
+export * from "./shape";
 export * from "./write";
 export * from "./words";
 export * from "./widgets";
+export * from "./each";
