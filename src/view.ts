@@ -24,6 +24,7 @@ import {
 	type DayRule,
 	type Entry,
 	type Finalized,
+	type Opening,
 	type Question,
 	type ShownDraft,
 } from "./core";
@@ -47,9 +48,7 @@ const ENTRIES_SHOWN = 10;
 /** The words for a part this view does not draw yet ("Not yet supported: …"). */
 const UNSUPPORTED: Record<string, string> = {
 	matrix: "a matrix question",
-	widget: "a widget",
 	query: "a query of kept entries or data",
-	"menu-list": "a question whose options come from a shared menu",
 	group: "questions inside a group",
 	"in-callout": "a question inside a callout",
 };
@@ -312,19 +311,47 @@ export class BookletView extends TextFileView implements QuestionHost {
 			for (const p of book.problems) list.createEl("li", { text: p });
 		}
 
+		// the booklet's opening, under its title (SPEC section 3); a module's is drawn above its first activity
+		const opening = (o: Opening | undefined) => {
+			if (!o) return;
+			const box = page.createDiv({ cls: "booklet-opening" });
+			box.setAttr("data-booklet-opening", o.module ?? "");
+			if (o.title) {
+				const title = box.createDiv({ cls: o.module === null ? "booklet-opening-title booklet-booklet-title" : "booklet-opening-title" });
+				// a module's title is a booklet line's words, inline Markdown; the booklet's is its front matter's, plain text
+				if (o.module === null) title.setText(o.title);
+				else {
+					title.addClass("markdown-rendered");
+					this.md(o.title, title);
+				}
+			}
+			if (o.markdown) this.md(o.markdown, box.createDiv({ cls: "booklet-prose markdown-rendered" }));
+		};
+		opening(book.openings.find((o) => o.module === null));
+
 		if (book.unshown.length) {
-			// openings and notices are outside every activity: said once, at the top, with where they are
+			// a module's notice is outside every activity: said once, at the top, with where it is
 			const names = book.unshown.map((u) => {
 				const m = book.modules.find((x) => x.id === u.scope);
-				const where = u.scope ? `the module "${m ? m.title : u.scope}"` : "the booklet";
-				return u.kind === "notice" ? `the notice of ${where}` : `the opening text of ${where}`;
+				return `the notice of the module "${m ? m.title : u.scope}"`;
 			});
-			page.createEl("p", { cls: "booklet-muted booklet-unshown", text: `Not yet supported: ${names.join(", ")}. This view draws the activities only; the rest is in the Markdown.` });
+			page.createEl("p", { cls: "booklet-muted booklet-unshown", text: `Not yet supported: ${names.join(", ")}. It is in the Markdown.` });
 		}
 
 		const shown = book.activities.filter((a) => !a.hidden);
-		if (!shown.length) page.createEl("p", { cls: "booklet-muted", text: "This booklet has no activity to draw." });
-		for (const a of shown) this.drawActivity(page, a);
+		if (!shown.length)
+			page.createEl("p", {
+				cls: "booklet-muted",
+				text: book.activities.length || book.modules.length ? "This booklet has no activity to draw." : "This note has no activity line. Drawing a note with none as one activity is not yet supported.",
+			});
+		const headed = new Set<string>();
+		for (const a of shown) {
+			if (a.scope && !headed.has(a.scope)) {
+				headed.add(a.scope);
+				opening(book.openings.find((o) => o.module === a.scope));
+			}
+			this.drawActivity(page, a);
+		}
 	}
 
 	private drawActivity(page: HTMLElement, a: Activity): void {
