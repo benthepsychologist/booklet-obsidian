@@ -143,9 +143,18 @@ function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 		items.setAttr("role", "group");
 		items.setAttr("aria-labelledby", nameId);
 		if (q.readonly) {
-			// read-only: the cell's items as plain words, and nothing to press (SPEC section 7)
+			// read-only: the cell's items as plain words, and the reader's own words it holds, with nothing to press (SPEC section 7)
 			for (const it of cellItems(g, c.id)) items.createSpan({ cls: "booklet-word", text: it.label });
-			for (const id of cellOwn(g, host.answerOf(t, q), c.id)) items.createSpan({ cls: "booklet-word", text: gridLabel(g, id) });
+			const own = items.createSpan({ cls: "booklet-own-picks" });
+			let sig: string | null = null;
+			shows.push(() => {
+				const mine = cellOwn(g, host.answerOf(t, q), c.id);
+				const now = JSON.stringify(mine);
+				if (now === sig) return;
+				sig = now;
+				own.empty();
+				for (const id of mine) own.createSpan({ cls: "booklet-word", text: gridLabel(g, id) });
+			});
 			continue;
 		}
 		const buttons = cellItems(g, c.id).map((it) => {

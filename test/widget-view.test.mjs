@@ -281,3 +281,25 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	view.unload();
 	view.containerEl.remove();
 });
+
+test("readonly: a grid shows its words and the body widget names its places from `regions`, with nothing to press; describe lists the notes; a figure is a line saying it is not drawn", () => {
+	const text = NOTE.replace("> [!widget|places] Where", "> [!widget|places readonly] Where")
+		.replace("> [!widget|weather] What", "> [!widget|weather readonly describe] What")
+		.replace('"chips": [', '"figures": [{ "id": "front", "svg": "<svg></svg>" }],\n  "chips": [');
+	const v = open(text);
+	v.changed((t) => storedDraft("weather", ["tired", "x|calm|Unhurried"])(t));
+	const p = v.places(), g = v.grid();
+	assert.equal(p.querySelectorAll("button").length, 0, "nothing to press in the places");
+	assert.deepEqual([...p.querySelectorAll(".booklet-word")].map((x) => x.textContent), ["Head", "Jaw", "Neck", "Shoulders", "Chest", "Arms", "Hands", "Stomach", "Back", "Legs", "Feet"]);
+	assert.ok(p.textContent.includes("Not yet supported: drawing the widget's figure."));
+	assert.ok(!p.querySelector("svg"), "no figure is drawn");
+	assert.equal(g.querySelectorAll("button, input").length, 0, "nothing to press or type in the grid");
+	assert.deepEqual([...cell(v, "calm").querySelectorAll(".booklet-word")].map((x) => x.textContent), ["Settled", "Content", "Unhurried"]);
+	assert.deepEqual([...g.querySelectorAll(".booklet-note")].map((x) => x.textContent), [
+		"Stormy Lots of energy, and not pleasant.",
+		"Bright Lots of energy, and pleasant.",
+		"Overcast Little energy, and not pleasant.",
+		"Calm Little energy, and pleasant.",
+	]);
+	v.close();
+});
