@@ -252,6 +252,262 @@
 	margin-bottom: var(--size-4-1);
 }
 
+/* ---- openings: the booklet's under its title, a module's above its first activity ---- */
+
+.booklet-opening {
+	margin: 0 0 var(--size-4-6);
+}
+
+.booklet-opening-title {
+	font-size: var(--h2-size);
+	font-weight: var(--h2-weight);
+	color: var(--h2-color);
+	line-height: var(--line-height-tight);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-opening-title.booklet-booklet-title {
+	font-size: var(--h1-size);
+	font-weight: var(--h1-weight);
+	color: var(--h1-color);
+}
+
+.booklet-opening-title p {
+	margin: 0;
+}
+
+/* ---- widgets ---- */
+
+/*
+ * A colour name in widget data (SPEC section 7) is drawn in the theme's own colours: each name is one of
+ * Obsidian's colour variables, which every theme sets for light and dark.
+ *   warm  -> --color-red     the colour of Obsidian's --text-error, as warm is the colour of the tone bad
+ *   green -> --color-green   the colour of --text-success, as green is the colour of the tone good
+ *   amber -> --color-orange  the colour of --text-warning, as amber is the colour of the tone warn
+ *   teal  -> --color-cyan    Obsidian's blue-green; teal has no tone
+ *   slate -> --text-muted, on a wash of --mono-rgb-100 (the theme's text colour): Obsidian has no
+ *            blue-grey, and its own muted grey is the nearest neutral; slate has no tone
+ * A cell is a pale wash of its colour with a band of the full colour at its top; its words stay in the
+ * theme's text colour, so they read the same in every theme.
+ */
+.booklet-colour-warm {
+	--booklet-tone: var(--color-red);
+	--booklet-tone-rgb: var(--color-red-rgb);
+}
+
+.booklet-colour-green {
+	--booklet-tone: var(--color-green);
+	--booklet-tone-rgb: var(--color-green-rgb);
+}
+
+.booklet-colour-amber {
+	--booklet-tone: var(--color-orange);
+	--booklet-tone-rgb: var(--color-orange-rgb);
+}
+
+.booklet-colour-teal {
+	--booklet-tone: var(--color-cyan);
+	--booklet-tone-rgb: var(--color-cyan-rgb);
+}
+
+.booklet-colour-slate {
+	--booklet-tone: var(--text-muted);
+	--booklet-tone-rgb: var(--mono-rgb-100);
+}
+
+/* the edge labels around the cells: top and bottom across, left and right read upwards and downwards */
+.booklet-grid {
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-rows: auto auto auto;
+	gap: var(--size-4-1);
+	align-items: center;
+}
+
+.booklet-axis {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	line-height: var(--line-height-tight);
+}
+
+.booklet-axis-none {
+	display: none;
+}
+
+.booklet-axis-top {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.booklet-axis-bottom {
+	grid-column: 2;
+	grid-row: 3;
+}
+
+.booklet-axis-left,
+.booklet-axis-right {
+	grid-row: 2;
+	writing-mode: vertical-rl;
+}
+
+.booklet-axis-left {
+	grid-column: 1;
+	transform: rotate(180deg);
+}
+
+.booklet-axis-right {
+	grid-column: 3;
+}
+
+.booklet-cells {
+	grid-column: 2;
+	grid-row: 2;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--size-4-2);
+}
+
+/* a cell with no colour name has the theme's focus border for its band (the colour classes above set the tone) */
+.booklet-cell {
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-top: var(--size-4-1) solid var(--booklet-tone, var(--background-modifier-border-focus));
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2);
+	min-width: 0;
+}
+
+.booklet-cell[class*="booklet-colour-"] {
+	background-color: rgba(var(--booklet-tone-rgb), 0.12);
+}
+
+.booklet-cell.booklet-colour-slate {
+	background-color: rgba(var(--booklet-tone-rgb), 0.07);
+}
+
+.booklet-cell-name {
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	margin-bottom: var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.booklet-cell .booklet-choices {
+	gap: var(--size-4-1);
+}
+
+.booklet-cell .booklet-text {
+	min-width: 0;
+}
+
+.booklet-cell .booklet-field-row .booklet-text {
+	flex: 1 1 6em;
+	text-overflow: ellipsis;
+}
+
+/* on a phone the two columns of cells keep their places (the edge labels mean nothing otherwise), with less room
+   taken around them */
+.is-phone .booklet-cells {
+	gap: var(--size-4-1);
+}
+
+.is-phone .booklet-cell {
+	padding: var(--size-4-1) var(--size-4-1) var(--size-4-2);
+}
+
+.booklet-word {
+	display: inline-block;
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	padding: var(--size-2-1) var(--size-4-2);
+	background-color: var(--background-primary);
+}
+
+.booklet-notes {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-3);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-note {
+	border-inline-start: var(--size-4-1) solid var(--booklet-tone, var(--background-modifier-border-focus));
+	padding-inline-start: var(--size-4-2);
+}
+
+.booklet-place .booklet-count:not(:empty) {
+	font-variant-numeric: tabular-nums;
+	font-size: var(--font-ui-smaller);
+	border-radius: var(--radius-s);
+	padding: 0 var(--size-4-1);
+	background-color: var(--background-modifier-hover);
+	margin-inline-start: var(--size-4-1);
+}
+
+/* a place that holds words, and is not the one open, is marked by its border */
+.booklet-place.booklet-marked:not(.mod-cta) {
+	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
+}
+
+.booklet-panel {
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-3);
+	margin-top: var(--size-4-3);
+}
+
+.booklet-panel-title {
+	font-weight: var(--font-semibold);
+	font-size: var(--h4-size);
+}
+
+.booklet-sense-group {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-sense-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-1);
+}
+
+.booklet-own-words:not(:empty) {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-panel-foot {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-summary:not(:empty) {
+	margin-top: var(--size-4-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.booklet-summary-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-1) var(--size-4-2);
+}
+
+.booklet-summary-words {
+	flex: 1 1 10em;
+	overflow-wrap: anywhere;
+}
+
+.booklet-link {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-summary-x {
+	--icon-size: var(--icon-xs);
+}
+
 .booklet-long {
 	min-height: calc(var(--input-height) * 3);
 	resize: vertical;

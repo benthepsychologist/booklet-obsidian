@@ -35,18 +35,9 @@ A made-up test note with one question of each kind the Booklet plugin draws. Not
 
 > [!date|fold-day] When did you fold them?
 
-> [!activity|not-yet] Parts not drawn yet
+> [!activity|shared] A shared list and a widget
 
-The parts below are in the format and are not drawn by the plugin yet. Each one says so.
-
-> [!matrix|rate] How do you rate each shape?
-
-- Circle
-- Square
-
-0. Not much
-1. Somewhat
-2. A lot
+A question whose options come from a shared menu, and a grid of cells to press.
 
 > [!menu|shapes]
 - Circle
@@ -55,7 +46,7 @@ The parts below are in the format and are not drawn by the plugin yet. Each one 
 
 > [!multi|picked menu:shapes] Which shapes did you draw?
 
-> [!widget|board] Sort the made-up boxes
+> [!widget|board describe] Sort the made-up boxes
 > ![[#^boxes]]
 
 ```booklet widget
@@ -73,6 +64,19 @@ The parts below are in the format and are not drawn by the plugin yet. Each one 
   "copy": { "h": "Boxes", "p": "Pick the cell each box fits." } }
 ```
 ^boxes
+
+> [!activity|not-yet] Parts not drawn yet
+
+The parts below are in the format and are not drawn by the plugin yet. Each one says so.
+
+> [!matrix|rate] How do you rate each shape?
+
+- Circle
+- Square
+
+0. Not much
+1. Somewhat
+2. A lot
 
 > [!group] A group with a question in it
 > > [!text|in-group] What goes inside the group?

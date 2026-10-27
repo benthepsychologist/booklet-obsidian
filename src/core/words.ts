@@ -2,9 +2,12 @@
  * A kept answer in words, from the file's own lists (SPEC section 8: "Words are shown by the renderer
  * from the file's own lists"), the way booklet.html's SUMMARY readers show a kept entry: a choice's
  * position as its option's words, a scale's number as its anchor's words, a reader's own option as
- * they wrote it. Plain TypeScript: nothing here imports Obsidian.
+ * they wrote it, a grid-select's items as their labels and the reader's own words as written (booklet.html
+ * gridNames). An svg-regions answer is shown as each marked region with its words, where booklet.html
+ * names the regions only. Plain TypeScript: nothing here imports Obsidian.
  */
 import type { Question } from "./reader";
+import { engineOf, gridNames, gridOf, regionSummary, regionsOf } from "./widgets";
 
 /** A piece of an answer in words: `md` is the file's own inline Markdown (an option, an anchor), `text` is plain words. */
 export type WordPart = { md: string } | { text: string };
@@ -42,5 +45,19 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 		case "number":
 		case "date":
 			return v === "" ? null : { parts: [{ text: String(v) }] };
+		case "widget": {
+			if (!q.widget || !Array.isArray(v) || !v.length) return null;
+			const data = q.widget.data;
+			const engine = engineOf(data);
+			if (engine === "grid-select") {
+				const names = gridNames(gridOf(data), v).filter((x) => x.trim() !== "");
+				return names.length ? { parts: [{ text: names.join(", ") }] } : null;
+			}
+			if (engine === "svg-regions") {
+				const rows = regionSummary(regionsOf(data), v).map((r) => (r.words.length ? `${r.label} — ${r.words.join(", ")}` : r.label));
+				return rows.length ? { list: rows } : null;
+			}
+			return null;
+		}
 	}
 }

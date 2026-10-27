@@ -53,7 +53,8 @@ export class TextFileView extends Component {
 	async onUnloadFile() {}
 }
 
-export class MarkdownView {}
+/** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file. */
+export const MarkdownView = (globalThis.__bookletStubMarkdownView ??= class MarkdownView {});
 
 /** Every notice's words, in order. */
 export class Notice {

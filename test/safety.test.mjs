@@ -87,7 +87,7 @@ test("manifest.json follows the submission rules these tests can check; versions
 	const m = JSON.parse(readFileSync(join(ROOT, "manifest.json"), "utf8"));
 	assert.equal(m.id, "booklet");
 	assert.equal(m.name, "Booklet");
-	assert.equal(m.version, "0.1.0");
+	assert.match(m.version, /^\d+\.\d+\.\d+$/);
 	assert.equal(m.author, "Ben Armstrong");
 	assert.equal(m.isDesktopOnly, false);
 	assert.equal(JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version, m.version);

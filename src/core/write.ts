@@ -13,9 +13,11 @@ import { entryItems, type Entry, type RecordBlock, type RecordsLine, type Region
 /**
  * What one question holds (SPEC section 5): a choice's option position (from 1) or the reader's own
  * words, a multi's list of those, a scale's anchor number, a number, a text's string, a date's
- * `YYYY-MM-DD`, a lines question's list of strings.
+ * `YYYY-MM-DD`, a lines question's list of strings; a widget's, what its engine records (SPEC section 7):
+ * a grid-select's list of item ids and `x|cell|word` strings, an svg-regions' list of
+ * `{ "id": region, "s": [words] }`.
  */
-export type AnswerValue = number | string | Array<number | string>;
+export type AnswerValue = number | string | unknown[];
 
 export class RecordsWriteError extends Error {}
 
@@ -55,11 +57,20 @@ export const localDayOf = (ts: string): string => {
 	return Number.isFinite(t) ? localDay(new Date(t)) : "";
 };
 
+/** A value JSON writes as it is and reads back the same: no undefined, no function, no NaN or Infinity. */
+function plainJson(v: unknown): boolean {
+	if (v === null || typeof v === "string" || typeof v === "boolean") return true;
+	if (typeof v === "number") return Number.isFinite(v);
+	if (Array.isArray(v)) return v.every(plainJson);
+	if (typeof v === "object") return Object.values(v as Record<string, unknown>).every(plainJson);
+	return false;
+}
+
 function checkValue(value: AnswerValue | undefined): void {
 	if (value === undefined) return;
 	const one = (v: unknown) => typeof v === "string" || (typeof v === "number" && Number.isFinite(v));
-	if (Array.isArray(value) ? value.every(one) : one(value)) return;
-	throw new RecordsWriteError("An answer is a number, a string, or a list of them.");
+	if (Array.isArray(value) ? value.every(plainJson) : one(value)) return;
+	throw new RecordsWriteError("An answer is a number, a string, or a list of JSON values.");
 }
 
 /* ---- the file, read once for an edit ---- */

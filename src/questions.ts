@@ -8,10 +8,13 @@
  * What a question stores is the reference renderer's shape (SPEC section 5's table; booklet.html
  * drawChoice, drawScale, drawText, drawLines, drawNumber): a choice's option position from 1 or the
  * reader's own words, a multi's list of those in the order picked, a scale's anchor number, a text's
- * string, a lines question's list of strings, a number, a date's `YYYY-MM-DD`.
+ * string, a lines question's list of strings, a number, a date's `YYYY-MM-DD`. A choice or a multi whose
+ * options come from a shared menu is drawn the same way, its answer a position in the menu. A widget is
+ * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
 import { holdsSomething, type Activity, type AnswerValue, type Question } from "./core";
+import { drawWidget } from "./engines";
 
 /** Where a question's answer is kept: its module (scope), and its activity (a repeating one keeps a draft). */
 export interface Target {
@@ -34,6 +37,11 @@ export interface QuestionHost {
 	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null;
 	/** Registers the function that shows the question's answer again. */
 	onShow(key: string, show: () => void): void;
+	/**
+	 * A widget's field for words of the reader's own: `commit` adds what is typed in it, as leaving the field does. The
+	 * view calls it for words typed and not added yet before it lets go of the note, and before a Finalize.
+	 */
+	keepOwn(key: string, t: Target, commit: () => void): void;
 	/** Words typed in a field that are not an answer yet (Add your own), kept across drawings of the view. */
 	heldOf(key: string): string;
 	hold(key: string, words: string): void;
@@ -63,6 +71,10 @@ const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
 
 /** Draws one question into `card`. `locked`: shown, and not answerable. */
 export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
+	if (q.kind === "widget") {
+		drawWidget(host, card, t, q, locked);
+		return;
+	}
 	const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind}` });
 	const promptId = host.uid();
 	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered", attr: { id: promptId } }));
@@ -253,7 +265,7 @@ function drawScale(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 	host.onShow(key, show);
 }
 
-function pressed(b: HTMLElement, on: boolean): void {
+export function pressed(b: HTMLElement, on: boolean): void {
 	b.toggleClass("mod-cta", on);
 	b.toggleClass("is-selected", on);
 	b.setAttr("aria-pressed", on ? "true" : "false");
