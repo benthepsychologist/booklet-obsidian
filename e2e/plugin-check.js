@@ -4,10 +4,11 @@
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks: 1 opens and toggles; 2 draws natively (screenshots); 3 answers reach the records on disk; 4 an open Markdown
 // editor survives interleaved typing; 5 the text field keeps focus across a write; 6 every common kind is answered and
-// cleared, checked on disk, and the first answer to a note with no records does not redraw the view; 7 drafts, Finalize
+// cleared, checked on disk, and the first answer to a note with no records does not redraw the view, and a change made
+// on disk while a field is being edited leaves that field and what was typed in it alone; 7 drafts, Finalize
 // and kept entries, for `repeat` and `repeat daily` (finishing twice in a day replaces that day's entry), and a draft
 // survives a reload of the view; 8 the same with the note also open in a Markdown pane (nothing lost or doubled, the
-// buffer equals the disk); 9 layout: a text box's border in the dark theme, room at the view's foot, touch sizes, and the
+// buffer equals the disk), and a change made in that pane while a field is being edited; 9 layout: a text box's border in the dark theme, room at the view's foot, touch sizes, and the
 // tracker's screenshots; 10 no error or warning from the plugin in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
@@ -316,8 +317,13 @@ async function check4() {
       "A cursor: start " + JSON.stringify(f0.cursor) + " -> after ONE " + JSON.stringify(c1) + " -> after answer click " + JSON.stringify(c2b) + " -> after TWO " + JSON.stringify(c3) + " -> end " + JSON.stringify(cEnd));
     const proseDisk = (disk.split("\n").find(x => x.includes("any answer will do.")) || "");
     c.info("A prose line on disk: " + JSON.stringify(proseDisk.slice(-40)) + "; lint: " + JSON.stringify(lint(file)));
+    // the booklet's text field still has focus, so the view waits to be drawn again with the new prose until it is left
+    const stillIn = await o.evaluate(() => { const a = document.activeElement; return !!a && a.matches(".workspace-leaf-content[data-type='booklet'] input.booklet-text") && a.value; });
+    c.ok(stillIn === "from booklet", "A: the booklet text field still has focus and its words: " + JSON.stringify(stillIn));
+    await o.evaluate(() => document.activeElement && document.activeElement.blur());
+    await sleep(400);
     const shownProse = await o.evaluate(() => (document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-prose") || {}).textContent);
-    c.ok(/TYPED-ONETYPED-TWO/.test(shownProse || ""), "A booklet pane's prose redrew with the typed words: " + JSON.stringify((shownProse || "").slice(-45)));
+    c.ok(/TYPED-ONETYPED-TWO/.test(shownProse || ""), "A booklet pane's prose redrew with the typed words once the text field was left: " + JSON.stringify((shownProse || "").slice(-45)));
 
     // ---- run B: reversed order (answer first, then type)
     await clickScale(o, 2);
@@ -388,17 +394,20 @@ async function check5() {
     log.push(["after the redraw window", await state()]);
     await o.page.keyboard.type("RST", { delay: 120 }); await sleep(1500); log.push(["after RST", await state()]);
     await sleep(3500);   // with a Markdown pane open the answer goes through its editor, and Obsidian saves that after about 2 s
-    const prose = await o.evaluate(() => document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-prose").textContent);
     const diskNote = answersOf(fs.readFileSync(file, "utf8"));
     const afterField = await o.evaluate(() => document.activeElement === document.querySelector(".workspace-leaf-content[data-type='booklet'] input.booklet-text"));
     const want = "abcdefghiXYZUVWRST";
     c.info("two panes: " + log.map(([n, s]) => n + ": focused=" + s.focused + " nodeStillInDom=" + s.sameNode + " value=" + JSON.stringify(s.value)).join(" | "));
-    c.ok(prose.includes("API-EDIT"), "booklet prose redrew with the Markdown edit: " + JSON.stringify(prose.slice(-30)));
     c.ok(diskNote && diskNote.note === want, "two panes: note on disk " + JSON.stringify(diskNote && diskNote.note) + " (typed " + want + ")");
-    c.ok(afterField, "two panes: the (possibly new) input holds focus at the end: " + afterField);
+    c.ok(afterField, "two panes: the input holds focus at the end: " + afterField);
     const redrawn = log.some(([n, s]) => !s.sameNode);
-    c.info("the original input node was " + (redrawn ? "REPLACED by a redraw during the run" : "never replaced (no redraw swapped the node)"));
+    c.ok(!redrawn, "two panes: the input being typed in was never replaced by a drawing, though the Markdown edit changed the note's prose (" + (redrawn ? "REPLACED during the run" : "the same element throughout") + ")");
     c.ok(log.every(([n, s]) => n === "after XYZ" || s.value.startsWith("abcdefghiXYZ")) && log[log.length - 1][1].value === want, "two panes: input value never lost characters; final " + JSON.stringify(log[log.length - 1][1].value));
+    // once the field is left, the view is drawn again with the Markdown edit
+    await o.evaluate(() => document.activeElement && document.activeElement.blur());
+    await sleep(400);
+    const prose = await o.evaluate(() => document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-prose").textContent);
+    c.ok(prose.includes("API-EDIT"), "booklet prose redrew with the Markdown edit once the field was left: " + JSON.stringify(prose.slice(-30)));
   });
   return c;
 }
@@ -461,7 +470,7 @@ function contrast(a, b) {
 
 /* ================= CHECK 6 ================= */
 async function check6() {
-  const c = new Check(6, "every common kind is answered and cleared, checked on disk; the first answer does not redraw the view");
+  const c = new Check(6, "every common kind is answered and cleared, checked on disk; the first answer does not redraw the view; a change on disk leaves a field being edited alone");
   await withApp("c6", async (o, vault) => {
     const file = path.join(vault, EVERY), orig = fs.readFileSync(file, "utf8");
     await openNote(o, EVERY);
@@ -537,8 +546,128 @@ async function check6() {
     const l2 = lint(file); c.ok(l2.code === 0 && /0 errors/.test(l2.out), "lint after clearing: exit " + l2.code + ": " + l2.out);
     const shown2 = Object.values(await shownIn(o, K));
     c.ok(shown2.length === 7 && shown2.every(v => v.every(x => x === "")) && same(shown2.slice(0, 3), [[], [], []]), "the view shows nothing answered (no button pressed, every field empty): " + JSON.stringify(shown2));
+
+    // a change to the note on disk (as Sync or another plugin makes it) while a field is being edited
+    await underneathFlow(c, o, vault, "changed on disk", "disk");
   });
   return c;
+}
+
+/* ---------- a change to the note arrives while a field is being edited: checks 6 (on disk) and 8 (Markdown pane) ---------- */
+// The change: `word` added to the note's prose (so its design changes; none for a change to the records alone), and
+// the question `id` given `value` in the answers block. `route` "disk" makes it with app.vault.process, as Sync or
+// another plugin would; "markdown" in the open Markdown pane's editor, which reaches the view when that pane saves.
+// Waits until the booklet view has been handed the change (its text holds `needle`).
+async function changeUnder(o, route, word, id, value) {
+  const needle = await o.evaluate(async ({ route, word, id, value, rel }) => {
+    const edit = t => {
+      let out = word ? t.replace("any answer will do.", "any answer will do. " + word) : t;
+      if (id) out = out.replace(/(```booklet answers\n)([\s\S]*?)(\n```)/, (m, a, body, z) => { const j = JSON.parse(body); j[id] = value; return a + JSON.stringify(j, null, 1) + z; });
+      return out;
+    };
+    if (route === "disk") await app.vault.process(app.vault.getAbstractFileByPath(rel), edit);
+    else {
+      let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
+      const ed = leaf.view.editor, before = ed.getValue(), after = edit(before);
+      let p = 0; while (p < before.length && before[p] === after[p]) p++;
+      let s = 0; while (s < before.length - p && before[before.length - 1 - s] === after[after.length - 1 - s]) s++;
+      ed.replaceRange(after.slice(p, after.length - s), ed.offsetToPos(p), ed.offsetToPos(before.length - s));
+    }
+    return word || ('"' + id + '": ' + JSON.stringify(value));
+  }, { route, word, id, value, rel: EVERY });
+  const t0 = Date.now();
+  await o.page.waitForFunction(n => app.workspace.getLeavesOfType("booklet")[0].view.getViewData().includes(n), needle, { timeout: 10000, polling: 50 });
+  return Date.now() - t0;
+}
+// the field that has focus now, marked so that it can be found again: is it still in the page, with focus?
+const markFocused = o => o.evaluate(() => { window.__f = document.activeElement; return window.__f && window.__f.className; });
+const marked = o => o.evaluate(() => ({ same: !!window.__f && document.contains(window.__f) && document.activeElement === window.__f, value: window.__f && window.__f.value, caret: window.__f && window.__f.type !== "number" && window.__f.type !== "date" ? window.__f.selectionStart : null }));
+const viewShows = (o, word) => o.page.waitForFunction(w => document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-page").textContent.includes(w), word, { timeout: 8000, polling: 50 }).then(() => true, () => false);
+const blurNow = o => o.evaluate(() => document.activeElement && document.activeElement.blur());
+
+// Each common field in turn: the reader is in it (focus, a selection, typing not yet written), a change arrives that
+// changes the design and the same question's answer, and the reader goes on. The field must be the same element,
+// with focus and with what the reader had in it; what they typed wins on disk; the view is drawn again once they leave.
+async function underneathFlow(c, o, vault, tag, route) {
+  const file = path.join(vault, EVERY), K = "/kinds", words = [];
+  const say = (cond, msg) => c.ok(cond, tag + ": " + msg);
+  // a stored number to begin from
+  await question(o, K, "number").locator("input").fill("7"); await blurNow(o);
+  const d0 = await waitDisk(file, t => (answersOf(t) || {}).boxes === 7);
+  say(d0.ok, "the number 7 is on disk to begin with");
+  const before = head(d0.text);
+
+  // number: the reader selects the 7; the change (the design, and boxes 9) arrives; the reader types 12 over the selection
+  await question(o, K, "number").locator("input").focus();
+  await o.evaluate(() => document.activeElement.select()); await markFocused(o);
+  let ms = await changeUnder(o, route, "UNDER-NUMBER", "boxes", 9); words.push("UNDER-NUMBER");
+  let m = await marked(o);
+  say(m.same && m.value === "7", "the change reached the view after " + ms + " ms while the number field was selected: the same field, with focus, still holds " + JSON.stringify(m.value));
+  await o.page.keyboard.insertText("12"); await blurNow(o);
+  let d = await waitDisk(file, t => (answersOf(t) || {}).boxes === 12);
+  say(d.ok, "typing 12 over the selection gives boxes " + JSON.stringify((answersOf(d.text) || {}).boxes) + " on disk (not 712, and not the change's 9)");
+  say(await viewShows(o, "UNDER-NUMBER"), "after the reader left the field, the view is drawn again with the changed prose");
+
+  // number, left without typing: the change (boxes 3, records only) arrives while it has focus; it shows 3 once left
+  await question(o, K, "number").locator("input").focus(); await markFocused(o);
+  ms = await changeUnder(o, route, null, "boxes", 3);
+  m = await marked(o);
+  say(m.same && m.value === "12", "a change to the answer alone, while the field has focus: the field is not overwritten (" + JSON.stringify(m.value) + ")");
+  await blurNow(o); await sleep(300);
+  const shownNow = await question(o, K, "number").locator("input").inputValue();
+  await sleep(1500);
+  const left = await waitDisk(file, t => (answersOf(t) || {}).boxes === 3, 3000);
+  say(shownNow === "3" && left.ok, "left without typing, the field shows the note's " + JSON.stringify(shownNow) + ", and the note keeps boxes 3 (nothing written over it)");
+
+  // text: typing, then the change (the design, and thoughts), then more typing
+  await question(o, K, "text").locator("textarea").click(); await o.page.keyboard.type("Half typed"); await markFocused(o);
+  ms = await changeUnder(o, route, "UNDER-TEXT", "thoughts", "Changed elsewhere"); words.push("UNDER-TEXT");
+  m = await marked(o);
+  say(m.same && m.value === "Half typed" && m.caret === 10, "text being typed: the same field, with focus, its words and the caret at their end: " + JSON.stringify(m));
+  await o.page.keyboard.type(" and finished"); await blurNow(o);
+  d = await waitDisk(file, t => (answersOf(t) || {}).thoughts === "Half typed and finished");
+  say(d.ok, "the typed text wins over the change: thoughts " + JSON.stringify((answersOf(d.text) || {}).thoughts));
+
+  // lines: typing in the first line, the change (the design, and steps), more typing
+  await question(o, K, "lines").locator("input").first().click(); await o.page.keyboard.type("Half a line"); await markFocused(o);
+  ms = await changeUnder(o, route, "UNDER-LINES", "steps", ["Elsewhere"]); words.push("UNDER-LINES");
+  m = await marked(o);
+  say(m.same && m.value === "Half a line", "a line being typed: the same field, with focus and its words: " + JSON.stringify(m));
+  await o.page.keyboard.type(" more"); await blurNow(o);
+  d = await waitDisk(file, t => same((answersOf(t) || {}).steps, ["Half a line more", ""]));
+  say(d.ok, "the typed lines win over the change: steps " + JSON.stringify((answersOf(d.text) || {}).steps));
+
+  // date: set, then the change (the design, and fold-day) before the reader leaves the field
+  await question(o, K, "date").locator("input[type=date]").focus();
+  await question(o, K, "date").locator("input[type=date]").fill("2026-12-01"); await markFocused(o);
+  ms = await changeUnder(o, route, "UNDER-DATE", "fold-day", "2026-01-02"); words.push("UNDER-DATE");
+  m = await marked(o);
+  say(m.same && m.value === "2026-12-01", "a date being set: the same field, with focus and its date: " + JSON.stringify(m));
+  await blurNow(o);
+  d = await waitDisk(file, t => (answersOf(t) || {})["fold-day"] === "2026-12-01");
+  say(d.ok, "the date set wins over the change: fold-day " + JSON.stringify((answersOf(d.text) || {})["fold-day"]));
+
+  // Add your own: words typed, the change (the design, and tools), then Enter
+  await question(o, K, "multi").locator(".booklet-own-row input").click(); await o.page.keyboard.type("Twine"); await markFocused(o);
+  ms = await changeUnder(o, route, "UNDER-OWN", "tools", [2]); words.push("UNDER-OWN");
+  m = await marked(o);
+  say(m.same && m.value === "Twine", "words typed in Add your own: the same field, with focus and its words: " + JSON.stringify(m));
+  await o.page.keyboard.press("Enter");
+  d = await waitDisk(file, t => same((answersOf(t) || {}).tools, [2, "Twine"]));
+  say(d.ok, "Enter adds them to what the note now holds: tools " + JSON.stringify((answersOf(d.text) || {}).tools));
+
+  // a press that begins while the view waits to be drawn again: the click lands, then the view is drawn
+  await question(o, K, "text").locator("textarea").click(); await o.page.keyboard.press("End");
+  ms = await changeUnder(o, route, "UNDER-PRESS", null, null); words.push("UNDER-PRESS");
+  await question(o, K, "choice").locator("button.booklet-choice", { hasText: "Plum" }).click();
+  d = await waitDisk(file, t => (answersOf(t) || {}).fruit === 3);
+  say(d.ok, "a press on Plum while the view waited to be drawn again: fruit " + JSON.stringify((answersOf(d.text) || {}).fruit) + " on disk");
+  say(await viewShows(o, "UNDER-PRESS"), "then the view is drawn again with the changed prose");
+
+  const after = fs.readFileSync(file, "utf8");
+  const stripped = words.reduce((t, w) => t.split(" " + w).join(""), head(after));
+  say(stripped === before, "outside the records region, only the words the changes added are new: " + (stripped === before));
+  const l = lint(file); say(l.code === 0 && /0 errors/.test(l.out), "lint exit " + l.code + ": " + l.out);
 }
 
 /* ---------- the two repeating flows, used by checks 7 (one pane) and 8 (with a Markdown pane) ---------- */
@@ -658,7 +787,7 @@ async function check7() {
 
 /* ================= CHECK 8 ================= */
 async function check8() {
-  const c = new Check(8, "the same with the note also open in a Markdown pane: nothing lost or doubled, the buffer equals the disk");
+  const c = new Check(8, "the same with the note also open in a Markdown pane: nothing lost or doubled, the buffer equals the disk; a change made there leaves a field being edited alone");
   await withApp("c8", async (o, vault) => {
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
     for (const [rel, flow, prose] of [[KEPT, walkLogFlow, "keeps every one of them."], [DAILY, dailyFlow, "replaces it."]]) {
@@ -694,6 +823,14 @@ async function check8() {
       await o.evaluate(() => { app.workspace.iterateRootLeaves(l => { l.detach(); }); });
       await sleep(500);
     }
+    // a change made in the Markdown pane reaches the view while a field is being edited there
+    const s = await splitWithMarkdown(o, c, EVERY);
+    c.ok(JSON.stringify(s.types) === JSON.stringify(["booklet", "markdown"]), EVERY + ": two leaves on the same file: " + JSON.stringify(s.leaves.map(l => l.type)));
+    await o.page.waitForSelector(BOOK + " .booklet-choice", { timeout: 8000 }); await sleep(800);
+    await underneathFlow(c, o, vault, "changed in the Markdown pane", "markdown");
+    await sleep(3500);   // the Markdown view saves its editor about 2 s after the last change
+    const disk = fs.readFileSync(path.join(vault, EVERY), "utf8"), buf = await mdBuffer(o);
+    c.ok(buf === disk, EVERY + ": the Markdown buffer equals the file on disk: " + (buf === disk));
   });
   return c;
 }
