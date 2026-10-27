@@ -368,11 +368,11 @@
 	gap: var(--size-4-2);
 }
 
+/* a cell with no colour name has the theme's focus border for its band (the colour classes above set the tone) */
 .booklet-cell {
-	--booklet-tone: var(--background-modifier-border-focus);
 	background-color: var(--background-secondary);
 	border: var(--border-width) solid var(--background-modifier-border);
-	border-top: var(--size-4-1) solid var(--booklet-tone);
+	border-top: var(--size-4-1) solid var(--booklet-tone, var(--background-modifier-border-focus));
 	border-radius: var(--radius-m);
 	padding: var(--size-4-2);
 	min-width: 0;
@@ -403,6 +403,17 @@
 
 .booklet-cell .booklet-field-row .booklet-text {
 	flex: 1 1 6em;
+	text-overflow: ellipsis;
+}
+
+/* on a phone the two columns of cells keep their places (the edge labels mean nothing otherwise), with less room
+   taken around them */
+.is-phone .booklet-cells {
+	gap: var(--size-4-1);
+}
+
+.is-phone .booklet-cell {
+	padding: var(--size-4-1) var(--size-4-1) var(--size-4-2);
 }
 
 .booklet-word {
