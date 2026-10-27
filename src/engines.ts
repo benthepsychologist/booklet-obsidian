@@ -13,6 +13,7 @@
 import { setIcon } from "obsidian";
 import {
 	copyOf,
+	earlierPlaceWords,
 	engineOf,
 	gridAddOwn,
 	gridChosen,
@@ -34,7 +35,7 @@ import {
 	rowFor,
 	type Question,
 } from "./core";
-import { keyOf, pressed, type QuestionHost, type Target } from "./questions";
+import { earlierGroup, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -299,6 +300,9 @@ function drawRegions(
 				words.push({ b, id: w.id });
 			}
 		}
+		// the reader's earlier words, after the widget's: written for any place, now or in a kept entry, they are offered
+		// under every place, as the widget's words are (core/earlier.ts); a press adds them as typing them in the field does
+		const earlier = earlierGroup(host, panel, locked, (words) => put(regionAddOwn(rg, rows(), place, words)));
 		const own = panel.createDiv({ cls: "booklet-choices booklet-own-words" });
 		ownField(host, panel, t, `${key}#own:${place}`, titleId, "Add your own words", locked, (typed) => put(regionAddOwn(rg, rows(), place, typed)));
 		const foot = panel.createDiv({ cls: "booklet-panel-foot" });
@@ -313,6 +317,7 @@ function drawRegions(
 			const s = r && Array.isArray(r.s) ? r.s : [];
 			for (const { b, id } of words) pressed(b, s.includes(id));
 			clear.disabled = locked || !r;
+			earlier(earlierPlaceWords(q, rg, host.answerOf(t, q), host.earlierOf(t).entries, place));
 			const mine = regionOwn(rg, rows(), place);
 			const now = JSON.stringify(mine);
 			if (now === sig) return;

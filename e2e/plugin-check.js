@@ -88,7 +88,7 @@ const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
 // The errors the 0.15 linter is expected to report on a test-vault note, and no others: what the plugin draws ahead of
 // the format (the check-in note's each: and its blue and purple cells). test/helpers.mjs keeps the same list.
-const EXPECTED_LINT = { [CHECKIN]: [/a multi line takes no `each:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/] };
+const EXPECTED_LINT = { [CHECKIN]: [/a multi line takes no `each:` setting/, /a lines line takes no `earlier:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/] };
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
 function lint(file) {
   const r = cp.spawnSync("python3", ["-I", LINT, file], { encoding: "utf8" });

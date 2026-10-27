@@ -489,6 +489,33 @@
 	margin-top: var(--size-4-3);
 }
 
+/* the reader's earlier words, offered again: a group of its own under a body widget's place and under a lines
+   question's fields, named "Earlier words" */
+.booklet-earlier {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-earlier-none {
+	display: none;
+}
+
+.booklet-earlier-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-1);
+}
+
+/* an earlier word, here or among a question's own options, is shortened to two lines on screen; its full words
+   are its button's name, and a press takes the full words */
+.booklet-earlier-word .booklet-words {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
 .booklet-panel-foot {
 	margin-top: var(--size-4-3);
 }
