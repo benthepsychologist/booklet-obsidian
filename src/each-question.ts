@@ -1,14 +1,21 @@
 /*
  * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn ahead of format 0.16 as the approved
  * design has it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
- * its source's answer, in the order the source holds them, each under a subheading in the pick's own words. A copy is
- * the question's own options, `open` field and replies, as a plain multi draws them (questions.ts choiceBody); what it
- * picks is the `a` of that pick's pair. Nothing is drawn while nothing is picked.
+ * its source's answer, each under a subheading in the pick's own words. A copy is the question's own options, `open`
+ * field and replies, as a plain multi draws them (questions.ts choiceBody); what it picks is the `a` of that pick's
+ * pair. Nothing is drawn while nothing is picked.
  *
- * Copies come and go as picks are made and taken back, around the field or button the reader is in: a copy is never
- * drawn again once drawn (its own updater shows its answer), copies around it are added or moved without moving it,
- * and a copy whose pick was taken back while the reader was in it stays until they leave it. Its pair stays in the
- * answer, not drawn, and the copy comes back with it when the pick is made again.
+ * The order: a drawing of the view puts the copies in the order the source's answer holds the picks. While it stays
+ * open, a new pick adds a copy at the end and nothing already on screen moves, even when the source's answer changes
+ * its order: a grid rebuilds its answer as the other cells' ids, then the cell's own, when the reader writes a word in
+ * a cell (booklet.html's gridSelect, kept byte for byte), and that must not swap two copies under the reader. The order
+ * on screen is the view's, like the body widget's open place: nothing about it is stored, and the next drawing (the
+ * note opened again, or its design changed) takes the answer's order again.
+ *
+ * Copies come and go around the field or button the reader is in: a copy is never drawn again once drawn (its own
+ * updater shows its answer), and a copy whose pick was taken back while the reader was in it stays where it is until
+ * they leave it. Its pair stays in the answer, not drawn, and a copy comes back for it (at the end) when the pick is
+ * made again.
  */
 import { pairFor, pairsOf, pickKey, pickWords, setPair, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
 import { choiceBody, picksOf, type Label, type QuestionHost, type Target } from "./questions";
@@ -26,7 +33,7 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 	const drawn = new Map<string, Copy>();
 	const picksNow = (): PickValue[] => (src ? sourcePicks(src, host.answerOf(t, src)) : []);
 
-	// a new copy is made at the end of the copies; show() then puts it in its place
+	// a new copy is made at the end of the copies, where it stays; the map holds the copies in the order shown
 	const makeCopy = (p: PickValue): Copy => {
 		const el = copies.createDiv({ cls: "booklet-copy", attr: { "data-booklet-pick": pickKey(p) } });
 		const headId = host.uid();
@@ -76,24 +83,12 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 			c.el.remove();
 			drawn.delete(k);
 		}
+		// the copies on screen stay where they are; a new pick's copy goes at the end (the first drawing: the source's order)
 		for (const p of picks) {
 			const k = pickKey(p);
 			const c = drawn.get(k);
 			if (c) c.el.removeClass("booklet-copy-gone");
 			else drawn.set(k, makeCopy(p));
-		}
-		// the copies in the source's order, the one the reader is in left where it is (moving it would take focus away)
-		const order = [...want, ...[...drawn.keys()].filter((k) => !want.includes(k))];
-		const now = Array.from(copies.children).map((el) => el.getAttribute("data-booklet-pick"));
-		if (JSON.stringify(now) !== JSON.stringify(order)) {
-			const fixed = order.find((k) => inside(drawn.get(k) as Copy));
-			const at = fixed === undefined ? -1 : order.indexOf(fixed);
-			if (at < 0) for (const k of order) copies.appendChild((drawn.get(k) as Copy).el);
-			else {
-				const f = (drawn.get(fixed as string) as Copy).el;
-				for (const k of order.slice(0, at)) copies.insertBefore((drawn.get(k) as Copy).el, f);
-				for (const k of order.slice(at + 1)) copies.appendChild((drawn.get(k) as Copy).el);
-			}
 		}
 		for (const c of drawn.values()) c.show();
 		// nothing is drawn while nothing is picked (an answer of the wrong shape still shows its notice)
