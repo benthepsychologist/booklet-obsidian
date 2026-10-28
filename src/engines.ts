@@ -35,7 +35,7 @@ import {
 	rowFor,
 	type Question,
 } from "./core";
-import { earlierGroup, keyOf, pressed, type QuestionHost, type Target } from "./questions";
+import { earlierGroup, keyOf, pressHold, pressed, type Holdable, type PressHold, type QuestionHost, type Target } from "./questions";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -69,9 +69,22 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
  * A field and an Add button for words of the reader's own. `add` gets the words, commas between them, when they are
  * added: on Add, on Enter, and on leaving the field, as booklet.html's tag field adds a word in progress when it is
  * left, so nothing typed is dropped. What is typed and not added yet is held by the view (`key`), so a drawing of the
- * view keeps it, and the view adds it before it lets go of the note and before a Finalize (keepOwn).
+ * view keeps it, and the view adds it before it lets go of the note and before a Finalize (keepOwn). When the field is
+ * left for one of `holdable` (a cell's items, a place's words) that the words typed have just pressed, that press is
+ * held (`hold`): it only confirms the button, as booklet.html's holdIn has it, and does not take it back.
  */
-function ownField(host: QuestionHost, into: HTMLElement, t: Target, key: string, labelledBy: string, placeholder: string, locked: boolean, add: (words: string) => void): void {
+function ownField(
+	host: QuestionHost,
+	into: HTMLElement,
+	t: Target,
+	key: string,
+	labelledBy: string,
+	placeholder: string,
+	locked: boolean,
+	add: (words: string) => void,
+	hold: PressHold,
+	holdable: readonly Holdable[],
+): void {
 	const row = into.createDiv({ cls: "booklet-field-row booklet-own-row" });
 	const field = row.createEl("input", { cls: "booklet-text", type: "text", attr: { placeholder, autocomplete: "off" } });
 	field.setAttr("data-booklet-key", key);
@@ -90,8 +103,8 @@ function ownField(host: QuestionHost, into: HTMLElement, t: Target, key: string,
 	host.keepOwn(key, t, go);
 	// leaving the field adds what is in it (a press elsewhere, Tab, the window losing focus); a field taken out of the
 	// page is left alone, as the view has added its words already if it is letting go of the note
-	field.addEventListener("blur", () => {
-		if (field.isConnected && field.value.trim()) go();
+	field.addEventListener("blur", (evt) => {
+		if (field.isConnected && field.value.trim()) hold.leave(evt, holdable, go);
 	});
 	field.addEventListener("keydown", (evt) => {
 		if (evt.key !== "Enter") return;
@@ -141,6 +154,8 @@ function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 	cells.setAttr("aria-labelledby", promptId);
 	axis("right", g.axes.right);
 	axis("bottom", g.axes.bottom);
+	// a cell's item its field was left for, which the words typed there have just pressed (booklet.html gridSelect's holdIn)
+	const hold = pressHold(host, cells);
 
 	const shows: Array<() => void> = [];
 	for (const c of g.cells) {
@@ -172,6 +187,7 @@ function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 			b.disabled = locked;
 			b.addEventListener("click", (evt) => {
 				evt.preventDefault();
+				if (hold.confirms(b)) return;
 				put(gridToggle(chosen(), it.id));
 			});
 			return { b, id: it.id };
@@ -188,7 +204,8 @@ function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 			own.empty();
 			for (const id of mine) ownButton(own, gridLabel(g, id), locked, () => put(gridToggle(chosen(), id)));
 		});
-		ownField(host, cell, t, `${key}#own:${c.id}`, nameId, "Add your own", locked, (words) => put(gridAddOwn(g, chosen(), c.id, words)));
+		const holdable = buttons.map(({ b, id }) => ({ b, on: () => chosen().includes(id) }));
+		ownField(host, cell, t, `${key}#own:${c.id}`, nameId, "Add your own", locked, (words) => put(gridAddOwn(g, chosen(), c.id, words)), hold, holdable);
 	}
 	if (q.describe && g.cells.some((c) => c.note)) {
 		const notes = box.createDiv({ cls: "booklet-notes" });
@@ -267,6 +284,9 @@ function drawRegions(
 	const panel = box.createDiv({ cls: "booklet-panel" });
 	const summary = box.createDiv({ cls: "booklet-summary" });
 	describe();
+	// a word of the open place its field was left for, which the words typed there have just pressed (booklet.html
+	// svgRegions's holdIn)
+	const hold = pressHold(host, panel);
 
 	// the panel: the open place's sense words, its own words, a field for more and Clear. Drawn again only when
 	// another place is opened (a press, never while the reader is in its field); otherwise shown again in place.
@@ -295,6 +315,7 @@ function drawRegions(
 				b.disabled = locked;
 				b.addEventListener("click", (evt) => {
 					evt.preventDefault();
+					if (hold.confirms(b)) return;
 					put(regionToggleWord(rows(), place, w.id));
 				});
 				words.push({ b, id: w.id });
@@ -304,7 +325,14 @@ function drawRegions(
 		// under every place, as the widget's words are (core/earlier.ts); a press adds them as typing them in the field does
 		const earlier = earlierGroup(host, panel, locked, (words) => put(regionAddOwn(rg, rows(), place, words)));
 		const own = panel.createDiv({ cls: "booklet-choices booklet-own-words" });
-		ownField(host, panel, t, `${key}#own:${place}`, titleId, "Add your own words", locked, (typed) => put(regionAddOwn(rg, rows(), place, typed)));
+		const holdable = words.map(({ b, id }) => ({
+			b,
+			on: () => {
+				const r = rowFor(rows(), place);
+				return !!r && Array.isArray(r.s) && r.s.includes(id);
+			},
+		}));
+		ownField(host, panel, t, `${key}#own:${place}`, titleId, "Add your own words", locked, (typed) => put(regionAddOwn(rg, rows(), place, typed)), hold, holdable);
 		const foot = panel.createDiv({ cls: "booklet-panel-foot" });
 		const clear = foot.createEl("button", { cls: "booklet-clear", text: clearWord });
 		clear.addEventListener("click", (evt) => {

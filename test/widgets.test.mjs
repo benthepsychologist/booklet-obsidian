@@ -90,8 +90,8 @@ function referenceEngines() {
 	return { ...ctx.__engines, document: dom.window.document, window: dom.window };
 }
 
-/** Types `typed` into a tag field after the words it holds, a key at a time, then leaves it. */
-function typeInto(R, inp, typed) {
+/** Types `typed` into a tag field after the words it holds, a key at a time. */
+function typeKeys(R, inp, typed) {
 	inp.focus();
 	assert.equal(R.document.activeElement, inp, "the tag field has the focus");
 	const lead = inp.value.trim() ? ", " : "";
@@ -99,7 +99,22 @@ function typeInto(R, inp, typed) {
 		inp.value += ch;
 		inp.dispatchEvent(new R.window.Event("input", { bubbles: true }));
 	}
+}
+
+/** Types `typed` into a tag field, then leaves it. */
+function typeInto(R, inp, typed) {
+	typeKeys(R, inp, typed);
 	inp.blur();
+}
+
+/** Types `typed` into a tag field, then presses `b`, which leaves the field: the pointer goes down, the field loses focus, the pointer comes up, the click. */
+function typeThenPress(R, inp, typed, b) {
+	assert.ok(b, "the button to press is drawn");
+	typeKeys(R, inp, typed);
+	b.dispatchEvent(new R.window.Event("pointerdown", { bubbles: true }));
+	inp.blur();
+	R.document.dispatchEvent(new R.window.Event("pointerup", { bubbles: true }));
+	b.click();
 }
 
 const textOf = (n) => (n.childNodes[0]?.textContent ?? n.textContent).trim();
@@ -125,6 +140,9 @@ function gridSteps() {
 		["type a word with a bar in it", { type: ["loud-fast", "a|b"] }, (g, v) => core.gridAddOwn(g, v, "loud-fast", "a|b")],
 		["press Flute", { press: ["quiet-fast", "Flute"] }, (g, v) => core.gridToggle(v, "flute")],
 		["type Flute's label in its cell, already pressed", { type: ["quiet-fast", "Flute"] }, (g, v) => core.gridAddOwn(g, v, "quiet-fast", "Flute")],
+		// the words typed press Bell as the field is left for Bell, and that press only confirms it (holdIn), as the view does
+		["type Bell's label in its cell, then press Bell", { typePress: ["loud-fast", "bell", "Bell"] }, (g, v) => core.gridAddOwn(g, v, "loud-fast", "bell")],
+		["press Bell again: a press again", { press: ["loud-fast", "Bell"] }, (g, v) => core.gridToggle(v, "bell")],
 	];
 }
 
@@ -148,6 +166,9 @@ test("grid-select: the core stores what booklet.html stores, step by step", { sk
 			const b = [...cellBox(cell).querySelectorAll("button.emb")].find((n) => n.textContent === words);
 			assert.ok(b, `${what}: a button "${words}"`);
 			b.click();
+		} else if (ref.typePress) {
+			const [cell, typed, words] = ref.typePress;
+			typeThenPress(R, cellBox(cell).querySelector("input.field"), typed, [...cellBox(cell).querySelectorAll("button.emb")].find((n) => n.textContent === words));
 		} else typeInto(R, cellBox(ref.type[0]).querySelector("input.field"), ref.type[1]);
 		await tick();
 		mine = ours(g, mine);
@@ -191,6 +212,9 @@ function regionSteps() {
 			for (const w of core.regionWords(rg, v, active)) v = core.regionRemoveWord(rg, v, active, w);
 			return v;
 		}],
+		// the words typed press Warm as the field is left for Warm, and that press only confirms it (holdIn), as the view does
+		["type Warm's label, then press Warm", { typePress: ["warm", "Warm"] }, (v) => core.regionAddOwn(rg, v, active, "warm")],
+		["press Warm again: a press again", { word: "Warm" }, (v) => core.regionToggleWord(v, active, "warm")],
 	];
 }
 
@@ -206,6 +230,7 @@ test("svg-regions with no figure: the core stores what booklet.html stores, step
 		else if (ref.summaryOpen) [...box.querySelectorAll(".bodysummary button.rlink")].find((n) => n.textContent === ref.summaryOpen).click();
 		else if (ref.word) [...panel().querySelectorAll("button.sense")].find((n) => n.textContent === ref.word).click();
 		else if (ref.type) typeInto(R, panel().querySelector("input.field"), ref.type);
+		else if (ref.typePress) typeThenPress(R, panel().querySelector("input.field"), ref.typePress[0], [...panel().querySelectorAll("button.sense")].find((n) => n.textContent === ref.typePress[1]));
 		else if (ref.untag) [...panel().querySelectorAll(".tagchip")].find((n) => textOf(n) === ref.untag).querySelector("button.x").click();
 		else if (ref.untagAll) for (;;) {
 			const chip = panel().querySelector(".tagchip");

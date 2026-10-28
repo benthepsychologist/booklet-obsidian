@@ -13,7 +13,8 @@
 // touch sizes (the tracker, and the check-in note with a place open, also in a window a phone's width), and the
 // tracker's and check-in note's screenshots in light, dark and mobile emulation; 11 the check-in note's widgets and shared list: drawn, answered and
 // cleared on disk with words of the reader's own, a widget's own field kept while the note changes, its words added
-// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), finished and kept,
+// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), a
+// press on the very item or place word the words name held as booklet.html holds it, finished and kept,
 // in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
 // taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
 // left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
@@ -1096,7 +1097,10 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   // by a press elsewhere in the widget (the words are added first, then the press, as booklet.html takes them; its
   // JSON for the same presses, from its own engines, is BH below), by a click elsewhere in the view, by opening
   // another note, and by Finalize
-  const BH = { 1: '["tense","x|invigorating|fizzy","settled"]', 2: '[{"id":"shoulders","s":["tight","achy","warm"]}]', 3: '[{"id":"shoulders","s":["tight","achy","warm"]}]' };
+  const BH = {
+    1: '["tense","x|invigorating|fizzy","settled"]', 2: '[{"id":"shoulders","s":["tight","achy","warm"]}]', 3: '[{"id":"shoulders","s":["tight","achy","warm"]}]',
+    4: '["tense","x|invigorating|fizzy","settled","tired"]', 5: '[{"id":"shoulders","s":["tight","achy","warm"]},{"id":"hands","s":["cool"]}]',
+  };
   const typeOnly = (field, words) => typeIn(o, field, words, false);
   const order = (n, what, got) => say(got === BH[n], "press order " + n + ", " + what + ": Obsidian " + got + " | booklet.html " + BH[n] + " | same: " + (got === BH[n]));
   // 1: Tense; "fizzy" typed in Invigorating's field; Settled pressed in Soothing
@@ -1118,6 +1122,28 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   await placesQ(o).locator(".booklet-panel button.booklet-clear").click();
   d = await waitDisk(file, t => JSON.stringify((draftOf(t) || {}).places) === BH[3]);
   order(3, "then Hands, Cool; numb typed; Clear this place pressed", JSON.stringify((draftOf(d.text) || {}).places));
+  // 4: "tired" typed in Draining's field, then Tired pressed: the words press it, and the press only confirms it, as
+  // booklet.html holds it (holdIn), rather than taking it back; the disk is read again after a pause, so a press that
+  // took it back would be seen. Then Tired pressed again is a press again, and takes it out.
+  const settledOn = async (pick, want) => { await waitDisk(file, t => JSON.stringify((draftOf(t) || {})[pick]) === want); await sleep(600); return waitDisk(file, t => JSON.stringify((draftOf(t) || {})[pick]) === want); };
+  await typeOnly(cellField(o, "draining"), "tired");
+  await gridItem(o, "draining", "Tired").click();
+  d = await settledOn("feelings", BH[4]);
+  order(4, "the grid: tired typed in Draining; Tired pressed (pressed once, not pressed and taken back)", JSON.stringify((draftOf(d.text) || {}).feelings));
+  say(await gridItem(o, "draining", "Tired").getAttribute("aria-pressed") === "true", "and Tired is drawn pressed");
+  await gridItem(o, "draining", "Tired").click();
+  d = await settledOn("feelings", BH[1]);
+  say(d.ok, "Tired pressed again takes it out: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
+  // 5: Hands open; "cool" typed in its field, then Cool pressed: the same for a place's word; then Cool pressed again
+  await place(o, "Hands").click();
+  await typeOnly(placeField(o), "cool");
+  await sense(o, "Cool").click();
+  d = await settledOn("places", BH[5]);
+  order(5, "the places: Hands; cool typed; Cool pressed (pressed once, not pressed and taken back)", JSON.stringify((draftOf(d.text) || {}).places));
+  say(await sense(o, "Cool").getAttribute("aria-pressed") === "true", "and Cool is drawn pressed");
+  await sense(o, "Cool").click();
+  d = await settledOn("places", BH[3]);
+  say(d.ok, "Cool pressed again takes it out: places " + JSON.stringify((draftOf(d.text) || {}).places));
   // a click elsewhere in the view: "Drowsy" typed in Draining's field, then the card's title clicked
   await typeOnly(cellField(o, "draining"), "Drowsy");
   await inCard(o, CK, ".booklet-card-title").click();
@@ -1168,7 +1194,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
 
 /* ================= CHECK 11 ================= */
 async function check11() {
-  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, own words added when the field is left (a press, in booklet.html's order; a click elsewhere; another note; Finalize; the pane closed), a kept entry in words; in one pane and with a Markdown pane");
+  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, own words added when the field is left (a press, in booklet.html's order; a press on the very item or place word they name, held as booklet.html holds it; a click elsewhere; another note; Finalize; the pane closed), a kept entry in words; in one pane and with a Markdown pane");
   await withApp("c11", async (o, vault) => {
     await openNote(o, CHECKIN);
     await checkinFlow(c, o, vault, "one pane", "disk", null);

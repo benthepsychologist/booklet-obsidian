@@ -376,6 +376,54 @@ export function pressed(b: HTMLElement, on: boolean): void {
 	b.setAttr("aria-pressed", on ? "true" : "false");
 }
 
+/** A button a field for the reader's own words can be left for, and whether it is pressed now. */
+export interface Holdable {
+	b: HTMLElement;
+	on: () => boolean;
+}
+
+/**
+ * A press held for a field for the reader's own words (booklet.html holdPress, heldPress and holdIn). Leaving the field
+ * adds the words typed in it, and the reader may be leaving it to press the very button those words name (a listed
+ * option, a grid cell's item, a place's word): the words have pressed it already, so the click that follows only
+ * confirms it, rather than taking it back. A choice's or a multi's Add your own field and a widget's own field use it.
+ */
+export interface PressHold {
+	/**
+	 * The field is being left (its blur): `add` adds the words typed in it, and the one of `buttons` the field is being
+	 * left for (the focus's new place, else what the press under way began on) is held when those words have just
+	 * pressed it.
+	 */
+	leave(evt: FocusEvent, buttons: readonly Holdable[], add: () => void): void;
+	/** A click on `b`: true when its press is the one held, which only confirms it. The hold then ends. */
+	confirms(b: HTMLElement): boolean;
+}
+
+/** A press hold for the buttons in `scope`: a hold ends with its click, when its button loses focus, or when a new press begins in `scope`. */
+export function pressHold(host: QuestionHost, scope: HTMLElement): PressHold {
+	let held: HTMLElement | null = null;
+	scope.addEventListener("pointerdown", () => (held = null), { capture: true });
+	return {
+		leave(evt, buttons, add) {
+			const to = evt.relatedTarget ?? host.pressTarget();
+			const dest = to instanceof Node ? buttons.find((x) => x.b.contains(to)) : undefined;
+			const was = dest ? dest.on() : true;
+			add();
+			if (!dest || was || !dest.on()) return;
+			const b = dest.b;
+			held = b;
+			b.addEventListener("blur", () => {
+				if (held === b) held = null;
+			}, { once: true });
+		},
+		confirms(b) {
+			if (held !== b) return false;
+			held = null;
+			return true;
+		},
+	};
+}
+
 function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const multi = q.kind === "multi";
 	const picks = () => picksOf(host.answerOf(t, q));
@@ -421,26 +469,23 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 		const on = c.includes(n);
 		io.put(on ? c.filter((x) => x !== n) : multi ? [...c, n] : [n]);
 	};
-	/** Adds the reader's own words; returns the position of the listed option they pressed, when they name one not picked. */
-	const addOwn = (words: string): number | null => {
+	/** Adds the reader's own words. */
+	const addOwn = (words: string): void => {
 		const s = words.trim();
-		if (!s) return null;
+		if (!s) return;
 		const c = io.picks();
 		// words equal to a listed option press that option instead (SPEC section 5)
 		const at = q.options.findIndex((o) => sameWords(plainWords(o.text), s));
 		if (at >= 0) {
-			if (c.includes(at + 1)) return null;
-			toggle(at + 1);
-			return at + 1;
+			if (!c.includes(at + 1)) toggle(at + 1);
+			return;
 		}
-		if (c.some((x) => typeof x === "string" && sameWords(x, s))) return null;
+		if (c.some((x) => typeof x === "string" && sameWords(x, s))) return;
 		io.put(multi ? [...c, s] : [s]);
-		return null;
 	};
 	// a listed option the Add your own field was left for, which the words typed there have just pressed: the press
-	// that left the field only confirms it, and does not take it back (booklet.html holdIn). Any new press ends it.
-	let held: HTMLButtonElement | null = null;
-	row.addEventListener("pointerdown", () => (held = null), { capture: true });
+	// that left the field only confirms it, and does not take it back (booklet.html holdIn)
+	const hold = pressHold(host, row);
 
 	const listed = q.options.map((o, idx) => {
 		const button = row.createEl("button", { cls: "booklet-choice" });
@@ -448,14 +493,8 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 		button.disabled = locked;
 		button.addEventListener("click", (evt) => {
 			evt.preventDefault();
-			if (held === button) {
-				held = null;
-				return;
-			}
+			if (hold.confirms(button)) return;
 			toggle(idx + 1);
-		});
-		button.addEventListener("blur", () => {
-			if (held === button) held = null;
 		});
 		return button;
 	});
@@ -530,22 +569,19 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 		// the words typed are added, exactly as Enter or Add adds them, when the field is left and when the view lets go of
 		// the note or the activity is finalized (keepOwn); on a choice they replace the pick (SPEC section 5). While the
 		// question's answer is of the wrong shape nothing is added, and the words stay in the field.
-		const go = (): number | null => {
-			if (locked || host.wrongOf(t, q)) return null;
+		const go = (): void => {
+			if (locked || host.wrongOf(t, q)) return;
 			const s = field.value;
 			field.value = "";
 			host.hold(io.ownKey, "");
-			return addOwn(s);
+			addOwn(s);
 		};
-		host.keepOwn(io.ownKey, t, () => void go());
+		host.keepOwn(io.ownKey, t, go);
 		// leaving the field (a press elsewhere, Tab, the window losing focus); a field taken out of the page is left alone,
 		// as the view has added its words already if it is letting go of the note. Empty or white space adds nothing.
+		const holdable = listed.map((b, n) => ({ b, on: () => io.picks().includes(n + 1) }));
 		field.addEventListener("blur", (evt) => {
-			if (!field.isConnected || !field.value.trim()) return;
-			const at = go();
-			const to = evt.relatedTarget ?? host.pressTarget();
-			const b = at === null ? undefined : listed[at - 1];
-			if (b && to instanceof Node && b.contains(to)) held = b;
+			if (field.isConnected && field.value.trim()) hold.leave(evt, holdable, go);
 		});
 		field.addEventListener("keydown", (evt) => {
 			if (evt.key !== "Enter") return;
