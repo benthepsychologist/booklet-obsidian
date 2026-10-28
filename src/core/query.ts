@@ -405,7 +405,7 @@ function summarise(q: Question, label: WordPart[], values: readonly unknown[], l
 		return summaryRow(label, { count: numCell(t.answered, fmt(t.answered)), most: partsCell(most!.parts) }, "most", note);
 	}
 	const n = values.filter(holdsSomething).length;
-	return summaryRow(label, { count: numCell(n, fmt(n)) }, "count", n ? [{ text: QUERY_WORDS.answered }] : null);
+	return summaryRow(label, { count: numCell(n, fmt(n)) }, n ? "count" : null, n ? [{ text: QUERY_WORDS.answered }] : null);
 }
 
 /** One question's answers over the entries, each in its kind's shape (a wrong shape is not counted); for a question asked for each pick, one list per pick. */

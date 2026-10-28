@@ -434,13 +434,15 @@ test("counting: over entries (a day with two entries counts twice; days says how
 		{ ts: "2026-10-28T07:00:00Z", energy: 2 },
 		{ ts: "2026-10-27T08:00:00Z", feel: 1 },
 	];
-	const { p } = plan(tracker(["from: evening\nsummary: on\nas: list\nfields: date, energy, minutes"], items));
+	const { p } = plan(tracker(["from: evening\nsummary: on\nas: list\nfields: date, energy, minutes, else"], items));
 	assert.deepEqual(lvn(p), [
 		["Days logged", "2", "3 entries"],
 		["Energy", "3", "lowest 2 · highest 4"],
 		["Minutes outside", undefined, undefined],
+		["Anything else?", undefined, undefined],
 	]);
 	assert.equal(texts(p)[2].count, "0");
+	assert.equal(texts(p)[3].count, "0");
 	assert.equal(plan(tracker(["from: evening\nsummary: on\nas: list\nfields: date"], items.slice(0, 1))).p.groups[0].rows[0].cells.note.text, "1 entry");
 });
 
