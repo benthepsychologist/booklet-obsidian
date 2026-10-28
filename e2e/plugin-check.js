@@ -21,8 +21,10 @@
 // under every body place and under the thoughts, in a group named Earlier words, a tap storing
 // what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
 // Markdown pane, then touch sizes and screenshots at a phone's width; 14 Add your own adds the words typed when it is
-// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 10 (run last) no error or warning from the plugin
-// in Obsidian's console, over every check that ran.
+// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 15 the check-in note's weekly
+// roll-up (format 0.16 queries: a span of days and a summary) drawn from made-up entries, an older entry and the draft not
+// counted, nothing written, an entry kept showing at once, then screenshots at a desktop's and a phone's width, light and
+// dark; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -32,7 +34,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -506,7 +508,9 @@ async function check6() {
     const K = "/kinds";
     // what is not drawn yet says so
     const un = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] [data-booklet-unsupported]")].map(e => e.getAttribute("data-booklet-unsupported") + ": " + e.querySelector(".booklet-muted").textContent));
-    c.ok(["matrix", "group", "query"].every(k => un.some(u => u.startsWith(k + ": Not yet supported"))) && !un.some(u => /^(widget|menu-list):/.test(u)), "parts not drawn yet each say so, and a widget and a shared list are no longer among them: " + JSON.stringify(un));
+    c.ok(["matrix", "group"].every(k => un.some(u => u.startsWith(k + ": Not yet supported"))) && !un.some(u => /^(widget|menu-list|query):/.test(u)), "parts not drawn yet each say so, and a widget, a shared list and a query are no longer among them: " + JSON.stringify(un));
+    const q = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-query")].map(e => e.getAttribute("data-booklet-view")));
+    c.ok(q.length === 1 && q[0] === "list", "the tally's query is drawn, as a list: " + JSON.stringify(q));
     // the activity with a shared list and a widget: the menu's options and the grid's cells are drawn
     const S = "/shared";
     const drawnShared = await o.evaluate(sel => { const card = document.querySelector(sel); return { options: [...card.querySelectorAll(".booklet-kind-multi button.booklet-choice")].map(b => b.textContent.trim()), cells: [...card.querySelectorAll(".booklet-cell")].map(x => x.getAttribute("data-booklet-cell") + " " + [...x.classList].filter(k => k.startsWith("booklet-colour-")).join("")), notes: card.querySelectorAll(".booklet-note").length, unsupported: /not yet supported/i.test(card.textContent) }; }, cardSel(S));
@@ -1774,6 +1778,109 @@ async function check9() {
 }
 
 /* ================= CHECK 10 ================= */
+/* ================= CHECK 15 ================= */
+// The check-in note's weekly roll-up (SPEC section 6, "A span of days, and summaries"), drawn from made-up kept entries:
+// how often each feeling came up and where each is felt, over the past seven days, as a table; then the week's thoughts
+// as cards. An entry older than the span and the draft in progress are not counted; drawing writes nothing; an entry
+// kept in the view shows in the roll-up at once. Then screenshots at a desktop's width and a phone's, light and dark.
+const WK = "day-check/week";
+function withWeek(file) {
+  const orig = fs.readFileSync(file, "utf8");
+  // noon on the reader's own calendar, n days ago
+  const at = n => { const d = new Date(); d.setDate(d.getDate() - n); d.setHours(12, 0, 0, 0); return d.toISOString().replace(/\.\d{3}Z$/, "Z"); };
+  const items = [
+    { ts: at(10), feelings: ["lively"], thoughts: ["Too old for this week"] },
+    { ts: at(6), feelings: ["tense", "tired"], felt: [{ pick: "tense", a: [5] }, { pick: "tired", a: [1] }], thoughts: ["Sorting the made-up shed"] },
+    { ts: at(5), feelings: ["tense"], felt: [{ pick: "tense", a: [5, 8] }], thoughts: ["A long call", "Water the plants"] },
+    { ts: at(4), feelings: ["settled", "x|soothing|Unhurried"], felt: [{ pick: "settled", a: [5] }] },
+    { ts: at(2), feelings: ["tense", "content"], felt: [{ pick: "tense", a: [8] }], thoughts: ["Finish the bookshelf"] },
+    { ts: at(1), feelings: ["tired"], thoughts: ["Early night"] },
+  ];
+  const body = '{"items": [\n' + items.map(e => JSON.stringify(e)).join(",\n") + "\n]}";
+  const text = orig.replace(/\s*$/, "\n\n") + "%%\n> [!records] App record — do not edit below this line\n\n> [!records|day-check] A short check-in\n\n```booklet entries today\n" + body + "\n```\n\n```booklet draft today\n{\"feelings\": [\"cheerful\"]}\n```\n%%\n";
+  fs.writeFileSync(file, text);
+  return text;
+}
+// the roll-up as drawn: the summary's views, its table's headings and rows, and the thoughts' cards
+const rollup = o => o.evaluate(sel => {
+  const qs = [...document.querySelectorAll(sel + " .booklet-query")], t = qs[0], c = qs[1];
+  return {
+    views: qs.map(q => q.getAttribute("data-booklet-view")),
+    heads: t ? [...t.querySelectorAll("thead th")].map(x => x.textContent) : [],
+    rows: t ? [...t.querySelectorAll("tbody tr")].map(tr => [...tr.querySelectorAll("td")].map(td => td.textContent)) : [],
+    cards: c ? [...c.querySelectorAll(".booklet-entry")].map(e => [...e.querySelectorAll("dd li")].map(li => li.textContent)) : [],
+    dated: c ? c.querySelectorAll(".booklet-entry .booklet-entry-when").length : 0,
+    problems: !!document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-problems"),
+  };
+}, cardSel(WK));
+const ROWS15 = [
+  ["How do you feel?", "5", "Tense", "Tense 3 · Tired 2 · Settled 1 · Content 1 · Unhurried 1"],
+  ["Where do you feel it? · Tense", "3", "Chest", "Chest 2 · Stomach 2"],
+  ["Where do you feel it? · Tired", "1", "Head", "Head 1"],
+  ["Where do you feel it? · Settled", "1", "Chest", "Chest 1"],
+  ["Where do you feel it? · Content", "0", "", ""],
+  ["Where do you feel it? · Unhurried", "0", "", ""],
+];
+const CARDS15 = [["Early night"], ["Finish the bookshelf"], ["A long call", "Water the plants"], ["Sorting the made-up shed"]];
+async function rollupShots(c, o, where) {
+  for (const scheme of ["light", "dark"]) {
+    await o.setScheme(scheme); await sleep(700);
+    await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "start" }), cardSel(WK)); await sleep(400);
+    c.info(where + ", " + scheme + ": " + await o.screenshot(path.join(SHOTS, "rollup-" + where + "-" + scheme + ".png")));
+    const f = path.join(SHOTS, "rollup-" + where + "-" + scheme + "-card.png");
+    await o.page.locator(cardSel(WK)).screenshot({ path: f });
+    c.info(where + ", " + scheme + ", the roll-up's card: " + f);
+  }
+}
+async function check15() {
+  const c = new Check(15, "the check-in note's weekly roll-up (format 0.16: limit: 7 days and summary: on) drawn from made-up entries: the feelings and where each is felt as a table, the week's thoughts as cards; an older entry and the draft not counted; nothing written; an entry kept shows at once; screenshots at a desktop's and a phone's width, light and dark");
+  await withApp("c15", async (o, vault) => {
+    const file = path.join(vault, CHECKIN);
+    const text = withWeek(file);
+    await openNote(o, CHECKIN);
+    await o.page.waitForSelector(cardSel(WK) + " .booklet-query", { timeout: 8000 }); await sleep(800);
+    const r = await rollup(o);
+    c.ok(same(r.views, ["table", "cards"]) && !r.problems, "two queries, drawn as a table (a summary with no as:) and as cards, and nothing in the note's problems: " + JSON.stringify(r.views) + ", problems " + r.problems);
+    c.ok(same(r.heads, ["Question", "Count", "Most", "Note"]), "the table's columns: " + JSON.stringify(r.heads));
+    c.ok(same(r.rows, ROWS15), "the feelings over the past seven days (the one ten days ago and the draft's Cheerful not counted), then one row for each feeling's places: " + JSON.stringify(r.rows));
+    c.ok(same(r.cards, CARDS15) && r.dated === 4, "the week's thoughts, newest first, one dated card for each entry that has any: " + JSON.stringify(r.cards));
+    await sleep(2500);
+    c.ok(read(vault, CHECKIN) === text, "drawing wrote nothing: the file is the same, byte for byte");
+    await rollupShots(c, o, "desktop");
+    // today's check-in kept in the view: the draft's Cheerful and a press on Rushed, then Finalize
+    await o.setScheme("light"); await sleep(300);
+    await gridItem(o, "agitating", "Rushed").click(); await sleep(1200);
+    await inCard(o, CK, "button.booklet-finalize").click();
+    const kept = await waitDisk(file, t => /"feelings":\s*\["cheerful",\s*"rushed"\]/.test(t.slice(t.indexOf("booklet entries today"))) && !/booklet draft today/.test(t));
+    await sleep(800);
+    const r2 = await rollup(o);
+    c.ok(kept.ok && same(r2.rows[0], ["How do you feel?", "6", "Tense", "Rushed 1 · Tense 3 · Cheerful 1 · Tired 2 · Settled 1 · Content 1 · Unhurried 1"]), "the entry kept today shows in the roll-up at once: " + JSON.stringify(r2.rows[0]) + " (kept on disk: " + kept.ok + ")");
+    c.ok(same(r2.cards, CARDS15), "today's entry has no thoughts, so the cards are as they were: " + r2.cards.length);
+  });
+  await withApp("c15-phone", async (o, vault) => {
+    withWeek(path.join(vault, CHECKIN));
+    const canEmulate = await o.evaluate(() => typeof app.emulateMobile === "function");
+    if (!canEmulate) { c.ok(false, "phone: app.emulateMobile is not there"); return; }
+    await o.evaluate(() => app.emulateMobile(true));
+    await sleep(3000);
+    await o.page.waitForFunction(() => window.app && app.workspace && app.workspace.layoutReady, null, { timeout: 15000 }).catch(() => {});
+    const narrowed = await o.page.setViewportSize({ width: 390, height: 844 }).then(() => true, e => String(e).slice(0, 120));
+    c.ok(narrowed === true, "phone: the window made 390 px wide: " + narrowed);
+    await sleep(1200);
+    await openNote(o, CHECKIN);
+    await o.page.waitForSelector(cardSel(WK) + " .booklet-query", { timeout: 8000 }); await sleep(800);
+    const r = await rollup(o);
+    c.ok(same(r.rows, ROWS15) && same(r.cards, CARDS15), "phone: the same roll-up: " + r.rows.length + " rows, " + r.cards.length + " cards");
+    const w = await o.evaluate(sel => {
+      const view = document.querySelector(".workspace-leaf-content[data-type='booklet'] .view-content"), wrap = document.querySelector(sel + " .booklet-q-wrap");
+      return { width: window.innerWidth, phone: document.body.classList.contains("is-phone"), sideways: view.scrollWidth > view.clientWidth, table: wrap ? [wrap.scrollWidth, wrap.clientWidth] : null };
+    }, cardSel(WK));
+    c.ok(w.phone && !w.sideways, "phone (window " + w.width + " px, is-phone " + w.phone + "): the view scrolls sideways: " + w.sideways + "; the table " + JSON.stringify(w.table) + " (scroll width, width: a wider table scrolls inside its card)");
+    await rollupShots(c, o, "phone");
+  });
+  return c;
+}
+
 async function check10() {
   const c = new Check(10, "no error or warning from the plugin in Obsidian's console, over every check that ran");
   const fromPlugin = consoleReport.filter(r => /^console\.|^pageerror/.test(r.kind) && /booklet/i.test(r.text + " " + r.url));
@@ -1785,6 +1892,7 @@ async function check10() {
   c.ok(!only.includes(12) || ["c12", "c12-md"].every(x => sessions.includes(x)), "and the each: check's two: " + sessions.join(", "));
   c.ok(!only.includes(13) || ["c13", "c13-md", "c13-phone"].every(x => sessions.includes(x)), "and the earlier words check's three (one pane, with a Markdown pane, at a phone's width): " + sessions.join(", "));
   c.ok(!only.includes(14) || sessions.includes("c14"), "and the Add your own check's: " + sessions.join(", "));
+  c.ok(!only.includes(15) || ["c15", "c15-phone"].every(x => sessions.includes(x)), "and the roll-up check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }
@@ -1792,7 +1900,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
-  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14 };
+  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
     let c;

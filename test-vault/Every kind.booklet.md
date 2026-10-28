@@ -91,7 +91,7 @@ Text on a second page.
 
 > [!activity|tally repeat] A small tally
 
-A repeating activity: each Finalize keeps a dated entry. The query under the question would list them; queries are not drawn yet.
+A repeating activity: each Finalize keeps a dated entry. The query under the question lists them, newest first.
 
 > [!number|folded min:0] How many did you fold this time?
 
