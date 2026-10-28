@@ -13,13 +13,15 @@
 // touch sizes (the tracker, and the check-in note with a place open, also in a window a phone's width), and the
 // tracker's and check-in note's screenshots in light, dark and mobile emulation; 11 the check-in note's widgets and shared list: drawn, answered and
 // cleared on disk with words of the reader's own, a widget's own field kept while the note changes, its words added
-// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), finished and kept,
+// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), a
+// press on the very item or place word the words name held as booklet.html holds it, finished and kept,
 // in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
 // taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
-// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16
-// ahead of the format): under every body place and under the thoughts, in a group named Earlier words, a tap storing
+// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
+// under every body place and under the thoughts, in a group named Earlier words, a tap storing
 // what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
-// Markdown pane, then touch sizes and screenshots at a phone's width; 10 (run last) no error or warning from the plugin
+// Markdown pane, then touch sizes and screenshots at a phone's width; 14 Add your own adds the words typed when it is
+// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 10 (run last) no error or warning from the plugin
 // in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
@@ -30,7 +32,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -89,9 +91,10 @@ async function waitFile(o, rel, timeout = 8000) {   // some root leaf shows that
 const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
-// The errors the 0.15 linter is expected to report on a test-vault note, and no others: what the plugin draws ahead of
-// the format (the check-in note's each: and its blue and purple cells). test/helpers.mjs keeps the same list.
-const EXPECTED_LINT = { [CHECKIN]: [/a multi line takes no `each:` setting/, /a lines line takes no `earlier:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/] };
+// The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
+// with the format 0.16 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
+// test/helpers.mjs keeps the same list.
+const EXPECTED_LINT = {};
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
 function lint(file) {
   const r = cp.spawnSync("python3", ["-I", LINT, file], { encoding: "utf8" });
@@ -989,12 +992,13 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   const pickedBefore = (draftOf((await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).length === 3)).text) || {}).feelings, headsBefore = (await feltShown(o)).heads;
   await typeIn(o, cellField(o, "invigorating"), "fizzy");
   {
-    // a word written in a picked feeling's cell: the grid stores the other cells' ids, then this cell's (booklet.html's
-    // order), and the copies asked where each feeling is felt stay where they are on screen, the new pick's at the end
+    // a word written in a picked feeling's cell goes at the end of the grid's answer, which keeps the order the reader
+    // picked (SPEC section 8, booklet.html's order), and the copies asked where each feeling is felt stay where they are
+    // on screen, the new pick's at the end
     const dw = await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).length === 4);
     const after = await feltShown(o), focus = await o.evaluate(() => { const a = document.activeElement; return a && a.closest("[data-booklet-cell]") ? a.closest("[data-booklet-cell]").getAttribute("data-booklet-cell") : null; });
     const pickedAfter = (draftOf(dw.text) || {}).feelings;
-    say(same(after.heads, [...headsBefore, "fizzy"]) && focus === "invigorating", "a word written in Invigorating's cell: the grid's answer went from " + JSON.stringify(pickedBefore) + " to " + JSON.stringify(pickedAfter) + ", and the copies on screen went from " + JSON.stringify(headsBefore) + " to " + JSON.stringify(after.heads) + " (none moved, the new one at the end); the cell's field keeps focus: " + focus);
+    say(same(pickedAfter, [...pickedBefore, "x|invigorating|fizzy"]) && same(after.heads, [...headsBefore, "fizzy"]) && focus === "invigorating", "a word written in Invigorating's cell: the grid's answer went from " + JSON.stringify(pickedBefore) + " to " + JSON.stringify(pickedAfter) + ", and the copies on screen went from " + JSON.stringify(headsBefore) + " to " + JSON.stringify(after.heads) + " (none moved, the new one at the end); the cell's field keeps focus: " + focus);
   }
   await place(o, "Shoulders").click();
   await sense(o, "Tight").click(); await sense(o, "Warm").click();
@@ -1004,7 +1008,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   await typeIn(o, placeField(o), "Cool");
   await spot(o, "Outdoors").click(); await spot(o, "At home").click();
   await blurNow(o);
-  const want = { feelings: ["tense", "lively", "cheerful", "x|invigorating|fizzy"], places: [{ id: "shoulders", s: ["tight", "warm", "achy"] }, { id: "hands", s: ["cool"] }], where: [3, 1] };
+  const want = { feelings: ["tense", "cheerful", "lively", "x|invigorating|fizzy"], places: [{ id: "shoulders", s: ["tight", "warm", "achy"] }, { id: "hands", s: ["cool"] }], where: [3, 1] };
   let d = await waitDisk(file, t => same(draftOf(t), want));
   say(d.ok, "the draft on disk, verbatim: " + draftBody(d.text));
   say(draftBody(d.text) === JSON.stringify(want) && draftBlocks(d.text).length === 1, "one draft block, one line of JSON, as booklet.html writes a draft");
@@ -1034,8 +1038,9 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   say(m.same && m.value === "Unhurried", "the change reached the view after " + ms + " ms while a cell's own field was being typed in: the same field, with focus, still holds " + JSON.stringify(m.value));
   say(await gridItem(o, "soothing", "Settled").getAttribute("aria-pressed") === "true", "meanwhile the cell's buttons show the changed answer (Settled pressed)");
   await o.page.keyboard.press("Enter");
-  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["x|agitating|loud", "settled", "x|soothing|Unhurried"]));
-  say(d.ok, "Enter adds the reader's word to what the note now holds: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
+  // the word goes at the end of what the note now holds, in the order it holds it (SPEC section 8)
+  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["settled", "x|agitating|loud", "x|soothing|Unhurried"]));
+  say(d.ok, "Enter adds the reader's word at the end of what the note now holds, its order kept: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
   await blurNow(o);
   say(await viewShows(o, W("GRID")), "once the reader left the field, the view is drawn again with the changed prose");
 
@@ -1092,7 +1097,10 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   // by a press elsewhere in the widget (the words are added first, then the press, as booklet.html takes them; its
   // JSON for the same presses, from its own engines, is BH below), by a click elsewhere in the view, by opening
   // another note, and by Finalize
-  const BH = { 1: '["tense","x|invigorating|fizzy","settled"]', 2: '[{"id":"shoulders","s":["tight","achy","warm"]}]', 3: '[{"id":"shoulders","s":["tight","achy","warm"]}]' };
+  const BH = {
+    1: '["tense","x|invigorating|fizzy","settled"]', 2: '[{"id":"shoulders","s":["tight","achy","warm"]}]', 3: '[{"id":"shoulders","s":["tight","achy","warm"]}]',
+    4: '["tense","x|invigorating|fizzy","settled","tired"]', 5: '[{"id":"shoulders","s":["tight","achy","warm"]},{"id":"hands","s":["cool"]}]',
+  };
   const typeOnly = (field, words) => typeIn(o, field, words, false);
   const order = (n, what, got) => say(got === BH[n], "press order " + n + ", " + what + ": Obsidian " + got + " | booklet.html " + BH[n] + " | same: " + (got === BH[n]));
   // 1: Tense; "fizzy" typed in Invigorating's field; Settled pressed in Soothing
@@ -1114,6 +1122,28 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   await placesQ(o).locator(".booklet-panel button.booklet-clear").click();
   d = await waitDisk(file, t => JSON.stringify((draftOf(t) || {}).places) === BH[3]);
   order(3, "then Hands, Cool; numb typed; Clear this place pressed", JSON.stringify((draftOf(d.text) || {}).places));
+  // 4: "tired" typed in Draining's field, then Tired pressed: the words press it, and the press only confirms it, as
+  // booklet.html holds it (holdIn), rather than taking it back; the disk is read again after a pause, so a press that
+  // took it back would be seen. Then Tired pressed again is a press again, and takes it out.
+  const settledOn = async (pick, want) => { await waitDisk(file, t => JSON.stringify((draftOf(t) || {})[pick]) === want); await sleep(600); return waitDisk(file, t => JSON.stringify((draftOf(t) || {})[pick]) === want); };
+  await typeOnly(cellField(o, "draining"), "tired");
+  await gridItem(o, "draining", "Tired").click();
+  d = await settledOn("feelings", BH[4]);
+  order(4, "the grid: tired typed in Draining; Tired pressed (pressed once, not pressed and taken back)", JSON.stringify((draftOf(d.text) || {}).feelings));
+  say(await gridItem(o, "draining", "Tired").getAttribute("aria-pressed") === "true", "and Tired is drawn pressed");
+  await gridItem(o, "draining", "Tired").click();
+  d = await settledOn("feelings", BH[1]);
+  say(d.ok, "Tired pressed again takes it out: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
+  // 5: Hands open; "cool" typed in its field, then Cool pressed: the same for a place's word; then Cool pressed again
+  await place(o, "Hands").click();
+  await typeOnly(placeField(o), "cool");
+  await sense(o, "Cool").click();
+  d = await settledOn("places", BH[5]);
+  order(5, "the places: Hands; cool typed; Cool pressed (pressed once, not pressed and taken back)", JSON.stringify((draftOf(d.text) || {}).places));
+  say(await sense(o, "Cool").getAttribute("aria-pressed") === "true", "and Cool is drawn pressed");
+  await sense(o, "Cool").click();
+  d = await settledOn("places", BH[3]);
+  say(d.ok, "Cool pressed again takes it out: places " + JSON.stringify((draftOf(d.text) || {}).places));
   // a click elsewhere in the view: "Drowsy" typed in Draining's field, then the card's title clicked
   await typeOnly(cellField(o, "draining"), "Drowsy");
   await inCard(o, CK, ".booklet-card-title").click();
@@ -1164,7 +1194,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
 
 /* ================= CHECK 11 ================= */
 async function check11() {
-  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, own words added when the field is left (a press, in booklet.html's order; a click elsewhere; another note; Finalize; the pane closed), a kept entry in words; in one pane and with a Markdown pane");
+  const c = new Check(11, "the widgets and a shared list on the check-in note: drawn, answered and cleared on disk with words of the reader's own, a field kept while the note changes, own words added when the field is left (a press, in booklet.html's order; a press on the very item or place word they name, held as booklet.html holds it; a click elsewhere; another note; Finalize; the pane closed), a kept entry in words; in one pane and with a Markdown pane");
   await withApp("c11", async (o, vault) => {
     await openNote(o, CHECKIN);
     await checkinFlow(c, o, vault, "one pane", "disk", null);
@@ -1223,14 +1253,14 @@ async function eachFlow(c, o, vault, tag, route, typeInMd) {
   await md("MD-PICKED"); await mdDrawn("MD-PICKED");
   f = await feltShown(o);
   say(!f.hidden && same(f.heads, ["Tense", "Lively"]) && f.prompts === 1 && f.helps === 1, "two feelings picked: a copy for each, in the grid's order, under its words, the title and help once: " + JSON.stringify(f.heads));
-  // a word written in the first feeling's cell: the grid's answer is reordered (booklet.html's order, kept), the copies are not
+  // a word written in the first feeling's cell goes at the end of the grid's answer, the order as picked (SPEC section 8); no copy moves
   await typeIn(o, cellField(o, "agitating"), "edgy");
   let d = await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).includes("x|agitating|edgy"));
   f = await feltShown(o);
   let focus = await o.evaluate(() => { const a = document.activeElement; return a && a.closest("[data-booklet-cell]") ? a.closest("[data-booklet-cell]").getAttribute("data-booklet-cell") : null; });
-  say(same((draftOf(d.text) || {}).feelings, ["lively", "tense", "x|agitating|edgy"]) && same(f.heads, ["Tense", "Lively", "edgy"]) && focus === "agitating", "a word written in Tense's cell: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies stay " + JSON.stringify(f.heads) + " (the new one at the end), and the cell's field keeps focus: " + focus);
+  say(same((draftOf(d.text) || {}).feelings, ["tense", "lively", "x|agitating|edgy"]) && same(f.heads, ["Tense", "Lively", "edgy"]) && focus === "agitating", "a word written in Tense's cell: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies stay " + JSON.stringify(f.heads) + " (the new one at the end), and the cell's field keeps focus: " + focus);
   await gridCell(o, "agitating").locator("button.booklet-own").click();
-  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["lively", "tense"]));
+  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["tense", "lively"]));
   f = await feltShown(o);
   say(d.ok && same(f.heads, ["Tense", "Lively"]), "the word pressed out again: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies on screen " + JSON.stringify(f.heads));
   // answered: Chest under Tense; Head and a place of the reader's own under Lively
@@ -1240,7 +1270,7 @@ async function eachFlow(c, o, vault, tag, route, typeInMd) {
   await blurNow(o);
   d = await waitDisk(file, t => same(felt(t), PAIRS));
   say(d.ok, "the pairs on disk, verbatim: " + draftBody(d.text));
-  say(draftBody(d.text) === JSON.stringify({ feelings: ["lively", "tense"], felt: PAIRS }), "the draft is one line of JSON, the pick as the grid stores it");
+  say(draftBody(d.text) === JSON.stringify({ feelings: ["tense", "lively"], felt: PAIRS }), "the draft is one line of JSON, the pick as the grid stores it");
   f = await feltShown(o);
   say(same(f.offered["s:tense"], ["Throat"]) && same(f.pressed["s:lively"], ["Head", "Throat"]), "the place written in under Lively is offered under Tense: " + JSON.stringify(f.offered));
   lintOk(c, file, tag, "after answering");
@@ -1539,6 +1569,97 @@ async function check13() {
   return c;
 }
 
+/* ================= CHECK 14 ================= */
+// Add your own adds the words typed and not added when it is left (format 0.16, SPEC section 5), as Enter or Add would.
+// This run's copy of Every kind gives its choice `open`, so that a choice and a multi both take an option of the reader's
+// own; a copy of it marked "0.15" is opened first, for the notice an older marker gets.
+async function check14() {
+  const c = new Check(14, "Add your own adds the words typed when it is left (format 0.16): a click elsewhere in the view, Tab, a press on another option (the words first, then the press), a press on the option the words name (pressed once, not taken back), Add (once), another note opened in the pane, the view switched to Markdown, the pane closed; on a choice the words replace the pick; white space adds nothing; a note marked 0.15 opens with its notice");
+  await withApp("c14", async (o, vault) => {
+    const file = path.join(vault, EVERY), K = "/kinds";
+    const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
+    fs.writeFileSync(file, orig);
+    const OLDER = "Older marker.booklet.md";
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.16"', 'booklet: "0.15"'));
+    await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
+    // a note marked with the format before this one: opened as it is, the notice first among its problems
+    await openNote(o, OLDER);
+    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems li")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
+    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    await openNote(o, EVERY);
+    const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
+    const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();
+    const answers = t => answersOf(t) || {};
+    const fieldOf = kind => o.evaluate(sel => { const f = document.querySelector(sel); return { value: f.value, focused: document.activeElement === f }; }, cardSel(K) + " .booklet-kind-" + kind + " .booklet-own-row input");
+    const ownShown = kind => o.evaluate(sel => [...document.querySelectorAll(sel + " button.booklet-own[aria-pressed=true]")].map(b => b.textContent.trim()), cardSel(K) + " .booklet-kind-" + kind);
+    // a click elsewhere in the view
+    await ownIn("multi").click(); await o.page.keyboard.type("Twine");
+    await inCard(o, K, ".booklet-card-title").click();
+    let d = await waitDisk(file, t => same(answers(t).tools, ["Twine"]));
+    let f = await fieldOf("multi");
+    c.ok(d.ok && f.value === "" && same(await ownShown("multi"), ["Twine"]), "typed in the multi's field, then a click elsewhere in the view: tools on disk " + JSON.stringify(answers(d.text).tools) + "; the field emptied: " + JSON.stringify(f.value) + "; drawn as an option of the reader's own");
+    // a choice: its words replace the pick, the field left by Tab
+    await option("choice", "Apple").click();
+    await waitDisk(file, t => answers(t).fruit === 1);
+    await ownIn("choice").click(); await o.page.keyboard.type("Mango"); await o.page.keyboard.press("Tab");
+    d = await waitDisk(file, t => answers(t).fruit === "Mango");
+    const apple = await option("choice", "Apple").getAttribute("aria-pressed");
+    c.ok(d.ok && apple === "false" && same(await ownShown("choice"), ["Mango"]), "Apple picked, then Mango typed in the choice's field and Tab pressed: fruit on disk " + JSON.stringify(answers(d.text).fruit) + " (the words replace the pick); Apple pressed: " + apple);
+    // a press on another option leaves the field: the words, then the press
+    await ownIn("multi").click(); await o.page.keyboard.type("Glue");
+    await option("multi", "Ruler").click();
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2]));
+    c.ok(d.ok, "Glue typed, then Ruler pressed: tools on disk " + JSON.stringify(answers(d.text).tools) + " (the words added first, then the press, as booklet.html takes them)");
+    // a press on the very option the words name: the words press it, and the press confirms it
+    await ownIn("choice").click(); await o.page.keyboard.type("plum");
+    await option("choice", "Plum").click();
+    d = await waitDisk(file, t => answers(t).fruit === 3);
+    await sleep(500);
+    const plum = await option("choice", "Plum").getAttribute("aria-pressed");
+    d = await waitDisk(file, t => answers(t).fruit === 3);
+    c.ok(d.ok && plum === "true", "plum typed, then Plum pressed: fruit on disk " + JSON.stringify(answers(d.text).fruit) + ", Plum pressed: " + plum + " (pressed once, not pressed and taken back)");
+    // Add, after the field is left by its own press: added once, and the reader is back in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Wire");
+    await question(o, K, "multi").locator(".booklet-add").click();
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire"]));
+    await sleep(400);
+    f = await fieldOf("multi");
+    c.ok(d.ok && count(fs.readFileSync(file, "utf8"), "Wire") === 1 && f.focused && f.value === "", "Wire typed, then Add: tools on disk " + JSON.stringify(answers(d.text).tools) + ", Wire once; the reader is back in the empty field: " + JSON.stringify(f));
+    // white space, left by a click elsewhere: nothing written
+    await o.page.keyboard.type("   ");
+    const before = fs.readFileSync(file, "utf8");
+    await inCard(o, K, ".booklet-card-title").click();
+    await sleep(1200);
+    c.ok(fs.readFileSync(file, "utf8") === before, "white space typed, then a click elsewhere: the note on disk is unchanged");
+    // another note opened in the pane, with the reader still in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Tape");
+    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, EVENING);
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire", "Tape"]));
+    c.ok(d.ok, "Tape typed, then another note opened in the pane: tools on disk " + JSON.stringify(answers(d.text).tools));
+    await openNote(o, EVERY);
+    f = await fieldOf("multi");
+    c.ok(same(await ownShown("multi"), ["Twine", "Glue", "Wire", "Tape"]) && f.value === "", "the note opened again: the reader's own options drawn " + JSON.stringify(await ownShown("multi")) + ", the field empty");
+    // the view switched to Markdown, with the reader in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Clip");
+    await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire", "Tape", "Clip"]));
+    const mode = await activeType(o);
+    c.ok(d.ok && mode === "markdown", "Clip typed, then the view switched to Markdown (" + mode + "): tools on disk " + JSON.stringify(answers(d.text).tools));
+    await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
+    await waitActiveType(o, "booklet"); await o.page.waitForSelector(cardSel(K), { timeout: 8000 }); await sleep(900);
+    // the pane closed, with the reader in the choice's field
+    await ownIn("choice").click(); await o.page.keyboard.type("Fig");
+    await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+    d = await waitDisk(file, t => answers(t).fruit === "Fig");
+    c.ok(d.ok, "Fig typed in the choice's field, then the pane closed: fruit on disk " + JSON.stringify(answers(d.text).fruit));
+    const last = fs.readFileSync(file, "utf8");
+    c.ok(head(last) === orig + "\n", "outside the records region nothing changed but the blank line before the new region: " + (head(last) === orig + "\n"));
+    c.ok(count(last, "```booklet answers") === 1 && ["Twine", "Glue", "Wire", "Tape", "Clip", "Fig"].every(w => count(last, '"' + w + '"') === 1), "one answers block, each word once: " + (blocksNamed(last, "booklet answers")[0] || {}).body);
+    const l = lint(file); c.ok(l.ok, "lint at the end: exit " + l.code + ": " + l.out);
+  });
+  return c;
+}
+
 /* ================= CHECK 9 ================= */
 async function check9() {
   const c = new Check(9, "layout: the dark theme's text-box border, room at the view's foot, the grid's cell names on their colours, touch sizes (the tracker; the check-in note, also at a phone's width); the tracker's and check-in note's screenshots");
@@ -1663,6 +1784,7 @@ async function check10() {
   c.ok(!only.includes(11) || ["c11", "c11-md"].every(x => sessions.includes(x)), "the sessions watched include the widget check's two (one pane, with a Markdown pane): " + sessions.join(", "));
   c.ok(!only.includes(12) || ["c12", "c12-md"].every(x => sessions.includes(x)), "and the each: check's two: " + sessions.join(", "));
   c.ok(!only.includes(13) || ["c13", "c13-md", "c13-phone"].every(x => sessions.includes(x)), "and the earlier words check's three (one pane, with a Markdown pane, at a phone's width): " + sessions.join(", "));
+  c.ok(!only.includes(14) || sessions.includes("c14"), "and the Add your own check's: " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }
@@ -1670,7 +1792,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
-  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13 };
+  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14 };
   for (const n of only) {
     const t0 = Date.now();
     let c;

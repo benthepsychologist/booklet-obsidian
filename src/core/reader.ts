@@ -23,7 +23,7 @@ import { readRecords, regionMask, findRegions, type RecordsRead } from "./record
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
-export const FORMAT_VERSION = "0.15";
+export const FORMAT_VERSION = "0.16";
 
 export interface Option {
 	text: string;
@@ -112,12 +112,12 @@ export interface Question {
 	/**
 	 * A multi's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
 	 * in the same activity. The question is asked once for each pick in the source's answer, and its answer is a list
-	 * of `{ "pick", "a" }` pairs (format 0.16, which this plugin draws ahead of the format). Null otherwise.
+	 * of `{ "pick", "a" }` pairs (SPEC section 5, "A question asked for each pick"). Null otherwise.
 	 */
 	each: string | null;
 	/**
-	 * `earlier:<n>` on a choice, a multi, a lines or a widget line (format 0.16, which this plugin draws ahead of the
-	 * format): how many of the reader's earlier words are offered at each place. Null when the line does not set it
+	 * `earlier:<n>` on a choice, a multi, a lines or a widget line (SPEC section 5, "Words the reader wrote before"):
+	 * how many of the reader's earlier words are offered at each place. Null when the line does not set it
 	 * or sets a value that is not digits (reported), and the question offers its default: 12 for own options and a
 	 * body widget's places, none for a lines question.
 	 */
@@ -244,7 +244,7 @@ export function markerOf(head: readonly string[] | null): string {
 	return "";
 }
 
-/** [major, minor] for a marker like "0.15", else null. 0.10 is later than 0.9. */
+/** [major, minor] for a marker like "0.16", else null. 0.10 is later than 0.9. */
 export function versionOf(v: string): [number, number] | null {
 	const m = /^(\d+)\.(\d+)$/.exec(v.trim());
 	return m ? [Number(m[1]), Number(m[2])] : null;
@@ -406,7 +406,7 @@ interface EachUse {
 const SOURCE_KINDS = new Set(["choice", "multi", "widget"]);
 
 /**
- * `each:<id>` on a question line (format 0.16, which this plugin draws ahead of the format): the question is asked
+ * `each:<id>` on a question line (SPEC section 5, "A question asked for each pick"): the question is asked
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
  * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
  * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and

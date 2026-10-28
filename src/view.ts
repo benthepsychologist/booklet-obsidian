@@ -93,6 +93,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private stale = false;
 	/** A pointer press in the view has begun and not ended: a button under it must not be taken away. */
 	private pressing = false;
+	/** What the press under way began on (see pressTarget). */
+	private pressOn: EventTarget | null = null;
 	private settleTimer: number | null = null;
 	/** Writes run one after another. */
 	private writes: Promise<void> = Promise.resolve();
@@ -103,7 +105,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private tailTimer: number | null = null;
 	/** Answers to show again once the press under way is over. */
 	private showPending = false;
-	/** Each widget field for words of the reader's own, by key: what adds the words typed in it (see keepOwn). */
+	/** Each field for words of the reader's own (Add your own, a widget's), by key: what adds the words typed in it (see keepOwn). */
 	private ownFields = new Map<string, { t: Target; commit: () => void }>();
 	/** Activities whose whole list of kept entries is open. */
 	private showAll = new Set<string>();
@@ -131,7 +133,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 			this.endPressTail();
 			this.settleSoon(0);
 		});
-		this.registerDomEvent(this.contentEl, "pointerdown", () => this.pressBegan(), { capture: true });
+		this.registerDomEvent(this.contentEl, "pointerdown", (evt) => this.pressBegan(evt.target), { capture: true });
 		// a change to the file that a Markdown pane of the note takes into its editor after this view was handed it (see setViewData)
 		this.registerEvent(
 			this.app.workspace.on("editor-change", (_editor, info) => {
@@ -230,8 +232,9 @@ export class BookletView extends TextFileView implements QuestionHost {
 	}
 
 	override async onUnloadFile(file: TFile): Promise<void> {
-		// write what was typed and is still waiting, and a widget's own words typed and not added yet, before the view
-		// lets go of the file
+		// write what was typed and is still waiting, and own words typed in Add your own or a widget's field and not
+		// added yet, before the view lets go of the file (another note opened in the pane, the pane closed, the view
+		// switched to Markdown): leaving the note adds them as leaving the field would (SPEC section 5)
 		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
 		this.flushOwn(null);
 		await this.writes;
@@ -271,7 +274,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.ownFields.set(key, { t, commit });
 	}
 
-	/** Adds the own words typed and not added yet in widget fields (of one activity, or all), as leaving each field would. */
+	pressTarget(): EventTarget | null {
+		return this.pressing || this.pressTail ? this.pressOn : null;
+	}
+
+	/** Adds the own words typed and not added yet in Add your own and widget fields (of one activity, or all), as leaving each field would. */
 	private flushOwn(a: Activity | null): void {
 		for (const [key, f] of [...this.ownFields]) if (this.held.get(key) && (!a || sameAct(f.t.activity, a))) f.commit();
 	}
@@ -601,6 +608,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 		if (this.tailTimer !== null) window.clearTimeout(this.tailTimer);
 		this.tailTimer = null;
 		this.pressTail = false;
+		if (!this.pressing) this.pressOn = null;
 		if (this.showPending && !this.pressing) this.syncWidgets();
 	}
 
@@ -644,8 +652,9 @@ export class BookletView extends TextFileView implements QuestionHost {
 		this.settleTimer = null;
 	}
 
-	private pressBegan(): void {
+	private pressBegan(target: EventTarget | null): void {
 		this.pressing = true;
+		this.pressOn = target;
 		// the press ends wherever the pointer is let go, in the window the view is in now (a pane can move to a window of its own)
 		const doc = this.contentEl.ownerDocument;
 		const end = () => {

@@ -23,7 +23,7 @@ const SPOTS = { engine: "svg-regions", regions: [{ id: "top", label: "Top" }, { 
 
 /** A made-up note with a question asked for each pick of every kind of source, and every mistake the setting can be. */
 const NOTE = `---
-booklet: "0.15"
+booklet: "0.16"
 id: test/each
 title: Each
 lang: en
@@ -336,28 +336,37 @@ test("each in the view: nothing is drawn while nothing is picked; then one copy 
 	v.close();
 });
 
-test("each in the view: a word written in the first feeling's cell reorders the grid's answer, and no copy moves; the field keeps focus; the next drawing takes the answer's order", async () => {
+test("each in the view: a word written in the first feeling's cell goes at the end of the grid's answer, the order as picked (SPEC section 8), and no copy moves; the field keeps focus; an order changed elsewhere moves no copy until the next drawing", async () => {
 	const v = open();
 	v.item("agitating", "Tense").click();
 	v.item("invigorating", "Lively").click();
 	await v.settled();
 	assert.deepEqual(v.heads(), ["Tense", "Lively"]);
 	const tense = v.copy("s:tense");
-	// a word of the reader's own in Tense's cell: the grid rebuilds its answer as the other cells' ids, then this cell's
-	// (booklet.html gridSelect, kept byte for byte), so Tense now comes after Lively in what is stored
+	// a word of the reader's own in Tense's cell goes at the end; Tense and Lively keep their places (booklet.html gridSelect)
 	const f = v.q("feelings").querySelector('[data-booklet-cell="agitating"] .booklet-own-row input');
 	f.focus();
 	typeInto(f, "wired");
 	enter(f);
 	await v.settled();
-	assert.deepEqual(v.draft().feelings, ["lively", "tense", "x|agitating|wired"]);
-	assert.deepEqual(v.heads(), ["Tense", "Lively", "wired"], "the copies on screen keep their order; the new pick's copy is at the end");
+	assert.deepEqual(v.draft().feelings, ["tense", "lively", "x|agitating|wired"]);
+	assert.deepEqual(v.heads(), ["Tense", "Lively", "wired"], "the copies keep their order; the new pick's copy is at the end");
 	assert.equal(v.copy("s:tense"), tense, "the same copy");
 	assert.equal(w.document.activeElement, f, "the cell's field keeps focus");
-	// a fresh drawing (the note opened again) takes the answer's order; nothing about the order on screen was stored
+	assert.equal(draftBody(v.disk.text), '{"feelings":["tense","lively","x|agitating|wired"]}');
+	// a fresh drawing (the note opened again) shows the same order
+	const same = open(v.disk.text);
+	assert.deepEqual(same.heads(), ["Tense", "Lively", "wired"]);
+	same.close();
+	// an order changed elsewhere (a hand edit): the copies on screen do not move; a fresh drawing takes the answer's order,
+	// as nothing about the order on screen is stored
+	f.blur();
+	v.changed(stored("feelings", ["lively", "tense", "x|agitating|wired"]));
+	await v.settled();
+	assert.deepEqual(v.heads(), ["Tense", "Lively", "wired"]);
+	assert.equal(v.copy("s:tense"), tense, "the same copy");
 	const again = open(v.disk.text);
 	assert.deepEqual(again.heads(), ["Lively", "Tense", "wired"]);
-	assert.equal(draftBody(v.disk.text), '{"feelings":["lively","tense","x|agitating|wired"]}');
 	again.close();
 	v.close();
 });
@@ -499,15 +508,18 @@ test("each in the view: the field the reader is in is kept while copies are adde
 	assert.ok(v.copy("s:lively").classList.contains("booklet-copy-gone"));
 	assert.deepEqual(v.heads(), ["Lively", "Tired", "Tense"]);
 	assert.equal(w.document.activeElement, f);
+	assert.equal(v.draft().felt, undefined, "words typed and not added are not an answer yet");
+	// leaving the field adds the words typed (SPEC section 5), to the pair of the pick taken back, which is kept
 	f.blur();
 	await v.settled();
 	assert.deepEqual(v.heads(), ["Tired", "Tense"]);
-	// the words typed and not added come back with the pick, its copy at the end
+	assert.deepEqual(v.draft().felt, [{ pick: "lively", a: ["Sh"] }]);
+	// they come back with the pick, its copy at the end, as an option of the reader's own
 	v.changed(stored("feelings", ["lively", "tired", "tense"]));
 	await v.settled();
 	assert.deepEqual(v.heads(), ["Tired", "Tense", "Lively"]);
-	assert.equal(ownField(v.copy("s:lively")).value, "Sh");
-	assert.equal(v.draft().felt, undefined, "words typed and not added are not an answer");
+	assert.equal(ownField(v.copy("s:lively")).value, "");
+	assert.deepEqual(pressed(v.copy("s:lively")), ["Sh"]);
 	v.close();
 });
 

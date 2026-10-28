@@ -285,8 +285,8 @@
  *   green -> --color-green   the colour of --text-success, as green is the colour of the tone good
  *   amber -> --color-orange  the colour of --text-warning, as amber is the colour of the tone warn
  *   teal  -> --color-cyan    Obsidian's blue-green; teal has no tone
- *   blue  -> --color-blue    ahead of the format (not a colour name in 0.15); blue has no tone
- *   purple -> --color-purple ahead of the format (not a colour name in 0.15); purple has no tone
+ *   blue  -> --color-blue    a colour name from format 0.16; blue has no tone
+ *   purple -> --color-purple a colour name from format 0.16; purple has no tone
  *   slate -> --text-muted, on a wash of --mono-rgb-100 (the theme's text colour): Obsidian has no
  *            blue-grey, and its own muted grey is the nearest neutral; slate has no tone
  * A cell is a pale wash of its colour with a band of the full colour at its top; its words stay in the

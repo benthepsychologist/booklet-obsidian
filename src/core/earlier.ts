@@ -1,6 +1,6 @@
 /*
- * A reader's own words, offered again (format 0.16's "Words the reader wrote before", which this plugin draws ahead of
- * the format, as the approved earlier-answers design has it). Three places offer them, as unpressed buttons:
+ * A reader's own words, offered again (SPEC section 5, "Words the reader wrote before", as the approved
+ * earlier-answers design has it). Three places offer them, as unpressed buttons:
  *   an own option (`open`), after a choice's or a multi's options, and under every copy of a follow-up (`each:`);
  *   a word written for a place in an svg-regions widget, under every place, after the widget's words;
  *   an earlier line of a lines question, under its lines, only when its line sets `earlier:<n>`.

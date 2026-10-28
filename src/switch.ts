@@ -27,7 +27,7 @@ export function isBookletFile(app: App, file: TFile | null | undefined): boolean
 	const fm: unknown = app.metadataCache.getFileCache(file)?.frontmatter;
 	if (!fm || typeof fm !== "object" || !Object.prototype.hasOwnProperty.call(fm, "booklet")) return false;
 	const v: unknown = (fm as Record<string, unknown>)["booklet"];
-	// YAML reads `booklet: "0.15"` as a string and `booklet: 0.15` as a number; the view checks the version
+	// YAML reads `booklet: "0.16"` as a string and `booklet: 0.16` as a number; the view checks the version
 	return (typeof v === "string" && v.trim() !== "") || typeof v === "number";
 }
 

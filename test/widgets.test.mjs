@@ -71,6 +71,10 @@ function referenceEngines() {
 		one(/^const splitList=.*$/m, "splitList"),
 		one(/^const tx=.*$/m, "tx"),
 		one(/^const isObj=.*$/m, "isObj"),
+		// an answer's shape, which the engines read their answers through (format 0.16)
+		one(/^const isStr=.*$/m, "isStr"),
+		one(/^const everyIs=.*$/m, "everyIs"),
+		one(/^const isRegionRow=.*$/m, "isRegionRow"),
 		one(/^const wordsOf=.*$/m, "wordsOf"),
 		one(/^const nonEmpty=.*$/m, "nonEmpty"),
 		one(/^const el=\(tag[\s\S]*?return n;\};/m, "el"),
@@ -80,13 +84,14 @@ function referenceEngines() {
 		"globalThis.__engines={gridSelect,svgRegions,gridNames,regionNames};",
 	].join("\n");
 	const dom = new JSDOM("<!doctype html><html><body></body></html>");
-	const ctx = vm.createContext({ document: dom.window.document, window: dom.window, console });
+	// the engines put off a redraw to the next turn (afterPress, format 0.16): each step below waits for it (tick)
+	const ctx = vm.createContext({ document: dom.window.document, window: dom.window, console, setTimeout, clearTimeout });
 	vm.runInContext(code, ctx);
 	return { ...ctx.__engines, document: dom.window.document, window: dom.window };
 }
 
-/** Types `typed` into a tag field after the words it holds, a key at a time, then leaves it. */
-function typeInto(R, inp, typed) {
+/** Types `typed` into a tag field after the words it holds, a key at a time. */
+function typeKeys(R, inp, typed) {
 	inp.focus();
 	assert.equal(R.document.activeElement, inp, "the tag field has the focus");
 	const lead = inp.value.trim() ? ", " : "";
@@ -94,10 +99,28 @@ function typeInto(R, inp, typed) {
 		inp.value += ch;
 		inp.dispatchEvent(new R.window.Event("input", { bubbles: true }));
 	}
+}
+
+/** Types `typed` into a tag field, then leaves it. */
+function typeInto(R, inp, typed) {
+	typeKeys(R, inp, typed);
 	inp.blur();
 }
 
+/** Types `typed` into a tag field, then presses `b`, which leaves the field: the pointer goes down, the field loses focus, the pointer comes up, the click. */
+function typeThenPress(R, inp, typed, b) {
+	assert.ok(b, "the button to press is drawn");
+	typeKeys(R, inp, typed);
+	b.dispatchEvent(new R.window.Event("pointerdown", { bubbles: true }));
+	inp.blur();
+	R.document.dispatchEvent(new R.window.Event("pointerup", { bubbles: true }));
+	b.click();
+}
+
 const textOf = (n) => (n.childNodes[0]?.textContent ?? n.textContent).trim();
+
+/** The next turn, once what the engines put off to it (a redraw after a field is left) has run, as in a browser before the next press. */
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 /* ---- grid-select, step by step ---- */
 
@@ -117,10 +140,13 @@ function gridSteps() {
 		["type a word with a bar in it", { type: ["loud-fast", "a|b"] }, (g, v) => core.gridAddOwn(g, v, "loud-fast", "a|b")],
 		["press Flute", { press: ["quiet-fast", "Flute"] }, (g, v) => core.gridToggle(v, "flute")],
 		["type Flute's label in its cell, already pressed", { type: ["quiet-fast", "Flute"] }, (g, v) => core.gridAddOwn(g, v, "quiet-fast", "Flute")],
+		// the words typed press Bell as the field is left for Bell, and that press only confirms it (holdIn), as the view does
+		["type Bell's label in its cell, then press Bell", { typePress: ["loud-fast", "bell", "Bell"] }, (g, v) => core.gridAddOwn(g, v, "loud-fast", "bell")],
+		["press Bell again: a press again", { press: ["loud-fast", "Bell"] }, (g, v) => core.gridToggle(v, "bell")],
 	];
 }
 
-test("grid-select: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, () => {
+test("grid-select: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, async () => {
 	const R = referenceEngines();
 	const e = Object.create(null);
 	const box = R.gridSelect(e, GRID, ["k"], {});
@@ -140,17 +166,22 @@ test("grid-select: the core stores what booklet.html stores, step by step", { sk
 			const b = [...cellBox(cell).querySelectorAll("button.emb")].find((n) => n.textContent === words);
 			assert.ok(b, `${what}: a button "${words}"`);
 			b.click();
+		} else if (ref.typePress) {
+			const [cell, typed, words] = ref.typePress;
+			typeThenPress(R, cellBox(cell).querySelector("input.field"), typed, [...cellBox(cell).querySelectorAll("button.emb")].find((n) => n.textContent === words));
 		} else typeInto(R, cellBox(ref.type[0]).querySelector("input.field"), ref.type[1]);
+		await tick();
 		mine = ours(g, mine);
 		const theirs = norm(e.k);
 		log.push([what, theirs]);
 		assert.deepEqual(norm(mine), theirs, `${what}: the plugin ${JSON.stringify(mine)}, booklet.html ${JSON.stringify(theirs)}`);
 	}
-	// the end state, written out: one of each kind of item, in booklet.html's order
-	assert.deepEqual(norm(mine), ["drum", "gong", "cello", "harp", "x|quiet-fast|wind", "x|quiet-fast|rain", "x|loud-fast|a|b", "flute"]);
+	// the end state, written out: one of each kind of item, in the order the reader picked them (SPEC section 8), as
+	// booklet.html keeps it: a word typed in a cell went at the end, and one taken out left the others where they were
+	assert.deepEqual(norm(mine), ["gong", "cello", "drum", "harp", "x|quiet-fast|wind", "x|quiet-fast|rain", "x|loud-fast|a|b", "flute"]);
 	// a kept entry reads it back as booklet.html's summary does
 	assert.deepEqual(core.gridNames(g, mine), [...R.gridNames(GRID, e.k)]);
-	assert.deepEqual(core.gridNames(g, mine), ["Drum", "Gong", "Cello", "Harp", "wind", "rain", "a|b", "Flute"]);
+	assert.deepEqual(core.gridNames(g, mine), ["Gong", "Cello", "Drum", "Harp", "wind", "rain", "a|b", "Flute"]);
 });
 
 /* ---- svg-regions, step by step ---- */
@@ -181,10 +212,13 @@ function regionSteps() {
 			for (const w of core.regionWords(rg, v, active)) v = core.regionRemoveWord(rg, v, active, w);
 			return v;
 		}],
+		// the words typed press Warm as the field is left for Warm, and that press only confirms it (holdIn), as the view does
+		["type Warm's label, then press Warm", { typePress: ["warm", "Warm"] }, (v) => core.regionAddOwn(rg, v, active, "warm")],
+		["press Warm again: a press again", { word: "Warm" }, (v) => core.regionToggleWord(v, active, "warm")],
 	];
 }
 
-test("svg-regions with no figure: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, () => {
+test("svg-regions with no figure: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, async () => {
 	const R = referenceEngines();
 	const e = Object.create(null);
 	const box = R.svgRegions(e, REGIONS, ["k"], {});
@@ -196,6 +230,7 @@ test("svg-regions with no figure: the core stores what booklet.html stores, step
 		else if (ref.summaryOpen) [...box.querySelectorAll(".bodysummary button.rlink")].find((n) => n.textContent === ref.summaryOpen).click();
 		else if (ref.word) [...panel().querySelectorAll("button.sense")].find((n) => n.textContent === ref.word).click();
 		else if (ref.type) typeInto(R, panel().querySelector("input.field"), ref.type);
+		else if (ref.typePress) typeThenPress(R, panel().querySelector("input.field"), ref.typePress[0], [...panel().querySelectorAll("button.sense")].find((n) => n.textContent === ref.typePress[1]));
 		else if (ref.untag) [...panel().querySelectorAll(".tagchip")].find((n) => textOf(n) === ref.untag).querySelector("button.x").click();
 		else if (ref.untagAll) for (;;) {
 			const chip = panel().querySelector(".tagchip");
@@ -204,12 +239,15 @@ test("svg-regions with no figure: the core stores what booklet.html stores, step
 		}
 		else if (ref.clear) panel().querySelector("button.small").click();
 		else if (ref.summaryX !== undefined) box.querySelectorAll(".bodysummary .bodyrow")[ref.summaryX].querySelector("button.x").click();
+		await tick();
 		mine = ours(mine);
 		const theirs = norm(e.k ?? []);
 		assert.deepEqual(norm(mine ?? []), theirs, `${what}: the plugin ${JSON.stringify(mine)}, booklet.html ${JSON.stringify(theirs)}`);
 	}
 	assert.deepEqual(norm(mine), [{ id: "feet", s: ["light"] }]);
-	assert.deepEqual(core.regionSummary(core.regionsOf(REGIONS), mine).map((r) => r.label), [...R.regionNames(REGIONS, e.k)]);
+	// a kept entry names each place with its words, "Feet — Light", as booklet.html's summary does (format 0.16's renderer)
+	assert.deepEqual(core.answerWords({ kind: "widget", id: "k", widget: { data: REGIONS } }, mine), { list: [...R.regionNames(REGIONS, e.k)] });
+	assert.deepEqual([...R.regionNames(REGIONS, e.k)], ["Feet — Light"]);
 });
 
 test("svg-regions: the steps' answers in full, so a change to either side is seen", () => {
@@ -243,4 +281,19 @@ test("grid-select: reading the data, and an own word compared as booklet.html co
 	assert.deepEqual(norm(v), ["x|loud-slow|it’s  here — now"]);
 	assert.deepEqual(core.gridCellWords(g, ["gong", "x|loud-slow|a", "drum", "bell"], "loud-slow"), ["Drum", "Gong", "a"]);
 	assert.deepEqual(core.copyOf({ copy: { h: "Head", n: 3 } }), Object.assign(Object.create(null), { h: "Head" }));
+});
+
+test("grid-select: a word typed in a cell leaves the answer's order as the reader picked it (SPEC section 8): it goes at the end, and nothing else moves", () => {
+	const g = core.gridOf(GRID);
+	// Gong (loud-slow) was picked before Cello (quiet-slow): a word typed in loud-slow does not move Gong after Cello
+	assert.deepEqual(norm(core.gridAddOwn(g, ["bell", "gong", "cello"], "loud-slow", "thunder")), ["bell", "gong", "cello", "x|loud-slow|thunder"]);
+	// an item's label typed in its cell presses it, at the end
+	assert.deepEqual(norm(core.gridAddOwn(g, ["gong", "bell"], "loud-slow", "drum")), ["gong", "bell", "drum"]);
+	// two words at once go at the end in the order typed; a word of the cell already there keeps its place
+	assert.deepEqual(norm(core.gridAddOwn(g, ["x|loud-slow|a", "bell", "gong"], "loud-slow", "b, GONG, c")), ["x|loud-slow|a", "bell", "gong", "x|loud-slow|b", "x|loud-slow|c"]);
+	// a word already there changes nothing: the same list comes back
+	const v = ["x|loud-slow|a", "bell"];
+	assert.equal(core.gridAddOwn(g, v, "loud-slow", "A"), v);
+	// a word taken out leaves the others where they were
+	assert.deepEqual(norm(core.gridToggle(["gong", "x|loud-slow|a", "bell", "drum"], "x|loud-slow|a")), ["gong", "bell", "drum"]);
 });

@@ -66,14 +66,12 @@ export function assertOutsideUnchanged(orig, next, what = "") {
 }
 
 /**
- * The errors the reference linter (format 0.15) is expected to report on a test-vault note, and no others: what the
- * plugin draws ahead of the format. The check-in note asks a question for each feeling picked (`each:`, format 0.16)
- * and colours two cells `blue` and `purple`, which 0.15 does not name. Every check that lints a note expects exactly
- * these (e2e/plugin-check.js keeps the same list).
+ * The errors the reference linter is expected to report on a test-vault note, by its file name, and no others. The
+ * format 0.16 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
+ * cells, which the 0.15 linter reported, are format 0.16's. Every check that lints a note expects exactly these
+ * (e2e/plugin-check.js keeps the same list).
  */
-export const EXPECTED_LINT = {
-	"Check-in.booklet.md": [/a multi line takes no `each:` setting/, /a lines line takes no `earlier:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/],
-};
+export const EXPECTED_LINT = {};
 
 /** The expected errors for a note, by its file name (none for any other). */
 export const expectedLint = (file) => EXPECTED_LINT[String(file).split("/").pop()] ?? [];

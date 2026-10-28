@@ -10,8 +10,8 @@
  */
 
 /**
- * The colour names a widget may give a cell (SPEC section 7); anything else is no colour. `blue` and `purple` are drawn
- * ahead of the format: they are not colour names in format 0.15, and go to 0.16 with `each:`.
+ * The colour names a widget may give a cell (SPEC section 7); anything else is no colour. `blue` and `purple` are
+ * format 0.16's, and carry no tone.
  */
 export const COLOUR_NAMES = ["warm", "green", "amber", "slate", "teal", "blue", "purple"] as const;
 export type ColourName = (typeof COLOUR_NAMES)[number];
@@ -134,15 +134,17 @@ export function gridCellWords(grid: Grid, v: unknown, cell: string): string[] {
 }
 
 /**
- * A cell's words set to exactly `words` (booklet.html gridSelect `onChange`): everything in the answer that
- * is not this cell's keeps its place, and the cell's words follow it, a word that names one of the cell's
- * items (compared as `normWords` does) as that item, any other as `x|cell|word`.
+ * A cell's words set to exactly `words` (booklet.html gridSelect `onChange`), a word that names one of the cell's
+ * items (compared as `normWords` does) as that item, any other as `x|cell|word`. The answer keeps the order the
+ * reader picked (SPEC section 8): everything that stays keeps its place, a word taken out leaves the others where
+ * they were, and a word added goes at the end.
  */
 export function gridSetCellWords(grid: Grid, v: unknown, cell: string, words: readonly string[]): unknown[] {
 	const known = cellItems(grid, cell);
-	const others = gridChosen(v).filter((id) => !isOwnIn(id, cell) && !known.some((k) => k.id === id));
+	const mine = (id: unknown) => isOwnIn(id, cell) || known.some((k) => k.id === id);
 	const ids = words.map((w) => known.find((k) => normWords(k.label) === normWords(w))?.id ?? ownIn(cell) + w);
-	return [...others, ...ids];
+	const stay = gridChosen(v).filter((id) => !mine(id) || ids.includes(id as string));
+	return [...stay, ...ids.filter((id) => !stay.includes(id))];
 }
 
 /**

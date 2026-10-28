@@ -3,8 +3,8 @@
  * from the file's own lists"), the way booklet.html's SUMMARY readers show a kept entry: a choice's
  * position as its option's words, a scale's number as its anchor's words, a reader's own option as
  * they wrote it, a grid-select's items as their labels and the reader's own words as written (booklet.html
- * gridNames). An svg-regions answer is shown as each marked region with its words, where booklet.html
- * names the regions only. Plain TypeScript: nothing here imports Obsidian.
+ * gridNames). An svg-regions answer is shown as each marked region with its words, "Feet — Restless, Sore", as
+ * booklet.html's regionNames shows it. Plain TypeScript: nothing here imports Obsidian.
  */
 import { pickWords as pickWordsOf, shownPairs, sourceOf } from "./each";
 import type { Activity, Question } from "./reader";

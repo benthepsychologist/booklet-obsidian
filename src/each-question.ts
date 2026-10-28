@@ -1,14 +1,15 @@
 /*
- * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn ahead of format 0.16 as the approved
- * design has it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
+ * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn as the approved design and SPEC
+ * section 5 have it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
  * its source's answer, each under a subheading in the pick's own words. A copy is the question's own options, `open`
  * field and replies, as a plain multi draws them (questions.ts choiceBody); what it picks is the `a` of that pick's
  * pair. Nothing is drawn while nothing is picked.
  *
  * The order: a drawing of the view puts the copies in the order the source's answer holds the picks. While it stays
  * open, a new pick adds a copy at the end and nothing already on screen moves, even when the source's answer changes
- * its order: a grid rebuilds its answer as the other cells' ids, then the cell's own, when the reader writes a word in
- * a cell (booklet.html's gridSelect, kept byte for byte), and that must not swap two copies under the reader. The order
+ * its order. A press or a word typed never reorders a source's answer (a word written in a grid cell goes at the end,
+ * SPEC section 8), but a change made elsewhere can (a hand edit, another renderer), and that must not swap two copies
+ * under the reader. The order
  * on screen is the view's, like the body widget's open place: nothing about it is stored, and the next drawing (the
  * note opened again, or its design changed) takes the answer's order again.
  *
@@ -46,7 +47,7 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 			label(c);
 			c.setAttr("aria-labelledby", `${c.getAttribute("aria-labelledby") ?? ""} ${headId}`.trim());
 		};
-		const show = choiceBody(host, el, q, named, locked, {
+		const show = choiceBody(host, el, t, q, named, locked, {
 			picks: () => picksOf(pairFor(host.answerOf(t, q), p)?.a),
 			put: (list) => {
 				const next = setPair(host.answerOf(t, q), p, list);

@@ -10,7 +10,7 @@ const lintOk = (text) => {
 	assert.equal(r.status, 0, r.out);
 };
 
-const FM = '---\nbooklet: "0.15"\nid: test/drafts\ntitle: Drafts\nlang: en\n---\n';
+const FM = '---\nbooklet: "0.16"\nid: test/drafts\ntitle: Drafts\nlang: en\n---\n';
 const ACT = `${FM}
 > [!activity|once] Answered once
 

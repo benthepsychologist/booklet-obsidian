@@ -1,6 +1,6 @@
 {
 	"name": "booklet",
-	"version": "0.4.0",
+	"version": "0.4.1",
 	"description": "An Obsidian plugin: a Booklet note opens in a view of its own, and the answers given there are written into its records section.",
 	"main": "main.js",
 	"type": "module",
