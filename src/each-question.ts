@@ -1,6 +1,6 @@
 /*
- * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn ahead of format 0.16 as the approved
- * design has it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
+ * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn as the approved design and SPEC
+ * section 5 have it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
  * its source's answer, each under a subheading in the pick's own words. A copy is the question's own options, `open`
  * field and replies, as a plain multi draws them (questions.ts choiceBody); what it picks is the `a` of that pick's
  * pair. Nothing is drawn while nothing is picked.

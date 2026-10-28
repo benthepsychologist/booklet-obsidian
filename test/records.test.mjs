@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { assertOutsideUnchanged, core, lint, norm, pythonAvailable } from "./helpers.mjs";
 
 const canLint = pythonAvailable();
-const FM = '---\nbooklet: "0.15"\nid: test/synthetic\ntitle: Synthetic\nlang: en\n---\n';
+const FM = '---\nbooklet: "0.16"\nid: test/synthetic\ntitle: Synthetic\nlang: en\n---\n';
 const BODY = `${FM}
 > [!activity|act] An activity
 

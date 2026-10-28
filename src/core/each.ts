@@ -1,5 +1,5 @@
 /*
- * A question asked for each pick of another (`each:<id>`, format 0.16, which this plugin draws ahead of the format).
+ * A question asked for each pick of another (`each:<id>`, SPEC section 5, "A question asked for each pick").
  * Its source is a choice, a multi or a widget in the same activity; a pick is an identity in the source's answer:
  *   a choice: its one answer;  a multi: each member, an option's position or the reader's own option;
  *   a grid-select: each id, an item id or the reader's own `x|cell|word`;  an svg-regions: each region marked, by id.

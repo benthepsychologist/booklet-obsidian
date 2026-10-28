@@ -169,7 +169,7 @@ function assertRecordsKept(before, after, may, what) {
 	for (const key of nk.keys()) if (!ok.has(key)) assert.ok(may.has(key), `${what}: a new ${key} block`);
 }
 
-/** (d): the linter reports no error, or for a note the plugin draws ahead of the format, exactly its expected ones. */
+/** (d): the linter reports no error, or for a note that lists some (helpers.mjs EXPECTED_LINT), exactly its expected ones. */
 function assertLints(text, what, expected = []) {
 	if (!canLint) return;
 	const r = lint(text);

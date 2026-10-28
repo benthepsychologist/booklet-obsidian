@@ -1,5 +1,5 @@
 ---
-booklet: "0.15"
+booklet: "0.16"
 id: booklet-test/daily-tracker
 title: Daily tracker
 lang: en

@@ -22,7 +22,7 @@ const A = "today";
 
 /* ---- the setting, and the settings a kind does not take ---- */
 
-const head = (body) => `---\nbooklet: "0.15"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
+const head = (body) => `---\nbooklet: "0.16"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
 const problemsOf = (body) => core.parseBooklet(head(body)).problems;
 const questionOf = (body, id) => {
 	for (const a of core.parseBooklet(head(body)).activities) for (const s of a.segments) if (s.type === "question" && s.id === id) return s;
@@ -72,8 +72,8 @@ test("earlier: read on a choice, a multi, a lines and a widget line: digits only
 	assert.deepEqual(problemsOf(t), ["Line 10: a text line takes no `earlier:` setting, so it was ignored."]);
 });
 
-test("settings a kind does not take are reported and ignored (SPEC section 4); no 0.15 setting, and neither each: nor earlier: where the plugin draws them, is reported", () => {
-	// every setting the 0.15 table gives each kind, and the two the plugin draws ahead of 0.16
+test("settings a kind does not take are reported and ignored (SPEC section 4); no setting of the 0.16 table is reported", () => {
+	// every setting the 0.16 table gives each kind
 	const good = [
 		"> [!module|m icon:book] A module",
 		"",
@@ -152,7 +152,7 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 	assert.ok(core.parseBooklet(rec).problems.some((x) => x === "Line 14: a records line takes no `stray` setting, so it was ignored."), core.parseBooklet(rec).problems.join(" | "));
 });
 
-test("settings: on every booklet file of the corpus and the test vault, the plugin reports the settings a kind does not take where the 0.15 linter does, apart from each: and earlier:, which it draws ahead of the format", { skip: !pythonAvailable() && "python3 or the linter is not here" }, () => {
+test("settings: on every booklet file of the corpus and the test vault, the plugin reports the settings a kind does not take where the linter does", { skip: !pythonAvailable() && "python3 or the linter is not here" }, () => {
 	const files = corpusFiles();
 	assert.ok(files.length >= 5, `files: ${files.length}`);
 	for (const file of files) {
@@ -161,7 +161,7 @@ test("settings: on every booklet file of the corpus and the test vault, the plug
 		const said = (re, s) => [...s.matchAll(re)].map((m) => `${m[1]} ${m[2]} ${m[3].replace(/:$/, "").toLowerCase()}`);
 		const mine = book.problems.flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
 		const r = lint(text, file.split("/").pop());
-		const theirs = said(/line (\d+): an? (\S+) line takes no `([^`]+)`/g, r.out).filter((x) => !/ (each|earlier)$/.test(x));
+		const theirs = said(/line (\d+): an? (\S+) line takes no `([^`]+)`/g, r.out);
 		assert.deepEqual(mine.sort(), theirs.sort(), file);
 	}
 });

@@ -16,8 +16,8 @@
 // when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), finished and kept,
 // in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
 // taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
-// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16
-// ahead of the format): under every body place and under the thoughts, in a group named Earlier words, a tap storing
+// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
+// under every body place and under the thoughts, in a group named Earlier words, a tap storing
 // what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
 // Markdown pane, then touch sizes and screenshots at a phone's width; 10 (run last) no error or warning from the plugin
 // in Obsidian's console, over every check that ran.
@@ -89,9 +89,10 @@ async function waitFile(o, rel, timeout = 8000) {   // some root leaf shows that
 const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
-// The errors the 0.15 linter is expected to report on a test-vault note, and no others: what the plugin draws ahead of
-// the format (the check-in note's each: and its blue and purple cells). test/helpers.mjs keeps the same list.
-const EXPECTED_LINT = { [CHECKIN]: [/a multi line takes no `each:` setting/, /a lines line takes no `earlier:` setting/, /has the colour 'blue', which is not a colour name/, /has the colour 'purple', which is not a colour name/] };
+// The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
+// with the format 0.16 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
+// test/helpers.mjs keeps the same list.
+const EXPECTED_LINT = {};
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
 function lint(file) {
   const r = cp.spawnSync("python3", ["-I", LINT, file], { encoding: "utf8" });

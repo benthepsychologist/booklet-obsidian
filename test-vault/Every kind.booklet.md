@@ -1,5 +1,5 @@
 ---
-booklet: "0.15"
+booklet: "0.16"
 id: booklet-test/every-kind
 title: Every kind
 lang: en

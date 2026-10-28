@@ -23,7 +23,7 @@ const SPOTS = { engine: "svg-regions", regions: [{ id: "top", label: "Top" }, { 
 
 /** A made-up note with a question asked for each pick of every kind of source, and every mistake the setting can be. */
 const NOTE = `---
-booklet: "0.15"
+booklet: "0.16"
 id: test/each
 title: Each
 lang: en

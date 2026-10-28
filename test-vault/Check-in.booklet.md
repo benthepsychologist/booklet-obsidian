@@ -1,5 +1,5 @@
 ---
-booklet: "0.15"
+booklet: "0.16"
 id: booklet-test/check-in
 title: Check-in
 lang: en

@@ -10,8 +10,8 @@
  */
 
 /**
- * The colour names a widget may give a cell (SPEC section 7); anything else is no colour. `blue` and `purple` are drawn
- * ahead of the format: they are not colour names in format 0.15, and go to 0.16 with `each:`.
+ * The colour names a widget may give a cell (SPEC section 7); anything else is no colour. `blue` and `purple` are
+ * format 0.16's, and carry no tone.
  */
 export const COLOUR_NAMES = ["warm", "green", "amber", "slate", "teal", "blue", "purple"] as const;
 export type ColourName = (typeof COLOUR_NAMES)[number];

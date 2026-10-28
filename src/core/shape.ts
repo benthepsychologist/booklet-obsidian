@@ -1,6 +1,5 @@
 /*
- * An answer of the wrong shape: the rule that format 0.16 adds to SPEC section 8, which this plugin follows ahead
- * of the format. An answer whose shape is not its kind's is kept as written, and its question is drawn read-only,
+ * An answer of the wrong shape: the rule format 0.16 added to SPEC section 8. An answer whose shape is not its kind's is kept as written, and its question is drawn read-only,
  * with a notice saying so. Nothing rewrites it: not a press, not Finalize, not a change from elsewhere. A
  * hand-edited record, or a renderer that stored another kind's answer under this id, must never be damaged by the
  * first tap. Each kind's shape is SPEC section 5's table and section 7's widgets. Plain TypeScript: nothing here
