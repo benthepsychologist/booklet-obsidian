@@ -148,16 +148,20 @@ test("words typed in Add your own survive a change to the note, and Enter adds t
 	v.close();
 });
 
-test("words left in Add your own, not added yet, are still there when the view is drawn again", async () => {
+test("words left in Add your own are added when the field is left (SPEC section 5), and the view drawn again shows them as an option of the reader's own", async () => {
 	const v = open();
 	const own = v.q("multi").querySelector(".booklet-own-row input");
 	own.focus();
 	typeInto(own, "Glue");
 	own.blur();
+	await v.settled();
+	assert.deepEqual(v.answers().tools, ["Glue"]);
+	assert.equal(own.value, "", "the field is emptied");
 	const card = v.card();
 	v.changed(prose("MARK-NINE"));
 	assert.notEqual(v.card(), card, "with no field in use, the view is drawn again");
-	assert.equal(v.q("multi").querySelector(".booklet-own-row input").value, "Glue");
+	assert.equal(v.q("multi").querySelector(".booklet-own-row input").value, "");
+	assert.deepEqual([...v.q("multi").querySelectorAll("button.booklet-own[aria-pressed=true]")].map((b) => b.textContent.trim()), ["Glue"]);
 	v.close();
 });
 
@@ -233,5 +237,170 @@ test("with no field in use, a change to the design draws the view again at once"
 	v.changed(prose("MARK-EIGHT"));
 	assert.notEqual(v.card(), card);
 	assert.ok(v.view.contentEl.textContent.includes("MARK-EIGHT"));
+	v.close();
+});
+
+/* ---- Add your own adds its words when it is left (SPEC section 5, format 0.16) ---- */
+
+/** A press on `target` that leaves `field`: the pointer goes down, the field loses focus, the pointer comes up, the click. */
+function pressFrom(field, target) {
+	target.dispatchEvent(new w.Event("pointerdown", { bubbles: true }));
+	field.blur();
+	w.document.dispatchEvent(new w.Event("pointerup", { bubbles: true }));
+	target.click();
+}
+const ownOf = (v, kind) => v.q(kind).querySelector(".booklet-own-row input");
+const optionOf = (v, kind, words) => [...v.q(kind).querySelectorAll(".booklet-choices > button")].find((b) => b.textContent.trim() === words);
+/** The every-kind note with `open` on its choice, so that it takes an option of the reader's own. */
+const OPEN_CHOICE = NOTE.replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
+
+test("Add your own: leaving the field adds the words typed, as Enter would; empty or white space adds nothing", async () => {
+	const v = open();
+	const own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Twine");
+	assert.equal(v.answers().tools, undefined, "typing alone adds nothing");
+	own.blur();
+	await v.settled();
+	assert.deepEqual(v.answers().tools, ["Twine"]);
+	assert.equal(own.value, "");
+	// white space, or nothing, left in the field writes nothing
+	const before = v.disk.text;
+	own.focus();
+	typeInto(own, "   ");
+	own.blur();
+	own.focus();
+	own.blur();
+	await v.settled();
+	assert.equal(v.disk.text, before);
+	// words equal to a listed option, in another case: leaving the field presses it, as Enter does
+	own.focus();
+	typeInto(own, " scissors ");
+	own.blur();
+	await v.settled();
+	assert.deepEqual(v.answers().tools, ["Twine", 3]);
+	v.close();
+});
+
+test("Add your own on a choice: the words left in the field replace the pick", async () => {
+	const v = open(OPEN_CHOICE);
+	optionOf(v, "choice", "Apple").click();
+	await v.settled();
+	assert.equal(v.answers().fruit, 1);
+	const own = ownOf(v, "choice");
+	own.focus();
+	typeInto(own, "Mango");
+	own.blur();
+	await v.settled();
+	assert.equal(v.answers().fruit, "Mango");
+	assert.equal(optionOf(v, "choice", "Apple").getAttribute("aria-pressed"), "false");
+	// a listed option's words replace it with that option
+	own.focus();
+	typeInto(own, "PEAR");
+	own.blur();
+	await v.settled();
+	assert.equal(v.answers().fruit, 2);
+	v.close();
+});
+
+test("Add your own: a press that leaves the field lands after the words are added, as in booklet.html", async () => {
+	const v = open(OPEN_CHOICE);
+	// a multi: the words, then the press
+	let own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Twine");
+	pressFrom(own, optionOf(v, "multi", "Ruler"));
+	await v.settled();
+	assert.deepEqual(v.answers().tools, ["Twine", 2]);
+	// a choice: the words replace the pick, then the press replaces them
+	own = ownOf(v, "choice");
+	own.focus();
+	typeInto(own, "Mango");
+	pressFrom(own, optionOf(v, "choice", "Plum"));
+	await v.settled();
+	assert.equal(v.answers().fruit, 3);
+	// Add, after the field is left by its own press: the words are added once, and the reader is back in the field
+	let writes = 0;
+	const process = v.view.app.vault.process;
+	v.view.app.vault.process = (file, fn) => {
+		writes++;
+		return process(file, fn);
+	};
+	own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Glue");
+	pressFrom(own, v.q("multi").querySelector(".booklet-add"));
+	await v.settled();
+	assert.deepEqual(v.answers().tools, ["Twine", 2, "Glue"]);
+	assert.equal(writes, 1);
+	assert.equal(w.document.activeElement, own);
+	v.close();
+});
+
+test("Add your own: left for the very option its words name, the words press it and the press confirms it (booklet.html holdIn)", async () => {
+	const v = open(OPEN_CHOICE);
+	// by the pointer, with the focus staying in the field until the press (as on a touch screen)
+	let own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "ruler");
+	pressFrom(own, optionOf(v, "multi", "Ruler"));
+	await v.settled();
+	assert.deepEqual(v.answers().tools, [2], "pressed once, not pressed and then taken back");
+	assert.equal(optionOf(v, "multi", "Ruler").getAttribute("aria-pressed"), "true");
+	// the focus moving to the option first (as a mouse press does on the desktop), then its click
+	own = ownOf(v, "choice");
+	own.focus();
+	typeInto(own, "plum");
+	optionOf(v, "choice", "Plum").focus();
+	optionOf(v, "choice", "Plum").click();
+	await v.settled();
+	assert.equal(v.answers().fruit, 3);
+	// the next press on it is a press again
+	optionOf(v, "multi", "Ruler").dispatchEvent(new w.Event("pointerdown", { bubbles: true }));
+	optionOf(v, "multi", "Ruler").click();
+	await v.settled();
+	assert.equal(v.answers().tools, undefined);
+	// an option picked already, named and then pressed: the words add nothing, and the press takes it out
+	optionOf(v, "multi", "Pencil").click();
+	await v.settled();
+	own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Pencil");
+	pressFrom(own, optionOf(v, "multi", "Pencil"));
+	await v.settled();
+	assert.equal(v.answers().tools, undefined);
+	v.close();
+});
+
+test("Add your own: words typed and not added are added when the view lets go of the note, and only once", async () => {
+	const v = open(OPEN_CHOICE);
+	const own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Twine");
+	const choice = ownOf(v, "choice");
+	typeInto(choice, "Fig");
+	await v.view.onUnloadFile(v.view.file);
+	assert.deepEqual(v.answers().tools, ["Twine"]);
+	assert.equal(v.answers().fruit, "Fig");
+	assert.equal(own.value, "");
+	const before = v.disk.text;
+	own.blur();
+	await v.settled();
+	assert.equal(v.disk.text, before, "leaving the field afterwards adds nothing more");
+	v.close();
+});
+
+test("Add your own: while the question's answer is of the wrong shape, leaving the field adds nothing and the words stay", async () => {
+	const v = open();
+	const own = ownOf(v, "multi");
+	own.focus();
+	typeInto(own, "Twine");
+	v.changed(stored("tools", [{ made: "elsewhere" }]));
+	await v.settled();
+	const before = v.disk.text;
+	own.blur();
+	await v.settled();
+	assert.equal(v.disk.text, before, "the answer of the wrong shape is kept as written");
+	assert.equal(own.value, "Twine", "the words typed are not thrown away");
 	v.close();
 });

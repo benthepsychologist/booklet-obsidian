@@ -443,3 +443,17 @@ test("own words typed and not added: Finalize keeps them, and so does the view l
 	assert.equal(u.disk.text, before);
 	u.close();
 });
+
+test("Add your own on a shared list in a repeating activity: Finalize keeps the words typed and not added", async () => {
+	const v = open();
+	const f = v.menu().querySelector(".booklet-own-row input");
+	button(v.menu(), "Outdoors").click();
+	f.focus();
+	typeInto(f, "On a bus");
+	button(v.card(), "Finalize").click();
+	await v.settled();
+	const e = core.parseBooklet(v.disk.text).records.entries["day-check"].today[0];
+	assert.deepEqual(norm(e.where), [3, "On a bus"]);
+	assert.equal(f.value, "");
+	v.close();
+});

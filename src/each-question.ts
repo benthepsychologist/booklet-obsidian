@@ -47,7 +47,7 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 			label(c);
 			c.setAttr("aria-labelledby", `${c.getAttribute("aria-labelledby") ?? ""} ${headId}`.trim());
 		};
-		const show = choiceBody(host, el, q, named, locked, {
+		const show = choiceBody(host, el, t, q, named, locked, {
 			picks: () => picksOf(pairFor(host.answerOf(t, q), p)?.a),
 			put: (list) => {
 				const next = setPair(host.answerOf(t, q), p, list);

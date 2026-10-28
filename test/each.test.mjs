@@ -508,15 +508,18 @@ test("each in the view: the field the reader is in is kept while copies are adde
 	assert.ok(v.copy("s:lively").classList.contains("booklet-copy-gone"));
 	assert.deepEqual(v.heads(), ["Lively", "Tired", "Tense"]);
 	assert.equal(w.document.activeElement, f);
+	assert.equal(v.draft().felt, undefined, "words typed and not added are not an answer yet");
+	// leaving the field adds the words typed (SPEC section 5), to the pair of the pick taken back, which is kept
 	f.blur();
 	await v.settled();
 	assert.deepEqual(v.heads(), ["Tired", "Tense"]);
-	// the words typed and not added come back with the pick, its copy at the end
+	assert.deepEqual(v.draft().felt, [{ pick: "lively", a: ["Sh"] }]);
+	// they come back with the pick, its copy at the end, as an option of the reader's own
 	v.changed(stored("feelings", ["lively", "tired", "tense"]));
 	await v.settled();
 	assert.deepEqual(v.heads(), ["Tired", "Tense", "Lively"]);
-	assert.equal(ownField(v.copy("s:lively")).value, "Sh");
-	assert.equal(v.draft().felt, undefined, "words typed and not added are not an answer");
+	assert.equal(ownField(v.copy("s:lively")).value, "");
+	assert.deepEqual(pressed(v.copy("s:lively")), ["Sh"]);
 	v.close();
 });
 

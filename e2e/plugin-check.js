@@ -19,7 +19,8 @@
 // left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
 // under every body place and under the thoughts, in a group named Earlier words, a tap storing
 // what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
-// Markdown pane, then touch sizes and screenshots at a phone's width; 10 (run last) no error or warning from the plugin
+// Markdown pane, then touch sizes and screenshots at a phone's width; 14 Add your own adds the words typed when it is
+// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 10 (run last) no error or warning from the plugin
 // in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
@@ -30,7 +31,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1541,6 +1542,97 @@ async function check13() {
   return c;
 }
 
+/* ================= CHECK 14 ================= */
+// Add your own adds the words typed and not added when it is left (format 0.16, SPEC section 5), as Enter or Add would.
+// This run's copy of Every kind gives its choice `open`, so that a choice and a multi both take an option of the reader's
+// own; a copy of it marked "0.15" is opened first, for the notice an older marker gets.
+async function check14() {
+  const c = new Check(14, "Add your own adds the words typed when it is left (format 0.16): a click elsewhere in the view, Tab, a press on another option (the words first, then the press), a press on the option the words name (pressed once, not taken back), Add (once), another note opened in the pane, the view switched to Markdown, the pane closed; on a choice the words replace the pick; white space adds nothing; a note marked 0.15 opens with its notice");
+  await withApp("c14", async (o, vault) => {
+    const file = path.join(vault, EVERY), K = "/kinds";
+    const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
+    fs.writeFileSync(file, orig);
+    const OLDER = "Older marker.booklet.md";
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.16"', 'booklet: "0.15"'));
+    await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
+    // a note marked with the format before this one: opened as it is, the notice first among its problems
+    await openNote(o, OLDER);
+    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems li")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
+    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    await openNote(o, EVERY);
+    const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
+    const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();
+    const answers = t => answersOf(t) || {};
+    const fieldOf = kind => o.evaluate(sel => { const f = document.querySelector(sel); return { value: f.value, focused: document.activeElement === f }; }, cardSel(K) + " .booklet-kind-" + kind + " .booklet-own-row input");
+    const ownShown = kind => o.evaluate(sel => [...document.querySelectorAll(sel + " button.booklet-own[aria-pressed=true]")].map(b => b.textContent.trim()), cardSel(K) + " .booklet-kind-" + kind);
+    // a click elsewhere in the view
+    await ownIn("multi").click(); await o.page.keyboard.type("Twine");
+    await inCard(o, K, ".booklet-card-title").click();
+    let d = await waitDisk(file, t => same(answers(t).tools, ["Twine"]));
+    let f = await fieldOf("multi");
+    c.ok(d.ok && f.value === "" && same(await ownShown("multi"), ["Twine"]), "typed in the multi's field, then a click elsewhere in the view: tools on disk " + JSON.stringify(answers(d.text).tools) + "; the field emptied: " + JSON.stringify(f.value) + "; drawn as an option of the reader's own");
+    // a choice: its words replace the pick, the field left by Tab
+    await option("choice", "Apple").click();
+    await waitDisk(file, t => answers(t).fruit === 1);
+    await ownIn("choice").click(); await o.page.keyboard.type("Mango"); await o.page.keyboard.press("Tab");
+    d = await waitDisk(file, t => answers(t).fruit === "Mango");
+    const apple = await option("choice", "Apple").getAttribute("aria-pressed");
+    c.ok(d.ok && apple === "false" && same(await ownShown("choice"), ["Mango"]), "Apple picked, then Mango typed in the choice's field and Tab pressed: fruit on disk " + JSON.stringify(answers(d.text).fruit) + " (the words replace the pick); Apple pressed: " + apple);
+    // a press on another option leaves the field: the words, then the press
+    await ownIn("multi").click(); await o.page.keyboard.type("Glue");
+    await option("multi", "Ruler").click();
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2]));
+    c.ok(d.ok, "Glue typed, then Ruler pressed: tools on disk " + JSON.stringify(answers(d.text).tools) + " (the words added first, then the press, as booklet.html takes them)");
+    // a press on the very option the words name: the words press it, and the press confirms it
+    await ownIn("choice").click(); await o.page.keyboard.type("plum");
+    await option("choice", "Plum").click();
+    d = await waitDisk(file, t => answers(t).fruit === 3);
+    await sleep(500);
+    const plum = await option("choice", "Plum").getAttribute("aria-pressed");
+    d = await waitDisk(file, t => answers(t).fruit === 3);
+    c.ok(d.ok && plum === "true", "plum typed, then Plum pressed: fruit on disk " + JSON.stringify(answers(d.text).fruit) + ", Plum pressed: " + plum + " (pressed once, not pressed and taken back)");
+    // Add, after the field is left by its own press: added once, and the reader is back in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Wire");
+    await question(o, K, "multi").locator(".booklet-add").click();
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire"]));
+    await sleep(400);
+    f = await fieldOf("multi");
+    c.ok(d.ok && count(fs.readFileSync(file, "utf8"), "Wire") === 1 && f.focused && f.value === "", "Wire typed, then Add: tools on disk " + JSON.stringify(answers(d.text).tools) + ", Wire once; the reader is back in the empty field: " + JSON.stringify(f));
+    // white space, left by a click elsewhere: nothing written
+    await o.page.keyboard.type("   ");
+    const before = fs.readFileSync(file, "utf8");
+    await inCard(o, K, ".booklet-card-title").click();
+    await sleep(1200);
+    c.ok(fs.readFileSync(file, "utf8") === before, "white space typed, then a click elsewhere: the note on disk is unchanged");
+    // another note opened in the pane, with the reader still in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Tape");
+    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, EVENING);
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire", "Tape"]));
+    c.ok(d.ok, "Tape typed, then another note opened in the pane: tools on disk " + JSON.stringify(answers(d.text).tools));
+    await openNote(o, EVERY);
+    f = await fieldOf("multi");
+    c.ok(same(await ownShown("multi"), ["Twine", "Glue", "Wire", "Tape"]) && f.value === "", "the note opened again: the reader's own options drawn " + JSON.stringify(await ownShown("multi")) + ", the field empty");
+    // the view switched to Markdown, with the reader in the field
+    await ownIn("multi").click(); await o.page.keyboard.type("Clip");
+    await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
+    d = await waitDisk(file, t => same(answers(t).tools, ["Twine", "Glue", 2, "Wire", "Tape", "Clip"]));
+    const mode = await activeType(o);
+    c.ok(d.ok && mode === "markdown", "Clip typed, then the view switched to Markdown (" + mode + "): tools on disk " + JSON.stringify(answers(d.text).tools));
+    await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
+    await waitActiveType(o, "booklet"); await o.page.waitForSelector(cardSel(K), { timeout: 8000 }); await sleep(900);
+    // the pane closed, with the reader in the choice's field
+    await ownIn("choice").click(); await o.page.keyboard.type("Fig");
+    await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+    d = await waitDisk(file, t => answers(t).fruit === "Fig");
+    c.ok(d.ok, "Fig typed in the choice's field, then the pane closed: fruit on disk " + JSON.stringify(answers(d.text).fruit));
+    const last = fs.readFileSync(file, "utf8");
+    c.ok(head(last) === orig + "\n", "outside the records region nothing changed but the blank line before the new region: " + (head(last) === orig + "\n"));
+    c.ok(count(last, "```booklet answers") === 1 && ["Twine", "Glue", "Wire", "Tape", "Clip", "Fig"].every(w => count(last, '"' + w + '"') === 1), "one answers block, each word once: " + (blocksNamed(last, "booklet answers")[0] || {}).body);
+    const l = lint(file); c.ok(l.ok, "lint at the end: exit " + l.code + ": " + l.out);
+  });
+  return c;
+}
+
 /* ================= CHECK 9 ================= */
 async function check9() {
   const c = new Check(9, "layout: the dark theme's text-box border, room at the view's foot, the grid's cell names on their colours, touch sizes (the tracker; the check-in note, also at a phone's width); the tracker's and check-in note's screenshots");
@@ -1665,6 +1757,7 @@ async function check10() {
   c.ok(!only.includes(11) || ["c11", "c11-md"].every(x => sessions.includes(x)), "the sessions watched include the widget check's two (one pane, with a Markdown pane): " + sessions.join(", "));
   c.ok(!only.includes(12) || ["c12", "c12-md"].every(x => sessions.includes(x)), "and the each: check's two: " + sessions.join(", "));
   c.ok(!only.includes(13) || ["c13", "c13-md", "c13-phone"].every(x => sessions.includes(x)), "and the earlier words check's three (one pane, with a Markdown pane, at a phone's width): " + sessions.join(", "));
+  c.ok(!only.includes(14) || sessions.includes("c14"), "and the Add your own check's: " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }
@@ -1672,7 +1765,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
-  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13 };
+  const fns = { 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14 };
   for (const n of only) {
     const t0 = Date.now();
     let c;
