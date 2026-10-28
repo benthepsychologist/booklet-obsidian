@@ -3,6 +3,7 @@
  * answers are written into the note's records section and nowhere else. No Node or Electron API.
  */
 import { FileView, MarkdownView, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
+import { moveHeld } from "./held-store";
 import { BookletView, VIEW_TYPE } from "./view";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
@@ -41,6 +42,19 @@ export default class BookletPlugin extends Plugin {
 					);
 			}),
 		);
+
+		// before the app quits or a window closes, every booklet view writes what was typed and adds the reader's own
+		// words not added yet, as leaving each field would (SPEC section 5). A reload gives no time for this: those words
+		// are kept on the device as they are typed, and added when the note is next drawn (held-store.ts).
+		this.registerEvent(
+			this.app.workspace.on("quit", (tasks) => {
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
+					const v = leaf.view;
+					if (v instanceof BookletView) tasks.add(() => v.saveTyped());
+				}
+			}),
+		);
+		this.registerEvent(this.app.vault.on("rename", (file, oldPath) => moveHeld(this.app, oldPath, file.path)));
 
 		const refresh = () => this.refreshMarkdownActions();
 		this.registerEvent(this.app.workspace.on("layout-change", refresh));
