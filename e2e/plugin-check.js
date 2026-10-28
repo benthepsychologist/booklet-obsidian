@@ -1037,8 +1037,9 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   say(m.same && m.value === "Unhurried", "the change reached the view after " + ms + " ms while a cell's own field was being typed in: the same field, with focus, still holds " + JSON.stringify(m.value));
   say(await gridItem(o, "soothing", "Settled").getAttribute("aria-pressed") === "true", "meanwhile the cell's buttons show the changed answer (Settled pressed)");
   await o.page.keyboard.press("Enter");
-  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["x|agitating|loud", "settled", "x|soothing|Unhurried"]));
-  say(d.ok, "Enter adds the reader's word to what the note now holds: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
+  // the word goes at the end of what the note now holds, in the order it holds it (SPEC section 8)
+  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["settled", "x|agitating|loud", "x|soothing|Unhurried"]));
+  say(d.ok, "Enter adds the reader's word at the end of what the note now holds, its order kept: feelings " + JSON.stringify((draftOf(d.text) || {}).feelings));
   await blurNow(o);
   say(await viewShows(o, W("GRID")), "once the reader left the field, the view is drawn again with the changed prose");
 
