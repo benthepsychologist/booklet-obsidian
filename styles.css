@@ -891,3 +891,9 @@
 .is-phone .booklet-q-cards .booklet-entry dl {
 	grid-template-columns: 1fr;
 }
+
+/* on a phone, a table's cells sit closer, so its columns fit the card's width more often */
+.is-phone .booklet-q-table th,
+.is-phone .booklet-q-table td {
+	padding: var(--size-2-2) var(--size-2-3);
+}
