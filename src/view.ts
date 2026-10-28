@@ -18,10 +18,12 @@ import {
 	localDay,
 	newestFirst,
 	parseBooklet,
+	planQuery,
 	setAnswer,
 	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
+	whenText,
 	type Activity,
 	type AnswerValue,
 	type Booklet,
@@ -31,9 +33,12 @@ import {
 	type Finalized,
 	type Opening,
 	type Question,
+	type QuerySegment,
 	type ShownDraft,
 	type WordPart,
 } from "./core";
+import { keepHeld, loadHeld } from "./held-store";
+import { drawQueryPlan } from "./query-view";
 import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
 import type { LeafMode } from "./switch";
 
@@ -54,7 +59,6 @@ const ENTRIES_SHOWN = 10;
 /** The words for a part this view does not draw yet ("Not yet supported: …"). */
 const UNSUPPORTED: Record<string, string> = {
 	matrix: "a matrix question",
-	query: "a query of kept entries or data",
 	group: "questions inside a group",
 	"in-callout": "a question inside a callout",
 };
@@ -71,10 +75,13 @@ const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
 
 /** A kept entry's moment, in the reader's own words and time zone: "Tue, 27 Oct 2026, 14:02". */
-function when(ts: unknown): string {
-	const t = Date.parse(String(ts));
-	if (!Number.isFinite(t)) return String(ts);
-	return new Date(t).toLocaleString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+const when = whenText;
+
+/** The last second of a moment's day, on the device's calendar. */
+function endOfDay(d: Date): number {
+	const e = new Date(d.getTime());
+	e.setHours(23, 59, 59, 0);
+	return e.getTime();
 }
 
 export class BookletView extends TextFileView implements QuestionHost {
@@ -109,6 +116,12 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private ownFields = new Map<string, { t: Target; commit: () => void }>();
 	/** Activities whose whole list of kept entries is open. */
 	private showAll = new Set<string>();
+	/**
+	 * When the view was last drawn. Today is its date (SPEC section 8): a check-in left open past midnight keeps
+	 * writing to the day it shows, and a span of days counts back from it. The view is drawn again, taking a new today,
+	 * when it comes back into use on a later day (see onload).
+	 */
+	private drawnAt = new Date();
 	private seq = 0;
 
 	constructor(
@@ -147,6 +160,31 @@ export class BookletView extends TextFileView implements QuestionHost {
 			this.pressing = false;
 			this.endPressTail();
 		});
+		// back in use on a later day than the one drawn (the window or the app shown again, the pane made active): drawn
+		// again, so today is today. While the reader is in the middle of an answer the day it shows is kept.
+		const later = () => {
+			if (this.book && localDay(new Date()) !== localDay(this.drawnAt) && !this.busy()) this.draw(false);
+		};
+		const doc = this.contentEl.ownerDocument;
+		this.registerDomEvent(doc, "visibilitychange", () => {
+			if (doc.visibilityState === "visible") later();
+		});
+		if (doc.defaultView) this.registerDomEvent(doc.defaultView, "focus", later);
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (leaf === this.leaf) later();
+			}),
+		);
+	}
+
+	/**
+	 * Writes everything typed and not yet written, and adds the words typed in Add your own and widget fields, as
+	 * leaving each field would: the plugin runs this before the app quits or the window closes (main.ts).
+	 */
+	async saveTyped(): Promise<void> {
+		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
+		this.flushOwn(null);
+		await this.writes;
 	}
 
 	override async save(_clear?: boolean): Promise<void> {
@@ -290,6 +328,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 	hold(key: string, words: string): void {
 		if (words) this.held.set(key, words);
 		else this.held.delete(key);
+		// the reader's own words, kept on the device as they are typed, so a reload does not lose them (held-store.ts)
+		if (this.file && this.ownFields.has(key)) keepHeld(this.app, this.file.path, key, words);
 	}
 
 	/** The answer the note holds for a question, as written. */
@@ -368,6 +408,11 @@ export class BookletView extends TextFileView implements QuestionHost {
 	private draw(opened: boolean): void {
 		this.stale = false;
 		this.cancelSettle();
+		this.drawnAt = new Date();
+		// words typed in a field for the reader's own and not added when the app last reloaded: shown in their fields and
+		// added below, as leaving the field would have added them (held-store.ts)
+		const restored = opened && this.file ? Object.entries(loadHeld(this.app, this.file.path)).filter(([k]) => !this.held.has(k)) : [];
+		for (const [k, w] of restored) this.held.set(k, w);
 		const book = parseBooklet(this.text);
 		this.book = book;
 		this.widgets.clear();
@@ -438,6 +483,7 @@ export class BookletView extends TextFileView implements QuestionHost {
 			}
 			this.drawActivity(page, a);
 		}
+		for (const [k] of restored) this.ownFields.get(k)?.commit();
 	}
 
 	private drawActivity(page: HTMLElement, a: Activity): void {
@@ -473,7 +519,8 @@ export class BookletView extends TextFileView implements QuestionHost {
 			else if (s.type === "tab") {
 				this.md(s.title, card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 				if (!tabs++) card.createEl("p", { cls: "booklet-muted", text: "Tabs are shown one under another here: a tab bar is not yet supported." });
-			} else if (s.type === "unsupported") {
+			} else if (s.type === "query") this.drawQuery(card, s);
+			else if (s.type === "unsupported") {
 				const box = card.createDiv({ cls: "booklet-unsupported" });
 				box.setAttr("data-booklet-unsupported", s.kind);
 				// a group's or a callout's own words are drawn just above, as Obsidian draws the callout
@@ -578,8 +625,31 @@ export class BookletView extends TextFileView implements QuestionHost {
 		}
 	}
 
+	/** A query's rows, from the kept entries (never a draft), worked out again when the records change; nothing is written. */
+	private drawQuery(card: HTMLElement, s: QuerySegment): void {
+		const box = card.createDiv({ cls: "booklet-query" });
+		box.setAttr("data-booklet-query", s.query.from);
+		const host = {
+			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
+			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
+		};
+		let sig = "";
+		const show = () => {
+			if (!this.book) return;
+			const src = s.source;
+			const act = src && src.kind !== "data" ? src.act : null;
+			const rec = this.book.records;
+			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
+			if (now === sig) return;
+			sig = now;
+			drawQueryPlan(host, box, planQuery(this.book, s, { drawn: this.drawnAt }));
+		};
+		show();
+		this.onShow(`query:${s.line}`, show);
+	}
+
 	private dayRule(): DayRule {
-		return { today: localDay(new Date()) };
+		return { today: localDay(this.drawnAt), until: endOfDay(this.drawnAt) };
 	}
 
 	/** What a repeating activity's draft shows now (for a daily one with nothing in its draft, today's entry). */

@@ -635,3 +635,259 @@
 .booklet-copy-gone {
 	opacity: 0.6;
 }
+
+/* ---- queries: kept entries and summaries drawn as a table, a list, tiles or cards (SPEC section 6) ---- */
+
+.booklet-query {
+	margin: var(--size-4-3) 0 var(--size-4-4);
+}
+
+/* words said to a screen reader only: a tone, a list row's field names */
+.booklet-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* a tone: good, warn or bad, in the theme's success, warning and error colours */
+.booklet-tone-good {
+	--booklet-q-tone: var(--color-green);
+	--booklet-q-tone-rgb: var(--color-green-rgb);
+}
+
+.booklet-tone-warn {
+	--booklet-q-tone: var(--color-orange);
+	--booklet-q-tone-rgb: var(--color-orange-rgb);
+}
+
+.booklet-tone-bad {
+	--booklet-q-tone: var(--color-red);
+	--booklet-q-tone-rgb: var(--color-red-rgb);
+}
+
+.booklet-q-value.booklet-tone-good,
+.booklet-q-value.booklet-tone-warn,
+.booklet-q-value.booklet-tone-bad {
+	color: var(--booklet-q-tone);
+}
+
+.booklet-q-group {
+	font-weight: var(--font-semibold);
+	margin: var(--size-4-3) 0 var(--size-4-1);
+}
+
+.booklet-q-count {
+	color: var(--text-muted);
+	font-weight: var(--font-normal);
+	font-size: var(--font-ui-small);
+	margin-inline-start: var(--size-4-2);
+}
+
+.booklet-q-badges {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.booklet-q-pill {
+	display: inline-block;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-l);
+	border: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+}
+
+.booklet-q-pill.booklet-tone-good,
+.booklet-q-pill.booklet-tone-warn,
+.booklet-q-pill.booklet-tone-bad {
+	border-color: var(--booklet-q-tone);
+	background-color: rgba(var(--booklet-q-tone-rgb), 0.12);
+}
+
+.booklet-q-icon {
+	display: inline-flex;
+	vertical-align: middle;
+	margin-inline-end: var(--size-4-1);
+	color: var(--text-muted);
+}
+
+.booklet-q-icon svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+/* a table: scrolls across inside the card when it is wider than the page, never the page itself */
+.booklet-q-wrap {
+	overflow-x: auto;
+	max-width: 100%;
+}
+
+.booklet-q-table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-q-table th,
+.booklet-q-table td {
+	text-align: start;
+	vertical-align: top;
+	padding: var(--size-4-1) var(--size-4-2);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-q-table thead th {
+	color: var(--text-muted);
+	font-weight: var(--font-semibold);
+	white-space: nowrap;
+}
+
+.booklet-q-table .booklet-q-num {
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-q-grouprow th {
+	font-weight: var(--font-semibold);
+	background-color: var(--background-secondary);
+}
+
+.booklet-q-lines {
+	margin: 0;
+	padding-inline-start: var(--size-4-4);
+}
+
+.booklet-q-table .booklet-q-lines {
+	padding-inline-start: var(--size-4-3);
+}
+
+/* a list: one line per row, the note beneath */
+.booklet-q-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-q-row {
+	padding: var(--size-4-1) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-q-row:last-child {
+	border-bottom: none;
+}
+
+.booklet-q-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-2) var(--size-4-2);
+}
+
+.booklet-q-label {
+	font-weight: var(--font-medium);
+}
+
+.booklet-q-extras {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2) var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-q-line .booklet-q-value {
+	margin-inline-start: auto;
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-q-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* tiles: a big value over a label; with no value anywhere, a strip of pills */
+.booklet-q-tiles {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9em, 1fr));
+	gap: var(--size-4-2);
+}
+
+.booklet-q-tile {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+}
+
+.booklet-q-tile.booklet-tone-good,
+.booklet-q-tile.booklet-tone-warn,
+.booklet-q-tile.booklet-tone-bad {
+	border-color: var(--booklet-q-tone);
+	background-color: rgba(var(--booklet-q-tone-rgb), 0.08);
+}
+
+.booklet-q-big {
+	font-size: var(--h3-size);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-q-pills {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.booklet-q-pills .booklet-q-tile {
+	flex-direction: row;
+	align-items: baseline;
+	padding: var(--size-2-2) var(--size-4-3);
+	border-radius: var(--radius-l);
+}
+
+/* cards: a kept entry as a dated card (the entries' own look), a summary row led by its label */
+.booklet-q-cards .booklet-entry:last-of-type {
+	border-bottom: none;
+}
+
+.booklet-q-cards > .booklet-q-card:not(.booklet-entry) {
+	padding: var(--size-4-2) var(--size-4-3);
+	margin-bottom: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+}
+
+.booklet-q-card.booklet-tone-good,
+.booklet-q-card.booklet-tone-warn,
+.booklet-q-card.booklet-tone-bad {
+	border-inline-start: var(--size-2-2) solid var(--booklet-q-tone);
+}
+
+.booklet-q-card-title {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-q-cards .booklet-q-card .booklet-q-big {
+	margin-top: var(--size-2-2);
+}
+
+/* on a phone, a kept entry's answers sit under their questions, as on an activity's own list */
+.is-phone .booklet-q-cards .booklet-entry dl {
+	grid-template-columns: 1fr;
+}
