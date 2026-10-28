@@ -7,8 +7,9 @@
  *
  * The order: a drawing of the view puts the copies in the order the source's answer holds the picks. While it stays
  * open, a new pick adds a copy at the end and nothing already on screen moves, even when the source's answer changes
- * its order: a grid rebuilds its answer as the other cells' ids, then the cell's own, when the reader writes a word in
- * a cell (booklet.html's gridSelect, kept byte for byte), and that must not swap two copies under the reader. The order
+ * its order. A press or a word typed never reorders a source's answer (a word written in a grid cell goes at the end,
+ * SPEC section 8), but a change made elsewhere can (a hand edit, another renderer), and that must not swap two copies
+ * under the reader. The order
  * on screen is the view's, like the body widget's open place: nothing about it is stored, and the next drawing (the
  * note opened again, or its design changed) takes the answer's order again.
  *

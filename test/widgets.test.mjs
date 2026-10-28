@@ -71,6 +71,10 @@ function referenceEngines() {
 		one(/^const splitList=.*$/m, "splitList"),
 		one(/^const tx=.*$/m, "tx"),
 		one(/^const isObj=.*$/m, "isObj"),
+		// an answer's shape, which the engines read their answers through (format 0.16)
+		one(/^const isStr=.*$/m, "isStr"),
+		one(/^const everyIs=.*$/m, "everyIs"),
+		one(/^const isRegionRow=.*$/m, "isRegionRow"),
 		one(/^const wordsOf=.*$/m, "wordsOf"),
 		one(/^const nonEmpty=.*$/m, "nonEmpty"),
 		one(/^const el=\(tag[\s\S]*?return n;\};/m, "el"),
@@ -80,7 +84,8 @@ function referenceEngines() {
 		"globalThis.__engines={gridSelect,svgRegions,gridNames,regionNames};",
 	].join("\n");
 	const dom = new JSDOM("<!doctype html><html><body></body></html>");
-	const ctx = vm.createContext({ document: dom.window.document, window: dom.window, console });
+	// the engines put off a redraw to the next turn (afterPress, format 0.16): each step below waits for it (tick)
+	const ctx = vm.createContext({ document: dom.window.document, window: dom.window, console, setTimeout, clearTimeout });
 	vm.runInContext(code, ctx);
 	return { ...ctx.__engines, document: dom.window.document, window: dom.window };
 }
@@ -98,6 +103,9 @@ function typeInto(R, inp, typed) {
 }
 
 const textOf = (n) => (n.childNodes[0]?.textContent ?? n.textContent).trim();
+
+/** The next turn, once what the engines put off to it (a redraw after a field is left) has run, as in a browser before the next press. */
+const tick = () => new Promise((r) => setTimeout(r, 0));
 
 /* ---- grid-select, step by step ---- */
 
@@ -120,7 +128,7 @@ function gridSteps() {
 	];
 }
 
-test("grid-select: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, () => {
+test("grid-select: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, async () => {
 	const R = referenceEngines();
 	const e = Object.create(null);
 	const box = R.gridSelect(e, GRID, ["k"], {});
@@ -141,16 +149,18 @@ test("grid-select: the core stores what booklet.html stores, step by step", { sk
 			assert.ok(b, `${what}: a button "${words}"`);
 			b.click();
 		} else typeInto(R, cellBox(ref.type[0]).querySelector("input.field"), ref.type[1]);
+		await tick();
 		mine = ours(g, mine);
 		const theirs = norm(e.k);
 		log.push([what, theirs]);
 		assert.deepEqual(norm(mine), theirs, `${what}: the plugin ${JSON.stringify(mine)}, booklet.html ${JSON.stringify(theirs)}`);
 	}
-	// the end state, written out: one of each kind of item, in booklet.html's order
-	assert.deepEqual(norm(mine), ["drum", "gong", "cello", "harp", "x|quiet-fast|wind", "x|quiet-fast|rain", "x|loud-fast|a|b", "flute"]);
+	// the end state, written out: one of each kind of item, in the order the reader picked them (SPEC section 8), as
+	// booklet.html keeps it: a word typed in a cell went at the end, and one taken out left the others where they were
+	assert.deepEqual(norm(mine), ["gong", "cello", "drum", "harp", "x|quiet-fast|wind", "x|quiet-fast|rain", "x|loud-fast|a|b", "flute"]);
 	// a kept entry reads it back as booklet.html's summary does
 	assert.deepEqual(core.gridNames(g, mine), [...R.gridNames(GRID, e.k)]);
-	assert.deepEqual(core.gridNames(g, mine), ["Drum", "Gong", "Cello", "Harp", "wind", "rain", "a|b", "Flute"]);
+	assert.deepEqual(core.gridNames(g, mine), ["Gong", "Cello", "Drum", "Harp", "wind", "rain", "a|b", "Flute"]);
 });
 
 /* ---- svg-regions, step by step ---- */
@@ -184,7 +194,7 @@ function regionSteps() {
 	];
 }
 
-test("svg-regions with no figure: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, () => {
+test("svg-regions with no figure: the core stores what booklet.html stores, step by step", { skip: !existsSync(HTML) && `no booklet.html at ${HTML} (BOOKLET_REPO)` }, async () => {
 	const R = referenceEngines();
 	const e = Object.create(null);
 	const box = R.svgRegions(e, REGIONS, ["k"], {});
@@ -204,12 +214,15 @@ test("svg-regions with no figure: the core stores what booklet.html stores, step
 		}
 		else if (ref.clear) panel().querySelector("button.small").click();
 		else if (ref.summaryX !== undefined) box.querySelectorAll(".bodysummary .bodyrow")[ref.summaryX].querySelector("button.x").click();
+		await tick();
 		mine = ours(mine);
 		const theirs = norm(e.k ?? []);
 		assert.deepEqual(norm(mine ?? []), theirs, `${what}: the plugin ${JSON.stringify(mine)}, booklet.html ${JSON.stringify(theirs)}`);
 	}
 	assert.deepEqual(norm(mine), [{ id: "feet", s: ["light"] }]);
-	assert.deepEqual(core.regionSummary(core.regionsOf(REGIONS), mine).map((r) => r.label), [...R.regionNames(REGIONS, e.k)]);
+	// a kept entry names each place with its words, "Feet — Light", as booklet.html's summary does (format 0.16's renderer)
+	assert.deepEqual(core.answerWords({ kind: "widget", id: "k", widget: { data: REGIONS } }, mine), { list: [...R.regionNames(REGIONS, e.k)] });
+	assert.deepEqual([...R.regionNames(REGIONS, e.k)], ["Feet — Light"]);
 });
 
 test("svg-regions: the steps' answers in full, so a change to either side is seen", () => {
@@ -243,4 +256,19 @@ test("grid-select: reading the data, and an own word compared as booklet.html co
 	assert.deepEqual(norm(v), ["x|loud-slow|it’s  here — now"]);
 	assert.deepEqual(core.gridCellWords(g, ["gong", "x|loud-slow|a", "drum", "bell"], "loud-slow"), ["Drum", "Gong", "a"]);
 	assert.deepEqual(core.copyOf({ copy: { h: "Head", n: 3 } }), Object.assign(Object.create(null), { h: "Head" }));
+});
+
+test("grid-select: a word typed in a cell leaves the answer's order as the reader picked it (SPEC section 8): it goes at the end, and nothing else moves", () => {
+	const g = core.gridOf(GRID);
+	// Gong (loud-slow) was picked before Cello (quiet-slow): a word typed in loud-slow does not move Gong after Cello
+	assert.deepEqual(norm(core.gridAddOwn(g, ["bell", "gong", "cello"], "loud-slow", "thunder")), ["bell", "gong", "cello", "x|loud-slow|thunder"]);
+	// an item's label typed in its cell presses it, at the end
+	assert.deepEqual(norm(core.gridAddOwn(g, ["gong", "bell"], "loud-slow", "drum")), ["gong", "bell", "drum"]);
+	// two words at once go at the end in the order typed; a word of the cell already there keeps its place
+	assert.deepEqual(norm(core.gridAddOwn(g, ["x|loud-slow|a", "bell", "gong"], "loud-slow", "b, GONG, c")), ["x|loud-slow|a", "bell", "gong", "x|loud-slow|b", "x|loud-slow|c"]);
+	// a word already there changes nothing: the same list comes back
+	const v = ["x|loud-slow|a", "bell"];
+	assert.equal(core.gridAddOwn(g, v, "loud-slow", "A"), v);
+	// a word taken out leaves the others where they were
+	assert.deepEqual(norm(core.gridToggle(["gong", "x|loud-slow|a", "bell", "drum"], "x|loud-slow|a")), ["gong", "bell", "drum"]);
 });

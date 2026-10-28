@@ -93,15 +93,16 @@ test("the grid: its cells in the widget's colours, its edge labels, and presses 
 	typeInto(field, "fizzy, cheerful");
 	press(field, "Enter");
 	await v.settled();
-	// the cell's words are written again in the field's order (its items in the widget's order, then the reader's)
-	assert.deepEqual(v.draft().feelings, ["tense", "lively", "cheerful", "x|invigorating|fizzy"]);
+	// the answer keeps the order the reader picked (SPEC section 8): a word typed goes at the end, and one already there
+	// (Cheerful, typed again) keeps its place
+	assert.deepEqual(v.draft().feelings, ["cheerful", "tense", "lively", "x|invigorating|fizzy"]);
 	assert.equal(button(cell(v, "invigorating"), "Lively").getAttribute("aria-pressed"), "true");
 	// the reader's own word is a pressed button in its cell; a press takes it out
 	const own = cell(v, "invigorating").querySelector(".booklet-own");
 	assert.equal(own.textContent, "fizzy");
 	own.click();
 	await v.settled();
-	assert.deepEqual(v.draft().feelings, ["tense", "lively", "cheerful"]);
+	assert.deepEqual(v.draft().feelings, ["cheerful", "tense", "lively"], "taking a word out leaves the others where they were");
 	for (const x of ["Tense", "Lively", "Cheerful"]) button(v.grid(), x).click();
 	await v.settled();
 	assert.equal(v.draft().feelings, undefined, "a grid with nothing pressed holds no answer");
@@ -121,7 +122,7 @@ test("the grid: a cell's field keeps its words while the note changes under it, 
 	assert.equal(button(cell(v, "soothing"), "Settled").getAttribute("aria-pressed"), "true", "the cell's buttons show the note's answer");
 	press(field, "Enter");
 	await v.settled();
-	assert.deepEqual(v.draft().feelings, ["x|agitating|loud", "settled", "x|soothing|Unhurried"]);
+	assert.deepEqual(v.draft().feelings, ["settled", "x|agitating|loud", "x|soothing|Unhurried"]);
 	field.blur();
 	await v.settled(50);
 	assert.ok(v.view.contentEl.textContent.includes("MARK-GRID"), "after the reader left the field, the view is drawn again");
@@ -266,7 +267,7 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	typeInto(field, "fizzy");
 	press(field, "Enter");
 	await view.writes;
-	assert.deepEqual(feelings(), ["tense", "lively", "cheerful", "x|invigorating|fizzy"], "the press on Lively was taken back");
+	assert.deepEqual(feelings(), ["tense", "cheerful", "lively", "x|invigorating|fizzy"], "the press on Lively was taken back");
 	field.blur();
 	// a change made to the file elsewhere is handed to the view before the Markdown pane takes it into its editor
 	const changed = prose("MARK-ELSEWHERE")(buffer);

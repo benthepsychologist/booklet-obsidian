@@ -990,12 +990,13 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   const pickedBefore = (draftOf((await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).length === 3)).text) || {}).feelings, headsBefore = (await feltShown(o)).heads;
   await typeIn(o, cellField(o, "invigorating"), "fizzy");
   {
-    // a word written in a picked feeling's cell: the grid stores the other cells' ids, then this cell's (booklet.html's
-    // order), and the copies asked where each feeling is felt stay where they are on screen, the new pick's at the end
+    // a word written in a picked feeling's cell goes at the end of the grid's answer, which keeps the order the reader
+    // picked (SPEC section 8, booklet.html's order), and the copies asked where each feeling is felt stay where they are
+    // on screen, the new pick's at the end
     const dw = await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).length === 4);
     const after = await feltShown(o), focus = await o.evaluate(() => { const a = document.activeElement; return a && a.closest("[data-booklet-cell]") ? a.closest("[data-booklet-cell]").getAttribute("data-booklet-cell") : null; });
     const pickedAfter = (draftOf(dw.text) || {}).feelings;
-    say(same(after.heads, [...headsBefore, "fizzy"]) && focus === "invigorating", "a word written in Invigorating's cell: the grid's answer went from " + JSON.stringify(pickedBefore) + " to " + JSON.stringify(pickedAfter) + ", and the copies on screen went from " + JSON.stringify(headsBefore) + " to " + JSON.stringify(after.heads) + " (none moved, the new one at the end); the cell's field keeps focus: " + focus);
+    say(same(pickedAfter, [...pickedBefore, "x|invigorating|fizzy"]) && same(after.heads, [...headsBefore, "fizzy"]) && focus === "invigorating", "a word written in Invigorating's cell: the grid's answer went from " + JSON.stringify(pickedBefore) + " to " + JSON.stringify(pickedAfter) + ", and the copies on screen went from " + JSON.stringify(headsBefore) + " to " + JSON.stringify(after.heads) + " (none moved, the new one at the end); the cell's field keeps focus: " + focus);
   }
   await place(o, "Shoulders").click();
   await sense(o, "Tight").click(); await sense(o, "Warm").click();
@@ -1005,7 +1006,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
   await typeIn(o, placeField(o), "Cool");
   await spot(o, "Outdoors").click(); await spot(o, "At home").click();
   await blurNow(o);
-  const want = { feelings: ["tense", "lively", "cheerful", "x|invigorating|fizzy"], places: [{ id: "shoulders", s: ["tight", "warm", "achy"] }, { id: "hands", s: ["cool"] }], where: [3, 1] };
+  const want = { feelings: ["tense", "cheerful", "lively", "x|invigorating|fizzy"], places: [{ id: "shoulders", s: ["tight", "warm", "achy"] }, { id: "hands", s: ["cool"] }], where: [3, 1] };
   let d = await waitDisk(file, t => same(draftOf(t), want));
   say(d.ok, "the draft on disk, verbatim: " + draftBody(d.text));
   say(draftBody(d.text) === JSON.stringify(want) && draftBlocks(d.text).length === 1, "one draft block, one line of JSON, as booklet.html writes a draft");
@@ -1224,14 +1225,14 @@ async function eachFlow(c, o, vault, tag, route, typeInMd) {
   await md("MD-PICKED"); await mdDrawn("MD-PICKED");
   f = await feltShown(o);
   say(!f.hidden && same(f.heads, ["Tense", "Lively"]) && f.prompts === 1 && f.helps === 1, "two feelings picked: a copy for each, in the grid's order, under its words, the title and help once: " + JSON.stringify(f.heads));
-  // a word written in the first feeling's cell: the grid's answer is reordered (booklet.html's order, kept), the copies are not
+  // a word written in the first feeling's cell goes at the end of the grid's answer, the order as picked (SPEC section 8); no copy moves
   await typeIn(o, cellField(o, "agitating"), "edgy");
   let d = await waitDisk(file, t => ((draftOf(t) || {}).feelings || []).includes("x|agitating|edgy"));
   f = await feltShown(o);
   let focus = await o.evaluate(() => { const a = document.activeElement; return a && a.closest("[data-booklet-cell]") ? a.closest("[data-booklet-cell]").getAttribute("data-booklet-cell") : null; });
-  say(same((draftOf(d.text) || {}).feelings, ["lively", "tense", "x|agitating|edgy"]) && same(f.heads, ["Tense", "Lively", "edgy"]) && focus === "agitating", "a word written in Tense's cell: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies stay " + JSON.stringify(f.heads) + " (the new one at the end), and the cell's field keeps focus: " + focus);
+  say(same((draftOf(d.text) || {}).feelings, ["tense", "lively", "x|agitating|edgy"]) && same(f.heads, ["Tense", "Lively", "edgy"]) && focus === "agitating", "a word written in Tense's cell: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies stay " + JSON.stringify(f.heads) + " (the new one at the end), and the cell's field keeps focus: " + focus);
   await gridCell(o, "agitating").locator("button.booklet-own").click();
-  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["lively", "tense"]));
+  d = await waitDisk(file, t => same((draftOf(t) || {}).feelings, ["tense", "lively"]));
   f = await feltShown(o);
   say(d.ok && same(f.heads, ["Tense", "Lively"]), "the word pressed out again: the grid stores " + JSON.stringify((draftOf(d.text) || {}).feelings) + ", the copies on screen " + JSON.stringify(f.heads));
   // answered: Chest under Tense; Head and a place of the reader's own under Lively
@@ -1241,7 +1242,7 @@ async function eachFlow(c, o, vault, tag, route, typeInMd) {
   await blurNow(o);
   d = await waitDisk(file, t => same(felt(t), PAIRS));
   say(d.ok, "the pairs on disk, verbatim: " + draftBody(d.text));
-  say(draftBody(d.text) === JSON.stringify({ feelings: ["lively", "tense"], felt: PAIRS }), "the draft is one line of JSON, the pick as the grid stores it");
+  say(draftBody(d.text) === JSON.stringify({ feelings: ["tense", "lively"], felt: PAIRS }), "the draft is one line of JSON, the pick as the grid stores it");
   f = await feltShown(o);
   say(same(f.offered["s:tense"], ["Throat"]) && same(f.pressed["s:lively"], ["Head", "Throat"]), "the place written in under Lively is offered under Tense: " + JSON.stringify(f.offered));
   lintOk(c, file, tag, "after answering");
