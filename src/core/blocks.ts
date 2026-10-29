@@ -87,10 +87,29 @@ function headingAt(lines: readonly string[], i: number, fenced: readonly boolean
 	return 0;
 }
 
+/**
+ * The lines a cell is not cut in: a fenced block, and a block of maths between two `$$` lines (an unclosed one runs to the
+ * end), read as `tokenise` reads them, so a heading-like line in maths starts no cell and the marks found in a cell are
+ * the marks found in the whole text.
+ */
+function codeOrMaths(lines: readonly string[]): boolean[] {
+	const fenced = fencedLines(lines);
+	let maths = false;
+	return lines.map((l, i) => {
+		if (fenced[i]) return true;
+		if (maths) {
+			if (l.trim() === "$$") maths = false;
+			return true;
+		}
+		if (l.trim() === "$$") maths = true;
+		return maths;
+	});
+}
+
 /** Where a block of prose starts a new cell, and the level of each heading that does. */
 function headingsOf(markdown: string): { at: number; level: number }[] {
 	const lines = markdown.split("\n");
-	const fenced = fencedLines(lines);
+	const fenced = codeOrMaths(lines);
 	const out: { at: number; level: number }[] = [];
 	for (let i = 0; i < lines.length; i++) {
 		const level = headingAt(lines, i, fenced);
@@ -105,7 +124,7 @@ function headingsOf(markdown: string): { at: number; level: number }[] {
 /** The blocks of prose, as the lines between blank lines (a fenced code block, and a list that holds blank lines, stay whole). */
 function blocksOf(markdown: string): string[] {
 	const lines = markdown.split("\n");
-	const fenced = fencedLines(lines);
+	const fenced = codeOrMaths(lines);
 	const out: string[][] = [];
 	let cur: string[] = [];
 	const push = () => {
@@ -247,7 +266,8 @@ function inertLines(lines: readonly string[]): boolean[] {
 			if (!inList && (i === 0 || isBlank(lines[i - 1]) || out[i - 1])) out[i] = true;
 			continue;
 		}
-		if (!isBlank(l)) inList = LIST_ITEM.test(l);
+		// a list item goes on through the lines indented under it (its second paragraph, a nested item); an unindented line ends it
+		if (!isBlank(l)) inList = LIST_ITEM.test(l) || (inList && /^(?: {2,}|\t)/.test(l));
 	}
 	return out;
 }
@@ -260,22 +280,36 @@ function inertLines(lines: readonly string[]): boolean[] {
 function inertSpans(l: string): string {
 	let out = l.replace(DEFINITION, (m) => " ".repeat(m.length));
 	const ticks = [...l.matchAll(/`+/g)];
+	// for each run, the next run of the same length: found once from the end, so a long line stays linear
+	const mate: Array<number | undefined> = [];
+	const last = new Map<number, number>();
+	for (let a = ticks.length - 1; a >= 0; a--) {
+		const n = (ticks[a] as RegExpMatchArray)[0].length;
+		mate[a] = last.get(n);
+		last.set(n, a);
+	}
+	const pieces: string[] = [];
+	let at = 0;
 	for (let a = 0; a < ticks.length; a++) {
+		const close = mate[a];
+		if (close === undefined) continue;
 		const open = ticks[a] as RegExpMatchArray;
-		const close = ticks.slice(a + 1).findIndex((t) => t[0].length === open[0].length);
-		if (close < 0) continue;
-		const end = ticks[a + 1 + close] as RegExpMatchArray;
+		const end = ticks[close] as RegExpMatchArray;
 		const from = open.index as number;
 		const to = (end.index as number) + end[0].length;
-		out = out.slice(0, from) + " ".repeat(to - from) + out.slice(to);
-		a += 1 + close;
+		pieces.push(out.slice(at, from), " ".repeat(to - from));
+		at = to;
+		a = close;
 	}
+	out = pieces.join("") + out.slice(at);
 	return out.replace(/\$\$[^$]*\$\$|\$(?=\S)[^$]*?\S\$(?!\d)/g, (m) => " ".repeat(m.length));
 }
 
 /**
  * Text with each mark outside code and maths swapped for a token naming its place in `ids`, which gets the ids in order.
- * The one rule for what a mark is: the numbers (`marksIn`) and the drawing (here) cannot disagree.
+ * The one rule for what a mark is: the numbers (`marksIn`) and the drawing (here) cannot disagree. A row's cells are cut
+ * where this reads no code or maths (`codeOrMaths`), so a cell holds the marks the whole text does; a page-break line inside
+ * a `$$` block is the exception (it still breaks the page).
  */
 export function tokenise(markdown: string, ids: string[]): string {
 	if (!markdown.includes("[^")) return markdown;

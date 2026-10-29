@@ -496,10 +496,15 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	const row = box.createDiv({ cls: "booklet-choices" });
 	row.setAttr("role", "group");
 	label(row);
+	/** A press puts the picks, then says the result again (see `say`). */
+	const put = (list: Array<number | string>) => {
+		io.put(list);
+		say();
+	};
 	const toggle = (n: number | string) => {
 		const c = io.picks();
 		const on = c.includes(n);
-		io.put(on ? c.filter((x) => x !== n) : multi ? [...c, n] : [n]);
+		put(on ? c.filter((x) => x !== n) : multi ? [...c, n] : [n]);
 	};
 	/** Adds the reader's own words. */
 	const addOwn = (words: string): void => {
@@ -513,7 +518,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			return;
 		}
 		if (c.some((x) => typeof x === "string" && sameWords(x, s))) return;
-		io.put(multi ? [...c, s] : [s]);
+		put(multi ? [...c, s] : [s]);
 	};
 	// a listed option the Add your own field was left for, which the words typed there have just pressed: the press
 	// that left the field only confirms it, and does not take it back (booklet.html holdIn)
@@ -585,7 +590,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 				b.disabled = locked;
 				b.addEventListener("click", (evt) => {
 					evt.preventDefault();
-					io.put(io.picks().filter((x) => x !== s));
+					put(io.picks().filter((x) => x !== s));
 				});
 			}
 			for (const s of earlier) {
@@ -618,15 +623,31 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			}
 		}
 		if (live) {
-			// Check is there once something is picked; the line says Right or Not quite once the reader has answered
+			// Check is there once something is picked
 			acts?.toggleClass("booklet-none", !c.length);
-			const told = multi ? checked : typeof c[0] === "number";
-			const bad = multi ? right.some((n) => !c.includes(n)) || c.some((x) => typeof x === "number" && !right.includes(x)) : !right.includes(c[0] as number);
-			const answers = right.flatMap((n) => (q.options[n - 1] ? [plainWords(q.options[n - 1]!.text)] : [])).join(", ");
 			// set only when it changes: a live region read out again on every redraw of the screen is noise to a screen reader
-			const line = told ? (bad ? `Not quite. The answer is ${answers}.` : "Right.") : "";
+			const line = lineOf(c);
 			if (live.textContent !== line) live.setText(line);
 		}
+	};
+	/** What the line under the options says for these picks: Right or Not quite once the reader has answered (a multi: has pressed Check). */
+	const lineOf = (c: ReadonlyArray<number | string>): string => {
+		const told = multi ? checkedOn === JSON.stringify(c) : typeof c[0] === "number";
+		if (!told) return "";
+		const bad = multi ? right.some((n) => !c.includes(n)) || c.some((x) => typeof x === "number" && !right.includes(x)) : !right.includes(c[0] as number);
+		const answers = right.flatMap((n) => (q.options[n - 1] ? [plainWords(q.options[n - 1]!.text)] : [])).join(", ");
+		return bad ? `Not quite. The answer is ${answers}.` : "Right.";
+	};
+	/**
+	 * A press says its result again, even when it is the line already there (a second wrong pick, Check pressed twice): the
+	 * text is cleared and set, which a screen reader reads out. A redraw never does (show sets the line only when it changes).
+	 */
+	const say = (): void => {
+		if (!live || host.wrongOf(t, q)) return;
+		const line = lineOf(io.picks());
+		if (!line) return;
+		live.setText("");
+		live.setText(line);
 	};
 	let acts: HTMLElement | null = null;
 	let live: HTMLElement | null = null;
@@ -680,6 +701,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 				evt.preventDefault();
 				checkedOn = JSON.stringify(io.picks());
 				show();
+				say();
 			});
 		}
 		live = box.createDiv({ cls: "booklet-live", attr: { "aria-live": "polite" } });

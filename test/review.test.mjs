@@ -2,7 +2,12 @@
  * Plugin 0.7.0, after the cold review of the draft: a row around a group or a callout that holds a question; a step's group
  * drawn open; ids that no two panes share; a live region set only when it changes; the marks a multi's Check puts up taken
  * away by a change of the picks; the one rule for a footnote's mark in code and maths; a source opened from a list item or a
- * table cell; and the places the first review found no test for. Every note is made up. Each test fails without its code.
+ * table cell; and the places the first review found no test for. Every note is made up.
+ *
+ * Which tests fail without a fix: all but the ten whose title starts "[pin]". Those ten pin behaviour that was already right
+ * (the places the reviews found a mutation that no test noticed), so there is no fix for them to fail without; each was
+ * broken once by hand to show it fails when that behaviour is changed. Against the 0.7.0 draft's source (97e1086) the first
+ * twenty tests of this file split 13 that fail and 7 that pass.
  */
 import { click, openView, typeInto, window as w, until, quiet, words } from "./dom.mjs";
 import test from "node:test";
@@ -62,7 +67,7 @@ test("rows: a group, or a tip that holds a question, in a row's cell stays a box
 	assert.deepEqual(norm(core.treeOf(two.activities[0].segments).map((n) => n.type)), ["row-box", "callout-box", "row-box"]);
 });
 
-test("rows: a row line inside a callout cannot be, and is listed; nothing it was written around is lost", () => {
+test("[pin] rows: a row line inside a callout cannot be, and is listed; nothing it was written around is lost", () => {
 	const b = core.parseBooklet(note(`> [!group] G\n> > [!text|x] X\n>\n> > [!row]\n>\n> Words in the group.\n\n> [!row|end]\n`));
 	const said = b.problems.join("\n");
 	assert.match(said, /a row line cannot go inside a callout, so it was ignored/);
@@ -235,7 +240,7 @@ test("check: a change of the picks after Check takes the marks and the replies a
 	p.close();
 });
 
-test("check: an extra wrong pick in a multi is not right, whatever the right ones are", async () => {
+test("[pin] check: an extra wrong pick in a multi is not right, whatever the right ones are", async () => {
 	const text = note(`> [!multi|m] Which are fruit?\n- [x] Apple\n- [ ] Rock\n- [x] Pear\n`);
 	const p = open(text);
 	await p.settled();
@@ -343,7 +348,7 @@ test("marks: a token in code or a pre block is left alone; one in text is a mark
 
 /* ---- a reader's fold of a callout ---- */
 
-test("callouts: a reader's fold or open of any callout that holds a question is kept while the view is open, over a drawing, and never written", async () => {
+test("[pin] callouts: a reader's fold or open of any callout that holds a question is kept while the view is open, over a drawing, and never written", async () => {
 	const text = note(`> [!tip]- A folded tip\n> Words.\n>\n> > [!text|t] In a tip\n\n> [!group]+ An open group\n> Words.\n>\n> > [!text|g] In a group\n`);
 	const p = open(text);
 	await p.settled();
@@ -368,7 +373,7 @@ test("callouts: a reader's fold or open of any callout that holds a question is 
 
 /* ---- the pager and a page of steps ---- */
 
-test("steps: Back from the first step of a page lands on the previous page's last step, as the reference renderer turns back; Next arrives on a page's first step not done", async () => {
+test("[pin] steps: Back from the first step of a page lands on the previous page's last step, as the reference renderer turns back; Next arrives on a page's first step not done", async () => {
 	const g = (n, id) => `> [!group] Step ${n}\n> Words ${n}.\n>\n> > [!text|${id}] Q${n}\n`;
 	const text = note(`${g(1, "a1")}\n${g(2, "a2")}\n${g(3, "a3")}\n***\n\n${g(4, "b1")}\n${g(5, "b2")}\n`);
 	const p = open(text, "a", { one: true });
@@ -391,7 +396,7 @@ test("steps: Back from the first step of a page lands on the previous page's las
 
 /* ---- a matrix with every item cleared keeps no answer ---- */
 
-test("matrix: pressing the picked anchor of the only answered item clears it and the whole answer is taken out; the other items' answers stay", async () => {
+test("[pin] matrix: pressing the picked anchor of the only answered item clears it and the whole answer is taken out; the other items' answers stay", async () => {
 	const text = note(`> [!matrix|m] How was each?\n- Walk\n- Swim\n\n0. Bad\n1. Good\n`);
 	const p = open(text);
 	await p.settled();
@@ -420,7 +425,7 @@ test("matrix: pressing the picked anchor of the only answered item clears it and
 
 /* ---- words typed in two copies at once are both kept ---- */
 
-test("each: words typed in the fields of two copies and not yet written are both kept, each to its own pick, when the view lets go", async () => {
+test("[pin] each: words typed in the fields of two copies and not yet written are both kept, each to its own pick, when the view lets go", async () => {
 	const text = note(`> [!multi|tools] Which tools?\n- [ ] Pencil\n- [ ] Ruler\n\n> [!text|why each:tools] Why that one?\n`);
 	const v = openView(text, { screen: "activity:/a" });
 	const root = v.view.contentEl;
@@ -487,7 +492,7 @@ test("held store: a renamed note takes its steps choice with it, and its held wo
 
 /* ---- the test waits fail loudly ---- */
 
-test("waits: quiet fails at once, saying which field, when the view lacks one it reads; until passes at once on a state that holds", async () => {
+test("[pin] waits: quiet fails at once, saying which field, when the view lacks one it reads; until passes at once on a state that holds", async () => {
 	await assert.rejects(quiet({ writes: Promise.resolve(), moving: false, rendering: 0 }), /afterMove/);
 	await assert.rejects(quiet({}), /writes/);
 	await until(() => true, "a state that holds");
@@ -502,4 +507,139 @@ test("styles: on the phone a footnote mark's touch area is a 44px square about t
 	assert.ok(rule, "a phone rule for the touch area");
 	assert.match(rule[1], /height:\s*44px/);
 	assert.match(rule[1], /width:\s*max\(44px,/);
+});
+
+/* ---- the second review: a list item's later paragraphs, maths in a row, a long line, a repeated line, the survivors ---- */
+/* (the [pin] tests below pin behaviour that was already right) */
+
+test("marks: a list item goes on through its later paragraphs and nested items; an unindented line ends it, and indented code after a blank line outside a list is still code", () => {
+	assert.deepEqual(ids("- item\n\n  second paragraph\n\n    - nested mark[^1]"), ["1"], "a nested item after the item's second paragraph");
+	assert.deepEqual(ids("1. item\n\n   second paragraph\n\n     more[^2]"), ["2"], "a numbered item's, deeper still");
+	assert.deepEqual(ids("- item\n\n  second paragraph\n\n      [^3] deep in the item"), ["3"], "an item's own paragraph that is indented past four is the item's, as before");
+	assert.deepEqual(ids("- item\n\nA paragraph out of the list.\n\n    [^4] this is code"), [], "an unindented line ends the list; four spaces after it are code");
+	assert.deepEqual(ids("Text.\n\n    [^5] in code\n\nAfter[^6]"), ["6"], "outside any list it is code");
+	assert.deepEqual(ids("- item\n\n  second\n\nA paragraph.\n\n    [^7] code"), [], "after the list's later paragraph and then an unindented line, code");
+});
+
+test("[pin] marks: a closing fence with text after it does not close; a backtick fence with a backtick in its words is no fence; a dollar before a digit does not close maths, nor a dollar before a space open it", () => {
+	assert.deepEqual(ids("```\n[^1] in\n``` js\n[^2] still in\n```\n[^3]"), ["3"], "``` js is not a closing fence");
+	assert.deepEqual(ids("``` a`b [^4] c\n[^5]"), ["4", "5"], "a line that starts with three backticks and has another in its words is a code span, not a fence");
+	assert.deepEqual(ids("It was US$5 [^6] and US$6 more"), ["6"], "$5 ... $6 is two prices, not maths");
+	assert.deepEqual(ids("It is $ [^7] and x$ more"), ["7"], "a dollar followed by a space opens nothing");
+	assert.deepEqual(ids("It was $x [^8]$ then [^9]"), ["9"], "and a pair that is maths still is");
+});
+
+test("marks: the cells of a row and the marks agree when a display-maths block holds a heading-like line; a heading in it starts no cell", async () => {
+	const prose = "$$\n# x\n[^1] inside display maths\n$$";
+	assert.deepEqual(ids(prose), [], "inside the maths it is no mark");
+	const cells = core.cellsOf([{ type: "prose", markdown: prose, line: 1 }]);
+	assert.equal(cells.length, 1, "one cell: the maths block is not cut at its heading-like line");
+	assert.equal(cells[0][0].markdown, prose);
+	// a heading outside maths still starts a cell, and a blank line inside maths does not end a block
+	const two = core.cellsOf([{ type: "prose", markdown: "### A\n\n$$\n# x\n\n[^1]\n$$\n\n### B\n\nb", line: 1 }]);
+	assert.equal(two.length, 2);
+	assert.match(two[0][0].markdown, /^### A\n\n\$\$\n# x\n\n\[\^1\]\n\$\$$/);
+	assert.equal(core.cellsOf([{ type: "prose", markdown: "$$\na\n\nb\n$$\n\nc", line: 1 }]).length, 2, "with no heading each block is a cell, the maths block whole");
+	// drawn: no broken mark, and no mark
+	const p = open(`---\n${head}\n---\n\n> [!activity|a] A\n\n> [!row]\n\n${prose}\n\n> [!row|end]\n\n[^1]: A note.\n`);
+	await p.settled();
+	assert.equal(p.el.querySelectorAll("button.booklet-cite-mark").length, 0, "no mark");
+	assert.equal(p.el.querySelectorAll(".booklet-cite-broken, .booklet-cite-missing").length, 0, "and no [?1]");
+	assert.doesNotMatch(words(p.el.querySelector(".booklet-pagebody")), /\[\?1\]/);
+	p.close();
+});
+
+test("marks: a line of fifty thousand backticks and of single dollar signs is scanned in linear time", () => {
+	const t0 = Date.now();
+	core.tokenise("`a ".repeat(50000) + "[^1]", []);
+	core.tokenise("`".repeat(100000) + "[^1]", []);
+	core.tokenise(("`" + "``".repeat(1) + " ").repeat(30000) + "[^2]", []);
+	core.tokenise("$a ".repeat(50000) + "[^3]", []);
+	const ms = Date.now() - t0;
+	assert.ok(ms < 1500, `took ${ms} ms`);
+});
+
+test("[pin] marks: Escape inside an open source shuts it and gives the focus back to the mark that opened it", () => {
+	const { el, panel } = drawn(`<p>Words ${mark("a", 0)}</p>`, ["a"]);
+	const btn = el.querySelector("button.booklet-cite-mark");
+	click(btn);
+	const src = el.querySelector(".booklet-cite-panel");
+	assert.ok(src, "open");
+	(src.querySelector("button") ?? src).focus();
+	assert.notEqual(w.document.activeElement, btn);
+	src.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	assert.equal(el.querySelectorAll(".booklet-cite-panel").length, 0, "shut");
+	assert.equal(panel.open, null);
+	assert.equal(w.document.activeElement, btn, "the focus is back on the mark");
+	el.remove();
+});
+
+test("[pin] steps: Next to a page already visited forgets the step it was left on and arrives on the first step not done", async () => {
+	const g = (n, id) => `> [!group] Step ${n}\n> Words ${n}.\n>\n> > [!choice|${id}] Q${n}\n> - [ ] Yes\n> - [ ] No\n`;
+	const text = note(`${g(1, "a1")}\n${g(2, "a2")}\n***\n\n${g(3, "b1")}\n${g(4, "b2")}\n${g(5, "b3")}\n`);
+	const p = open(text, "a", { one: true });
+	await p.settled();
+	const shown = () => [...p.el.querySelectorAll(".booklet-step")].findIndex((s) => !s.hidden) + 1;
+	await p.pageNext();
+	await p.pageNext();
+	assert.match(p.pager().at, /2/);
+	assert.equal(shown(), 1);
+	await press(p, choice(p.q("b1"), "Yes"));
+	await p.pageNext();
+	assert.equal(shown(), 2, "the second step of the page, the first not done");
+	await p.pageNext();
+	assert.equal(shown(), 3);
+	await p.pageBack();
+	await p.pageBack();
+	assert.equal(shown(), 1, "walked back to the first step, which the page now remembers");
+	await p.pageBack();
+	assert.match(p.pager().at, /1/, "back on the first page");
+	assert.equal(shown(), 2, "at its last step");
+	await p.pageNext();
+	assert.match(p.pager().at, /2/);
+	assert.equal(shown(), 2, "arriving again, the first step not done, not the step it was left on");
+	p.close();
+});
+
+test("live regions: a press says its result again, even when it is the line already there; a redraw never does", async () => {
+	const text = note(`> [!choice|flyer] Which one flies?\n- [ ] A penguin\n- [ ] An ostrich\n- [x] A sparrow\n\n> [!multi|m] Fruit?\n- [x] Apple\n- [ ] Rock\n- [ ] Stone\n`);
+	const p = open(text);
+	await p.settled();
+	const live = p.q("flyer").querySelector(".booklet-live");
+	const log = [];
+	const watch = new w.MutationObserver((rs) => log.push(...rs));
+	const cleared = (rs) => rs.some((r) => r.removedNodes.length) && rs.some((r) => r.addedNodes.length);
+	watch.observe(live, { childList: true, characterData: true, subtree: true });
+	const settle = () => new Promise((r) => setTimeout(r, 0));
+	await press(p, choice(p.q("flyer"), "A penguin"));
+	await settle();
+	assert.equal(words(live), "Not quite. The answer is A sparrow.");
+	assert.ok(log.length > 0, "the first wrong pick is announced");
+	log.length = 0;
+	// a different wrong pick: the same line, said again
+	await press(p, choice(p.q("flyer"), "An ostrich"));
+	await settle();
+	assert.equal(words(live), "Not quite. The answer is A sparrow.");
+	assert.ok(cleared(log), "the text was cleared and set again, so it is read out again");
+	// a redraw (an answer elsewhere) says nothing
+	log.length = 0;
+	await press(p, choice(p.q("m"), "Rock"));
+	await settle();
+	assert.equal(log.length, 0, "no mutation from an answer elsewhere");
+	// a multi's Check pressed twice on the same picks
+	const check = [...p.q("m").querySelectorAll("button")].find((b) => words(b) === "Check");
+	const mlive = p.q("m").querySelector(".booklet-live");
+	await press(p, check);
+	const first = words(mlive);
+	assert.match(first, /Not quite/);
+	const mlog = [];
+	const w3 = new w.MutationObserver((rs) => mlog.push(...rs));
+	w3.observe(mlive, { childList: true, characterData: true, subtree: true });
+	await press(p, check);
+	await settle();
+	w3.disconnect();
+	watch.disconnect();
+	assert.equal(words(mlive), first);
+	assert.ok(cleared(mlog), "Check pressed again says it again");
+	p.close();
 });
