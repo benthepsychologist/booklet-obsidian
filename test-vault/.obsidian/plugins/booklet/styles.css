@@ -1157,10 +1157,76 @@
 	padding: 0 var(--size-2-3);
 }
 
+/* the menu of a tab's tree and its search; "Mentioned on" (page trees: ahead of the format) */
+.booklet-pagemenu {
+	margin: 0 0 var(--size-4-4);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-pagemenu summary {
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-pagemenu[open] summary {
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pagesearch {
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pagelist ul,
+.booklet-mentioned {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-pagelist li > ul {
+	padding-left: var(--size-4-4);
+	border-left: var(--border-width) solid var(--background-modifier-border);
+	margin-left: var(--size-2-3);
+}
+
+.booklet-pagelink {
+	display: block;
+	padding: var(--size-2-1) var(--size-2-3);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.booklet-pagelink:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-pagelink.is-active {
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-mentioned {
+	margin-bottom: var(--size-4-4);
+}
+
 /* touch: every control at least 44 px tall (Obsidian's own phone mode is the measure) */
 .is-mobile .booklet-tabbtn,
 .is-mobile .booklet-pager button,
 .is-mobile .booklet-entries .booklet-fold,
+.is-mobile .booklet-pagemenu summary,
+.is-mobile .booklet-pagelink,
 .is-mobile .booklet-cardrow {
 	min-height: 44px;
+}
+
+.is-mobile .booklet-pagemenu summary,
+.is-mobile .booklet-pagelink {
+	display: flex;
+	align-items: center;
 }

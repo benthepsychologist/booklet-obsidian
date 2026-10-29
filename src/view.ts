@@ -34,6 +34,7 @@ import {
 	moduleStatus,
 	moduleTitle,
 	newestFirst,
+	mentionsOf,
 	pageAtPart,
 	pagerOf,
 	parseBooklet,
@@ -71,6 +72,7 @@ import {
 	type WordPart,
 } from "./core";
 import { keepHeld, loadHeld } from "./held-store";
+import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawQueryPlan, words } from "./query-view";
 import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
@@ -170,6 +172,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawnPlace: Place | null = null;
 	/** The part each tab was last seen on, for as long as the pane is open: choosing a tab returns to it. */
 	private tabPart = new Map<string, number>();
+	/** The tree menu of each tab of pages, open or not, and the words in its search box: kept for as long as the pane is open, never saved. */
+	private menus = new Map<string, MenuState>();
 	/** A step through the pane is under way (Obsidian drops a second one asked for meanwhile: a double press turns one page). */
 	private moving = false;
 	/** A tab chosen while a step was under way: made when the step has landed, so that the last move asked for is the one that lands. */
@@ -500,6 +504,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.place = null;
 				this.drawnPlace = null;
 				this.tabPart.clear();
+				this.menus.clear();
 			}
 			this.draw(true);
 			return;
@@ -970,11 +975,31 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const pager = pagerOf(na, tab, place);
+		// a tab of named pages with two or more pages has a menu of its tree, with a search (a tab with none is a 0.16 tab and is drawn as it was)
+		const tree = tab.tree.some((x) => x.named);
+		if (tree && tab.tree.length > 1) {
+			const key = `${place.screen}#${tab.id}`;
+			const state = this.menus.get(key) ?? { open: false, query: "" };
+			this.menus.set(key, state);
+			drawPageMenu(this, card, tab, pager.page, (q) => ({ screen: place.screen, tab: place.tab, part: q.at }), state);
+		}
 		const counter = pager.of > 1 ? (pager.pageLines ? `${pager.at + 1} of ${pager.of}` : `Page ${pager.at + 1} of ${pager.of}`) : null;
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: counter ? { role: "group", "aria-label": counter } : {} });
 		// a named page's title heads each of its parts (the trail names only the pages above it)
 		if (pager.page.named) this.md(inlineMd(pager.page.written || pager.page.title), body.createDiv({ cls: "booklet-pagetitle markdown-rendered" }));
 		this.drawSegs(body, a, pages[at] ?? []);
+		// under the last part of a page come the pages under it, as cards, and the pages that link to it
+		if (tree && pager.at === pager.of - 1) {
+			if (pager.page.children.length) {
+				card.createDiv({ cls: "booklet-meta", text: "Pages under this one" });
+				drawCards(
+					this,
+					card,
+					pager.page.children.map((c, i) => ({ title: c.title, emoji: c.emoji, icon: c.icon, blurb: c.blurb, status: "", statusMd: false, n: i + 1, to: { screen: place.screen, tab: place.tab, part: c.at } })),
+				);
+			}
+			drawMentions(this, card, mentionsOf(nav, na, tab, pager.page));
+		}
 		if (na.children.length) {
 			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
 			drawCards(

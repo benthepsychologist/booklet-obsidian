@@ -1012,3 +1012,111 @@ function inActivity(na: NavAct, is: (s: string) => boolean): Hit | null {
 	}
 	return null;
 }
+
+/* ---- the tree's own surfaces: the menu's search, and "Mentioned on" (page trees; design/pages/proposal.md section 3, decision 6 calls F and K) ---- */
+
+/** The words of a page as plain text, for the search: its prose and the prompts of its questions. */
+function pageWords(p: TreePage): string {
+	const out: string[] = [];
+	for (const part of p.parts)
+		for (const s of part) {
+			if (s.type === "prose") out.push(plainText(s.markdown));
+			else if (s.type === "question" && s.title) out.push(plainText(s.title));
+		}
+	return out.join(" ");
+}
+
+/**
+ * The pages of a tab whose title or words hold every word of `query` (case and marks aside), the ones whose title holds them first, then
+ * the rest, each in reading order. A query of no words is every page, as the tree reads.
+ */
+export function searchPages(tab: ActTab, query: string): TreePage[] {
+	const words = linkNorm(query).split(" ").filter(Boolean);
+	if (!words.length) return tab.tree;
+	const inTitle: TreePage[] = [];
+	const inWords: TreePage[] = [];
+	for (const p of tab.tree) {
+		const title = linkNorm(p.title);
+		if (words.every((w) => title.includes(w))) inTitle.push(p);
+		else if (words.every((w) => `${title} ${linkNorm(pageWords(p))}`.includes(w))) inWords.push(p);
+	}
+	return [...inTitle, ...inWords];
+}
+
+/** The target of every heading link in some Markdown, in order, outside code: `[[#Words]]`, `[[#Words|label]]` and `[label](#words)`. A block link (`#^id`) is none. */
+export function headingLinksIn(markdown: string): string[] {
+	const out: string[] = [];
+	const lines = markdown.split("\n");
+	const fenced = fencedLines(lines);
+	for (const [i, l] of lines.entries()) {
+		if (fenced[i]) continue;
+		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(?<!!)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
+			const t = m[1] ?? m[2];
+			if (t && !t.startsWith("^")) out.push(t);
+		}
+	}
+	return out;
+}
+
+/** One place that links to a page: how to name it, and where it leads. */
+export interface Mention {
+	title: string;
+	place: Place;
+}
+
+const mentionCache = new WeakMap<NavModel, Map<string, Mention[]>>();
+const pageKey = (screen: string, tab: string | null, at: number) => `${screen}|${tab ?? ""}|${at}`;
+
+/**
+ * "Mentioned on": the pages whose words hold a heading link that opens the page, from anywhere in the link's module (call K: every link
+ * that opens the page; the same search the view follows a link by). A link in an activity's opening, which stands above every tab, is
+ * the activity's. A page does not mention itself, and a source is listed once. In reading order.
+ */
+export function mentionsOf(nav: NavModel, na: NavAct, tab: ActTab, page: TreePage): Mention[] {
+	let all = mentionCache.get(nav);
+	if (!all) {
+		all = new Map();
+		mentionCache.set(nav, all);
+		const listed = new Set<string>();
+		for (const mod of nav.mods)
+			for (const src of mod.acts) {
+				const bar = barTabs(src);
+				const from: { md: string; label: (target: NavAct, targetTab: ActTab) => string; place: Place; same: (target: NavAct, targetTab: ActTab, targetPage: TreePage) => boolean }[] = [];
+				const add = (markdown: string, t: ActTab | null, pg: TreePage | null) => {
+					const place: Place = t && pg ? { screen: actScreen(src), tab: bar.length ? t.id : null, part: pg.at } : activityPlace(src);
+					from.push({
+						md: markdown,
+						place,
+						same: (target, targetTab, targetPage) => !!t && !!pg && target === src && targetTab === t && targetPage === pg,
+						label: (target, targetTab) => {
+							const bits = [target !== src || !t ? src.title : "", t && bar.length > 1 && (target !== src || targetTab !== t) ? t.title : "", pg ? pg.title : ""].filter(Boolean);
+							return bits.filter((b, i) => b !== bits[i - 1]).join(" › ");
+						},
+					});
+				};
+				const open = src.opening.flatMap((s) => (s.type === "prose" ? [s.markdown] : [])).join("\n\n");
+				if (open.trim()) add(open, null, null);
+				for (const t of src.tabs) for (const pg of t.tree) add(pg.parts.flatMap((part) => part.flatMap((s) => (s.type === "prose" ? [s.markdown] : []))).join("\n\n"), t, pg);
+				for (const [n, f] of from.entries())
+					for (const target of headingLinksIn(f.md)) {
+						const hit = findHeading(nav, target, mod.id);
+						if (!hit || hit.keepTab || !hit.place.screen.startsWith("activity:")) continue;
+						const at = resolvePlace(nav, hit.place);
+						const ta = nav.byKey.get(at.screen.slice(9));
+						const tt = ta ? tabShown(ta, at.tab) : null;
+						if (!ta || !tt) continue;
+						const tp = pageAtPart(tt, at.part).page;
+						if (f.same(ta, tt, tp)) continue;
+						const key = pageKey(at.screen, at.tab, tp.at);
+						const list = all.get(key) ?? [];
+						const once = `${key}#${mod.id}/${src.key}#${n}`;
+						if (!listed.has(once)) {
+							listed.add(once);
+							list.push({ title: f.label(ta, tt), place: f.place });
+						}
+						all.set(key, list);
+					}
+			}
+	}
+	return all.get(pageKey(actScreen(na), barTabs(na).length ? tab.id : null, page.at)) ?? [];
+}
