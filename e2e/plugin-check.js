@@ -25,7 +25,7 @@
 // roll-up (format 0.16 queries: a span of days and a summary) drawn from made-up entries, an older entry and the draft not
 // counted, nothing written, an entry kept showing at once, then screenshots at a desktop's and a phone's width, light and
 // dark; 16 to 23 (nav-checks.js, the 0.6.0 navigation): 16 the three screens and the moves, 17 Back is free, 18 no step for a
-// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
+// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 24 and 25 (0.8.0, page trees, ahead of format 0.17): a made-up wiki of 13 pages in three levels, and the check-in as one activity with a wiki tab; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -35,7 +35,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");

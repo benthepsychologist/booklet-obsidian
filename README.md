@@ -2,7 +2,7 @@
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.16"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 0.6.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). A note marked with another 0.x version, such as `"0.15"`, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
+Version 0.6.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). A note marked `"0.17"` is read for its page lines and says nothing of its marker unless it holds a kind or a setting this view does not read; a note marked with another 0.x version, such as `"0.15"`, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
@@ -42,6 +42,8 @@ Version 0.6.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). A not
 - **Queries** (`booklet query` in an activity's prose, SPEC section 6): kept entries drawn as `cards` (the default: one dated card per entry, its questions as lines), a `table` (one column per field), a `list` (one line per row: badge, label, the other fields, value, and the note beneath) or `tiles` (a big value over a label; with no value anywhere, a strip of pills). `from:` names an activity that repeats, or one question (which is then the value); `fields:`, `limit:`, `empty:`, `group:` and the roles (`label`, `value`, `note`, `badge`, `tone`, `link`, `icon`) are read as the format says. Kept entries only, newest first, never a draft; an answer of the wrong shape is left out of its row, and a question asked for each pick is one field per pick, "<title> · <pick>". A tone is also said in words to a screen reader; a `link` that is a web address or a note's path makes the row's label lead there, and any other target is plain text; an `icon` is drawn when Obsidian has an icon of that name.
 - **A span of days and summaries** (SPEC section 6, "A span of days, and summaries"): `limit: 7 days` keeps the entries of today and the six dates before it, on the device's calendar, today being the day the view was drawn; an entry whose `ts` will not parse, or that is later than now, is in no span. `summary: on` gives a row for the entries' dates ("Days logged"), then a row per question in the activity's order, with `count`, `days`, `average`, `lowest`, `highest`, `total` and `most` as the kind has them and the default `value` and `note` ("Good", "Rough 1 · Mixed 1 · Good 3"); a grid is summarised like a `multi`, and a question asked for each pick gives a row per pick. A query of one question with `summary: on` gives its distribution, listed options, anchors or items in list order with zeros. With no `as:` a summary is a table. The rows are worked out when the view is drawn and again when the records change, so an entry kept shows at once; nothing is written.
 
+- **Page trees (ahead of the format).** A page line, `> [!page|id parent:x icon:name] Title`, starts a named page in a tab; `parent:` puts it under another page of the same tab, and a tab's pages are a tree. The page line is **ahead of the format (format 0.17, not yet written into SPEC)**: this release reads it before `SPEC.md` has it, from the pages round's proposal, so the details below are the plugin's reading and the choices it made where that proposal left them to a renderer (the last section of this file lists each). A tab of pages gets a menu of its tree with a search ("Pages in this tab", closed to begin with), the pages under the one on show as cards, and a "Mentioned on" list of the pages that link to it; the trail names the pages above; Back goes up to the parent, Next names the next page, and "2 of 3" counts the parts of a page. A page is a step in Obsidian's Back and Forward, a tab is not, and which page is showing is never written to the note. A note with no page line, including a wiki written with `parent:` on activities, is read and drawn exactly as in 0.6.0.
+
 ## What it does not draw yet
 
 Each of these says "Not yet supported" in the view, and is left in the note exactly as written:
@@ -54,7 +56,7 @@ Each of these says "Not yet supported" in the view, and is left in the note exac
 - sorting and filtering a query's rows on screen
 - questions inside a `group`, or inside any other callout (the callout is shown as Obsidian shows it)
 - steps (a group at a time, within a page)
-- page trees: an activity's `parent:` is drawn as plain cards, and there is no tree menu, no tree search, and no "Mentioned on" list
+- a link that opens a booklet at a page (page trees have none: a link goes by words), and "one at a time" within a page
 - marking an answer right or wrong (`[x]` options): the options are shown, with a note that marking is not supported
 - a question of a kind other than `multi` asked for each pick (`each:`): its answers are kept
 
@@ -111,7 +113,7 @@ npm test         # bundles src/core and src/view.ts with esbuild, then runs node
 
 `npm test` also runs queries: what the reader takes from a query block and reports (a key a query does not have, `limit: week`, `summary: yes`, a span or a summary where no entries are kept, `group:` on a summary, and a query that cannot be drawn), kept entries as rows, a span of days on a faked clock and in more than one time zone (across midnight, and across a change of clocks), and the summary rules (counting, ties, the reader's own options, zeros, rounding, locale, `empty:`), the check-in note's roll-up, the four views drawn in the view, and that drawing writes nothing. Each of the 0.5.0 fixes has a test that fails without it: words typed and not added kept through a reload and added before a quit, a comma label typed whole stored as its item, today taken when the view is drawn, and answers of the wrong shape counted once among the note's problems.
 
-`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, twenty-three checks in all; see `e2e/README.md`.
+`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, twenty-five checks in all; see `e2e/README.md`.
 
 ## Releasing
 
@@ -130,6 +132,39 @@ Every build is a GitHub release made by `.github/workflows/release.yml` when a v
 Once Booklet is listed, the directory takes every new release straight from GitHub, so a release is then a release to everyone.
 
 ## Choices made where the format is silent
+
+### Page trees, ahead of the format
+
+The page line is read from `design/pages/proposal.md` of the Booklet hub (approved), before format 0.17 is written into SPEC. Where that proposal leaves a choice to the renderer, or says nothing, this is what the plugin does. Every item here is a place SPEC 0.17 may need to say, or may change.
+
+**The page line and the tree**
+
+- A page line takes `icon:` and `parent:` only. A first word that holds `:` is a setting, so `> [!page|parent:map] Title` has no written id; on every other kind a first word is the id, as in 0.16.
+- A written id that is not letters, digits and dashes is said, and the page's id is made from its title instead; with no id, `page-N` for a title that leaves nothing, N being the page's place among the tab's page lines. A page line with no title words has its id as its title.
+- A fold marker after the bracket is ignored and said. A page line outside an activity, or inside an open row (a `row` line without `end`, up to the next tab, activity, module or data line), is ignored and said. A nested `> > [!page]` inside a group is text. A page line above the first tab line of an activity with tabs is dropped and said; its `>` lines stay as the activity's words.
+- The words before a tab's first page line are the tab's first page, named by the tab (by the activity when there is no tab line) with no emoji split off. They are empty when they hold only blank lines, comments and a lone break; then the first named page is the first. A tab with no page line is one page.
+- Pages with no `parent:` stand side by side in file order. A missing parent, a page that is its own parent and a cycle put the page at the top, and each is listed among the note's problems (the proposal has the linter warn; this view says it too). Of two pages with one id the second is numbered (`grid-2`) and the first is the parent. A page id is its own: it may be an activity's or a question's id.
+- The reading order is depth first (a page, its first child, that child's children, its next sibling). A child written before its parent therefore reads after it, whatever the file order.
+- An activity's blurb is the first paragraph of the first thing under its line that is not a page line, so an activity that begins with a page uses that page's first paragraph. A page's blurb is its own first paragraph.
+- A page's title is a place a link by words opens (on its first part), as an activity's title is.
+
+**Moving through a tree**
+
+- Back on a later part goes to the part before. On a page's first part it goes up ("Up: The feelings grid"); on a top page it goes to the top page before it, on its first part, and is called plain "Back". From the tab's first page it leaves the activity as in 0.6.0. Back never goes to another tab. Next goes to the next part, then to the next page in reading order ("Next: More than one at once"), then from the tab's last page to the next activity.
+- The counter is "2 of 3" in a tab that holds a page line and counts the parts of the page on show; a tab with no page line keeps "Page 2 of 3" as in 0.6.0. A page of one part has no counter.
+- A page's title heads every part of it, so a later part says which page it is; a page's title is drawn as written, and the pager and the trail name a page without its leading emoji, as an activity's title is.
+- The trail on a page under another goes from the booklet down: the activity (now a link), the tab when the activity has a tab bar (a link to its first page), each page above (links), then the page. A top page's trail ends at the activity, as it did.
+- A heading link opens the page and the part that hold the heading; a link to a heading in an activity's opening, which stands above every tab, leaves the tab and the page on show.
+- The saved place is `{ version, screen, tab, page, part }`. `page` is a named page's id and `part` counts within it, at version 2. A place with no page key (every 0.16 note, and a tab's first unnamed page) is saved as version 1 with `part` counting every part of the tab, exactly as 0.6.0 and 0.7.0 save it, so an older device restores it; a version 1 place is read as before.
+- A note marked `"0.17"` says nothing of its marker unless it holds a kind or a setting this view does not read; then the note says the view reads format 0.16 and the page lines of 0.17 and lists the lines it does not read.
+
+**The tree's own surfaces** (the proposal leaves the menu and "Mentioned on" to each renderer)
+
+- The menu, "Pages in this tab", is drawn for a tab that holds a named page and two or more pages, as a disclosure closed to begin with. Its open state and the words in its search box are the pane's, kept in memory while the pane is open and never saved or written. A tab with no page line has none.
+- The search keeps the pages whose title or words hold every word typed (case and marks aside; the words are the page's prose and its questions' prompts), the ones with the words in their title first, then the rest in reading order. Enter opens the first, Escape clears. Nothing typed is written to the note.
+- The pages under the one on show are drawn as cards ("Pages under this one") after its last part, numbered, with a picture (`icon:` or a leading emoji) and the page's first paragraph, and no status line. A tab's first page, made of the words before its first page line, has none. An activity's own children (`parent:` among activities) still draw as "Under this one".
+- "Mentioned on" lists the pages whose words hold a heading link that opens the page on show, from anywhere in the link's module (a bare activity's scope is the bare activities), found by the search a link is followed by. A page does not mention itself; a source is listed once; a link in an activity's opening is the activity's; a page in another tab or activity is named with its tab or activity first. It is drawn for a tab that holds a named page, after the cards.
+- Not done: a link that opens a booklet at a page (the proposal does not propose it), "one at a time" within a page, and printing.
 
 - A kept entry's `ts` is written to the second (`2026-10-27T18:30:00Z`), as in the format's own example, and first in the entry; two entries never share a `ts`.
 - A new block is written in the reference renderer's layout (answers indented by one space, a draft on one line, entries one to a line). An existing block keeps its own layout, and a change follows it.
