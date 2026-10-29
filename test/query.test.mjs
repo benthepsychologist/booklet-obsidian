@@ -55,13 +55,16 @@ function tracker(queries, items = [], draft = null) {
 
 const DRAWN = new Date("2026-10-28T12:00:00Z");
 
-/** The plan of the `i`th query of the "week" activity. */
+/** The plan of the `i`th query of the "week" activity; `before` is a copy of the booklet as read, taken before the plan. */
 function plan(text, i = 0, opts = {}) {
 	const b = core.parseBooklet(text);
+	const before = structuredClone(b);
 	const act = b.activities.find((a) => a.id === "week");
 	const segs = act.segments.filter((s) => s.type === "query");
-	return { b, p: core.planQuery(b, segs[i], { drawn: DRAWN, now: DRAWN, ...opts }), segs };
+	return { b, before, p: core.planQuery(b, segs[i], { drawn: DRAWN, now: DRAWN, ...opts }), segs };
 }
+/** Working out a query changed nothing in the booklet it read, so there is nothing to save (that the view writes nothing is test/query-view.test.mjs's). */
+const unchanged = ({ b, before }, what) => assert.deepStrictEqual(structuredClone(b), before, what);
 const rowsOf = (p) => p.groups.flatMap((g) => g.rows);
 const texts = (p) => rowsOf(p).map((r) => Object.fromEntries(Object.entries(r.cells).map(([k, c]) => [k.replace("\u0001", "|"), c.text])));
 /** Each row's label, value and note, as the roles read them. */
@@ -512,12 +515,11 @@ test("one question, one distribution: listed options, anchors or items in list o
 	assert.equal(plan(text, 0).p.set.label("label")[0].text, "Answer");
 });
 
-test("a summary never reads a draft, and nothing is saved: the file is the same, byte for byte, after a query is worked out", () => {
+test("a summary never reads a draft, and nothing is saved: working out a query changes nothing in the booklet it reads", () => {
 	const text = tracker(["from: evening\nlimit: 7 days\nsummary: on"], WEEK, { feel: 1, energy: 1 });
-	const copy = String(text);
-	const { p } = plan(text);
-	assert.equal(texts(p).find((r) => r.label === "Energy").count, "5");
-	assert.equal(text, copy);
+	const planned = plan(text);
+	assert.equal(texts(planned.p).find((r) => r.label === "Energy").count, "5");
+	unchanged(planned, "the booklet, its draft and its kept entries are as read");
 });
 
 /* ---- the check-in: a grid-select and a question asked for each pick ---- */
@@ -533,8 +535,8 @@ const DAYS = [
 const checkin = () => keepDays(CHECKIN, "day-check", "today", DAYS);
 
 test("the check-in's roll-up: a grid-select summarised like a multi, and where each feeling is felt, one row per pick", () => {
-	const text = checkin();
-	const p = plan(text, 0).p;
+	const planned = plan(checkin(), 0);
+	const { p } = planned;
 	assert.equal(p.view, "table");
 	assert.deepEqual(p.cols, ["label", "count", "most", "note"]);
 	assert.deepEqual(
@@ -551,7 +553,7 @@ test("the check-in's roll-up: a grid-select summarised like a multi, and where e
 			["Where do you feel it? · Unhurried", "0", undefined, undefined],
 		],
 	);
-	assert.equal(text, checkin(), "drawing changes nothing");
+	unchanged(planned, "drawing changes nothing");
 });
 
 test("the check-in's thoughts: the week's kept entries as cards, each with its thoughts; an entry without any is not shown", () => {
