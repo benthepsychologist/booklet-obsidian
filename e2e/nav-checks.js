@@ -199,6 +199,16 @@ A spade, a fork and a trowel are enough.
 
 > [!module|garden end]
 `;
+  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself (the fix round after the review)
+  const DEEP_NOTE = (() => {
+    let t = `---\nbooklet: "0.17"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
+    for (let n = 1; n <= 14; n++) {
+      t += `\n> [!page|level-${n}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} of the tree\n\nWords on level ${n}.\n`;
+      for (const side of ["a", "b"]) t += `\n> [!page|level-${n}${side}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} side ${side}\n\nA page beside level ${n}.\n`;
+    }
+    return t;
+  })();
+
 
   // a note of one repeating activity ("Log") with `n` made-up kept entries; with `two`, a second one ("More") with 4
   function foldNote(n, two) {
@@ -633,7 +643,7 @@ A spade, a fork and a trowel are enough.
   async function check24() {
     const c = new Check(24, "a made-up wiki of 13 pages in three levels (page trees, ahead of format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
     await withApp("c24", async (o, vault) => {
-      const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden";
+      const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden", DEEP = "Deep.booklet.md", DEEPKEY = "activity:/deep";
       put(vault, NOTE, GARDEN_NOTE);
       const before = sha(path.join(vault, NOTE));
       await ready(o, NOTE);
@@ -658,6 +668,9 @@ A spade, a fork and a trowel are enough.
       s = await state(o); pg = await page();
       c.ok(pg.title[0] === "Drainage" && s.back === 1, `Enter opens the first match, as a step: ${pg.title}, history ${s.back}`);
       c.ok(s.vs.version === 2 && s.vs.page === "drainage" && s.vs.part === 0 && s.vs.tab === undefined, `the saved place names the page: ${JSON.stringify(s.vs)}`);
+      const foc = await o.evaluate(() => { const e = document.activeElement; return { cls: e ? e.className : "", tag: e ? e.tagName : "", current: document.querySelectorAll(".booklet-view [aria-current='page']").length }; });
+      c.ok(/booklet-pagetitle/.test(foc.cls) && foc.tag === "H2", `after the move by Enter, focus is on the page title, a heading: ${foc.tag} ${foc.cls}`);
+      c.ok(foc.current === 1, `one aria-current=page on the screen (the menu's): ${foc.current}`);
       c.ok(pg.trail.slice(-3).join("|") === "Soil|Loam|Drainage", `the trail names the pages above, then the page: ${pg.trail.join(" / ")}`);
       c.ok(pg.pager[0] === "Up: Loam" && pg.pager.at(-1) === "Next: Compost", `Up names the parent, Next the next page: ${pg.pager.join(" | ")}`);
       c.ok(pg.menuOpen && pg.menu.join("|") === "Drainage|Compost", `the menu stays open for the pane, with its search: ${pg.menu.join(" | ")}`);
@@ -713,6 +726,17 @@ A spade, a fork and a trowel are enough.
         await goPage("loam", 0); await shot(o, `wiki-cards-desktop-${scheme}`);
         await goPage("watering", 1); await shot(o, `wiki-parts-desktop-${scheme}`);
       }
+      // a deep tree scrolls inside its menu, not the page (desktop, dark)
+      put(vault, DEEP, DEEP_NOTE);
+      await o.setScheme("dark"); await sleep(300);
+      await ready(o, DEEP);
+      await o.evaluate(async (st) => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, ...st }, active: true }); }, { version: 2, screen: DEEPKEY, page: "level-14", part: 0 });
+      await sleep(900);
+      await o.evaluate(() => { const d = app.workspace.getLeavesOfType("booklet")[0].view.contentEl.querySelector(".booklet-pagemenu"); if (!d.open) d.querySelector("summary").click(); });
+      await sleep(400);
+      const deepDesk = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { n: l.querySelectorAll("a").length, scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: v.scrollWidth - v.clientWidth, title: (v.querySelector(".booklet-pagetitle") || {}).textContent }; });
+      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.5 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
+      await shot(o, "deep-menu-desktop-dark");
       // the phone, light and dark
       await o.page.setViewportSize({ width: 390, height: 844 });
       await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
@@ -734,6 +758,16 @@ A spade, a fork and a trowel are enough.
         c.ok(m.sideways <= 0 && m.card >= 44, `[${scheme}] Loam's cards: ${Math.round(m.card)} px, no sideways scroll (${m.sideways})`);
         await shot(o, `wiki-cards-phone-${scheme}`);
       }
+      // the deep tree on a phone, light
+      await o.setScheme("light"); await sleep(300);
+      await ready(o, DEEP);
+      await o.evaluate(async (st) => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, ...st }, active: true }); }, { version: 2, screen: DEEPKEY, page: "level-14", part: 0 });
+      await sleep(900);
+      await o.evaluate(() => { const d = app.workspace.getLeavesOfType("booklet")[0].view.contentEl.querySelector(".booklet-pagemenu"); if (!d.open) d.querySelector("summary").click(); });
+      await sleep(400);
+      const deepPhone = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), phone: document.body.classList.contains("is-phone"), link: Math.min(...[...l.querySelectorAll("a")].map(a => a.getBoundingClientRect().height)) }; });
+      c.ok(deepPhone.phone && deepPhone.scrolls && deepPhone.box <= deepPhone.win * 0.5 + 1 && deepPhone.sideways <= 0 && deepPhone.link >= 44, `phone, the deep tree: the list scrolls inside itself (${deepPhone.box} px of ${deepPhone.win}), links ${Math.round(deepPhone.link)} px, no sideways scroll (${deepPhone.sideways})`);
+      await shot(o, "deep-menu-phone-light");
       await o.evaluate(() => app.emulateMobile(false));
       c.ok(sha(path.join(vault, NOTE)) === before, "and still nothing written into the note");
     });
