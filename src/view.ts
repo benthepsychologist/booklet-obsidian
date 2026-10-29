@@ -124,6 +124,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawing: Component | null = null;
 	/** One updater per drawn question (and per repeating activity), so an answer is shown without drawing the view again. */
 	private widgets = new Map<string, () => void>();
+	/** Questions are being drawn off the page, to add held words (commitHeldOffscreen): no Markdown is rendered. */
+	private offscreen = false;
 	/** Text typed and not yet written, by question. */
 	private pending = new Map<string, Pending>();
 	/** Words typed in a field that are not an answer yet (Add your own), by field: kept across drawings. */
@@ -573,7 +575,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/* ---- QuestionHost ---- */
 
 	md(markdown: string, el: HTMLElement): void {
-		if (!this.drawing) return;
+		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
 		this.rendering++;
 		void MarkdownRenderer.render(this.app, markdown, el, this.file ? this.file.path : "", this.drawing)
@@ -766,8 +768,37 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (na) this.drawActivityScreen(page, nav, na, place);
 		}
 		if (moved) root.scrollTop = 0;
+		this.commitHeldOffscreen(nav, restored.map(([k]) => k));
 		for (const [k] of restored) this.ownFields.get(k)?.commit();
 		if (this.rendering === 0) this.drawn();
+	}
+
+	/**
+	 * Words held for a field on another screen than the one drawn are added too: 0.5.0 drew every activity at once, so a reload added
+	 * every held word, and a reload that shortly follows a move reopens on the screen before it. Each owning activity's questions are
+	 * drawn once, off the page (nothing of Markdown, nothing kept of what they register), so that the words are added by the very
+	 * closure the field's own commit runs: the same write, the same bytes. The drawing then keeps only the fields on the screen.
+	 */
+	private commitHeldOffscreen(nav: NavModel, keys: string[]): void {
+		const want = keys.filter((k) => !this.ownFields.has(k));
+		const acts = want.length ? [...nav.byKey.values()].filter((na) => want.some((k) => k.startsWith(`${na.key}/`))) : [];
+		if (!acts.length) return;
+		const widgets = new Set(this.widgets.keys());
+		const fields = new Set(this.ownFields.keys());
+		this.offscreen = true;
+		try {
+			for (const na of acts) {
+				const into = this.contentEl.createDiv();
+				into.remove();
+				const asked = (segs: readonly Segment[]) => segs.filter((x) => x.type !== "prose" && x.type !== "tab" && x.type !== "query" && x.type !== "unsupported");
+				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, asked(segs));
+			}
+			for (const k of want) this.ownFields.get(k)?.commit();
+		} finally {
+			this.offscreen = false;
+			for (const k of [...this.widgets.keys()]) if (!widgets.has(k)) this.widgets.delete(k);
+			for (const k of [...this.ownFields.keys()]) if (!fields.has(k)) this.ownFields.delete(k);
+		}
 	}
 
 	/** Every piece of Markdown in the drawing is rendered: a heading a link led to is scrolled into view, a scroll position kept is restored. */
