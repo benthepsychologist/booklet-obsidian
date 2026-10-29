@@ -182,6 +182,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private stepWanted = false;
 	/** The tab bar's chosen tab takes focus when the screen is drawn (a key moved the choice). */
 	private focusTab = false;
+	/** A move asked for by a press or a key is under way: the page title it lands on takes focus (see `draw`). */
+	private focusPage = false;
+	private focusPageNow = false;
 	/** A heading to scroll to once the screen is drawn (a heading link). */
 	private headingTo: string | null = null;
 	/** The words of a link from another note (`[[Note.booklet#Words]]`), handed over before the note was drawn. */
@@ -383,6 +386,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (opts.heading) this.scrollToHeading(opts.heading);
 			return;
 		}
+		// a move by a press or a key lands on the new page's title (a named page has one), so that a keyboard or a screen reader goes on from there
+		if (!opts.heading) this.focusPage = true;
 		this.headingTo = opts.heading ?? null;
 		if (!step) {
 			this.setPlace(p);
@@ -395,13 +400,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const asked = placeState(p, this.nav);
 		const state: Record<string, unknown> = { ...this.getState(), ...asked };
 		if (!p.tab) delete state["tab"];
-		if (!asked.page) delete state["page"]; // the page left is not the page asked for
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
 			.catch(() => undefined)
 			.finally(() => {
 				this.moving = false;
 				this.stepWanted = false;
+				this.focusPage = false;
 				const later = this.afterMove;
 				this.afterMove = null;
 				later?.();
@@ -701,6 +706,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	private draw(opened: boolean): void {
 		this.stale = false;
+		this.focusPageNow = this.focusPage;
+		this.focusPage = false;
 		this.cancelSettle();
 		this.drawnAt = new Date();
 		// words typed in a field for the reader's own and not added when the app last reloaded: shown in their fields and
@@ -949,7 +956,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const q of above) crumbs.push({ md: q.title, to: { screen: place.screen, tab: place.tab, part: q.at } });
 			crumbs.push({ md: here.title, to: null });
 		}
-		drawTrail(this, page, crumbs);
+		// a tab with a menu marks the page on show there, and a screen marks one: its trail ends in plain words
+		const menu = tab.tree.some((x) => x.named) && tab.tree.length > 1;
+		drawTrail(this, page, crumbs, menu);
 
 		const card = page.createDiv({ cls: "booklet-card booklet-act" });
 		card.setAttr("data-booklet-activity", `${a.scope}/${a.id}`);
@@ -977,21 +986,27 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const pager = pagerOf(na, tab, place);
 		// a tab of named pages with two or more pages has a menu of its tree, with a search (a tab with none is a 0.16 tab and is drawn as it was)
 		const tree = tab.tree.some((x) => x.named);
-		if (tree && tab.tree.length > 1) {
+		if (menu) {
 			const key = `${place.screen}#${tab.id}`;
 			const state = this.menus.get(key) ?? { open: false, query: "" };
 			this.menus.set(key, state);
 			drawPageMenu(this, card, tab, pager.page, (q) => ({ screen: place.screen, tab: place.tab, part: q.at }), state);
 		}
 		const counter = pager.of > 1 ? (pager.pageLines ? `${pager.at + 1} of ${pager.of}` : `Page ${pager.at + 1} of ${pager.of}`) : null;
-		const body = card.createDiv({ cls: "booklet-pagebody", attr: counter ? { role: "group", "aria-label": counter } : {} });
-		// a named page's title heads each of its parts (the trail names only the pages above it)
-		if (pager.page.named) this.md(inlineMd(pager.page.written || pager.page.title), body.createDiv({ cls: "booklet-pagetitle markdown-rendered" }));
+		// the group keeps its own name with the count: "Soil, 2 of 3" on a named page ("2 of 3" alone says nothing of what it counts)
+		const label = counter && pager.page.named ? `${plainText(pager.page.title)}, ${counter}` : counter;
+		const body = card.createDiv({ cls: "booklet-pagebody", attr: label ? { role: "group", "aria-label": label } : {} });
+		// a named page's title heads each of its parts (the trail names only the pages above it); it is a heading, and a move lands on it
+		if (pager.page.named) {
+			const title = body.createEl("h2", { cls: "booklet-pagetitle markdown-rendered", attr: { tabindex: "-1" } });
+			this.md(inlineMd(pager.page.written || pager.page.title), title);
+			if (this.focusPageNow) title.focus();
+		}
 		this.drawSegs(body, a, pages[at] ?? []);
 		// under the last part of a page come the pages under it, as cards, and the pages that link to it
 		if (tree && pager.at === pager.of - 1) {
 			if (pager.page.children.length) {
-				card.createDiv({ cls: "booklet-meta", text: "Pages under this one" });
+				card.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Pages under this one" });
 				drawCards(
 					this,
 					card,

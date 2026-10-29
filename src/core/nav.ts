@@ -419,31 +419,58 @@ function treeOf(segs: readonly Segment[], first: { title: string; line: number }
 	const list: TreePage[] = [];
 	if (holdsWords(before)) list.push(mk({ id: "", named: false, written: first.title, parts: pagesOf(before), line: first.line }));
 	const written = heads.map((h, n) => h.seg.id ?? pageIdOf(h.seg.title, n + 1));
-	const ids = uniqueIds(written);
+	// a page's id must name one page, since a saved place and a `parent:` name it: a second `g` is `g-2`, and when a later page wrote `g-2`
+	// itself the next free number is taken (`g`, `g`, `g-2` are `g`, `g-2`, `g-3`), each decided in the file's order so the ids stay as they are
+	const taken = new Set<string>();
+	const ids = written.map((w) => {
+		let id = w;
+		if (taken.has(id)) {
+			// the next number after the one the id ends in (`g-2` taken: `g-3`), else the second (`g` taken: `g-2`)
+			const m = /^(.*)-(\d+)$/.exec(w);
+			const base = m ? (m[1] as string) : w;
+			for (let n = m ? Number(m[2]) + 1 : 2; taken.has((id = `${base}-${n}`)); n++);
+		}
+		taken.add(id);
+		return id;
+	});
 	heads.forEach((h, n) => {
 		const id = ids[n] as string;
 		if (id !== written[n]) problems.push(`Line ${h.seg.line}: the page id "${written[n]}" is used twice in this tab, so this page is "${id}" (a parent: of "${written[n]}" is the first page).`);
 		list.push(mk({ id, named: true, written: h.seg.title, parts: pagesOf(h.segs), line: h.seg.line, icon: h.seg.icon, parentId: h.seg.parent }));
 	});
 	const named = list.filter((p) => p.named);
-	const byId = new Map(named.map((p) => [p.id, p]));
+	// `parent:` names the first page that wrote that id; failing that, the id a page ended up with
+	const firstWriter = new Map<string, TreePage>();
+	const byId = new Map<string, TreePage>();
+	named.forEach((p, n) => {
+		const w = written[n] as string;
+		if (!firstWriter.has(w)) firstWriter.set(w, p);
+		byId.set(p.id, p);
+	});
 	const up = (x: TreePage): TreePage | null => {
-		const p = x.parentId ? byId.get(x.parentId) : undefined;
+		const p = x.parentId ? (firstWriter.get(x.parentId) ?? byId.get(x.parentId)) : undefined;
 		return p && p !== x ? p : null;
 	};
-	const loops = (x: TreePage): boolean => {
-		const seen = new Set<TreePage>();
-		for (let p = up(x); p; p = up(p)) {
-			if (p === x) return true;
-			if (seen.has(p)) return false;
-			seen.add(p);
-		}
-		return false;
-	};
+	// a page is on a cycle when its parent chain comes back to it; found once for every page (a page whose chain only leads into a
+	// cycle keeps its parent), by following each unvisited chain and noting where it meets itself
+	const onCycle = new Set<TreePage>();
+	const state = new Map<TreePage, 1 | 2>();
 	for (const x of named) {
-		const p = loops(x) ? null : up(x);
+		if (state.has(x)) continue;
+		const path: TreePage[] = [];
+		let cur: TreePage | null = x;
+		while (cur && !state.has(cur)) {
+			state.set(cur, 1);
+			path.push(cur);
+			cur = up(cur);
+		}
+		if (cur && state.get(cur) === 1) for (const c of path.slice(path.indexOf(cur))) onCycle.add(c);
+		for (const c of path) state.set(c, 2);
+	}
+	for (const x of named) {
+		const p = onCycle.has(x) ? null : up(x);
 		if (x.parentId && !p) {
-			const why = x.parentId === x.id ? "is its own parent" : byId.has(x.parentId) ? `is its own ancestor (through "${x.parentId}")` : `names the parent "${x.parentId}", which is no page of this tab (a parent is a page of the same tab)`;
+			const why = x.parentId === x.id ? "is its own parent" : firstWriter.has(x.parentId) || byId.has(x.parentId) ? `is its own ancestor (through "${x.parentId}")` : `names the parent "${x.parentId}", which is no page of this tab (a parent is a page of the same tab)`;
 			problems.push(`Line ${x.line}: the page "${x.id}" ${why}, so it stands at the top of the tab.`);
 		}
 		x.parent = p;
@@ -452,15 +479,15 @@ function treeOf(segs: readonly Segment[], first: { title: string; line: number }
 	const top = list.filter((p) => !p.parent);
 	const tree: TreePage[] = [];
 	const pages: Segment[][] = [];
-	const walk = (xs: TreePage[]) => {
-		for (const x of xs) {
-			tree.push(x);
-			x.at = pages.length;
-			pages.push(...x.parts);
-			walk(x.children);
-		}
-	};
-	walk(top);
+	// depth first, a loop and not a recursion: a chain of thousands of pages must not overflow the stack
+	const stack: TreePage[] = [...top].reverse();
+	while (stack.length) {
+		const x = stack.pop() as TreePage;
+		tree.push(x);
+		x.at = pages.length;
+		for (const part of x.parts) pages.push(part);
+		for (let n = x.children.length - 1; n >= 0; n--) stack.push(x.children[n] as TreePage);
+	}
 	return { tree, top, pages };
 }
 
@@ -768,10 +795,20 @@ function tabShown(a: NavAct, id: string | null | undefined): ActTab | null {
 	return bar.length ? (bar.find((t) => t.id === id) ?? (bar[0] as ActTab)) : (a.tabs[0] ?? null);
 }
 
+const partOwners = new WeakMap<ActTab, number[]>();
+
 /** The page that holds the part at `at` of a tab's parts, and the part's place within it. */
 export function pageAtPart(tab: ActTab, at: number): { page: TreePage; part: number; index: number } {
-	let index = tab.tree.findIndex((x) => at >= x.at && at < x.at + x.parts.length);
-	if (index < 0) index = 0;
+	let owners = partOwners.get(tab);
+	if (!owners) {
+		// the tree index of the page that holds each part, made once per tab (the first page that holds it): a lookup, not a search of every page
+		owners = [];
+		tab.tree.forEach((x, n) => {
+			for (let k = x.at; k < x.at + x.parts.length; k++) if (owners && owners[k] === undefined) owners[k] = n;
+		});
+		partOwners.set(tab, owners);
+	}
+	const index = owners[at] ?? 0;
 	const page = tab.tree[index] as TreePage;
 	return { page, part: Math.min(Math.max(0, at - page.at), page.parts.length - 1), index };
 }
@@ -947,24 +984,92 @@ export function findHeading(nav: NavModel, target: string, scope: string | null)
 	const w = linkNorm(want);
 	const ws = linkSlug(want);
 	if (!w && !ws) return null;
-	const is = (s: string) => {
-		const n = linkNorm(s);
-		return n === w || (!!ws && linkSlug(s) === ws);
+	const index = headingIndex(nav);
+	// every place whose words read as the link's, by the words and by the slug; the first in file order (then in the order the activity reads them) wins
+	let best: Candidate | null = null;
+	const consider = (list: readonly Candidate[] | undefined) => {
+		for (const c of list ?? []) {
+			if (scope !== null && c.module !== scope) continue;
+			if (!best || c.rank < best.rank || (c.rank === best.rank && c.seq < best.seq)) best = c;
+		}
 	};
-	type Entry = { line: number; hit: () => Hit | null };
-	const entries: Entry[] = [];
+	consider(index.get(`n:${w}`));
+	if (ws) consider(index.get(`s:${ws}`));
+	const hit = best as Candidate | null;
+	return hit ? { place: { ...hit.hit.place }, heading: hit.hit.heading, keepTab: hit.hit.keepTab } : null;
+}
+
+/** One place a heading link can lead to: its rank in file order, its order within its activity, the module it is in, and the hit. */
+interface Candidate {
+	rank: number;
+	seq: number;
+	module: string;
+	hit: Hit;
+}
+
+const headingIndexes = new WeakMap<NavModel, Map<string, Candidate[]>>();
+
+/**
+ * Every title and heading a link can name, by its words and by its slug, made once for a note (the note's model does not change): a
+ * link then finds its place by a lookup instead of a walk through every activity's every part. The order a link is answered in is the
+ * order `findHeading` always read them: a module's tab names and the activities by the line they stand on (a module's tabs first), and
+ * within an activity its title, its opening's headings, then tab by tab the tab's name, each page's title and the headings of its parts.
+ */
+function headingIndex(nav: NavModel): Map<string, Candidate[]> {
+	const have = headingIndexes.get(nav);
+	if (have) return have;
+	const index = new Map<string, Candidate[]>();
+	const entries: { line: number; add: (rank: number) => void }[] = [];
+	const put = (rank: number, seq: number, module: string, text: string, hit: Hit) => {
+		const c: Candidate = { rank, seq, module, hit };
+		const keys = [`n:${linkNorm(text)}`];
+		const slug = linkSlug(text);
+		if (slug) keys.push(`s:${slug}`);
+		for (const k of keys) {
+			const list = index.get(k);
+			if (list) list.push(c);
+			else index.set(k, [c]);
+		}
+	};
 	for (const mod of nav.mods) {
-		if (scope !== null && mod.id !== scope) continue;
 		if (hasScreen(mod))
-			for (const t of mod.tabs) if (is(t.title)) entries.push({ line: mod.line, hit: () => ({ place: { screen: modScreen(mod), tab: t.id, part: 0 }, heading: null, keepTab: false }) });
-		for (const na of mod.acts) entries.push({ line: na.line, hit: () => inActivity(na, is) });
+			for (const t of mod.tabs) entries.push({ line: mod.line, add: (rank) => put(rank, 0, mod.id, t.title, { place: { screen: modScreen(mod), tab: t.id, part: 0 }, heading: null, keepTab: false }) });
+		for (const na of mod.acts) entries.push({ line: na.line, add: (rank) => addActivity(na, mod.id, rank, put) });
 	}
 	entries.sort((a, b) => a.line - b.line);
-	for (const e of entries) {
-		const h = e.hit();
-		if (h) return h;
+	entries.forEach((e, rank) => e.add(rank));
+	headingIndexes.set(nav, index);
+	return index;
+}
+
+function addActivity(na: NavAct, module: string, rank: number, put: (rank: number, seq: number, module: string, text: string, hit: Hit) => void): void {
+	const own = (tab: string | null, part: number, heading: string | null, keepTab = false): Hit => ({ place: { screen: actScreen(na), tab, part }, heading, keepTab });
+	let seq = 0;
+	const bar = barTabs(na);
+	for (const text of [na.title, na.act.title]) put(rank, seq, module, text, own(bar[0]?.id ?? null, 0, null));
+	seq++;
+	const look = (segs: readonly Segment[], tab: string | null, part: number, keepTab: boolean) => {
+		for (const s of segs) {
+			if (s.type === "question" && s.title) put(rank, seq++, module, s.title, own(tab, part, s.title, keepTab));
+			if (s.type === "prose") for (const h of proseHeadings(s.markdown)) put(rank, seq++, module, h, own(tab, part, h, keepTab));
+		}
+	};
+	if (na.named) look(na.opening, null, 0, true);
+	for (const t of na.tabs) {
+		const tabId = bar.length ? t.id : null;
+		if (na.named) put(rank, seq++, module, t.title, own(tabId, 0, null));
+		const starts = new Map<number, TreePage>();
+		for (const x of t.tree) if (x.named && !starts.has(x.at)) starts.set(x.at, x);
+		for (let p = 0; p < t.pages.length; p++) {
+			// a page's title is a place too: it opens the page on its first part
+			const pg = starts.get(p);
+			if (pg) {
+				put(rank, seq, module, pg.title, own(tabId, p, null));
+				put(rank, seq++, module, pg.written, own(tabId, p, null));
+			}
+			look(t.pages[p] ?? [], tabId, p, false);
+		}
 	}
-	return null;
 }
 
 /** The words a piece of prose offers as link targets, in order: its headings and its callouts' titles, outside code fences. */
@@ -984,35 +1089,6 @@ function proseHeadings(markdown: string): string[] {
 	return out;
 }
 
-function inActivity(na: NavAct, is: (s: string) => boolean): Hit | null {
-	const own = (tab: string | null, part: number, heading: string | null, keepTab = false): Hit => ({ place: { screen: actScreen(na), tab, part }, heading, keepTab });
-	const bar = barTabs(na);
-	if (is(na.title) || is(na.act.title)) return own(bar[0]?.id ?? null, 0, null);
-	const look = (segs: readonly Segment[], tab: string | null, part: number, keepTab: boolean): Hit | null => {
-		for (const s of segs) {
-			if (s.type === "question" && s.title && is(s.title)) return own(tab, part, s.title, keepTab);
-			if (s.type === "prose") for (const h of proseHeadings(s.markdown)) if (is(h)) return own(tab, part, h, keepTab);
-		}
-		return null;
-	};
-	if (na.named) {
-		const o = look(na.opening, null, 0, true);
-		if (o) return o;
-	}
-	for (const t of na.tabs) {
-		const tabId = bar.length ? t.id : null;
-		if (na.named && is(t.title)) return own(tabId, 0, null);
-		for (let p = 0; p < t.pages.length; p++) {
-			// a page's title is a place too: it opens the page on its first part
-			const pg = t.tree.find((x) => x.named && x.at === p);
-			if (pg && (is(pg.title) || is(pg.written))) return own(tabId, p, null);
-			const h = look(t.pages[p] ?? [], tabId, p, false);
-			if (h) return h;
-		}
-	}
-	return null;
-}
-
 /* ---- the tree's own surfaces: the menu's search, and "Mentioned on" (page trees; design/pages/proposal.md section 3, decision 6 calls F and K) ---- */
 
 /** The words of a page as plain text, for the search: its prose and the prompts of its questions. */
@@ -1026,12 +1102,15 @@ function pageWords(p: TreePage): string {
 	return out.join(" ");
 }
 
+/** The words of a search box's text: case and marks aside, none when it holds only spaces or marks. */
+export const searchWords = (query: string): string[] => linkNorm(query).split(" ").filter(Boolean);
+
 /**
  * The pages of a tab whose title or words hold every word of `query` (case and marks aside), the ones whose title holds them first, then
  * the rest, each in reading order. A query of no words is every page, as the tree reads.
  */
 export function searchPages(tab: ActTab, query: string): TreePage[] {
-	const words = linkNorm(query).split(" ").filter(Boolean);
+	const words = searchWords(query);
 	if (!words.length) return tab.tree;
 	const inTitle: TreePage[] = [];
 	const inWords: TreePage[] = [];
@@ -1043,13 +1122,67 @@ export function searchPages(tab: ActTab, query: string): TreePage[] {
 	return [...inTitle, ...inWords];
 }
 
-/** The target of every heading link in some Markdown, in order, outside code: `[[#Words]]`, `[[#Words|label]]` and `[label](#words)`. A block link (`#^id`) is none. */
+/**
+ * The target of every heading link in some Markdown, in order: `[[#Words]]`, `[[#Words|label]]` and `[label](#words)`. A block link (`#^id`)
+ * is none. What is not text a reader sees is left out, as far as a short scan can tell: a code fence, inline code, an HTML comment, a
+ * `<pre>` block, a `$$` math block and an indented code block (four spaces or a tab after a blank line, outside a list).
+ */
 export function headingLinksIn(markdown: string): string[] {
 	const out: string[] = [];
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
-	for (const [i, l] of lines.entries()) {
+	let comment = false;
+	let math = false;
+	let pre = false;
+	let code = false;
+	let list = false;
+	let blank = true;
+	for (const [i, raw] of lines.entries()) {
 		if (fenced[i]) continue;
+		let l = raw;
+		if (comment) {
+			const end = l.indexOf("-->");
+			if (end < 0) continue;
+			l = l.slice(end + 3);
+			comment = false;
+		}
+		l = l.replace(/<!--[\s\S]*?-->/g, "");
+		const open = l.indexOf("<!--");
+		if (open >= 0) {
+			l = l.slice(0, open);
+			comment = true;
+		}
+		if (pre) {
+			if (/<\/pre>/i.test(l)) pre = false;
+			continue;
+		}
+		if (/<pre[\s>]/i.test(l) && !/<\/pre>/i.test(l)) {
+			pre = true;
+			continue;
+		}
+		if (math) {
+			if (l.includes("$$")) math = false;
+			continue;
+		}
+		l = l.replace(/\$\$[^$]*\$\$/g, "");
+		const dollars = l.indexOf("$$");
+		if (dollars >= 0) {
+			l = l.slice(0, dollars);
+			math = true;
+		}
+		if (!l.trim()) {
+			blank = true;
+			continue;
+		}
+		const indented = /^( {4,}|\t)/.test(l);
+		if (indented && (code || (blank && !list))) {
+			code = true;
+			blank = false;
+			continue;
+		}
+		code = false;
+		blank = false;
+		list = /^\s*(?:[-*+]|\d+[.)])\s/.test(l) || (list && indented);
 		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(?<!!)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
 			const t = m[1] ?? m[2];
 			if (t && !t.startsWith("^")) out.push(t);

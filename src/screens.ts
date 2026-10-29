@@ -32,8 +32,8 @@ function onPress(el: HTMLElement, fn: () => void): void {
 	});
 }
 
-/** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). */
-export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]): void {
+/** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). `noCurrent`: the last step is plain text and not marked as the page (the page menu marks it, and a screen has one). */
+export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], noCurrent = false): void {
 	const nav = page.createEl("nav", { cls: "booklet-trail", attr: { "aria-label": "Where you are" } });
 	// the slash after each crumb but the last is drawn by the stylesheet, so it stays on the line its crumb ends on
 	crumbs.forEach((c) => {
@@ -42,7 +42,7 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]):
 			const link = nav.createEl("a", { cls: "booklet-trail-link", attr: { href: "#" } });
 			host.md(inlineMd(linkless(c.md)), link.createSpan({ cls: "booklet-inline markdown-rendered" }));
 			onPress(link, () => host.go(to));
-		} else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: { "aria-current": "page" } }));
+		} else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }));
 	});
 }
 

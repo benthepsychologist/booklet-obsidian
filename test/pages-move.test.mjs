@@ -341,7 +341,7 @@ test("a link inside a page to a heading of the same page's other part, and to an
 	}
 });
 
-test("a draft is not lost when the reader moves to another page (see also pages-view.test.mjs); the page on show is never written to the note", async () => {
+test("moving through the wiki writes nothing: the page on show is never written to the note (typed words are tested in pages-fixes.test.mjs and pages-view.test.mjs)", async () => {
 	const p = pane(CHECKIN, { state: old("wiki", 0) });
 	await p.settled();
 	for (let i = 0; i < 8; i++) await p.pageNext();

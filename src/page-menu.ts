@@ -4,7 +4,7 @@
  * its search box, links); the plugin's CSS only lays them out. The view decides what a press does (`go`); this file only draws.
  * Nothing here is ever written to the note: the menu's open state and its search words are the pane's, in memory.
  */
-import { inlineMd, linkless, searchPages, type ActTab, type Mention, type Place, type TreePage } from "./core";
+import { inlineMd, linkless, searchPages, searchWords, type ActTab, type Mention, type Place, type TreePage } from "./core";
 import type { ScreenHost } from "./screens";
 
 /** What the menu keeps while the pane is open: is it open, and the words in its search box. */
@@ -75,7 +75,8 @@ export function drawPageMenu(host: ScreenHost, into: HTMLElement, tab: ActTab, h
 			input.value = "";
 			state.query = "";
 			draw();
-		} else if (evt.key === "Enter") {
+		} else if (evt.key === "Enter" && searchWords(state.query).length) {
+			// with no words in the box there is nothing to open: a phone keyboard's "go" key must not move the reader
 			const first = searchPages(tab, state.query)[0];
 			if (first) {
 				evt.preventDefault();
@@ -88,7 +89,7 @@ export function drawPageMenu(host: ScreenHost, into: HTMLElement, tab: ActTab, h
 /** "Mentioned on": the pages that link to the one on show, each a link to the place that holds the link. */
 export function drawMentions(host: ScreenHost, into: HTMLElement, mentions: Mention[]): void {
 	if (!mentions.length) return;
-	into.createDiv({ cls: "booklet-meta", text: "Mentioned on" });
+	into.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Mentioned on" });
 	const ul = into.createEl("ul", { cls: "booklet-mentioned" });
 	for (const m of mentions) {
 		const a = ul.createEl("li").createEl("a", { cls: "booklet-pagelink", attr: { href: "#" } });

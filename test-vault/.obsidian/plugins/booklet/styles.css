@@ -32,7 +32,7 @@
 	margin-top: var(--size-4-4);
 }
 
-/* a named page's title, at the head of its first part (page trees: ahead of the format) */
+/* a named page's title, at the head of each of its parts (page trees: ahead of the format); a heading a move lands on */
 .booklet-pagetitle p {
 	margin: 0;
 }
@@ -41,7 +41,12 @@
 	font-size: var(--h3-size);
 	font-weight: var(--h3-weight);
 	color: var(--h3-color);
-	margin-bottom: var(--size-4-2);
+	line-height: var(--h3-line-height, 1.3);
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-pagetitle:focus:not(:focus-visible) {
+	outline: none;
 }
 
 .booklet-question {
@@ -1178,6 +1183,18 @@
 
 .booklet-pagesearch {
 	margin-bottom: var(--size-4-2);
+}
+
+/* a deep tree scrolls inside its menu, not the page */
+.booklet-pagelist {
+	max-height: 50vh;
+	overflow: auto;
+	overscroll-behavior: contain;
+}
+
+/* the labels the tree adds ("Pages under this one", "Mentioned on") stand off the text above them as a section label does */
+.booklet-treelabel {
+	margin-top: var(--size-4-5);
 }
 
 .booklet-pagelist ul,

@@ -355,6 +355,12 @@ const KNOWN_KINDS = new Set([
 	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
 ]);
 
+/** The callout kinds Obsidian itself draws (and its aliases): a line of one of these is an ordinary callout, never a kind of a newer format. */
+const OBSIDIAN_CALLOUTS = new Set([
+	"note", "abstract", "summary", "tldr", "info", "todo", "tip", "hint", "important", "success", "check", "done", "question", "help", "faq",
+	"warning", "caution", "attention", "failure", "fail", "missing", "danger", "error", "bug", "example", "quote", "cite",
+]);
+
 const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);
 
 const OPTION_RE = /^[ \t]*[-*+][ \t]+\[([ xX])\][ \t]+(.*)$/;
@@ -694,8 +700,12 @@ export function parseBooklet(text: string): Booklet {
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
 			const sp = settingProblems(kind, w, at(i));
-			unread += sp.length;
+			// a setting a page line does not take is the author's to fix, not a sign of a newer format: said, and not counted as unread
+			if (kind !== "page") unread += sp.length;
 			problems.push(...sp);
+			// a line of a kind that is none of the format's nor Obsidian's, with no words after the bar, is drawn as the callout it looks like:
+			// a newer format may mean more by it
+			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind)) unread++;
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
@@ -759,6 +769,7 @@ export function parseBooklet(text: string): Booklet {
 			if (section === "data") {
 				// in a data section only its blocks are read: a shared menu among them
 				if (kind === "menu") readMenu(w.id, i);
+				if (kind === "page") problems.push(`${at(i)}: a page line in a data section, where only blocks are read, so it was ignored.`);
 				i = claimEnd(kind, lines, i) - 1;
 				continue;
 			}
