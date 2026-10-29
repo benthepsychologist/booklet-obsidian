@@ -199,6 +199,30 @@
 	margin-bottom: var(--size-4-2);
 }
 
+/* the fold: the heading is a flat button, with Obsidian's chevron before its words */
+.booklet-fold {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	padding: 0 var(--size-4-1);
+	background: none;
+	box-shadow: none;
+	text-align: start;
+	cursor: pointer;
+}
+
+.booklet-fold:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-fold-chevron {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
 .booklet-entry {
 	padding: var(--size-4-2) 0;
 	border-bottom: var(--border-width) solid var(--background-modifier-border);
@@ -1195,6 +1219,7 @@
 /* touch: every control at least 44 px tall (Obsidian's own phone mode is the measure) */
 .is-mobile .booklet-tabbtn,
 .is-mobile .booklet-pager button,
+.is-mobile .booklet-fold,
 .is-mobile .booklet-cardrow {
 	min-height: 44px;
 }

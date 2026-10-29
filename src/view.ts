@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, MarkdownView, Notice, TextFileView, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, MarkdownView, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -148,6 +148,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private ownFields = new Map<string, { t: Target; commit: () => void }>();
 	/** Activities whose whole list of kept entries is open. */
 	private showAll = new Set<string>();
+	/** The reader's choice of folding an activity's kept entries, by activity, for as long as the pane is open: never written anywhere, and no part of the saved place. */
+	private entriesFolded = new Map<string, boolean>();
 	/**
 	 * When the view was last drawn. Today is its date (SPEC section 8): a check-in left open past midnight keeps
 	 * writing to the day it shows, and a span of days counts back from it. The view is drawn again, taking a new today,
@@ -532,6 +534,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.widgets.clear();
 		this.ownFields.clear();
 		this.showAll.clear();
+		this.entriesFolded.clear();
 		this.nav = null;
 		this.place = null;
 		this.drawnPlace = null;
@@ -1001,19 +1004,46 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.finalize(a);
 		});
 		const kept = card.createDiv({ cls: "booklet-entries" });
-		kept.createDiv({ cls: "booklet-entries-title", text: a.daily ? "Kept days" : "Kept entries" });
-		const list = kept.createDiv({ cls: "booklet-entry-list" });
+		const key = `${a.scope}/${a.id}`;
+		const uid = this.uid();
+		// the list folds: its heading is a button that says how many are kept (Obsidian's own chevron, aria-expanded)
+		const fold = kept.createEl("button", { cls: "booklet-entries-title booklet-fold", attr: { "aria-expanded": "true", "aria-controls": uid } });
+		const chevron = fold.createSpan({ cls: "booklet-fold-chevron", attr: { "aria-hidden": "true" } });
+		const label = fold.createSpan({ cls: "booklet-fold-label" });
+		const list = kept.createDiv({ cls: "booklet-entry-list", attr: { id: uid } });
+		const shown = () => !(this.entriesFolded.get(key) ?? this.entriesStartFolded(a));
+		const setFold = () => {
+			const open = shown();
+			fold.setAttr("aria-expanded", open ? "true" : "false");
+			list.hidden = !open;
+			setIcon(chevron, open ? "lucide-chevron-down" : "lucide-chevron-right");
+		};
+		fold.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			this.entriesFolded.set(key, shown());
+			setFold();
+		});
 		let sig = "";
 		const showEntries = () => {
 			const all = [...(this.book?.records.entries[a.scope]?.[a.id] ?? [])].sort(newestFirst);
-			const open = this.showAll.has(`${a.scope}/${a.id}`);
+			const open = this.showAll.has(key);
+			label.setText(`${a.daily ? "Kept days" : "Kept entries"} (${all.length})`);
 			const now = JSON.stringify([open, all]);
 			if (now === sig) return;
 			sig = now;
 			this.drawEntries(list, a, all, open);
 		};
+		setFold();
 		showEntries();
 		this.onShow(`activity:${a.scope}/${a.id}:entries`, showEntries);
+	}
+
+	/**
+	 * Does an activity's list of kept entries start folded? Always open for now, as it was drawn before it could fold. Whether an
+	 * activity starts folded is a mark in the file that the format does not have yet: it is read here once the format names it.
+	 */
+	private entriesStartFolded(_a: Activity): boolean {
+		return false;
 	}
 
 	/** An activity's kept entries, newest first, each with its date and its answers in words from the file's own lists. */
