@@ -3,54 +3,23 @@
  * entries, the four views and their roles, the lines that say what is not drawn yet, a query that cannot be drawn
  * reported while the note still opens, and the rule that drawing writes nothing.
  */
-import { window as w } from "./dom.mjs";
-import test, { mock } from "node:test";
+import { openView, testApp } from "./dom.mjs";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core } from "./helpers.mjs";
+import { ROOT, keepDays } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const { BookletView } = await import("./.build/view.mjs");
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** The screen a note's queries are drawn on: the check-in's roll-up is its own activity, "This week"; the views notes' queries are in "Show". */
+/** A view on `text`, on the screen its queries are drawn on: the check-in's roll-up is its own activity, "This week"; the views notes' queries are in "Show". `disk.writes` counts the vault's writes, and `opened` the notes a link opened. */
 function open(text, path = "Note.booklet.md", screen = /\[!activity\|show\]/.test(text) ? "activity:/show" : "activity:day-check/week") {
 	const disk = { text, writes: 0 };
 	const opened = [];
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.writes++;
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async (to) => opened.push(to), requestSaveLayout() {} },
-	};
-	// the pane: a move through it comes back as the view's own setState, as Obsidian does it
-	const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
-	const view = new BookletView(leaf, { setMode: async () => {} });
-	view.file = { path, basename: path.replace(/\.md$/, "") };
-	view.load();
-	void view.setState({ version: 1, screen }, {});
-	view.setViewData(text, true);
-	return {
-		view,
-		disk,
-		opened,
-		queries: () => [...view.contentEl.querySelectorAll(".booklet-query")],
-		settled: async () => {
-			await sleep(30);
-			await view.writes;
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
-	};
+	const v = openView(text, { path, disk, app: testApp(disk, { workspace: { openLinkText: async (to) => opened.push(to) } }), screen });
+	return { ...v, opened, queries: () => [...v.view.contentEl.querySelectorAll(".booklet-query")] };
 }
 
 const DAYS = [
@@ -59,75 +28,61 @@ const DAYS = [
 	["2026-10-27T20:00:00Z", { feelings: ["tense", "content"], felt: [{ pick: "tense", a: [8] }] }],
 	["2026-10-28T08:00:00Z", { feelings: ["tired"], thoughts: ["Early night"] }],
 ];
-function withEntries(text = CHECKIN) {
-	for (const [ts, ans] of DAYS) {
-		for (const [k, v] of Object.entries(ans)) text = core.setDraftAnswer(text, "day-check", "today", k, v);
-		text = core.finalizeDraft(text, "day-check", "today", { ts }).text;
-	}
-	return text;
-}
+const withEntries = (text = CHECKIN) => keepDays(text, "day-check", "today", DAYS);
 
-test("the check-in's roll-up is drawn from made-up entries: a table of the feelings and where each is felt, then the week's thoughts as cards; nothing is written", async () => {
-	mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
-	try {
-		const text = withEntries();
-		const v = open(text, "Check-in.booklet.md");
-		const [sum, thoughts] = v.queries();
-		assert.equal(sum.getAttribute("data-booklet-view"), "table");
-		const heads = [...sum.querySelectorAll("thead th")].map((x) => x.textContent);
-		assert.deepEqual(heads, ["Question", "Count", "Most", "Note"]);
-		const rows = [...sum.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent));
-		assert.deepEqual(rows, [
-			["How do you feel?", "4", "Tense", "Tense 3 · Tired 2 · Content 1"],
-			["Where do you feel it? · Tense", "3", "Chest", "Chest 2 · Stomach 2"],
-			["Where do you feel it? · Tired", "1", "Head", "Head 1"],
-			["Where do you feel it? · Content", "0", "", ""],
-		]);
-		assert.ok(sum.querySelector("td.booklet-q-num"), "a count is set to the right");
-		assert.equal(thoughts.getAttribute("data-booklet-view"), "cards");
-		const cards = [...thoughts.querySelectorAll(".booklet-entry")];
-		assert.equal(cards.length, 3, "the entry with no thoughts is not shown");
-		assert.deepEqual(
-			[...cards[1].querySelectorAll("dd li")].map((x) => x.textContent),
-			["Too many emails", "Call a friend"],
-		);
-		await v.settled();
-		assert.equal(v.disk.writes, 0, "drawing a query writes nothing");
-		assert.equal(v.disk.text, text, "the file is the same, byte for byte");
-		v.close();
-	} finally {
-		mock.timers.reset();
-	}
+test("the check-in's roll-up is drawn from made-up entries: a table of the feelings and where each is felt, then the week's thoughts as cards; nothing is written", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
+	const text = withEntries();
+	const v = open(text, "Check-in.booklet.md");
+	const [sum, thoughts] = v.queries();
+	assert.equal(sum.getAttribute("data-booklet-view"), "table");
+	const heads = [...sum.querySelectorAll("thead th")].map((x) => x.textContent);
+	assert.deepEqual(heads, ["Question", "Count", "Most", "Note"]);
+	const rows = [...sum.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent));
+	assert.deepEqual(rows, [
+		["How do you feel?", "4", "Tense", "Tense 3 · Tired 2 · Content 1"],
+		["Where do you feel it? · Tense", "3", "Chest", "Chest 2 · Stomach 2"],
+		["Where do you feel it? · Tired", "1", "Head", "Head 1"],
+		["Where do you feel it? · Content", "0", "", ""],
+	]);
+	assert.ok(sum.querySelector("td.booklet-q-num"), "a count is set to the right");
+	assert.equal(thoughts.getAttribute("data-booklet-view"), "cards");
+	const cards = [...thoughts.querySelectorAll(".booklet-entry")];
+	assert.equal(cards.length, 3, "the entry with no thoughts is not shown");
+	assert.deepEqual(
+		[...cards[1].querySelectorAll("dd li")].map((x) => x.textContent),
+		["Too many emails", "Call a friend"],
+	);
+	await v.settled();
+	assert.equal(v.disk.writes, 0, "drawing a query writes nothing");
+	assert.equal(v.disk.text, text, "the file is the same, byte for byte");
+	v.close();
 });
 
-test("a kept entry finalized in the view shows in the roll-up when the reader moves on to it", async () => {
-	mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
-	try {
-		const v = open(CHECKIN, "Check-in.booklet.md", "activity:day-check/today");
-		const show = async (key) => {
-			v.view.go({ screen: `activity:day-check/${key}`, tab: null, part: 0 });
-			await v.settled();
-		};
-		await show("week");
-		const [sum] = v.queries();
-		assert.equal(sum.querySelector(".booklet-q-empty").textContent, "Nothing kept here yet.");
-		await show("today");
-		const card = v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
-		const grid = card.querySelectorAll(".booklet-kind-widget")[1];
-		[...grid.querySelectorAll("button")].find((b) => b.textContent.trim() === "Tense").click();
+test("a kept entry finalized in the view shows in the roll-up when the reader moves on to it", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
+	const v = open(CHECKIN, "Check-in.booklet.md", "activity:day-check/today");
+	const show = async (key) => {
+		v.view.go({ screen: `activity:day-check/${key}`, tab: null, part: 0 });
 		await v.settled();
-		await show("week");
-		assert.ok(v.queries()[0].querySelector(".booklet-q-empty"), "a draft is never read");
-		await show("today");
-		v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"] .booklet-finalize').click();
-		await v.settled();
-		await show("week");
-		const first = v.queries()[0].querySelector("tbody tr");
-		assert.deepEqual([...first.querySelectorAll("td")].map((x) => x.textContent).slice(0, 3), ["How do you feel?", "1", "Tense"]);
-		v.close();
-	} finally {
-		mock.timers.reset();
-	}
+	};
+	await show("week");
+	const [sum] = v.queries();
+	assert.equal(sum.querySelector(".booklet-q-empty").textContent, "Nothing kept here yet.");
+	await show("today");
+	const card = v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
+	const grid = card.querySelectorAll(".booklet-kind-widget")[1];
+	[...grid.querySelectorAll("button")].find((b) => b.textContent.trim() === "Tense").click();
+	await v.settled();
+	await show("week");
+	assert.ok(v.queries()[0].querySelector(".booklet-q-empty"), "a draft is never read");
+	await show("today");
+	v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"] .booklet-finalize').click();
+	await v.settled();
+	await show("week");
+	const first = v.queries()[0].querySelector("tbody tr");
+	assert.deepEqual([...first.querySelectorAll("td")].map((x) => x.textContent).slice(0, 3), ["How do you feel?", "1", "Tense"]);
+	v.close();
 });
 
 const fm = `---\nbooklet: "0.16"\ntitle: Views\n---\n`;

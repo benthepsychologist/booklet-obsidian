@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { window as w } from "./dom.mjs";
+import { typeInto } from "./dom.mjs";
 import { pane, sleep, sleepFor } from "./pane.mjs";
 
 const BOOK = `---
@@ -63,8 +63,7 @@ for (const [route, leave] of Object.entries(ROUTES)) {
 			await p.pageNext(); // page 2 of tab One (a step, so Obsidian's Back has somewhere to go)
 			const input = field(p);
 			assert.ok(input, "the field is drawn");
-			input.value = words;
-			input.dispatchEvent(new w.Event("input", { bubbles: true }));
+			typeInto(input, words);
 			assert.ok(!p.disk.text.includes(words), "not written yet");
 			await leave(p);
 			await sleep(40);

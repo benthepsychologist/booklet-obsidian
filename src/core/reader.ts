@@ -22,6 +22,11 @@ import {
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
 
+/** A block or a menu by its id, as a module sees it: in its own module first, then a shared one (`module` null), never another module's. */
+function inScope<T extends { id: string; module: string | null }>(list: readonly T[], id: string, module: string | null): T | undefined {
+	return list.find((x) => x.id === id && x.module === module) ?? list.find((x) => x.id === id && x.module === null);
+}
+
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
@@ -172,8 +177,6 @@ export type Role = (typeof ROLE_NAMES)[number];
 
 /** A `booklet query` block's settings, as read: a key that was ignored (and reported) is not here. */
 export interface Query {
-	/** The fence line, from 1. */
-	line: number;
 	from: string;
 	as: ViewName | null;
 	/** `fields:`, comma-separated, in order. */
@@ -247,7 +250,6 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
-	dataBlocks: DataBlock[];
 	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
 	unshown: Unshown[];
 	records: RecordsRead;
@@ -836,7 +838,7 @@ export function parseBooklet(text: string): Booklet {
 	// a question that names a shared menu takes its options from it: from its own module's menus first, then
 	// from the shared ones, never from another module's (SPEC section 4; booklet.html resolveMenus)
 	for (const u of menuUses) {
-		const hit = menus.find((x) => x.id === u.menu && x.module === u.module) ?? menus.find((x) => x.id === u.menu && x.module === null);
+		const hit = inScope(menus, u.menu, u.module);
 		if (!hit) {
 			const sees = u.module ? `the module "${u.module}"` : "the activities outside every module";
 			problems.push(`Line ${u.line}: the ${u.q.kind} "${u.q.id}" takes its options from the menu "${u.menu}", which ${sees} cannot see, so it is not drawn.`);
@@ -851,7 +853,7 @@ export function parseBooklet(text: string): Booklet {
 	for (const a of activities)
 		for (const s of a.segments)
 			if (s.type === "question" && s.kind === "widget" && s.embed)
-				s.widget = (a.scope ? widgets.find((x) => x.id === s.embed && x.module === a.scope) : undefined) ?? widgets.find((x) => x.id === s.embed && x.module === null) ?? null;
+				s.widget = inScope(widgets, s.embed, a.scope || null) ?? null;
 	linkQueries(activities, dataBlocks, problems);
 
 	// a file with no module and no activity line is one activity, and so has no opening (SPEC section 3)
@@ -891,11 +893,13 @@ export function parseBooklet(text: string): Booklet {
 		openings,
 		widgets,
 		menus,
-		dataBlocks,
 		unshown,
 		records,
 	};
 }
+
+/** The questions of an activity this view draws, in its order. */
+export const questionsOf = (a: Pick<Activity, "segments">): Question[] => a.segments.filter((s): s is Question => s.type === "question");
 
 /**
  * How many answers are of the wrong shape (SPEC section 8), in the answers, the drafts and the kept entries, for the
@@ -905,7 +909,7 @@ export function parseBooklet(text: string): Booklet {
 function wrongShapes(activities: readonly Activity[], records: RecordsRead): number {
 	let n = 0;
 	for (const a of activities) {
-		const qs = a.segments.filter((s): s is Question => s.type === "question");
+		const qs = questionsOf(a);
 		const recs = a.repeat ? [records.drafts[a.scope]?.[a.id], ...(records.entries[a.scope]?.[a.id] ?? [])] : [records.answers[a.scope]];
 		for (const r of recs) if (r) for (const q of qs) if (Object.prototype.hasOwnProperty.call(r, q.id) && shapeIssue(q, r[q.id])) n++;
 	}
@@ -946,7 +950,6 @@ function readQuery(body: readonly string[], line: number, problems: string[]): Q
 	}
 	const as = text("as");
 	return {
-		line,
 		from: o.from ?? "",
 		as: as === null ? null : (as.toLowerCase() as ViewName),
 		fields:
@@ -1004,7 +1007,7 @@ function linkQuery(s: QuerySegment, act: Activity, activities: readonly Activity
 		if (named) source = { kind: "question", act: x, q: named.q, id: q.from, title: named.title };
 	}
 	if (!source) {
-		const d = data.find((z) => z.id === q.from && z.module === (act.scope || null)) ?? data.find((z) => z.id === q.from && z.module === null);
+		const d = inScope(data, q.from, act.scope || null);
 		if (d) source = { kind: "data", id: d.id };
 	}
 	if (!source) {

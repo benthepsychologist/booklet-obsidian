@@ -7,69 +7,41 @@
  *   gap 4  (answers of the wrong shape counted once among the note's problems) is in test/query.test.mjs.
  * Made-up notes only.
  */
-import { window as w } from "./dom.mjs";
-import test, { mock } from "node:test";
+import { openView, press, testApp, typeInto, window as w } from "./dom.mjs";
+import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { ROOT, core, norm, sleep } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const { BookletView } = await import("./.build/view.mjs");
-
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const DAILY = readFileSync(join(ROOT, "test-vault", "Daily tracker.booklet.md"), "utf8");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** An app with a vault holding one note, and a device store as Obsidian's saveLocalStorage keeps one. */
 function appWith(text) {
-	const disk = { text };
+	const disk = { text, writes: 0 };
 	const store = new Map();
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-			getName: () => "Made-up vault",
-		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {} },
+	const app = testApp(disk, {
+		vault: { getName: () => "Made-up vault" },
 		loadLocalStorage: (k) => (store.has(k) ? JSON.parse(store.get(k)) : null),
 		saveLocalStorage: (k, d) => (d === null ? store.delete(k) : store.set(k, JSON.stringify(d))),
-	};
+	});
 	return { app, disk, store };
 }
 
 function openOn(env, path) {
-	const view = new BookletView({ app: env.app }, { setMode: async () => {} });
-	view.file = { path, basename: path.replace(/\.md$/, "") };
-	view.load();
-	if (path.startsWith("Check-in")) void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
-	view.setViewData(env.disk.text, true);
+	const v = openView(env.disk.text, { path, disk: env.disk, app: env.app, screen: path.startsWith("Check-in") ? "activity:day-check/today" : null });
 	return {
-		view,
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
+		...v,
 		/** The view goes away as a reload takes it: no field is left, nothing is written. */
 		dropped() {
-			view.containerEl.remove();
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
+			v.view.containerEl.remove();
 		},
 	};
 }
 
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
-const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true }));
 const draftOf = (text) => norm(core.parseBooklet(text).records.drafts["day-check"]?.today ?? {});
 
 /* ---- gap 2 ---- */
@@ -196,28 +168,24 @@ test("gap 7 (core): a daily Finalize past the drawn day's last moment keeps the 
 	assert.deepEqual([g.replaced, g.entry.ts], [false, "2026-10-28T00:05:00Z"]);
 });
 
-test("gap 7 (view): a check-in drawn before midnight and finalized after it keeps writing to the day it shows; drawn again on the new day, today moves", async () => {
-	mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-25T23:58:00Z") });
-	try {
-		const env = appWith(DAILY);
-		const v = openOn(env, "Daily tracker.booklet.md");
-		const card = () => v.view.contentEl.querySelector('[data-booklet-activity="/evening-log"]');
-		const seed = () => card().querySelector(".booklet-seed").textContent;
-		assert.match(seed(), /^Showing today's entry/, "the 25th's entry is today's, drawn at 23:58");
-		mock.timers.setTime(Date.parse("2026-10-26T00:03:00Z"));
-		const clear = [...card().querySelectorAll('[data-booklet-q="sky"] button.booklet-choice')].find((b) => b.textContent.trim() === "Clear");
-		clear.click();
-		await v.settled();
-		card().querySelector(".booklet-finalize").click();
-		await v.settled();
-		const kept = norm(core.parseBooklet(env.disk.text).records.entries[""]["evening-log"]);
-		assert.equal(kept.length, 2, "the 25th's entry is replaced, not a new one added");
-		assert.deepEqual([kept[1].ts, kept[1].sky], ["2026-10-25T23:59:59Z", 1]);
-		// the window shown again on the new day: drawn again, and today is the 26th, with nothing kept yet
-		w.dispatchEvent(new w.Event("focus"));
-		assert.equal(seed(), "");
-		v.close();
-	} finally {
-		mock.timers.reset();
-	}
+test("gap 7 (view): a check-in drawn before midnight and finalized after it keeps writing to the day it shows; drawn again on the new day, today moves", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-25T23:58:00Z") });
+	const env = appWith(DAILY);
+	const v = openOn(env, "Daily tracker.booklet.md");
+	const card = () => v.view.contentEl.querySelector('[data-booklet-activity="/evening-log"]');
+	const seed = () => card().querySelector(".booklet-seed").textContent;
+	assert.match(seed(), /^Showing today's entry/, "the 25th's entry is today's, drawn at 23:58");
+	t.mock.timers.setTime(Date.parse("2026-10-26T00:03:00Z"));
+	const clear = [...card().querySelectorAll('[data-booklet-q="sky"] button.booklet-choice')].find((b) => b.textContent.trim() === "Clear");
+	clear.click();
+	await v.settled();
+	card().querySelector(".booklet-finalize").click();
+	await v.settled();
+	const kept = norm(core.parseBooklet(env.disk.text).records.entries[""]["evening-log"]);
+	assert.equal(kept.length, 2, "the 25th's entry is replaced, not a new one added");
+	assert.deepEqual([kept[1].ts, kept[1].sky], ["2026-10-25T23:59:59Z", 1]);
+	// the window shown again on the new day: drawn again, and today is the 26th, with nothing kept yet
+	w.dispatchEvent(new w.Event("focus"));
+	assert.equal(seed(), "");
+	v.close();
 });

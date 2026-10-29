@@ -6,59 +6,25 @@
  * reader leaves it, and where the change touched the same question, what the reader typed wins: it is the newer change.
  * A change that arrives is fed to the view as Obsidian does when the file changes: setViewData(text, false).
  */
-import { window as w } from "./dom.mjs";
+import { openView, press, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
-
-const { BookletView } = await import("./.build/view.mjs");
+import { ROOT, core, norm, sleep } from "./helpers.mjs";
 
 const NOTE = readFileSync(join(ROOT, "test-vault", "Every kind.booklet.md"), "utf8");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** A view open on a copy of the every-kind note; `disk` is the note as the vault holds it. */
 function open(text = NOTE) {
-	const disk = { text };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Every kind.booklet.md", basename: "Every kind.booklet" };
-	view.load();
-	void view.setState({ version: 1, screen: "activity:/kinds" }, {});
-	view.setViewData(text, true);
-	const q = (kind) => view.contentEl.querySelector(`[data-booklet-activity="/kinds"] .booklet-kind-${kind}`);
+	const v = openView(text, { path: "Every kind.booklet.md", screen: "activity:/kinds" });
 	return {
-		view,
-		disk,
-		q,
-		/** The note changed elsewhere: the vault holds the new text, and the view is handed it. */
-		changed(edit) {
-			disk.text = edit(disk.text);
-			view.setViewData(disk.text, false);
-		},
+		...v,
+		q: (kind) => v.view.contentEl.querySelector(`[data-booklet-activity="/kinds"] .booklet-kind-${kind}`),
 		/** The answers the vault holds now. */
-		answers: () => norm(core.parseBooklet(disk.text).records.answers[""] ?? {}),
-		/** Timers run and every write has landed. */
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
+		answers: () => norm(core.parseBooklet(v.disk.text).records.answers[""] ?? {}),
 		/** Is the view's drawing still the one it was (same card element)? */
-		card: () => view.contentEl.querySelector('[data-booklet-activity="/kinds"]'),
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
+		card: () => v.view.contentEl.querySelector('[data-booklet-activity="/kinds"]'),
 	};
 }
 
@@ -67,11 +33,6 @@ const prose = (word) => (t) => t.replace("any answer will do.", `any answer will
 /** The same question's answer changes in the records, as another device or a hand edit would. */
 const stored = (id, value) => (t) => core.setAnswer(t, "", id, value);
 const both = (...edits) => (t) => edits.reduce((x, e) => e(x), t);
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
-const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true }));
 
 /** Answers the number question with 7 and waits for it to be written. */
 async function sevenBoxes(v) {

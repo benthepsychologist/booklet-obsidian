@@ -794,8 +794,9 @@
 	padding-inline-start: var(--size-4-3);
 }
 
-/* a list: one line per row, the note beneath */
-.booklet-q-list {
+/* a list: one line per row, the note beneath (a list and tiles are lists with no bullets) */
+.booklet-q-list,
+.booklet-q-tiles {
 	list-style: none;
 	margin: 0;
 	padding: 0;
@@ -841,9 +842,6 @@
 
 /* tiles: a big value over a label; with no value anywhere, a strip of pills */
 .booklet-q-tiles {
-	list-style: none;
-	margin: 0;
-	padding: 0;
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(9em, 1fr));
 	gap: var(--size-4-2);
@@ -885,11 +883,7 @@
 	border-radius: var(--radius-l);
 }
 
-/* cards: a kept entry as a dated card (the entries' own look), a summary row led by its label */
-.booklet-q-cards .booklet-entry:last-of-type {
-	border-bottom: none;
-}
-
+/* cards: a kept entry as a dated card (the entries' own look: the .booklet-entry rules above, a phone's among them), a summary row led by its label */
 .booklet-q-cards > .booklet-q-card:not(.booklet-entry) {
 	padding: var(--size-4-2) var(--size-4-3);
 	margin-bottom: var(--size-4-2);
@@ -910,11 +904,6 @@
 
 .booklet-q-cards .booklet-q-card .booklet-q-big {
 	margin-top: var(--size-2-2);
-}
-
-/* on a phone, a kept entry's answers sit under their questions, as on an activity's own list */
-.is-phone .booklet-q-cards .booklet-entry dl {
-	grid-template-columns: 1fr;
 }
 
 /* on a phone, a table's cells sit closer, so its columns fit the card's width more often */

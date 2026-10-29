@@ -40,6 +40,7 @@ import {
 	placeState,
 	plainText,
 	planQuery,
+	questionsOf,
 	resolvePlace,
 	samePlace,
 	setAnswer,
@@ -67,7 +68,7 @@ import {
 	type WordPart,
 } from "./core";
 import { keepHeld, loadHeld } from "./held-store";
-import { drawQueryPlan } from "./query-view";
+import { drawQueryPlan, words } from "./query-view";
 import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
@@ -106,9 +107,6 @@ const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
-
-/** A kept entry's moment, in the reader's own words and time zone: "Tue, 27 Oct 2026, 14:02". */
-const when = whenText;
 
 /** The last second of a moment's day, on the device's calendar. */
 function endOfDay(d: Date): number {
@@ -556,9 +554,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// write what was typed and is still waiting, and own words typed in Add your own or a widget's field and not
 		// added yet, before the view lets go of the file (another note opened in the pane, the pane closed, the view
 		// switched to Markdown): leaving the note adds them as leaving the field would (SPEC section 5)
-		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
-		this.flushOwn(null);
-		await this.writes;
+		await this.saveTyped();
 		await super.onUnloadFile(file);
 	}
 
@@ -947,7 +943,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const seed = card.createDiv({ cls: "booklet-muted booklet-seed" });
 			const showSeed = () => {
 				const s = this.shown(a).seededFrom;
-				seed.setText(s ? `Showing today's entry, kept ${when(s.ts)}. Change an answer and finalize again to replace it.` : "");
+				seed.setText(s ? `Showing today's entry, kept ${whenText(s.ts)}. Change an answer and finalize again to replace it.` : "");
 			};
 			showSeed();
 			this.onShow(`activity:${a.scope}/${a.id}:seed`, showSeed);
@@ -1086,10 +1082,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			list.createEl("p", { cls: "booklet-muted", text: "No entries kept yet." });
 			return;
 		}
-		const qs = a.segments.filter((s): s is Question => s.type === "question");
+		const qs = questionsOf(a);
 		for (const e of open ? all : all.slice(0, ENTRIES_SHOWN)) {
 			const item = list.createDiv({ cls: "booklet-entry" });
-			item.createDiv({ cls: "booklet-entry-when", text: when(e.ts) });
+			item.createDiv({ cls: "booklet-entry-when", text: whenText(e.ts) });
 			const dl = item.createEl("dl");
 			let rows = 0;
 			for (const q of qs) {
@@ -1105,11 +1101,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					rows++;
 					const dt = dl.createEl("dt", { cls: "markdown-rendered" });
 					this.md(q.title || q.id, pick ? dt.createSpan({ cls: "booklet-inline markdown-rendered" }) : dt);
-					if (pick) {
-						dt.appendText(" · ");
-						if ("md" in pick) this.md(pick.md, dt.createSpan({ cls: "booklet-inline markdown-rendered" }));
-						else dt.appendText(pick.text);
-					}
+					if (pick) words(this, dt, [{ text: " · " }, pick]);
 					const dd = dl.createEl("dd");
 					if ("kept" in w) {
 						// an answer of the wrong shape is not put in words: it is said, and shown as written
@@ -1118,11 +1110,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					} else if ("list" in w) {
 						const ul = dd.createEl("ul");
 						for (const l of w.list) ul.createEl("li", { text: l });
-					} else
-						for (const p of w.parts) {
-							if ("md" in p) this.md(p.md, dd.createSpan({ cls: "booklet-inline markdown-rendered" }));
-							else dd.appendText(p.text);
-						}
+					} else words(this, dd, w.parts);
 				}
 			}
 			const ids = new Set(qs.map((q) => q.id));

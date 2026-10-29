@@ -2,13 +2,14 @@
  * A pane as Obsidian runs it, for the tests of the view's moves (test/navigation*.test.mjs): the booklet view on a fake leaf, over a
  * jsdom document, with the helpers that press a card, a tab or a pager button by its words.
  */
-import { window as w } from "./dom.mjs";
+import { testApp, window as w } from "./dom.mjs";
+import { sleep } from "./helpers.mjs";
 import assert from "node:assert/strict";
 
 process.env.TZ = "UTC";
 
 export const { BookletView } = await import("./.build/view.mjs");
-export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export { sleep };
 
 /**
  * A pane as Obsidian runs it, as far as the moves need: `setViewState` hands the state to the view and, when the view marks the
@@ -19,16 +20,8 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 	const disk = { text, writes: 0 };
 	const hist = { back: [], fwd: [] };
 	const flight = { busy: false, dropped: 0, calls: 0 };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.writes++;
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {}, getLeaf: () => leaf },
-	};
+	const app = testApp(disk, { workspace: { getLeaf: () => leaf } });
+
 	const leaf = {
 		app,
 		setViewState: async (vs) => {

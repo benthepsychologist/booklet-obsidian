@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { window as w } from "./dom.mjs";
+import { typeInto } from "./dom.mjs";
 import { pane, sleepFor, sleep } from "./pane.mjs";
 
 const BOOK = `---
@@ -55,10 +55,7 @@ function device() {
 	return { store, open };
 }
 const own = (p) => p.all("input.booklet-text").find((i) => i.getAttribute("data-booklet-key"));
-const type = (i, v) => {
-	i.value = v;
-	i.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
+const type = typeInto;
 const held = (d) => [...d.store.values()].map((v) => JSON.parse(v)).flatMap((o) => Object.values(o));
 
 test("a reload adds the words held for an activity that is not on the screen it reopens on", async () => {
