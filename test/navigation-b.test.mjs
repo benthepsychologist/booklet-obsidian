@@ -57,7 +57,7 @@ test("a link from another note into the check-in opens Today, the only place wit
 	p.close();
 });
 
-test("a link from another note is a step; words nothing holds, a block link, and a note not yet drawn are handled", async () => {
+test("a link from another note moves the pane without a step of its own (Obsidian opening the note is the step); words nothing holds, a block link, and a note not yet drawn are handled", async () => {
 	const p = pane(SAMPLE);
 	await sleepFor(p);
 	const steps = p.hist.back.length;
@@ -70,9 +70,9 @@ test("a link from another note is a step; words nothing holds, a block link, and
 	assert.equal(p.hist.back.length, steps);
 	p.view.setEphemeralState({ subpath: "#Cast shadows" });
 	await p.settled();
-	assert.equal(p.hist.back.length, steps + 1);
-	await p.back();
-	assert.equal(p.screen, "home");
+	assert.equal(p.screen, "activity:basics/shadow");
+	assert.equal(p.hist.back.length, steps, "Obsidian's own opening of the note is the step; the view adds none, which it could not (a move asked of the pane during an opening is dropped)");
+	assert.equal(p.flight.calls, 0, "no move was asked of the pane");
 	p.close();
 
 	// handed over before the note is drawn: the note opens there

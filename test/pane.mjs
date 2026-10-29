@@ -74,7 +74,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		get screen() {
 			return el.querySelector(".booklet-page")?.getAttribute("data-booklet-screen");
 		},
-		trail: () => all(".booklet-trail > *:not(.booklet-trail-sep)").map(words),
+		trail: () => all(".booklet-trail > *").map(words),
 		cards: () => all(".booklet-cardrow").map((r) => words(r.querySelector(".booklet-cardtitle"))),
 		cardRows: () => all(".booklet-cardrow"),
 		tabs: () => all(".booklet-tabbtn").map(words),

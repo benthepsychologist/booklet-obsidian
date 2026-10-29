@@ -925,8 +925,11 @@
 	text-decoration: underline;
 }
 
-.booklet-trail-sep {
+/* the slash after a crumb belongs to it, so a wrapped trail never starts a line with one */
+.booklet-trail-link::after {
+	content: "/";
 	color: var(--text-faint);
+	margin-left: var(--size-4-2);
 }
 
 .booklet-trail-here {
@@ -1104,6 +1107,14 @@
 	margin: var(--size-4-3) 0 var(--size-4-4);
 }
 
+.booklet-tabbtn {
+	height: auto;
+	min-height: var(--input-height);
+	max-width: 100%;
+	white-space: normal;
+	text-align: start;
+}
+
 .booklet-tabbtn p {
 	margin: 0;
 }
@@ -1122,6 +1133,18 @@
 	display: inline-flex;
 	align-items: center;
 	gap: var(--size-4-2);
+	/* a long title wraps inside its button instead of running past the screen */
+	height: auto;
+	min-height: var(--input-height);
+	max-width: 100%;
+	white-space: normal;
+	text-align: start;
+	padding-block: var(--size-4-2);
+}
+
+.booklet-pager button > span:not(.booklet-pager-icon) {
+	min-width: 0;
+	overflow-wrap: anywhere;
 }
 
 .booklet-pager button p {
@@ -1167,4 +1190,11 @@
 	background-color: var(--background-secondary);
 	border-radius: var(--radius-s);
 	padding: 0 var(--size-2-3);
+}
+
+/* touch: every control at least 44 px tall (Obsidian's own phone mode is the measure) */
+.is-mobile .booklet-tabbtn,
+.is-mobile .booklet-pager button,
+.is-mobile .booklet-cardrow {
+	min-height: 44px;
 }

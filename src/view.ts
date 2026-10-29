@@ -325,7 +325,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		const hit = findHeading(this.nav, words, null);
-		if (hit) this.followHeading(hit, false);
+		if (!hit) return;
+		// Obsidian hands this over while it is still opening the note in the pane, and drops a second move asked of the pane then
+		// (design 4.2), so the place is taken here, not through the pane: Obsidian's own opening is the step the reader's Back undoes.
+		const place = resolvePlace(this.nav, this.keepTabFor(hit, this.place));
+		this.flushAll();
+		if (samePlace(this.place, place)) {
+			if (hit.heading) this.scrollToHeading(hit.heading);
+			return;
+		}
+		this.headingTo = hit.heading;
+		this.setPlace(place);
+		this.draw(false);
+		this.app.workspace.requestSaveLayout();
 	}
 
 	/** Takes `p` as the place on show: remembered for this pane, and the part of its tab remembered for as long as the pane is open. */

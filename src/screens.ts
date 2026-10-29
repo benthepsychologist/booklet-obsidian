@@ -27,8 +27,8 @@ export interface Crumb {
 /** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). */
 export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]): void {
 	const nav = page.createEl("nav", { cls: "booklet-trail", attr: { "aria-label": "Where you are" } });
-	crumbs.forEach((c, i) => {
-		if (i) nav.createSpan({ cls: "booklet-trail-sep", text: "/", attr: { "aria-hidden": "true" } });
+	// the slash after each crumb but the last is drawn by the stylesheet, so it stays on the line its crumb ends on
+	crumbs.forEach((c) => {
 		const to = c.to;
 		if (to) {
 			const link = nav.createEl("a", { cls: "booklet-trail-link", attr: { href: "#" } });
