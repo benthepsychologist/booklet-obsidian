@@ -111,7 +111,7 @@ npm test         # bundles src/core and src/view.ts with esbuild, then runs node
 
 `npm test` also runs queries: what the reader takes from a query block and reports (a key a query does not have, `limit: week`, `summary: yes`, a span or a summary where no entries are kept, `group:` on a summary, and a query that cannot be drawn), kept entries as rows, a span of days on a faked clock and in more than one time zone (across midnight, and across a change of clocks), and the summary rules (counting, ties, the reader's own options, zeros, rounding, locale, `empty:`), the check-in note's roll-up, the four views drawn in the view, and that drawing writes nothing. Each of the 0.5.0 fixes has a test that fails without it: words typed and not added kept through a reload and added before a quit, a comma label typed whole stored as its item, today taken when the view is drawn, and answers of the wrong shape counted once among the note's problems.
 
-`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, fifteen checks in all; see `e2e/README.md`.
+`e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, twenty-three checks in all; see `e2e/README.md`.
 
 ## Releasing
 
