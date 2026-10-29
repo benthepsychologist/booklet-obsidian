@@ -6,8 +6,13 @@ Version 0.5.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). A not
 
 ## What it draws
 
-- **Openings**: the booklet's opening text (the prose before its first module or activity, under the booklet's title) and each module's (the text in the module before its first activity, under the module's title), rendered by Obsidian. A heading that repeats the title is not drawn twice.
-- **Activities**, each as a card: its title, its prose (rendered by Obsidian, so links, images, callouts, hints and solutions look as they do in Reading view), and its questions.
+- **One screen at a time.** A booklet opens on **home**: a card for each module and each activity that is in no module, as numbered rows. A module has a screen of its own, with its opening and its activities as cards (tab by tab when the module has tabs), and an activity has one too: its opening, a tab bar, and one page at a time. A booklet that offers one activity opens into it; one with a single module of several activities opens on that module's screen; `start: home` keeps home. Activities marked `hidden` are not drawn and do not count. Which screen, tab and page is showing is saved in Obsidian's own workspace file with the pane, never in the note, so it comes back after a restart and Obsidian's Back and Forward arrows walk through it. The note's own bytes are never changed by moving about.
+- **Cards**: a title, a picture, a blurb and a status line. The picture is the line's `icon:` (any of Booklet's 161 icon names, drawn by Obsidian's own Lucide set) or a leading emoji, else the card's number. The blurb is the activity's first paragraph. The status line is the file's own (a `>` line under the activity line, or `status: off` for none), else worked out: "3 pages", "2 questions", "1 of 2 answered", "Done", entries kept, and "N reads" for the folded notes a person reads.
+- **Moving about**: a card opens its screen; the trail at the top of every screen below home names where you are and each step above it is a link; the pager at the foot of an activity has Back, "Page 2 of 3" and Next, and Next on the last page goes on to the next activity in reading order (first child, next sibling, back up), also between activities that are in no module. Choosing another tab is not a step in Back and Forward; a page, an activity or a screen is. Each tab keeps the page last seen there while the pane is open. The tab bar takes the arrow keys, Home and End. A tab chosen while a page is turning ends on that tab, and a double press on Next turns one page.
+- **`tab:`, `parent:` and a module's notice**: a module's tabs hold its activities as the activities' `tab:` settings say (an unknown one joins the first tab); a page break (`***`, or `---` after a blank line) makes a new page; `parent:` is drawn as an "Under this one" list of cards, with the parent named in the trail and "Up: <parent>" on the pager; a module's notice (licence, copyright, source, version, from a `[!notice]` callout, or from the front matter of a file with one module) is a closed "About this module" disclosure, with a source linked only when it is a web address.
+- **Links**: `[[#Heading]]` and `[words](#slug)` inside a note open the first place in that module whose heading, activity title, tab name, question or callout title reads those words, as a step in Back and Forward (Ctrl or Cmd opens a new pane); words nothing holds are plain text. A link to a module (`[[week-2.booklet]]`) opens it if the booklet holds it and otherwise reads "not in this booklet", and never creates a note. A link from another note, `[[Check-in.booklet#Today]]`, opens the screen, tab and page that hold the words, looking through the whole file for the first match.
+- **Openings**: the booklet's opening text (under the booklet's title on home) and each module's (under the module's title), rendered by Obsidian. A heading that repeats the title is not drawn twice.
+- **Activities**: an activity's prose (rendered by Obsidian, so links, images, callouts, hints and solutions look as they do in Reading view), and its questions. Finalize, its note and the kept entries of an activity that repeats are drawn under a page only on a tab that holds a question (or when the opening above every tab does).
 - **The seven common question kinds**, stored the way the format and its reference renderer store them:
 
   | Kind | How it is answered | What is stored |
@@ -48,15 +53,14 @@ Each of these says "Not yet supported" in the view, and is left in the note exac
 - `tiles` of a question asked for each pick named alone in `from:` (a table, a list or cards show it), and the summary of a `matrix` question
 - sorting and filtering a query's rows on screen
 - questions inside a `group`, or inside any other callout (the callout is shown as Obsidian shows it)
-- the tab bar: tabs are drawn one under another
-- pages: a page break (`***`) is drawn as a rule, with the pages one under another; steps (a group at a time) are not drawn either
-- a module's notice
+- steps (a group at a time, within a page)
+- page trees: an activity's `parent:` is drawn as plain cards, and there is no tree menu, no tree search, and no "Mentioned on" list
 - marking an answer right or wrong (`[x]` options): the options are shown, with a note that marking is not supported
 - a question of a kind other than `multi` asked for each pick (`each:`): its answers are kept
 
 A setting a line's kind does not take (`mx:5` for `max:5`, `open` on a `scale`) is listed among the note's problems and ignored, as the format says; `each:` and `earlier:`, which the plugin draws, are not.
 
-Also not done yet: deleting or editing a kept entry, an activity's `icon:`, `parent:`, `status:` and `tab:` settings, data sections, themes, and languages other than English for the view's own words. Activities marked `hidden` are not drawn, as the format says.
+Also not done yet: deleting or editing a kept entry, data sections, themes, and languages other than English for the view's own words. A link to a block (`#^id`) does nothing.
 
 ## What it writes, and what it never does
 
