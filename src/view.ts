@@ -23,6 +23,7 @@ import {
 	hasScreen,
 	holdsSomething,
 	homePlace,
+	inlineMd,
 	isStep,
 	isoSecond,
 	localDay,
@@ -848,7 +849,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (plain) t.setText(title);
 		else {
 			t.addClass("markdown-rendered");
-			this.md(title, t);
+			this.md(inlineMd(title), t);
 		}
 		return head;
 	}
@@ -890,7 +891,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	private drawHome(page: HTMLElement, nav: NavModel, book: Booklet): void {
 		const t = page.createDiv({ cls: "booklet-screenhead" }).createDiv({ cls: "booklet-screentitle", attr: { role: "heading", "aria-level": "1" } });
-		t.setText(this.bookTitle(nav));
+		t.addClass("markdown-rendered");
+		this.md(inlineMd(this.bookTitle(nav)), t);
 		const o = book.openings.find((x) => x.module === null);
 		if (o) this.opening(page, o.markdown);
 		drawCards(this, page, this.homeRows(nav, book));
@@ -911,7 +913,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (tab) {
 			if (bar) drawTabBar(this, page, m.tabs, tab.id, m.title, (id) => this.go({ screen: place.screen, tab: id, part: 0 }, { focusTab: true }));
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
-			else this.md(tab.title, page.createDiv({ cls: "booklet-tab markdown-rendered" }));
+			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
 			if (tab.md) this.md(tab.md, page.createDiv({ cls: "booklet-prose markdown-rendered" }));
 			if (bar) tops = m.top.filter((x) => x.modTab === tab.id);
 		}
@@ -957,7 +959,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
 		if (bar.length) drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true }));
 		// with no tab bar, an activity's one tab is shown under its name
-		else if (na.named) this.md(tab.title, card.createDiv({ cls: "booklet-tab markdown-rendered" }));
+		else if (na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });

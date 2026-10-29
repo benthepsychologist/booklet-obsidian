@@ -222,6 +222,19 @@ export function linkless(md: string): string {
 	return md.replace(/\[\[(?:[^\]|]*\|)?([^\]]*)\]\]/g, (_m, a: string) => a.replace(/^#/, "")).replace(/\[([^\]]*)\]\([^)]*\)/g, "$1");
 }
 
+/**
+ * A title, a crumb or a status line is one line of inline Markdown (SPEC: every title is inline Markdown): words that would start a
+ * block when the line is rendered on its own ("2026. Mood log" is an ordered list, "# x" a heading, "- x" a bullet, "> x" a quote)
+ * are read as the words they are, by escaping the character that would start the block.
+ */
+export function inlineMd(md: string): string {
+	const text = md.replace(/\s*\n\s*/g, " ").trim();
+	const num = /^(\d{1,9})([.)])(?=\s|$)/.exec(text);
+	if (num) return `${num[1]}\\${text.slice(num[1]!.length)}`;
+	if (/^([#>]|[-+*](?=\s|$)|`{3,}|~{3,}|([-*_=])\2{2,}\s*$)/.test(text)) return `\\${text}`;
+	return text;
+}
+
 /* ---- pages ---- */
 
 /**

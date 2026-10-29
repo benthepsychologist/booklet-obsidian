@@ -5,7 +5,7 @@
  * The view decides what a press does: this file only draws, and calls back.
  */
 import { setIcon } from "obsidian";
-import { linkless, type Place } from "./core";
+import { inlineMd, linkless, type Place } from "./core";
 import { BOOKLET_ICONS } from "./booklet-icons";
 
 /** What these parts need from the view. */
@@ -32,12 +32,12 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]):
 		const to = c.to;
 		if (to) {
 			const link = nav.createEl("a", { cls: "booklet-trail-link", attr: { href: "#" } });
-			host.md(linkless(c.md), link.createSpan({ cls: "booklet-inline markdown-rendered" }));
+			host.md(inlineMd(linkless(c.md)), link.createSpan({ cls: "booklet-inline markdown-rendered" }));
 			link.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				host.go(to);
 			});
-		} else host.md(linkless(c.md), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: { "aria-current": "page" } }));
+		} else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: { "aria-current": "page" } }));
 	});
 }
 
@@ -92,11 +92,11 @@ export function drawCards(host: ScreenHost, page: HTMLElement, rows: CardRow[]):
 		const text = row.createDiv({ cls: "booklet-cardtext" });
 		const title = text.createDiv({ cls: "booklet-cardtitle" });
 		title.createSpan({ cls: "booklet-num", text: `${r.n}.` });
-		host.md(linkless(r.title), title.createSpan({ cls: "booklet-cardtitle-words booklet-inline markdown-rendered" }));
+		host.md(inlineMd(linkless(r.title)), title.createSpan({ cls: "booklet-cardtitle-words booklet-inline markdown-rendered" }));
 		if (r.blurb) text.createDiv({ cls: "booklet-blurb", text: r.blurb });
 		if (r.status) {
 			const st = text.createDiv({ cls: "booklet-status" });
-			if (r.statusMd) host.md(linkless(r.status), st.createSpan({ cls: "booklet-inline markdown-rendered" }));
+			if (r.statusMd) host.md(inlineMd(linkless(r.status)), st.createSpan({ cls: "booklet-inline markdown-rendered" }));
 			else st.setText(r.status);
 		}
 		setIcon(row.createDiv({ cls: "booklet-chevron", attr: { "aria-hidden": "true" } }), "lucide-chevron-right");
@@ -124,7 +124,7 @@ export function drawTabBar(host: ScreenHost, into: HTMLElement, tabs: { id: stri
 	for (const t of tabs) {
 		const on = t.id === current;
 		const b = bar.createEl("button", { cls: on ? "booklet-tabbtn is-active mod-cta" : "booklet-tabbtn", attr: { role: "tab", "aria-selected": on ? "true" : "false", tabindex: on ? "0" : "-1", "data-booklet-tab": t.id } });
-		host.md(linkless(t.title), b.createSpan({ cls: "booklet-inline markdown-rendered" }));
+		host.md(inlineMd(linkless(t.title)), b.createSpan({ cls: "booklet-inline markdown-rendered" }));
 		b.addEventListener("click", (evt) => {
 			evt.preventDefault();
 			if (!on) choose(t.id);
@@ -162,7 +162,7 @@ export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton
 		const icon_ = () => setIcon(el.createSpan({ cls: "booklet-pager-icon", attr: { "aria-hidden": "true" } }), icon);
 		if (before) icon_();
 		const words = el.createSpan({ cls: b.md ? "booklet-inline markdown-rendered" : "booklet-pager-words" });
-		if (b.md) host.md(linkless(b.words), words);
+		if (b.md) host.md(inlineMd(linkless(b.words)), words);
 		else words.setText(b.words);
 		if (!before) icon_();
 		el.addEventListener("click", (evt) => {
