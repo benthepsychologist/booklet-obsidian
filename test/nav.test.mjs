@@ -274,13 +274,14 @@ test("a link to a whole module: the name before .booklet, any # part dropped; th
 
 /* ---- places ---- */
 
-test("a place is saved as { version, screen, tab, part } and read back; one from another version, or no place at all, is none", () => {
+test("a place is saved as { version, screen, tab, part } and read back; one from an unknown version, or no place at all, is none", () => {
 	const p = { screen: "activity:basics/lines", tab: null, part: 2 };
-	assert.deepEqual(norm(core.placeState(p)), { version: 1, screen: "activity:basics/lines", part: 2 });
+	assert.deepEqual(norm(core.placeState(p)), { version: 2, screen: "activity:basics/lines", part: 2 });
 	assert.deepEqual(norm(core.placeFrom(core.placeState(p))), p);
 	assert.deepEqual(norm(core.placeFrom(core.placeState({ screen: "module:basics", tab: "read", part: 0 }))), { screen: "module:basics", tab: "read", part: 0 });
 	assert.equal(core.placeFrom({ screen: "home" }), null, "no version");
-	assert.equal(core.placeFrom({ version: 2, screen: "home", part: 0 }), null, "another version");
+	assert.equal(core.placeFrom({ version: 3, screen: "home", part: 0 }), null, "another version");
+	assert.equal(core.placeFrom({ version: 0, screen: "home", part: 0 }), null, "another version");
 	assert.equal(core.placeFrom({ version: 1, screen: 7 }), null);
 	assert.equal(core.placeFrom(null), null);
 	assert.deepEqual(norm(core.placeFrom({ version: 1, screen: "home", part: -3, tab: "" })), { screen: "home", tab: null, part: 0 });

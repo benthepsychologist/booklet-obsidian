@@ -34,7 +34,8 @@ import {
 	moduleStatus,
 	moduleTitle,
 	newestFirst,
-	nextOf,
+	pageAtPart,
+	pagerOf,
 	parseBooklet,
 	placeFrom,
 	placeState,
@@ -60,10 +61,12 @@ import {
 	type NavAct,
 	type NavMod,
 	type NavModel,
+	type PagerStep,
 	type Place,
 	type Question,
 	type QuerySegment,
 	type Segment,
+	type TreePage,
 	type ShownDraft,
 	type WordPart,
 } from "./core";
@@ -271,7 +274,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** Saved by Obsidian into the workspace layout, beside which note the pane shows: never into the note. */
 	override getState(): Record<string, unknown> {
 		const s = super.getState();
-		if (this.place) Object.assign(s, placeState(this.place));
+		if (this.place) Object.assign(s, placeState(this.place, this.nav ?? undefined));
 		return s;
 	}
 
@@ -385,8 +388,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.moving = true;
 		this.stepWanted = true;
-		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p) };
+		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p, this.nav) };
 		if (!p.tab) delete state["tab"];
+		if (state["page"] !== undefined && !("page" in placeState(p, this.nav))) delete state["page"]; // the page left is not the page asked for
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
 			.catch(() => undefined)
@@ -419,7 +423,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private followHeading(hit: { place: Place; heading: string | null; keepTab: boolean }, pane: ReturnType<typeof Keymap.isModEvent>): void {
 		const place = this.keepTabFor(hit, this.place);
 		if (pane && this.file && this.nav) {
-			void this.app.workspace.getLeaf(pane).setViewState({ type: VIEW_TYPE, state: { file: this.file.path, ...placeState(resolvePlace(this.nav, place)) }, active: true });
+			void this.app.workspace.getLeaf(pane).setViewState({ type: VIEW_TYPE, state: { file: this.file.path, ...placeState(resolvePlace(this.nav, place), this.nav) }, active: true });
 			return;
 		}
 		this.go(place, { heading: hit.heading, step: true });
@@ -924,7 +928,21 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		for (let p = na.parent; p; p = p.parent) ups.unshift(p);
 		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p) });
 		const mt = single ? moduleTitle(nav, m) : null;
-		crumbs.push({ md: mt ? mt.title : na.title, to: null });
+		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
+		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
+		const bar = barTabs(na);
+		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
+		const shownAt = Math.min(place.part, tab.pages.length - 1);
+		const here = pageAtPart(tab, shownAt).page;
+		const above: TreePage[] = [];
+		for (let q = here.parent; q; q = q.parent) above.unshift(q);
+		const onTree = here.named && !!here.parent;
+		crumbs.push({ md: mt ? mt.title : na.title, to: onTree ? activityPlace(na) : null });
+		if (onTree) {
+			if (bar.length) crumbs.push({ md: tab.title, to: { screen: place.screen, tab: tab.id, part: 0 } });
+			for (const q of above) crumbs.push({ md: q.written || q.title, to: { screen: place.screen, tab: place.tab, part: q.at } });
+			crumbs.push({ md: here.written || here.title, to: null });
+		}
 		drawTrail(this, page, crumbs);
 
 		const card = page.createDiv({ cls: "booklet-card booklet-act" });
@@ -945,17 +963,16 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (single) this.opening(card, m.opening);
 		// what comes before the first tab line is the activity's opening, shown above the tab bar and on every tab
 		this.drawSegs(card, a, na.opening);
-		const bar = barTabs(na);
-		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
 		if (bar.length) drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true }));
 		// with no tab bar, an activity's one tab is shown under its name
 		else if (na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
-		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });
-		// a named page's title heads its first part (until the view moves through the tree, the pager walks the parts of every page in turn)
-		const named = tab.tree.find((x) => x.named && x.at === at);
-		if (named) this.md(inlineMd(named.written || named.title), body.createDiv({ cls: "booklet-pagetitle markdown-rendered" }));
+		const pager = pagerOf(na, tab, place);
+		const counter = pager.of > 1 ? (pager.pageLines ? `${pager.at + 1} of ${pager.of}` : `Page ${pager.at + 1} of ${pager.of}`) : null;
+		const body = card.createDiv({ cls: "booklet-pagebody", attr: counter ? { role: "group", "aria-label": counter } : {} });
+		// a named page's title heads each of its parts (the trail names only the pages above it)
+		if (pager.page.named) this.md(inlineMd(pager.page.written || pager.page.title), body.createDiv({ cls: "booklet-pagetitle markdown-rendered" }));
 		this.drawSegs(body, a, pages[at] ?? []);
 		if (na.children.length) {
 			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
@@ -968,15 +985,25 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (this.showsFinish(na, tab)) this.drawFinish(card, a);
 
 		// the pager: Back, the counter, Next (SPEC section 3, pages)
-		const back: PagerButton = at > 0 ? { words: "Back", md: false, to: { ...place, part: at - 1 } } : na.parent ? { words: `Up: ${na.parent.title}`, md: true, to: activityPlace(na.parent) } : { words: "Back to the overview", md: false, to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
-		const following = nextOf(na);
-		const next: PagerButton | null =
-			at < pages.length - 1
-				? { words: "Next", md: false, to: { ...place, part: at + 1 } }
-				: following
-					? { words: m.bare ? `Next: ${following.title}` : `Next: ${following.number}. ${following.title}`, md: true, to: activityPlace(following) }
-					: null;
-		drawPager(this, page, back, at, pages.length, next);
+		const button = (st: PagerStep): PagerButton => {
+			switch (st.kind) {
+				case "part":
+					return { words: st.to.part < place.part ? "Back" : "Next", md: false, to: st.to };
+				case "before":
+					return { words: "Back", md: false, to: st.to };
+				case "up":
+					return { words: `Up: ${st.page.written || st.page.title}`, md: true, to: st.to };
+				case "next-page":
+					return { words: `Next: ${st.page.written || st.page.title}`, md: true, to: st.to };
+				case "up-activity":
+					return { words: `Up: ${st.act.title}`, md: true, to: st.to };
+				case "next-activity":
+					return { words: m.bare ? `Next: ${st.act.title}` : `Next: ${st.act.number}. ${st.act.title}`, md: true, to: st.to };
+				case "overview":
+					return { words: "Back to the overview", md: false, to: st.to };
+			}
+		};
+		drawPager(this, page, button(pager.back), pager.at, pager.of, pager.next ? button(pager.next) : null, pager.pageLines);
 		if (single) drawNotice(page, m.notice);
 	}
 

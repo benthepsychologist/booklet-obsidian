@@ -189,7 +189,7 @@ Two p2
       await click(o, ".booklet-cardrow", "The basics");
       s = await state(o);
       c.ok(s.screen === "module:basics" && s.back === 1, `into a module is a step: ${s.screen}, history ${s.back}`);
-      c.ok(s.vs && s.vs.version === 1 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
+      c.ok(s.vs && s.vs.version === 2 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
       await click(o, ".booklet-tabbtn", "Read first");
       s = await state(o);
       c.ok(s.tab === "Read first" && s.back === 1, `another tab is no step: ${s.tab}, history ${s.back}`);
@@ -468,7 +468,7 @@ Two p2
       i2 = await info();
       c.ok(i2.expanded === "false", "coming back, the first activity is still folded: " + i2.expanded);
       st = await state(o);
-      c.ok(JSON.stringify(st.vs) === stateBefore && Object.keys(st.vs).every(k => ["file", "version", "screen", "tab", "part"].includes(k)), "the saved place holds only file, version, screen, tab and part: " + JSON.stringify(st.vs));
+      c.ok(JSON.stringify(st.vs) === stateBefore && Object.keys(st.vs).every(k => ["file", "version", "screen", "tab", "page", "part"].includes(k)), "the saved place holds only file, version, screen, tab, page and part: " + JSON.stringify(st.vs));
       await sleep(1500);
       c.ok(sha(two) === h0, "folding wrote nothing into the note");
       // the fold on a phone

@@ -154,9 +154,10 @@ export interface PagerButton {
 /**
  * Back, "Page 2 of 3" and Next, at the foot of an activity (SPEC section 3, pages), after the page, not pinned: the reader meets
  * Next where they finish reading. Back leads out from the first page ("Up: <parent>", else "Back to the overview"); Next on the last
- * page goes to the next activity ("Next: 3. Title", no number between bare activities).
+ * page goes to the next activity ("Next: 3. Title", no number between bare activities). In a tab of pages (page trees) `at` and `of` count
+ * the parts of the page on show, and the counter says "2 of 3" (`noPageWord`), not "Page 2 of 3": a part is not a page there.
  */
-export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton | null, at: number, of: number, next: PagerButton | null): void {
+export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton | null, at: number, of: number, next: PagerButton | null, noPageWord = false): void {
 	const foot = page.createDiv({ cls: "booklet-pager" });
 	const button = (b: PagerButton, cls: string, icon: string, before: boolean) => {
 		const el = foot.createEl("button", { cls });
@@ -171,7 +172,7 @@ export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton
 	if (back) button(back, "booklet-pager-back", "lucide-arrow-left", true);
 	else foot.createSpan({ cls: "booklet-pager-gap" });
 	// the counter keeps the middle even when nothing follows the page
-	if (of > 1) foot.createSpan({ cls: "booklet-pager-at", text: `Page ${at + 1} of ${of}` });
+	if (of > 1) foot.createSpan({ cls: "booklet-pager-at", text: noPageWord ? `${at + 1} of ${of}` : `Page ${at + 1} of ${of}` });
 	else foot.createSpan({ cls: "booklet-pager-gap" });
 	if (next) button(next, "mod-cta booklet-pager-next", "lucide-arrow-right", false);
 }

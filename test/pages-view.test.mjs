@@ -30,12 +30,12 @@ test("every place of a note with page lines draws, and nothing is written to the
 	}
 });
 
-test("a named page's title heads its first part, and its parts follow one another: the wiki tab walked from its first page to its last", async () => {
+test("a named page's title heads each of its parts, and Next walks the wiki tab from its first page to its last", async () => {
 	const p = pane(CHECKIN, { state: state("activity:calm/check-in", "wiki", 0) });
 	await p.settled();
 	assert.deepEqual(p.tabs(), ["Learn", "Check in", "Past check-ins"]);
 	assert.deepEqual(titles(p), [], "the tab's own first page has no page line, so no page title");
-	assert.equal(p.pager().at, "Page 1 of 9");
+	assert.equal(p.pager().at, "", "the first page is one part");
 	const seen = [];
 	for (let i = 0; i < 8; i++) {
 		await p.pageNext();
@@ -43,7 +43,7 @@ test("a named page's title heads its first part, and its parts follow one anothe
 		assert.equal(p.all("[data-booklet-q]").length, 0, "a page line is no question: nothing on the wiki tab asks anything");
 	}
 	// depth first: the body map, its two pages, the grid, its two pages (the first in two parts), the last page
-	assert.deepEqual(seen, ["The body map", "Choosing a place", "Words for what you notice", "The feelings grid", "The two axes", "", "More than one at once", "Thoughts as headlines"]);
+	assert.deepEqual(seen, ["The body map", "Choosing a place", "Words for what you notice", "The feelings grid", "The two axes", "The two axes", "More than one at once", "Thoughts as headlines"]);
 	assert.deepEqual(p.pager().buttons, ["Back"], "the last part of the last page: Back only, there is no activity after it");
 	assert.equal(sha(p.disk.text), sha(CHECKIN));
 	p.close();
@@ -104,6 +104,6 @@ test("a link by a page's title in the prose opens the page on its first part", a
 	p.view.setEphemeralState({ subpath: "#Words for what you notice" });
 	await p.settled();
 	assert.deepEqual(titles(p), ["Words for what you notice"]);
-	assert.equal(p.pager().at, "Page 4 of 9");
+	assert.equal(p.pager().at, "", "a page of one part has no counter");
 	p.close();
 });

@@ -13,18 +13,24 @@ import { holdsSomething } from "./shape";
 
 export const HOME = "home";
 
-/** The version written with a saved place: a later release can tell a place that came from this one (view state). */
-export const PLACE_VERSION = 1;
+/**
+ * The version written with a saved place: a later release can tell a place that came from this one (view state). Version 1 (release
+ * 0.6.0) had no page key; 2 (page trees) adds it. A place of either is read (placeFrom).
+ */
+export const PLACE_VERSION = 2;
 
 /**
  * Where the reader is: the screen (`home`, `module:<id>` or `activity:<module id>/<activity id>`, the module id empty
  * for a bare activity), the tab on show (a tab's id, null where the screen has no tab bar), and the part of the tab on
- * show, counted from 0 (a stretch between page breaks: SPEC's "page", the pages round's working word).
+ * show, counted from 0 (a stretch between page breaks: SPEC's "page", the pages round's working word). With a tree of named pages, `part`
+ * counts every part of the tab in reading order (the tab's `pages`); a place read from a saved view state may instead carry `page`, the
+ * id of a named page, and then `part` counts within that page (resolvePlace turns it into the first kind; a drawn place never has `page`).
  */
 export interface Place {
 	screen: string;
 	tab: string | null;
 	part: number;
+	page?: string;
 }
 
 export const actKey = (scope: string, id: string) => `${scope}/${id}`;
@@ -44,22 +50,38 @@ export function isStep(from: Place | null, to: Place): boolean {
 	return from.tab === to.tab && from.part !== to.part;
 }
 
-/** A place as the view saves it: `{ version, screen, tab, part }`, `tab` left out when there is none. */
-export function placeState(p: Place): { version: number; screen: string; tab?: string; part: number } {
-	return { version: PLACE_VERSION, screen: p.screen, ...(p.tab ? { tab: p.tab } : {}), part: p.part };
+/**
+ * A place as the view saves it: `{ version, screen, tab, page, part }`, `tab` left out when there is none and `page` left out unless a
+ * named page is on show (the page's id; `part` is then within that page). With no page key, or with no `nav` to find the page in,
+ * `part` counts every part of the tab, exactly as release 0.6.0 saved it, so a 0.16 note saves what it did but for the version.
+ */
+export function placeState(p: Place, nav?: NavModel): { version: number; screen: string; tab?: string; page?: string; part: number } {
+	const base = { version: PLACE_VERSION, screen: p.screen, ...(p.tab ? { tab: p.tab } : {}) };
+	const a = nav && p.screen.startsWith("activity:") ? nav.byKey.get(p.screen.slice(9)) : undefined;
+	const tab = a ? tabShown(a, p.tab) : null;
+	const at = tab ? pageAtPart(tab, p.part) : null;
+	if (at?.page.named) return { ...base, page: at.page.id, part: at.part };
+	return { ...base, part: p.part };
 }
 
-/** A place read back from a saved view state: null when it is not one this release wrote (another version, or not a place). */
+/**
+ * A place read back from a saved view state: null when it is not one this or release 0.6.0 wrote (another version, or not a place). A
+ * version 1 place has no page key and its `part` counts every part of the tab, as 0.6.0 read it; one saved by a device on 0.6.0 or 0.7.0
+ * therefore opens where it was.
+ */
 export function placeFrom(state: unknown): Place | null {
 	if (!state || typeof state !== "object") return null;
 	const s = state as Record<string, unknown>;
-	if (s["version"] !== PLACE_VERSION || typeof s["screen"] !== "string" || !s["screen"]) return null;
+	const version = s["version"];
+	if ((version !== 1 && version !== PLACE_VERSION) || typeof s["screen"] !== "string" || !s["screen"]) return null;
 	const part = s["part"];
 	const tab = s["tab"];
+	const page = s["page"];
 	return {
 		screen: s["screen"],
 		tab: typeof tab === "string" && tab ? tab : null,
 		part: typeof part === "number" && Number.isInteger(part) && part >= 0 ? part : 0,
+		...(version === PLACE_VERSION && typeof page === "string" && page ? { page } : {}),
 	};
 }
 
@@ -727,14 +749,84 @@ export function resolvePlace(nav: NavModel, p: Place | null): Place {
 	if (!a) return start;
 	const bar = barTabs(a);
 	const tab = bar.length ? (bar.find((t) => t.id === p.tab)?.id ?? (bar[0] as ActTab).id) : null;
-	const shown = bar.length ? (bar.find((t) => t.id === tab) as ActTab) : (a.tabs[0] as ActTab);
+	const shown = tabShown(a, tab) as ActTab;
+	// a place that names a page (version 2) counts its part within that page; a page the note no longer has opens the tab's first page
+	if (p.page !== undefined) {
+		const pg = shown.tree.find((x) => x.named && x.id === p.page);
+		return { screen: p.screen, tab, part: pg ? pg.at + Math.min(Math.max(0, p.part), pg.parts.length - 1) : 0 };
+	}
 	return { screen: p.screen, tab, part: Math.min(Math.max(0, p.part), Math.max(0, shown.pages.length - 1)) };
+}
+
+/** The tab a screen shows for a tab id: the one with the id on a screen with a tab bar (the first when it has none of that id), else the activity's one tab. */
+function tabShown(a: NavAct, id: string | null | undefined): ActTab | null {
+	const bar = barTabs(a);
+	return bar.length ? (bar.find((t) => t.id === id) ?? (bar[0] as ActTab)) : (a.tabs[0] ?? null);
+}
+
+/** The page that holds the part at `at` of a tab's parts, and the part's place within it. */
+export function pageAtPart(tab: ActTab, at: number): { page: TreePage; part: number; index: number } {
+	let index = tab.tree.findIndex((x) => at >= x.at && at < x.at + x.parts.length);
+	if (index < 0) index = 0;
+	const page = tab.tree[index] as TreePage;
+	return { page, part: Math.min(Math.max(0, at - page.at), page.parts.length - 1), index };
 }
 
 /** The next activity: its first child, then its next sibling, then back up (SPEC section 3, `parent:`), within its module. Null on the last. */
 export function nextOf(na: NavAct): NavAct | null {
 	const o = na.mod.order;
 	return o[o.indexOf(na) + 1] ?? null;
+}
+
+/**
+ * One button of the pager: where it leads and what it is called by. `part` is another part of the page on show; `before` the top page
+ * before the one on show; `up` the page above it; `next-page` the next page in reading order; `up-activity`, `overview` and
+ * `next-activity` leave the tab as 0.6.0 did (the activity above, the module's screen or home, the next activity).
+ */
+export type PagerStep =
+	| { kind: "part"; to: Place }
+	| { kind: "before" | "up" | "next-page"; page: TreePage; to: Place }
+	| { kind: "up-activity" | "next-activity"; act: NavAct; to: Place }
+	| { kind: "overview"; to: Place };
+
+export interface Pager {
+	back: PagerStep;
+	/** Null on the last part of the tab's last page when no activity follows. */
+	next: PagerStep | null;
+	/** The part on show within its page, counted from 0, and how many parts the page has. */
+	at: number;
+	of: number;
+	/** Does the tab hold a page line? Then the counter reads "2 of 3" (pages round, call D (b)); else "Page 2 of 3" as 0.6.0 did. */
+	pageLines: boolean;
+	/** The page on show. */
+	page: TreePage;
+}
+
+/**
+ * Back and Next (design/pages/proposal.md section 3). Back on a later part goes to the part before; on a page's first part it goes up
+ * to the page above, else to the top page before it (on its first part), and from the tab's first page it leaves the activity as
+ * 0.6.0 did. Next on a part before the last goes to the next part; on a page's last part it goes to the next page in reading order,
+ * and from the tab's last page to the next activity. Back and Next never go to another tab. `place` is a resolved one.
+ */
+export function pagerOf(na: NavAct, tab: ActTab, place: Place): Pager {
+	const at = Math.min(place.part, tab.pages.length - 1);
+	const { page, part, index } = pageAtPart(tab, at);
+	const go = (flat: number): Place => ({ screen: place.screen, tab: place.tab, part: flat });
+	const m = na.mod;
+	let back: PagerStep;
+	if (part > 0) back = { kind: "part", to: go(page.at + part - 1) };
+	else if (index === 0) back = na.parent ? { kind: "up-activity", act: na.parent, to: activityPlace(na.parent) } : { kind: "overview", to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
+	else if (page.parent) back = { kind: "up", page: page.parent, to: go(page.parent.at) };
+	else {
+		const before = tab.top[tab.top.indexOf(page) - 1] ?? (tab.tree[index - 1] as TreePage);
+		back = { kind: "before", page: before, to: go(before.at) };
+	}
+	const following = nextOf(na);
+	let next: PagerStep | null = null;
+	if (part < page.parts.length - 1) next = { kind: "part", to: go(page.at + part + 1) };
+	else if (tab.tree[index + 1]) next = { kind: "next-page", page: tab.tree[index + 1] as TreePage, to: go((tab.tree[index + 1] as TreePage).at) };
+	else if (following) next = { kind: "next-activity", act: following, to: activityPlace(following) };
+	return { back, next, at: part, of: page.parts.length, pageLines: tab.tree.some((x) => x.named), page };
 }
 
 /** The activity a module link names (`[[week-2.booklet]]`: the module `week-2`), if the booklet holds that module with something to show. */
