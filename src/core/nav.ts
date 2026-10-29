@@ -7,7 +7,7 @@
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
-import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
+import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
 
 /* ---- places ---- */
@@ -206,13 +206,19 @@ export function plainText(md: string): string {
 		.trim();
 }
 
-/** The first paragraph of some Markdown that is plain prose (not a heading, a quote, a list or a fence), as plain words. */
+/**
+ * The first paragraph of some Markdown that is plain prose (not a heading, a quote, a list or a fence), as plain words. A paragraph
+ * ends at a thematic break written straight under its text (`- - -`, `***`); one underlined as a heading (`===`, `---`) is a heading.
+ */
 export function firstParagraph(md: string): string {
-	const para = md
-		.replace(/<!--[\s\S]*?-->/g, "")
-		.split(/\n{2,}/)
-		.find((p) => p.trim() && !/^\s*(#|>|[-*+] |\d+[.)] |`{3}|~{3})/.test(p));
-	return plainText(para ?? "");
+	for (const p of md.replace(/<!--[\s\S]*?-->/g, "").split(/\n{2,}/)) {
+		if (!p.trim() || /^\s*(#|>|[-*+] |\d+[.)] |`{3}|~{3})/.test(p)) continue;
+		const lines = p.split("\n");
+		if (lines.some((l, i) => i > 0 && /^ {0,3}(=+|-+)[ \t]*$/.test(l))) continue;
+		const cut = lines.findIndex((l, i) => i > 0 && isThematicBreak(l, true));
+		return plainText((cut < 0 ? lines : lines.slice(0, cut)).join("\n"));
+	}
+	return "";
 }
 
 /** A card or a button holds no link: a link is its words (the words of an inline link, `[[a|b]]` its b). */
@@ -252,7 +258,7 @@ function splitAtBreaks(markdown: string): string[][] {
 		}
 		const above = lines[i - 1];
 		const textAbove = i > 0 && !isBlank(above) && !(above ?? "").startsWith(">");
-		if (THEMATIC_BREAK.test(l) && !(/^ {0,3}-/.test(l) && textAbove)) out.push([]);
+		if (isThematicBreak(l, textAbove)) out.push([]);
 		else here.push(l);
 	});
 	return out;
@@ -380,7 +386,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 			continue;
 		}
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
-		if (THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
+		if (isThematicBreak(ln, !isBlank(lines[i - 1]))) continue;
 		into.push(ln);
 	}
 	const ids = uniqueIds(found.map((t, n) => t.id ?? tabIdOf(t.title, n + 1)));

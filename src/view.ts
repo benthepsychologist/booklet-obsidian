@@ -126,6 +126,9 @@ const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwn
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
 
+/** Does this part ask for an answer: a question, or a question of a common kind that cannot be drawn (it has no id)? */
+const asksAnAnswer = (s: Segment): boolean => s.type === "question" || (s.type === "unsupported" && (COMMON_KINDS as readonly string[]).includes(s.kind));
+
 /** The last second of a moment's day, on the device's calendar. */
 function endOfDay(d: Date): number {
 	const e = new Date(d.getTime());
@@ -200,6 +203,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private stepWanted = false;
 	/** The tab bar's chosen tab takes focus when the screen is drawn (a key moved the choice). */
 	private focusTab = false;
+	/** A press moved to another screen or page: after the drawing, focus goes to its title, or to the page, so a keyboard reader starts there. */
+	private focusScreen = false;
 	/** A heading to scroll to once the screen is drawn (a heading link). */
 	private headingTo: string | null = null;
 	/** The words of a link from another note (`[[Note.booklet#Words]]`), handed over before the note was drawn. */
@@ -402,6 +407,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		this.headingTo = opts.heading ?? null;
+		if (!opts.focusTab && !opts.heading) this.focusScreen = true;
 		if (!step) {
 			this.setPlace(p);
 			this.draw(false);
@@ -805,7 +811,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const na = nav.byKey.get(place.screen.slice(9));
 			if (na) this.drawActivityScreen(page, nav, na, place);
 		}
-		if (moved) root.scrollTop = 0;
+		if (moved) {
+			root.scrollTop = 0;
+			if (this.focusScreen) this.focusMoved(page, !!shown && shown.screen === place.screen);
+		}
 		this.commitHeldOffscreen(nav, restored.map(([k]) => k));
 		for (const [k] of restored) this.ownFields.get(k)?.commit();
 		if (this.rendering === 0) this.drawn();
@@ -828,8 +837,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const na of acts) {
 				const into = this.contentEl.createDiv();
 				into.remove();
-				const asked = (segs: readonly Segment[]) => segs.filter((x) => x.type === "question");
-				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, asked(segs));
+				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, segs.filter(asksAnAnswer));
 			}
 			for (const k of want) this.ownFields.get(k)?.commit();
 		} finally {
@@ -837,6 +845,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const k of [...this.widgets.keys()]) if (!widgets.has(k)) this.widgets.delete(k);
 			for (const k of [...this.ownFields.keys()]) if (!fields.has(k)) this.ownFields.delete(k);
 		}
+	}
+
+	/** After a press that moved: focus goes to the new screen's title, or (the same screen, another page) to the page, as a keyboard reader's next step. */
+	private focusMoved(page: HTMLElement, samePage: boolean): void {
+		this.focusScreen = false;
+		const to = (samePage ? page.querySelector<HTMLElement>(".booklet-pagebody") : null) ?? page.querySelector<HTMLElement>(".booklet-screentitle");
+		if (!to) return;
+		to.setAttr("tabindex", "-1");
+		to.focus({ preventScroll: true });
 	}
 
 	/** Every piece of Markdown in the drawing is rendered: a heading a link led to is scrolled into view, a scroll position kept is restored. */
@@ -944,15 +961,21 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		let tops = m.top;
 		const bar = m.tabs.length > 1;
 		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? (m.tabs[0] as ModTab)) : (m.tabs[0] ?? null);
+		// what a tab holds (its prose and its cards) is the tab's panel
+		let panel = page;
 		if (tab) {
-			if (bar) drawTabBar(this, page, m.tabs, tab.id, m.title, (id) => this.go({ screen: place.screen, tab: id, part: 0 }, { focusTab: true }));
+			if (bar) {
+				const asPanel = drawTabBar(this, page, m.tabs, tab.id, m.title, (id) => this.go({ screen: place.screen, tab: id, part: 0 }, { focusTab: true }));
+				panel = page.createDiv({ cls: "booklet-tabpanel" });
+				asPanel(panel);
+			}
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
 			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
-			if (tab.md) this.md(tab.md, page.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
+			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
 			if (bar) tops = m.top.filter((x) => x.modTab === tab.id);
 		}
 		const rows = (): CardRow[] => tops.map((x) => this.actRow(x, x.number));
-		drawCards(this, page, rows());
+		drawCards(this, panel, rows());
 		this.watchCards(rows);
 		drawNotice(page, m.notice);
 	}
@@ -993,12 +1016,20 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.drawSegs(card, a, na.opening);
 		const bar = barTabs(na);
 		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
-		if (bar.length) drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true }));
+		const asPanel = bar.length ? drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true })) : null;
 		// with no tab bar, an activity's one tab is shown under its name
-		else if (na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
+		if (!asPanel && na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });
+		// under a tab bar the page body is the chosen tab's panel (named by its tab; the page count is its description)
+		if (asPanel) {
+			asPanel(body);
+			if (pages.length > 1) {
+				body.removeAttribute("aria-label");
+				body.setAttr("aria-description", `Page ${at + 1} of ${pages.length}`);
+			}
+		}
 		const stepKey = (part: number) => `${place.screen}#${tab.id}#${part}`;
 		const blocks = treeOf(pages[at] ?? []);
 		const { lead, steps } = stepsOf(blocks);
@@ -1059,8 +1090,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * tab of queries, has nothing to finalize. Applies to 0.16 files too.
 	 */
 	private showsFinish(na: NavAct, tab: ActTab): boolean {
-		const asks = (s: Segment) => s.type === "question" || (s.type === "unsupported" && (COMMON_KINDS as readonly string[]).includes(s.kind));
-		return na.opening.some(asks) || tab.pages.some((pg) => pg.some(asks));
+		return na.opening.some(asksAnAnswer) || tab.pages.some((pg) => pg.some(asksAnAnswer));
 	}
 
 	private drawSegs(into: HTMLElement, a: Activity, segs: readonly Segment[]): void {

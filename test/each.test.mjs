@@ -5,7 +5,7 @@
  * the reader's own options offered under every pick and in later entries, and the reader's field and press kept safe
  * as copies come and go around them. The view runs over a jsdom document on the test vault's made-up check-in note.
  */
-import { openView, typeInto, window as w } from "./dom.mjs";
+import { openView, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -502,7 +502,8 @@ test("each in the view: a press lands while a copy above it is taken away by a c
 	w.document.dispatchEvent(new w.Event("pointerup", { bubbles: true }));
 	assert.ok(target.isConnected);
 	target.click();
-	await v.settled(350);
+	await until(() => JSON.stringify(v.draft().feelings) === JSON.stringify(["lively"]), "the press written");
+	await v.settled();
 	assert.deepEqual(v.draft().felt, [{ pick: "lively", a: [1] }]);
 	assert.deepEqual(v.draft().feelings, ["lively"]);
 	assert.deepEqual(v.heads(), ["Lively"]);

@@ -4,12 +4,12 @@
  * view's own buttons and fields, and what the note then holds is read back. A field for words of the reader's own
  * is never replaced by a change to the note while the reader is in it (the 0.1.0 rule), and keeps its words.
  */
-import { openView, press, testApp, typeInto, window as w } from "./dom.mjs";
+import { openView, press, testApp, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm, sleep } from "./helpers.mjs";
+import { ROOT, core, norm } from "./helpers.mjs";
 
 const NOTE = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
@@ -88,7 +88,8 @@ test("the grid: a cell's field keeps its words while the note changes under it, 
 	await v.settled();
 	assert.deepEqual(v.draft().feelings, ["settled", "x|agitating|loud", "x|soothing|Unhurried"]);
 	field.blur();
-	await v.settled(50);
+	await until(() => v.view.contentEl.textContent.includes("MARK-GRID"), "the view drawn again");
+	await v.settled();
 	assert.ok(v.view.contentEl.textContent.includes("MARK-GRID"), "after the reader left the field, the view is drawn again");
 	v.close();
 });
@@ -142,7 +143,8 @@ test("the places: the field of the open place keeps its words while the note cha
 	assert.equal(field.value, "Flutter");
 	assert.equal(button(v.places(), "Heavy").getAttribute("aria-pressed"), "true", "the panel shows the note's answer");
 	field.blur();
-	await v.settled(50);
+	await until(() => v.view.contentEl.textContent.includes("MARK-PLACES"), "the view drawn again");
+	await v.settled();
 	assert.ok(v.view.contentEl.textContent.includes("MARK-PLACES"));
 	// leaving the field added its words to what the note then held; drawn again, the same place is open
 	assert.deepEqual(v.draft().places, [{ id: "chest", s: ["heavy", "Flutter"] }]);
@@ -247,7 +249,7 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	assert.ok(!view.contentEl.textContent.includes("MARK-ELSEWHERE"));
 	buffer = changed;
 	for (const [name, cb] of listeners) if (name === "editor-change") cb(md.editor, md);
-	await sleep(20);
+	await until(() => view.getViewData() === changed, "the view to take the change");
 	assert.equal(view.getViewData(), changed);
 	assert.ok(view.contentEl.textContent.includes("MARK-ELSEWHERE"), "the change, once in the Markdown pane's editor, is drawn");
 	v.close();

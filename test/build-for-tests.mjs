@@ -31,7 +31,7 @@ await esbuild.build({
 	logLevel: "warning",
 });
 await esbuild.build({
-	stdin: { contents: 'export { drawPicture } from "./src/screens"; export { BOOKLET_ICONS } from "./src/booklet-icons";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export { drawPicture } from "./src/screens"; export { BOOKLET_ICONS } from "./src/booklet-icons"; export { numericColumns } from "./src/query-view";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",

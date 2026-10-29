@@ -12,7 +12,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm, sleep } from "./helpers.mjs";
+import { ROOT, core, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
@@ -55,7 +55,7 @@ test("gap 2: words typed in Add your own and not added survive a reload: kept on
 	assert.ok([...env.store.values()].some((v) => v.includes("The library")), "kept on the device as it is typed");
 	// the reload: the page goes, with no blur and no write
 	one.dropped();
-	await sleep(20);
+	await one.view.writes;
 	assert.deepEqual(draftOf(env.disk.text), {}, "nothing was written before the reload");
 	const two = openOn(env, "Check-in.booklet.md");
 	await two.settled();

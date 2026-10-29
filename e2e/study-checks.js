@@ -3,6 +3,7 @@
 //   questions on a phone), and a question asked for each pick of another (`each:`), of several kinds.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
+const { quiet, drawing, frames, mobile } = require("./waits");
 
 module.exports = function studyChecks(env) {
   const { withApp, Check, SHOTS, sleep, BOOK, waitActiveType } = env;
@@ -20,18 +21,18 @@ module.exports = function studyChecks(env) {
   const goTo = async (o, screen) => {
     await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
     await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
-    await sleep(900);
+    await quiet(o);
   };
   const open = async (o, rel) => {
     await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 10000, polling: 100 });
     await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
     await waitActiveType(o, "booklet", 20000);
     await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
-    await sleep(700);
+    await quiet(o);
   };
   const q = id => BOOK + " [data-booklet-q='" + id + "']";
-  const press = async (o, sel, text) => { await o.page.locator(sel + " button").filter({ hasText: text }).first().click({ timeout: 6000 }); await sleep(400); };
-  const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "start" }), sel); await sleep(250); };
+  const press = async (o, sel, text) => { await o.page.locator(sel + " button").filter({ hasText: text }).first().click({ timeout: 6000 }); await quiet(o); };
+  const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "start" }), sel); await frames(o); };
   // what a question box shows about marking
   const marks = (o, sel) => o.evaluate(sel => {
     const box = document.querySelector(sel);
@@ -68,8 +69,8 @@ module.exports = function studyChecks(env) {
       m = await marks(o, q("flyer"));
       c.ok(m.marks[0].endsWith("[wrong]") && m.marks[1].endsWith("[answer]") && /^Not quite\. The answer is/.test(m.live) && m.replies.length === 1 && /swim/.test(m.replies[0]), "a wrong pick is marked wrong, the answer is shown, and the pick's own reply shows: " + JSON.stringify(m));
       await shot(o, "marked-choice-wrong-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "marked-choice-wrong-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("dark"); await frames(o); await shot(o, "marked-choice-wrong-desktop-dark");
+      await o.setScheme("light"); await frames(o);
       m = await marks(o, q("drink"));
       await press(o, q("drink"), "Tea");
       m = await marks(o, q("drink"));
@@ -97,9 +98,9 @@ module.exports = function studyChecks(env) {
       await press(o, q("primaries") + " .booklet-acts", "Check");
       await scrollTo(o, q("primaries"));
       await shot(o, "marked-multi-wrong-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "marked-multi-wrong-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
-      await sleep(1500);
+      await o.setScheme("dark"); await frames(o); await shot(o, "marked-multi-wrong-desktop-dark");
+      await o.setScheme("light"); await frames(o);
+      await quiet(o);
       const a1 = recordsOf(vault, "marked");
       const text1 = fs.readFileSync(file, "utf8");
       c.ok(a1.flyer === 1 && JSON.stringify(a1.primaries) === "[1,3,4,5]" && !/right|wrong|checked/i.test(text1.slice(text1.indexOf("%%"))), "the answers kept are the picks only (flyer 1, primaries 1 3 4 5), and no mark is written into the note: " + JSON.stringify(a1));
@@ -112,13 +113,13 @@ module.exports = function studyChecks(env) {
       await press(o, q("topics") + " .booklet-mxitem:nth-child(3)", "Getting there");
       await scrollTo(o, q("topics"));
       await shot(o, "matrix-grid-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "matrix-grid-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
-      await sleep(1500);
+      await o.setScheme("dark"); await frames(o); await shot(o, "matrix-grid-desktop-dark");
+      await o.setScheme("light"); await frames(o);
+      await quiet(o);
       c.ok(JSON.stringify(recordsOf(vault, "grid-quiz").topics) === "[2,null,1]", "pressing an anchor for the first and third item keeps [2, null, 1]: " + JSON.stringify(recordsOf(vault, "grid-quiz")));
       await press(o, q("topics") + " .booklet-mxitem:nth-child(1)", "Sure");
       await press(o, q("topics") + " .booklet-mxitem:nth-child(3)", "Getting there");
-      await sleep(1500);
+      await quiet(o);
       c.ok(recordsOf(vault, "grid-quiz").topics === undefined, "pressing the picked anchors again clears them, and an answer with no item left is not kept: " + JSON.stringify(recordsOf(vault, "grid-quiz")));
       await press(o, q("topics") + " .booklet-mxitem:nth-child(2)", "Not yet");
 
@@ -136,7 +137,7 @@ module.exports = function studyChecks(env) {
       await o.page.locator(q("crop-note") + " [data-booklet-pick='n:1'] input.booklet-text").fill("Sweet and crunchy");
       await o.page.locator(q("crop-note") + " [data-booklet-pick='n:1'] input.booklet-text").blur();
       await press(o, q("crop-pests") + " [data-booklet-pick='n:3'] .booklet-mxitem:nth-child(2)", "A few");
-      await sleep(1800);
+      await quiet(o);
       const ea = recordsOf(vault, "each-quiz");
       c.ok(JSON.stringify((ea["crop-where"] || []).map(p => [p.pick, p.a])) === "[[1,1],[3,2]]", "the choice copies keep a pair for each pick: " + JSON.stringify(ea["crop-where"]));
       c.ok(JSON.stringify(ea["crop-rate"].map(p => [p.pick, p.a])) === "[[3,2]]" && JSON.stringify(ea["crop-note"].map(p => [p.pick, p.a])) === '[[1,"Sweet and crunchy"]]' && JSON.stringify(ea["crop-pests"].map(p => [p.pick, p.a])) === "[[3,[null,1]]]", "and so do the scale, text and matrix copies: " + JSON.stringify([ea["crop-rate"], ea["crop-note"], ea["crop-pests"]]));
@@ -146,16 +147,16 @@ module.exports = function studyChecks(env) {
       c.ok(m.marks[1].endsWith("[right]") && m.live === "Right.", "and Potato's copy is marked right: " + JSON.stringify(m));
       await scrollTo(o, q("crop-where"));
       await shot(o, "each-copies-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "each-copies-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("dark"); await frames(o); await shot(o, "each-copies-desktop-dark");
+      await o.setScheme("light"); await frames(o);
       await press(o, q("crops"), "Carrot");
       e = await o.evaluate(sel => document.querySelectorAll(sel + " [data-booklet-q='crop-where'] .booklet-copy").length, BOOK);
-      await sleep(1500);
+      await quiet(o);
       c.ok(e === 1 && (recordsOf(vault, "each-quiz")["crop-where"] || []).length === 2, "taking Carrot back removes its copy from the screen and keeps its pair in the note: copies " + e + ", pairs " + (recordsOf(vault, "each-quiz")["crop-where"] || []).length);
       await press(o, q("crops"), "Carrot");
 
       /* ---- a restart: what was kept is drawn again ---- */
-      await sleep(1200);
+      await quiet(o);
       const h0 = sha(file);
       await open(o, STUDY);
       await goTo(o, "activity:/each-quiz");
@@ -165,10 +166,10 @@ module.exports = function studyChecks(env) {
 
       /* ---- the phone ---- */
       await o.page.setViewportSize({ width: 390, height: 844 });
-      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      await mobile(o, true);
       await open(o, STUDY);
       for (const scheme of ["light", "dark"]) {
-        await o.setScheme(scheme); await sleep(500);
+        await o.setScheme(scheme); await frames(o);
         await goTo(o, "activity:/marked");
         await scrollTo(o, q("flyer"));
         await shot(o, "marked-choice-wrong-phone-" + scheme);
@@ -195,7 +196,7 @@ module.exports = function studyChecks(env) {
       const held = await o.evaluate(sel => getComputedStyle(document.querySelector(sel + " > .booklet-prompt")).position, q("topics"));
       c.ok(held === "sticky", "phone: the matrix's own words are held at the top while its items scroll (position " + held + ")");
       await o.page.setViewportSize({ width: 1280, height: 800 });
-      await o.evaluate(() => app.emulateMobile(false)); await sleep(1500);
+      await mobile(o, false);
       await open(o, STUDY);
       await goTo(o, "activity:/grid-quiz");
       g = await o.evaluate(sel => document.querySelector(sel).classList.contains("booklet-mx-stacked"), q("topics"));

@@ -50,7 +50,7 @@ plugins" on the restricted-mode prompt (fallback `app.plugins.setEnable(true)`),
   if no modal is open and the editor has focus (`app.workspace.activeEditor.editor.focus()`).
 
 ## Run the plugin check (`plugin-check.js`)
-Drives the "Booklet" plugin in the real Obsidian and checks twenty-five things, each on its own fresh Obsidian launch (checks 11, 12 and 15 on two, check 13 on three),
+Drives the "Booklet" plugin in the real Obsidian and checks twenty-six things, each on its own fresh Obsidian launch (checks 11, 12 and 15 on two, check 13 on three),
 its own fresh copy of the vault and its own scratch config folder (all under `<out>/work-<time>/`; `--vault` itself is
 never written to):
 1. a booklet note opens as the `booklet` view (file-explorer click and `getLeaf().openFile`), toggles to `markdown` and back (header actions and the command), and `Ordinary note.md` stays `markdown`;
@@ -76,9 +76,10 @@ Checks 16 to 23 are in `nav-checks.js` (0.6.0, one screen at a time; the notes t
 21. *icons*: every one of Booklet's 161 names draws by its `lucide-` id, on a card and by Obsidian's own `setIcon`, and a name Obsidian lacks is caught;
 22. the finish only under a tab that holds a question, and the kept-entries fold with 0, 1, 4 and 25 entries: its count, open to begin with, shut and opened by a press, Enter and Space, kept for each activity, not in the saved place, nothing written, 44 px on a phone; screenshots of each, light and dark, desktop and phone;
 23. the phone (Obsidian's phone mode at 390 x 844, light and dark): no sideways scroll, controls at 44 px, the pager clear of the floating bar, a long trail and a long pager wrapping, seven tabs on rows, the tab bar's arrow, Home and End keys.
-Checks 24 and 25 are in `study-checks.js` (0.7.0 stage A) and `reading-checks.js` (0.7.0 stage B); their notes are test-vault notes (`Study quiz`, `Reading and steps`), all made up.
+Checks 24, 25 and 26 are in `study-checks.js` (0.7.0 stage A), `reading-checks.js` (stage B) and `leftovers-checks.js` (stage C); their notes are test-vault notes (`Study quiz`, `Reading and steps`) or written into the check's own copy of the vault, all made up. The checks wait for a state they can read, not a guessed time (`waits.js`: the view has nothing under way, it has drawn again, a theme or scroll is applied, Obsidian's phone mode is back); `nav-checks.js` and these three use it, and the older checks 1 to 15 still have fixed waits of their own.
 24. marking (a choice and a multi, right and wrong, replies, Check), a matrix (a grid on a desktop, separate questions on a phone) and `each:` of every kind, desktop and phone, light and dark, nothing about marking written;
 25. a question inside a group and inside a tip answered and kept, a folded group opened and shut, steps one at a time (Back and Next moving a step, no step in Obsidian's Back and Forward, the choice kept on the device and never in the note), a row's cells side by side and stacked on a phone, footnote marks opening their source (quotation, verified date, a plain reference, Escape), `diff`, `law` and `opinion` in their own border, picture and colour, and on a phone no sideways scroll and every control 44 px or taller (an inline source mark apart);
+26. (`leftovers-checks.js`, 0.7.0 stage C) the 0.6.0 leftovers: a tab bar named in plain words and the chosen tab's panel (module and activity screens), focus on a screen's title after Enter on a card and on the page after Next with the keyboard, `- - -` under text as a page break, and a 240-row table's numeric column, on a desktop and on a phone, light and dark, nothing written.
 10. no console error or warning that names the plugin, and no uncaught page error, over every check that ran (it runs last, whatever order `--only` gives), and the Obsidian sessions it watched.
 It also lists every console error/warning, `pageerror`s and Obsidian's stdout/stderr error lines, and the time each launch and check took.
 ```

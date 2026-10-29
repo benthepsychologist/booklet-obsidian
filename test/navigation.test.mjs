@@ -4,11 +4,11 @@
  * Back and Forward, a restored pane, links inside a note, and the rule that no move writes anything into the note.
  * Every note is made up.
  */
-import { window as w } from "./dom.mjs";
+import { window as w, quiet } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, core, norm, sha } from "./helpers.mjs";
-import { BookletView, pane, sleep } from "./pane.mjs";
+import { BookletView, pane } from "./pane.mjs";
 
 /* ---- the three screens ---- */
 
@@ -180,12 +180,12 @@ test("each tab keeps the page last seen while the pane is open", async () => {
 test("a tab chosen while a page is turning ends on that tab; a double press on Next turns one page", async () => {
 	const text = `---\nbooklet: "0.16"\ntitle: Quick hands\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
 	const p = pane(text, { delay: 40 });
-	await sleep(60);
+	await p.settled();
 	const press = (sel, label) => p.all(sel).find((b) => p.words(b).startsWith(label)).dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
 	// the turn is under way (its state not yet landed) when the tab is chosen
 	press(".booklet-pager button", "Next");
 	press(".booklet-tabbtn", "Two");
-	await sleep(160);
+	await p.settled();
 	assert.equal(p.tabOn(), "Two", "the last thing asked for is where the reader ends");
 	assert.equal(p.pager().at, "Page 1 of 2");
 	// the page turn itself landed first: tab One is on page 2
@@ -195,7 +195,7 @@ test("a tab chosen while a page is turning ends on that tab; a double press on N
 	const callsBefore = p.flight.calls;
 	press(".booklet-pager button", "Next");
 	press(".booklet-pager button", "Next");
-	await sleep(160);
+	await p.settled();
 	assert.equal(p.pager().at, "Page 3 of 3");
 	assert.equal(p.flight.calls - callsBefore, 1, "the second press made no second move");
 	p.close();
@@ -257,7 +257,7 @@ test("the place is kept when a pane toggles to Markdown and back: the leaf remem
 	view2.file = { path: "Note.booklet.md", basename: "Note.booklet" };
 	view2.load();
 	view2.setViewData(SKETCH, true);
-	await sleep(15);
+	await quiet(view2);
 	assert.equal(view2.contentEl.querySelector(".booklet-page").getAttribute("data-booklet-screen"), "activity:basics/lines");
 	assert.match(view2.contentEl.querySelector(".booklet-pager-at").textContent, /Page 2 of 3/);
 	view2.unload();

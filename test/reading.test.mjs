@@ -4,13 +4,13 @@
  * format's own reading kinds. Core rules run on the core; what is drawn runs over the made-up "Reading and steps" note in
  * the view (test/pane.mjs). Every note is made up. Each rule has a test that fails without it.
  */
-import { window as w, typeInto } from "./dom.mjs";
+import { window as w, typeInto, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
-import { pane, sleep } from "./pane.mjs";
+import { pane } from "./pane.mjs";
 
 const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
 const head = 'booklet: "0.16"';
@@ -404,8 +404,8 @@ test("a typed answer in a step's question is written the way it is outside one",
 	f.focus();
 	typeInto(f, "The sun pulls too");
 	f.blur();
+	await until(() => p.disk.text.includes("The sun pulls too"), "the answer written");
 	await p.settled();
-	await sleep(20);
 	assert.deepEqual(norm(core.parseBooklet(p.disk.text).records.answers[""]), { "sun-note": "The sun pulls too" });
 	p.close();
 });

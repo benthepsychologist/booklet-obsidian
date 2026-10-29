@@ -1536,3 +1536,10 @@
 .is-mobile .booklet-callout.is-collapsible > .callout-title {
 	min-height: 44px;
 }
+
+/* a screen's title and a page take focus after a move so a keyboard reader starts there; they are not controls, so they show no ring */
+.booklet-view .booklet-screentitle:focus,
+.booklet-view .booklet-pagebody:focus,
+.booklet-view .booklet-tabpanel:focus {
+	outline: none;
+}

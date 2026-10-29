@@ -5,7 +5,7 @@
  * The view decides what a press does: this file only draws, and calls back.
  */
 import { setIcon } from "obsidian";
-import { inlineMd, linkless, type Place } from "./core";
+import { inlineMd, linkless, plainText, type Place } from "./core";
 import { BOOKLET_ICONS } from "./booklet-icons";
 
 /** What these parts need from the view. */
@@ -16,6 +16,8 @@ export interface ScreenHost {
 	go(to: Place): void;
 	/** Is there a request to put focus back on the tab bar's chosen tab (a key moved the choice, and the screen was drawn again)? Taken once. */
 	takeTabFocus(): boolean;
+	/** A fresh id for the page's elements to point at each other with. */
+	uid(): string;
 }
 
 /** One link of the trail: a place to go to, or (the last) the screen itself. */
@@ -118,14 +120,21 @@ export function drawCards(host: ScreenHost, page: HTMLElement, rows: CardRow[]):
 
 /**
  * The tab bar: Obsidian's own buttons that wrap onto another row when they do not fit, the chosen one in the accent colour.
- * A tablist for a screen reader: arrow keys, Home and End move the choice (as the reference's does).
+ * A tablist for a screen reader: arrow keys, Home and End move the choice (as the reference's does). It returns what makes
+ * the chosen tab's content its panel: the tab names the panel it controls, and the panel is named by the tab.
  */
-export function drawTabBar(host: ScreenHost, into: HTMLElement, tabs: { id: string; title: string }[], current: string, label: string, choose: (id: string) => void): void {
-	const bar = into.createDiv({ cls: "booklet-tabbar", attr: { role: "tablist", "aria-label": label } });
+export function drawTabBar(host: ScreenHost, into: HTMLElement, tabs: { id: string; title: string }[], current: string, label: string, choose: (id: string) => void): (panel: HTMLElement) => void {
+	const bar = into.createDiv({ cls: "booklet-tabbar", attr: { role: "tablist", "aria-label": plainText(label) } });
 	const buttons: HTMLElement[] = [];
+	const panelId = host.uid();
+	let chosen: HTMLElement | null = null;
 	for (const t of tabs) {
 		const on = t.id === current;
-		const b = bar.createEl("button", { cls: on ? "booklet-tabbtn is-active mod-cta" : "booklet-tabbtn", attr: { role: "tab", "aria-selected": on ? "true" : "false", tabindex: on ? "0" : "-1", "data-booklet-tab": t.id } });
+		const b = bar.createEl("button", { cls: on ? "booklet-tabbtn is-active mod-cta" : "booklet-tabbtn", attr: { role: "tab", id: host.uid(), "aria-selected": on ? "true" : "false", tabindex: on ? "0" : "-1", "data-booklet-tab": t.id } });
+		if (on) {
+			b.setAttr("aria-controls", panelId);
+			chosen = b;
+		}
 		host.md(inlineMd(linkless(t.title)), b.createSpan({ cls: "booklet-inline markdown-rendered" }));
 		onPress(b, () => {
 			if (!on) choose(t.id);
@@ -141,6 +150,11 @@ export function drawTabBar(host: ScreenHost, into: HTMLElement, tabs: { id: stri
 		if (t.id !== current) choose(t.id);
 	});
 	if (host.takeTabFocus()) buttons[Math.max(0, tabs.findIndex((t) => t.id === current))]?.focus({ preventScroll: true });
+	return (panel) => {
+		panel.setAttr("id", panelId);
+		panel.setAttr("role", "tabpanel");
+		if (chosen) panel.setAttr("aria-labelledby", chosen.id);
+	};
 }
 
 /** What the pager's two buttons say and do. */

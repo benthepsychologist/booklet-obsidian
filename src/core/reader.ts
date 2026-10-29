@@ -30,6 +30,14 @@ function inScope<T extends { id: string; module: string | null }>(list: readonly
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
 export const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
+/**
+ * Is this line a thematic break, as Markdown reads it? A run of hyphens straight under a line of text is that line's heading
+ * underline instead; `- - -` (spaces between the hyphens) is no underline, so it breaks even there.
+ */
+export function isThematicBreak(line: string, textAbove: boolean): boolean {
+	return THEMATIC_BREAK.test(line) && !(textAbove && /^ {0,3}-+[ \t]*$/.test(line));
+}
+
 export const FORMAT_VERSION = "0.16";
 
 export interface Option {
@@ -289,14 +297,14 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
-	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
+	/** The module notices found outside every activity, in file order. A notice is drawn (under its module's screen, "About this module"), from the module's own lines; this list only says where each one stands. */
 	unshown: Unshown[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
 	records: RecordsRead;
 }
 
-/** A part outside every activity that is not drawn yet: `scope` is the module's id. */
+/** A module's notice outside every activity: `scope` is the module's id. */
 export interface Unshown {
 	kind: "notice";
 	scope: string;
@@ -960,7 +968,7 @@ export function parseBooklet(text: string): Booklet {
 		}
 		if (section !== "content") continue;
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
-		if (!act && THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
+		if (!act && isThematicBreak(ln, !isBlank(lines[i - 1]))) continue;
 		pushText([ln], i);
 	}
 	closeRow("at the end of the file", lines.length);

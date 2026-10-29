@@ -84,11 +84,17 @@ function groupHead(into: HTMLElement, g: Group): void {
 
 /* ---- the views ---- */
 
+/** The columns that hold a number in every cell they have, and at least one cell. */
+export function numericColumns(rows: readonly Row[], cols: readonly string[]): Set<string> {
+	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined)));
+}
+
 function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 	const { set, roles, cols } = p;
 	const all = p.groups.flatMap((g) => g.rows);
-	// a column of numbers is set to the right
-	const numeric = (k: string) => all.some((r) => r.cells[k]) && all.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined);
+	// a column of numbers is set to the right (worked out once for each column, not for each cell)
+	const numbers = numericColumns(all, cols);
+	const numeric = (k: string) => numbers.has(k);
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
 	const head = t.createEl("thead").createEl("tr");

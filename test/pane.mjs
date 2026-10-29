@@ -2,7 +2,7 @@
  * A pane as Obsidian runs it, for the tests of the view's moves (test/navigation*.test.mjs): the booklet view on a fake leaf, over a
  * jsdom document, with the helpers that press a card, a tab or a pager button by its words.
  */
-import { testApp, window as w } from "./dom.mjs";
+import { quiet, testApp, window as w } from "./dom.mjs";
 import { sleep } from "./helpers.mjs";
 import assert from "node:assert/strict";
 
@@ -85,9 +85,10 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		tab: (label) => p.press(".booklet-tabbtn", label),
 		pageNext: () => p.press(".booklet-pager button", "Next"),
 		pageBack: () => p.press(".booklet-pager button", "Back"),
+		// nothing under way: no move in the pane's flight, no move the view holds, every piece rendered, every write landed
 		settled: async () => {
-			await sleep(delay + 12);
-			await view.writes;
+			do await quiet(view);
+			while (flight.busy);
 		},
 		async back() {
 			const s = hist.back.pop();

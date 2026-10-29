@@ -3,7 +3,7 @@
  * drawn only where the tab on show holds a question, the set of icon names, and the scroll that waits for the draw to finish.
  * Every note is made up.
  */
-import { window as w } from "./dom.mjs";
+import { window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -171,9 +171,10 @@ test("a heading a link led to is scrolled into view only after every piece of Ma
 	};
 	try {
 		const p = pane(SKETCH, { screen: "activity:basics/lines" });
-		await sleep(250);
+		await p.settled();
 		p.view.setEphemeralState({ subpath: "#Hold the pencil loosely" });
-		await sleep(400);
+		await until(() => seen.scrolls.length >= 1, "the heading scrolled to");
+		await p.settled();
 		assert.equal(p.pager().at, "Page 2 of 3");
 		assert.ok(seen.scrolls.length >= 1, "scrolled to the heading");
 		assert.deepEqual(norm(seen.scrolls.map((s) => s.inFlight)), seen.scrolls.map(() => 0), "no render was still going when it scrolled");

@@ -98,6 +98,37 @@ export function testApp(disk, more = {}) {
 	};
 }
 
+/** Waits for a state a test names (polling, 5 ms apart, for at most 5 s), in place of sleeping a time the state is hoped to be there by. */
+export async function until(cond, what = "the state the test waits for") {
+	for (let n = 0; n < 1000; n++) {
+		let ok = false;
+		try {
+			ok = !!cond();
+		} catch {
+			ok = false;
+		}
+		if (ok) return;
+		await sleep(5);
+	}
+	throw new Error("timed out waiting for " + what);
+}
+
+/**
+ * Waits until the view has nothing under way: no move, every piece of Markdown rendered, every write landed. It polls the
+ * view's own state (every 2 ms for at most 5 s, then it fails loudly) in place of sleeping a guessed time;
+ * `ms` is only for a test that must let a timer of the view's own run (a debounce), and says so by asking for it.
+ */
+export async function quiet(view, ms = 0) {
+	if (ms) await sleep(ms);
+	for (let turn = 0; ; turn++) {
+		await new Promise((r) => setTimeout(r, turn ? 2 : 0));
+		const writes = view.writes;
+		await writes;
+		if (view.writes === writes && !view.moving && !view.afterMove && !view.rendering) return;
+		if (turn > 2500) throw new Error("the view did not settle: moving " + view.moving + ", rendering " + view.rendering);
+	}
+}
+
 /**
  * A Booklet view open on `text` at `path`, loaded and handed the text as a pane opens a note. `disk` is the note as the
  * vault holds it, and `app` the app the view is in (testApp(disk) unless a test brings its own). Each test file adds
@@ -120,12 +151,8 @@ export function openView(text, { path = "Note.booklet.md", disk = { text, writes
 			disk.text = edit(disk.text);
 			view.setViewData(disk.text, false);
 		},
-		/** Timers run and every write has landed. */
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
+		/** The view has nothing under way and every write has landed (`ms`: a timer of the view's own to let run first). */
+		settled: (ms = 0) => quiet(view, ms),
 		close() {
 			view.unload();
 			view.containerEl.remove();

@@ -4,6 +4,7 @@
 //   paragraph, and the format's own reading kinds (diff, law, opinion) in their own colour, picture and border.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
+const { quiet, drawing, frames, mobile } = require("./waits");
 
 module.exports = function readingChecks(env) {
   const { withApp, Check, SHOTS, sleep, BOOK, waitActiveType } = env;
@@ -22,18 +23,18 @@ module.exports = function readingChecks(env) {
   const goTo = async (o, screen) => {
     await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
     await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
-    await sleep(900);
+    await quiet(o);
   };
   const open = async (o, rel) => {
     await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 10000, polling: 100 });
     await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
     await waitActiveType(o, "booklet", 20000);
     await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
-    await sleep(700);
+    await quiet(o);
   };
   const q = id => BOOK + " [data-booklet-q='" + id + "']";
-  const press = async (o, sel, text) => { await o.page.locator(sel).filter({ hasText: text }).first().click({ timeout: 6000 }); await sleep(450); };
-  const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "center" }), sel); await sleep(300); };
+  const press = async (o, sel, text) => { await o.page.locator(sel).filter({ hasText: text }).first().click({ timeout: 6000 }); await quiet(o); };
+  const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "center" }), sel); await frames(o); };
   const backLength = o => o.evaluate(() => app.workspace.getLeavesOfType("booklet")[0].history.backHistory.length);
   // which step is on show, and the progress line
   const steps = o => o.evaluate(sel => {
@@ -73,9 +74,9 @@ module.exports = function readingChecks(env) {
         await scrollTo(o, BOOK + " .callout[data-callout='" + sel + "']");
         await shot(o, k + "-desktop-light");
       }
-      await o.setScheme("dark"); await sleep(500);
+      await o.setScheme("dark"); await frames(o);
       for (const k of ["diff", "law", "opinion"]) { await scrollTo(o, BOOK + " .callout[data-callout='" + k + "']"); await shot(o, k + "-desktop-dark"); }
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("light"); await frames(o);
 
       // footnotes
       let marks = await o.evaluate(sel => [...document.querySelectorAll(sel + " button.booklet-cite-mark")].map(b => b.textContent.trim() + ":" + b.getAttribute("aria-expanded")), BOOK);
@@ -83,17 +84,17 @@ module.exports = function readingChecks(env) {
       const text0 = await o.evaluate(sel => document.querySelector(sel + " .booklet-page").textContent, BOOK);
       c.ok(!/\[\^/.test(text0) && !/Harbour Tide Atlas/.test(text0), "no mark is left as written, and no source shows until a mark is pressed");
       await o.page.locator(BOOK + " button.booklet-cite-mark").first().click();
-      await sleep(500);
+      await quiet(o);
       const panel = await o.evaluate(sel => { const p = document.querySelector(sel + " .booklet-cite-panel"); if (!p) return null; const r = p.getBoundingClientRect(), mark = document.querySelector(sel + " button.booklet-cite-mark"); return { text: p.textContent.replace(/\s+/g, " ").trim(), quote: (p.querySelector("blockquote") || {}).textContent, badge: (p.querySelector(".booklet-cite-badge") || {}).textContent, expanded: mark.getAttribute("aria-expanded"), visible: r.height > 0, under: p.previousElementSibling === mark.closest("p, li, blockquote, td, th") }; }, BOOK);
       c.ok(panel && panel.visible && panel.under && panel.expanded === "true" && /Harbour Tide Atlas/.test(panel.text) && panel.quote === "The tide rises and falls twice in each lunar day." && /Verified September 20, 2026/.test(panel.badge), "pressing a mark opens its source under its paragraph, with title, page, quotation and verified date: " + JSON.stringify(panel));
       await shot(o, "source-open-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "source-open-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("dark"); await frames(o); await shot(o, "source-open-desktop-dark");
+      await o.setScheme("light"); await frames(o);
       await o.page.locator(BOOK + " button.booklet-cite-mark").nth(1).click();
-      await sleep(400);
+      await quiet(o);
       const second = await o.evaluate(sel => ({ panels: document.querySelectorAll(sel + " .booklet-cite-panel").length, text: (document.querySelector(sel + " .booklet-cite-panel") || {}).textContent, quote: !!document.querySelector(sel + " .booklet-cite-panel blockquote") }), BOOK);
       c.ok(second.panels === 1 && /leaflet/.test(second.text) && !second.quote, "another mark opens a plain reference with its words and no quotation, and the first shuts (one open at a time): " + JSON.stringify(second));
-      await o.page.keyboard.press("Escape"); await sleep(300);
+      await o.page.keyboard.press("Escape"); await quiet(o);
       const closed = await o.evaluate(sel => document.querySelectorAll(sel + " .booklet-cite-panel").length, BOOK);
       c.ok(closed === 0, "Escape shuts the source: " + closed);
 
@@ -103,7 +104,7 @@ module.exports = function readingChecks(env) {
       c.ok(inTip.kind === "tip" && inTip.inContent && inTip.icon, "a question inside a tip is drawn in Obsidian's own callout: " + JSON.stringify(inTip));
       await press(o, q("tip-q") + " button.booklet-choice", "A sandwich");
       await shot(o, "tip-question-desktop-light");
-      await sleep(1500);
+      await quiet(o);
       c.ok(recordsOf(vault, "sources")["tip-q"] === 2, "its answer is kept in the note's records, as outside a callout: " + JSON.stringify(recordsOf(vault, "sources")));
       c.ok(!/booklet-cite|Verified/.test(records(file)), "nothing about a source is written into the note");
 
@@ -114,11 +115,11 @@ module.exports = function readingChecks(env) {
       c.ok(r.n === 2 && r.side, "on a desktop a row's two cells (one for each heading) are side by side: " + JSON.stringify(r));
       await o.page.locator(q("neap-note") + " input.booklet-text").fill("Small and slow");
       await o.page.locator(q("neap-note") + " input.booklet-text").blur();
-      await sleep(1600);
+      await quiet(o);
       c.ok(recordsOf(vault, "rows")["neap-note"] === "Small and slow", "the question in the second cell is answered and kept: " + JSON.stringify(recordsOf(vault, "rows")));
       await shot(o, "rows-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await shot(o, "rows-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("dark"); await frames(o); await shot(o, "rows-desktop-dark");
+      await o.setScheme("light"); await frames(o);
 
       /* ---- groups, a folded one, and steps ---- */
       await goTo(o, "activity:/lesson");
@@ -129,17 +130,17 @@ module.exports = function readingChecks(env) {
       await press(o, q("moon") + " button.booklet-choice", "The moon");
       await scrollTo(o, q("moon"));
       await shot(o, "group-question-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await scrollTo(o, q("moon")); await shot(o, "group-question-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
-      await sleep(1500);
+      await o.setScheme("dark"); await frames(o); await scrollTo(o, q("moon")); await shot(o, "group-question-desktop-dark");
+      await o.setScheme("light"); await frames(o);
+      await quiet(o);
       c.ok(recordsOf(vault, "lesson").moon === 1, "the answer to a question in a group is kept as outside one: " + JSON.stringify(recordsOf(vault, "lesson")));
       // the folded group opens and shuts
       await o.page.locator(BOOK + " .booklet-group-title").filter({ hasText: "Extra reading" }).click();
-      await sleep(400);
+      await quiet(o);
       let fold = await o.evaluate(sel => { const g = document.querySelector(sel + " [data-booklet-q='extra']").closest(".booklet-group"); return { collapsed: g.classList.contains("is-collapsed"), shown: g.querySelector(".booklet-group-body").getClientRects().length > 0 }; }, BOOK);
       c.ok(!fold.collapsed && fold.shown, "pressing a folded group's title opens it: " + JSON.stringify(fold));
       await o.page.locator(BOOK + " .booklet-group-title").filter({ hasText: "Extra reading" }).click();
-      await sleep(400);
+      await quiet(o);
       fold = await o.evaluate(sel => { const g = document.querySelector(sel + " [data-booklet-q='extra']").closest(".booklet-group"); return { collapsed: g.classList.contains("is-collapsed"), shown: g.querySelector(".booklet-group-body").getClientRects().length > 0 }; }, BOOK);
       c.ok(fold.collapsed && !fold.shown, "and again shuts it: " + JSON.stringify(fold));
 
@@ -154,8 +155,8 @@ module.exports = function readingChecks(env) {
       c.ok(await o.evaluate(sel => document.querySelector(sel + " [data-booklet-q='sun']") !== null && document.querySelector(sel + " .booklet-step[hidden] [data-booklet-q='sun']") !== null, BOOK), "a step not on show keeps its questions in the page");
       await scrollTo(o, BOOK + " .booklet-steps");
       await shot(o, "step-desktop-light");
-      await o.setScheme("dark"); await sleep(500); await scrollTo(o, BOOK + " .booklet-steps"); await shot(o, "step-desktop-dark");
-      await o.setScheme("light"); await sleep(300);
+      await o.setScheme("dark"); await frames(o); await scrollTo(o, BOOK + " .booklet-steps"); await shot(o, "step-desktop-dark");
+      await o.setScheme("light"); await frames(o);
       for (let i = 0; i < 3; i++) await press(o, BOOK + " .booklet-pager button", "Next");
       st = await steps(o);
       c.ok(st.shown.join() === "4" && /Step 4 of 4/.test(st.progress) && /Next: A page with one group/.test(st.pager.join(" | ")), "Next moves a step at a time to the last, where it offers the next activity: " + JSON.stringify(st));
@@ -168,7 +169,7 @@ module.exports = function readingChecks(env) {
       await goTo(o, "activity:/lesson");
       st = await steps(o);
       c.ok(st.n === 4, "the switch to one at a time is kept on the device, and opened again the page is in steps: " + JSON.stringify(st));
-      await sleep(1200);
+      await quiet(o);
       c.ok(!/steps|one at a time/i.test(records(file)), "the choice is not written into the note");
       await press(o, BOOK + " .booklet-steps-choice button", "All at once");
       st = await steps(o);
@@ -177,18 +178,18 @@ module.exports = function readingChecks(env) {
 
       /* ---- the phone ---- */
       await o.page.setViewportSize({ width: 390, height: 844 });
-      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      await mobile(o, true);
       await open(o, READ);
       for (const scheme of ["light", "dark"]) {
-        await o.setScheme(scheme); await sleep(500);
+        await o.setScheme(scheme); await frames(o);
         await goTo(o, "activity:/sources");
         for (const k of ["diff", "law", "opinion"]) { await scrollTo(o, BOOK + " .callout[data-callout='" + k + "']"); await shot(o, k + "-phone-" + scheme); }
         const markH = await o.evaluate(sel => { const b = document.querySelector(sel + " button.booklet-cite-mark"); return { mark: Math.round(b.getBoundingClientRect().height), line: Math.round(parseFloat(getComputedStyle(b.closest("p")).lineHeight)) }; }, BOOK);
         c.ok(markH.mark <= markH.line + 4, "phone (" + scheme + "): an inline source mark does not stretch its line (mark " + markH.mark + " px, line " + markH.line + " px): " + JSON.stringify(markH));
         if (scheme === "light") {
-          await o.page.locator(BOOK + " button.booklet-cite-mark").first().click(); await sleep(500);
+          await o.page.locator(BOOK + " button.booklet-cite-mark").first().click(); await quiet(o);
           await shot(o, "source-open-phone-light");
-          await o.page.keyboard.press("Escape"); await sleep(300);
+          await o.page.keyboard.press("Escape"); await quiet(o);
         }
         await scrollTo(o, q("tip-q")); await shot(o, "tip-question-phone-" + scheme);
         await goTo(o, "activity:/rows");
@@ -212,7 +213,7 @@ module.exports = function readingChecks(env) {
       }
       await o.setScheme("light");
       await o.page.setViewportSize({ width: 1280, height: 800 });
-      await o.evaluate(() => app.emulateMobile(false)); await sleep(1500);
+      await mobile(o, false);
       await open(o, READ);
       await goTo(o, "activity:/rows");
       r = await rowLay();

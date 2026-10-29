@@ -10,7 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, assertOutsideUnchanged, core, norm, sha, sleep } from "./helpers.mjs";
+import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
 import { testApp } from "./dom.mjs";
 
 const QUIZ = readFileSync(join(ROOT, "test-vault", "Study quiz.booklet.md"), "utf8");
@@ -624,7 +624,6 @@ test("each: words held on the device for a copy's Add your own field are held un
 	assert.ok(held[1].includes(plain.replace(/tools#own$/, "why#own:n:1")), "kept on the device under that key as it is typed");
 	// the reload: the view goes away with no blur and no write; the next drawing adds the words to that pick's pair
 	v.view.containerEl.remove();
-	await sleep(20);
 	v = draw();
 	await v.settled();
 	assert.deepEqual(norm(core.parseBooklet(disk.text).records.answers[""].why), [{ pick: 1, a: ["Pencils are small"] }], "added to Pencil's pair");
