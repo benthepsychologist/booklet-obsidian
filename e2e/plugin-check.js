@@ -35,7 +35,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -529,7 +529,9 @@ async function check6() {
     // what is not drawn yet says so
     await goTo(o, "/not-yet");
     const un = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] [data-booklet-unsupported]")].map(e => e.getAttribute("data-booklet-unsupported") + ": " + e.querySelector(".booklet-muted").textContent));
-    c.ok(["matrix", "group"].every(k => un.some(u => u.startsWith(k + ": Not yet supported"))) && !un.some(u => /^(widget|menu-list|query):/.test(u)), "parts not drawn yet each say so, and a widget, a shared list and a query are no longer among them: " + JSON.stringify(un));
+    c.ok(["group"].every(k => un.some(u => u.startsWith(k + ": Not yet supported"))) && !un.some(u => /^(matrix|widget|menu-list|query):/.test(u)), "parts not drawn yet each say so, and a matrix, a widget, a shared list and a query are no longer among them: " + JSON.stringify(un));
+    const mx = await o.evaluate(() => document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-kind-matrix .booklet-mxitem").length);
+    c.ok(mx === 2, "the matrix in the same activity is drawn, one row for each of its two items: " + mx);
     await goTo(o, "/tally");
     const q = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-query")].map(e => e.getAttribute("data-booklet-view")));
     c.ok(q.length === 1 && q[0] === "list", "the tally's query is drawn, as a list: " + JSON.stringify(q));
@@ -1913,7 +1915,8 @@ async function check10() {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
   const nav = require("./nav-checks")({ withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType });
-  const fns = { ...nav, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  const study = require("./study-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const fns = { ...nav, ...study, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
     let c;
