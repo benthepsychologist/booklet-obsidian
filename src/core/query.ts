@@ -96,8 +96,6 @@ export type QueryPlan =
 			cols: string[];
 			/** What shows when there are no rows (the query's `empty:`, else the renderer's own line); null when there are rows. */
 			empty: string | null;
-			/** Parts of the source a summary does not draw yet, said under the view. */
-			notYet: string[];
 	  };
 
 export interface PlanOptions {
@@ -361,6 +359,18 @@ function kindOf(q: Question): Kind {
 	return "other";
 }
 
+/**
+ * A question's summary rows: one, or for a matrix one for each item, each summarised like a scale (SPEC section 6, "A
+ * matrix gives one row per item, each summarised like a scale"). `values` are the answers in their kind's shape.
+ */
+function summariseAll(q: Question, label: WordPart[], values: readonly unknown[], locale: string): Row[] {
+	if (q.kind !== "matrix") return [summarise(q, label, values, locale)];
+	return q.items.map((it, i) => summarise({ ...q, kind: "scale" }, [...label, { text: " · " }, { md: it }], itemValues(values, i), locale));
+}
+
+/** One item's anchor numbers over a matrix's answers (an item not answered is `null`, which counts for nothing). */
+const itemValues = (values: readonly unknown[], i: number): unknown[] => values.map((v) => (Array.isArray(v) ? v[i] : undefined));
+
 /** A question's answers over the records, summarised as its kind is (one row). `values` are the answers in their kind's shape. */
 function summarise(q: Question, label: WordPart[], values: readonly unknown[], locale: string): Row {
 	const fmt = (n: number) => formatNumber(n, locale);
@@ -481,8 +491,13 @@ function tallyOf(q: Question, values: readonly unknown[]): Tally {
 	return t;
 }
 
-/** One question's distribution: one row per value, its value the count (SPEC section 6, "One question, one distribution"). */
+/**
+ * One question's distribution: one row per value, its value the count (SPEC section 6, "One question, one distribution").
+ * A matrix gives each item's anchors, in list order with zeros, "<item> · <anchor>": the format says a matrix is
+ * summarised like a scale for each item, and a distribution is a scale's anchors counted.
+ */
 function distribution(q: Question, values: readonly unknown[], locale: string, prefix: WordPart[] = []): Row[] {
+	if (q.kind === "matrix") return q.items.flatMap((it, i) => distribution({ ...q, kind: "scale" }, itemValues(values, i), locale, [...prefix, { md: it }, { text: " · " }]));
 	const fmt = (n: number) => formatNumber(n, locale);
 	const t = tallyOf(q, values);
 	return t.order.map((m) => {
@@ -528,9 +543,7 @@ const NOT_YET = {
 	bars: "Not yet supported: a query drawn as bars (as: bars). It is in the Markdown.",
 	line: "Not yet supported: a query drawn as a line chart (as: line). It is in the Markdown.",
 	data: "Not yet supported: a query of a data block. It is in the Markdown.",
-	question: (title: string) => `Not yet supported: a query of "${title}", a question this view does not draw yet. It is in the Markdown.`,
 	eachAlone: "Not yet supported: tiles of a question asked for each pick. A table, a list or cards show it.",
-	inSummary: (title: string) => `Not yet supported: the summary of "${title}", a question this view does not draw yet.`,
 };
 
 /**
@@ -543,15 +556,13 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 	const locale = opts.locale ?? "en";
 	if (q.as === "bars" || q.as === "line") return { kind: "not-yet", text: NOT_YET[q.as] };
 	if (!src || src.kind === "data") return { kind: "not-yet", text: NOT_YET.data };
-	if (src.kind === "question" && !src.q) return { kind: "not-yet", text: NOT_YET.question(plainWords(src.title) || src.id) };
 	const view: DrawnView = q.as ?? (q.summary ? "table" : "cards");
 	const a = src.act;
 	const all = questionsOf(a);
-	const notYet: string[] = [];
 	let set: RowSet;
 
 	if (src.kind === "question") {
-		const one = src.q!;
+		const one = src.q;
 		if (one.each && !q.summary && view === "tiles") return { kind: "not-yet", text: NOT_YET.eachAlone };
 		const ents = keptFor(book, a, q, opts);
 		if (q.summary) {
@@ -568,8 +579,6 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		const ents = keptFor(book, a, q, opts);
 		set = summaryRows(a, all, q, ents, locale);
 		if (!ents.length) set.rows = [];
-		for (const s of a.segments)
-			if (s.type === "unsupported" && (s.kind === "matrix" || s.kind === "each") && s.id && (!q.fields || q.fields.includes(s.id))) notYet.push(NOT_YET.inSummary(plainWords(s.title) || s.id));
 	} else {
 		const named = q.fields ? all.filter((x) => q.fields!.includes(x.id)) : [];
 		set = entryRows(book, a, all, named.length ? named : all, q, opts);
@@ -577,7 +586,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 
 	let rows = set.rows;
 	if (q.limit !== null && VIEW_DRAWS[view].includes("limit")) rows = rows.slice(0, q.limit);
-	if (!rows.length) return { kind: "rows", view, set, groups: [], roles: rolesOf(set, rows, q, view), cols: [], empty: q.empty ?? QUERY_WORDS.empty, notYet };
+	if (!rows.length) return { kind: "rows", view, set, groups: [], roles: rolesOf(set, rows, q, view), cols: [], empty: q.empty ?? QUERY_WORDS.empty };
 	const roles = rolesOf(set, rows, q, view);
 	const cols = colsOf(set, q, view, roles);
 	// a table's tone colours its badge column: a table with no badge column ignores tone
@@ -601,7 +610,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 			g.rows.push(r);
 		}
 	}
-	return { kind: "rows", view, set, groups, roles, cols, empty: null, notYet };
+	return { kind: "rows", view, set, groups, roles, cols, empty: null };
 }
 
 /** A tone as written, when it is one of the three; else none. */

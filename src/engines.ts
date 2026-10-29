@@ -35,6 +35,7 @@ import {
 	rowFor,
 	type Question,
 } from "./core";
+import { drawEach } from "./each-question";
 import { earlierGroup, keyOf, pressHold, pressed, type Holdable, type PressHold, type QuestionHost, type Target } from "./questions";
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -59,9 +60,13 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
 		return box;
 	}
 	const engine = engineOf(data);
-	if (engine === "grid-select") drawGrid(host, box, t, q, data, promptId, locked);
-	else if (engine === "svg-regions") drawRegions(host, box, t, q, data, C, promptId, locked);
-	else box.createEl("p", { cls: "booklet-muted", text: `Not yet supported: a widget drawn by the engine "${engine || "?"}".` });
+	const key = keyOf(t, q);
+	if (engine !== "grid-select" && engine !== "svg-regions") box.createEl("p", { cls: "booklet-muted", text: `Not yet supported: a widget drawn by the engine "${engine || "?"}".` });
+	else if (q.each)
+		// a widget asked for each pick: its controls once for each pick, under the pick's words (each-question.ts)
+		drawEach(host, box, t, q, key, promptId, (h, into, k, labelledBy) => (engine === "grid-select" ? drawGrid(h, into, t, q, data, labelledBy, locked, k) : drawRegions(h, into, t, q, data, C, labelledBy, locked, k)));
+	else if (engine === "grid-select") drawGrid(host, box, t, q, data, promptId, locked, key);
+	else drawRegions(host, box, t, q, data, C, promptId, locked, key);
 	return box;
 }
 
@@ -134,9 +139,8 @@ function ownButton(into: HTMLElement, word: string, locked: boolean, remove: () 
 
 /* ---- grid-select ---- */
 
-function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, data: Record<string, unknown>, promptId: string, locked: boolean): void {
+function drawGrid(host: QuestionHost, box: HTMLElement, t: Target, q: Question, data: Record<string, unknown>, promptId: string, locked: boolean, key: string): void {
 	const g = gridOf(data);
-	const key = keyOf(t, q);
 	const chosen = () => gridChosen(host.answerOf(t, q));
 	const put = (next: unknown[]) => {
 		if (!same(next, chosen())) host.answer(t, q, next.length ? next : undefined);
@@ -235,9 +239,9 @@ function drawRegions(
 	C: Record<string, string>,
 	promptId: string,
 	locked: boolean,
+	key: string,
 ): void {
 	const rg = regionsOf(data);
-	const key = keyOf(t, q);
 	const rows = () => regionRows(host.answerOf(t, q));
 	const put = (next: unknown[]) => {
 		if (!same(next, rows())) host.answer(t, q, next.length ? next : undefined);
@@ -345,7 +349,8 @@ function drawRegions(
 			const s = r && Array.isArray(r.s) ? r.s : [];
 			for (const { b, id } of words) pressed(b, s.includes(id));
 			clear.disabled = locked || !r;
-			earlier(earlierPlaceWords(q, rg, host.answerOf(t, q), host.earlierOf(t).entries, place));
+			const { record, entries, pick } = host.earlierOf(t);
+			earlier(earlierPlaceWords(q, rg, host.answerOf(t, q), entries, place, pick === undefined ? undefined : { act: t.activity, record, pick }));
 			const mine = regionOwn(rg, rows(), place);
 			const now = JSON.stringify(mine);
 			if (now === sig) return;

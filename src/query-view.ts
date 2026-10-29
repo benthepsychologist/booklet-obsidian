@@ -222,5 +222,4 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan):
 	else if (p.view === "list") listView(host, into, p);
 	else if (p.view === "tiles") tiles(host, into, p);
 	else cards(host, into, p);
-	for (const n of p.notYet) into.createEl("p", { cls: "booklet-muted", text: n });
 }

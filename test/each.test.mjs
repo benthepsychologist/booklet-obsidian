@@ -99,7 +99,7 @@ const qOf = (book, id) => book.activities.flatMap((a) => a.segments).find((s) =>
 
 /* ---- the setting ---- */
 
-test("each: a multi follows a choice, a multi or a widget in its activity; another kind is not yet supported; every mistake is said and ignored", () => {
+test("each: a question of any kind follows a choice, a multi or a widget in its activity; every mistake is said and ignored", () => {
 	const book = core.parseBooklet(NOTE);
 	assert.ok(book.ok);
 	for (const [id, source] of [["why", "tools"], ["about", "one"], ["seen", "grid"], ["how", "spots"]]) {
@@ -108,7 +108,7 @@ test("each: a multi follows a choice, a multi or a widget in its activity; anoth
 		assert.equal(q.each, source, `${id} is asked for each pick of ${source}`);
 	}
 	const note = qOf(book, "note");
-	assert.deepEqual([note.type, note.kind, note.of], ["unsupported", "each", "text"], "a text asked for each pick is not drawn yet");
+	assert.deepEqual([note.type, note.kind, note.each], ["question", "text", "tools"], "a text asked for each pick is a question like the others");
 	for (const id of ["lost", "self", "kind", "chain", "far"]) {
 		const q = qOf(book, id);
 		assert.equal(q.type, "question", `${id} is drawn as its kind`);
@@ -528,12 +528,11 @@ test("each in the view: an answer of the wrong shape is kept as written, the que
 	v.close();
 });
 
-test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", async () => {
+test("each in the view: a question of any kind asked for each pick is drawn, and the setting's mistakes are listed on screen", async () => {
 	const v = openView(NOTE, { path: "Each.booklet.md", screen: "activity:/log" });
 	const view = v.view;
-	const un = view.contentEl.querySelector('[data-booklet-unsupported="each"]');
-	assert.ok(un, "drawn as not yet supported");
-	assert.match(un.textContent, /Not yet supported: a text question asked for each pick \(each:\)\. Its answers are kept\./);
+	assert.ok(!view.contentEl.querySelector('[data-booklet-unsupported="each"]'), "a text asked for each pick is not left undrawn");
+	assert.ok(view.contentEl.querySelector('[data-booklet-q="note"].booklet-kind-text.booklet-each'), "it is drawn as a text question asked for each pick");
 	const problems = [...view.contentEl.querySelectorAll(".booklet-problems li")].map((x) => x.textContent).join("\n");
 	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.match(problems, new RegExp(`"${id}" is to be asked for each pick`));
 	for (const id of ["lost", "self", "kind", "chain"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);

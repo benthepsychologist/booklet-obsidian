@@ -36,6 +36,7 @@ import {
 	newestFirst,
 	nextOf,
 	parseBooklet,
+	pickKey,
 	placeFrom,
 	placeState,
 	plainText,
@@ -44,6 +45,7 @@ import {
 	resolvePlace,
 	samePlace,
 	setAnswer,
+	setPair,
 	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
@@ -58,6 +60,7 @@ import {
 	type Finalized,
 	type ModTab,
 	type NavAct,
+	type PickValue,
 	type NavMod,
 	type NavModel,
 	type Place,
@@ -89,7 +92,6 @@ const ENTRIES_SHOWN = 10;
 
 /** The words for a part this view does not draw yet ("Not yet supported: …"). */
 const UNSUPPORTED: Record<string, string> = {
-	matrix: "a matrix question",
 	group: "questions inside a group",
 	"in-callout": "a question inside a callout",
 };
@@ -97,9 +99,14 @@ const UNSUPPORTED: Record<string, string> = {
 interface Pending {
 	t: Target;
 	q: Question;
+	/** The pick the typing is the answer of, for a question asked for each pick (each.ts). */
+	pick?: PickValue;
 	value: AnswerValue | undefined;
 	timer: number | null;
 }
+
+/** What identifies typing that is not written yet: its question, and under `each:` its pick. */
+const pendingKey = (t: Target, q: Question, pick?: PickValue): string => (pick === undefined ? keyOf(t, q) : `${keyOf(t, q)}@${pickKey(pick)}`);
 
 /** Where each pane was, in memory, for a pane that shows the note as Markdown for a while and comes back (see draw). Never saved anywhere. */
 const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
@@ -401,7 +408,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Writes what was typed and not written yet, and adds the own words typed and not added (leaving a field does), before the screen is left. */
 	private flushAll(): void {
-		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
+		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(null);
 	}
 
@@ -643,8 +650,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.settleSoon(0);
 	}
 
-	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null {
-		const p = this.pending.get(keyOf(t, q));
+	pendingOf(t: Target, q: Question, pick?: PickValue): { value: AnswerValue | undefined } | null {
+		const p = this.pending.get(pendingKey(t, q, pick));
 		return p ? { value: p.value } : null;
 	}
 
@@ -660,31 +667,42 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.syncWidgets();
 	}
 
-	answer(t: Target, q: Question, value: AnswerValue | undefined): void {
-		const p = this.pending.get(keyOf(t, q));
+	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
+		const p = this.pending.get(key);
 		if (p) {
 			if (p.timer !== null) window.clearTimeout(p.timer);
-			this.pending.delete(keyOf(t, q));
+			this.pending.delete(key);
 		}
-		this.commit(t, q, value);
+		this.commit(t, q, this.whole(t, q, value, pick));
 	}
 
-	typed(t: Target, q: Question, value: AnswerValue | undefined): void {
-		const key = keyOf(t, q);
-		const p = this.pending.get(key) ?? { t, q, value, timer: null };
+	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
+		const p = this.pending.get(key) ?? { t, q, pick, value, timer: null };
 		p.value = value;
 		if (p.timer !== null) window.clearTimeout(p.timer);
-		p.timer = window.setTimeout(() => this.flushTyped(t, q), TYPING_PAUSE_MS);
+		p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
 		this.pending.set(key, p);
 	}
 
-	flushTyped(t: Target, q: Question): void {
-		const key = keyOf(t, q);
+	flushTyped(t: Target, q: Question, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
 		const p = this.pending.get(key);
 		if (!p) return;
 		if (p.timer !== null) window.clearTimeout(p.timer);
 		this.pending.delete(key);
-		this.commit(p.t, p.q, p.value);
+		this.commit(p.t, p.q, this.whole(p.t, p.q, p.value, pick));
+	}
+
+	/**
+	 * What a question's answer becomes when its answer is `value`: for a question asked for each pick, `value` is the answer
+	 * of one pick (the `a` of its pair), and the rest of the pairs stay as they are (each.ts setPair).
+	 */
+	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): AnswerValue | undefined {
+		if (pick === undefined) return value;
+		const next = setPair(this.heldAnswer(t, q), pick, value);
+		return next.length ? next : undefined;
 	}
 
 	/* ---- drawing ---- */
@@ -1000,9 +1018,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (!inCallout) this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
 					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
-					: s.kind === "each"
-						? `Not yet supported: a ${s.of ?? "question"} question asked for each pick (each:). Its answers are kept.`
-						: `Not yet supported: ${UNSUPPORTED[s.kind] ?? `the kind "${s.kind}"`}.${inCallout ? " The callout above is shown as Markdown." : ""}`;
+					: `Not yet supported: ${UNSUPPORTED[s.kind] ?? `the kind "${s.kind}"`}.${inCallout ? " The callout above is shown as Markdown." : ""}`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
 			} else drawQuestion(this, into, t, s, a.repeat && !a.id);
 		}
@@ -1280,7 +1296,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */
 	private finalize(a: Activity): void {
-		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, a)) this.flushTyped(p.t, p.q);
+		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, a)) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(a);
 		const file = this.file;
 		if (!file) return;

@@ -1,5 +1,5 @@
 /*
- * The seven common question kinds, drawn with Obsidian's own elements (buttons, text fields) and theme.
+ * The common question kinds, drawn with Obsidian's own elements (buttons, text fields) and theme.
  * Each question registers a function that shows its answer again, so a write, or a change made to the
  * note elsewhere, updates the question without drawing the view again. That function leaves a field
  * alone while the reader is in it (it has focus, or holds typing not yet written), and is called again
@@ -8,14 +8,16 @@
  * What a question stores is the reference renderer's shape (SPEC section 5's table; booklet.html
  * drawChoice, drawScale, drawText, drawLines, drawNumber): a choice's option position from 1 or the
  * reader's own words, a multi's list of those in the order picked, a scale's anchor number, a text's
- * string, a lines question's list of strings, a number, a date's `YYYY-MM-DD`. A choice or a multi whose
+ * string, a lines question's list of strings, a number, a date's `YYYY-MM-DD`, a matrix's list of anchor numbers
+ * (matrix.ts). A choice or a multi whose
  * options come from a shared menu is drawn the same way, its answer a position in the menu. A widget is
  * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
-import { earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type Question } from "./core";
+import { earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
 import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
+import { drawMatrix } from "./matrix";
 
 /** Where a question's answer is kept: its module (scope), and its activity (a repeating one keeps a draft). */
 export interface Target {
@@ -29,13 +31,16 @@ export interface QuestionHost {
 	md(markdown: string, el: HTMLElement): void;
 	/** The answer the question shows now. */
 	answerOf(t: Target, q: Question): unknown;
-	/** A press: the answer is shown and written at once. `undefined` clears it. */
-	answer(t: Target, q: Question, value: AnswerValue | undefined): void;
+	/**
+	 * A press: the answer is shown and written at once. `undefined` clears it. `pick` (the next three too): the value is
+	 * the answer of one pick of a question asked for each pick, the `a` of its pair (each-question.ts).
+	 */
+	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void;
 	/** Typing: the value is kept, and written after a pause or when the field loses focus. */
-	typed(t: Target, q: Question, value: AnswerValue | undefined): void;
-	flushTyped(t: Target, q: Question): void;
+	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void;
+	flushTyped(t: Target, q: Question, pick?: PickValue): void;
 	/** What was typed and is not written yet, if anything. */
-	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null;
+	pendingOf(t: Target, q: Question, pick?: PickValue): { value: AnswerValue | undefined } | null;
 	/** Registers the function that shows the question's answer again. */
 	onShow(key: string, show: () => void): void;
 	/**
@@ -51,9 +56,10 @@ export interface QuestionHost {
 	/**
 	 * Where a question's earlier words come from (core/earlier.ts): the record being written, as shown (a daily draft
 	 * with nothing in it shows today's entry), and the activity's kept entries, newest first, without today's in a
-	 * `repeat daily` activity, which the draft will replace. An activity that does not repeat has no entries.
+	 * `repeat daily` activity, which the draft will replace. An activity that does not repeat has no entries. For a copy
+	 * of a question asked for each pick, `pick` is its pick.
 	 */
-	earlierOf(t: Target): { record: Record<string, unknown>; entries: Entry[] };
+	earlierOf(t: Target): { record: Record<string, unknown>; entries: Entry[]; pick?: PickValue };
 	/** Shows every question's answer again (waits while a press is under way). */
 	reshow(): void;
 	/** A new id for an element of this drawing. */
@@ -120,7 +126,15 @@ function guardShape(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	host.onShow(`${keyOf(t, q)}#shape`, show);
 }
 
-/** One of the seven common kinds. */
+/** Names a control for a screen reader by the question's words (and a copy's pick): not aria-label, which Obsidian also shows as a tooltip on hover. */
+const labeller =
+	(labelledBy: string, describedBy: string | null) =>
+	(el: HTMLElement): void => {
+		el.setAttr("aria-labelledby", labelledBy);
+		if (describedBy) el.setAttr("aria-describedby", describedBy);
+	};
+
+/** One of the common kinds. */
 function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): HTMLElement {
 	const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind}` });
 	const promptId = host.uid();
@@ -130,23 +144,25 @@ function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Questio
 		helpId = host.uid();
 		host.md(q.help, box.createDiv({ cls: "booklet-help markdown-rendered", attr: { id: helpId } }));
 	}
-	// named by its prompt for a screen reader (not aria-label, which Obsidian also shows as a tooltip on hover)
-	const label = (el: HTMLElement) => {
-		el.setAttr("aria-labelledby", promptId);
-		if (helpId) el.setAttr("aria-describedby", helpId);
-	};
 	const key = keyOf(t, q);
+	if (q.each) drawEach(host, box, t, q, key, promptId, (h, into, k, labelledBy) => drawBody(h, into, t, q, k, labeller(labelledBy, helpId), locked));
+	else drawBody(host, box, t, q, key, labeller(promptId, helpId), locked);
+	return box;
+}
+
+/** A question's controls, below its words (or below a pick's under `each:`), by its kind. */
+function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	if (q.kind === "text") drawText(host, box, t, q, key, label, locked);
 	else if (q.kind === "number") drawNumber(host, box, t, q, key, label, locked);
 	else if (q.kind === "date") drawDate(host, box, t, q, key, label, locked);
 	else if (q.kind === "lines") drawLines(host, box, t, q, key, label, locked);
 	else if (q.kind === "scale") drawScale(host, box, t, q, key, label, locked);
-	else if (q.each) drawEach(host, box, t, q, key, label, locked);
+	else if (q.kind === "matrix") drawMatrix(host, box, t, q, key, label, locked);
 	else drawChoice(host, box, t, q, key, label, locked);
-	return box;
 }
 
 export type Label = (el: HTMLElement) => void;
+export { labeller };
 
 function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const field = q.long ? box.createEl("textarea", { cls: "booklet-text booklet-long", attr: { rows: 4 } }) : box.createEl("input", { cls: "booklet-text", type: "text" });
@@ -289,7 +305,7 @@ function drawLines(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 	};
 	const earlier = q.earlier ? earlierGroup(host, box, locked, take) : null;
 	const showEarlier = () => {
-		if (earlier) earlier(earlierLines(q, host.earlierOf(t).entries, inputs.map((i) => i.value)));
+		if (earlier) earlier(earlierLines(q, host.earlierOf(t).entries, inputs.map((i) => i.value), t.activity));
 	};
 	const show = () => {
 		const busy = host.pendingOf(t, q) || list.contains(list.ownerDocument.activeElement);
@@ -426,23 +442,21 @@ export function pressHold(host: QuestionHost, scope: HTMLElement): PressHold {
 
 function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const multi = q.kind === "multi";
-	const picks = () => picksOf(host.answerOf(t, q));
 	const show = choiceBody(host, box, t, q, label, locked, {
-		picks,
+		picks: () => picksOf(host.answerOf(t, q)),
 		put: (list) => host.answer(t, q, multi ? (list.length ? list : undefined) : list.length ? list[list.length - 1] : undefined),
 		offered: (now) => {
-			const { record, entries } = host.earlierOf(t);
-			return earlierOptions(t.activity, q, record, entries, now);
+			const { record, entries, pick } = host.earlierOf(t);
+			return earlierOptions(t.activity, q, record, entries, now, pick);
 		},
 		ownKey: `${key}#own`,
 	});
-	if (q.options.some((o) => o.correct)) box.createDiv({ cls: "booklet-muted", text: "Marking an answer right or wrong is not yet supported." });
 	show();
 	host.onShow(key, show);
 }
 
 /** Where a choice's or a multi's options read and write their answer: the question's own, or one pick's (each:). */
-export interface ChoiceIO {
+interface ChoiceIO {
 	/** The positions and own options picked now. */
 	picks(): Array<number | string>;
 	/** The picks set to `list` (empty: none). */
@@ -453,14 +467,30 @@ export interface ChoiceIO {
 	ownKey: string;
 }
 
+/** What a listed option can show once the reader has answered a question that marks a correct option (SPEC section 5, "`[x]` marks a correct option"). */
+type Mark = "right" | "wrong" | "answer";
+/** The renderer's own words for a mark, and the icon beside them: a mark is a word and a shape as well as a colour. */
+const MARKS: Record<Mark, { words: string; icon: string }> = {
+	right: { words: "Right", icon: "check" },
+	wrong: { words: "Not quite", icon: "x" },
+	answer: { words: "The answer", icon: "check" },
+};
+
 /**
  * A choice's or a multi's options as buttons, the reader's own options (pressed, and offered again), the picked
  * options' replies, and with `open` a field to add one's own (as booklet.html's drawChoice: on Enter, on Add, when the
- * field is left, and when the view lets go of the note). Returns the function that shows the picks again.
+ * field is left, and when the view lets go of the note). A question that marks a correct option (`[x]`) marks the
+ * options once the reader has answered: a choice at the pick, a multi at a press on Check, with a line saying Right or
+ * Not quite; a mark is never written anywhere, and an option of the reader's own is neither right nor wrong.
+ * Returns the function that shows the picks again.
  */
-export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, label: Label, locked: boolean, io: ChoiceIO): () => void {
+function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, label: Label, locked: boolean, io: ChoiceIO): () => void {
 	const multi = q.kind === "multi";
-	const graded = q.options.some((o) => o.correct);
+	// the options that are right: all the `[x]` ones of a multi, the first of a choice (booklet.html choiceBlock)
+	const right = q.options.flatMap((o, i) => (o.correct ? [i + 1] : [])).slice(0, multi ? undefined : 1);
+	const graded = right.length > 0;
+	// the picks a multi's Check was pressed on: its marks show while the picks are those, and not after they change
+	let checkedOn: string | null = null;
 	const row = box.createDiv({ cls: "booklet-choices" });
 	row.setAttr("role", "group");
 	label(row);
@@ -490,6 +520,7 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 	const listed = q.options.map((o, idx) => {
 		const button = row.createEl("button", { cls: "booklet-choice" });
 		host.md(o.text, button.createDiv({ cls: "booklet-words markdown-rendered" }));
+		if (graded) button.createSpan({ cls: "booklet-mark booklet-none" });
 		button.disabled = locked;
 		button.addEventListener("click", (evt) => {
 			evt.preventDefault();
@@ -505,9 +536,37 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 
 	let ownSig = "";
 	let replySig = "";
+	// what each listed option shows once the reader has answered, if anything (booklet.html drawChoice markOf)
+	const markOf = (n: number, c: ReadonlyArray<number | string>): Mark | null => {
+		const on = c.includes(n);
+		const isRight = right.includes(n);
+		if (!graded) return null;
+		if (!multi) {
+			if (typeof c[0] !== "number") return null;
+			return on ? (isRight ? "right" : "wrong") : isRight && !right.includes(c[0]) ? "answer" : null;
+		}
+		if (checkedOn !== JSON.stringify(c)) return null;
+		return on ? (isRight ? "right" : "wrong") : isRight ? "answer" : null;
+	};
+	const shownMarks: Array<Mark | null> = listed.map(() => null);
+	const showMark = (b: HTMLElement, n: number, mark: Mark | null) => {
+		if (shownMarks[n] === mark) return;
+		shownMarks[n] = mark;
+		for (const m of Object.keys(MARKS)) b.toggleClass(`booklet-${m}`, m === mark);
+		const span = b.querySelector(".booklet-mark");
+		if (!span) return;
+		span.empty();
+		span.toggleClass("booklet-none", !mark);
+		if (!mark) return;
+		setIcon(span.createSpan({ cls: "booklet-mark-icon" }), MARKS[mark].icon);
+		span.createSpan({ text: MARKS[mark].words });
+	};
 	const show = () => {
 		const c = io.picks();
-		listed.forEach((b, n) => pressed(b, c.includes(n + 1)));
+		listed.forEach((b, n) => {
+			pressed(b, c.includes(n + 1));
+			showMark(b, n, markOf(n + 1, c));
+		});
 		const own = c.filter((x): x is string => typeof x === "string");
 		const earlier = io.offered(c);
 		const sig = JSON.stringify([own, earlier]);
@@ -541,7 +600,9 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 			}
 		}
 		// an option's reply shows under the options when it is picked; a multi that marks right answers keeps them for its Check
-		const shownReplies = graded && multi ? [] : (c.filter((x): x is number => typeof x === "number").sort((a, b) => a - b) as number[]).slice(0, multi ? undefined : 1);
+		// (a reply would give the answer away)
+		const checked = checkedOn === JSON.stringify(c);
+		const shownReplies = graded && multi && !checked ? [] : (c.filter((x): x is number => typeof x === "number").sort((a, b) => a - b) as number[]).slice(0, multi ? undefined : 1);
 		const rs = JSON.stringify(shownReplies);
 		if (rs !== replySig) {
 			replySig = rs;
@@ -553,7 +614,18 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 				for (const l of lines) host.md(l, r.createDiv({ cls: "booklet-reply-line markdown-rendered" }));
 			}
 		}
+		if (check && live) {
+			// Check is there once something is picked; the line says Right or Not quite once the reader has answered
+			acts?.toggleClass("booklet-none", !c.length);
+			const told = multi ? checked : typeof c[0] === "number";
+			const bad = multi ? right.some((n) => !c.includes(n)) || c.some((x) => typeof x === "number" && !right.includes(x)) : !right.includes(c[0] as number);
+			const answers = right.flatMap((n) => (q.options[n - 1] ? [plainWords(q.options[n - 1]!.text)] : [])).join(", ");
+			live.setText(told ? (bad ? `Not quite. The answer is ${answers}.` : "Right.") : "");
+		}
 	};
+	let acts: HTMLElement | null = null;
+	let check: HTMLButtonElement | null = null;
+	let live: HTMLElement | null = null;
 
 	if (q.open) {
 		const ownRow = box.createDiv({ cls: "booklet-field-row booklet-own-row" });
@@ -593,6 +665,20 @@ export function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 			go();
 			field.focus();
 		});
+	}
+	if (graded) {
+		// a multi that marks right answers has a Check; the line under the options says whether the answer is right
+		if (multi) {
+			acts = box.createDiv({ cls: "booklet-acts" });
+			check = acts.createEl("button", { text: "Check" });
+			check.disabled = locked;
+			check.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				checkedOn = JSON.stringify(io.picks());
+				show();
+			});
+		}
+		live = box.createDiv({ cls: "booklet-live", attr: { "aria-live": "polite" } });
 	}
 	return show;
 }

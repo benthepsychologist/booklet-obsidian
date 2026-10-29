@@ -1,7 +1,7 @@
 /*
  * Reads a booklet's design: its front matter and marker, its module fences, the booklet's and each
- * module's opening, its activities, the seven common question kinds (choice, multi, scale, text, lines,
- * number, date), the widget questions with the widget blocks they embed, the shared menus a choice
+ * module's opening, its activities, the common question kinds (choice, multi, scale, text, lines,
+ * number, date, matrix), the widget questions with the widget blocks they embed, the shared menus a choice
  * or a multi takes its options from, and the queries an activity's prose holds, with what each reads.
  * Everything else is recorded, by kind and title, as not yet supported. Plain TypeScript: nothing here
  * imports Obsidian.
@@ -46,9 +46,9 @@ export interface Anchor {
 	text: string;
 }
 
-/** The question kinds this plugin draws and answers. */
-export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date"] as const;
-/** The question kinds this plugin draws and answers: the seven common ones, and a widget (SPEC section 7). */
+/** The question kinds this plugin draws and answers besides a widget: the seven common ones, and a matrix (SPEC section 5). */
+export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix"] as const;
+/** The question kinds this plugin draws and answers: the common ones, and a widget (SPEC section 7). */
 export type QuestionKind = (typeof COMMON_KINDS)[number] | "widget";
 
 /**
@@ -104,8 +104,10 @@ export interface Question {
 	line: number;
 	/** A choice's or a multi's options, in order: an answer is a position from 1. */
 	options: Option[];
-	/** A scale's anchors: an answer is an anchor's number. */
+	/** A scale's or a matrix's anchors: an answer is an anchor's number. */
 	anchors: Anchor[];
+	/** A matrix's items (inline Markdown), the bulleted list under its line: its answer holds one anchor number for each, by position. */
+	items: string[];
 	/** A text's `long`: a bigger box. */
 	long: boolean;
 	/** A choice's or a multi's `open`: the reader may add options of their own, stored as their words. */
@@ -124,9 +126,10 @@ export interface Question {
 	readonly: boolean;
 	describe: boolean;
 	/**
-	 * A multi's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
-	 * in the same activity. The question is asked once for each pick in the source's answer, and its answer is a list
-	 * of `{ "pick", "a" }` pairs (SPEC section 5, "A question asked for each pick"). Null otherwise.
+	 * A question's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
+	 * in the same activity. The question, of any kind, is asked once for each pick in the source's answer, and its answer
+	 * is a list of `{ "pick", "a" }` pairs, `a` the answer its kind stores (SPEC section 5, "A question asked for each
+	 * pick"). Null otherwise.
 	 */
 	each: string | null;
 	/**
@@ -153,12 +156,8 @@ export interface TabHeading {
 
 export interface Unsupported {
 	type: "unsupported";
-	/**
-	 * The line's kind, or `group` (questions inside a group), `in-callout` (questions inside another reading
-	 * callout) or `each` (a question of a kind other than `multi` asked for each pick of another, `of` its kind).
-	 */
+	/** The line's kind, or `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
 	kind: string;
-	of?: string;
 	id: string | null;
 	title: string;
 	line: number;
@@ -197,8 +196,7 @@ export interface Query {
 /** What a query reads: an activity's kept entries, one question's answers, or a data block (not drawn yet). */
 export type QuerySource =
 	| { kind: "activity"; act: Activity }
-	/** `q` is null for a question this view does not draw (a matrix, or a question of another kind than multi asked for each pick). */
-	| { kind: "question"; act: Activity; q: Question | null; id: string; title: string }
+	| { kind: "question"; act: Activity; q: Question; id: string; title: string }
 	| { kind: "data"; id: string };
 
 export interface QuerySegment {
@@ -467,8 +465,7 @@ const SOURCE_KINDS = new Set(["choice", "multi", "widget"]);
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
  * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
  * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and
- * ignored, and the question is drawn as its kind. A `multi` follows its source; a question of another kind asked for each pick is not drawn yet ("not yet
- * supported"), and its answers are kept as written.
+ * ignored, and the question is drawn as its kind. A question of any kind follows its source.
  */
 function readEach(uses: readonly EachUse[], problems: string[]): void {
 	for (const u of uses) {
@@ -492,8 +489,7 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 			problems.push(why);
 			continue;
 		}
-		if (q.kind === "multi") q.each = source;
-		else act.segments = act.segments.map((x): Segment => (x === q ? { type: "unsupported", kind: "each", of: q.kind, id: q.id, title: q.title, line: q.line } : x));
+		q.each = source;
 	}
 }
 
@@ -757,6 +753,7 @@ export function parseBooklet(text: string): Booklet {
 						line: i + 1,
 						options: [],
 						anchors: [],
+						items: [],
 						long: kind === "text" && w.flags.has("long"),
 						open: (kind === "choice" || kind === "multi") && w.flags.has("open"),
 						min: kind === "number" ? num(w.set["min"]) : null,
@@ -784,6 +781,14 @@ export function parseBooklet(text: string): Booklet {
 						const r = listUnder(lines, after, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() }));
 						if (!r) problems.push(`${at(i)}: the scale "${w.id}" has no anchors under it.`);
 						q.anchors = r?.items ?? [];
+					} else if (kind === "matrix") {
+						// the bulleted list of items, then the numbered list of anchors (booklet.html's matrix line)
+						const r = listUnder(lines, after, BULLET_RE, (mm) => (mm[1] ?? "").trim());
+						const an = r ? listUnder(lines, r.next, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() })) : null;
+						if (!r) problems.push(`${at(i)}: the matrix "${w.id}" has no items under it (a bulleted list).`);
+						else if (!an) problems.push(`${at(i)}: the matrix "${w.id}" has no anchors under its items (a numbered list).`);
+						q.items = r?.items ?? [];
+						q.anchors = an?.items ?? [];
 					} else if (kind === "widget") {
 						const emb = WIDGET_EMBED.exec(body.join("\n"));
 						if (emb) q.embed = emb[1] ?? null;
@@ -962,12 +967,9 @@ function readQuery(body: readonly string[], line: number, problems: string[]): Q
 	};
 }
 
-/** What of an activity a query may name as a question: one drawn here, or a matrix or another kind's `each:`, not drawn yet. */
-function questionNamed(a: Activity, id: string): { q: Question | null; title: string } | null {
-	for (const s of a.segments) {
-		if (s.type === "question" && s.id === id) return { q: s, title: s.title };
-		if (s.type === "unsupported" && s.id === id && (s.kind === "matrix" || s.kind === "each")) return { q: null, title: s.title };
-	}
+/** What of an activity a query may name as a question: one drawn here. */
+function questionNamed(a: Activity, id: string): { q: Question; title: string } | null {
+	for (const s of a.segments) if (s.type === "question" && s.id === id) return { q: s, title: s.title };
 	return null;
 }
 

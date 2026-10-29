@@ -1,9 +1,13 @@
 /*
- * A question asked for each pick of another (`each:<id>`, core/each.ts), drawn as the approved design and SPEC
- * section 5 have it: the question's title and help once (drawn by questions.ts drawCommon), then one copy for each pick in
- * its source's answer, each under a subheading in the pick's own words. A copy is the question's own options, `open`
- * field and replies, as a plain multi draws them (questions.ts choiceBody); what it picks is the `a` of that pick's
- * pair. Nothing is drawn while nothing is picked.
+ * A question asked for each pick of another (`each:<id>`, core/each.ts), of any kind, drawn as the approved design and
+ * SPEC section 5 have it: the question's title and help once (drawn by questions.ts drawCommon, or engines.ts for a
+ * widget), then one copy for each pick in its source's answer, each under a subheading in the pick's own words. A copy
+ * is the question's own controls as the question draws them without `each:`, with its marks (`[x]`), `open`, `menu:`,
+ * `min:`, `max:`, `step:` and `earlier:`; what it picks or types is the `a` of that pick's pair. Nothing is drawn while
+ * nothing is picked.
+ *
+ * A copy is drawn by the question's own drawer over a host of its own (copyHost): the host answers and writes the
+ * pick's `a` and keeps what is typed for that pick, and passes everything else to the view's.
  *
  * The order: a drawing of the view puts the copies in the order the source's answer holds the picks. While it stays
  * open, a new pick adds a copy at the end and nothing already on screen moves, even when the source's answer changes
@@ -18,19 +22,50 @@
  * they leave it. Its pair stays in the answer, not drawn, and a copy comes back for it (at the end) when the pick is
  * made again.
  */
-import { earlierOptions, pairFor, pickKey, pickWords, setPair, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
-import { choiceBody, picksOf, type Label, type QuestionHost, type Target } from "./questions";
+import { pairFor, pickKey, pickWords, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
+import type { QuestionHost, Target } from "./questions";
 
 interface Copy {
 	el: HTMLElement;
 	show: () => void;
 }
 
-export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
+/**
+ * What draws a copy's controls into `into`: the question's own drawer, given the host to draw over, a key for the
+ * copy's controls, and the ids of the words that name them (the question's, and the pick's).
+ */
+export type DrawCopy = (host: QuestionHost, into: HTMLElement, key: string, labelledBy: string) => void;
+
+/**
+ * A host for one copy of a question asked for each pick: the copy's answer is the `a` of its pick's pair, a press and
+ * typing write that, and the function it registers to show its answer again is `onShow`'s to call (the copies are shown
+ * together with the question).
+ */
+function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (show: () => void) => void): QuestionHost {
+	return {
+		md: (markdown, el) => host.md(markdown, el),
+		answerOf: (t) => pairFor(host.answerOf(t, q), pick)?.a,
+		answer: (t, _q, value) => host.answer(t, q, value, pick),
+		typed: (t, _q, value) => host.typed(t, q, value, pick),
+		flushTyped: (t) => host.flushTyped(t, q, pick),
+		pendingOf: (t) => host.pendingOf(t, q, pick),
+		onShow: (_key, show) => onShow(show),
+		keepOwn: (key, t, commit) => host.keepOwn(key, t, commit),
+		pressTarget: () => host.pressTarget(),
+		heldOf: (key) => host.heldOf(key),
+		hold: (key, words) => host.hold(key, words),
+		earlierOf: (t) => ({ ...host.earlierOf(t), pick }),
+		reshow: () => host.reshow(),
+		uid: () => host.uid(),
+		wrongOf: (t) => host.wrongOf(t, q),
+		redrawSoon: () => host.redrawSoon(),
+	};
+}
+
+export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, promptId: string, draw: DrawCopy): void {
 	box.addClass("booklet-each");
 	const src = sourceOf(t.activity, q);
 	const copies = box.createDiv({ cls: "booklet-copies" });
-	if (q.options.some((o) => o.correct)) box.createDiv({ cls: "booklet-muted", text: "Marking an answer right or wrong is not yet supported." });
 	const drawn = new Map<string, Copy>();
 	const picksNow = (): PickValue[] => (src ? sourcePicks(src, host.answerOf(t, src)) : []);
 
@@ -42,26 +77,10 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 		const w = src ? pickWords(src, p) : { text: String(p) };
 		if ("md" in w) host.md(w.md, head.createSpan({ cls: "booklet-inline markdown-rendered" }));
 		else head.setText(w.text);
-		// each copy's controls are named by the question's prompt and the pick's words
-		const named: Label = (c) => {
-			label(c);
-			c.setAttr("aria-labelledby", `${c.getAttribute("aria-labelledby") ?? ""} ${headId}`.trim());
-		};
-		const show = choiceBody(host, el, t, q, named, locked, {
-			picks: () => picksOf(pairFor(host.answerOf(t, q), p)?.a),
-			put: (list) => {
-				const next = setPair(host.answerOf(t, q), p, list);
-				host.answer(t, q, next.length ? next : undefined);
-			},
-			// the reader's own options under the other picks the source holds now, then in the kept entries (the
-			// pairs whose pick each entry's source holds), as for `open` (core/earlier.ts)
-			offered: (now) => {
-				const { record, entries } = host.earlierOf(t);
-				return earlierOptions(t.activity, q, record, entries, now, p);
-			},
-			ownKey: `${key}#own:${pickKey(p)}`,
-		});
-		return { el, show };
+		// each copy's controls are named by the question's prompt and the pick's words; the copy's updaters run with the question's
+		const shows: Array<() => void> = [];
+		draw(copyHost(host, q, p, (show) => shows.push(show)), el, `${key}#${pickKey(p)}`, `${promptId} ${headId}`);
+		return { el, show: () => shows.forEach((show) => show()) };
 	};
 
 	const show = () => {
@@ -99,4 +118,3 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 	show();
 	host.onShow(key, show);
 }
-

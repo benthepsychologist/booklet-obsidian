@@ -154,7 +154,7 @@ export const hasScreen = (m: NavMod): boolean => !m.bare && m.acts.length > 1;
 
 const LEAD_EMOJI = /^(\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*️?)\s*/u;
 const stripQuote = (l: string) => l.replace(/^>[ \t]?/, "");
-const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget", "matrix"]);
+const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget"]);
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
 const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
@@ -620,7 +620,7 @@ export function moduleTitle(nav: NavModel, m: NavMod): { title: string; emoji: s
 	return { title: m.title || m.id, emoji: m.emoji };
 }
 
-const isQuestionLike = (s: Segment): boolean => s.type === "question" || (s.type === "unsupported" && !!s.id && (s.kind === "matrix" || s.kind === "each"));
+const isQuestionLike = (s: Segment): boolean => s.type === "question";
 
 interface Progress {
 	repeats: boolean;

@@ -7,6 +7,7 @@
  * booklet.html's regionNames shows it. Plain TypeScript: nothing here imports Obsidian.
  */
 import { pickWords as pickWordsOf, shownPairs, sourceOf } from "./each";
+import { plainWords } from "./earlier";
 import type { Activity, Question } from "./reader";
 import { holdsSomething, shapeIssue } from "./shape";
 import { engineOf, gridNames, gridOf, regionSummary, regionsOf } from "./widgets";
@@ -27,11 +28,11 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 	if (v === undefined || v === null) return null;
 	const issue = shapeIssue(q, v);
 	if (issue) return { kept: JSON.stringify(v), issue };
+	// a question asked for each pick is put in words by eachWords, one line for each pick
+	if (q.each) return null;
 	switch (q.kind) {
 		case "choice":
 		case "multi": {
-			// a question asked for each pick is put in words by eachWords, one line for each pick
-			if (q.each) return null;
 			const picks = (Array.isArray(v) ? v : [v]).filter((x) => (typeof x === "string" ? x.trim() !== "" : x !== null && x !== undefined));
 			if (!picks.length) return null;
 			const parts: WordPart[] = [];
@@ -49,6 +50,11 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 		case "lines": {
 			const items = (Array.isArray(v) ? v : [v]).filter(filled).map((x) => x.trim());
 			return items.length ? { list: items } : null;
+		}
+		case "matrix": {
+			// each item with its anchor's words, as booklet.html's matrix summary lists them; an item not answered is a dash
+			const list = Array.isArray(v) ? q.items.map((it, i) => `${plainWords(it)}: ${typeof v[i] === "number" ? plainWords(q.anchors.find((a) => a.n === v[i])?.text ?? String(v[i])) : "\u2013"}`) : [];
+			return list.length && Array.isArray(v) && v.some((x) => typeof x === "number") ? { list } : null;
 		}
 		case "text":
 			return filled(v) ? { parts: [{ text: v.trim() }] } : null;
