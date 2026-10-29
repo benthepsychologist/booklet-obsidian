@@ -12,11 +12,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm, sleep } from "./helpers.mjs";
+import { CHECKIN, core, norm, ROOT } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const DAILY = readFileSync(join(ROOT, "test-vault", "Daily tracker.booklet.md"), "utf8");
 
 /** An app with a vault holding one note, and a device store as Obsidian's saveLocalStorage keeps one. */
@@ -55,7 +54,7 @@ test("gap 2: words typed in Add your own and not added survive a reload: kept on
 	assert.ok([...env.store.values()].some((v) => v.includes("The library")), "kept on the device as it is typed");
 	// the reload: the page goes, with no blur and no write
 	one.dropped();
-	await sleep(20);
+	await one.view.writes;
 	assert.deepEqual(draftOf(env.disk.text), {}, "nothing was written before the reload");
 	const two = openOn(env, "Check-in.booklet.md");
 	await two.settled();

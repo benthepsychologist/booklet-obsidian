@@ -5,8 +5,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { typeInto } from "./dom.mjs";
-import { pane, sleep } from "./pane.mjs";
+import { typeInto, until } from "./dom.mjs";
+import { pane } from "./pane.mjs";
 
 const BOOK = `---
 booklet: "0.16"
@@ -66,8 +66,7 @@ for (const [route, leave] of Object.entries(ROUTES)) {
 			typeInto(input, words);
 			assert.ok(!p.disk.text.includes(words), "not written yet");
 			await leave(p);
-			await sleep(40);
-			await p.view.writes;
+			await until(() => p.disk.text.includes(words), `the note to hold ${words} after leaving by ${route}`);
 			assert.ok(p.disk.text.includes(words), `the note holds ${words} after leaving by ${route}: ${p.disk.text}`);
 			p.close();
 		});

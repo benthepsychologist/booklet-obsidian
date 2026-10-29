@@ -18,9 +18,9 @@
  */
 import type { Activity, Booklet, Question } from "./reader";
 import type { Entry } from "./records";
-import { pairFor, sourceOf, sourcePicks, type PickValue } from "./each";
+import { pairFor, plainOf, sourceOf, sourcePicks, type PickValue } from "./each";
 import { shapeIssue } from "./shape";
-import { normWords, regionsOf, senseWord, type Regions } from "./widgets";
+import { normWords, senseWord, type Regions } from "./widgets";
 import { todaysEntry, type DayRule } from "./write";
 
 /** How many earlier words a question offers at each place when its line does not say (Ben: "keep the limit of 12"). */
@@ -80,22 +80,29 @@ function takeWords(from: Iterable<string>, limit: number, same: (a: string, b: s
 	return out;
 }
 
-/* ---- own options ---- */
-
 /**
- * A choice's or a multi's own options in one record (a draft as shown, the answers, or a kept entry), in the order
- * written. Under `each:`, the pairs whose pick the source holds in the same record, in the source's order; `except`
- * leaves one pick's pair out (the copy the words are offered under). Nothing from an answer of the wrong shape.
+ * The answers one record (a draft as shown, the answers, or a kept entry) holds for a question, each in its kind's
+ * shape: the answer itself, or, for a question asked for each pick, the `a` of each pair whose pick the source holds
+ * in the same record, in the source's order (`except` leaves one pick's pair out: the copy the words are offered
+ * under). Nothing from an answer of the wrong shape.
  */
-export function ownOptionsIn(act: Pick<Activity, "segments">, q: Question, rec: Record<string, unknown> | undefined, except?: PickValue): string[] {
+export function answersIn(act: Pick<Activity, "segments"> | undefined, q: Question, rec: Record<string, unknown> | undefined, except?: PickValue): unknown[] {
 	const v = rec?.[q.id];
 	if (v === undefined || shapeIssue(q, v)) return [];
-	if (!q.each) return wordsIn(membersOf(v));
-	const src = sourceOf(act, q);
+	if (!q.each) return [v];
+	const src = act ? sourceOf(act, q) : null;
 	if (!src) return [];
 	return sourcePicks(src, rec?.[src.id])
 		.filter((p) => p !== except)
-		.flatMap((p) => wordsIn(membersOf(pairFor(v, p)?.a)));
+		.map((p) => pairFor(v, p)?.a)
+		.filter((a) => a !== undefined);
+}
+
+/* ---- own options ---- */
+
+/** A choice's or a multi's own options in one record, in the order written (answersIn). */
+export function ownOptionsIn(act: Pick<Activity, "segments">, q: Question, rec: Record<string, unknown> | undefined, except?: PickValue): string[] {
+	return answersIn(act, q, rec, except).flatMap((a) => wordsIn(membersOf(a)));
 }
 
 /**
@@ -139,12 +146,12 @@ export function isOwnPlaceWord(rg: Regions, x: unknown): x is string {
 }
 
 /**
- * The reader's own words in one svg-regions answer, in the widget's order of places (rows for places it no longer
- * lists after the rest, in the answer's order), and within a place in the order written. Nothing from an answer of
- * the wrong shape.
+ * The reader's own words in one svg-regions answer (the whole answer, or one pick's under `each:`), in the widget's
+ * order of places (rows for places it no longer lists after the rest, in the answer's order), and within a place in
+ * the order written. Nothing from an answer of the wrong shape.
  */
 export function ownPlaceWordsIn(q: Question, rg: Regions, v: unknown): string[] {
-	if (v === undefined || !Array.isArray(v) || shapeIssue(q, v)) return [];
+	if (v === undefined || !Array.isArray(v) || shapeIssue(plainOf(q), v)) return [];
 	const order = rg.regions.map((r) => r.id);
 	const at = (id: unknown) => {
 		const n = order.indexOf(String(id));
@@ -157,14 +164,22 @@ export function ownPlaceWordsIn(q: Question, rg: Regions, v: unknown): string[] 
 	return rows.flatMap(({ r }) => (Array.isArray(r["s"]) ? r["s"].filter((x): x is string => isOwnPlaceWord(rg, x)).map((x) => x.trim()) : []));
 }
 
+/** Where a question asked for each pick reads the words of its other copies and of the kept entries: the activity, the record being written and the pick of the copy. */
+export interface EachContext {
+	act: Pick<Activity, "segments">;
+	record: Record<string, unknown>;
+	pick: PickValue;
+}
+
 /**
  * The words a body widget offers again under one place, at most earlierLimit(q): the reader's own words in the answer
- * being written (its other places), then in the kept entries, newest first. A word is offered under every place, as
- * the widget's words are. Words that are one of the widget's words, words already at that place, words holding a
- * comma (the field splits words at commas) and repeats are left out before the count, compared as SPEC section 7
- * compares words (normWords).
+ * being written (its other places; under `each:` this copy's answer, then the other copies'), then in the kept
+ * entries, newest first. A word is offered under every place, as the widget's words are. Words that are one of the
+ * widget's words, words already at that place, words holding a comma (the field splits words at commas) and repeats
+ * are left out before the count, compared as SPEC section 7 compares words (normWords). `now` is the answer shown:
+ * under `each:` the copy's, and `each` says where the other copies are.
  */
-export function earlierPlaceWords(q: Question, rg: Regions, now: unknown, entries: readonly Entry[], place: string): string[] {
+export function earlierPlaceWords(q: Question, rg: Regions, now: unknown, entries: readonly Entry[], place: string, each?: EachContext): string[] {
 	const listed = new Set(rg.senses.flatMap((g) => g.words.map((w) => normWords(w.label))));
 	const row = Array.isArray(now) ? now.find((r) => !!r && typeof r === "object" && (r as Record<string, unknown>)["id"] === place) : undefined;
 	const here = new Set(
@@ -172,34 +187,30 @@ export function earlierPlaceWords(q: Question, rg: Regions, now: unknown, entrie
 	);
 	function* from(): Generator<string> {
 		yield* ownPlaceWordsIn(q, rg, now);
-		for (const e of entries) yield* ownPlaceWordsIn(q, rg, e[q.id]);
+		if (q.each && each) for (const a of answersIn(each.act, q, each.record, each.pick)) yield* ownPlaceWordsIn(q, rg, a);
+		for (const e of entries) for (const a of answersIn(each?.act, q, e)) yield* ownPlaceWordsIn(q, rg, a);
 	}
 	const same = (a: string, b: string) => normWords(a) === normWords(b);
 	return takeWords(from(), earlierLimit(q), same, (w) => w.includes(",") || listed.has(normWords(w)) || here.has(normWords(w)));
 }
 
-/** The words an svg-regions widget question offers under `place`: its data read, then earlierPlaceWords. */
-export function earlierPlaceWordsOf(q: Question, now: unknown, entries: readonly Entry[], place: string): string[] {
-	if (!q.widget) return [];
-	return earlierPlaceWords(q, regionsOf(q.widget.data), now, entries, place);
-}
-
 /* ---- a lines question ---- */
 
-/** The lines of one lines answer with something other than white space in them, trimmed, in order; nothing from an answer of the wrong shape. */
+/** The lines of one lines answer (the whole answer, or one pick's under `each:`) with something other than white space in them, trimmed, in order; nothing from an answer of the wrong shape. */
 export function linesIn(q: Question, v: unknown): string[] {
-	if (v === undefined || shapeIssue(q, v) || !Array.isArray(v)) return [];
+	if (v === undefined || shapeIssue(plainOf(q), v) || !Array.isArray(v)) return [];
 	return wordsIn(v);
 }
 
 /**
  * The earlier lines a lines question offers under its fields, at most earlierLimit(q) (none unless its line sets
- * `earlier:<n>`): the lines of the kept entries, newest first, within an entry in the order written. Lines already
+ * `earlier:<n>`): the lines of the kept entries, newest first, within an entry in the order written (under `each:`,
+ * those of the pairs whose pick the entry's source holds, in the source's order; `act` is where the source is). Lines already
  * in the fields (`now`) and repeats are left out before the count, compared as SPEC section 5 compares an own option.
  */
-export function earlierLines(q: Question, entries: readonly Entry[], now: readonly string[]): string[] {
+export function earlierLines(q: Question, entries: readonly Entry[], now: readonly string[], act?: Pick<Activity, "segments">): string[] {
 	function* from(): Generator<string> {
-		for (const e of entries) yield* linesIn(q, e[q.id]);
+		for (const e of entries) for (const a of answersIn(act, q, e)) yield* linesIn(q, a);
 	}
 	return takeWords(from(), earlierLimit(q), sameWords, (w) => now.some((o) => sameWords(o, w)));
 }

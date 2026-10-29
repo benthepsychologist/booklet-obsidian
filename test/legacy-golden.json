@@ -45,6 +45,7 @@
         "line": 20,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -192,6 +193,7 @@
         "line": 23,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -355,6 +357,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": true,
         "min": null,
@@ -398,6 +401,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": true,
         "min": null,
@@ -420,6 +424,7 @@
         "line": 31,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -762,7 +767,7 @@
       "line": 120
      }
     ],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -838,6 +843,7 @@
            "line": 20,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -985,6 +991,7 @@
            "line": 23,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1148,6 +1155,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": true,
            "min": null,
@@ -1191,6 +1199,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": true,
            "min": null,
@@ -1213,6 +1222,7 @@
            "line": 31,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1360,7 +1370,7 @@
     }
    },
    "activity:day-check/today||0": {
-    "sha": "826a84473c6f849c41e0a2a71cf137e15feb83dfa6f08850f9a2e3acd18a3682",
+    "sha": "e948517155420cafdc50a3876d1394034996bbddf335173368108d4fec0fa9f8",
     "writes": 0,
     "same": true,
     "drawn": "activity:day-check/today",
@@ -1372,7 +1382,7 @@
     }
    },
    "activity:day-check/week||0": {
-    "sha": "9043b1f4ffe2119ff15ef9fbc02311c1c8819a59b24dac70b6f70d2913aa55b0",
+    "sha": "2e9a3d623d56472c1556a52dae1e5c0b874b87fb6b789bc97318d3f08b759f68",
     "writes": 0,
     "same": true,
     "drawn": "activity:day-check/week",
@@ -1440,6 +1450,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -1479,6 +1490,7 @@
           "text": "Packed"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -1501,6 +1513,7 @@
         "line": 24,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": 0,
@@ -1523,6 +1536,7 @@
         "line": 26,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -1545,6 +1559,7 @@
         "line": 28,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -1565,7 +1580,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [
       {
@@ -1720,6 +1735,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1759,6 +1775,7 @@
              "text": "Packed"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1781,6 +1798,7 @@
            "line": 24,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": 0,
@@ -1803,6 +1821,7 @@
            "line": 26,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1825,6 +1844,7 @@
            "line": 28,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -1876,7 +1896,7 @@
     }
    },
    "activity:/evening-log||0": {
-    "sha": "a9127a26006a9a58364fab905f1c452759e2385670bcece0052298d80a9a0f97",
+    "sha": "d00d7de33a791e04dbcc2108a6b2e79496abfa4dae6757bd25d429e925d63c82",
     "writes": 0,
     "same": true,
     "drawn": "activity:/evening-log",
@@ -1944,6 +1964,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -1987,6 +2008,7 @@
           "text": "Lots"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2009,6 +2031,7 @@
         "line": 25,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2029,7 +2052,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -2118,6 +2141,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -2161,6 +2185,7 @@
              "text": "Lots"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -2183,6 +2208,7 @@
            "line": 25,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -2234,7 +2260,7 @@
     }
    },
    "activity:/evening||0": {
-    "sha": "98b6fdf435d6332ff786c2d1012e56ecf17263621214a5b70c0203616ebc2df4",
+    "sha": "59e902f11c83436be238d474609e8d5faa4bd00c4f9c3c2996f664113dd2bb7f",
     "writes": 0,
     "same": true,
     "drawn": "activity:/evening",
@@ -2304,6 +2330,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2342,6 +2369,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": true,
         "min": null,
@@ -2377,6 +2405,7 @@
           "text": "Certain"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2399,6 +2428,7 @@
         "line": 30,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": true,
         "open": false,
         "min": null,
@@ -2421,6 +2451,7 @@
         "line": 32,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2443,6 +2474,7 @@
         "line": 34,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": 0,
@@ -2465,6 +2497,7 @@
         "line": 36,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2519,6 +2552,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2541,6 +2575,7 @@
         "line": 49,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -2626,23 +2661,76 @@
         "line": 69
        },
        {
-        "type": "unsupported",
+        "type": "question",
         "kind": "matrix",
         "id": "rate",
         "title": "How do you rate each shape?",
-        "line": 72
+        "help": "",
+        "line": 72,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "Not much"
+         },
+         {
+          "n": 1,
+          "text": "Somewhat"
+         },
+         {
+          "n": 2,
+          "text": "A lot"
+         }
+        ],
+        "items": [
+         "Circle",
+         "Square"
+        ],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
        },
        {
-        "type": "prose",
-        "markdown": "> [!group] A group with a question in it\n> > [!text|in-group] What goes inside the group?",
-        "line": 80
-       },
-       {
-        "type": "unsupported",
+        "type": "callout",
         "kind": "group",
-        "id": null,
         "title": "A group with a question in it",
+        "fold": "",
         "line": 81
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "in-group",
+        "title": "What goes inside the group?",
+        "help": "",
+        "line": 82,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
        },
        {
         "type": "tab",
@@ -2679,6 +2767,7 @@
         "line": 96,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": 0,
@@ -2715,9 +2804,7 @@
       ]
      }
     ],
-    "problems": [
-     "Line 81: a question inside a group callout is drawn as text here, not as a question (not yet supported)."
-    ],
+    "problems": [],
     "openings": [],
     "widgets": [
      {
@@ -2789,7 +2876,7 @@
       "line": 42
      }
     ],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -2889,6 +2976,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -2927,6 +3015,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": true,
            "min": null,
@@ -2962,6 +3051,7 @@
              "text": "Certain"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -2984,6 +3074,7 @@
            "line": 30,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": true,
            "open": false,
            "min": null,
@@ -3006,6 +3097,7 @@
            "line": 32,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3028,6 +3120,7 @@
            "line": 34,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": 0,
@@ -3050,6 +3143,7 @@
            "line": 36,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3122,6 +3216,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3144,6 +3239,7 @@
            "line": 49,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3241,23 +3337,76 @@
         "line": 69
        },
        {
-        "type": "unsupported",
+        "type": "question",
         "kind": "matrix",
         "id": "rate",
         "title": "How do you rate each shape?",
-        "line": 72
+        "help": "",
+        "line": 72,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "Not much"
+         },
+         {
+          "n": 1,
+          "text": "Somewhat"
+         },
+         {
+          "n": 2,
+          "text": "A lot"
+         }
+        ],
+        "items": [
+         "Circle",
+         "Square"
+        ],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
        },
        {
-        "type": "prose",
-        "markdown": "> [!group] A group with a question in it\n> > [!text|in-group] What goes inside the group?",
-        "line": 80
-       },
-       {
-        "type": "unsupported",
+        "type": "callout",
         "kind": "group",
-        "id": null,
         "title": "A group with a question in it",
+        "fold": "",
         "line": 81
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "in-group",
+        "title": "What goes inside the group?",
+        "help": "",
+        "line": 82,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
        }
       ],
       "tabs": [
@@ -3321,6 +3470,7 @@
            "line": 96,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": 0,
@@ -3395,7 +3545,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "4f83aa4e6b57f5b9936fce4c624182740bec7fbbd016c3dfc21534e2028d7ea0",
+    "sha": "fdc43ce6ca560ca24cadba878493d29cf35bc5f7c5c986c9912ebe5c18494b46",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -3407,7 +3557,7 @@
     }
    },
    "activity:/kinds||0": {
-    "sha": "3f97031c158327148b18168ec0debc71f34a4cce64c29d040512c08b30b3183e",
+    "sha": "fc6fbf24d25713611ea808434491661aa1a8344707046c5f37bb99af9a96b354",
     "writes": 0,
     "same": true,
     "drawn": "activity:/kinds",
@@ -3419,7 +3569,7 @@
     }
    },
    "activity:/shared||0": {
-    "sha": "c60bd86ce34a9e71387ac9adb89d4ffc79eebdb365c0921837f991d8972a8717",
+    "sha": "b848e48a0a66d7b1908133d649cf154dc556d3a82351f2ff4feefde63df3344e",
     "writes": 0,
     "same": true,
     "drawn": "activity:/shared",
@@ -3431,7 +3581,7 @@
     }
    },
    "activity:/not-yet||0": {
-    "sha": "ff268f817fb756fb357cf3d7b5421c925adfeb647892a0028ec2b6a124166f1b",
+    "sha": "d262addaf71f21a12d0db892edde2e7e73e31d8370c3bf53d3604597cf3cfc52",
     "writes": 0,
     "same": true,
     "drawn": "activity:/not-yet",
@@ -3443,7 +3593,7 @@
     }
    },
    "activity:/not-yet||1": {
-    "sha": "606a5883573dcea75669f20545f92d6da836c808574861db17f81fc450aa01bb",
+    "sha": "b394bb27a7cdc5564864d51c9eb672c3d0040a6ef3f459b3c784b54e0e876771",
     "writes": 0,
     "same": true,
     "drawn": "activity:/not-yet",
@@ -3455,7 +3605,7 @@
     }
    },
    "activity:/tally||0": {
-    "sha": "f34c3764e0c7dc1214f522ce7120a6c9d106401ec6b27685d634ee52b4c50426",
+    "sha": "0851827a90d2afa916ef6051919c457f1214c6cee22c7bd68245f7bc82385e93",
     "writes": 0,
     "same": true,
     "drawn": "activity:/tally",
@@ -3530,6 +3680,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -3552,6 +3703,7 @@
         "line": 17,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -3598,6 +3750,7 @@
           "text": "Brisk"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -3620,6 +3773,7 @@
         "line": 29,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -3666,6 +3820,7 @@
           "text": "A lot"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -3686,7 +3841,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [
       {
@@ -3896,6 +4051,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3918,6 +4074,7 @@
            "line": 17,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -3982,6 +4139,7 @@
              "text": "Brisk"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -4004,6 +4162,7 @@
            "line": 29,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -4068,6 +4227,7 @@
              "text": "A lot"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -4136,7 +4296,7 @@
     }
    },
    "activity:/warm-up||0": {
-    "sha": "45af62705526b3267ffacb6aa1f7baf546b64d0861049d334bff461df7fab7c5",
+    "sha": "ec4910d0068d01de5f52d5cb057d1c05a52ea568eae2a62a2b600c774b823a20",
     "writes": 0,
     "same": true,
     "drawn": "activity:/warm-up",
@@ -4148,7 +4308,7 @@
     }
    },
    "activity:walks/walk-log||0": {
-    "sha": "87899dbffcb447cc5ab70804dba74b243854640df632d575c34e1fd46ff75716",
+    "sha": "44066a8207510015712d61e66ece75bae525db39755c2b99101e3ff192d4b3d2",
     "writes": 0,
     "same": true,
     "drawn": "activity:walks/walk-log",
@@ -4160,7 +4320,7 @@
     }
    },
    "activity:walks/walk-review||0": {
-    "sha": "c6a6bf6e93ce08c89b9958c3ddf857dd4ab9d1e0260d5f931f21a8a671e81d5d",
+    "sha": "6d19162e7bc3a742f2beb816aee83ea5bd5686cdbee08857c77ea1fa9bfa8aee",
     "writes": 0,
     "same": true,
     "drawn": "activity:walks/walk-review",
@@ -4236,6 +4396,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4287,6 +4448,7 @@
           "text": "Straight"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4314,6 +4476,7 @@
         "line": 66,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4373,6 +4536,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4410,6 +4574,7 @@
         "line": 88,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4491,6 +4656,7 @@
         "line": 110,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4526,6 +4692,7 @@
           "text": "Good"
          }
         ],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -4651,13 +4818,7 @@
     ],
     "widgets": [],
     "menus": [],
-    "unshown": [
-     {
-      "kind": "notice",
-      "scope": "basics",
-      "line": 27
-     }
-    ],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -4826,6 +4987,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -4902,6 +5064,7 @@
              "text": "Straight"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -4931,6 +5094,7 @@
            "line": 66,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -5004,6 +5168,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -5046,6 +5211,7 @@
            "line": 88,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -5202,6 +5368,7 @@
            "line": 110,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -5237,6 +5404,7 @@
              "text": "Good"
             }
            ],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -5416,7 +5584,7 @@
     }
    },
    "module:basics|practice|0": {
-    "sha": "ec889f8a6788e7ac80525d916487273a5629d75bf1db12e8d985a51147102695",
+    "sha": "2744b899a5d76032b09346c4177ef4cfa1e86bfad5546bf5406c0c5c818d5c5a",
     "writes": 0,
     "same": true,
     "drawn": "module:basics",
@@ -5429,7 +5597,7 @@
     }
    },
    "module:basics|read|0": {
-    "sha": "320bc17d5c9ea8b0eb7389a38a7e0efaeff85c074030f275584e260b257c0c5e",
+    "sha": "3be0bb2c03bc00c68d6f9b807049ce364d6bd810ce602038928cfe24f2511df2",
     "writes": 0,
     "same": true,
     "drawn": "module:basics",
@@ -5454,7 +5622,7 @@
     }
    },
    "activity:/warm-up||0": {
-    "sha": "feffb8de82dde89d3a7b7e77d831ba442830b821d03087c215978adcb64c6150",
+    "sha": "db3bc52c68f8572d1cb51d08f3bf2295883307b35758a23cd9333fc7ed0d4a2a",
     "writes": 0,
     "same": true,
     "drawn": "activity:/warm-up",
@@ -5466,7 +5634,7 @@
     }
    },
    "activity:basics/lines||0": {
-    "sha": "66af7b499d0134a9fc40f707bcd6ce0f3a020a83cd29ba8db0b97ec44eeaf8ca",
+    "sha": "d5424862daf66b93146c206bb2a6d16d4c4f68d085d820e6dd47f955670e4101",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/lines",
@@ -5478,7 +5646,7 @@
     }
    },
    "activity:basics/lines||1": {
-    "sha": "85c57fe4fe495159d96f1abb7b5d4f6d5e87f697b0bc1a759f971ca17922bf35",
+    "sha": "a935b9a27d95fbb9b05e00b98d5fc3475e8d29c3593a357b0faf8f3637b2e65c",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/lines",
@@ -5490,7 +5658,7 @@
     }
    },
    "activity:basics/lines||2": {
-    "sha": "86f8dceb6411690bd6f9cc6dd1731bebb734b9c79fdc9265ffb9e208375df5fe",
+    "sha": "af54d17efec5f2357f58cb02861d3db2204a2dde7b464839fd01e03a7044d60c",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/lines",
@@ -5502,7 +5670,7 @@
     }
    },
    "activity:basics/shapes|boxes|0": {
-    "sha": "7a87dd355e2ae2cff312f1fdddd9eb2f61d7c6baaea78d36bead271c8f0f2b0b",
+    "sha": "5de34308fe3e2abe18f3bc101880a9f3a62c84af2b9116484bc41154bbf3ae79",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/shapes",
@@ -5515,7 +5683,7 @@
     }
    },
    "activity:basics/shapes|boxes|1": {
-    "sha": "cea8bfb9149194f72ce7ca9cc2d2052ab8a421d53ae8605c94e297c9097e046e",
+    "sha": "936a8ea09d4789f4930953d05d55a83a1781afbb2ae949a53a3f3f0a573e4ef2",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/shapes",
@@ -5528,7 +5696,7 @@
     }
    },
    "activity:basics/shapes|cylinders|0": {
-    "sha": "78b8c1336336a4aa99417f217133703183cf599d5bc07aa4556c762af33ce9de",
+    "sha": "2e8399b029c891e6866e2209ac8d0bd199d866ea1db873f2ad227ff247aaac11",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/shapes",
@@ -5541,7 +5709,7 @@
     }
    },
    "activity:basics/light||0": {
-    "sha": "48f36cc77099ccc382bed039cc5c744f18256bf000d6fb8aba2efdf24afd6e6a",
+    "sha": "f8471e30bff0ea076227279dca5a6320177a1368c9316d381b84c6cb8a643f9d",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/light",
@@ -5553,7 +5721,7 @@
     }
    },
    "activity:basics/shadow||0": {
-    "sha": "2bd1b4c8d819d7c17be1510613a10d9ccdf9515dd5b8ff86f0071b45ed197ca0",
+    "sha": "7cf8c0984e8cfa5abe47690f8c7cf93825947f1ad60bb58de274690107db2e0f",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/shadow",
@@ -5565,7 +5733,7 @@
     }
    },
    "activity:basics/reflected||0": {
-    "sha": "820a8d5a23b025c5ae77afbfb3a8ebdfc36fa1ac10487d593b665a3b9bac8bb7",
+    "sha": "9ce9fd4ef1047cee3ede3ba5755ca436c2e066aec2b3b643cb57a9579f2c84a5",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/reflected",
@@ -5577,7 +5745,7 @@
     }
    },
    "activity:journal/today||0": {
-    "sha": "13f24aa18e176fdcc2963f5787675f9d9e9e331b2db55f7b6c8ffeb456c292a9",
+    "sha": "b657cbcc1f3ec8464492419f5fcff9784b87fa051c9c9aa767181ed6c728f95c",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/today",
@@ -5589,7 +5757,7 @@
     }
    },
    "activity:journal/studies|hands|0": {
-    "sha": "4b00ad9d977e3358b92c39d6704818ca18d5c92c41f2111986bb1bfde6546df0",
+    "sha": "6c6e474952555d014182db67fc4ac730379e4c5a047c8d1069e4968c7798fb0e",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5602,7 +5770,7 @@
     }
    },
    "activity:journal/studies|cups|0": {
-    "sha": "0eaca8fc4f9f136f7fceac6572bbe7ce3fbb858022a16c76f766de58b7391e57",
+    "sha": "878df5b5d409500f700a5d7864f32d9d4e22437964083bd0dff52d291e8c884a",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5615,7 +5783,7 @@
     }
    },
    "activity:journal/studies|trees|0": {
-    "sha": "ce51c7360441ea4b3d056552ec1a5470b2bc430478d545d65fa2b1b4d301800d",
+    "sha": "8c369baaddf8d561b0ebebe2c5e4f84662d1dff50eff1c61678027a55fa6495a",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5628,7 +5796,7 @@
     }
    },
    "activity:journal/studies|faces|0": {
-    "sha": "118992c08f0c35cfc2c324808a4c0a7b27e60527c57122b6ce4840d534f170f0",
+    "sha": "ce0abdcdbf9d24dc0ecab969a8584e912d5db748f1c6cb0816079042c284df8b",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5641,7 +5809,7 @@
     }
    },
    "activity:journal/studies|shoes|0": {
-    "sha": "4514d0295abf0c8487c8ba63a16747184d85a13b4df4bce45a7afb90a0cbf678",
+    "sha": "5c5af6787547fbd6fc3839ba1ffa491d9b9f58127bf5637bd54039a6b4899693",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5654,7 +5822,7 @@
     }
    },
    "activity:journal/studies|chairs|0": {
-    "sha": "4581c336a4819fc96da8ae88af2ae83ea1f5a9b0a7f48029b5b746bd41cedd78",
+    "sha": "0b04904ad0b44a001a2dbc83a8e5a3a240eb124bc44ed519d072ce8e80bfafd9",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5667,7 +5835,7 @@
     }
    },
    "activity:journal/studies|clouds|0": {
-    "sha": "5b9b20232af680995d03a2db46d0d0d75a81a756d61015751f4879e74ab4a64d",
+    "sha": "893cf3329ebf0a814baf03bd8039fa798c66ac228001e71381da85293c9c56ce",
     "writes": 0,
     "same": true,
     "drawn": "activity:journal/studies",
@@ -5676,6 +5844,2243 @@
      "version": 1,
      "screen": "activity:journal/studies",
      "tab": "clouds",
+     "part": 0
+    }
+   }
+  }
+ },
+ "Reading and steps.booklet.md": {
+  "model": {
+   "book": {
+    "ok": true,
+    "refusal": null,
+    "marker": "0.16",
+    "frontMatter": {
+     "booklet": "0.16",
+     "id": "booklet-test/reading",
+     "title": "Reading and steps",
+     "lang": "en"
+    },
+    "title": "Reading and steps",
+    "bodyStart": 6,
+    "modules": [],
+    "activities": [
+     {
+      "id": "sources",
+      "title": "Reading kinds and sources",
+      "scope": "",
+      "line": 11,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "Most harbours see two high tides each lunar day.[^atlas-12] A second source is a plain reference.[^leaflet]\n\n> [!diff] Your guide says the tide turns every six hours\n> The guide rounds it off. High water comes a little later each day.[^atlas-12]\n\n> [!law] The rule as it stands\n> Tide tables give their times in local time.\n\n> [!opinion] One author's view\n> The old paper charts were easier to read than the screens.",
+        "line": 13
+       },
+       {
+        "type": "callout",
+        "kind": "tip",
+        "title": "A tip that holds a question",
+        "fold": "",
+        "line": 25
+       },
+       {
+        "type": "prose",
+        "markdown": "A tip may hold a question.",
+        "line": 26
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "tip-q",
+        "title": "Which of these is a tide?",
+        "help": "",
+        "line": 28,
+        "options": [
+         {
+          "text": "Rising water",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "A sandwich",
+          "correct": true,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       }
+      ]
+     },
+     {
+      "id": "rows",
+      "title": "Things side by side",
+      "scope": "",
+      "line": 34,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "row",
+        "end": false,
+        "line": 37
+       },
+       {
+        "type": "prose",
+        "markdown": "### Spring tides\n\nLarge, near the new and the full moon.\n\n### Neap tides\n\nSmall, near the quarter moons.",
+        "line": 38
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "neap-note",
+        "title": "Say what you notice about neap tides",
+        "help": "",
+        "line": 47,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "row",
+        "end": true,
+        "line": 49
+       }
+      ]
+     },
+     {
+      "id": "lesson",
+      "title": "A lesson in steps",
+      "scope": "",
+      "line": 50,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "Read this before the steps. It stays above every one of them.",
+        "line": 52
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "Step one: the moon",
+        "fold": "",
+        "line": 55
+       },
+       {
+        "type": "prose",
+        "markdown": "The moon pulls the sea towards it.",
+        "line": 56
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "moon",
+        "title": "What pulls the tides most?",
+        "help": "Pick one.",
+        "line": 58,
+        "options": [
+         {
+          "text": "The moon",
+          "correct": false,
+          "reply": [
+           "Yes, the moon."
+          ]
+         },
+         {
+          "text": "The wind",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "Step two: the sun",
+        "fold": "",
+        "line": 64
+       },
+       {
+        "type": "prose",
+        "markdown": "The sun pulls too, with less effect.",
+        "line": 65
+       },
+       {
+        "type": "question",
+        "kind": "scale",
+        "id": "sun",
+        "title": "How sure are you of that?",
+        "help": "",
+        "line": 67,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "Not at all"
+         },
+         {
+          "n": 1,
+          "text": "A bit"
+         },
+         {
+          "n": 2,
+          "text": "Quite"
+         }
+        ],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "sun-note",
+        "title": "Say it in your own words",
+        "help": "",
+        "line": 73,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "Step three: put it together",
+        "fold": "",
+        "line": 75
+       },
+       {
+        "type": "prose",
+        "markdown": "Spring tides come when the sun and the moon line up.",
+        "line": 76
+       },
+       {
+        "type": "callout-end"
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "Extra reading",
+        "fold": "-",
+        "line": 78
+       },
+       {
+        "type": "prose",
+        "markdown": "A folded group, for anyone who wants more.",
+        "line": 79
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "extra",
+        "title": "Anything to add?",
+        "help": "",
+        "line": 81,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       }
+      ]
+     },
+     {
+      "id": "plain",
+      "title": "A page with one group",
+      "scope": "",
+      "line": 82,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "One group on its own",
+        "fold": "-",
+        "line": 85
+       },
+       {
+        "type": "prose",
+        "markdown": "A group alone is no step; it is drawn where it stands, and folded when written so.",
+        "line": 86
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "alone",
+        "title": "A question in a lone group",
+        "help": "",
+        "line": 88,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       }
+      ]
+     },
+     {
+      "id": "around",
+      "title": "A row around a group",
+      "scope": "",
+      "line": 89,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "row",
+        "end": false,
+        "line": 92
+       },
+       {
+        "type": "prose",
+        "markdown": "### The group side\n\nWords before the group.",
+        "line": 93
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "A group in a cell",
+        "fold": "",
+        "line": 98
+       },
+       {
+        "type": "prose",
+        "markdown": "It holds a question.",
+        "line": 99
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "around-q",
+        "title": "Does it show?",
+        "help": "",
+        "line": 101,
+        "options": [
+         {
+          "text": "Yes",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "No",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       },
+       {
+        "type": "prose",
+        "markdown": "### The tip side",
+        "line": 104
+       },
+       {
+        "type": "callout",
+        "kind": "tip",
+        "title": "A tip in a cell",
+        "fold": "",
+        "line": 107
+       },
+       {
+        "type": "prose",
+        "markdown": "It holds a question too.",
+        "line": 108
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "around-tip",
+        "title": "Say what you see",
+        "help": "",
+        "line": 110,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "callout-end"
+       },
+       {
+        "type": "row",
+        "end": true,
+        "line": 112
+       },
+       {
+        "type": "prose",
+        "markdown": "Words after the row.",
+        "line": 113
+       }
+      ]
+     }
+    ],
+    "problems": [],
+    "openings": [
+     {
+      "module": null,
+      "title": "Reading and steps",
+      "markdown": "A made-up booklet for testing how the Booklet plugin draws the reading kinds, sources, rows, groups and steps. Nothing in it is about a real person, and any answer will do.",
+      "line": 8
+     }
+    ],
+    "widgets": [],
+    "menus": [],
+    "notes": [
+     {
+      "id": "atlas-12",
+      "scope": "",
+      "text": "*The Harbour Tide Atlas*, 2nd edition (2019), p. 12: \"The tide rises and falls twice in each lunar day.\" Verified 2026-09-20.",
+      "line": 32,
+      "source": {
+       "title": "The Harbour Tide Atlas",
+       "detail": "2nd edition (2019)",
+       "page": "p. 12",
+       "quote": "The tide rises and falls twice in each lunar day.",
+       "verified": "2026-09-20"
+      }
+     },
+     {
+      "id": "leaflet",
+      "scope": "",
+      "text": "The harbour office's leaflet, spring 2026.",
+      "line": 33,
+      "source": null
+     }
+    ],
+    "records": {
+     "regions": [],
+     "recordsLines": [],
+     "blocks": [],
+     "answers": {},
+     "drafts": {},
+     "entries": {},
+     "problems": []
+    }
+   },
+   "nav": {
+    "title": "Reading and steps",
+    "startHome": false,
+    "mods": [
+     {
+      "id": "",
+      "bare": true,
+      "title": "",
+      "written": "",
+      "emoji": null,
+      "icon": null,
+      "opening": "",
+      "blurb": "",
+      "tabs": [],
+      "notice": [],
+      "acts": [
+       "/sources",
+       "/rows",
+       "/lesson",
+       "/plain",
+       "/around"
+      ],
+      "top": [
+       "/sources",
+       "/rows",
+       "/lesson",
+       "/plain",
+       "/around"
+      ],
+      "order": [
+       "/sources",
+       "/rows",
+       "/lesson",
+       "/plain",
+       "/around"
+      ],
+      "line": -1
+     }
+    ],
+    "acts": [
+     {
+      "key": "/sources",
+      "mod": "",
+      "title": "Reading kinds and sources",
+      "emoji": null,
+      "icon": null,
+      "blurb": "Most harbours see two high tides each lunar day. A second source is a plain reference.",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Most harbours see two high tides each lunar day.[^atlas-12] A second source is a plain reference.[^leaflet]\n\n> [!diff] Your guide says the tide turns every six hours\n> The guide rounds it off. High water comes a little later each day.[^atlas-12]\n\n> [!law] The rule as it stands\n> Tide tables give their times in local time.\n\n> [!opinion] One author's view\n> The old paper charts were easier to read than the screens.",
+           "line": 13
+          },
+          {
+           "type": "callout",
+           "kind": "tip",
+           "title": "A tip that holds a question",
+           "fold": "",
+           "line": 25
+          },
+          {
+           "type": "prose",
+           "markdown": "A tip may hold a question.",
+           "line": 26
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "tip-q",
+           "title": "Which of these is a tide?",
+           "help": "",
+           "line": 28,
+           "options": [
+            {
+             "text": "Rising water",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "A sandwich",
+             "correct": true,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 1,
+      "line": 11
+     },
+     {
+      "key": "/rows",
+      "mod": "",
+      "title": "Things side by side",
+      "emoji": null,
+      "icon": null,
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "row",
+           "end": false,
+           "line": 37
+          },
+          {
+           "type": "prose",
+           "markdown": "### Spring tides\n\nLarge, near the new and the full moon.\n\n### Neap tides\n\nSmall, near the quarter moons.",
+           "line": 38
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "neap-note",
+           "title": "Say what you notice about neap tides",
+           "help": "",
+           "line": 47,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "row",
+           "end": true,
+           "line": 49
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 2,
+      "line": 34
+     },
+     {
+      "key": "/lesson",
+      "mod": "",
+      "title": "A lesson in steps",
+      "emoji": null,
+      "icon": null,
+      "blurb": "Read this before the steps. It stays above every one of them.",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Read this before the steps. It stays above every one of them.",
+           "line": 52
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "Step one: the moon",
+           "fold": "",
+           "line": 55
+          },
+          {
+           "type": "prose",
+           "markdown": "The moon pulls the sea towards it.",
+           "line": 56
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "moon",
+           "title": "What pulls the tides most?",
+           "help": "Pick one.",
+           "line": 58,
+           "options": [
+            {
+             "text": "The moon",
+             "correct": false,
+             "reply": [
+              "Yes, the moon."
+             ]
+            },
+            {
+             "text": "The wind",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "Step two: the sun",
+           "fold": "",
+           "line": 64
+          },
+          {
+           "type": "prose",
+           "markdown": "The sun pulls too, with less effect.",
+           "line": 65
+          },
+          {
+           "type": "question",
+           "kind": "scale",
+           "id": "sun",
+           "title": "How sure are you of that?",
+           "help": "",
+           "line": 67,
+           "options": [],
+           "anchors": [
+            {
+             "n": 0,
+             "text": "Not at all"
+            },
+            {
+             "n": 1,
+             "text": "A bit"
+            },
+            {
+             "n": 2,
+             "text": "Quite"
+            }
+           ],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "sun-note",
+           "title": "Say it in your own words",
+           "help": "",
+           "line": 73,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "Step three: put it together",
+           "fold": "",
+           "line": 75
+          },
+          {
+           "type": "prose",
+           "markdown": "Spring tides come when the sun and the moon line up.",
+           "line": 76
+          },
+          {
+           "type": "callout-end"
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "Extra reading",
+           "fold": "-",
+           "line": 78
+          },
+          {
+           "type": "prose",
+           "markdown": "A folded group, for anyone who wants more.",
+           "line": 79
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "extra",
+           "title": "Anything to add?",
+           "help": "",
+           "line": 81,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 3,
+      "line": 50
+     },
+     {
+      "key": "/plain",
+      "mod": "",
+      "title": "A page with one group",
+      "emoji": null,
+      "icon": null,
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "One group on its own",
+           "fold": "-",
+           "line": 85
+          },
+          {
+           "type": "prose",
+           "markdown": "A group alone is no step; it is drawn where it stands, and folded when written so.",
+           "line": 86
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "alone",
+           "title": "A question in a lone group",
+           "help": "",
+           "line": 88,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 4,
+      "line": 82
+     },
+     {
+      "key": "/around",
+      "mod": "",
+      "title": "A row around a group",
+      "emoji": null,
+      "icon": null,
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "row",
+           "end": false,
+           "line": 92
+          },
+          {
+           "type": "prose",
+           "markdown": "### The group side\n\nWords before the group.",
+           "line": 93
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "A group in a cell",
+           "fold": "",
+           "line": 98
+          },
+          {
+           "type": "prose",
+           "markdown": "It holds a question.",
+           "line": 99
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "around-q",
+           "title": "Does it show?",
+           "help": "",
+           "line": 101,
+           "options": [
+            {
+             "text": "Yes",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "No",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          },
+          {
+           "type": "prose",
+           "markdown": "### The tip side",
+           "line": 104
+          },
+          {
+           "type": "callout",
+           "kind": "tip",
+           "title": "A tip in a cell",
+           "fold": "",
+           "line": 107
+          },
+          {
+           "type": "prose",
+           "markdown": "It holds a question too.",
+           "line": 108
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "around-tip",
+           "title": "Say what you see",
+           "help": "",
+           "line": 110,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "callout-end"
+          },
+          {
+           "type": "row",
+           "end": true,
+           "line": 112
+          },
+          {
+           "type": "prose",
+           "markdown": "Words after the row.",
+           "line": 113
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 5,
+      "line": 89
+     }
+    ],
+    "cards": [
+     {
+      "kind": "activity",
+      "act": "/sources",
+      "line": 11
+     },
+     {
+      "kind": "activity",
+      "act": "/rows",
+      "line": 34
+     },
+     {
+      "kind": "activity",
+      "act": "/lesson",
+      "line": 50
+     },
+     {
+      "kind": "activity",
+      "act": "/plain",
+      "line": 82
+     },
+     {
+      "kind": "activity",
+      "act": "/around",
+      "line": 89
+     }
+    ]
+   },
+   "start": {
+    "screen": "home",
+    "tab": null,
+    "part": 0
+   }
+  },
+  "places": {
+   "home||0": {
+    "sha": "25c57a7f6d41dd3aa4c29f58b87d2e13cea72e26548919a9039dd8eac8be36ee",
+    "writes": 0,
+    "same": true,
+    "drawn": "home",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
+   },
+   "activity:/sources||0": {
+    "sha": "1abbf08d799ae3b75e07130c2c5a891849623df8f479ea5469e3c5a109008bab",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/sources",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "activity:/sources",
+     "part": 0
+    }
+   },
+   "activity:/rows||0": {
+    "sha": "ccdf181ac316a0a5c102be7da4076bd542b61743467e6d88334cb26513d0d212",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/rows",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "activity:/rows",
+     "part": 0
+    }
+   },
+   "activity:/lesson||0": {
+    "sha": "96769ee9c211674c5e03f1992218b284a3a62d3c09525b3062627b69a9b0c987",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/lesson",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "activity:/lesson",
+     "part": 0
+    }
+   },
+   "activity:/plain||0": {
+    "sha": "0022e1f2afac9cdf5fbbce3087e89d1e53b89932592f6c70b16940068af57736",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/plain",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "activity:/plain",
+     "part": 0
+    }
+   },
+   "activity:/around||0": {
+    "sha": "3b4642c499dedd336277fd530b1f470e96a308c33e3cd997133d0ca43c1e2b77",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/around",
+    "saved": {
+     "file": "Reading and steps.booklet.md",
+     "version": 1,
+     "screen": "activity:/around",
+     "part": 0
+    }
+   }
+  }
+ },
+ "Study quiz.booklet.md": {
+  "model": {
+   "book": {
+    "ok": true,
+    "refusal": null,
+    "marker": "0.16",
+    "frontMatter": {
+     "booklet": "0.16",
+     "id": "booklet-test/study-quiz",
+     "title": "Study quiz",
+     "lang": "en"
+    },
+    "title": "Study quiz",
+    "bodyStart": 6,
+    "modules": [],
+    "activities": [
+     {
+      "id": "marked",
+      "title": "Right and wrong",
+      "scope": "",
+      "line": 11,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "Pick an answer and the question says whether it was right, with a reply for the option you picked.",
+        "line": 13
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "flyer",
+        "title": "Which of these can fly?",
+        "help": "Pick one.",
+        "line": 16,
+        "options": [
+         {
+          "text": "A penguin",
+          "correct": false,
+          "reply": [
+           "Penguins swim instead of flying."
+          ]
+         },
+         {
+          "text": "A sparrow",
+          "correct": true,
+          "reply": [
+           "A sparrow flies, like most small birds."
+          ]
+         },
+         {
+          "text": "An ostrich",
+          "correct": false,
+          "reply": [
+           "An ostrich runs."
+          ]
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "multi",
+        "id": "primaries",
+        "title": "Which are primary colours of paint?",
+        "help": "Pick every one that is, then press Check.",
+        "line": 25,
+        "options": [
+         {
+          "text": "Red",
+          "correct": true,
+          "reply": [
+           "Red is one of the three."
+          ]
+         },
+         {
+          "text": "Green",
+          "correct": false,
+          "reply": [
+           "Green is made by mixing yellow and blue."
+          ]
+         },
+         {
+          "text": "Blue",
+          "correct": true,
+          "reply": []
+         },
+         {
+          "text": "Yellow",
+          "correct": true,
+          "reply": []
+         },
+         {
+          "text": "Purple",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "drink",
+        "title": "Which would you rather have? Nothing here is marked.",
+        "help": "",
+        "line": 35,
+        "options": [
+         {
+          "text": "Tea",
+          "correct": false,
+          "reply": [
+           "A fine choice."
+          ]
+         },
+         {
+          "text": "Coffee",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "grid-quiz",
+      "title": "A matrix",
+      "scope": "",
+      "line": 39,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "question",
+        "kind": "matrix",
+        "id": "topics",
+        "title": "How sure are you of each topic?",
+        "help": "One answer for each topic.",
+        "line": 42,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "Not yet"
+         },
+         {
+          "n": 1,
+          "text": "Getting there"
+         },
+         {
+          "n": 2,
+          "text": "Sure"
+         }
+        ],
+        "items": [
+         "Spring tides",
+         "Neap tides",
+         "Tidal range"
+        ],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "each-quiz",
+      "title": "Asked for each pick",
+      "scope": "",
+      "line": 52,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "question",
+        "kind": "multi",
+        "id": "crops",
+        "title": "Which crops did you grow?",
+        "help": "",
+        "line": 55,
+        "options": [
+         {
+          "text": "Carrot",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "Beans",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "Potato",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "crop-where",
+        "title": "Where does it grow?",
+        "help": "Pick one for each crop.",
+        "line": 60,
+        "options": [
+         {
+          "text": "Under the ground",
+          "correct": false,
+          "reply": [
+           "The part you eat is under the ground."
+          ]
+         },
+         {
+          "text": "Above the ground",
+          "correct": true,
+          "reply": [
+           "The part you eat is above the ground."
+          ]
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": "crops",
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "scale",
+        "id": "crop-rate",
+        "title": "How did it do?",
+        "help": "",
+        "line": 67,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "Badly"
+         },
+         {
+          "n": 1,
+          "text": "Fairly"
+         },
+         {
+          "n": 2,
+          "text": "Well"
+         }
+        ],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": "crops",
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "crop-note",
+        "title": "A note on it",
+        "help": "",
+        "line": 73,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": "crops",
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "matrix",
+        "id": "crop-pests",
+        "title": "How bad was each pest?",
+        "help": "",
+        "line": 75,
+        "options": [],
+        "anchors": [
+         {
+          "n": 0,
+          "text": "None"
+         },
+         {
+          "n": 1,
+          "text": "A few"
+         },
+         {
+          "n": 2,
+          "text": "Many"
+         }
+        ],
+        "items": [
+         "Slugs",
+         "Birds"
+        ],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": "crops",
+        "earlier": null
+       }
+      ]
+     }
+    ],
+    "problems": [],
+    "openings": [
+     {
+      "module": null,
+      "title": "Study quiz",
+      "markdown": "A made-up quiz for testing how the Booklet plugin marks answers right and wrong, draws a matrix, and asks a question for each pick. Nothing in it is about a real person, and any answer will do.",
+      "line": 8
+     }
+    ],
+    "widgets": [],
+    "menus": [],
+    "notes": [],
+    "records": {
+     "regions": [],
+     "recordsLines": [],
+     "blocks": [],
+     "answers": {},
+     "drafts": {},
+     "entries": {},
+     "problems": []
+    }
+   },
+   "nav": {
+    "title": "Study quiz",
+    "startHome": false,
+    "mods": [
+     {
+      "id": "",
+      "bare": true,
+      "title": "",
+      "written": "",
+      "emoji": null,
+      "icon": null,
+      "opening": "",
+      "blurb": "",
+      "tabs": [],
+      "notice": [],
+      "acts": [
+       "/marked",
+       "/grid-quiz",
+       "/each-quiz"
+      ],
+      "top": [
+       "/marked",
+       "/grid-quiz",
+       "/each-quiz"
+      ],
+      "order": [
+       "/marked",
+       "/grid-quiz",
+       "/each-quiz"
+      ],
+      "line": -1
+     }
+    ],
+    "acts": [
+     {
+      "key": "/marked",
+      "mod": "",
+      "title": "Right and wrong",
+      "emoji": null,
+      "icon": null,
+      "blurb": "Pick an answer and the question says whether it was right, with a reply for the option you picked.",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Pick an answer and the question says whether it was right, with a reply for the option you picked.",
+           "line": 13
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "flyer",
+           "title": "Which of these can fly?",
+           "help": "Pick one.",
+           "line": 16,
+           "options": [
+            {
+             "text": "A penguin",
+             "correct": false,
+             "reply": [
+              "Penguins swim instead of flying."
+             ]
+            },
+            {
+             "text": "A sparrow",
+             "correct": true,
+             "reply": [
+              "A sparrow flies, like most small birds."
+             ]
+            },
+            {
+             "text": "An ostrich",
+             "correct": false,
+             "reply": [
+              "An ostrich runs."
+             ]
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "multi",
+           "id": "primaries",
+           "title": "Which are primary colours of paint?",
+           "help": "Pick every one that is, then press Check.",
+           "line": 25,
+           "options": [
+            {
+             "text": "Red",
+             "correct": true,
+             "reply": [
+              "Red is one of the three."
+             ]
+            },
+            {
+             "text": "Green",
+             "correct": false,
+             "reply": [
+              "Green is made by mixing yellow and blue."
+             ]
+            },
+            {
+             "text": "Blue",
+             "correct": true,
+             "reply": []
+            },
+            {
+             "text": "Yellow",
+             "correct": true,
+             "reply": []
+            },
+            {
+             "text": "Purple",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "drink",
+           "title": "Which would you rather have? Nothing here is marked.",
+           "help": "",
+           "line": 35,
+           "options": [
+            {
+             "text": "Tea",
+             "correct": false,
+             "reply": [
+              "A fine choice."
+             ]
+            },
+            {
+             "text": "Coffee",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 1,
+      "line": 11
+     },
+     {
+      "key": "/grid-quiz",
+      "mod": "",
+      "title": "A matrix",
+      "emoji": null,
+      "icon": null,
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "question",
+           "kind": "matrix",
+           "id": "topics",
+           "title": "How sure are you of each topic?",
+           "help": "One answer for each topic.",
+           "line": 42,
+           "options": [],
+           "anchors": [
+            {
+             "n": 0,
+             "text": "Not yet"
+            },
+            {
+             "n": 1,
+             "text": "Getting there"
+            },
+            {
+             "n": 2,
+             "text": "Sure"
+            }
+           ],
+           "items": [
+            "Spring tides",
+            "Neap tides",
+            "Tidal range"
+           ],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 2,
+      "line": 39
+     },
+     {
+      "key": "/each-quiz",
+      "mod": "",
+      "title": "Asked for each pick",
+      "emoji": null,
+      "icon": null,
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "parentId": null,
+      "parent": null,
+      "children": [],
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "question",
+           "kind": "multi",
+           "id": "crops",
+           "title": "Which crops did you grow?",
+           "help": "",
+           "line": 55,
+           "options": [
+            {
+             "text": "Carrot",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "Beans",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "Potato",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "crop-where",
+           "title": "Where does it grow?",
+           "help": "Pick one for each crop.",
+           "line": 60,
+           "options": [
+            {
+             "text": "Under the ground",
+             "correct": false,
+             "reply": [
+              "The part you eat is under the ground."
+             ]
+            },
+            {
+             "text": "Above the ground",
+             "correct": true,
+             "reply": [
+              "The part you eat is above the ground."
+             ]
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": "crops",
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "scale",
+           "id": "crop-rate",
+           "title": "How did it do?",
+           "help": "",
+           "line": 67,
+           "options": [],
+           "anchors": [
+            {
+             "n": 0,
+             "text": "Badly"
+            },
+            {
+             "n": 1,
+             "text": "Fairly"
+            },
+            {
+             "n": 2,
+             "text": "Well"
+            }
+           ],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": "crops",
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "crop-note",
+           "title": "A note on it",
+           "help": "",
+           "line": 73,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": "crops",
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "matrix",
+           "id": "crop-pests",
+           "title": "How bad was each pest?",
+           "help": "",
+           "line": 75,
+           "options": [],
+           "anchors": [
+            {
+             "n": 0,
+             "text": "None"
+            },
+            {
+             "n": 1,
+             "text": "A few"
+            },
+            {
+             "n": 2,
+             "text": "Many"
+            }
+           ],
+           "items": [
+            "Slugs",
+            "Birds"
+           ],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": "crops",
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 3,
+      "line": 52
+     }
+    ],
+    "cards": [
+     {
+      "kind": "activity",
+      "act": "/marked",
+      "line": 11
+     },
+     {
+      "kind": "activity",
+      "act": "/grid-quiz",
+      "line": 39
+     },
+     {
+      "kind": "activity",
+      "act": "/each-quiz",
+      "line": 52
+     }
+    ]
+   },
+   "start": {
+    "screen": "home",
+    "tab": null,
+    "part": 0
+   }
+  },
+  "places": {
+   "home||0": {
+    "sha": "4582d2295eea755ac8b4f090d77705372bf7b460891a44706d878dffb7d886ed",
+    "writes": 0,
+    "same": true,
+    "drawn": "home",
+    "saved": {
+     "file": "Study quiz.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
+   },
+   "activity:/marked||0": {
+    "sha": "f7ed1cc1c2f84faf31167451e091633d05c3e933ecf0f3f1a4c5e5b32388d663",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/marked",
+    "saved": {
+     "file": "Study quiz.booklet.md",
+     "version": 1,
+     "screen": "activity:/marked",
+     "part": 0
+    }
+   },
+   "activity:/grid-quiz||0": {
+    "sha": "0003ac1a8c9e8c07639e1108165aa6cd55781e8ef69aa6235c2af2cc650f87e1",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/grid-quiz",
+    "saved": {
+     "file": "Study quiz.booklet.md",
+     "version": 1,
+     "screen": "activity:/grid-quiz",
+     "part": 0
+    }
+   },
+   "activity:/each-quiz||0": {
+    "sha": "3c99de71c1369f7069b483a6a42c51711c58cec6b723447dc30730ce1e479d21",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/each-quiz",
+    "saved": {
+     "file": "Study quiz.booklet.md",
+     "version": 1,
+     "screen": "activity:/each-quiz",
      "part": 0
     }
    }
@@ -5778,7 +8183,7 @@
     ],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -6011,7 +8416,7 @@
     }
    },
    "activity:harbour/tides||0": {
-    "sha": "c8ffe0bd9fd7a6b088fc2d16dc79db94c9a498204405b646c15f4f10fe2352ca",
+    "sha": "11eb712e46d007200fa0784cad884724b991830ea187057ad9376a9d8777897c",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/tides",
@@ -6023,7 +8428,7 @@
     }
    },
    "activity:harbour/spring||0": {
-    "sha": "a4f3a55d5bb58458896216a23869a58f865c421ca80afeeb65cbb389896ef90b",
+    "sha": "35fed3de955e2c57978c1eb8ce232c22c0cced9562f1e6e4a243e30f7f047f2c",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/spring",
@@ -6035,7 +8440,7 @@
     }
    },
    "activity:harbour/spring||1": {
-    "sha": "494d27bcb176cba13c1f2f8fb8fdcbe8f0c0ea32fd3ea086cf8947ccfc1f6f7d",
+    "sha": "2b109e7f91806668fb9f3b4b0be7002d000b7303ddf32ef2b56ca155e212ccdd",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/spring",
@@ -6047,7 +8452,7 @@
     }
    },
    "activity:harbour/neap||0": {
-    "sha": "168cea9e662ddb22adfff5d45d7eee6aa74736c1ba39d3cf36b8a8c555fde761",
+    "sha": "94ee04cb1202dec800453af054506389cfba5c143a1d7fdd1fef925f26ac0ed6",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/neap",
@@ -6059,7 +8464,7 @@
     }
    },
    "activity:harbour/moon||0": {
-    "sha": "dbe05321ae3ba357a605a99cdf0a56a55341f518951bd514b038cec97ebd73d7",
+    "sha": "3bcc011928202379d7fb34b786ff68b8135d027ffd18ce36ffc1b6c673527a61",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/moon",
@@ -6139,7 +8544,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -6321,7 +8726,7 @@
     }
    },
    "activity:/a||0": {
-    "sha": "0c389eb7db346fa4ab02d66bf5d4cd89d39103e304c68bb4888e645a044e65bc",
+    "sha": "d6c80d18c68f826777ccd70702241d48e74a8d62979a426e62864d8df3690073",
     "writes": 0,
     "same": true,
     "drawn": "activity:/a",
@@ -6333,7 +8738,7 @@
     }
    },
    "activity:/b||0": {
-    "sha": "a079782168a7ec3c68657ff7b9f65c25e8f46b6e81f6fba84ebed27595fbd212",
+    "sha": "71233f2db01e9f9e6ade9379da53b1315972c5e1d9f4f1f12b5adabc1b4d5b41",
     "writes": 0,
     "same": true,
     "drawn": "activity:/b",
@@ -6345,7 +8750,7 @@
     }
    },
    "activity:/c||0": {
-    "sha": "f9ab58af996ee59d30bc8bcb2fb04a5b9d4872c7546e59240c5c39170057804c",
+    "sha": "211f4673347356ddaa02f60341d1f4167e29e0862937090ea5fd29690bafff0c",
     "writes": 0,
     "same": true,
     "drawn": "activity:/c",
@@ -6410,6 +8815,7 @@
         "line": 20,
         "options": [],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -6445,7 +8851,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -6539,6 +8945,7 @@
            "line": 20,
            "options": [],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -6603,7 +9010,7 @@
     }
    },
    "activity:/t|first|0": {
-    "sha": "e9cd1a86ee2e70e99d6aa903b051a51bb508e443070da0be67267dab8efb6f8b",
+    "sha": "fb017b70eaf86b41289fbecc76a8531b73d4d6b0321e795b971d42a79bed7386",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6616,7 +9023,7 @@
     }
    },
    "activity:/t|first|1": {
-    "sha": "6d9389e5c202d9d6888377be2849005096bd88b3d4ca199f424b651d40967d61",
+    "sha": "2085a30122016277c5b3d81a258440b32a3dce7afcc416ac91d239c5dddb790d",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6629,7 +9036,7 @@
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "1bd4946ce6c84c82423bb6f0aabf1eb398df63b728b7fa6b772e27ed79176b4a",
+    "sha": "f7d73d63f616dcae732e000f54c69f1c6e75e669b643faf1bf67dafd996576f7",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6642,7 +9049,7 @@
     }
    },
    "activity:/t|third|0": {
-    "sha": "defc6f1009cb3ea415fcfa1513347f373b68d8a8066636d097758a7a2fcaa405",
+    "sha": "40b543235740b93c4258c61322421bec079bcf91f1683711fe8716f7eab021eb",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6681,8 +9088,18 @@
       "segments": [
        {
         "type": "prose",
-        "markdown": "> [!hint]- A hint\n> Small.\n\n> [!group]\n> > [!tab] Nested, so text",
+        "markdown": "> [!hint]- A hint\n> Small.",
         "line": 7
+       },
+       {
+        "type": "callout",
+        "kind": "group",
+        "title": "",
+        "fold": "",
+        "line": 11
+       },
+       {
+        "type": "callout-end"
        },
        {
         "type": "question",
@@ -6704,6 +9121,7 @@
          }
         ],
         "anchors": [],
+        "items": [],
         "long": false,
         "open": false,
         "min": null,
@@ -6718,9 +9136,19 @@
         "earlier": null
        },
        {
+        "type": "row",
+        "end": false,
+        "line": 19
+       },
+       {
         "type": "prose",
         "markdown": "## Cell\n\nWords.",
         "line": 20
+       },
+       {
+        "type": "row",
+        "end": true,
+        "line": 25
        },
        {
         "type": "unsupported",
@@ -6733,12 +9161,13 @@
      }
     ],
     "problems": [
+     "Line 12: a tab line cannot go inside a callout, so it was ignored.",
      "Line 27: \"invented\" is not a kind this format defines."
     ],
     "openings": [],
     "widgets": [],
     "menus": [],
-    "unshown": [],
+    "notes": [],
     "records": {
      "regions": [],
      "recordsLines": [],
@@ -6799,8 +9228,18 @@
          [
           {
            "type": "prose",
-           "markdown": "> [!hint]- A hint\n> Small.\n\n> [!group]\n> > [!tab] Nested, so text",
+           "markdown": "> [!hint]- A hint\n> Small.",
            "line": 7
+          },
+          {
+           "type": "callout",
+           "kind": "group",
+           "title": "",
+           "fold": "",
+           "line": 11
+          },
+          {
+           "type": "callout-end"
           },
           {
            "type": "question",
@@ -6822,6 +9261,7 @@
             }
            ],
            "anchors": [],
+           "items": [],
            "long": false,
            "open": false,
            "min": null,
@@ -6836,9 +9276,19 @@
            "earlier": null
           },
           {
+           "type": "row",
+           "end": false,
+           "line": 19
+          },
+          {
            "type": "prose",
            "markdown": "## Cell\n\nWords.",
            "line": 20
+          },
+          {
+           "type": "row",
+           "end": true,
+           "line": 25
           },
           {
            "type": "unsupported",
@@ -6873,7 +9323,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "e492168453bd2309f60a880b8de5d213af69fb74cace02ed82f9532bbca477b0",
+    "sha": "63fe6e5dffadfe98fccfbbdb4be6c13334a39a661b89dd004d9815a7f0562a5f",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -6885,7 +9335,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "910f2bb39f940af33fb5c0fdbd2c98a99fc9c409d97891245af64cd1845b1ec9",
+    "sha": "1482695d4dcf11ca2d29f647452631ac90df1660e3a4299de9d911cd7b47c72e",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

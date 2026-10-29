@@ -445,10 +445,16 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	entry.ts = ts;
 	for (const [k, v] of Object.entries(merged!)) {
 		if (k === "ts" || !holdsSomething(v)) continue;
-		// a lines question's lines typed and left blank are not kept; every other answer is kept as written, one of
-		// the wrong shape among them (shape.ts)
+		// a lines question's lines typed and left blank are not kept (nor those of a pick's pair, under `each:`); every
+		// other answer is kept as written, one of the wrong shape among them (shape.ts)
 		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === k);
-		entry[k] = q && q.kind === "lines" && !shapeIssue(q, v) && Array.isArray(v) ? v.filter((x) => holdsSomething(x)) : v;
+		const bare = (a: unknown) => (Array.isArray(a) ? a.filter((x) => holdsSomething(x)) : a);
+		entry[k] =
+			q && q.kind === "lines" && !shapeIssue(q, v) && Array.isArray(v)
+				? q.each
+					? v.map((p) => (isPair(p) ? { ...p, a: bare(p.a) } : p))
+					: bare(v)
+				: v;
 	}
 	const itemText = JSON.stringify(entry);
 	const entryBlocks = readable(d, "entries", scope, activityId);

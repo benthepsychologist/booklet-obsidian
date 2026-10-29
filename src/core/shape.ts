@@ -31,14 +31,24 @@ const isMultiAnswer = (v: unknown): boolean => Array.isArray(v) && v.every(isPic
 export const isPair = (x: unknown): x is { pick: number | string; a: unknown } & Record<string, unknown> =>
 	isObj(x) && (isNum(x["pick"]) || typeof x["pick"] === "string") && Object.prototype.hasOwnProperty.call(x, "a");
 
+/** What is wrong with a question asked for each pick's answer, in words (SPEC section 5: a list of pairs). */
+const EACH_ISSUE = "a question asked for each pick keeps a list of pairs, each a pick and its answer";
+
 /**
  * What is wrong with an answer's shape for its question, in words ("a text question keeps a string"), or null when
  * its shape is the kind's. An answer that holds nothing (nothing at all, `null`, a blank string, an empty list) is
- * no answer, whatever its type: it is never of the wrong shape. A question this plugin does not draw (a widget of an
+ * no answer, whatever its type: it is never of the wrong shape. A question asked for each pick keeps a list of pairs,
+ * each pair's `a` the kind's shape (or holding nothing). A question this plugin does not draw (a widget of an
  * engine it does not have) has no shape to check here: nothing in this view writes it.
  */
 export function shapeIssue(q: Question, v: unknown): string | null {
 	if (!holdsSomething(v)) return null;
+	if (q.each) return Array.isArray(v) && v.every((p) => isPair(p) && (!holdsSomething(p.a) || !kindIssue(q, p.a))) ? null : EACH_ISSUE;
+	return kindIssue(q, v);
+}
+
+/** What is wrong with an answer of the question's kind (one pick's `a` under `each:`), or null. */
+function kindIssue(q: Question, v: unknown): string | null {
 	switch (q.kind) {
 		case "text":
 			return typeof v === "string" ? null : "a text question keeps a string";
@@ -51,11 +61,11 @@ export function shapeIssue(q: Question, v: unknown): string | null {
 			return isNum(v) ? null : "a number question keeps a number";
 		case "scale":
 			return isWhole(v, 0) ? null : "a scale question keeps an anchor's number";
+		case "matrix":
+			return Array.isArray(v) && v.every((x) => x === null || isWhole(x, 0)) ? null : "a matrix question keeps a list with an anchor's number for each item, or null";
 		case "choice":
 			return isPick(v) ? null : "a choice question keeps an option's position from 1, or the reader's own option";
 		case "multi":
-			// asked for each pick: a list of pairs, and anything else, a plain multi's list among them, is of the wrong shape
-			if (q.each) return Array.isArray(v) && v.every((p) => isPair(p) && isMultiAnswer(p.a)) ? null : "a question asked for each pick keeps a list of pairs, each a pick and its answer";
 			return isMultiAnswer(v) ? null : "a multi question keeps a list of option positions from 1 and the reader's own options";
 		case "widget": {
 			const engine = q.widget ? engineOf(q.widget.data) : "";

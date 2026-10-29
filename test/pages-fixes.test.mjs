@@ -242,7 +242,7 @@ test("a chain of 20,000 pages, each under the one before, builds without overflo
 	assert.equal(tab.tree.length, n);
 	assert.equal(tab.tree[n - 1].title, `Page ${n - 1}`);
 	assert.equal(tab.tree[n - 1].at, n - 1);
-	assert.ok(ms < 10000, `${Math.round(ms)} ms`);
+	assert.ok(ms < 3000, `${Math.round(ms)} ms`);
 });
 
 test("a cycle among pages, and a page whose parent chain leads into the cycle: the cycle stands at the top, the tail keeps its parent, and nothing loops", () => {

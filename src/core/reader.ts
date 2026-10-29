@@ -1,7 +1,7 @@
 /*
  * Reads a booklet's design: its front matter and marker, its module fences, the booklet's and each
- * module's opening, its activities, the seven common question kinds (choice, multi, scale, text, lines,
- * number, date), the widget questions with the widget blocks they embed, the shared menus a choice
+ * module's opening, its activities, the common question kinds (choice, multi, scale, text, lines,
+ * number, date, matrix), the widget questions with the widget blocks they embed, the shared menus a choice
  * or a multi takes its options from, and the queries an activity's prose holds, with what each reads.
  * Everything else is recorded, by kind and title, as not yet supported. Plain TypeScript: nothing here
  * imports Obsidian.
@@ -31,6 +31,14 @@ function inScope<T extends { id: string; module: string | null }>(list: readonly
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
 export const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
+/**
+ * Is this line a thematic break, as Markdown reads it? A run of hyphens straight under a line of text is that line's heading
+ * underline instead; `- - -` (spaces between the hyphens) is no underline, so it breaks even there.
+ */
+export function isThematicBreak(line: string, textAbove: boolean): boolean {
+	return THEMATIC_BREAK.test(line) && !(textAbove && /^ {0,3}-+[ \t]*$/.test(line));
+}
+
 export const FORMAT_VERSION = "0.16";
 /** The marker of the next format, whose page lines this view reads ahead of SPEC (page trees; design/pages/proposal.md). */
 export const NEXT_FORMAT = "0.17";
@@ -49,9 +57,9 @@ export interface Anchor {
 	text: string;
 }
 
-/** The question kinds this plugin draws and answers. */
-export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date"] as const;
-/** The question kinds this plugin draws and answers: the seven common ones, and a widget (SPEC section 7). */
+/** The question kinds this plugin draws and answers besides a widget: the seven common ones, and a matrix (SPEC section 5). */
+export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix"] as const;
+/** The question kinds this plugin draws and answers: the common ones, and a widget (SPEC section 7). */
 export type QuestionKind = (typeof COMMON_KINDS)[number] | "widget";
 
 /**
@@ -107,8 +115,10 @@ export interface Question {
 	line: number;
 	/** A choice's or a multi's options, in order: an answer is a position from 1. */
 	options: Option[];
-	/** A scale's anchors: an answer is an anchor's number. */
+	/** A scale's or a matrix's anchors: an answer is an anchor's number. */
 	anchors: Anchor[];
+	/** A matrix's items (inline Markdown), the bulleted list under its line: its answer holds one anchor number for each, by position. */
+	items: string[];
 	/** A text's `long`: a bigger box. */
 	long: boolean;
 	/** A choice's or a multi's `open`: the reader may add options of their own, stored as their words. */
@@ -127,9 +137,10 @@ export interface Question {
 	readonly: boolean;
 	describe: boolean;
 	/**
-	 * A multi's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
-	 * in the same activity. The question is asked once for each pick in the source's answer, and its answer is a list
-	 * of `{ "pick", "a" }` pairs (SPEC section 5, "A question asked for each pick"). Null otherwise.
+	 * A question's `each:<id>`, when the setting holds (see readEach): the id of its source, a choice, a multi or a widget
+	 * in the same activity. The question, of any kind, is asked once for each pick in the source's answer, and its answer
+	 * is a list of `{ "pick", "a" }` pairs, `a` the answer its kind stores (SPEC section 5, "A question asked for each
+	 * pick"). Null otherwise.
 	 */
 	each: string | null;
 	/**
@@ -173,12 +184,8 @@ export interface PageHeading {
 
 export interface Unsupported {
 	type: "unsupported";
-	/**
-	 * The line's kind, or `group` (questions inside a group), `in-callout` (questions inside another reading
-	 * callout) or `each` (a question of a kind other than `multi` asked for each pick of another, `of` its kind).
-	 */
+	/** The line's kind: one this plugin does not draw yet, or a question kind written with no id (a group, or a callout that holds a question, is read as a callout and is not this). */
 	kind: string;
-	of?: string;
 	id: string | null;
 	title: string;
 	line: number;
@@ -217,8 +224,7 @@ export interface Query {
 /** What a query reads: an activity's kept entries, one question's answers, or a data block (not drawn yet). */
 export type QuerySource =
 	| { kind: "activity"; act: Activity }
-	/** `q` is null for a question this view does not draw (a matrix, or a question of another kind than multi asked for each pick). */
-	| { kind: "question"; act: Activity; q: Question | null; id: string; title: string }
+	| { kind: "question"; act: Activity; q: Question; id: string; title: string }
 	| { kind: "data"; id: string };
 
 export interface QuerySegment {
@@ -229,7 +235,50 @@ export interface QuerySegment {
 	source: QuerySource | null;
 }
 
-export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment;
+/**
+ * A callout that holds Booklet lines, opened (SPEC section 6, "A group holds blocks"): a `group` always, and any other
+ * reading callout that has a question inside it. The segments of its body follow, up to the matching `CalloutEnd`; a
+ * callout inside it opens and closes in the same way. A body is read with one `>` less, as the activity's own text is.
+ */
+export interface CalloutStart {
+	type: "callout";
+	kind: string;
+	title: string;
+	/** The fold marker after the bracket: `-` starts folded, `+` starts open, empty is no fold. */
+	fold: "" | "-" | "+";
+	line: number;
+}
+
+export interface CalloutEnd {
+	type: "callout-end";
+}
+
+/**
+ * A row's opening line or its closing line (`> [!row]`, `> [!row|end]`; SPEC section 3, "Rows"): what is between them is
+ * laid side by side where there is room.
+ */
+export interface RowMark {
+	type: "row";
+	end: boolean;
+	line: number;
+}
+
+export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment | CalloutStart | CalloutEnd | RowMark;
+
+/**
+ * A footnote's definition, `[^id]: …` (SPEC section 6, "Citations"), read where the file puts it and never drawn as
+ * prose. `scope` is the module it is in ("" for the bare activities), or null in a plain data section, which every
+ * module may use for an id it does not define itself.
+ */
+export interface Note {
+	id: string;
+	scope: string | null;
+	/** The note's words as written, one paragraph, as inline Markdown. */
+	text: string;
+	line: number;
+	/** What the pattern `*Title*, details, p. N: "quote" Verified YYYY-MM-DD.` read out of it, when the note fits it. */
+	source: { title: string; detail: string; page: string; quote: string; verified: string } | null;
+}
 
 export interface Activity {
 	id: string;
@@ -268,16 +317,9 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
-	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
-	unshown: Unshown[];
+	/** The footnotes' definitions, in file order. */
+	notes: Note[];
 	records: RecordsRead;
-}
-
-/** A part outside every activity that is not drawn yet: `scope` is the module's id. */
-export interface Unshown {
-	kind: "notice";
-	scope: string;
-	line: number;
 }
 
 /* ---- front matter ---- */
@@ -360,6 +402,27 @@ const OBSIDIAN_CALLOUTS = new Set([
 	"note", "abstract", "summary", "tldr", "info", "todo", "tip", "hint", "important", "success", "check", "done", "question", "help", "faq",
 	"warning", "caution", "attention", "failure", "fail", "missing", "danger", "error", "bug", "example", "quote", "cite",
 ]);
+
+/** The kinds of line that make structure: none can go inside a callout's body (SPEC section 6, "A group holds blocks"). */
+const STRUCTURE_KINDS = new Set(["module", "activity", "tab", "row", "data", "records"]);
+/** A footnote's definition line: `[^id]: words`. */
+const NOTE_DEF = /^ {0,3}\[\^([A-Za-z0-9][A-Za-z0-9_.:-]*)\]:[ \t]*(.*)$/;
+/** A page or a place in a footnote's details: `p. 12`, `pp. 12-14`, `art. 14`. */
+const PLACE_WORDS = /^(?:p|pp|art|sec|ch|para)\.[ \t]*\S|^§/i;
+
+/**
+ * What a footnote's words read out as a source and a citation, where they fit the pattern
+ * `*Title*, details, p. N: "quote" Verified YYYY-MM-DD.` (SPEC section 6, "A footnote's note, read into a citation"; the
+ * title and the quote are required, the rest optional); null when they do not, and the note is a plain reference.
+ */
+export function sourceOfNote(text: string): Note["source"] {
+	const m = /^\*([^*]+)\*[ \t]*(?:,[ \t]*([^:]*?))?[ \t]*:[ \t]*["\u201C](.+)["\u201D][ \t]*(?:Verified[ \t]+(\d{4}-\d{2}-\d{2})\.?)?[ \t]*$/.exec(text.trim());
+	if (!m) return null;
+	const parts = (m[2] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+	const last = parts[parts.length - 1];
+	const page = last && PLACE_WORDS.test(last) ? (parts.pop() as string) : "";
+	return { title: (m[1] ?? "").trim(), detail: parts.join(", "), page, quote: (m[3] ?? "").trim(), verified: m[4] ?? "" };
+}
 
 const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);
 
@@ -493,8 +556,7 @@ const SOURCE_KINDS = new Set(["choice", "multi", "widget"]);
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
  * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
  * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and
- * ignored, and the question is drawn as its kind. A `multi` follows its source; a question of another kind asked for each pick is not drawn yet ("not yet
- * supported"), and its answers are kept as written.
+ * ignored, and the question is drawn as its kind. A question of any kind follows its source.
  */
 function readEach(uses: readonly EachUse[], problems: string[]): void {
 	for (const u of uses) {
@@ -518,8 +580,7 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 			problems.push(why);
 			continue;
 		}
-		if (q.kind === "multi") q.each = source;
-		else act.segments = act.segments.map((x): Segment => (x === q ? { type: "unsupported", kind: "each", of: q.kind, id: q.id, title: q.title, line: q.line } : x));
+		q.each = source;
 	}
 }
 
@@ -544,7 +605,8 @@ function dropOpeningPages(act: Activity, problems: string[]): void {
  * module) comes back with `ok: false` and the reason, still with whatever structure was found.
  */
 export function parseBooklet(text: string): Booklet {
-	const lines = splitLines(text).map((l) => l.text);
+	/** The file's lines; while a callout's body is read it is the file's lines with that body's `>` taken off, down to the body's end. */
+	let lines = splitLines(text).map((l) => l.text);
 	const fm = frontMatterOf(lines);
 	const frontMatter: Record<string, string> = Object.create(null) as Record<string, string>;
 	for (const l of fm.head ?? []) {
@@ -571,7 +633,7 @@ export function parseBooklet(text: string): Booklet {
 	const modules: Module[] = [];
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
-	const unshown: Unshown[] = [];
+	const notes: Note[] = [];
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const dataBlocks: DataBlock[] = [];
@@ -649,16 +711,34 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
-	/** A row has been opened (`> [!row]`) and not closed: a page line there belongs to no tab (SPEC section 6, "a row does not cross a page break, a tab line, an activity line or a module fence"). */
-	let inRow = false;
+	/** A row is open: its `> [!row]` line was read and its `> [!row|end]` line has not been. */
+	let rowOpen = false;
+	const closeRow = (why: string, i: number) => {
+		if (rowOpen) problems.push(`${at(i)}: a row is still open ${why}, so it ends there.`);
+		rowOpen = false;
+	};
 	const endActivity = () => {
 		flush();
 		if (act) dropOpeningPages(act, problems);
 		act = null;
-		inRow = false;
 	};
+	/** The footnote ids by scope are said once each (a repeat is ignored: the first wins, booklet.html registries). */
+	const noteScope = (): string | null => (section === "content" ? (mod ? mod.id : "") : dataMod ? dataMod.id : null);
+	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
+	const open: { lines: string[]; resume: number }[] = [];
 
-	for (let i = fm.bodyStart; i < lines.length; i++) {
+	for (let i = fm.bodyStart; ; i++) {
+		if (i >= lines.length) {
+			// the end of a callout's body: what it held is closed, and the file's own lines go on after it
+			const was = open.pop();
+			if (!was) break;
+			flush();
+			// a row line cannot go inside a callout, so a row open here was opened outside it and ends at its own end line
+			if (act) act.segments.push({ type: "callout-end" });
+			lines = was.lines;
+			i = was.resume - 1;
+			continue;
+		}
 		if (inRegion[i]) {
 			flush();
 			continue;
@@ -712,7 +792,22 @@ export function parseBooklet(text: string): Booklet {
 				problems.push(`${at(i)}: \`earlier:${earlier}\` is not a whole number written in digits, so it was ignored and the question offers its default.`);
 				delete w.set["earlier"];
 			}
+			if (open.length && STRUCTURE_KINDS.has(kind)) {
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines
+				problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
+				i = bodyEnd(lines, i) - 1;
+				continue;
+			}
+			if (open.length && kind === "page") {
+				// a page line inside a group or another callout's body is that body's text, not a page: a page is a part of a tab, and a
+				// callout is a part of a page (the body is read with one `>` less, so a `> > [!page]` there looks like a page line)
+				const k = bodyEnd(lines, i);
+				pushText(lines.slice(i, k), i);
+				i = k - 1;
+				continue;
+			}
 			if (kind === "module") {
+				closeRow("when the module line came", i);
 				endActivity();
 				section = "content";
 				dataMod = null;
@@ -734,6 +829,7 @@ export function parseBooklet(text: string): Booklet {
 				continue;
 			}
 			if (kind === "activity") {
+				closeRow("when the activity line came", i);
 				endActivity();
 				section = "content";
 				dataMod = null;
@@ -757,6 +853,7 @@ export function parseBooklet(text: string): Booklet {
 				continue;
 			}
 			if (kind === "data") {
+				closeRow("when the data section came", i);
 				endActivity();
 				section = "data";
 				// the module id on a data line says whose its blocks are, until the next data, module or activity line;
@@ -773,16 +870,31 @@ export function parseBooklet(text: string): Booklet {
 				i = claimEnd(kind, lines, i) - 1;
 				continue;
 			}
-			if (kind === "notice" || kind === "manifest" || kind === "row" || kind === "records") {
+			if (kind === "row") {
 				flush();
-				if (kind === "row") inRow = !w.flags.has("end");
-				if (kind === "notice") unshown.push({ kind: "notice", scope: mod ? mod.id : "", line: i + 1 });
-				i = bodyEnd(lines, i) - 1; // a row's two marker lines: its cells are drawn one under another
+				// a row's two marker lines: what is between them is laid side by side where there is room (SPEC section 3, "Rows")
+				if (act) {
+					if (w.flags.has("end")) {
+						if (!rowOpen) problems.push(`${at(i)}: a row is closed that was never opened, so its line was ignored.`);
+						else act.segments.push({ type: "row", end: true, line: i + 1 });
+						rowOpen = false;
+					} else if (rowOpen) problems.push(`${at(i)}: a row opens inside a row (rows do not nest), so its line was ignored.`);
+					else {
+						act.segments.push({ type: "row", end: false, line: i + 1 });
+						rowOpen = true;
+					}
+				}
+				i = bodyEnd(lines, i) - 1;
+				continue;
+			}
+			if (kind === "notice" || kind === "manifest" || kind === "records") {
+				flush();
+				i = bodyEnd(lines, i) - 1;
 				continue;
 			}
 			if (kind === "tab") {
 				flush();
-				inRow = false;
+				closeRow("when the tab line came", i);
 				if (act) act.segments.push({ type: "tab", title: title || w.id || "Tab", line: i + 1 });
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a tab line's `>` lines are the tab's first prose
@@ -801,7 +913,7 @@ export function parseBooklet(text: string): Booklet {
 				if (m[3]) problems.push(`${where}: a page is never folded, so the \`${m[3]}\` after its bracket was ignored.`);
 				const k = bodyEnd(lines, i);
 				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
-				else if (inRow) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
+				else if (rowOpen) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
 				else act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a page line's `>` lines are the page's first prose
 				i = k - 1;
@@ -838,6 +950,7 @@ export function parseBooklet(text: string): Booklet {
 						line: i + 1,
 						options: [],
 						anchors: [],
+						items: [],
 						long: kind === "text" && w.flags.has("long"),
 						open: (kind === "choice" || kind === "multi") && w.flags.has("open"),
 						min: kind === "number" ? num(w.set["min"]) : null,
@@ -865,6 +978,14 @@ export function parseBooklet(text: string): Booklet {
 						const r = listUnder(lines, after, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() }));
 						if (!r) problems.push(`${at(i)}: the scale "${w.id}" has no anchors under it.`);
 						q.anchors = r?.items ?? [];
+					} else if (kind === "matrix") {
+						// the bulleted list of items, then the numbered list of anchors (booklet.html's matrix line)
+						const r = listUnder(lines, after, BULLET_RE, (mm) => (mm[1] ?? "").trim());
+						const an = r ? listUnder(lines, r.next, ANCHOR_RE, (mm) => ({ n: Number(mm[1]), text: (mm[2] ?? "").trim() })) : null;
+						if (!r) problems.push(`${at(i)}: the matrix "${w.id}" has no items under it (a bulleted list).`);
+						else if (!an) problems.push(`${at(i)}: the matrix "${w.id}" has no anchors under its items (a numbered list).`);
+						q.items = r?.items ?? [];
+						q.anchors = an?.items ?? [];
 					} else if (kind === "widget") {
 						const emb = WIDGET_EMBED.exec(body.join("\n"));
 						if (emb) q.embed = emb[1] ?? null;
@@ -884,17 +1005,21 @@ export function parseBooklet(text: string): Booklet {
 			// a reading callout (note, tip, hint, solution, group, diff, law, opinion, …): Obsidian draws it
 			const k = bodyEnd(lines, i);
 			if (act && section === "content") {
-				const nested = lines.slice(i + 1, k).find((l) => {
-					const t = l.replace(/^(?:>[ \t]?)+/, "> ");
-					const mm = CALLOUT_LINE.exec(t);
+				const nested = lines.slice(i + 1, k).some((l) => {
+					const mm = CALLOUT_LINE.exec(l.replace(/^(?:>[ \t]?)+/, "> "));
 					return !!mm && QUESTION_KINDS.has((mm[1] ?? "").toLowerCase());
 				});
-				if (nested !== undefined) problems.push(`${at(i)}: a question inside a ${kind} callout is drawn as text here, not as a question (not yet supported).`);
-				pushText(lines.slice(i, k), i);
-				if (nested !== undefined) {
+				// a group is always a container (it is how steps are made); another callout is one when a question is inside it
+				if (kind === "group" || nested) {
 					flush();
-					act.segments.push({ type: "unsupported", kind: kind === "group" ? "group" : "in-callout", id: null, title, line: i + 1 });
+					act.segments.push({ type: "callout", kind, title, fold: (m[3] ?? "") as "" | "-" | "+", line: i + 1 });
+					// its body is read with one `>` less, from here to its end, as the activity's own text is
+					open.push({ lines, resume: k });
+					lines = lines.slice(0, k);
+					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
+					continue;
 				}
+				pushText(lines.slice(i, k), i);
 				i = k - 1;
 				continue;
 			}
@@ -903,11 +1028,23 @@ export function parseBooklet(text: string): Booklet {
 			continue;
 		}
 		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
+		const def = NOTE_DEF.exec(ln);
+		if (def && def[1] && !open.length) {
+			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
+			const words = [(def[2] ?? "").trim()];
+			let j = i + 1;
+			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) words.push((lines[j] ?? "").trim()), j++;
+			const text = words.filter(Boolean).join(" ");
+			notes.push({ id: def[1], scope: noteScope(), text, line: i + 1, source: sourceOfNote(text) });
+			i = j - 1;
+			continue;
+		}
 		if (section !== "content") continue;
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
-		if (!act && THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
+		if (!act && isThematicBreak(ln, !isBlank(lines[i - 1]))) continue;
 		pushText([ln], i);
 	}
+	closeRow("at the end of the file", lines.length);
 	endActivity();
 	if (mod) refusals.push(`The module "${mod.id}" is opened and never closed.`);
 
@@ -970,7 +1107,7 @@ export function parseBooklet(text: string): Booklet {
 		openings,
 		widgets,
 		menus,
-		unshown,
+		notes,
 		records,
 	};
 }
@@ -1044,12 +1181,9 @@ function readQuery(body: readonly string[], line: number, problems: string[]): Q
 	};
 }
 
-/** What of an activity a query may name as a question: one drawn here, or a matrix or another kind's `each:`, not drawn yet. */
-function questionNamed(a: Activity, id: string): { q: Question | null; title: string } | null {
-	for (const s of a.segments) {
-		if (s.type === "question" && s.id === id) return { q: s, title: s.title };
-		if (s.type === "unsupported" && s.id === id && (s.kind === "matrix" || s.kind === "each")) return { q: null, title: s.title };
-	}
+/** What of an activity a query may name as a question: one drawn here. */
+function questionNamed(a: Activity, id: string): { q: Question; title: string } | null {
+	for (const s of a.segments) if (s.type === "question" && s.id === id) return { q: s, title: s.title };
 	return null;
 }
 

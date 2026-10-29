@@ -91,7 +91,7 @@ Opening prose of M, not drawn.
 	assert.deepEqual(norm(b.openings), [{ module: "m", title: "Module M", markdown: "Opening prose of M, not drawn.", line: 29 }]);
 });
 
-test("the seven common kinds are questions; every other kind is recorded, with its title, as not yet supported; reading callouts stay prose", () => {
+test("the common kinds are questions; every other kind is recorded, with its title, as not yet supported; reading callouts stay prose", () => {
 	const text = `${fm('booklet: "0.16"')}
 > [!activity|a] A
 
@@ -135,15 +135,18 @@ from: a
 	const b = core.parseBooklet(text);
 	const segs = b.activities[0].segments;
 	const qs = segs.filter((s) => s.type === "question");
-	assert.deepEqual(qs.map((q) => [q.kind, q.id]), [["multi", "m"], ["number", "n"], ["date", "d"], ["lines", "l"], ["widget", "w"], ["multi", "from-menu"]]);
+	assert.deepEqual(qs.map((q) => [q.kind, q.id]), [["multi", "m"], ["number", "n"], ["date", "d"], ["lines", "l"], ["widget", "w"], ["matrix", "grid"], ["multi", "from-menu"]]);
+	// a matrix: its items, then its anchors
+	assert.deepEqual([qs[5].items, qs[5].anchors.map((a) => [a.n, a.text])], [["Row one", "Row two"], [[1, "Low"], [2, "High"]]]);
 	assert.equal(qs[0].open, true);
 	assert.deepEqual([qs[1].min, qs[1].max, qs[1].step], [0, 10, 0.5]);
 	// a widget whose block the file does not carry is still a question: the view says what is missing
 	assert.deepEqual([qs[4].embed, qs[4].widget, qs[4].help], ["data", null, ""]);
-	assert.deepEqual(qs[5].options.map((o) => o.text), ["Home", "Away"]);
-	assert.equal(qs[5].menu, "places");
+	assert.deepEqual(qs[6].options.map((o) => o.text), ["Home", "Away"]);
+	assert.equal(qs[6].menu, "places");
 	const un = segs.filter((s) => s.type === "unsupported").map((s) => s.kind);
-	for (const k of ["mystery", "matrix"]) assert.ok(un.includes(k), `${k} is recorded as not supported: ${un.join(", ")}`);
+	assert.ok(un.includes("mystery"), `mystery is recorded as not supported: ${un.join(", ")}`);
+	assert.ok(!un.includes("matrix"), "a matrix is a question now");
 	// a query is read (test/query.test.mjs): this one names an activity that keeps no entries, so it is reported and not drawn
 	assert.ok(!segs.some((s) => s.type === "query"));
 	assert.ok(b.problems.some((p) => /a query in "a" names "a", which keeps no entries/.test(p)), b.problems.join("; "));
@@ -152,7 +155,7 @@ from: a
 	assert.ok(segs.some((s) => s.type === "tab" && s.title === "A tab"));
 	assert.ok(b.problems.some((p) => /"mystery" is not a kind/.test(p)));
 	assert.ok(!segs.some((s) => s.type === "prose" && /- \[ \] One/.test(s.markdown)), "a multi's options are its own, not prose");
-	assert.deepEqual([...core.COMMON_KINDS], ["choice", "multi", "scale", "text", "lines", "number", "date"]);
+	assert.deepEqual([...core.COMMON_KINDS], ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix"]);
 });
 
 test("repeat and daily: daily needs repeat; a repeating activity with no id is said", () => {
@@ -162,11 +165,13 @@ test("repeat and daily: daily needs repeat; a repeating activity with no id is s
 	assert.ok(b.problems.some((p) => /`daily` needs `repeat`/.test(p)), b.problems.join("; "));
 });
 
-test("a question inside a group is not drawn as a question yet; the group's words stay", () => {
+test("a question inside a group is a question of its activity, between the group's opening and closing; the group's own lines are not drawn as prose", () => {
 	const b = core.parseBooklet(`${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!group] A group\n> > [!text|inside] Inside\n\n> [!text|outside] Outside\n`);
 	const segs = b.activities[0].segments;
-	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["outside"]);
-	assert.ok(segs.some((s) => s.type === "unsupported" && s.kind === "group"), JSON.stringify(segs.map((s) => s.type + ":" + (s.kind ?? ""))));
+	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["inside", "outside"]);
+	assert.deepEqual(norm(segs.map((s) => s.type)), ["callout", "question", "callout-end", "question"]);
+	assert.deepEqual(norm([segs[0].kind, segs[0].title, segs[0].fold]), ["group", "A group", ""]);
+	assert.deepEqual(b.problems, []);
 });
 
 test("refused: a module opened and not closed, closed and not opened, overlapping; an id used twice in a module", () => {
@@ -445,7 +450,6 @@ Text between modules, drawn nowhere.
 		{ module: null, title: "The *Booklet*", markdown: "The booklet's first paragraph.\n\n> [!tip] A reading callout in the opening\n> It is part of it.\n\n\nThe rest of the opening.", line: 10 },
 		{ module: "m", title: "Module **M**", markdown: "M's opening.", line: 30 },
 	]);
-	assert.deepEqual(norm(b.unshown), [{ kind: "notice", scope: "m", line: 27 }]);
 	assert.ok(!JSON.stringify(b).includes("drawn nowhere"));
 	// a file with no module and no activity line is one activity: it has no opening
 	assert.deepEqual(core.parseBooklet(`${fm('booklet: "0.16"')}\nJust prose.\n`).openings, []);

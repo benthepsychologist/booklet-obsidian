@@ -25,6 +25,8 @@ export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
 /** The sampler booklet the navigation tests open (made-up). */
 export const SKETCH = readFileSync(join(ROOT, "test-vault", "Learning to sketch.booklet.md"), "utf8");
+/** The made-up check-in note (a repeating activity with a grid, a body map, and a question asked for each pick). */
+export const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
 /** A string's sha256 in hex, for "the file is byte for byte what it was". */
 export const sha = (s) => createHash("sha256").update(s).digest("hex");

@@ -6,13 +6,10 @@
 import { openView, testApp } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, keepDays } from "./helpers.mjs";
+import { CHECKIN, keepDays } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
 /** A view on `text`, on the screen its queries are drawn on: the check-in's roll-up is its own activity, "This week"; the views notes' queries are in "Show". `disk.writes` counts the vault's writes, and `opened` the notes a link opened. */
 function open(text, path = "Note.booklet.md", screen = /\[!activity\|show\]/.test(text) ? "activity:/show" : "activity:day-check/week") {

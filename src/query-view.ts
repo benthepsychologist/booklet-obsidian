@@ -84,15 +84,20 @@ function groupHead(into: HTMLElement, g: Group): void {
 
 /* ---- the views ---- */
 
+/** The columns that hold a number in every cell they have, and at least one cell. */
+export function numericColumns(rows: readonly Row[], cols: readonly string[]): Set<string> {
+	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined)));
+}
+
 function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 	const { set, roles, cols } = p;
 	const all = p.groups.flatMap((g) => g.rows);
-	// a column of numbers is set to the right
-	const numeric = (k: string) => all.some((r) => r.cells[k]) && all.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined);
+	// a column of numbers is set to the right (worked out once for each column, not for each cell)
+	const numeric = numericColumns(all, cols);
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
 	const head = t.createEl("thead").createEl("tr");
-	for (const k of cols) words(host, head.createEl("th", { cls: numeric(k) ? "booklet-q-num" : "", attr: { scope: "col" } }), set.label(k));
+	for (const k of cols) words(host, head.createEl("th", { cls: numeric.has(k) ? "booklet-q-num" : "", attr: { scope: "col" } }), set.label(k));
 	// the first column that is not the badge leads the row: it carries the row's picture and its link
 	const leadKey = cols.find((k) => k !== roles.badge);
 	for (const g of p.groups) {
@@ -105,7 +110,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 		for (const r of g.rows) {
 			const tr = body.createEl("tr");
 			for (const k of cols) {
-				const td = tr.createEl("td", { cls: numeric(k) ? "booklet-q-num" : "" });
+				const td = tr.createEl("td", { cls: numeric.has(k) ? "booklet-q-num" : "" });
 				if (k === roles.badge) {
 					const tone = toneOf(r, roles);
 					pills(td, badgesOf(r, roles), tone);
@@ -222,5 +227,4 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan):
 	else if (p.view === "list") listView(host, into, p);
 	else if (p.view === "tiles") tiles(host, into, p);
 	else cards(host, into, p);
-	for (const n of p.notYet) into.createEl("p", { cls: "booklet-muted", text: n });
 }
