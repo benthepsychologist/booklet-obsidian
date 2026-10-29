@@ -442,6 +442,8 @@ export function pressHold(host: QuestionHost, scope: HTMLElement): PressHold {
 
 function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const multi = q.kind === "multi";
+	// a copy asked for each pick is given a key that already ends in the pick's own-option key (each-question.ts copyKey)
+	const ownKey = host.earlierOf(t).pick === undefined ? `${key}#own` : key;
 	const show = choiceBody(host, box, t, q, label, locked, {
 		picks: () => picksOf(host.answerOf(t, q)),
 		put: (list) => host.answer(t, q, multi ? (list.length ? list : undefined) : list.length ? list[list.length - 1] : undefined),
@@ -449,7 +451,7 @@ function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			const { record, entries, pick } = host.earlierOf(t);
 			return earlierOptions(t.activity, q, record, entries, now, pick);
 		},
-		ownKey: `${key}#own`,
+		ownKey,
 	});
 	show();
 	host.onShow(key, show);

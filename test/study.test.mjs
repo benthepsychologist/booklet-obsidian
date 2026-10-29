@@ -10,7 +10,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
+import { ROOT, assertOutsideUnchanged, core, norm, sha, sleep } from "./helpers.mjs";
+import { testApp } from "./dom.mjs";
 
 const QUIZ = readFileSync(join(ROOT, "test-vault", "Study quiz.booklet.md"), "utf8");
 
@@ -579,5 +580,54 @@ test("a reader's work is never cleared by marking or by Check: the picks stay af
 	assert.equal(again.option("primaries", "Red").getAttribute("aria-pressed"), "true", "the pick is there in a new view; the marks are not, since nothing about marking is kept");
 	assert.deepEqual(marks(again.q("primaries")), ["", "", "", "", ""]);
 	again.close();
+	v.close();
+});
+
+/* ---- words held on the device for a copy's Add your own field ---- */
+
+const OPEN_NOTE = `---
+booklet: "0.16"
+id: test/held
+title: Held
+lang: en
+---
+
+> [!activity|log] A log
+
+> [!multi|tools open] Which tools?
+- [ ] Pencil
+- [ ] Ruler
+
+> [!multi|why each:tools open] Why that one?
+- [ ] It was near
+`;
+
+test("each: words held on the device for a copy's Add your own field are held under the key earlier versions used (<key>#own:<pick>), so a reload from an older version still finds them", async () => {
+	const disk = { text: OPEN_NOTE, writes: 0 };
+	const store = new Map();
+	const app = testApp(disk, {
+		vault: { getName: () => "Made-up vault" },
+		loadLocalStorage: (k) => (store.has(k) ? JSON.parse(store.get(k)) : null),
+		saveLocalStorage: (k, d) => (d === null ? store.delete(k) : store.set(k, JSON.stringify(d))),
+	});
+	const draw = () => openView(disk.text, { path: "Held.booklet.md", disk, app, screen: "activity:/log" });
+	let v = draw();
+	const field = (id, within = "") => v.view.contentEl.querySelector(`[data-booklet-q="${id}"] ${within} .booklet-own-row input`);
+	const plain = field("tools").getAttribute("data-booklet-key");
+	assert.match(plain, /tools#own$/);
+	[...v.view.contentEl.querySelectorAll('[data-booklet-q="tools"] .booklet-choice')].find((b) => b.textContent.trim() === "Pencil").click();
+	await v.settled();
+	const copy = field("why", ".booklet-copy");
+	assert.equal(copy.getAttribute("data-booklet-key"), plain.replace(/tools#own$/, "why#own:n:1"), "a copy's field is held under <question's key>#own:<pick's key>, as 0.5.0 held it");
+	typeInto(copy, "Pencils are small");
+	const [held] = [...store.entries()].filter(([k]) => k.startsWith("booklet-held:"));
+	assert.ok(held[1].includes(plain.replace(/tools#own$/, "why#own:n:1")), "kept on the device under that key as it is typed");
+	// the reload: the view goes away with no blur and no write; the next drawing adds the words to that pick's pair
+	v.view.containerEl.remove();
+	await sleep(20);
+	v = draw();
+	await v.settled();
+	assert.deepEqual(norm(core.parseBooklet(disk.text).records.answers[""].why), [{ pick: 1, a: ["Pencils are small"] }], "added to Pencil's pair");
+	assert.equal(store.size, 0, "and taken off the device once added");
 	v.close();
 });

@@ -41,6 +41,13 @@ export type DrawCopy = (host: QuestionHost, into: HTMLElement, key: string, labe
  * typing write that, and the function it registers to show its answer again is `onShow`'s to call (the copies are shown
  * together with the question).
  */
+/**
+ * The key a copy's controls are drawn under: one for each pick. For a `choice` or a `multi` it is the key the words typed
+ * in the copy's Add your own field are held under on the device (held-store.ts), so it must stay `<key>#own:<pick>`:
+ * words held under it by an earlier version are found again, and not lost.
+ */
+const copyKey = (key: string, p: PickValue): string => `${key}#own:${pickKey(p)}`;
+
 function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (show: () => void) => void): QuestionHost {
 	return {
 		md: (markdown, el) => host.md(markdown, el),
@@ -79,7 +86,7 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 		else head.setText(w.text);
 		// each copy's controls are named by the question's prompt and the pick's words; the copy's updaters run with the question's
 		const shows: Array<() => void> = [];
-		draw(copyHost(host, q, p, (show) => shows.push(show)), el, `${key}#${pickKey(p)}`, `${promptId} ${headId}`);
+		draw(copyHost(host, q, p, (show) => shows.push(show)), el, copyKey(key, p), `${promptId} ${headId}`);
 		return { el, show: () => shows.forEach((show) => show()) };
 	};
 
