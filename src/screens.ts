@@ -24,6 +24,14 @@ export interface Crumb {
 	to: Place | null;
 }
 
+/** A press on a link or a button: its own action only (a link's address is `#`, so the default is stopped). */
+function onPress(el: HTMLElement, fn: () => void): void {
+	el.addEventListener("click", (evt) => {
+		evt.preventDefault();
+		fn();
+	});
+}
+
 /** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). */
 export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]): void {
 	const nav = page.createEl("nav", { cls: "booklet-trail", attr: { "aria-label": "Where you are" } });
@@ -33,10 +41,7 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]):
 		if (to) {
 			const link = nav.createEl("a", { cls: "booklet-trail-link", attr: { href: "#" } });
 			host.md(inlineMd(linkless(c.md)), link.createSpan({ cls: "booklet-inline markdown-rendered" }));
-			link.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				host.go(to);
-			});
+			onPress(link, () => host.go(to));
 		} else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: { "aria-current": "page" } }));
 	});
 }
@@ -101,10 +106,7 @@ export function drawCards(host: ScreenHost, page: HTMLElement, rows: CardRow[]):
 		}
 		setIcon(row.createDiv({ cls: "booklet-chevron", attr: { "aria-hidden": "true" } }), "lucide-chevron-right");
 		const open = () => host.go(r.to);
-		row.addEventListener("click", (evt) => {
-			evt.preventDefault();
-			open();
-		});
+		onPress(row, open);
 		row.addEventListener("keydown", (evt) => {
 			if (evt.key === "Enter" || evt.key === " ") {
 				evt.preventDefault();
@@ -125,8 +127,7 @@ export function drawTabBar(host: ScreenHost, into: HTMLElement, tabs: { id: stri
 		const on = t.id === current;
 		const b = bar.createEl("button", { cls: on ? "booklet-tabbtn is-active mod-cta" : "booklet-tabbtn", attr: { role: "tab", "aria-selected": on ? "true" : "false", tabindex: on ? "0" : "-1", "data-booklet-tab": t.id } });
 		host.md(inlineMd(linkless(t.title)), b.createSpan({ cls: "booklet-inline markdown-rendered" }));
-		b.addEventListener("click", (evt) => {
-			evt.preventDefault();
+		onPress(b, () => {
 			if (!on) choose(t.id);
 		});
 		buttons.push(b);
@@ -165,10 +166,7 @@ export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton
 		if (b.md) host.md(inlineMd(linkless(b.words)), words);
 		else words.setText(b.words);
 		if (!before) icon_();
-		el.addEventListener("click", (evt) => {
-			evt.preventDefault();
-			host.go(b.to);
-		});
+		onPress(el, () => host.go(b.to));
 	};
 	if (back) button(back, "booklet-pager-back", "lucide-arrow-left", true);
 	else foot.createSpan({ cls: "booklet-pager-gap" });

@@ -5,8 +5,8 @@
  * the rules for where a booklet opens, what is next, where a heading link leads, and how a saved place is read back.
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
-import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_CLOSE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, isBlank, splitLines } from "./lines";
-import { kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
+import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
+import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
 
 /* ---- places ---- */
@@ -69,7 +69,6 @@ export function placeFrom(state: unknown): Place | null {
 export interface ActTab {
 	id: string;
 	title: string;
-	line: number;
 	pages: Segment[][];
 }
 
@@ -153,13 +152,11 @@ export interface NavModel {
 /** Has the module a screen of its own? A module of one activity has none: its activity's screen is its screen. */
 export const hasScreen = (m: NavMod): boolean => !m.bare && m.acts.length > 1;
 
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-const HEADING_LINE = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/;
 const LEAD_EMOJI = /^(\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*️?)\s*/u;
 const stripQuote = (l: string) => l.replace(/^>[ \t]?/, "");
+const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget", "matrix"]);
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
-const NOT_IN_AN_OPENING = new Set(["menu", "text", "lines", "widget", "choice", "multi", "scale", "number", "date", "matrix", "row", "manifest", "records"]);
-const QUESTION_LINE_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "scale", "number", "date", "matrix"]);
+const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
 /** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
 export function tabIdOf(name: string, n: number): string {
@@ -245,18 +242,10 @@ export function inlineMd(md: string): string {
 function splitAtBreaks(markdown: string): string[][] {
 	const lines = markdown.split("\n");
 	const out: string[][] = [[]];
-	let fence: string | null = null;
+	const fenced = fencedLines(lines);
 	lines.forEach((l, i) => {
 		const here = out[out.length - 1] as string[];
-		if (fence) {
-			here.push(l);
-			const c = FENCE_CLOSE.exec(l);
-			if (c && c[1] && c[1][0] === fence[0] && c[1].length >= fence.length) fence = null;
-			return;
-		}
-		const f = FENCE_OPEN.exec(l);
-		if (f && f[1]) {
-			fence = f[1];
+		if (fenced[i]) {
 			here.push(l);
 			return;
 		}
@@ -294,20 +283,11 @@ export function pagesOf(segs: readonly Segment[]): Segment[][] {
 /** The folded callouts of some prose that are there to be read: not a hint or a solution, holding no question; the outer one only. */
 function readsOf(markdown: string): number {
 	const lines = markdown.split("\n");
+	const fenced = fencedLines(lines);
 	let n = 0;
-	let fence: string | null = null;
 	for (let i = 0; i < lines.length; i++) {
+		if (fenced[i]) continue;
 		const l = lines[i] ?? "";
-		if (fence) {
-			const c = FENCE_CLOSE.exec(l);
-			if (c && c[1] && c[1][0] === fence[0] && c[1].length >= fence.length) fence = null;
-			continue;
-		}
-		const f = FENCE_OPEN.exec(l);
-		if (f && f[1]) {
-			fence = f[1];
-			continue;
-		}
 		const m = CALLOUT_LINE.exec(l);
 		if (!m || !m[1]) continue;
 		const k = bodyEnd(lines, i);
@@ -447,18 +427,18 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const w = calloutWords("activity", lm?.[2]);
 		const t = splitEmoji(a.title);
 		const opening: Segment[] = [];
-		const raw: { id: string | null; title: string; line: number; segs: Segment[] }[] = [];
+		const raw: { id: string | null; title: string; segs: Segment[] }[] = [];
 		for (const s of a.segments) {
 			if (s.type === "tab") {
 				const tm = CALLOUT_LINE.exec(lines[s.line - 1] ?? "");
-				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, line: s.line, segs: [] });
+				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, segs: [] });
 			} else if (raw.length) (raw[raw.length - 1] as (typeof raw)[number]).segs.push(s);
 			else opening.push(s);
 		}
 		const ids = uniqueIds(raw.map((r, n) => r.id ?? tabIdOf(r.title, n + 1)));
 		const tabs: ActTab[] = raw.length
-			? raw.map((r, n) => ({ id: ids[n] as string, title: r.title, line: r.line, pages: pagesOf(r.segs) }))
-			: [{ id: "", title: "", line: a.line + 1, pages: pagesOf(opening) }];
+			? raw.map((r, n) => ({ id: ids[n] as string, title: r.title, pages: pagesOf(r.segs) }))
+			: [{ id: "", title: "", pages: pagesOf(opening) }];
 		const first = a.segments[0];
 		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0);
 		const na: NavAct = {
@@ -607,12 +587,6 @@ export function resolvePlace(nav: NavModel, p: Place | null): Place {
 	return { screen: p.screen, tab, part: Math.min(Math.max(0, p.part), Math.max(0, shown.pages.length - 1)) };
 }
 
-/** The pages of the tab a place shows. */
-export function pagesShown(na: NavAct, tab: string | null): Segment[][] {
-	const t = barTabs(na).length ? na.tabs.find((x) => x.id === tab) : na.tabs[0];
-	return (t ?? (na.tabs[0] as ActTab)).pages;
-}
-
 /** The next activity: its first child, then its next sibling, then back up (SPEC section 3, `parent:`), within its module. Null on the last. */
 export function nextOf(na: NavAct): NavAct | null {
 	const o = na.mod.order;
@@ -756,19 +730,11 @@ export function findHeading(nav: NavModel, target: string, scope: string | null)
 /** The words a piece of prose offers as link targets, in order: its headings and its callouts' titles, outside code fences. */
 function proseHeadings(markdown: string): string[] {
 	const out: string[] = [];
-	let fence: string | null = null;
-	for (const l of markdown.split("\n")) {
-		if (fence) {
-			const c = FENCE_CLOSE.exec(l);
-			if (c && c[1] && c[1][0] === fence[0] && c[1].length >= fence.length) fence = null;
-			continue;
-		}
-		const f = FENCE_OPEN.exec(l);
-		if (f && f[1]) {
-			fence = f[1];
-			continue;
-		}
-		const h = HEADING_LINE.exec(l);
+	const lines = markdown.split("\n");
+	const fenced = fencedLines(lines);
+	for (const [i, l] of lines.entries()) {
+		if (fenced[i]) continue;
+		const h = HEADING_WORDS.exec(l);
 		if (h && h[1]) out.push(h[1]);
 		else if (CALLOUT_ANY.test(l)) {
 			const c = CALLOUT_LINE.exec(l);

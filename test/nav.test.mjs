@@ -4,16 +4,13 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { SKETCH, core, norm } from "./helpers.mjs";
 
 const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Learning to sketch\n${extra}---\n`;
 const build = (text) => {
 	const book = core.parseBooklet(text);
 	return { book, nav: core.buildNav(book, text) };
 };
-const SAMPLE = readFileSync(join(ROOT, "test-vault", "Learning to sketch.booklet.md"), "utf8");
 const act = (nav, key) => nav.byKey.get(key);
 
 /* ---- where a booklet opens (SPEC section 2, `start`) ---- */
@@ -48,7 +45,7 @@ test("start: `start: home` keeps home; only activities that are offered count, h
 /* ---- the made-up sampler ---- */
 
 test("the sampler: one card for each module and each bare activity, in file order, a module of several activities with a screen", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	assert.equal(core.startPlace(nav).screen, "home");
 	assert.deepEqual(
 		nav.cards.map((c) => (c.kind === "module" ? `module:${c.mod.id}` : `activity:${c.act.key}`)),
@@ -64,7 +61,7 @@ test("the sampler: one card for each module and each bare activity, in file orde
 });
 
 test("a card's parts: the picture is the line's icon, else a leading emoji; the blurb is the first paragraph; the status is the file's lines or the worked-out words; status:off hides it", () => {
-	const { book, nav } = build(SAMPLE);
+	const { book, nav } = build(SKETCH);
 	const lines = act(nav, "basics/lines");
 	assert.equal(lines.icon, "ruler");
 	assert.equal(lines.blurb, "A line drawn fast comes out straighter than a line drawn slowly.");
@@ -105,6 +102,16 @@ test("status words follow the reference renderer: reads, questions, answered of,
 	assert.equal(core.moduleMeta(nav.mods[0], book), "2 activities · 2 started");
 });
 
+test("status words: a folded callout written inside a fenced code block is code, not a read; one after the fence is", () => {
+	const fenced = "```md\n> [!note]- Folded, but only an example\n> Words.\n```\n";
+	const unclosed = "```\n> [!note]- Never closed\n";
+	const of = (body) => act(build(`${head()}\n> [!activity|a] A\n\n${body}`).nav, "/a").reads;
+	assert.equal(of(fenced), 0, "inside a fence");
+	assert.equal(of(`${fenced}\n> [!note]- Folded for real\n> Words.\n`), 1, "after the fence closes");
+	assert.equal(of("~~~\n> [!note]- Folded, but only an example\n~~~\n"), 0, "a tilde fence holds it too");
+	assert.equal(of(unclosed), 0, "a fence that never closes runs to the end");
+});
+
 test("a module of one activity is one card: the module's title first, else the booklet's, else its id", () => {
 	const mod = (line) => `${head()}\n> [!module|day]${line}\n\n> [!activity|today] Today\n\n> [!module|day end] E\n`;
 	let { nav } = build(mod(" A short check-in"));
@@ -129,7 +136,7 @@ test("an activity's tabs: ids as written or made from the name, the opening befo
 });
 
 test("a module's tabs: lines in its opening; an activity joins one with tab:, else the first; its prose sits above that tab's cards; a notice is read", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	const m = nav.mods.find((x) => x.id === "basics");
 	assert.equal(m.opening, "Lines, boxes and light, one at a time, at your own pace.");
 	assert.match(m.tabs[0].md, /^Do these with a pencil/);
@@ -177,7 +184,7 @@ test("pages: a thematic break splits by Markdown's own rules; `---` needs a blan
 });
 
 test("pages: each tab has its own pages; the opening before the first tab is not paged; a question stays on its page", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	const shapes = act(nav, "basics/shapes");
 	assert.deepEqual(norm(shapes.tabs.map((t) => t.pages.length)), [2, 1]);
 	assert.equal(shapes.opening.length, 1);
@@ -218,7 +225,7 @@ test("parent: a missing parent leaves the activity at the top; one that is its o
 /* ---- heading links (SPEC section 3, "Links between activities") ---- */
 
 test("a heading link opens the first place in file order whose heading or title reads those words: a module's tab, an activity's title, a tab, a heading, a prompt, a callout's title", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	const hit = (words, scope = "basics") => norm(core.findHeading(nav, words, scope));
 	// a heading on the third part of "Lines that hold"
 	assert.deepEqual(hit("Ten in a row"), { place: { screen: "activity:basics/lines", tab: null, part: 2 }, heading: "Ten in a row", keepTab: false });
@@ -254,7 +261,7 @@ test("a heading link: in the opening of an activity with tabs the tab on show st
 });
 
 test("a link to a whole module: the name before .booklet, any # part dropped; the module only when the booklet holds it", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	assert.equal(core.moduleLinkName("week-2.booklet"), "week-2");
 	assert.equal(core.moduleLinkName("week-2.booklet.md"), "week-2");
 	assert.equal(core.moduleLinkName("folder/Week%202.booklet#Check yourself"), "Week 2");
@@ -280,7 +287,7 @@ test("a place is saved as { version, screen, tab, part } and read back; one from
 });
 
 test("a saved place is checked against the note: an id it no longer has falls back to where the note opens; a part is kept within its tab's pages", () => {
-	const { nav } = build(SAMPLE);
+	const { nav } = build(SKETCH);
 	const r = (p) => norm(core.resolvePlace(nav, p));
 	assert.deepEqual(r({ screen: "activity:basics/lines", tab: "ignored", part: 9 }), { screen: "activity:basics/lines", tab: null, part: 2 });
 	assert.deepEqual(r({ screen: "activity:basics/gone", tab: null, part: 0 }), { screen: "home", tab: null, part: 0 });
@@ -307,7 +314,7 @@ test("which moves are history steps: another screen and another part of the same
 });
 
 test("the model reads the note and never changes it", () => {
-	const text = SAMPLE;
+	const text = SKETCH;
 	const before = text.length + ":" + text;
 	build(text);
 	assert.equal(text.length + ":" + text, before);

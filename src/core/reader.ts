@@ -28,7 +28,7 @@ function inScope<T extends { id: string; module: string | null }>(list: readonly
 }
 
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
-const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
+export const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
 export const FORMAT_VERSION = "0.16";
 
@@ -222,8 +222,6 @@ export interface Activity {
 	/** `repeat daily`: one kept entry per day; completing again replaces today's. */
 	daily: boolean;
 	hidden: boolean;
-	/** A thematic break (`***`) in its text: a page break, which this view does not page by (pages are drawn one under another). */
-	pages: boolean;
 	segments: Segment[];
 }
 
@@ -425,7 +423,7 @@ const stripQuote = (l: string) => l.replace(/^>[ \t]?/, "");
 /** The embed in a widget line's body that names its data block (booklet.html's widget question). */
 const WIDGET_EMBED = /!\[\[[^\]#|]*#\^([A-Za-z0-9-]+)[^\]]*\]\]/;
 /** A heading line's words, trailing spaces and marks off (booklet.html HEADING_WORDS). */
-const HEADING_WORDS = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/;
+export const HEADING_WORDS = /^ {0,3}#{1,6}[ \t]+(.+?)[ \t#]*$/;
 /** The scope of the ids of menus shared by every module (outside every fence, or in the plain data section). */
 const SHARED = "\u0000shared";
 
@@ -695,7 +693,6 @@ export function parseBooklet(text: string): Booklet {
 					repeat,
 					daily: repeat && w.flags.has("daily"),
 					hidden: w.flags.has("hidden"),
-					pages: false,
 					segments: [],
 				};
 				activities.push(act);
@@ -826,8 +823,6 @@ export function parseBooklet(text: string): Booklet {
 		}
 		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
 		if (section !== "content") continue;
-		// a page break (`***`, SPEC section 3) stays in the prose: pages are drawn one under another
-		if (act && section === "content" && THEMATIC_BREAK.test(ln) && isBlank(lines[i - 1])) act.pages = true;
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
 		if (!act && THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
 		pushText([ln], i);

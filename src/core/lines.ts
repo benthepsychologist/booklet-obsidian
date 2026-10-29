@@ -63,6 +63,19 @@ export function fenceEnd(lines: readonly string[], i: number, mark: string): num
 	return k;
 }
 
+/** Per line: is it a fence line (its opening, its closing) or inside a fenced code block? An unclosed fence runs to the end. */
+export function fencedLines(lines: readonly string[]): boolean[] {
+	const out = lines.map(() => false);
+	for (let i = 0; i < lines.length; i++) {
+		const f = FENCE_OPEN.exec(lines[i] ?? "");
+		if (!f || !f[1]) continue;
+		const k = Math.min(fenceEnd(lines, i, f[1]), lines.length - 1);
+		for (let j = i; j <= k; j++) out[j] = true;
+		i = k;
+	}
+	return out;
+}
+
 /** The kinds that take no id: every word after the bar is a setting (SPEC section 4). */
 export const NO_ID_KINDS = new Set(["row", "notice", "manifest", "hint", "solution", "group", "diff", "law", "opinion"]);
 

@@ -11,20 +11,9 @@
 	padding: var(--size-4-4) var(--size-4-3) calc(var(--size-4-12) * 3);
 }
 
+/* an activity's screen is the page itself: no frame around it */
 .booklet-card {
-	background-color: var(--background-primary-alt);
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-l);
-	padding: var(--size-4-4) var(--size-4-5);
-	margin-bottom: var(--size-4-6);
-}
-
-.booklet-card-title {
-	font-size: var(--h2-size);
-	font-weight: var(--h2-weight);
-	color: var(--h2-color);
-	line-height: var(--line-height-tight);
-	margin-bottom: var(--size-4-3);
+	margin-bottom: var(--size-4-4);
 }
 
 .booklet-card-title p,
@@ -277,28 +266,10 @@
 	margin-bottom: var(--size-4-1);
 }
 
-/* ---- openings: the booklet's under its title, a module's above its first activity ---- */
+/* ---- openings: the booklet's own, and a module's above its first activity (each drawn under its screen's title) ---- */
 
 .booklet-opening {
 	margin: 0 0 var(--size-4-6);
-}
-
-.booklet-opening-title {
-	font-size: var(--h2-size);
-	font-weight: var(--h2-weight);
-	color: var(--h2-color);
-	line-height: var(--line-height-tight);
-	margin-bottom: var(--size-4-2);
-}
-
-.booklet-opening-title.booklet-booklet-title {
-	font-size: var(--h1-size);
-	font-weight: var(--h1-weight);
-	color: var(--h1-color);
-}
-
-.booklet-opening-title p {
-	margin: 0;
 }
 
 /* ---- widgets ---- */
@@ -925,10 +896,6 @@
 	margin-bottom: var(--size-4-4);
 }
 
-.booklet-trail p {
-	margin: 0;
-}
-
 .booklet-trail-link {
 	color: var(--text-muted);
 	text-decoration: none;
@@ -966,14 +933,6 @@
 	margin: 0;
 }
 
-.booklet-screentitle p {
-	margin: 0;
-}
-
-.booklet-screenhead .booklet-card-title {
-	margin-bottom: 0;
-}
-
 /* an opening: its first paragraph larger, the rest at the body size */
 .booklet-opening > p:first-child {
 	font-size: calc(var(--font-text-size, 16px) * 1.15);
@@ -984,15 +943,6 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	margin: 0 0 var(--size-4-3);
-}
-
-/* an activity's screen is the page itself: no frame around it */
-.booklet-card.booklet-act {
-	background: none;
-	border: 0;
-	border-radius: 0;
-	padding: 0;
-	margin-bottom: var(--size-4-4);
 }
 
 /* a picture: a tile of Obsidian's own icon or an emoji */
@@ -1082,10 +1032,6 @@
 	color: var(--text-normal);
 }
 
-.booklet-cardtitle p {
-	margin: 0;
-}
-
 .booklet-num {
 	color: var(--text-muted);
 	font-variant-numeric: tabular-nums;
@@ -1101,10 +1047,6 @@
 	color: var(--text-faint);
 	font-size: var(--font-ui-smaller);
 	margin-top: var(--size-2-1);
-}
-
-.booklet-status p {
-	margin: 0;
 }
 
 .booklet-chevron {
@@ -1127,10 +1069,6 @@
 	max-width: 100%;
 	white-space: normal;
 	text-align: start;
-}
-
-.booklet-tabbtn p {
-	margin: 0;
 }
 
 /* the pager: after the page, not pinned */
@@ -1159,10 +1097,6 @@
 .booklet-pager button > span:not(.booklet-pager-icon) {
 	min-width: 0;
 	overflow-wrap: anywhere;
-}
-
-.booklet-pager button p {
-	margin: 0;
 }
 
 .booklet-pager-at {

@@ -246,8 +246,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * leaving each field would: the plugin runs this before the app quits or the window closes (main.ts).
 	 */
 	async saveTyped(): Promise<void> {
-		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
-		this.flushOwn(null);
+		this.flushAll();
 		await this.writes;
 	}
 
@@ -406,7 +405,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.flushOwn(null);
 	}
 
-	/** A heading link's place, opened as the reader's press asks: in this pane (a step if it moves), or in a new one (Ctrl or Cmd). */
 	/** The place a heading hit opens: a heading in the opening of an activity with tabs is drawn above every tab, so the tab and part on show stay. */
 	private keepTabFor(hit: { place: Place; keepTab: boolean }, now: Place | null): Place {
 		const place = { ...hit.place };
@@ -838,16 +836,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/** A screen's head: the picture (an icon or an emoji), then the title. */
-	private head(into: HTMLElement, title: string, icon: string | null, emoji: string | null, plain: boolean): HTMLElement {
+	private head(into: HTMLElement, title: string, icon: string | null, emoji: string | null): void {
 		const head = into.createDiv({ cls: "booklet-screenhead" });
 		if (icon || emoji) drawPicture(head, icon, emoji, true);
-		const t = head.createDiv({ cls: "booklet-screentitle booklet-card-title", attr: { role: "heading", "aria-level": "1" } });
-		if (plain) t.setText(title);
-		else {
-			t.addClass("markdown-rendered");
-			this.md(inlineMd(title), t);
-		}
-		return head;
+		const t = head.createDiv({ cls: "booklet-screentitle booklet-card-title markdown-rendered", attr: { role: "heading", "aria-level": "1" } });
+		this.md(inlineMd(title), t);
 	}
 
 	/** The booklet's opening, or a module's: its first paragraph larger, the rest under it (SPEC section 3). */
@@ -900,7 +893,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			{ md: this.bookTitle(nav), to: homePlace() },
 			{ md: m.title, to: null },
 		]);
-		this.head(page, m.title, m.icon, m.emoji, false);
+		this.head(page, m.title, m.icon, m.emoji);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
 		let tops = m.top;
@@ -935,7 +928,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 		const card = page.createDiv({ cls: "booklet-card booklet-act" });
 		card.setAttr("data-booklet-activity", `${a.scope}/${a.id}`);
-		this.head(card, mt ? mt.title : na.title, single ? (m.icon ?? na.icon) : na.icon, mt ? (mt.emoji ?? na.emoji) : na.emoji, false);
+		this.head(card, mt ? mt.title : na.title, single ? (m.icon ?? na.icon) : na.icon, mt ? (mt.emoji ?? na.emoji) : na.emoji);
 		if (a.repeat) card.addClass("booklet-repeats");
 		if (a.repeat && !a.id) card.createEl("p", { cls: "booklet-muted booklet-repeat-note", text: "This activity repeats, and its line has no id, so its entries cannot be kept. Give it an id in Markdown." });
 		const keeps = a.repeat && !!a.id;
