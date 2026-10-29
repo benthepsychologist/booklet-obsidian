@@ -438,7 +438,7 @@ const plainWords = (md: string): string =>
 		.toLowerCase();
 
 /** An opening's lines as Markdown: the blank lines around it off, and a leading heading that repeats `title` off too. */
-function openingMarkdown(ls: readonly string[], title: string): string {
+export function openingMarkdown(ls: readonly string[], title: string): string {
 	let from = 0;
 	let to = ls.length;
 	while (from < to && isBlank(ls[from])) from++;
