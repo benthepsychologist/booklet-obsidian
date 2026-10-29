@@ -350,7 +350,7 @@ const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "s
 /** Every kind the format defines (SPEC section 4's table). */
 const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
-	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "page", "choice", "multi", "number", "widget",
+	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
 ]);
 
 const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);

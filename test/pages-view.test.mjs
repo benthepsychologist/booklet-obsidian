@@ -40,6 +40,7 @@ test("a named page's title heads its first part, and its parts follow one anothe
 	for (let i = 0; i < 8; i++) {
 		await p.pageNext();
 		seen.push(titles(p).join("|"));
+		assert.equal(p.all("[data-booklet-q]").length, 0, "a page line is no question: nothing on the wiki tab asks anything");
 	}
 	// depth first: the body map, its two pages, the grid, its two pages (the first in two parts), the last page
 	assert.deepEqual(seen, ["The body map", "Choosing a place", "Words for what you notice", "The feelings grid", "The two axes", "", "More than one at once", "Thoughts as headlines"]);

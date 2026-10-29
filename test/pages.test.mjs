@@ -231,6 +231,14 @@ test("ids: written, else made from the title; a title that leaves nothing is pag
 	assert.deepEqual(norm(nav.problems), ['Line 24: the page id "grid" is used twice in this tab, so this page is "grid-2" (a parent: of "grid" is the first page).']);
 });
 
+test("a page's id is its own: it may be a question's id, and two tabs may each have a page of one id", () => {
+	const t = `${head()}\n> [!activity|notes] Notes\n\n> [!tab|one] One\n\n> [!page|tides] Tides, the page\n\n> [!text|tides] Tides, the question\n\n> [!tab|two] Two\n\n> [!page|tides] Tides again, in the other tab\n`;
+	const { book, nav } = build(t);
+	assert.equal(book.ok, true, book.refusal ?? "");
+	assert.deepEqual(problems(t), []);
+	assert.deepEqual(norm(nav.byKey.get("/notes").tabs.map((x) => x.tree.map((p) => p.id))), [["tides"], ["tides"]]);
+});
+
 /* ---- parts ---- */
 
 test("a thematic break splits a page into parts; an empty stretch is no part; a page with no words has one empty part", () => {
