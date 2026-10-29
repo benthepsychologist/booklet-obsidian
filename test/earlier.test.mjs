@@ -6,15 +6,12 @@
  * source rule's edge cases (today's entry in a daily activity, pairs whose pick was taken back, a stale word id); and
  * what a press on an offered word stores, byte for byte. Every word here is made up.
  */
-import { window as w } from "./dom.mjs";
+import { openView, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, core, corpusFiles, lint, norm, pythonAvailable, read } from "./helpers.mjs";
-
-const { BookletView } = await import("./.build/view.mjs");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const S = "day-check";
@@ -346,25 +343,11 @@ function withEntries(list, text = CHECKIN) {
 }
 
 function open(text) {
-	const disk = { text };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on() {} },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
-	view.load();
-	view.setViewData(text, true);
-	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
+	const v = openView(text, { path: "Check-in.booklet.md" });
+	const q = (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	const places = () => q("places");
 	return {
-		view,
-		disk,
+		...v,
 		q,
 		place: (label) => [...places().querySelectorAll("button.booklet-place")].find((b) => b.textContent.trim().startsWith(label)),
 		panel: () => places().querySelector(".booklet-panel"),
@@ -373,21 +356,8 @@ function open(text) {
 			const g = root.querySelector(".booklet-earlier");
 			return g && !g.classList.contains("booklet-earlier-none") ? [...g.querySelectorAll("button")].map((b) => b.textContent.trim()) : [];
 		},
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
 	};
 }
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
 const enter = (el) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 const button = (root, words) => {
 	const b = [...root.querySelectorAll("button")].find((x) => x.textContent.trim() === words);

@@ -6,10 +6,10 @@
  * of a single question with a summary gives that question's distribution. Nothing here is saved: a summary is drawn,
  * never written. Plain TypeScript: nothing here imports Obsidian.
  */
-import { pairFor, pickKey, pickWords, sourceOf, sourcePicks, type PickValue } from "./each";
+import { pairFor, pickKey, pickWords, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import type { Activity, Booklet, Query, QuerySegment, Question, Role, ViewName } from "./reader";
-import { ROLE_NAMES } from "./reader";
+import { ROLE_NAMES, questionsOf } from "./reader";
 import type { Entry } from "./records";
 import { holdsSomething, shapeIssue } from "./shape";
 import { engineOf, gridLabel, gridNames, gridOf, normWords, regionLabel, regionsOf, regionSummary, type Grid } from "./widgets";
@@ -60,8 +60,6 @@ export interface Cell {
 
 export interface Row {
 	cells: Record<string, Cell>;
-	/** The kept entry a row is, over kept entries. */
-	entry?: Entry;
 }
 
 export interface RowSet {
@@ -218,9 +216,6 @@ function picksInOrder(src: Question, records: readonly Record<string, unknown>[]
 
 /* ---- kept entries as rows ---- */
 
-/** The questions of an activity this view draws, in its order. */
-const questionsOf = (a: Activity): Question[] => a.segments.filter((s): s is Question => s.type === "question");
-
 /** The kept entries a query reads: never a draft; newest first; the span of days or the newest N. */
 function keptFor(book: Booklet, a: Activity, q: Query, opts: PlanOptions): Entry[] {
 	let ents = [...(book.records.entries[a.scope]?.[a.id] ?? [])].sort(newestFirst);
@@ -247,8 +242,7 @@ function entryRows(book: Booklet, a: Activity, qs: readonly Question[], named: r
 				// one field per pick the source holds in this entry, with that pick's answer; an answer of the wrong shape is left out
 				if (!src || shapeIssue(x, v)) continue;
 				const plain: Question = { ...x, each: null };
-				for (const p of sourcePicks(src, e[src.id])) {
-					const pair = pairFor(v, p);
+				for (const { pick: p, pair } of shownPairs(src, e, x)) {
 					const c = pair && holdsSomething(pair.a) ? answerCell(plain, pair.a) : null;
 					if (!c) continue;
 					cells[pickField(x, p)] = c;
@@ -262,7 +256,7 @@ function entryRows(book: Booklet, a: Activity, qs: readonly Question[], named: r
 			if (named.includes(x)) any = true;
 		}
 		// with `fields:`, an entry that answers none of the questions named is not shown (and with none named, one that answers nothing)
-		if (any) rows.push(a.repeat ? { cells, entry: e as Entry } : { cells });
+		if (any) rows.push({ cells });
 	}
 	const expand = (k: string): string[] => {
 		const ps = picks.get(k);
@@ -392,11 +386,7 @@ function summarise(q: Question, label: WordPart[], values: readonly unknown[], l
 		);
 	}
 	if (k === "options" || k === "grid") {
-		const t = newTally();
-		const g = k === "grid" ? gridOf(q.widget!.data) : null;
-		if (g) for (const i of g.items) list(t, `i:${i.id}`, [{ text: i.label }]);
-		else q.options.forEach((o, i) => list(t, `o:${i + 1}`, [{ md: o.text }]));
-		for (const v of values) count(t, g ? gridMembers(g, v) : optionMembers(q, v));
+		const t = tallyOf(q, values);
 		if (!t.answered) return summaryRow(label, { count: numCell(0, fmt(0)) }, null, null);
 		// the most picked; a tie goes to the earlier in the order (the list, then the reader's own as first seen)
 		let most: { key: string; parts: WordPart[] } | null = null;
@@ -408,7 +398,7 @@ function summarise(q: Question, label: WordPart[], values: readonly unknown[], l
 	return summaryRow(label, { count: numCell(n, fmt(n)) }, n ? "count" : null, n ? [{ text: QUERY_WORDS.answered }] : null);
 }
 
-/** One question's answers over the entries, each in its kind's shape (a wrong shape is not counted); for a question asked for each pick, one list per pick. */
+/** One question's answers over the entries, in one list, each in its kind's shape (a wrong shape is not counted); a question asked for each pick has its answers listed per pick by pickAnswers. */
 function answersOf(q: Question, ents: readonly Record<string, unknown>[]): unknown[] {
 	return ents.map((e) => e[q.id]).filter((v) => holdsSomething(v) && !shapeIssue(q, v));
 }
@@ -461,13 +451,13 @@ function summarySet(rows: Row[], labelOf: "label" | "answer"): RowSet {
 	return { kind: "summary", rows, own, label, questions: [], expand: (k) => [k], valueField: null };
 }
 
-/** One question's distribution: one row per value, its value the count (SPEC section 6, "One question, one distribution"). */
-function distribution(q: Question, values: readonly unknown[], locale: string, prefix: WordPart[] = []): Row[] {
-	const fmt = (n: number) => formatNumber(n, locale);
+/** One question's answers counted by value: what a summary's most picked and a distribution's rows are read from. */
+function tallyOf(q: Question, values: readonly unknown[]): Tally {
 	const t = newTally();
 	const k = kindOf(q);
+	const g = k === "grid" ? gridOf(q.widget!.data) : null;
 	const members = (v: unknown): { key: string; parts: WordPart[] }[] => {
-		if (k === "grid") return gridMembers(gridOf(q.widget!.data), v);
+		if (g) return gridMembers(g, v);
 		if (k === "options") return optionMembers(q, v);
 		if (q.kind === "scale" && typeof v === "number") {
 			const an = q.anchors.find((x) => x.n === v);
@@ -484,10 +474,17 @@ function distribution(q: Question, values: readonly unknown[], locale: string, p
 		return [];
 	};
 	// the listed options, items or anchors first, in list order, with zeros; any other value as it first appears
-	if (k === "grid") for (const i of gridOf(q.widget!.data).items) list(t, `i:${i.id}`, [{ text: i.label }]);
+	if (g) for (const i of g.items) list(t, `i:${i.id}`, [{ text: i.label }]);
 	else if (k === "options") q.options.forEach((o, i) => list(t, `o:${i + 1}`, [{ md: o.text }]));
 	else if (q.kind === "scale") for (const an of q.anchors) list(t, `n:${an.n}`, [{ md: an.text }]);
 	for (const v of values) count(t, members(v));
+	return t;
+}
+
+/** One question's distribution: one row per value, its value the count (SPEC section 6, "One question, one distribution"). */
+function distribution(q: Question, values: readonly unknown[], locale: string, prefix: WordPart[] = []): Row[] {
+	const fmt = (n: number) => formatNumber(n, locale);
+	const t = tallyOf(q, values);
 	return t.order.map((m) => {
 		const n = t.counts.get(m.key) ?? 0;
 		return summaryRow([...prefix, ...m.parts], { count: numCell(n, fmt(n)) }, "count", null);
@@ -544,9 +541,8 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 	const q = seg.query;
 	const src = seg.source;
 	const locale = opts.locale ?? "en";
-	if (!src) return { kind: "not-yet", text: NOT_YET.data };
 	if (q.as === "bars" || q.as === "line") return { kind: "not-yet", text: NOT_YET[q.as] };
-	if (src.kind === "data") return { kind: "not-yet", text: NOT_YET.data };
+	if (!src || src.kind === "data") return { kind: "not-yet", text: NOT_YET.data };
 	if (src.kind === "question" && !src.q) return { kind: "not-yet", text: NOT_YET.question(plainWords(src.title) || src.id) };
 	const view: DrawnView = q.as ?? (q.summary ? "table" : "cards");
 	const a = src.act;
