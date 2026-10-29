@@ -388,9 +388,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.moving = true;
 		this.stepWanted = true;
-		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p, this.nav) };
+		const asked = placeState(p, this.nav);
+		const state: Record<string, unknown> = { ...this.getState(), ...asked };
 		if (!p.tab) delete state["tab"];
-		if (state["page"] !== undefined && !("page" in placeState(p, this.nav))) delete state["page"]; // the page left is not the page asked for
+		if (!asked.page) delete state["page"]; // the page left is not the page asked for
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
 			.catch(() => undefined)
@@ -940,8 +941,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		crumbs.push({ md: mt ? mt.title : na.title, to: onTree ? activityPlace(na) : null });
 		if (onTree) {
 			if (bar.length) crumbs.push({ md: tab.title, to: { screen: place.screen, tab: tab.id, part: 0 } });
-			for (const q of above) crumbs.push({ md: q.written || q.title, to: { screen: place.screen, tab: place.tab, part: q.at } });
-			crumbs.push({ md: here.written || here.title, to: null });
+			for (const q of above) crumbs.push({ md: q.title, to: { screen: place.screen, tab: place.tab, part: q.at } });
+			crumbs.push({ md: here.title, to: null });
 		}
 		drawTrail(this, page, crumbs);
 
@@ -992,9 +993,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				case "before":
 					return { words: "Back", md: false, to: st.to };
 				case "up":
-					return { words: `Up: ${st.page.written || st.page.title}`, md: true, to: st.to };
+					return { words: `Up: ${st.page.title}`, md: true, to: st.to };
 				case "next-page":
-					return { words: `Next: ${st.page.written || st.page.title}`, md: true, to: st.to };
+					return { words: `Next: ${st.page.title}`, md: true, to: st.to };
 				case "up-activity":
 					return { words: `Up: ${st.act.title}`, md: true, to: st.to };
 				case "next-activity":

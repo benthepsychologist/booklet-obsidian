@@ -352,3 +352,16 @@ test("a draft is not lost when the reader moves to another page (see also pages-
 	assert.equal(sha(p.disk.text), sha(CHECKIN));
 	p.close();
 });
+
+test("the pager and the trail name a page by its title without the leading emoji (the picture), as an activity's is; the page itself heads with the title as written", async () => {
+	const text = `---\nbooklet: "0.17"\ntitle: Waves\n---\n\n> [!activity|w] Waves\n\n> [!page|a] 🌊 Big waves\n\nOne.\n\n> [!page|b parent:a] 🌀 Small waves\n\nTwo.\n\n> [!page|c parent:b] 🪨 Ripples\n\nThree.\n`;
+	const p = pane(text, { state: { version: 1, screen: "activity:/w", part: 0 } });
+	await p.settled();
+	assert.deepEqual(titles(p), ["🌊 Big waves"]);
+	assert.deepEqual(buttons(p), ["Back to the overview", "Next: Small waves"].map((x) => x));
+	await p.pageNext();
+	await p.pageNext();
+	assert.deepEqual(p.trail().slice(-3), ["Big waves", "Small waves", "Ripples"]);
+	assert.deepEqual(buttons(p), ["Up: Small waves"]);
+	p.close();
+});

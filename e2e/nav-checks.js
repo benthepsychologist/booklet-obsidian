@@ -239,7 +239,7 @@ Two p2
       try {
         await o2.page.waitForSelector(BOOK + " .booklet-page", { timeout: 15000 }); await sleep(900);
         const r = await state(o2);
-        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 1, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
+        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 2, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
         await shot(o2, "nav-after-restart-light");
         // the one-module booklet opens on its module screen
         await ready(o2, WEEKLY);
