@@ -27,6 +27,7 @@ for (const [name, want] of Object.entries(golden)) {
 			assert.equal(got.writes, 0, `${name}: drawing ${key} wrote to the note`);
 			assert.ok(got.same, `${name}: drawing ${key} changed the note's text`);
 			assert.equal(got.sha, want.places[key].sha, `${name}: ${key} draws differently from 0.6.0`);
+			assert.deepEqual(got.saved, want.places[key].saved, `${name}: ${key} saves a different place from 0.6.0`);
 		}
 	});
 }

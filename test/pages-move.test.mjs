@@ -191,9 +191,9 @@ test("a version 2 place: the part is within its page and cannot spill into the n
 	assert.deepEqual(at(v2("your-mind", 0, "wiki")), { screen: SCREEN, tab: "wiki", part: 0 }, "a page of another tab is not found");
 	assert.deepEqual(at({ version: 1, screen: SCREEN, tab: "wiki", page: "grid", part: 2 }), { screen: SCREEN, tab: "wiki", part: 2 }, "no page key in version 1");
 	// what is saved: the page's id only for a named page, and nothing but the version differs for a note with no page line
-	assert.deepEqual(norm(core.placeState({ screen: SCREEN, tab: "wiki", part: 0 }, nav)), { version: 2, screen: SCREEN, tab: "wiki", part: 0 }, "the tab's own first page is no named page");
+	assert.deepEqual(norm(core.placeState({ screen: SCREEN, tab: "wiki", part: 0 }, nav)), { version: 1, screen: SCREEN, tab: "wiki", part: 0 }, "the tab's own first page is no named page: version 1");
 	assert.deepEqual(norm(core.placeState({ screen: SCREEN, tab: "wiki", part: 7 }, nav)), { version: 2, screen: SCREEN, tab: "wiki", page: "more-than-one-at-once", part: 0 });
-	assert.deepEqual(norm(core.placeState({ screen: SCREEN, tab: "wiki", part: 7 })), { version: 2, screen: SCREEN, tab: "wiki", part: 7 }, "with no note to look in, the flat part");
+	assert.deepEqual(norm(core.placeState({ screen: SCREEN, tab: "wiki", part: 7 })), { version: 1, screen: SCREEN, tab: "wiki", part: 7 }, "with no note to look in, the flat part");
 	// round trip over every part of every tab
 	for (const t of nav.byKey.get("calm/check-in").tabs)
 		for (let part = 0; part < t.pages.length; part++) {
@@ -202,13 +202,13 @@ test("a version 2 place: the part is within its page and cannot spill into the n
 		}
 });
 
-test("a note with no page line saves what it did, but for the version", async () => {
+test("a note with no page line saves exactly what 0.6.0 did: version 1, no page key", async () => {
 	const p = pane(readFileSync(new URL("../test-vault/Learning to sketch.booklet.md", import.meta.url), "utf8"));
 	await p.settled();
 	await p.card("2.The basics");
 	await p.card("2.Boxes and cylinders");
 	await p.pageNext();
-	assert.deepEqual(norm(p.view.getState()), { file: "Note.booklet.md", version: 2, screen: "activity:basics/shapes", tab: "boxes", part: 1 });
+	assert.deepEqual(norm(p.view.getState()), { file: "Note.booklet.md", version: 1, screen: "activity:basics/shapes", tab: "boxes", part: 1 });
 	p.close();
 });
 

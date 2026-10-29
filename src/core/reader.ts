@@ -32,6 +32,8 @@ function inScope<T extends { id: string; module: string | null }>(list: readonly
 export const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
 
 export const FORMAT_VERSION = "0.16";
+/** The marker of the next format, whose page lines this view reads ahead of SPEC (page trees; design/pages/proposal.md). */
+export const NEXT_FORMAT = "0.17";
 
 export interface Option {
 	text: string;
@@ -547,8 +549,14 @@ export function parseBooklet(text: string): Booklet {
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
 	const ver = versionOf(marker);
+	let pagesMarker = false;
+	let unread = 0;
 	if (!marker) refusals.push("This note has no booklet: marker in its front matter, so it is not a booklet.");
 	else if (!ver || ver[0] !== 0) refusals.push(`This note says booklet: ${marker}, which is not a 0.x version, so it is not a booklet for format ${FORMAT_VERSION}.`);
+	else if (marker === NEXT_FORMAT)
+		// page trees are ahead of the format: this view draws what 0.17's page lines say, so it says nothing of the marker unless the file
+		// then holds a line or a setting this view does not read (counted in `unread`, and said at the end)
+		pagesMarker = true;
 	else if (marker !== FORMAT_VERSION)
 		problems.push(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and has opened it as it is; some of it may not draw.`);
 
@@ -685,7 +693,9 @@ export function parseBooklet(text: string): Booklet {
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
-			problems.push(...settingProblems(kind, w, at(i)));
+			const sp = settingProblems(kind, w, at(i));
+			unread += sp.length;
+			problems.push(...sp);
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
@@ -800,7 +810,10 @@ export function parseBooklet(text: string): Booklet {
 					i = k - 1;
 					continue;
 				}
-				if (!KNOWN_KINDS.has(kind)) problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
+				if (!KNOWN_KINDS.has(kind)) {
+					unread++;
+					problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
+				}
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
@@ -931,6 +944,7 @@ export function parseBooklet(text: string): Booklet {
 				? "One answer is not in the shape its question keeps, so it is kept as written: shown read-only with a notice, and left out of what views show."
 				: `${wrong} answers are not in the shape their questions keep, so they are kept as written: shown read-only with a notice, and left out of what views show.`,
 		);
+	if (pagesMarker && unread) problems.unshift(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and the page lines of ${marker}, and has opened the rest as it is: the lines listed below, and anything else new in ${marker}, may not draw.`);
 	const refusal = refusals[0] ?? null;
 	return {
 		ok: !refusal,

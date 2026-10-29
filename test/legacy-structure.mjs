@@ -67,7 +67,8 @@ export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.
 	const p = pane(text, { path, state: { file: path, version: 1, screen, ...(tab ? { tab } : {}), part } });
 	await p.settled();
 	const html = p.el.innerHTML.replace(/booklet-\d+/g, "booklet-N");
-	const state = { writes: p.disk.writes, same: p.disk.text === text, drawn: p.screen };
+	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line is what 0.6.0 saved)
+	const state = { writes: p.disk.writes, same: p.disk.text === text, drawn: p.screen, saved: JSON.parse(JSON.stringify(p.view.getState())) };
 	p.close();
 	return { sha: sha(html), ...state };
 }

@@ -276,7 +276,7 @@ test("a link to a whole module: the name before .booklet, any # part dropped; th
 
 test("a place is saved as { version, screen, tab, part } and read back; one from an unknown version, or no place at all, is none", () => {
 	const p = { screen: "activity:basics/lines", tab: null, part: 2 };
-	assert.deepEqual(norm(core.placeState(p)), { version: 2, screen: "activity:basics/lines", part: 2 });
+	assert.deepEqual(norm(core.placeState(p)), { version: 1, screen: "activity:basics/lines", part: 2 });
 	assert.deepEqual(norm(core.placeFrom(core.placeState(p))), p);
 	assert.deepEqual(norm(core.placeFrom(core.placeState({ screen: "module:basics", tab: "read", part: 0 }))), { screen: "module:basics", tab: "read", part: 0 });
 	assert.equal(core.placeFrom({ screen: "home" }), null, "no version");

@@ -292,7 +292,7 @@ test("a link by words reaches a page by its title, on its first part; a heading 
 test("the check-in as one activity with a wiki tab (5.1): three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
 	const src = readFileSync(new URL("./page-notes/Check-in with a wiki.booklet.md", import.meta.url), "utf8");
 	const { book, nav } = build(src);
-	assert.deepEqual(book.problems, ['This file says booklet: 0.17. This view reads format 0.16 and has opened it as it is; some of it may not draw.']);
+	assert.deepEqual(book.problems, [], "a 0.17 file whose lines the view reads says nothing of its marker");
 	assert.deepEqual(nav.problems, []);
 	const a = nav.byKey.get("calm/check-in");
 	assert.deepEqual(norm(a.tabs.map((t) => t.id)), ["wiki", "quiz", "dashboard"]);
@@ -308,7 +308,7 @@ test("the check-in as one activity with a wiki tab (5.1): three tabs, the wiki's
 
 test("a wiki as pages (5.2): nothing before the first page line, so the activity opens on Tides with two pages under it", () => {
 	const { book, nav } = build(readFileSync(new URL("./page-notes/Harbour notes.booklet.md", import.meta.url), "utf8"));
-	assert.equal(book.problems.length, 1);
+	assert.deepEqual(book.problems, [], "nothing in a 0.17 file this view does not read");
 	const a = nav.byKey.get("harbour/notes");
 	assert.deepEqual(outline(a.tabs[0]), ["tides", "  spring", "  neap"]);
 	assert.equal(a.blurb, "How the water moves. The two ranges are in Spring tides.");

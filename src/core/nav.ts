@@ -14,10 +14,13 @@ import { holdsSomething } from "./shape";
 export const HOME = "home";
 
 /**
- * The version written with a saved place: a later release can tell a place that came from this one (view state). Version 1 (release
- * 0.6.0) had no page key; 2 (page trees) adds it. A place of either is read (placeFrom).
+ * The version written with a saved place that names a page: a later release can tell a place that came from this one (view state).
+ * Version 1 (releases 0.6.0 and 0.7.0) had no page key; 2 (page trees) adds it. A place with no page key is still written as version 1,
+ * so a note with no named page on show saves exactly what 0.6.0 did and an older device restores it. Places of either version are read
+ * (placeFrom).
  */
 export const PLACE_VERSION = 2;
+const PLACE_VERSION_1 = 1;
 
 /**
  * Where the reader is: the screen (`home`, `module:<id>` or `activity:<module id>/<activity id>`, the module id empty
@@ -52,16 +55,17 @@ export function isStep(from: Place | null, to: Place): boolean {
 
 /**
  * A place as the view saves it: `{ version, screen, tab, page, part }`, `tab` left out when there is none and `page` left out unless a
- * named page is on show (the page's id; `part` is then within that page). With no page key, or with no `nav` to find the page in,
- * `part` counts every part of the tab, exactly as release 0.6.0 saved it, so a 0.16 note saves what it did but for the version.
+ * named page is on show (the page's id; `part` is then within that page, and the version is 2). With no page key, or with no `nav` to
+ * find the page in, the version is 1 and `part` counts every part of the tab, exactly as release 0.6.0 saved it: a 0.16 note saves
+ * what it always did.
  */
 export function placeState(p: Place, nav?: NavModel): { version: number; screen: string; tab?: string; page?: string; part: number } {
-	const base = { version: PLACE_VERSION, screen: p.screen, ...(p.tab ? { tab: p.tab } : {}) };
+	const base = { screen: p.screen, ...(p.tab ? { tab: p.tab } : {}) };
 	const a = nav && p.screen.startsWith("activity:") ? nav.byKey.get(p.screen.slice(9)) : undefined;
 	const tab = a ? tabShown(a, p.tab) : null;
 	const at = tab ? pageAtPart(tab, p.part) : null;
-	if (at?.page.named) return { ...base, page: at.page.id, part: at.part };
-	return { ...base, part: p.part };
+	if (at?.page.named) return { version: PLACE_VERSION, ...base, page: at.page.id, part: at.part };
+	return { version: PLACE_VERSION_1, ...base, part: p.part };
 }
 
 /**
@@ -73,7 +77,7 @@ export function placeFrom(state: unknown): Place | null {
 	if (!state || typeof state !== "object") return null;
 	const s = state as Record<string, unknown>;
 	const version = s["version"];
-	if ((version !== 1 && version !== PLACE_VERSION) || typeof s["screen"] !== "string" || !s["screen"]) return null;
+	if ((version !== PLACE_VERSION_1 && version !== PLACE_VERSION) || typeof s["screen"] !== "string" || !s["screen"]) return null;
 	const part = s["part"];
 	const tab = s["tab"];
 	const page = s["page"];

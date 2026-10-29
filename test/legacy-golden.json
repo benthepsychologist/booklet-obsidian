@@ -1339,25 +1339,49 @@
     "sha": "f868c410c3c9c7bb5ba8516eb526a5d5ee7424f2745d08461f823f3c902661d2",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Check-in.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "module:day-check||0": {
     "sha": "24972256f157d95483cce30ebf30d387cbb2264cd0588d979951f5c90864b716",
     "writes": 0,
     "same": true,
-    "drawn": "module:day-check"
+    "drawn": "module:day-check",
+    "saved": {
+     "file": "Check-in.booklet.md",
+     "version": 1,
+     "screen": "module:day-check",
+     "part": 0
+    }
    },
    "activity:day-check/today||0": {
     "sha": "826a84473c6f849c41e0a2a71cf137e15feb83dfa6f08850f9a2e3acd18a3682",
     "writes": 0,
     "same": true,
-    "drawn": "activity:day-check/today"
+    "drawn": "activity:day-check/today",
+    "saved": {
+     "file": "Check-in.booklet.md",
+     "version": 1,
+     "screen": "activity:day-check/today",
+     "part": 0
+    }
    },
    "activity:day-check/week||0": {
     "sha": "9043b1f4ffe2119ff15ef9fbc02311c1c8819a59b24dac70b6f70d2913aa55b0",
     "writes": 0,
     "same": true,
-    "drawn": "activity:day-check/week"
+    "drawn": "activity:day-check/week",
+    "saved": {
+     "file": "Check-in.booklet.md",
+     "version": 1,
+     "screen": "activity:day-check/week",
+     "part": 0
+    }
    }
   }
  },
@@ -1843,13 +1867,25 @@
     "sha": "de4e71fbd92d6d5b4061f54fb2617735488475d8098d4db3e07c3b6aca6b51e3",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Daily tracker.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/evening-log||0": {
     "sha": "a9127a26006a9a58364fab905f1c452759e2385670bcece0052298d80a9a0f97",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/evening-log"
+    "drawn": "activity:/evening-log",
+    "saved": {
+     "file": "Daily tracker.booklet.md",
+     "version": 1,
+     "screen": "activity:/evening-log",
+     "part": 0
+    }
    }
   }
  },
@@ -2189,13 +2225,25 @@
     "sha": "01c35deca2fd9604ef563ff11ee38f658ec5914e1f64fc5ff911913355207be1",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Evening check-in.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/evening||0": {
     "sha": "98b6fdf435d6332ff786c2d1012e56ecf17263621214a5b70c0203616ebc2df4",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/evening"
+    "drawn": "activity:/evening",
+    "saved": {
+     "file": "Evening check-in.booklet.md",
+     "version": 1,
+     "screen": "activity:/evening",
+     "part": 0
+    }
    }
   }
  },
@@ -3350,37 +3398,73 @@
     "sha": "4f83aa4e6b57f5b9936fce4c624182740bec7fbbd016c3dfc21534e2028d7ea0",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/kinds||0": {
     "sha": "3f97031c158327148b18168ec0debc71f34a4cce64c29d040512c08b30b3183e",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/kinds"
+    "drawn": "activity:/kinds",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "activity:/kinds",
+     "part": 0
+    }
    },
    "activity:/shared||0": {
     "sha": "c60bd86ce34a9e71387ac9adb89d4ffc79eebdb365c0921837f991d8972a8717",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/shared"
+    "drawn": "activity:/shared",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "activity:/shared",
+     "part": 0
+    }
    },
    "activity:/not-yet||0": {
     "sha": "ff268f817fb756fb357cf3d7b5421c925adfeb647892a0028ec2b6a124166f1b",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/not-yet"
+    "drawn": "activity:/not-yet",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "activity:/not-yet",
+     "part": 0
+    }
    },
    "activity:/not-yet||1": {
     "sha": "606a5883573dcea75669f20545f92d6da836c808574861db17f81fc450aa01bb",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/not-yet"
+    "drawn": "activity:/not-yet",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "activity:/not-yet",
+     "part": 1
+    }
    },
    "activity:/tally||0": {
     "sha": "f34c3764e0c7dc1214f522ce7120a6c9d106401ec6b27685d634ee52b4c50426",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/tally"
+    "drawn": "activity:/tally",
+    "saved": {
+     "file": "Every kind.booklet.md",
+     "version": 1,
+     "screen": "activity:/tally",
+     "part": 0
+    }
    }
   }
  },
@@ -4031,31 +4115,61 @@
     "sha": "720815deff6364175646cb2ac0940ddeadbae5f3eea6112aa3f8af692319f513",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Kept records.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "module:walks||0": {
     "sha": "678feee9e3e01a69a32316f1199cc13c210aa9cb5049abf5d5dbc14fe9b1638b",
     "writes": 0,
     "same": true,
-    "drawn": "module:walks"
+    "drawn": "module:walks",
+    "saved": {
+     "file": "Kept records.booklet.md",
+     "version": 1,
+     "screen": "module:walks",
+     "part": 0
+    }
    },
    "activity:/warm-up||0": {
     "sha": "45af62705526b3267ffacb6aa1f7baf546b64d0861049d334bff461df7fab7c5",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/warm-up"
+    "drawn": "activity:/warm-up",
+    "saved": {
+     "file": "Kept records.booklet.md",
+     "version": 1,
+     "screen": "activity:/warm-up",
+     "part": 0
+    }
    },
    "activity:walks/walk-log||0": {
     "sha": "87899dbffcb447cc5ab70804dba74b243854640df632d575c34e1fd46ff75716",
     "writes": 0,
     "same": true,
-    "drawn": "activity:walks/walk-log"
+    "drawn": "activity:walks/walk-log",
+    "saved": {
+     "file": "Kept records.booklet.md",
+     "version": 1,
+     "screen": "activity:walks/walk-log",
+     "part": 0
+    }
    },
    "activity:walks/walk-review||0": {
     "sha": "c6a6bf6e93ce08c89b9958c3ddf857dd4ab9d1e0260d5f931f21a8a671e81d5d",
     "writes": 0,
     "same": true,
-    "drawn": "activity:walks/walk-review"
+    "drawn": "activity:walks/walk-review",
+    "saved": {
+     "file": "Kept records.booklet.md",
+     "version": 1,
+     "screen": "activity:walks/walk-review",
+     "part": 0
+    }
    }
   }
  },
@@ -5293,133 +5407,277 @@
     "sha": "f498d4708a64c8993e042c10d9f83e0b2283997b89ebb0df99d2abfa6e611043",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "module:basics|practice|0": {
     "sha": "ec889f8a6788e7ac80525d916487273a5629d75bf1db12e8d985a51147102695",
     "writes": 0,
     "same": true,
-    "drawn": "module:basics"
+    "drawn": "module:basics",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:basics",
+     "tab": "practice",
+     "part": 0
+    }
    },
    "module:basics|read|0": {
     "sha": "320bc17d5c9ea8b0eb7389a38a7e0efaeff85c074030f275584e260b257c0c5e",
     "writes": 0,
     "same": true,
-    "drawn": "module:basics"
+    "drawn": "module:basics",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:basics",
+     "tab": "read",
+     "part": 0
+    }
    },
    "module:journal||0": {
     "sha": "25261a17d02364e5c2810e487b39de7db52db30c77486ccc77e394109ec489a9",
     "writes": 0,
     "same": true,
-    "drawn": "module:journal"
+    "drawn": "module:journal",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:journal",
+     "part": 0
+    }
    },
    "activity:/warm-up||0": {
     "sha": "feffb8de82dde89d3a7b7e77d831ba442830b821d03087c215978adcb64c6150",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/warm-up"
+    "drawn": "activity:/warm-up",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:/warm-up",
+     "part": 0
+    }
    },
    "activity:basics/lines||0": {
     "sha": "66af7b499d0134a9fc40f707bcd6ce0f3a020a83cd29ba8db0b97ec44eeaf8ca",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/lines"
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 0
+    }
    },
    "activity:basics/lines||1": {
     "sha": "85c57fe4fe495159d96f1abb7b5d4f6d5e87f697b0bc1a759f971ca17922bf35",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/lines"
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 1
+    }
    },
    "activity:basics/lines||2": {
     "sha": "86f8dceb6411690bd6f9cc6dd1731bebb734b9c79fdc9265ffb9e208375df5fe",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/lines"
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 2
+    }
    },
    "activity:basics/shapes|boxes|0": {
     "sha": "7a87dd355e2ae2cff312f1fdddd9eb2f61d7c6baaea78d36bead271c8f0f2b0b",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/shapes"
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "boxes",
+     "part": 0
+    }
    },
    "activity:basics/shapes|boxes|1": {
     "sha": "cea8bfb9149194f72ce7ca9cc2d2052ab8a421d53ae8605c94e297c9097e046e",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/shapes"
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "boxes",
+     "part": 1
+    }
    },
    "activity:basics/shapes|cylinders|0": {
     "sha": "78b8c1336336a4aa99417f217133703183cf599d5bc07aa4556c762af33ce9de",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/shapes"
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "cylinders",
+     "part": 0
+    }
    },
    "activity:basics/light||0": {
     "sha": "48f36cc77099ccc382bed039cc5c744f18256bf000d6fb8aba2efdf24afd6e6a",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/light"
+    "drawn": "activity:basics/light",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/light",
+     "part": 0
+    }
    },
    "activity:basics/shadow||0": {
     "sha": "2bd1b4c8d819d7c17be1510613a10d9ccdf9515dd5b8ff86f0071b45ed197ca0",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/shadow"
+    "drawn": "activity:basics/shadow",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shadow",
+     "part": 0
+    }
    },
    "activity:basics/reflected||0": {
     "sha": "820a8d5a23b025c5ae77afbfb3a8ebdfc36fa1ac10487d593b665a3b9bac8bb7",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/reflected"
+    "drawn": "activity:basics/reflected",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/reflected",
+     "part": 0
+    }
    },
    "activity:journal/today||0": {
     "sha": "13f24aa18e176fdcc2963f5787675f9d9e9e331b2db55f7b6c8ffeb456c292a9",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/today"
+    "drawn": "activity:journal/today",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/today",
+     "part": 0
+    }
    },
    "activity:journal/studies|hands|0": {
     "sha": "4b00ad9d977e3358b92c39d6704818ca18d5c92c41f2111986bb1bfde6546df0",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "hands",
+     "part": 0
+    }
    },
    "activity:journal/studies|cups|0": {
     "sha": "0eaca8fc4f9f136f7fceac6572bbe7ce3fbb858022a16c76f766de58b7391e57",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "cups",
+     "part": 0
+    }
    },
    "activity:journal/studies|trees|0": {
     "sha": "ce51c7360441ea4b3d056552ec1a5470b2bc430478d545d65fa2b1b4d301800d",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "trees",
+     "part": 0
+    }
    },
    "activity:journal/studies|faces|0": {
     "sha": "118992c08f0c35cfc2c324808a4c0a7b27e60527c57122b6ce4840d534f170f0",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "faces",
+     "part": 0
+    }
    },
    "activity:journal/studies|shoes|0": {
     "sha": "4514d0295abf0c8487c8ba63a16747184d85a13b4df4bce45a7afb90a0cbf678",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "shoes",
+     "part": 0
+    }
    },
    "activity:journal/studies|chairs|0": {
     "sha": "4581c336a4819fc96da8ae88af2ae83ea1f5a9b0a7f48029b5b746bd41cedd78",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "chairs",
+     "part": 0
+    }
    },
    "activity:journal/studies|clouds|0": {
     "sha": "5b9b20232af680995d03a2db46d0d0d75a81a756d61015751f4879e74ab4a64d",
     "writes": 0,
     "same": true,
-    "drawn": "activity:journal/studies"
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "clouds",
+     "part": 0
+    }
    }
   }
  },
@@ -5732,43 +5990,85 @@
     "sha": "e380378c24889767ff5e29b20ce69b9d3f33962ee470de00c3a9c691be929e8f",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "module:harbour||0": {
     "sha": "ec1bf08820aa71bde94f73c57dfdb38f5e7789661aaf8ef30086c85c642d6fcf",
     "writes": 0,
     "same": true,
-    "drawn": "module:harbour"
+    "drawn": "module:harbour",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "module:harbour",
+     "part": 0
+    }
    },
    "activity:harbour/tides||0": {
     "sha": "c8ffe0bd9fd7a6b088fc2d16dc79db94c9a498204405b646c15f4f10fe2352ca",
     "writes": 0,
     "same": true,
-    "drawn": "activity:harbour/tides"
+    "drawn": "activity:harbour/tides",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "activity:harbour/tides",
+     "part": 0
+    }
    },
    "activity:harbour/spring||0": {
     "sha": "a4f3a55d5bb58458896216a23869a58f865c421ca80afeeb65cbb389896ef90b",
     "writes": 0,
     "same": true,
-    "drawn": "activity:harbour/spring"
+    "drawn": "activity:harbour/spring",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "activity:harbour/spring",
+     "part": 0
+    }
    },
    "activity:harbour/spring||1": {
     "sha": "494d27bcb176cba13c1f2f8fb8fdcbe8f0c0ea32fd3ea086cf8947ccfc1f6f7d",
     "writes": 0,
     "same": true,
-    "drawn": "activity:harbour/spring"
+    "drawn": "activity:harbour/spring",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "activity:harbour/spring",
+     "part": 1
+    }
    },
    "activity:harbour/neap||0": {
     "sha": "168cea9e662ddb22adfff5d45d7eee6aa74736c1ba39d3cf36b8a8c555fde761",
     "writes": 0,
     "same": true,
-    "drawn": "activity:harbour/neap"
+    "drawn": "activity:harbour/neap",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "activity:harbour/neap",
+     "part": 0
+    }
    },
    "activity:harbour/moon||0": {
     "sha": "dbe05321ae3ba357a605a99cdf0a56a55341f518951bd514b038cec97ebd73d7",
     "writes": 0,
     "same": true,
-    "drawn": "activity:harbour/moon"
+    "drawn": "activity:harbour/moon",
+    "saved": {
+     "file": "wiki-in-a-module (made up here)",
+     "version": 1,
+     "screen": "activity:harbour/moon",
+     "part": 0
+    }
    }
   }
  },
@@ -6012,25 +6312,49 @@
     "sha": "6de3335467d2d3ef59bebf5c710708928efd39d9eee7db9f7d82f9884ec2198d",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "bare-wiki (made up here)",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/a||0": {
     "sha": "0c389eb7db346fa4ab02d66bf5d4cd89d39103e304c68bb4888e645a044e65bc",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/a"
+    "drawn": "activity:/a",
+    "saved": {
+     "file": "bare-wiki (made up here)",
+     "version": 1,
+     "screen": "activity:/a",
+     "part": 0
+    }
    },
    "activity:/b||0": {
     "sha": "a079782168a7ec3c68657ff7b9f65c25e8f46b6e81f6fba84ebed27595fbd212",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/b"
+    "drawn": "activity:/b",
+    "saved": {
+     "file": "bare-wiki (made up here)",
+     "version": 1,
+     "screen": "activity:/b",
+     "part": 0
+    }
    },
    "activity:/c||0": {
     "sha": "f9ab58af996ee59d30bc8bcb2fb04a5b9d4872c7546e59240c5c39170057804c",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/c"
+    "drawn": "activity:/c",
+    "saved": {
+     "file": "bare-wiki (made up here)",
+     "version": 1,
+     "screen": "activity:/c",
+     "part": 0
+    }
    }
   }
  },
@@ -6270,31 +6594,65 @@
     "sha": "b9e870067414b61cd5645ad8ef8c98720b7fd2a1dea20357e085ca5ae871a994",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "tabs-and-breaks (made up here)",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/t|first|0": {
     "sha": "e9cd1a86ee2e70e99d6aa903b051a51bb508e443070da0be67267dab8efb6f8b",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/t"
+    "drawn": "activity:/t",
+    "saved": {
+     "file": "tabs-and-breaks (made up here)",
+     "version": 1,
+     "screen": "activity:/t",
+     "tab": "first",
+     "part": 0
+    }
    },
    "activity:/t|first|1": {
     "sha": "6d9389e5c202d9d6888377be2849005096bd88b3d4ca199f424b651d40967d61",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/t"
+    "drawn": "activity:/t",
+    "saved": {
+     "file": "tabs-and-breaks (made up here)",
+     "version": 1,
+     "screen": "activity:/t",
+     "tab": "first",
+     "part": 1
+    }
    },
    "activity:/t|second-one|0": {
     "sha": "1bd4946ce6c84c82423bb6f0aabf1eb398df63b728b7fa6b772e27ed79176b4a",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/t"
+    "drawn": "activity:/t",
+    "saved": {
+     "file": "tabs-and-breaks (made up here)",
+     "version": 1,
+     "screen": "activity:/t",
+     "tab": "second-one",
+     "part": 0
+    }
    },
    "activity:/t|third|0": {
     "sha": "defc6f1009cb3ea415fcfa1513347f373b68d8a8066636d097758a7a2fcaa405",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/t"
+    "drawn": "activity:/t",
+    "saved": {
+     "file": "tabs-and-breaks (made up here)",
+     "version": 1,
+     "screen": "activity:/t",
+     "tab": "third",
+     "part": 0
+    }
    }
   }
  },
@@ -6518,13 +6876,25 @@
     "sha": "e492168453bd2309f60a880b8de5d213af69fb74cace02ed82f9532bbca477b0",
     "writes": 0,
     "same": true,
-    "drawn": "home"
+    "drawn": "home",
+    "saved": {
+     "file": "odd-lines (made up here)",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
    },
    "activity:/o||0": {
     "sha": "910f2bb39f940af33fb5c0fdbd2c98a99fc9c409d97891245af64cd1845b1ec9",
     "writes": 0,
     "same": true,
-    "drawn": "activity:/o"
+    "drawn": "activity:/o",
+    "saved": {
+     "file": "odd-lines (made up here)",
+     "version": 1,
+     "screen": "activity:/o",
+     "part": 0
+    }
    }
   }
  }
