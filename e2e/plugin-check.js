@@ -35,7 +35,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -447,10 +447,28 @@ async function goTo(o, key) {
   await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='activity:" + key + "']", { timeout: 8000 });
   await sleep(900);   // rendered markdown is async
 }
+// The plugin knows a note is a booklet only from its front matter in Obsidian's metadata cache, so a note opened while the cache
+// has no entry for it (not read yet, or being read again after the file was written on disk) opens as Markdown and stays one: a
+// probe showed a note created and opened in one go stays Markdown for good. A fresh vault copy on a busy box is indexed late,
+// which is the likely cause of the one time check 15 timed out waiting for the page (not reproduced: 3 runs in 3 passed). So the
+// check opens the note, and if the pane did not become a booklet view it opens it again, once the cache holds the note, until
+// it does; a page that still does not come says what the pane shows.
+async function openAsBooklet(o, rel, timeout = 30000) {
+  const t0 = Date.now();
+  for (;;) {
+    await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout, polling: 50 });
+    await o.evaluate(async rel => { const f = app.vault.getAbstractFileByPath(rel); const l = app.workspace.activeLeaf; if (l && l.view.file && l.view.file.path === rel) await l.openFile(f); else await app.workspace.getLeaf().openFile(f); }, rel);
+    if (await waitActiveType(o, "booklet", 2000)) return;
+    if (Date.now() - t0 > timeout) return;
+  }
+}
 async function openNote(o, rel, key) {
-  await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
-  await waitActiveType(o, "booklet");
-  await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 8000 });
+  await openAsBooklet(o, rel);
+  try { await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 8000 }); }
+  catch (e) {
+    const seen = await o.evaluate(() => { const l = app.workspace.activeLeaf; return { type: l && l.view.getViewType(), file: l && l.view.file && l.view.file.path, children: l && l.view.contentEl ? l.view.contentEl.children.length : null, ready: app.workspace.layoutReady }; });
+    throw new Error("the note opened but no booklet page was drawn within 8 s: the pane shows " + JSON.stringify(seen) + " (" + e.message.split("\n")[0] + ")");
+  }
   key = key || START[rel];
   if (key) await goTo(o, key);
   else { await o.page.waitForSelector(BOOK + " .booklet-card", { timeout: 8000 }); await sleep(900); }   // a note of one activity opens into it
@@ -526,10 +544,13 @@ async function check6() {
     const file = path.join(vault, EVERY), orig = fs.readFileSync(file, "utf8");
     await openNote(o, EVERY);
     const K = "/kinds";
-    // what is not drawn yet says so
+    // nothing is left undrawn: a group is a box now, with its question live in it
     await goTo(o, "/not-yet");
     const un = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] [data-booklet-unsupported]")].map(e => e.getAttribute("data-booklet-unsupported") + ": " + e.querySelector(".booklet-muted").textContent));
-    c.ok(["matrix", "group"].every(k => un.some(u => u.startsWith(k + ": Not yet supported"))) && !un.some(u => /^(widget|menu-list|query):/.test(u)), "parts not drawn yet each say so, and a widget, a shared list and a query are no longer among them: " + JSON.stringify(un));
+    const grp = await o.evaluate(() => { const g = document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-group [data-booklet-q='in-group']"); return !!g; });
+    c.ok(un.length === 0 && grp, "no part says it is not yet supported, a matrix, a widget, a shared list, a query and a group are all drawn, and the group holds its question: " + JSON.stringify(un) + ", group drawn " + grp);
+    const mx = await o.evaluate(() => document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-kind-matrix .booklet-mxitem").length);
+    c.ok(mx === 2, "the matrix in the same activity is drawn, one row for each of its two items: " + mx);
     await goTo(o, "/tally");
     const q = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-query")].map(e => e.getAttribute("data-booklet-view")));
     c.ok(q.length === 1 && q[0] === "list", "the tally's query is drawn, as a list: " + JSON.stringify(q));
@@ -1913,7 +1934,10 @@ async function check10() {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
   const nav = require("./nav-checks")({ withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType });
-  const fns = { ...nav, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  const study = require("./study-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const reading = require("./reading-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const leftovers = require("./leftovers-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const fns = { ...nav, ...study, ...reading, ...leftovers, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
     let c;

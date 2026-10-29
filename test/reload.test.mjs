@@ -5,8 +5,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { typeInto } from "./dom.mjs";
-import { pane, sleep } from "./pane.mjs";
+import { typeInto, until } from "./dom.mjs";
+import { pane } from "./pane.mjs";
 
 const BOOK = `---
 booklet: "0.16"
@@ -114,8 +114,8 @@ test("words held for a later page of a tab and for another activity are all adde
 	d.store.set("booklet-held:Note.booklet.md", JSON.stringify({ ...late, ...second }));
 	assert.equal(held(d).length, 2);
 	const p = d.open({ state: { version: 1, screen: "activity:/a1", part: 0 } });
+	await until(() => p.disk.text.includes("late-page") && p.disk.text.includes("mine-a2"), "the held words added to the note");
 	await p.settled();
-	await sleep(20);
 	assert.ok(p.disk.text.includes("late-page"), "the words held for the later page of a tab are in the note: " + p.disk.text);
 	assert.ok(p.disk.text.includes("mine-a2"), "and those of another activity: " + p.disk.text);
 	assert.deepEqual(held(d), []);

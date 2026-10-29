@@ -1,8 +1,8 @@
 /*
  * Over every example in the booklet repository, every kit starter and every test-vault note, as the
  * reader would use them:
- *   answer   every question of the seven common kinds (a choice or a multi whose options come from a
- *            shared menu among them), and every widget the plugin draws (a grid-select: an item pressed
+ *   answer   every question of the common kinds (a matrix, and a choice or a multi whose options come from a
+ *            shared menu, among them; each of them also asked for each pick of another), and every widget the plugin draws (a grid-select: an item pressed
  *            and a word of the reader's own; an svg-regions: a sense word and a word of the reader's own
  *            in one region, a word of their own in another), worked out by the core's engine functions
  *            as the view works them out, in every activity: into the answers of an activity answered
@@ -33,7 +33,8 @@ const TEXT_ANSWER = 'A made-up answer, with "quotes", a backslash \\ and %% in i
 /** A lines answer as the view (and the reference renderer) stores it: every field, the empty one at the end included. */
 const LINES = ["A first made-up line", 'A second, with "quotes"', ""];
 /** What a kept entry holds for an answer: a lines answer without its blank lines. */
-const keptValue = (q, v) => (q.kind === "lines" && Array.isArray(v) ? v.filter((x) => x.trim()) : v);
+const keptValue = (q, v) =>
+	q.kind !== "lines" || !Array.isArray(v) ? v : q.each ? v.map((p) => ({ ...p, a: p.a.filter((x) => x.trim()) })) : v.filter((x) => x.trim());
 const DATE = "2026-10-27";
 /** A fixed calendar, so the run does not depend on the machine's clock or time zone. */
 const RULE = { today: "2026-10-27", dayOf: (ts) => String(ts).slice(0, 10) };
@@ -68,11 +69,12 @@ function widgetValue(q) {
 
 /** The value each common kind is given: the reference renderer's stored shape for it. */
 function valueFor(q, act) {
-	// a question asked for each pick (each:): a pair for every pick of its source's value, each with a multi's answer
+	// a question asked for each pick (each:): a pair for every pick of its source's value, each with its kind's answer
 	if (q.each) {
 		const src = core.sourceOf(act, q);
 		const picks = src ? core.sourcePicks(src, valueFor(src, act)) : [];
-		return picks.length ? picks.map((pick, i) => ({ pick, a: i ? [1] : valueFor({ ...q, each: null }, act) })) : undefined;
+		const plain = { ...q, each: null };
+		return picks.length ? picks.map((pick, i) => ({ pick, a: i ? otherValueFor(plain) : valueFor(plain, act) })) : undefined;
 	}
 	switch (q.kind) {
 		case "widget":
@@ -93,6 +95,8 @@ function valueFor(q, act) {
 			return q.max !== null ? q.max : (q.min ?? 0) + 3;
 		case "date":
 			return DATE;
+		case "matrix":
+			return q.items.length && q.anchors.length ? q.items.map((_, i) => q.anchors[i % q.anchors.length].n) : undefined;
 	}
 	return undefined;
 }
@@ -104,6 +108,7 @@ function otherValueFor(q) {
 	if (q.kind === "date") return "2026-11-02";
 	if (q.kind === "lines") return ["Only one line now"];
 	if (q.kind === "scale" && q.anchors.length) return q.anchors[0].n;
+	if (q.kind === "matrix") return q.items.map((_, i) => (i ? null : q.anchors[0].n));
 	if (q.kind === "choice" && q.options.length) return 1;
 	if (q.kind === "widget") return core.engineOf(q.widget.data) === "grid-select" ? ["x|cell|changed later"] : [{ id: "somewhere", s: ["changed later"] }];
 	return ["Something else of my own"];

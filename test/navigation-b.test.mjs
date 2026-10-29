@@ -3,15 +3,14 @@
  * drawn only where the tab on show holds a question, the set of icon names, and the scroll that waits for the draw to finish.
  * Every note is made up.
  */
-import { window as w } from "./dom.mjs";
+import { window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BOOKLET, ROOT, SKETCH, norm } from "./helpers.mjs";
+import { BOOKLET, CHECKIN, norm, ROOT, SKETCH } from "./helpers.mjs";
 import { pane, sleep } from "./pane.mjs";
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const BOOKLET_ICONS = new Set([...readFileSync(join(ROOT, "src", "booklet-icons.ts"), "utf8").matchAll(/"([a-z0-9-]+)"/g)].map((m) => m[1]));
 
 /* ---- a link from another note ---- */
@@ -171,9 +170,10 @@ test("a heading a link led to is scrolled into view only after every piece of Ma
 	};
 	try {
 		const p = pane(SKETCH, { screen: "activity:basics/lines" });
-		await sleep(250);
+		await p.settled();
 		p.view.setEphemeralState({ subpath: "#Hold the pencil loosely" });
-		await sleep(400);
+		await until(() => seen.scrolls.length >= 1, "the heading scrolled to");
+		await p.settled();
 		assert.equal(p.pager().at, "Page 2 of 3");
 		assert.ok(seen.scrolls.length >= 1, "scrolled to the heading");
 		assert.deepEqual(norm(seen.scrolls.map((s) => s.inFlight)), seen.scrolls.map(() => 0), "no render was still going when it scrolled");

@@ -49,7 +49,7 @@ export const CALLOUT_LINE = /^>[ \t]?\[!([A-Za-z0-9][A-Za-z0-9-]*)(?:\|([^\]]*))
 /** Any line that starts like a Booklet line, readable or not. */
 export const CALLOUT_ANY = /^>[ \t]?\[!/;
 export const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-export const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})[ \t]*$/;
 export const BLOCK_ID_LINE = /^\^([A-Za-z0-9-]+)$/;
 export const ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9-]*$/;
 

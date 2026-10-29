@@ -13,6 +13,7 @@ import {
 	activityStatus,
 	answerWords,
 	barTabs,
+	type CalloutBox,
 	buildNav,
 	designKey,
 	earlierEntries,
@@ -22,6 +23,11 @@ import {
 	findHeading,
 	hasScreen,
 	holdsSomething,
+	noteNumbers,
+	tokenise,
+	questionsIn,
+	stepsOf,
+	treeOf,
 	homePlace,
 	inlineMd,
 	isStep,
@@ -36,6 +42,7 @@ import {
 	newestFirst,
 	nextOf,
 	parseBooklet,
+	pickKey,
 	placeFrom,
 	placeState,
 	plainText,
@@ -44,6 +51,7 @@ import {
 	resolvePlace,
 	samePlace,
 	setAnswer,
+	setPair,
 	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
@@ -57,7 +65,10 @@ import {
 	type AnswerWords,
 	type Finalized,
 	type ModTab,
+	type Block,
+	type Step,
 	type NavAct,
+	type PickValue,
 	type NavMod,
 	type NavModel,
 	type Place,
@@ -67,9 +78,10 @@ import {
 	type ShownDraft,
 	type WordPart,
 } from "./core";
-import { keepHeld, loadHeld } from "./held-store";
+import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
+import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { drawQueryPlan, words } from "./query-view";
-import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
+import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
 
@@ -86,20 +98,29 @@ const TYPING_PAUSE_MS = 700;
 const PRESS_END_MS = 300;
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;
+/** Ids handed out by every view, so two panes in one window never share one (a tab names its panel by id). */
+let uidCount = 0;
 
-/** The words for a part this view does not draw yet ("Not yet supported: …"). */
-const UNSUPPORTED: Record<string, string> = {
-	matrix: "a matrix question",
-	group: "questions inside a group",
-	"in-callout": "a question inside a callout",
-};
+/** What the pager asks of the steps of the page on show. */
+interface SteppingView {
+	count: number;
+	at(): number;
+	go(to: number): void;
+	/** Called after a move, so the pager can say what Back and Next now do. */
+	onMove: (() => void) | null;
+}
 
 interface Pending {
 	t: Target;
 	q: Question;
+	/** The pick the typing is the answer of, for a question asked for each pick (each.ts). */
+	pick?: PickValue;
 	value: AnswerValue | undefined;
 	timer: number | null;
 }
+
+/** What identifies typing that is not written yet: its question, and under `each:` its pick. */
+const pendingKey = (t: Target, q: Question, pick?: PickValue): string => (pick === undefined ? keyOf(t, q) : `${keyOf(t, q)}@${pickKey(pick)}`);
 
 /** Where each pane was, in memory, for a pane that shows the note as Markdown for a while and comes back (see draw). Never saved anywhere. */
 const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
@@ -107,6 +128,9 @@ const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
+
+/** Does this part ask for an answer: a question, or a question of a common kind that cannot be drawn (it has no id)? */
+const asksAnAnswer = (s: Segment): boolean => s.type === "question" || (s.type === "unsupported" && (COMMON_KINDS as readonly string[]).includes(s.kind));
 
 /** The last second of a moment's day, on the device's calendar. */
 function endOfDay(d: Date): number {
@@ -151,13 +175,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private showAll = new Set<string>();
 	/** The reader's choice of folding an activity's kept entries, by activity, for as long as the pane is open: never written anywhere, and no part of the saved place. */
 	private entriesFolded = new Map<string, boolean>();
+	/** Callouts the reader opened or folded, by place: for as long as the pane is open, never written. */
+	private calloutOpen = new Map<string, boolean>();
+	/** The step on show in each part with steps, by place (SPEC section 12, "one at a time"): never saved, and no step in Back and Forward. */
+	private stepAt = new Map<string, number>();
+	/** The notes' marks of the screen being drawn, and the one source open (see reading.ts); null where marks are left out. */
+	private cite: CiteScope | null = null;
+	private source: { open: { mark: HTMLElement; el: HTMLElement } | null } = { open: null };
 	/**
 	 * When the view was last drawn. Today is its date (SPEC section 8): a check-in left open past midnight keeps
 	 * writing to the day it shows, and a span of days counts back from it. The view is drawn again, taking a new today,
 	 * when it comes back into use on a later day (see onload).
 	 */
 	private drawnAt = new Date();
-	private seq = 0;
 	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note (design 4.1) ---- */
 	private nav: NavModel | null = null;
 	private place: Place | null = null;
@@ -175,6 +205,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private stepWanted = false;
 	/** The tab bar's chosen tab takes focus when the screen is drawn (a key moved the choice). */
 	private focusTab = false;
+	/** A press moved to another screen or page: after the drawing, focus goes to its title, or to the page, so a keyboard reader starts there. */
+	private focusScreen = false;
 	/** A heading to scroll to once the screen is drawn (a heading link). */
 	private headingTo: string | null = null;
 	/** The words of a link from another note (`[[Note.booklet#Words]]`), handed over before the note was drawn. */
@@ -377,6 +409,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		this.headingTo = opts.heading ?? null;
+		if (!opts.focusTab && !opts.heading) this.focusScreen = true;
 		if (!step) {
 			this.setPlace(p);
 			this.draw(false);
@@ -389,7 +422,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!p.tab) delete state["tab"];
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
-			.catch(() => undefined)
+			.catch(() => {
+				// the move did not happen, so no draw is coming to take the focus
+				this.focusScreen = false;
+			})
 			.finally(() => {
 				this.moving = false;
 				this.stepWanted = false;
@@ -401,7 +437,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Writes what was typed and not written yet, and adds the own words typed and not added (leaving a field does), before the screen is left. */
 	private flushAll(): void {
-		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q);
+		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(null);
 	}
 
@@ -569,12 +605,17 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/* ---- QuestionHost ---- */
 
-	md(markdown: string, el: HTMLElement): void {
+	/** Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). */
+	md(markdown: string, el: HTMLElement, marks = false): void {
 		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
+		const ids: string[] = [];
+		const text = tokenise(markdown, ids);
 		this.rendering++;
-		void MarkdownRenderer.render(this.app, markdown, el, this.file ? this.file.path : "", this.drawing)
+		const cite = marks ? this.cite : null;
+		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", this.drawing)
 			.then(() => {
+				if (ids.length) drawMarks(this, el, ids, cite, this.source);
 				// a task box in the file's prose is drawn, not operated: a press here must never edit the design
 				for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
 				this.fixLinks(el);
@@ -585,7 +626,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	uid(): string {
-		return `booklet-${++this.seq}`;
+		return `booklet-${++uidCount}`;
 	}
 
 	onShow(key: string, show: () => void): void {
@@ -643,8 +684,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.settleSoon(0);
 	}
 
-	pendingOf(t: Target, q: Question): { value: AnswerValue | undefined } | null {
-		const p = this.pending.get(keyOf(t, q));
+	pendingOf(t: Target, q: Question, pick?: PickValue): { value: AnswerValue | undefined } | null {
+		const p = this.pending.get(pendingKey(t, q, pick));
 		return p ? { value: p.value } : null;
 	}
 
@@ -660,31 +701,42 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.syncWidgets();
 	}
 
-	answer(t: Target, q: Question, value: AnswerValue | undefined): void {
-		const p = this.pending.get(keyOf(t, q));
+	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
+		const p = this.pending.get(key);
 		if (p) {
 			if (p.timer !== null) window.clearTimeout(p.timer);
-			this.pending.delete(keyOf(t, q));
+			this.pending.delete(key);
 		}
-		this.commit(t, q, value);
+		this.commit(t, q, this.whole(t, q, value, pick));
 	}
 
-	typed(t: Target, q: Question, value: AnswerValue | undefined): void {
-		const key = keyOf(t, q);
-		const p = this.pending.get(key) ?? { t, q, value, timer: null };
+	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
+		const p = this.pending.get(key) ?? { t, q, pick, value, timer: null };
 		p.value = value;
 		if (p.timer !== null) window.clearTimeout(p.timer);
-		p.timer = window.setTimeout(() => this.flushTyped(t, q), TYPING_PAUSE_MS);
+		p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
 		this.pending.set(key, p);
 	}
 
-	flushTyped(t: Target, q: Question): void {
-		const key = keyOf(t, q);
+	flushTyped(t: Target, q: Question, pick?: PickValue): void {
+		const key = pendingKey(t, q, pick);
 		const p = this.pending.get(key);
 		if (!p) return;
 		if (p.timer !== null) window.clearTimeout(p.timer);
 		this.pending.delete(key);
-		this.commit(p.t, p.q, p.value);
+		this.commit(p.t, p.q, this.whole(p.t, p.q, p.value, pick));
+	}
+
+	/**
+	 * What a question's answer becomes when its answer is `value`: for a question asked for each pick, `value` is the answer
+	 * of one pick (the `a` of its pair), and the rest of the pairs stay as they are (each.ts setPair).
+	 */
+	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): AnswerValue | undefined {
+		if (pick === undefined) return value;
+		const next = setPair(this.heldAnswer(t, q), pick, value);
+		return next.length ? next : undefined;
 	}
 
 	/* ---- drawing ---- */
@@ -701,6 +753,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.book = book;
 		this.widgets.clear();
 		this.ownFields.clear();
+		this.cite = null;
+		this.source.open = null;
 		// a drawing is finished when every piece of Markdown in it is rendered (see md and drawn)
 		this.gen++;
 		this.rendering = 0;
@@ -762,7 +816,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const na = nav.byKey.get(place.screen.slice(9));
 			if (na) this.drawActivityScreen(page, nav, na, place);
 		}
-		if (moved) root.scrollTop = 0;
+		if (moved) {
+			root.scrollTop = 0;
+			if (this.focusScreen) this.focusMoved(page, !!shown && shown.screen === place.screen);
+		}
 		this.commitHeldOffscreen(nav, restored.map(([k]) => k));
 		for (const [k] of restored) this.ownFields.get(k)?.commit();
 		if (this.rendering === 0) this.drawn();
@@ -785,8 +842,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const na of acts) {
 				const into = this.contentEl.createDiv();
 				into.remove();
-				const asked = (segs: readonly Segment[]) => segs.filter((x) => x.type !== "prose" && x.type !== "tab" && x.type !== "query" && x.type !== "unsupported");
-				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, asked(segs));
+				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, segs.filter(asksAnAnswer));
 			}
 			for (const k of want) this.ownFields.get(k)?.commit();
 		} finally {
@@ -794,6 +850,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const k of [...this.widgets.keys()]) if (!widgets.has(k)) this.widgets.delete(k);
 			for (const k of [...this.ownFields.keys()]) if (!fields.has(k)) this.ownFields.delete(k);
 		}
+	}
+
+	/** After a press that moved: focus goes to the new screen's title, or (the same screen, another page) to the page, as a keyboard reader's next step. */
+	private focusMoved(page: HTMLElement, samePage: boolean): void {
+		this.focusScreen = false;
+		const to = (samePage ? page.querySelector<HTMLElement>(".booklet-pagebody") : null) ?? page.querySelector<HTMLElement>(".booklet-screentitle");
+		if (!to) return;
+		to.setAttr("tabindex", "-1");
+		to.focus({ preventScroll: true });
 	}
 
 	/** Every piece of Markdown in the drawing is rendered: a heading a link led to is scrolled into view, a scroll position kept is restored. */
@@ -845,7 +910,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** The booklet's opening, or a module's: its first paragraph larger, the rest under it (SPEC section 3). */
 	private opening(into: HTMLElement, markdown: string): void {
-		if (markdown.trim()) this.md(markdown, into.createDiv({ cls: "booklet-opening booklet-prose markdown-rendered" }));
+		if (markdown.trim()) this.md(markdown, into.createDiv({ cls: "booklet-opening booklet-prose markdown-rendered" }), true);
 	}
 
 	private actRow(na: NavAct, n: number): CardRow {
@@ -894,20 +959,28 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			{ md: m.title, to: null },
 		]);
 		this.head(page, m.title, m.icon, m.emoji);
+		// a module's own screen numbers the sources of its opening and its tabs' prose, in that order
+		this.cite = this.citeScope(book, m.id, [m.opening, ...m.tabs.map((x) => x.md)]);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
 		let tops = m.top;
 		const bar = m.tabs.length > 1;
 		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? (m.tabs[0] as ModTab)) : (m.tabs[0] ?? null);
+		// what a tab holds (its prose and its cards) is the tab's panel
+		let panel = page;
 		if (tab) {
-			if (bar) drawTabBar(this, page, m.tabs, tab.id, m.title, (id) => this.go({ screen: place.screen, tab: id, part: 0 }, { focusTab: true }));
+			if (bar) {
+				const asPanel = drawTabBar(this, page, m.tabs, tab.id, m.title, (id) => this.go({ screen: place.screen, tab: id, part: 0 }, { focusTab: true }));
+				panel = page.createDiv({ cls: "booklet-tabpanel" });
+				asPanel(panel);
+			}
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
 			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
-			if (tab.md) this.md(tab.md, page.createDiv({ cls: "booklet-prose markdown-rendered" }));
+			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
 			if (bar) tops = m.top.filter((x) => x.modTab === tab.id);
 		}
 		const rows = (): CardRow[] => tops.map((x) => this.actRow(x, x.number));
-		drawCards(this, page, rows());
+		drawCards(this, panel, rows());
 		this.watchCards(rows);
 		drawNotice(page, m.notice);
 	}
@@ -941,18 +1014,32 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			showSeed();
 			this.onShow(`activity:${a.scope}/${a.id}:seed`, showSeed);
 		}
+		// the sources an activity's screen numbers: its module's opening when that is this activity's too, then every page, in order
+		this.cite = this.citeScope(this.book as Booklet, a.scope, [single ? m.opening : "", ...[na.opening, ...na.tabs.flatMap((x) => x.pages)].flatMap((segs) => segs.map((x) => (x.type === "prose" ? x.markdown : "")))]);
 		if (single) this.opening(card, m.opening);
 		// what comes before the first tab line is the activity's opening, shown above the tab bar and on every tab
 		this.drawSegs(card, a, na.opening);
 		const bar = barTabs(na);
 		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
-		if (bar.length) drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true }));
+		const asPanel = bar.length ? drawTabBar(this, card, bar, tab.id, na.title, (id) => this.go({ screen: place.screen, tab: id, part: this.tabPart.get(`${place.screen}#${id}`) ?? 0 }, { focusTab: true })) : null;
 		// with no tab bar, an activity's one tab is shown under its name
-		else if (na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
+		if (!asPanel && na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });
-		this.drawSegs(body, a, pages[at] ?? []);
+		// under a tab bar the page body is the chosen tab's panel (named by its tab, so the page group's own label stays but does not name it; the page count is also its description)
+		if (asPanel) {
+			asPanel(body);
+			if (pages.length > 1) body.setAttr("aria-description", `Page ${at + 1} of ${pages.length}`);
+		}
+		const stepKey = (part: number) => `${place.screen}#${tab.id}#${part}`;
+		const blocks = treeOf(pages[at] ?? []);
+		const { lead, steps } = stepsOf(blocks);
+		// two or more groups on a page may be taken one at a time (SPEC section 12): the reader's choice, kept on the device
+		const one = steps.length >= 2 && !!this.file && loadStepsOne(this.app, this.file.path);
+		if (steps.length >= 2) this.drawStepChoice(body, one);
+		const stepping = one ? this.drawStepsOf(body, a, lead, steps, stepKey(at)) : null;
+		if (!one) this.drawNodes(body, a, blocks);
 		if (na.children.length) {
 			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
 			drawCards(
@@ -963,16 +1050,39 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		if (this.showsFinish(na, tab)) this.drawFinish(card, a);
 
-		// the pager: Back, the counter, Next (SPEC section 3, pages)
-		const back: PagerButton = at > 0 ? { words: "Back", md: false, to: { ...place, part: at - 1 } } : na.parent ? { words: `Up: ${na.parent.title}`, md: true, to: activityPlace(na.parent) } : { words: "Back to the overview", md: false, to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
-		const following = nextOf(na);
-		const next: PagerButton | null =
-			at < pages.length - 1
-				? { words: "Next", md: false, to: { ...place, part: at + 1 } }
-				: following
-					? { words: m.bare ? `Next: ${following.title}` : `Next: ${following.number}. ${following.title}`, md: true, to: activityPlace(following) }
-					: null;
-		drawPager(this, page, back, at, pages.length, next);
+		// the pager: Back, the counter, Next (SPEC section 3, pages); one step at a time, Back and Next move a step first
+		const holder = page.createDiv({ cls: "booklet-foot" });
+		const foot = () => {
+			holder.empty();
+			const cur = stepping ? stepping.at() : 0;
+			const n = stepping ? stepping.count : 0;
+			const toPage = (part: number, last: boolean): PagerButton["press"] => () => {
+				// arriving on a page: its first step not done, or (turning back) its last
+				if (last) this.stepAt.set(stepKey(part), Number.POSITIVE_INFINITY);
+				else this.stepAt.delete(stepKey(part));
+				this.go({ ...place, part });
+			};
+			const back: PagerButton =
+				stepping && cur > 0
+					? { words: "Back", md: false, to: place, press: () => stepping.go(cur - 1) }
+					: at > 0
+						? { words: "Back", md: false, to: { ...place, part: at - 1 }, press: toPage(at - 1, true) }
+						: na.parent
+							? { words: `Up: ${na.parent.title}`, md: true, to: activityPlace(na.parent) }
+							: { words: "Back to the overview", md: false, to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
+			const following = nextOf(na);
+			const next: PagerButton | null =
+				stepping && cur < n - 1
+					? { words: "Next", md: false, to: place, press: () => stepping.go(cur + 1) }
+					: at < pages.length - 1
+						? { words: "Next", md: false, to: { ...place, part: at + 1 }, press: toPage(at + 1, false) }
+						: following
+							? { words: m.bare ? `Next: ${following.title}` : `Next: ${following.number}. ${following.title}`, md: true, to: activityPlace(following) }
+							: null;
+			drawPager(this, holder, back, at, pages.length, next);
+		};
+		if (stepping) stepping.onMove = foot;
+		foot();
 		if (single) drawNotice(page, m.notice);
 	}
 
@@ -982,30 +1092,98 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * tab of queries, has nothing to finalize. Applies to 0.16 files too.
 	 */
 	private showsFinish(na: NavAct, tab: ActTab): boolean {
-		const asks = (s: Segment) => s.type === "question" || (s.type === "unsupported" && (COMMON_KINDS as readonly string[]).includes(s.kind));
-		return na.opening.some(asks) || tab.pages.some((pg) => pg.some(asks));
+		return na.opening.some(asksAnAnswer) || tab.pages.some((pg) => pg.some(asksAnAnswer));
 	}
 
 	private drawSegs(into: HTMLElement, a: Activity, segs: readonly Segment[]): void {
+		this.drawNodes(into, a, treeOf(segs));
+	}
+
+	/** The notes' marks a screen draws: its own numbering of the notes its texts mark, read as its module reads them. */
+	private citeScope(book: Booklet, scope: string, texts: readonly string[]): CiteScope {
+		return { scope, notes: book, numbers: noteNumbers(book, scope, texts) };
+	}
+
+	/** `step` is the group a step draws, which is open however the note wrote it (SPEC section 12) until the reader folds it. */
+	private drawNodes(into: HTMLElement, a: Activity, blocks: readonly Block[], step?: CalloutBox): void {
 		const t: Target = { scope: a.scope, activity: a };
-		for (const s of segs) {
-			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }));
+		for (const s of blocks) {
+			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
 			else if (s.type === "tab") continue;
 			else if (s.type === "query") this.drawQuery(into, s);
-			else if (s.type === "unsupported") {
+			else if (s.type === "callout-box") {
+				const key = `${a.scope}/${a.id}#${s.start.line}`;
+				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
+				const held = questionsIn(s.children).some((q) => holdsSomething(this.heldAnswer(t, q)));
+				const open = this.calloutOpen.get(key) ?? (s === step || s.start.fold !== "-" || held);
+				const body = drawCallout(this, into, s, open, (now) => this.calloutOpen.set(key, now));
+				this.drawNodes(body, a, s.children);
+			} else if (s.type === "row-box") {
+				const row = into.createDiv({ cls: "booklet-row", attr: { "data-booklet-cells": String(s.cells.length) } });
+				for (const cell of s.cells) this.drawNodes(row.createDiv({ cls: "booklet-rowcell" }), a, cell);
+			} else if (s.type === "unsupported") {
 				const box = into.createDiv({ cls: "booklet-unsupported" });
 				box.setAttr("data-booklet-unsupported", s.kind);
-				// a group's or a callout's own words are drawn just above, as Obsidian draws the callout
-				const inCallout = s.kind === "group" || s.kind === "in-callout";
-				if (!inCallout) this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
+				this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
 					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
-					: s.kind === "each"
-						? `Not yet supported: a ${s.of ?? "question"} question asked for each pick (each:). Its answers are kept.`
-						: `Not yet supported: ${UNSUPPORTED[s.kind] ?? `the kind "${s.kind}"`}.${inCallout ? " The callout above is shown as Markdown." : ""}`;
+					: `Not yet supported: the kind "${s.kind}".`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
 			} else drawQuestion(this, into, t, s, a.repeat && !a.id);
 		}
+	}
+
+	/** The choice between one step at a time and all at once, shown where a part holds two or more groups. */
+	private drawStepChoice(body: HTMLElement, one: boolean): void {
+		const ctl = body.createDiv({ cls: "booklet-steps-choice" });
+		for (const [words, now] of [["One at a time", true], ["All at once", false]] as const) {
+			const b = ctl.createEl("button", { text: words });
+			pressed(b, one === now);
+			b.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				if (one === now || !this.file) return;
+				keepStepsOne(this.app, this.file.path, now);
+				this.draw(false);
+				window.setTimeout(() => this.contentEl.querySelector<HTMLElement>(".booklet-steps-choice [aria-pressed=true]")?.focus(), 0);
+			});
+		}
+	}
+
+	/**
+	 * A part's steps (SPEC section 12, "one at a time"): what comes before its first group whole above them, then each group
+	 * as a step with Back and Next in the pager. Which step is on show is the view's: no step goes into Back and Forward.
+	 */
+	private drawStepsOf(body: HTMLElement, a: Activity, lead: readonly Block[], steps: readonly Step[], key: string): SteppingView {
+		const t: Target = { scope: a.scope, activity: a };
+		this.drawNodes(body, a, lead);
+		const said = (i: number) => questionsIn(steps[i]?.nodes ?? []).some((q) => holdsSomething(this.heldAnswer(t, q)));
+		// a step is done when each of its questions holds an answer; one with no question, once a step after it holds one
+		const done = (i: number): boolean => {
+			const qs = questionsIn(steps[i]?.nodes ?? []);
+			return qs.length ? qs.every((q) => holdsSomething(this.heldAnswer(t, q))) : steps.some((_s, j) => j > i && said(j));
+		};
+		const first = steps.findIndex((_s, i) => !done(i));
+		const clamp = (n: number) => Math.max(0, Math.min(steps.length - 1, n));
+		let cur = clamp(this.stepAt.get(key) ?? (first < 0 ? 0 : first));
+		this.stepAt.set(key, cur);
+		const drawn = drawSteps(body, steps, cur, done, (el, step) => this.drawNodes(el, a, step.nodes, step.group));
+		const view: SteppingView = {
+			count: steps.length,
+			at: () => cur,
+			onMove: null,
+			go: (to) => {
+				cur = clamp(to);
+				this.stepAt.set(key, cur);
+				drawn.show(cur);
+				view.onMove?.();
+				const box = drawn.box(cur);
+				box?.focus();
+				if (box && typeof box.scrollIntoView === "function") box.scrollIntoView({ block: "start" });
+			},
+		};
+		// a step's dots follow its answers
+		this.onShow(`steps:${key}`, () => drawn.show(cur));
+		return view;
 	}
 
 	/** A repeating activity's note on how it keeps entries, Finalize, and its kept entries. */
@@ -1280,7 +1458,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */
 	private finalize(a: Activity): void {
-		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, a)) this.flushTyped(p.t, p.q);
+		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, a)) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(a);
 		const file = this.file;
 		if (!file) return;

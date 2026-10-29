@@ -150,6 +150,54 @@
 	margin-top: var(--size-4-2);
 }
 
+/* a question that marks a correct option (`[x]`): right, not quite and the answer, each a colour, a shape and a word */
+.booklet-mark {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	margin-inline-start: var(--size-4-2);
+	font-size: var(--font-smaller);
+	font-weight: var(--font-bold);
+}
+
+.booklet-mark-icon {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-choices .booklet-choice.booklet-right,
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: rgba(var(--color-green-rgb), 0.18);
+	box-shadow: inset 0 0 0 2px var(--color-green);
+	color: var(--text-normal);
+}
+
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: transparent;
+	box-shadow: none;
+	outline: 2px dashed var(--color-green);
+	outline-offset: -2px;
+}
+
+.booklet-choices .booklet-choice.booklet-wrong {
+	background-color: rgba(var(--color-orange-rgb), 0.18);
+	box-shadow: inset 0 0 0 2px var(--color-orange);
+	color: var(--text-normal);
+}
+
+.booklet-acts {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-live {
+	margin-top: var(--size-4-2);
+	font-weight: var(--font-medium);
+}
+
+.booklet-live:empty {
+	display: none;
+}
+
 .booklet-reply-line p,
 .booklet-inline p,
 .booklet-entry dt p {
@@ -630,6 +678,99 @@
 /* a copy whose pick was taken back while the reader was in it: it goes when they leave it */
 .booklet-copy-gone {
 	opacity: 0.6;
+}
+
+/* a matrix question: its items by one shared set of anchors. A grid of rows where each item's words and the anchors fit
+   side by side, else every item a single-choice question of its own, under the matrix's words held at the top while they scroll */
+.booklet-mxwrap {
+	--booklet-mx-text: 12rem;
+	position: relative;
+}
+
+/* the measuring box: no size at all, and what it holds is clipped, so it can never make the page wider or scroll it */
+.booklet-mxprobebox {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.booklet-mxprobe {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: max-content;
+	display: flex;
+	gap: var(--size-4-2);
+	white-space: nowrap;
+	padding-inline-start: calc(var(--booklet-mx-text) + var(--size-4-4));
+}
+
+.booklet-mxprobe-anchor {
+	box-sizing: border-box;
+	min-width: 44px;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid transparent;
+	text-align: center;
+}
+
+.booklet-mxitem {
+	display: grid;
+	grid-template-columns: minmax(var(--booklet-mx-text), 1fr) auto;
+	align-items: center;
+	gap: var(--size-4-1) var(--size-4-4);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding: var(--size-4-2) 0;
+}
+
+.booklet-mxwords {
+	min-width: 0;
+}
+
+.booklet-mxwords p {
+	margin: 0;
+}
+
+.booklet-mxopts {
+	flex-wrap: nowrap;
+	justify-content: flex-end;
+}
+
+.booklet-mx-stacked .booklet-mxitem {
+	grid-template-columns: minmax(0, 1fr);
+	border-top: 0;
+	padding: var(--size-4-1) 0 var(--size-4-3);
+}
+
+.booklet-mx-stacked .booklet-mxwords {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-mx-stacked .booklet-mxopts {
+	flex-wrap: wrap;
+	justify-content: flex-start;
+}
+
+/* the matrix's own words, held while its items scroll under them, as far as the matrix goes (SPEC section 5) */
+.booklet-question.booklet-mx-stacked > .booklet-prompt {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background-color: var(--background-primary);
+	margin: 0 0 var(--size-4-1);
+	padding: var(--size-4-2) 0 var(--size-4-2) var(--size-4-3);
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+}
+
+/* a window too short to give the items room under a held stem (a phone on its side): the stem scrolls with them */
+@media (max-height: 360px) {
+	.booklet-question.booklet-mx-stacked > .booklet-prompt {
+		position: static;
+	}
 }
 
 /* ---- queries: kept entries and summaries drawn as a table, a list, tiles or cards (SPEC section 6) ---- */
@@ -1151,4 +1292,253 @@
 .is-mobile .booklet-entries .booklet-fold,
 .is-mobile .booklet-cardrow {
 	min-height: 44px;
+}
+
+/* ---- reading kinds, groups and callouts that hold questions, rows, steps and sources (0.7.0) ---- */
+
+/* the format's own reading kinds, in the reference renderer's colours and pictures (diff: petrol, git-compare, dashed; law: slate, scale, double; opinion: rose, message-circle, dotted) */
+.booklet-view .callout[data-callout="diff"] {
+	--callout-color: var(--color-cyan-rgb);
+	--callout-icon: lucide-git-compare;
+	background-color: rgba(var(--callout-color), 0.1);
+	border-left: var(--size-4-1) dashed rgba(var(--color-cyan-rgb), 0.8);
+}
+
+.booklet-view .callout[data-callout="law"] {
+	--callout-color: var(--mono-rgb-100);
+	--callout-icon: lucide-scale;
+	background-color: rgba(var(--callout-color), 0.1);
+	border-left: var(--size-4-1) double rgba(var(--mono-rgb-100), 0.6);
+}
+
+.booklet-view .callout[data-callout="opinion"] {
+	--callout-color: var(--color-pink-rgb);
+	--callout-icon: lucide-message-circle;
+	background-color: rgba(var(--callout-color), 0.1);
+	border-left: var(--size-4-1) dotted rgba(var(--color-pink-rgb), 0.8);
+}
+
+/* a group: a titled container on plain paper, a fold when written `[!group]-` */
+.booklet-group {
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	margin: var(--size-4-4) 0;
+	background-color: var(--background-primary);
+}
+
+.booklet-group-title {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-group.is-foldable > .booklet-group-title {
+	cursor: pointer;
+}
+
+.booklet-group.is-foldable > .booklet-group-title:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-group-words {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-group-words > :first-child,
+.booklet-group-words p {
+	margin: 0;
+}
+
+.booklet-group-body {
+	padding: var(--size-4-2) var(--size-4-3) var(--size-4-3);
+}
+
+.booklet-group-body > :first-child {
+	margin-top: 0;
+}
+
+.booklet-callout .callout-content > .booklet-question:first-child {
+	margin-top: 0;
+}
+
+/* a row: its cells side by side where there is room, one under another where there is not */
+.booklet-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: var(--size-4-3) var(--size-4-6);
+	margin: var(--size-4-4) 0;
+}
+
+.booklet-rowcell {
+	min-width: 0;
+}
+
+.booklet-rowcell > :first-child {
+	margin-top: 0;
+}
+
+.booklet-rowcell > :last-child {
+	margin-bottom: 0;
+}
+
+/* steps: the choice between one at a time and all at once, then a step at a time */
+.booklet-steps-choice {
+	display: inline-flex;
+	gap: var(--size-2-2);
+	margin: 0 0 var(--size-4-3);
+}
+
+.booklet-steps-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin: 0 0 var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-steps-dots {
+	display: inline-flex;
+	gap: var(--size-2-3);
+}
+
+.booklet-steps-dot {
+	width: var(--size-4-2);
+	height: var(--size-4-2);
+	border-radius: 50%;
+	border: var(--border-width) solid var(--text-faint);
+}
+
+.booklet-steps-dot.is-done {
+	background-color: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+}
+
+.booklet-steps-dot.is-current {
+	outline: var(--border-width) solid var(--text-normal);
+	outline-offset: var(--size-2-1);
+}
+
+.booklet-step:focus {
+	outline: none;
+}
+
+.booklet-step:focus-visible {
+	outline: var(--border-width) solid var(--background-modifier-border-focus);
+	outline-offset: var(--size-2-2);
+}
+
+/* sources: a numbered mark in the text, and what it leads to opened under its paragraph */
+.booklet-cite {
+	margin: 0 0.1em;
+	line-height: 0;
+}
+
+.booklet-cite-mark {
+	position: relative;
+	display: inline;
+	height: auto;
+	padding: 0 0.2em;
+	background: none;
+	border: none;
+	box-shadow: none;
+	color: var(--link-color);
+	font-size: inherit;
+	font-weight: var(--font-semibold);
+	cursor: pointer;
+}
+
+.booklet-cite-mark:hover,
+.booklet-cite-mark[aria-expanded="true"] {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-radius: var(--radius-s);
+}
+
+/* an inline number in a line of words: the phone's 44px control height would stretch its line, so its touch area is the square below */
+.is-mobile .booklet-view button.booklet-cite-mark {
+	min-height: 0;
+}
+
+/* a touch target well past the number's own size */
+.booklet-cite-mark::after {
+	content: "";
+	position: absolute;
+	inset: -0.8em -0.4em;
+}
+
+/* on the phone the touch area is a 44px square about the number, as a finger needs, and still does not stretch its line */
+.is-mobile .booklet-view button.booklet-cite-mark::after {
+	inset: auto;
+	top: 50%;
+	left: 50%;
+	width: max(44px, 100%);
+	height: 44px;
+	transform: translate(-50%, -50%);
+}
+
+/* a source opened from a table cell stands in a row of its own, across the table */
+.booklet-cite-row > td {
+	padding: 0;
+	border: none;
+}
+
+.booklet-cite-broken {
+	color: var(--text-error);
+	border: var(--border-width) dashed var(--text-error);
+	border-radius: var(--radius-s);
+	padding: 0 0.2em;
+	font-size: 0.8em;
+	white-space: nowrap;
+}
+
+.booklet-cite-panel {
+	margin: var(--size-4-2) 0 var(--size-4-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-medium);
+}
+
+.booklet-cite-source cite {
+	font-style: italic;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-cite-page {
+	color: var(--text-muted);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-cite-quote {
+	margin: var(--size-4-2) 0;
+	padding: 0 0 0 var(--size-4-3);
+	border-left: var(--size-2-2) solid var(--interactive-accent);
+}
+
+.booklet-cite-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	color: var(--color-green);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-cite-close {
+	margin-top: var(--size-4-2);
+}
+
+.is-mobile .booklet-group.is-foldable > .booklet-group-title,
+.is-mobile .booklet-callout.is-collapsible > .callout-title {
+	min-height: 44px;
+}
+
+/* a screen's title and a page take focus after a move so a keyboard reader starts there; they are not controls, so they show no ring */
+.booklet-view .booklet-screentitle:focus,
+.booklet-view .booklet-pagebody:focus {
+	outline: none;
 }

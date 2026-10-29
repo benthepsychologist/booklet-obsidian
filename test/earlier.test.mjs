@@ -6,14 +6,11 @@
  * source rule's edge cases (today's entry in a daily activity, pairs whose pick was taken back, a stale word id); and
  * what a press on an offered word stores, byte for byte. Every word here is made up.
  */
-import { openView, typeInto, window as w } from "./dom.mjs";
+import { openView, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, corpusFiles, lint, norm, pythonAvailable, read } from "./helpers.mjs";
+import { CHECKIN, core, corpusFiles, lint, norm, pythonAvailable, read } from "./helpers.mjs";
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const S = "day-check";
 const A = "today";
 
@@ -489,7 +486,8 @@ test("view: a lines question with earlier:12 offers its earlier lines under its 
 	// Enter in a line moves to the next line, and takes no offered word
 	fields()[3].focus();
 	enter(fields()[3]);
-	await v.settled(400);
+	await until(() => draftBody(v.disk.text) === JSON.stringify({ thoughts: ["RENT", "Seeds  to sow ", long, ""] }), "the line written");
+	await v.settled();
 	assert.equal(draftBody(v.disk.text), JSON.stringify({ thoughts: ["RENT", "Seeds  to sow ", long, ""] }));
 	assert.equal(entriesBlock(v.disk.text), before, "the kept entries are not touched");
 	v.close();

@@ -6,7 +6,7 @@
  * reader leaves it, and where the change touched the same question, what the reader typed wins: it is the newer change.
  * A change that arrives is fed to the view as Obsidian does when the file changes: setViewData(text, false).
  */
-import { openView, press, typeInto, window as w } from "./dom.mjs";
+import { openView, press, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -163,11 +163,12 @@ test("the view's own write, carrying a change it had not seen, does not replace 
 	t.focus();
 	v.disk.text = prose("MARK-SIX")(v.disk.text);
 	typeInto(t, "Typed on");
-	await v.settled(800);   // past the typing pause: the answer is written while the field still has focus
+	await until(() => v.disk.text.includes("Typed on"), "the answer written after the typing pause, while the field still has focus");
+	await v.settled();
 	assert.equal(v.answers().thoughts, "Typed on");
 	assert.ok(t.isConnected && w.document.activeElement === t, "the view's own write drew the field again under the reader");
 	t.blur();
-	await v.settled();
+	await until(() => v.view.contentEl.textContent.includes("MARK-SIX"), "the view drawn again after the field was left");
 	assert.ok(v.view.contentEl.textContent.includes("MARK-SIX"), "after the reader left the field, the view shows the new design");
 	v.close();
 });
@@ -186,7 +187,8 @@ test("a press that begins while the view waits to be drawn again lands on its bu
 	assert.ok(pear.isConnected, "the button under the pointer was replaced before the press ended");
 	w.document.dispatchEvent(new w.Event("pointerup", { bubbles: true }));
 	pear.click();
-	await v.settled(400);
+	await until(() => v.answers().fruit === 2 && v.answers().thoughts === "Before the press", "the press and the typed words written");
+	await v.settled();
 	assert.equal(v.answers().fruit, 2, "the press was lost");
 	assert.equal(v.answers().thoughts, "Before the press");
 	assert.ok(!pear.isConnected && v.view.contentEl.textContent.includes("MARK-SEVEN"), "the view was not drawn again after the press");

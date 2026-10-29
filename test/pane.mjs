@@ -2,7 +2,7 @@
  * A pane as Obsidian runs it, for the tests of the view's moves (test/navigation*.test.mjs): the booklet view on a fake leaf, over a
  * jsdom document, with the helpers that press a card, a tab or a pager button by its words.
  */
-import { testApp, window as w } from "./dom.mjs";
+import { click, quiet, testApp, words } from "./dom.mjs";
 import { sleep } from "./helpers.mjs";
 import assert from "node:assert/strict";
 
@@ -16,11 +16,11 @@ export { sleep };
  * move a step, keeps the place left in a Back list; a second move asked for while one is under way is dropped (design 4.2);
  * Back and Forward hand a kept state to the view without adding a step.
  */
-export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state = null, drawLater = false } = {}) {
+export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state = null, drawLater = false, appMore = {} } = {}) {
 	const disk = { text, writes: 0 };
 	const hist = { back: [], fwd: [] };
 	const flight = { busy: false, dropped: 0, calls: 0 };
-	const app = testApp(disk, { workspace: { getLeaf: () => leaf } });
+	const app = testApp(disk, { workspace: { getLeaf: () => leaf }, ...appMore });
 
 	const leaf = {
 		app,
@@ -52,7 +52,6 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 	if (!drawLater) view.setViewData(text, true);
 	const el = view.contentEl;
 	const all = (sel) => [...el.querySelectorAll(sel)];
-	const words = (n) => (n.textContent ?? "").replace(/\s+/g, " ").trim();
 	const p = {
 		view,
 		disk,
@@ -77,7 +76,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		async press(sel, label) {
 			const hit = all(sel).find((b) => words(b).startsWith(label));
 			assert.ok(hit, `no ${sel} reading "${label}" on ${p.screen}; there are: ${all(sel).map(words).join(" | ")}`);
-			hit.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+			click(hit);
 			await p.settled();
 		},
 		card: (label) => p.press(".booklet-cardrow", label),
@@ -85,9 +84,10 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		tab: (label) => p.press(".booklet-tabbtn", label),
 		pageNext: () => p.press(".booklet-pager button", "Next"),
 		pageBack: () => p.press(".booklet-pager button", "Back"),
+		// nothing under way: no move in the pane's flight, no move the view holds, every piece rendered, every write landed
 		settled: async () => {
-			await sleep(delay + 12);
-			await view.writes;
+			do await quiet(view);
+			while (flight.busy);
 		},
 		async back() {
 			const s = hist.back.pop();

@@ -6,7 +6,8 @@
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
-import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
+import { treeOf, questionsIn } from "./blocks";
+import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
 
 /* ---- places ---- */
@@ -154,7 +155,7 @@ export const hasScreen = (m: NavMod): boolean => !m.bare && m.acts.length > 1;
 
 const LEAD_EMOJI = /^(\p{Regional_Indicator}{2}|\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic}|[\u{1F3FB}-\u{1F3FF}])*️?)\s*/u;
 const stripQuote = (l: string) => l.replace(/^>[ \t]?/, "");
-const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget", "matrix"]);
+const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget"]);
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
 const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
@@ -205,13 +206,19 @@ export function plainText(md: string): string {
 		.trim();
 }
 
-/** The first paragraph of some Markdown that is plain prose (not a heading, a quote, a list or a fence), as plain words. */
+/**
+ * The first paragraph of some Markdown that is plain prose (not a heading, a quote, a list or a fence), as plain words. A paragraph
+ * ends at a thematic break written straight under its text (`- - -`, `***`); one underlined as a heading (`===`, `---`) is a heading.
+ */
 export function firstParagraph(md: string): string {
-	const para = md
-		.replace(/<!--[\s\S]*?-->/g, "")
-		.split(/\n{2,}/)
-		.find((p) => p.trim() && !/^\s*(#|>|[-*+] |\d+[.)] |`{3}|~{3})/.test(p));
-	return plainText(para ?? "");
+	for (const p of md.replace(/<!--[\s\S]*?-->/g, "").split(/\n{2,}/)) {
+		if (!p.trim() || /^\s*(#|>|[-*+] |\d+[.)] |`{3}|~{3})/.test(p)) continue;
+		const lines = p.split("\n");
+		if (lines.some((l, i) => i > 0 && /^ {0,3}(=+|-+)[ \t]*$/.test(l))) continue;
+		const cut = lines.findIndex((l, i) => i > 0 && isThematicBreak(l, true));
+		return plainText((cut < 0 ? lines : lines.slice(0, cut)).join("\n"));
+	}
+	return "";
 }
 
 /** A card or a button holds no link: a link is its words (the words of an inline link, `[[a|b]]` its b). */
@@ -251,7 +258,7 @@ function splitAtBreaks(markdown: string): string[][] {
 		}
 		const above = lines[i - 1];
 		const textAbove = i > 0 && !isBlank(above) && !(above ?? "").startsWith(">");
-		if (THEMATIC_BREAK.test(l) && !(/^ {0,3}-/.test(l) && textAbove)) out.push([]);
+		if (isThematicBreak(l, textAbove)) out.push([]);
 		else here.push(l);
 	});
 	return out;
@@ -263,21 +270,36 @@ function splitAtBreaks(markdown: string): string[][] {
  */
 export function pagesOf(segs: readonly Segment[]): Segment[][] {
 	const pages: Segment[][] = [[]];
+	/** How deep in callouts: a page break inside a callout is a rule drawn in it, not a break (SPEC section 6, "A group holds blocks"). */
+	let depth = 0;
+	const page = () => pages[pages.length - 1] as Segment[];
 	for (const s of segs) {
-		if (s.type !== "prose") {
-			(pages[pages.length - 1] as Segment[]).push(s);
+		if (s.type === "callout") depth++;
+		else if (s.type === "callout-end") depth--;
+		if (s.type !== "prose" || depth > 0) {
+			page().push(s);
 			continue;
 		}
 		let at = 0;
 		splitAtBreaks(s.markdown).forEach((ls, n) => {
 			if (n) pages.push([]);
 			const md = ls.join("\n").replace(/^\n+|\n+$/g, "");
-			if (md.trim()) (pages[pages.length - 1] as Segment[]).push({ type: "prose", markdown: md, line: s.line + at });
+			if (md.trim()) page().push({ type: "prose", markdown: md, line: s.line + at });
 			at += ls.length + 1;
 		});
 	}
 	const kept = pages.filter((p) => p.length);
 	return kept.length ? kept : [[]];
+}
+
+/** The folded callouts that hold booklet lines and no question, read as the folded callouts of prose are (not a hint or a solution). */
+function foldedGroups(segs: readonly Segment[]): number {
+	return treeOf(segs).reduce(function count(n: number, x): number {
+		if (x.type !== "callout-box") return n;
+		const kind = x.start.kind.toLowerCase();
+		const here = x.start.fold === "-" && kind !== "hint" && kind !== "solution" && !questionsIn(x.children).length ? 1 : 0;
+		return x.children.reduce(count, n + here);
+	}, 0);
 }
 
 /** The folded callouts of some prose that are there to be read: not a hint or a solution, holding no question; the outer one only. */
@@ -355,7 +377,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 			continue;
 		}
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
-		if (THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
+		if (isThematicBreak(ln, !isBlank(lines[i - 1]))) continue;
 		into.push(ln);
 	}
 	const ids = uniqueIds(found.map((t, n) => t.id ?? tabIdOf(t.title, n + 1)));
@@ -440,7 +462,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 			? raw.map((r, n) => ({ id: ids[n] as string, title: r.title, pages: pagesOf(r.segs) }))
 			: [{ id: "", title: "", pages: pagesOf(opening) }];
 		const first = a.segments[0];
-		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0);
+		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0) + foldedGroups(a.segments);
 		const na: NavAct = {
 			act: a,
 			key: actKey(a.scope, a.id),
@@ -620,7 +642,7 @@ export function moduleTitle(nav: NavModel, m: NavMod): { title: string; emoji: s
 	return { title: m.title || m.id, emoji: m.emoji };
 }
 
-const isQuestionLike = (s: Segment): boolean => s.type === "question" || (s.type === "unsupported" && !!s.id && (s.kind === "matrix" || s.kind === "each"));
+const isQuestionLike = (s: Segment): boolean => s.type === "question";
 
 interface Progress {
 	repeats: boolean;

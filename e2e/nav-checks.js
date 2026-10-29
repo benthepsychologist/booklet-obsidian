@@ -4,13 +4,13 @@
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
+const fs = require("fs"), path = require("path");
+const { kit } = require("./waits");
 
 module.exports = function navChecks(env) {
-  const { withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType } = env;
+  const { withApp, Check, launch, opt, BOOK, read, SRC_VAULT, waitActiveType } = env;
   const SKETCH = "Learning to sketch.booklet.md", CHECKIN = "Check-in.booklet.md", WEEKLY = "Weekly plan.booklet.md";
-  const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
-  const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
+  const { shot, sha } = kit(env, SKETCH);
 
   /* ---- made-up notes the checks write into their own copy of the vault ---- */
   const WEEKLY_NOTE = `---
@@ -160,7 +160,8 @@ Two p2
       title: root && (root.querySelector(".booklet-screentitle") || {}).textContent,
     };
   });
-  const click = async (o, sel, text, wait = 500) => { await o.page.locator(BOOK + " " + sel).filter({ hasText: text }).first().click({ timeout: 6000 }); await sleep(wait); };
+  const { quiet, drawing, frames, mobile, untilTrue } = require("./waits");
+  const click = (o, sel, text) => drawing(o, () => o.page.locator(BOOK + " " + sel).filter({ hasText: text }).first().click({ timeout: 6000 }));
   const ready = async (o, rel) => {
     // a note written into the vault after Obsidian started is not known to it for a moment
     // and the plugin knows a note is a booklet only from its front matter in Obsidian's cache
@@ -169,10 +170,10 @@ Two p2
     const typed = await waitActiveType(o, "booklet", 20000);
     // the pane's old page stays on screen until the new note is drawn: wait for the page of this note
     try { await o.page.waitForFunction(r => { const l = app.workspace.getLeavesOfType("booklet")[0]; return !!(l && l.view.file && l.view.file.path === r && l.view.contentEl.querySelector(".booklet-page")); }, rel, { timeout: 20000, polling: 100 }); } catch (e) { throw new Error("no page for " + rel + " (booklet view " + typed + ", active type " + await o.evaluate(() => app.workspace.activeLeaf.view.getViewType()) + ")"); }
-    await sleep(700);
+    await quiet(o);
   };
-  const back = async o => { await o.evaluate(() => app.commands.executeCommandById("app:go-back")); await sleep(500); };
-  const forward = async o => { await o.evaluate(() => app.commands.executeCommandById("app:go-forward")); await sleep(500); };
+  const back = o => drawing(o, () => o.evaluate(() => app.commands.executeCommandById("app:go-back")));
+  const forward = o => drawing(o, () => o.evaluate(() => app.commands.executeCommandById("app:go-forward")));
   const toKey = k => JSON.stringify([k.screen, k.tab, k.at]);
 
   /* ================= CHECK 16 ================= */
@@ -223,7 +224,7 @@ Two p2
       await click(o, ".booklet-cardrow", "Lines that hold");
       await click(o, ".booklet-pager button", "Next"); await click(o, ".booklet-pager button", "Next");
       const nb = (await state(o)).back;
-      await o.page.locator(BOOK + " .booklet-pagebody a.internal-link").first().click(); await sleep(700);
+      await drawing(o, () => o.page.locator(BOOK + " .booklet-pagebody a.internal-link").first().click());
       s = await state(o);
       c.ok(/Page 2 of 3/.test(s.at) && s.back === nb + 1, `a heading link inside the note opens the page that holds the heading, as a step: ${s.at}, history ${nb} -> ${s.back}`);
       // a link to a module the booklet lacks is drawn as a chip, and one to a module it holds opens it (Weekly plan is another booklet: its own copy)
@@ -232,12 +233,22 @@ Two p2
       await click(o, ".booklet-cardrow", "Boxes and cylinders");
       await click(o, ".booklet-tabbtn", "Cylinders");
       const wanted = await state(o);
-      await o.evaluate(() => app.workspace.requestSaveLayout()); await sleep(2500);
+      await o.evaluate(() => app.workspace.requestSaveLayout());
+      // Obsidian writes the layout after a pause of its own: wait until the file holds the place the pane is in
+      // (the screen and the tab and part the pane is on: an earlier save may already hold the screen alone)
+      const saved = await untilTrue(() => {
+        try {
+          const found = [];
+          JSON.parse(fs.readFileSync(path.join(o.vault, ".obsidian", "workspace.json"), "utf8"), (k, v) => { if (v && v.type === "booklet" && v.state) found.push(v.state); return v; });
+          return found.some(st => st.screen === wanted.vs.screen && st.tab === wanted.vs.tab && st.part === wanted.vs.part);
+        } catch (e) { return false; }
+      }, 15000);
+      c.ok(saved, "Obsidian saved the pane's place into its layout file: " + wanted.screen);
       const { vault: v2, configDir } = o;
-      await o.close(); await sleep(1500);
+      await o.close();
       const o2 = await launch({ obsidian: path.resolve(opt.obsidian), vault: v2, configDir });
       try {
-        await o2.page.waitForSelector(BOOK + " .booklet-page", { timeout: 15000 }); await sleep(900);
+        await o2.page.waitForSelector(BOOK + " .booklet-page", { timeout: 15000 }); await quiet(o2);
         const r = await state(o2);
         c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 1, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
         await shot(o2, "nav-after-restart-light");
@@ -254,7 +265,7 @@ Two p2
         await click(o2, ".booklet-trail-link", "Check-in");
         const ho = await opening();
         c.ok((await state(o2)).screen === "home" && ho.length === 1 && /^A made-up check-in/.test(ho[0]), "the booklet's opening text is drawn on home: " + JSON.stringify(ho));
-        await sleep(1500);
+        await quiet(o2);
         const after = { sk: sha(path.join(v2, SKETCH)), wk: sha(path.join(v2, WEEKLY)), ck: sha(path.join(v2, CHECKIN)) };
         c.ok(JSON.stringify(after) === JSON.stringify(before), "the SHA-256 of three notes is the same after every move and a restart: nothing about the place is written into a note");
       } finally { await o2.close(); }
@@ -316,7 +327,7 @@ Two p2
         const two = [...root.querySelectorAll(".booklet-tabbtn")].find(b => b.textContent === "Two");
         next.click(); two.click();
       }, BOOK);
-      await sleep(900);
+      await quiet(o);
       let s = await state(o);
       c.ok(s.tab === "Two", `a tab chosen while the page was turning: the pane ends on that tab: ${s.tab}, ${s.at}`);
       await click(o, ".booklet-tabbtn", "One");
@@ -327,11 +338,11 @@ Two p2
         const next = [...document.querySelector(sel).querySelectorAll(".booklet-pager button")].find(b => /^Next/.test(b.textContent.trim()));
         next.click(); next.click();
       }, BOOK);
-      await sleep(900);
+      await quiet(o);
       s = await state(o);
       c.ok(/Page 3 of 3/.test(s.at) && s.back === n0 + 1, `a double press on Next turns one page: ${s.at}, one step (${n0} -> ${s.back})`);
       await o.evaluate(sel => { const b = [...document.querySelector(sel).querySelectorAll(".booklet-pager button")].find(x => /^Back/.test(x.textContent.trim())); b.click(); b.click(); }, BOOK);
-      await sleep(900);
+      await quiet(o);
       s = await state(o);
       c.ok(/Page 2 of 3/.test(s.at), `a double press on Back turns one page: ${s.at}`);
     });
@@ -346,11 +357,11 @@ Two p2
       put(vault, "Finish test.booklet.md", FINISH_NOTE);
       const link = async text => {
         await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel), { state: { mode: "preview" } }); }, "Links.md");
-        await o.page.waitForSelector(".markdown-preview-view a.internal-link", { timeout: 8000 }); await sleep(300);
+        await o.page.waitForSelector(".markdown-preview-view a.internal-link", { timeout: 8000 });
         await o.evaluate(() => document.querySelectorAll(".hover-popover").forEach(e => e.remove()));
         await o.page.mouse.move(5, 5);
         await o.page.locator(".markdown-preview-view a.internal-link", { hasText: text }).first().click();
-        await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 8000 }); await sleep(900);
+        await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 8000 }); await quiet(o);
         return state(o);
       };
       let s = await link("Cast shadows");
@@ -364,13 +375,13 @@ Two p2
       c.ok(s.screen === "activity:day-check/today" && s.file === CHECKIN, "[[Check-in.booklet#Today]] from an ordinary note opens Today: " + s.screen);
       s = await link("Answer");
       c.ok(s.screen === "activity:/log" && s.tab === "Answer", "the tab that holds the question: " + s.screen + ", " + s.tab);
-      await o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Cast shadows", "Links.md"); }); await sleep(900);
+      await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Cast shadows", "Links.md"); }));
       s = await state(o);
       c.ok(s.screen === "activity:basics/shadow", "a second link while a booklet is in the pane moves it: " + s.screen);
-      await o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Ten in a row", "Links.md"); }); await sleep(900);
+      await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Ten in a row", "Links.md"); }));
       s = await state(o);
       c.ok(s.screen === "activity:basics/lines" && /Page 3 of 3/.test(s.at), "the same booklet already open in the pane, a second link to a later page: " + s.screen + ", " + s.at);
-      await o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#^abc", "Links.md"); }); await sleep(600);
+      await o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#^abc", "Links.md"); }); await quiet(o);
       s = await state(o);
       c.ok(s.screen === "activity:basics/lines", "a link to a block leaves the place alone: " + s.screen);
       c.ok(sha(path.join(vault, SKETCH)) === sha(path.join(SRC_VAULT, SKETCH)), "no link wrote into the booklet");
@@ -396,7 +407,7 @@ Two p2
       const missing = names.filter((n, i) => !each[i]);
       c.ok(missing.length === 0, "Obsidian's setIcon draws every one of the 161 names by lucide-<name>" + (missing.length ? "; draws nothing: " + missing.join(", ") : ""));
       await shot(o, "nav-icons-light");
-      await o.setScheme("dark"); await sleep(300); await shot(o, "nav-icons-dark");
+      await o.setScheme("dark"); await frames(o); await shot(o, "nav-icons-dark");
     });
     return c;
   }
@@ -422,18 +433,18 @@ Two p2
         const r = f.getBoundingClientRect();
         return { label: f.textContent, expanded: f.getAttribute("aria-expanded"), controls: f.getAttribute("aria-controls") === list.id, visible: list.getClientRects().length > 0, entries: list.querySelectorAll(".booklet-entry").length, height: Math.round(r.height), tag: f.tagName, icon: (f.querySelector("svg") || {}).getAttribute && f.querySelector("svg").getAttribute("class") };
       }, BOOK);
-      const toggle = async (key) => { if (key === "click") await o.page.locator(BOOK + " .booklet-fold").click(); else { await o.page.locator(BOOK + " .booklet-fold").focus(); await o.page.keyboard.press(key); } await sleep(300); };
+      const toggle = async (key) => { if (key === "click") await o.page.locator(BOOK + " .booklet-fold").click(); else { await o.page.locator(BOOK + " .booklet-fold").focus(); await o.page.keyboard.press(key); } await quiet(o); };
       for (const n of [0, 1, 4, 25]) {
         await ready(o, `Fold ${n}.booklet.md`);
         let i = await info();
         c.ok(i.tag === "BUTTON" && i.label === `Kept entries (${n})` && i.expanded === "true" && i.visible && i.controls, `${n} entries: the heading is a button reading "${i.label}", open to begin with, aria-expanded ${i.expanded}`);
         c.ok(n === 0 ? i.entries === 0 : i.entries >= 1, `${n} entries: the list shows ${i.entries} (a long list shows its first ones, with Show all)`);
-        for (const scheme of ["light", "dark"]) { await o.setScheme(scheme); await sleep(400); await shot(o, `fold-${n}-open-${scheme}`); }
+        for (const scheme of ["light", "dark"]) { await o.setScheme(scheme); await frames(o); await shot(o, `fold-${n}-open-${scheme}`); }
         await o.setScheme("light");
         await toggle("click");
         i = await info();
         c.ok(i.expanded === "false" && !i.visible && i.entries === (await o.evaluate(sel => document.querySelectorAll(sel + " .booklet-entry").length, BOOK)), `${n} entries: a press folds the list (aria-expanded ${i.expanded}, list hidden), the same entries still in the page`);
-        for (const scheme of ["light", "dark"]) { await o.setScheme(scheme); await sleep(400); await shot(o, `fold-${n}-closed-${scheme}`); }
+        for (const scheme of ["light", "dark"]) { await o.setScheme(scheme); await frames(o); await shot(o, `fold-${n}-closed-${scheme}`); }
         await o.setScheme("light");
         await toggle("Enter");
         i = await info();
@@ -445,7 +456,7 @@ Two p2
         if (n === 25) {
           const more = await o.evaluate(sel => { const b = document.querySelector(sel + " .booklet-more"); return b ? b.textContent : null; }, BOOK);
           c.ok(/Show all 25 entries/.test(more || ""), "25 entries: Show all is inside the fold: " + more);
-          await o.page.locator(BOOK + " .booklet-more").click(); await sleep(400);
+          await o.page.locator(BOOK + " .booklet-more").click(); await quiet(o);
           const all = await o.evaluate(sel => document.querySelectorAll(sel + " .booklet-entry").length, BOOK);
           c.ok(all === 25, "25 entries: Show all lists every one: " + all);
         }
@@ -454,7 +465,7 @@ Two p2
       const two = path.join(vault, "Fold two.booklet.md"), h0 = sha(two);
       await ready(o, "Fold two.booklet.md");
       c.info("Fold two opens on " + JSON.stringify(await state(o)));
-      await o.page.locator(BOOK + " .booklet-cardrow").first().click({ timeout: 5000 }); await sleep(600);
+      await o.page.locator(BOOK + " .booklet-cardrow").first().click({ timeout: 5000 }); await quiet(o);
       let st = await state(o);
       c.ok(/^activity:\/log$/.test(st.screen || ""), "Fold two: the first activity: " + st.screen);
       await toggle("click");
@@ -469,28 +480,28 @@ Two p2
       c.ok(i2.expanded === "false", "coming back, the first activity is still folded: " + i2.expanded);
       st = await state(o);
       c.ok(JSON.stringify(st.vs) === stateBefore && Object.keys(st.vs).every(k => ["file", "version", "screen", "tab", "part"].includes(k)), "the saved place holds only file, version, screen, tab and part: " + JSON.stringify(st.vs));
-      await sleep(1500);
+      await quiet(o);
       c.ok(sha(two) === h0, "folding wrote nothing into the note");
       // the fold on a phone
       await o.page.setViewportSize({ width: 390, height: 844 });
-      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      await mobile(o, true);
       for (const n of [0, 1, 4, 25]) {
         await ready(o, `Fold ${n}.booklet.md`);
         const i = await info();
         c.ok(i.height >= 44, `phone, ${n} entries: the fold's control is ${i.height} px tall`);
         for (const scheme of ["light", "dark"]) {
-          await o.setScheme(scheme); await sleep(400);
-          await o.evaluate(sel => document.querySelector(sel + " .booklet-fold").scrollIntoView({ block: "center" }), BOOK); await sleep(200);
+          await o.setScheme(scheme); await frames(o);
+          await o.evaluate(sel => document.querySelector(sel + " .booklet-fold").scrollIntoView({ block: "center" }), BOOK); await frames(o);
           await shot(o, `fold-phone-${n}-open-${scheme}`);
           if (n >= 4) {
-            await o.page.locator(BOOK + " .booklet-fold").click(); await sleep(400);
+            await o.page.locator(BOOK + " .booklet-fold").click(); await quiet(o);
             await shot(o, `fold-phone-${n}-closed-${scheme}`);
-            await o.page.locator(BOOK + " .booklet-fold").click(); await sleep(300);
+            await o.page.locator(BOOK + " .booklet-fold").click(); await quiet(o);
           }
         }
         await o.setScheme("light");
       }
-      await o.evaluate(() => app.emulateMobile(false));
+      await mobile(o, false);
     });
     return c;
   }
@@ -501,7 +512,7 @@ Two p2
     await withApp("c23", async (o, vault) => {
       put(vault, "Long titles.booklet.md", LONG_NOTE);
       await o.page.setViewportSize({ width: 390, height: 844 });
-      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      await mobile(o, true);
       const phone = await o.evaluate(() => ({ phone: document.body.classList.contains("is-phone"), w: window.innerWidth }));
       c.ok(phone.phone && phone.w === 390, "phone mode on: is-phone " + phone.phone + ", window " + phone.w + " px");
       const metrics = () => o.evaluate(sel => {
@@ -513,12 +524,12 @@ Two p2
       }, BOOK);
       const atEnd = () => o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; v.scrollTop = v.scrollHeight; });
       for (const scheme of ["light", "dark"]) {
-        await o.setScheme(scheme); await sleep(300);
+        await o.setScheme(scheme); await frames(o);
         await ready(o, SKETCH);
         let m = await metrics();
         c.ok(m.sideways <= 0 && m.card >= 44, `[${scheme}] home: no sideways scroll (${m.sideways}), card rows ${Math.round(m.card)} px`);
         await shot(o, `nav-phone-home-${scheme}`);
-        await click(o, ".booklet-cardrow", "A sketch a day"); await click(o, ".booklet-cardrow", "Seven studies", 700);
+        await click(o, ".booklet-cardrow", "A sketch a day"); await click(o, ".booklet-cardrow", "Seven studies");
         m = await metrics();
         c.ok(m.sideways <= 0 && m.tab >= 44 && m.tabRows >= 2 && m.tabbarSideways <= 0, `[${scheme}] seven tabs wrap onto ${m.tabRows} rows, the bar does not scroll (${m.tabbarSideways}), tabs ${m.tab} px`);
         c.ok(m.trailRows >= 1 && m.pager >= 44, `[${scheme}] trail rows ${m.trailRows}, pager buttons ${m.pager} px`);
@@ -526,28 +537,28 @@ Two p2
         if (scheme === "light") {
           const tabOn = () => o.evaluate(sel => (document.querySelector(sel + " .booklet-tabbtn.is-active") || {}).textContent, BOOK);
           await o.page.locator(BOOK + " .booklet-tabbtn.is-active").focus();
-          await o.page.keyboard.press("ArrowRight"); await sleep(300);
+          await o.page.keyboard.press("ArrowRight"); await quiet(o);
           const a = await tabOn();
-          await o.page.keyboard.press("End"); await sleep(300);
+          await o.page.keyboard.press("End"); await quiet(o);
           const b = await tabOn();
-          await o.page.keyboard.press("Home"); await sleep(300);
+          await o.page.keyboard.press("Home"); await quiet(o);
           const d = await tabOn();
-          await o.page.keyboard.press("ArrowLeft"); await sleep(300);
+          await o.page.keyboard.press("ArrowLeft"); await quiet(o);
           const e = await tabOn();
           c.ok(a === "Cups" && b === "Clouds" && d === "Hands" && e === "Hands", `the tab bar takes ArrowRight (${a}), End (${b}), Home (${d}) and ArrowLeft on the first (${e})`);
         }
         await ready(o, "Long titles.booklet.md");
-        await click(o, ".booklet-cardrow", "The first activity", 600); await click(o, ".booklet-cardrow", "The second activity", 700);
+        await click(o, ".booklet-cardrow", "The first activity"); await click(o, ".booklet-cardrow", "The second activity");
         m = await metrics();
         c.ok(m.sideways <= 0 && m.trailRows >= 2, `[${scheme}] a long trail wraps onto ${m.trailRows} rows, no sideways scroll (${m.sideways})`);
         c.ok(m.sideways <= 0 && m.pager >= 44 && m.pagerRows >= 2, `[${scheme}] both pager labels long: buttons ${Math.round(m.pager)} px, no sideways scroll, wrapped onto ${m.pagerRows} rows`);
-        await atEnd(); await sleep(300);
+        await atEnd(); await frames(o);
         m = await metrics();
         c.ok(m.barTop === null || m.pagerBottom < m.barTop, `[${scheme}] the long pager is clear of Obsidian's floating bar: ends ${Math.round(m.pagerBottom)}, bar starts ${Math.round(m.barTop)}`);
         await shot(o, `nav-phone-long-${scheme}`);
         await ready(o, CHECKIN);
-        await click(o, ".booklet-cardrow", "Today", 800);
-        await atEnd(); await sleep(400);
+        await click(o, ".booklet-cardrow", "Today");
+        await atEnd(); await frames(o);
         m = await metrics();
         c.ok(m.scrolls > 200 && m.pagerBottom < m.barTop, `[${scheme}] a long page (scrolls ${m.scrolls} px): the pager ends at ${Math.round(m.pagerBottom)}, the bar starts at ${Math.round(m.barTop)}`);
         await shot(o, `nav-phone-today-end-${scheme}`);

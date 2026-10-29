@@ -5,7 +5,7 @@
  * activity's draft and in its kept entries; opening the note, answering another question, Finalize and a change made
  * elsewhere must leave every one of them as written.
  */
-import { openView, typeInto, window as w } from "./dom.mjs";
+import { openView, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core, norm } from "./helpers.mjs";
@@ -263,6 +263,7 @@ test("the view: an answer that comes to be of the wrong shape from elsewhere swi
 	await v.settled();
 	assert.equal(v.disk.text, before, "a press writes nothing");
 	v.changed((t) => t.replace('"o-scale": [1, 0]', '"o-scale": 0'));
+	await until(() => v.q("o-scale") !== box0, "the view drawn again");
 	await v.settled();
 	assert.notEqual(v.q("o-scale"), box0, "drawn again");
 	assert.ok(anchors().every((b) => !b.disabled), "answerable again");

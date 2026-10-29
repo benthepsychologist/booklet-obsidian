@@ -1,9 +1,9 @@
 /*
- * A question asked for each pick of another (`each:<id>`, SPEC section 5, "A question asked for each pick").
+ * A question, of any kind, asked for each pick of another (`each:<id>`, SPEC section 5, "A question asked for each pick").
  * Its source is a choice, a multi or a widget in the same activity; a pick is an identity in the source's answer:
  *   a choice: its one answer;  a multi: each member, an option's position or the reader's own option;
  *   a grid-select: each id, an item id or the reader's own `x|cell|word`;  an svg-regions: each region marked, by id.
- * The answer is a list of pairs, `{ "pick": <the pick exactly as the source stores it>, "a": <a multi's answer> }`: a
+ * The answer is a list of pairs, `{ "pick": <the pick exactly as the source stores it>, "a": <the answer its kind stores> }`: a
  * pick keeps its type (a position 3 and an own option "3" stay apart), and a pick with no answer has no pair. A pick
  * taken back keeps its pair, not drawn, and it comes back when the pick is made again: every view shows only the
  * pairs whose pick the source holds in the same record. Plain TypeScript: nothing here imports Obsidian.
@@ -16,6 +16,9 @@ import type { WordPart } from "./words";
 export type PickValue = number | string;
 /** One pair of the answer: its other keys, if a hand edit gave it any, are kept as written. */
 export type Pair = { pick: PickValue; a: unknown } & Record<string, unknown>;
+
+/** The question without its `each:`: what a pair's answer is read as. */
+export const plainOf = (q: Question): Question => (q.each ? { ...q, each: null } : q);
 
 /** A question's source: the choice, multi or widget its `each:` names in the same activity. */
 export function sourceOf(act: Pick<Activity, "segments">, q: Question): Question | null {
@@ -82,7 +85,7 @@ export const pairFor = (v: unknown, p: PickValue): Pair | undefined => pairsOf(v
  * their order, as they were); a pick with no pair gets one at the end; an answer that holds nothing takes the pair
  * out, as a pick with no answer has no pair. Every other member stays as it is, pairs for picks taken back among them.
  */
-export function setPair(v: unknown, p: PickValue, a: unknown[]): unknown[] {
+export function setPair(v: unknown, p: PickValue, a: unknown): unknown[] {
 	const list = Array.isArray(v) ? v : [];
 	const at = list.findIndex((x) => isPair(x) && x.pick === p);
 	if (!holdsSomething(a)) return at < 0 ? list : list.filter((_, i) => i !== at);
