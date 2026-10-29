@@ -5,7 +5,7 @@
  * the reader's own options offered under every pick and in later entries, and the reader's field and press kept safe
  * as copies come and go around them. The view runs over a jsdom document on the test vault's made-up check-in note.
  */
-import { window as w } from "./dom.mjs";
+import { openView, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -14,7 +14,6 @@ import { ROOT, core, norm } from "./helpers.mjs";
 
 const { BookletView } = await import("./.build/view.mjs");
 const { Notice } = await import("./obsidian-stub.mjs");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
@@ -257,25 +256,11 @@ test("each: a kept entry, one line for each pick its source holds, in the source
 /* ---- the view ---- */
 
 function open(text = CHECKIN) {
-	const disk = { text };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on() {} },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
-	view.load();
-	view.setViewData(text, true);
-	const card = () => view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
-	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
+	const v = openView(text, { path: "Check-in.booklet.md" });
+	const card = () => v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
+	const q = (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	return {
-		view,
-		disk,
+		...v,
 		q,
 		card,
 		felt: () => q("felt"),
@@ -283,26 +268,9 @@ function open(text = CHECKIN) {
 		copy: (pick) => q("felt").querySelector(`.booklet-copy[data-booklet-pick="${pick}"]`),
 		heads: () => [...q("felt").querySelectorAll(".booklet-pick-head")].map((x) => x.textContent),
 		item: (cell, words) => button(q("feelings").querySelector(`[data-booklet-cell="${cell}"]`), words),
-		changed(edit) {
-			disk.text = edit(disk.text);
-			view.setViewData(disk.text, false);
-		},
-		draft: () => draftOf(disk.text),
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
+		draft: () => draftOf(v.disk.text),
 	};
 }
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
 const enter = (el) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
 const button = (root, words) => {
 	const b = [...root.querySelectorAll("button")].find((x) => x.textContent.trim() === words);

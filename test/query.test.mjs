@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { ROOT, core, keepDays, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
@@ -530,23 +530,11 @@ const DAYS = [
 	["2026-10-27T20:00:00Z", { feelings: ["tense", "content", "x|agitating|unhurried"], felt: [{ pick: "tense", a: [8] }] }],
 	["2026-10-28T08:00:00Z", { feelings: ["tired"], thoughts: ["Early night"] }],
 ];
-function checkin() {
-	let text = CHECKIN;
-	for (const [ts, ans] of DAYS) {
-		for (const [k, v] of Object.entries(ans)) text = core.setDraftAnswer(text, "day-check", "today", k, v);
-		text = core.finalizeDraft(text, "day-check", "today", { ts }).text;
-	}
-	return text;
-}
-function checkinPlan(text, i) {
-	const b = core.parseBooklet(text);
-	const s = b.activities.find((a) => a.id === "week").segments.filter((x) => x.type === "query")[i];
-	return core.planQuery(b, s, { drawn: DRAWN, now: DRAWN });
-}
+const checkin = () => keepDays(CHECKIN, "day-check", "today", DAYS);
 
 test("the check-in's roll-up: a grid-select summarised like a multi, and where each feeling is felt, one row per pick", () => {
 	const text = checkin();
-	const p = checkinPlan(text, 0);
+	const p = plan(text, 0).p;
 	assert.equal(p.view, "table");
 	assert.deepEqual(p.cols, ["label", "count", "most", "note"]);
 	assert.deepEqual(
@@ -567,7 +555,7 @@ test("the check-in's roll-up: a grid-select summarised like a multi, and where e
 });
 
 test("the check-in's thoughts: the week's kept entries as cards, each with its thoughts; an entry without any is not shown", () => {
-	const p = checkinPlan(checkin(), 1);
+	const p = plan(checkin(), 1).p;
 	assert.equal(p.view, "cards");
 	assert.deepEqual(p.cols, ["thoughts"]);
 	assert.deepEqual(
@@ -578,7 +566,7 @@ test("the check-in's thoughts: the week's kept entries as cards, each with its t
 
 test("a question asked for each pick: one field per pick, labelled \"<title> · <pick's words>\", in the source's order", () => {
 	const text = checkin().replace("fields: thoughts\n", "fields: felt\nas: table\n");
-	const p = checkinPlan(text, 1);
+	const p = plan(text, 1).p;
 	const labels = p.cols.map((k) => p.set.label(k).map((x) => x.md ?? x.text).join(""));
 	assert.deepEqual(labels, ["Where do you feel it? · Tense", "Where do you feel it? · Tired", "Where do you feel it? · Settled", "Where do you feel it? · Content", "Where do you feel it? · unhurried", "Where do you feel it? · Unhurried"]);
 	assert.deepEqual(norm(texts(p).map((r) => r["felt|s:tense"] ?? null)), ["Stomach", null, "Chest, Stomach", "Chest"]);

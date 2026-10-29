@@ -22,8 +22,20 @@ export const LINTER = process.env.BOOKLET_LINTER || join(BOOKLET, "lint-booklet.
 export const STARTERS = process.env.BOOKLET_STARTERS || "/workspace/fleet/hubs/booklet-hub/tools/booklet-obsidian/kit/Starter";
 export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
+/** Waits `ms` milliseconds. */
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
 /** JSON values as plain data (the core's objects have no prototype). */
 export const norm = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+
+/** `text` with these made-up days kept in an activity: each day's answers put in the draft, then finalized at its `ts`. */
+export function keepDays(text, scope, id, days) {
+	for (const [ts, ans] of days) {
+		for (const [k, v] of Object.entries(ans)) text = core.setDraftAnswer(text, scope, id, k, v);
+		text = core.finalizeDraft(text, scope, id, { ts }).text;
+	}
+	return text;
+}
 
 /** The text of a file outside its records regions: [before the first, between each two, after the last]. */
 export function outsideRegions(text) {

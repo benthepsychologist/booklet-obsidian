@@ -5,14 +5,12 @@
  * activity's draft and in its kept entries; opening the note, answering another question, Finalize and a change made
  * elsewhere must leave every one of them as written.
  */
-import { window as w } from "./dom.mjs";
+import { openView, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core, norm } from "./helpers.mjs";
 
-const { BookletView } = await import("./.build/view.mjs");
 const { Notice } = await import("./obsidian-stub.mjs");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const GRID = { engine: "grid-select", cells: [{ id: "up", label: "Up", color: "green" }, { id: "down", label: "Down", color: "slate" }], items: [{ id: "glad", cell: "up", label: "Glad" }, { id: "low", cell: "down", label: "Low" }] };
 const SPOTS = { engine: "svg-regions", regions: [{ id: "top", label: "Top" }, { id: "base", label: "Base" }], senses: [{ id: "feel", label: "Feel", words: [{ id: "warm", label: "Warm" }] }], chips: ["top", "base"] };
@@ -189,45 +187,10 @@ test("a kept entry says an answer of the wrong shape is kept as written, and sho
 /* ---- in the view ---- */
 
 function open(text) {
-	const disk = { text };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on() {} },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Shapes.booklet.md", basename: "Shapes.booklet" };
-	view.load();
-	view.setViewData(text, true);
-	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
-	return {
-		view,
-		disk,
-		q,
-		changed(edit) {
-			disk.text = edit(disk.text);
-			view.setViewData(disk.text, false);
-		},
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
-	};
+	const v = openView(text, { path: "Shapes.booklet.md" });
+	return { ...v, q: (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`) };
 }
 const controls = (box) => [...box.querySelectorAll("button, input, textarea")];
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
 
 test("the view: every question holding an answer of the wrong shape is drawn read-only with a notice; opening, answering another question and Finalize leave every one as written", async () => {
 	for (let n = 0; n < 7; n++) {

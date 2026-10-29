@@ -4,66 +4,32 @@
  * view's own buttons and fields, and what the note then holds is read back. A field for words of the reader's own
  * is never replaced by a change to the note while the reader is in it (the 0.1.0 rule), and keeps its words.
  */
-import { window as w } from "./dom.mjs";
+import { openView, press, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { ROOT, core, norm, sleep } from "./helpers.mjs";
 
 const { BookletView } = await import("./.build/view.mjs");
 
 const NOTE = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 function open(text = NOTE) {
-	const disk = { text };
-	const app = {
-		vault: {
-			process: async (_file, fn) => {
-				disk.text = fn(disk.text);
-				return disk.text;
-			},
-		},
-		workspace: { iterateAllLeaves() {}, on() {} },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
-	view.load();
-	view.setViewData(text, true);
-	const card = () => view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
+	const v = openView(text, { path: "Check-in.booklet.md" });
+	const card = () => v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 	const widget = (n) => card().querySelectorAll(".booklet-kind-widget")[n];
 	return {
-		view,
-		disk,
+		...v,
 		card,
 		grid: () => widget(1),
 		places: () => widget(0),
 		menu: () => card().querySelector(`[data-booklet-q="where"]`),
-		/** The note changed elsewhere: the vault holds the new text, and the view is handed it. */
-		changed(edit) {
-			disk.text = edit(disk.text);
-			view.setViewData(disk.text, false);
-		},
 		/** The draft of today's check-in, as the vault holds it. */
-		draft: () => norm(core.parseBooklet(disk.text).records.drafts["day-check"]?.today ?? {}),
-		settled: async (ms = 0) => {
-			await sleep(ms + 30);
-			await view.writes;
-			await sleep(5);
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
+		draft: () => norm(core.parseBooklet(v.disk.text).records.drafts["day-check"]?.today ?? {}),
 	};
 }
 
-const typeInto = (el, value) => {
-	el.value = value;
-	el.dispatchEvent(new w.Event("input", { bubbles: true }));
-};
-const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true }));
 const button = (root, words) => {
 	const b = [...root.querySelectorAll("button")].find((x) => x.textContent.trim() === words);
 	assert.ok(b, `a button "${words}"`);
