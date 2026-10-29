@@ -18,7 +18,7 @@ import { pressed, type Label, type QuestionHost, type Target } from "./questions
 export function drawMatrix(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const wrap = box.createDiv({ cls: "booklet-mxwrap" });
 	// measured, never seen: the anchors in one row, after room for an item's words (the grid's width, in styles.css)
-	const probe = wrap.createDiv({ cls: "booklet-mxprobe", attr: { "aria-hidden": "true" } });
+	const probe = wrap.createDiv({ cls: "booklet-mxprobebox", attr: { "aria-hidden": "true" } }).createDiv({ cls: "booklet-mxprobe" });
 	for (const a of q.anchors) host.md(a.text, probe.createSpan({ cls: "booklet-mxprobe-anchor markdown-rendered" }));
 
 	const rows = wrap.createDiv({ cls: "booklet-mx" });
@@ -79,7 +79,7 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 		if (!w) return;
 		const stacked = w < probe.offsetWidth;
 		wrap.toggleClass("booklet-mx-stacked", stacked);
-		if (box.hasClass("booklet-question")) box.toggleClass("booklet-mx-stacked", stacked);
+		if (box.classList.contains("booklet-question")) box.toggleClass("booklet-mx-stacked", stacked);
 	};
 	if (typeof ResizeObserver !== "function") return;
 	const watch = new ResizeObserver(place);
@@ -89,7 +89,7 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 	// (SPEC section 5); only the keyboard's focus: a press is never moved
 	wrap.addEventListener("focusin", (evt) => {
 		const target = evt.target;
-		if (!(target instanceof HTMLElement) || !wrap.hasClass("booklet-mx-stacked")) return;
+		if (!(target instanceof HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
 		const stem = box.querySelector<HTMLElement>(":scope > .booklet-prompt");
 		const item = target.closest<HTMLElement>(".booklet-mxitem");
 		const scroller = box.closest<HTMLElement>(".view-content");

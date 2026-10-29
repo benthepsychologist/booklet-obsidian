@@ -614,7 +614,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 				for (const l of lines) host.md(l, r.createDiv({ cls: "booklet-reply-line markdown-rendered" }));
 			}
 		}
-		if (check && live) {
+		if (live) {
 			// Check is there once something is picked; the line says Right or Not quite once the reader has answered
 			acts?.toggleClass("booklet-none", !c.length);
 			const told = multi ? checked : typeof c[0] === "number";
@@ -624,7 +624,6 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 		}
 	};
 	let acts: HTMLElement | null = null;
-	let check: HTMLButtonElement | null = null;
 	let live: HTMLElement | null = null;
 
 	if (q.open) {
@@ -670,7 +669,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 		// a multi that marks right answers has a Check; the line under the options says whether the answer is right
 		if (multi) {
 			acts = box.createDiv({ cls: "booklet-acts" });
-			check = acts.createEl("button", { text: "Check" });
+			const check = acts.createEl("button", { text: "Check" });
 			check.disabled = locked;
 			check.addEventListener("click", (evt) => {
 				evt.preventDefault();

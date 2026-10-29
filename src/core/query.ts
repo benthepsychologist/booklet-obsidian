@@ -445,10 +445,10 @@ function summaryRows(a: Activity, qs: readonly Question[], q: Query, ents: reado
 		if (x.each) {
 			// one row per pick, summarised by its own kind
 			const plain: Question = { ...x, each: null };
-			for (const p of pickAnswers(a, x, ents)) rows.push(summarise(plain, [...titleParts(x), { text: " · " }, p.parts], p.values, locale));
+			for (const p of pickAnswers(a, x, ents)) rows.push(...summariseAll(plain, [...titleParts(x), { text: " · " }, p.parts], p.values, locale));
 			continue;
 		}
-		rows.push(summarise(x, titleParts(x), answersOf(x, ents), locale));
+		rows.push(...summariseAll(x, titleParts(x), answersOf(x, ents), locale));
 	}
 	return summarySet(rows, "label");
 }

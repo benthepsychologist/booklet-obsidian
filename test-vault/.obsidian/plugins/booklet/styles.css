@@ -150,6 +150,54 @@
 	margin-top: var(--size-4-2);
 }
 
+/* a question that marks a correct option (`[x]`): right, not quite and the answer, each a colour, a shape and a word */
+.booklet-mark {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	margin-inline-start: var(--size-4-2);
+	font-size: var(--font-smaller);
+	font-weight: var(--font-bold);
+}
+
+.booklet-mark-icon {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-choices .booklet-choice.booklet-right,
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: rgba(var(--color-green-rgb), 0.18);
+	box-shadow: inset 0 0 0 2px var(--color-green);
+	color: var(--text-normal);
+}
+
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: transparent;
+	box-shadow: none;
+	outline: 2px dashed var(--color-green);
+	outline-offset: -2px;
+}
+
+.booklet-choices .booklet-choice.booklet-wrong {
+	background-color: rgba(var(--color-orange-rgb), 0.18);
+	box-shadow: inset 0 0 0 2px var(--color-orange);
+	color: var(--text-normal);
+}
+
+.booklet-acts {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-live {
+	margin-top: var(--size-4-2);
+	font-weight: var(--font-medium);
+}
+
+.booklet-live:empty {
+	display: none;
+}
+
 .booklet-reply-line p,
 .booklet-inline p,
 .booklet-entry dt p {
@@ -630,6 +678,104 @@
 /* a copy whose pick was taken back while the reader was in it: it goes when they leave it */
 .booklet-copy-gone {
 	opacity: 0.6;
+}
+
+/* a matrix question: its items by one shared set of anchors. A grid of rows where each item's words and the anchors fit
+   side by side, else every item a single-choice question of its own, under the matrix's words held at the top while they scroll */
+.booklet-mxwrap {
+	--booklet-mx-text: 12rem;
+	position: relative;
+}
+
+/* the measuring box: no size at all, and what it holds is clipped, so it can never make the page wider or scroll it */
+.booklet-mxprobebox {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.booklet-mxprobe {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: max-content;
+	display: flex;
+	gap: var(--size-4-2);
+	white-space: nowrap;
+	padding-inline-start: calc(var(--booklet-mx-text) + var(--size-4-4));
+}
+
+.booklet-mxprobe-anchor {
+	box-sizing: border-box;
+	min-width: 44px;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid transparent;
+	text-align: center;
+}
+
+.booklet-mxprobe-anchor p {
+	margin: 0;
+	display: inline;
+}
+
+.booklet-mxitem {
+	display: grid;
+	grid-template-columns: minmax(var(--booklet-mx-text), 1fr) auto;
+	align-items: center;
+	gap: var(--size-4-1) var(--size-4-4);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding: var(--size-4-2) 0;
+}
+
+.booklet-mxwords {
+	min-width: 0;
+}
+
+.booklet-mxwords p {
+	margin: 0;
+}
+
+.booklet-mxopts {
+	flex-wrap: nowrap;
+	justify-content: flex-end;
+}
+
+.booklet-mx-stacked .booklet-mxitem {
+	grid-template-columns: minmax(0, 1fr);
+	border-top: 0;
+	padding: var(--size-4-1) 0 var(--size-4-3);
+}
+
+.booklet-mx-stacked .booklet-mxwords {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-mx-stacked .booklet-mxopts {
+	flex-wrap: wrap;
+	justify-content: flex-start;
+}
+
+/* the matrix's own words, held while its items scroll under them, as far as the matrix goes (SPEC section 5) */
+.booklet-question.booklet-mx-stacked > .booklet-prompt {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background-color: var(--background-primary);
+	margin: 0 0 var(--size-4-1);
+	padding: var(--size-4-2) 0 var(--size-4-2) var(--size-4-3);
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+}
+
+/* a window too short to give the items room under a held stem (a phone on its side): the stem scrolls with them */
+@media (max-height: 360px) {
+	.booklet-question.booklet-mx-stacked > .booklet-prompt {
+		position: static;
+	}
 }
 
 /* ---- queries: kept entries and summaries drawn as a table, a list, tiles or cards (SPEC section 6) ---- */
