@@ -76,11 +76,15 @@ title: Harbour
 
 See [[#Neap tides]] from above every tab.
 
+## Above all
+
+Measure the water, not the sky.
+
 > [!tab|read] Read
 
 > [!page|spring] Spring tides
 
-Compare [[#Neap tides]], and the heading [[#Rules of thumb]] (below).
+Compare [[#Neap tides]], and the heading [[#Rules of thumb]] (below). Once more: [[#Neap tides]].
 
 ***
 
@@ -96,7 +100,7 @@ The narrowest range. Also [[#Boats]] and [[#Read]].
 
 > [!page|extra] Extra
 
-Words with [[#Neap tides]].
+Words with [[#Neap tides]] and [[#Above all]].
 
 > [!activity|boats] Boats
 
@@ -120,7 +124,7 @@ test("\"Mentioned on\" names a source by its page, with its tab and activity whe
 	assert.deepEqual(got[2][1], { screen: "activity:harbour/tides", tab: "more", part: 0 }, "the place of the page that holds the link");
 	// a link by a tab's name opens the tab on its first page; a link inside a page to its own heading is no mention of any other page
 	const spring = read.tree.find((p) => p.id === "spring");
-	assert.deepEqual(core.mentionsOf(nav, tides, read, spring).map((m) => m.title), ["Neap tides"], "[[#Read]] opens the tab on its first page, which is Spring tides; the page's own links to itself are none");
+	assert.deepEqual(core.mentionsOf(nav, tides, read, spring).map((m) => m.title), ["Neap tides"], "a link to a heading in the opening, which stands above every tab, is no mention of the tab's first page; [[#Read]] opens the tab on its first page, which is Spring tides; the page's own links to itself are none");
 });
 
 /* ---- the menu, the cards and "Mentioned on", in the view ---- */
@@ -264,5 +268,16 @@ test("typed words survive a move through the menu: they are written before the m
 	await p.settled();
 	await p.view.writes;
 	assert.ok(p.disk.text.includes("made-up words typed before using the menu"), "written before the move");
+	p.close();
+});
+
+test("a page of two parts with a page under it shows its cards only after its last part", async () => {
+	const p = pane(HARBOUR, { state: { version: 1, screen: "activity:harbour/tides", tab: "read", part: 0 } });
+	await p.settled();
+	assert.equal(p.pager().at, "1 of 2");
+	assert.deepEqual(p.cards(), [], "not under the first part");
+	await p.pageNext();
+	assert.equal(p.pager().at, "2 of 2");
+	assert.deepEqual(p.cards(), ["1.Neap tides"]);
 	p.close();
 });
