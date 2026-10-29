@@ -32,6 +32,18 @@
 	margin-top: var(--size-4-4);
 }
 
+/* a named page's title, at the head of its first part (page trees: ahead of the format) */
+.booklet-pagetitle p {
+	margin: 0;
+}
+
+.booklet-pagetitle {
+	font-size: var(--h3-size);
+	font-weight: var(--h3-weight);
+	color: var(--h3-color);
+	margin-bottom: var(--size-4-2);
+}
+
 .booklet-question {
 	margin: var(--size-4-5) 0;
 }

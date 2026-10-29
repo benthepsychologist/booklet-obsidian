@@ -85,7 +85,11 @@ export interface Words {
 	set: Record<string, string>;
 }
 
-/** `id words key:value` after the bar, as the renderer's calloutWords reads it. */
+/**
+ * `id words key:value` after the bar, as the renderer's calloutWords reads it. A page line is read by the pages round's rule (page trees,
+ * ahead of the format): a first word that holds `:` is a setting and the line has no written id, so `> [!page|parent:map] Title` keeps its
+ * parent. Every other kind reads its first word as the id, as 0.16 does.
+ */
 export function calloutWords(kind: string, s: string | undefined): Words {
 	const out: Words = { id: null, flags: new Set(), set: Object.create(null) as Record<string, string> };
 	const noId = NO_ID_KINDS.has(kind);
@@ -95,7 +99,7 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 		.filter(Boolean)
 		.forEach((w, n) => {
 			const kv = /^([A-Za-z][A-Za-z0-9-]*):(.*)$/.exec(w);
-			if (n === 0 && !noId) out.id = w;
+			if (n === 0 && !noId && !(kind === "page" && w.includes(":"))) out.id = w;
 			else if (kv && kv[1] !== undefined) out.set[kv[1].toLowerCase()] = kv[2] ?? "";
 			else out.flags.add(w.toLowerCase());
 		});
@@ -128,6 +132,7 @@ export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
 	law: [],
 	opinion: [],
 	tab: [],
+	page: ["icon:", "parent:"],
 	choice: ["open", "menu:", "each:", "earlier:"],
 	multi: ["open", "menu:", "each:", "earlier:"],
 	number: ["min:", "max:", "step:", "each:"],

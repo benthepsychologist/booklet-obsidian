@@ -6,7 +6,7 @@
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
-import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
+import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
 
 /* ---- places ---- */
@@ -65,11 +65,52 @@ export function placeFrom(state: unknown): Place | null {
 
 /* ---- the model ---- */
 
-/** One tab of an activity: its pages (the stretches between page breaks, empty ones left out). An activity with no tab line has one, unnamed. */
+/**
+ * One tab of an activity. An activity with no tab line has one, unnamed.
+ *
+ * `pages` is every part of the tab (a part is a stretch between page breaks, empty ones left out) in reading order, one after another:
+ * the 0.16 list, which a place's `part` counts in and the pager walks until the view moves through the tree (page trees, below). `tree`
+ * is the tab's named pages and its first page, depth first; `top` the ones at the top of the tree. A tab with no page line has a tree
+ * of one page, whose parts are exactly `pages`.
+ */
 export interface ActTab {
 	id: string;
 	title: string;
 	pages: Segment[][];
+	tree: TreePage[];
+	top: TreePage[];
+}
+
+/**
+ * A page of a tab's tree (page trees, ahead of the format: format 0.17, not yet in SPEC; design/pages/proposal.md). The words before a
+ * tab's first page line are the tab's first page, named by the tab (by the activity, in an activity with no tab line); with those
+ * empty the first named page is the first. A tab with no page line is one such page. `parts` are the stretches a `***` splits a page
+ * into: one empty part for a page with no words.
+ */
+export interface TreePage {
+	/** Unique among the tab's pages (a second of one id is numbered, `grid-2`); "" for a page no page line made: it has no id, so no page can name it as parent. */
+	id: string;
+	/** Does a page line start it? False for the words before a tab's first page line, and for the one page of a tab with no page line. */
+	named: boolean;
+	/** The title's words, a leading emoji taken out (it is the picture). The id for a page line with no words. */
+	title: string;
+	/** The title as written (inline Markdown), "" when the page line has none; the tab's or the activity's name for a page no page line made. */
+	written: string;
+	emoji: string | null;
+	/** `icon:` as written (a name in Booklet's set is drawn; the view checks). */
+	icon: string | null;
+	/** The first paragraph of the page's own words as plain words ("" if none): the `>` lines under the page line are its first prose. */
+	blurb: string;
+	/** `parent:` as written. */
+	parentId: string | null;
+	/** The page it sits under (a missing parent, a cycle: the top); null at the top. */
+	parent: TreePage | null;
+	children: TreePage[];
+	parts: Segment[][];
+	/** Where its first part is in the tab's `pages`. */
+	at: number;
+	/** The line of its page line (1-based); the tab's, or the activity's, for a page no page line made. */
+	line: number;
 }
 
 export interface NavAct {
@@ -139,6 +180,8 @@ export interface NavMod {
 export type NavCard = { kind: "module"; mod: NavMod; line: number } | { kind: "activity"; act: NavAct; line: number };
 
 export interface NavModel {
+	/** What could not be read in the pages' trees (a parent that is not in the tab, a cycle, a shared id), beside the reader's own problems. */
+	problems: string[];
 	title: string;
 	/** `start: home` in the front matter. */
 	startHome: boolean;
@@ -158,8 +201,8 @@ const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget", "matrix"
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
 const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
-/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
-export function tabIdOf(name: string, n: number): string {
+/** An id made from a name, as SPEC section 3 makes a tab's: accents dropped, lowercase, other runs one dash, at most 60 characters; a name that leaves nothing is `<prefix>-<n>`. */
+function idFromName(name: string, n: number, prefix: string): string {
 	const id = name
 		.normalize("NFD")
 		.replace(/[̀-ͯ]/g, "")
@@ -168,8 +211,14 @@ export function tabIdOf(name: string, n: number): string {
 		.replace(/^-+|-+$/g, "")
 		.slice(0, 60)
 		.replace(/-+$/g, "");
-	return id || `tab-${n}`;
+	return id || `${prefix}-${n}`;
 }
+
+/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
+export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
+
+/** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing (the pages round, 2.5). */
+export const pageIdOf = (title: string, n: number): string => idFromName(title, n, "page");
 
 /** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
 function uniqueIds(ids: string[]): string[] {
@@ -302,6 +351,98 @@ function readsOf(markdown: string): number {
 	return n;
 }
 
+/* ---- page trees (ahead of the format: format 0.17, not yet in SPEC; design/pages/proposal.md) ---- */
+
+/** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page (the pages round, 2.3). */
+function holdsWords(segs: readonly Segment[]): boolean {
+	return segs.some((s) => s.type !== "prose" || pagesOf([{ ...s, markdown: s.markdown.replace(/<!--[\s\S]*?-->/g, "") }]).some((pg) => pg.length));
+}
+
+/** The blurb of a page: the first paragraph of its words, when they begin with prose (as an activity's card reads its own). */
+function pageBlurb(parts: readonly Segment[][]): string {
+	const f = parts[0]?.[0];
+	return f && f.type === "prose" ? firstParagraph(f.markdown) : "";
+}
+
+/**
+ * The tree of one tab's pages (the pages round's shape (b)). The words before the first page line are the first page, named `first`;
+ * with none, the first named page is the first. Pages with no `parent:` stand side by side after it in the file's order; `parent:`
+ * names a page of the same tab by its id and puts the page under it. A parent that is not a page of the tab (another tab's, or none),
+ * a page that is its own ancestor and a page under itself stand at the top, said in `problems`; of two pages with one id the second is
+ * numbered and the first is the parent. The reading order is depth first (a page, its first child, that child's children, its next
+ * sibling), and `pages` of the result is every part of every page in that order.
+ */
+function treeOf(segs: readonly Segment[], first: { title: string; line: number }, problems: string[]): { tree: TreePage[]; top: TreePage[]; pages: Segment[][] } {
+	const mk = (o: Partial<TreePage> & Pick<TreePage, "id" | "named" | "written" | "parts" | "line">): TreePage => {
+		const t = splitEmoji(o.written);
+		return { title: t.title || o.id, emoji: t.emoji, icon: null, blurb: pageBlurb(o.parts), parentId: null, parent: null, children: [], at: 0, ...o };
+	};
+	const heads: { seg: PageHeading; segs: Segment[] }[] = [];
+	const before: Segment[] = [];
+	for (const s of segs) {
+		if (s.type === "page") heads.push({ seg: s, segs: [] });
+		else if (heads.length) (heads[heads.length - 1] as (typeof heads)[number]).segs.push(s);
+		else before.push(s);
+	}
+	// a tab with no page line is one page, its words: every 0.16 tab (the pages are only its parts)
+	if (!heads.length) {
+		const parts = pagesOf(segs);
+		const only = mk({ id: "", named: false, written: first.title, parts, line: first.line });
+		return { tree: [only], top: [only], pages: parts };
+	}
+	const list: TreePage[] = [];
+	if (holdsWords(before)) list.push(mk({ id: "", named: false, written: first.title, parts: pagesOf(before), line: first.line }));
+	const written = heads.map((h, n) => h.seg.id ?? pageIdOf(h.seg.title, n + 1));
+	const ids = uniqueIds(written);
+	heads.forEach((h, n) => {
+		const id = ids[n] as string;
+		if (id !== written[n]) problems.push(`Line ${h.seg.line}: the page id "${written[n]}" is used twice in this tab, so this page is "${id}" (a parent: of "${written[n]}" is the first page).`);
+		list.push(mk({ id, named: true, written: h.seg.title, parts: pagesOf(h.segs), line: h.seg.line, icon: h.seg.icon, parentId: h.seg.parent }));
+	});
+	const named = list.filter((p) => p.named);
+	const byId = new Map(named.map((p) => [p.id, p]));
+	const up = (x: TreePage): TreePage | null => {
+		const p = x.parentId ? byId.get(x.parentId) : undefined;
+		return p && p !== x ? p : null;
+	};
+	const loops = (x: TreePage): boolean => {
+		const seen = new Set<TreePage>();
+		for (let p = up(x); p; p = up(p)) {
+			if (p === x) return true;
+			if (seen.has(p)) return false;
+			seen.add(p);
+		}
+		return false;
+	};
+	for (const x of named) {
+		const p = loops(x) ? null : up(x);
+		if (x.parentId && !p) {
+			const why = x.parentId === x.id ? "is its own parent" : byId.has(x.parentId) ? `is its own ancestor (through "${x.parentId}")` : `names the parent "${x.parentId}", which is no page of this tab (a parent is a page of the same tab)`;
+			problems.push(`Line ${x.line}: the page "${x.id}" ${why}, so it stands at the top of the tab.`);
+		}
+		x.parent = p;
+		if (p) p.children.push(x);
+	}
+	const top = list.filter((p) => !p.parent);
+	const tree: TreePage[] = [];
+	const pages: Segment[][] = [];
+	const walk = (xs: TreePage[]) => {
+		for (const x of xs) {
+			tree.push(x);
+			x.at = pages.length;
+			pages.push(...x.parts);
+			walk(x.children);
+		}
+	};
+	walk(top);
+	return { tree, top, pages };
+}
+
+function tabOf(id: string, title: string, segs: readonly Segment[], first: { title: string; line: number }, problems: string[]): ActTab {
+	const t = treeOf(segs, first, problems);
+	return { id, title, pages: t.pages, tree: t.tree, top: t.top };
+}
+
 /* ---- reading a module's opening ---- */
 
 interface ModuleParts {
@@ -350,7 +491,8 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 					const kv = kvLine(stripQuote(l).trim());
 					if (kv && ["license", "copyright", "source", "version"].includes(kv[0].toLowerCase())) notice.push([kv[0].toLowerCase(), kv[1]]);
 				}
-			} else if (!NOT_IN_AN_OPENING.has(kind)) into.push(...lines.slice(i, k));
+			} else if (kind === "page") into.push(...lines.slice(i + 1, k).map(stripQuote)); // a page line outside every activity is not read; its `>` lines are text (the reader says so)
+			else if (!NOT_IN_AN_OPENING.has(kind)) into.push(...lines.slice(i, k));
 			i = k - 1;
 			continue;
 		}
@@ -384,6 +526,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	const lines = splitLines(text).map((l) => l.text);
 	const mods: NavMod[] = [];
 	const byKey = new Map<string, NavAct>();
+	const problems: string[] = [];
 	const bare: NavMod = { id: "", bare: true, title: "", written: "", emoji: null, icon: null, opening: "", blurb: "", tabs: [], notice: [], acts: [], top: [], order: [], line: -1 };
 
 	for (const m of book.modules) {
@@ -427,19 +570,20 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const w = calloutWords("activity", lm?.[2]);
 		const t = splitEmoji(a.title);
 		const opening: Segment[] = [];
-		const raw: { id: string | null; title: string; segs: Segment[] }[] = [];
+		const raw: { id: string | null; title: string; segs: Segment[]; line: number }[] = [];
 		for (const s of a.segments) {
 			if (s.type === "tab") {
 				const tm = CALLOUT_LINE.exec(lines[s.line - 1] ?? "");
-				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, segs: [] });
+				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, segs: [], line: s.line });
 			} else if (raw.length) (raw[raw.length - 1] as (typeof raw)[number]).segs.push(s);
-			else opening.push(s);
+			else if (s.type !== "page" || !a.segments.some((x) => x.type === "tab")) opening.push(s); // a page line in the opening above the tabs is not read (the reader says so)
 		}
 		const ids = uniqueIds(raw.map((r, n) => r.id ?? tabIdOf(r.title, n + 1)));
 		const tabs: ActTab[] = raw.length
-			? raw.map((r, n) => ({ id: ids[n] as string, title: r.title, pages: pagesOf(r.segs) }))
-			: [{ id: "", title: "", pages: pagesOf(opening) }];
-		const first = a.segments[0];
+			? raw.map((r, n) => tabOf(ids[n] as string, r.title, r.segs, { title: r.title, line: r.line }, problems))
+			: [tabOf("", "", opening, { title: t.title, line: a.line + 1 }, problems)];
+		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line (the pages round, 2.7)
+		const first = a.segments.find((s) => s.type !== "page");
 		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0);
 		const na: NavAct = {
 			act: a,
@@ -524,7 +668,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		else if (mod.acts[0]) cards.push({ kind: "activity", act: mod.acts[0], line: mod.line });
 	}
 	cards.sort((x, y) => x.line - y.line);
-	return { title: book.title, startHome: (book.frontMatter["start"] ?? "").trim() === "home", mods, byKey, cards };
+	return { problems, title: book.title, startHome: (book.frontMatter["start"] ?? "").trim() === "home", mods, byKey, cards };
 }
 
 /* ---- where a booklet opens, and what a saved place means ---- */
@@ -763,6 +907,9 @@ function inActivity(na: NavAct, is: (s: string) => boolean): Hit | null {
 		const tabId = bar.length ? t.id : null;
 		if (na.named && is(t.title)) return own(tabId, 0, null);
 		for (let p = 0; p < t.pages.length; p++) {
+			// a page's title is a place too: it opens the page on its first part
+			const pg = t.tree.find((x) => x.named && x.at === p);
+			if (pg && (is(pg.title) || is(pg.written))) return own(tabId, p, null);
 			const h = look(t.pages[p] ?? [], tabId, p, false);
 			if (h) return h;
 		}

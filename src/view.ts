@@ -720,19 +720,20 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 
-		if (book.problems.length) {
-			const n = book.problems.length;
+		// one screen at a time: the booklet's home, a module's screen, an activity's screen (design section 3)
+		const nav = buildNav(book, this.text);
+		this.nav = nav;
+		const problems = [...book.problems, ...nav.problems]; // the reader's, then the pages' trees'
+		if (problems.length) {
+			const n = problems.length;
 			const said = n === 1 ? "1 thing in this note could not be read" : `${n} things in this note could not be read`;
 			if (opened) new Notice(`Booklet: ${said}. They are listed at the top of the view.`);
 			const details = page.createEl("details", { cls: "booklet-problems" });
 			details.createEl("summary", { text: said });
 			const list = details.createEl("ul");
-			for (const p of book.problems) list.createEl("li", { text: p });
+			for (const p of problems) list.createEl("li", { text: p });
 		}
 
-		// one screen at a time: the booklet's home, a module's screen, an activity's screen (design section 3)
-		const nav = buildNav(book, this.text);
-		this.nav = nav;
 		const remembered = lastPlace.get(this.leaf);
 		const asked = this.wanted ?? this.place ?? (opened && remembered && this.file && remembered.path === this.file.path ? remembered.place : null);
 		this.wanted = null;
@@ -785,7 +786,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			for (const na of acts) {
 				const into = this.contentEl.createDiv();
 				into.remove();
-				const asked = (segs: readonly Segment[]) => segs.filter((x) => x.type !== "prose" && x.type !== "tab" && x.type !== "query" && x.type !== "unsupported");
+				const asked = (segs: readonly Segment[]) => segs.filter((x) => x.type !== "prose" && x.type !== "tab" && x.type !== "page" && x.type !== "query" && x.type !== "unsupported");
 				for (const segs of [na.opening, ...na.tabs.flatMap((t) => t.pages)]) this.drawSegs(into, na.act, asked(segs));
 			}
 			for (const k of want) this.ownFields.get(k)?.commit();
@@ -952,6 +953,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });
+		// a named page's title heads its first part (until the view moves through the tree, the pager walks the parts of every page in turn)
+		const named = tab.tree.find((x) => x.named && x.at === at);
+		if (named) this.md(inlineMd(named.written || named.title), body.createDiv({ cls: "booklet-pagetitle markdown-rendered" }));
 		this.drawSegs(body, a, pages[at] ?? []);
 		if (na.children.length) {
 			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
@@ -990,7 +994,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const t: Target = { scope: a.scope, activity: a };
 		for (const s of segs) {
 			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }));
-			else if (s.type === "tab") continue;
+			else if (s.type === "tab" || s.type === "page") continue;
 			else if (s.type === "query") this.drawQuery(into, s);
 			else if (s.type === "unsupported") {
 				const box = into.createDiv({ cls: "booklet-unsupported" });

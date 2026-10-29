@@ -11,6 +11,7 @@ import {
 	CALLOUT_LINE,
 	BLOCK_ID_LINE,
 	FENCE_OPEN,
+	ID_PATTERN,
 	bodyEnd,
 	calloutWords,
 	earlierValue,
@@ -151,6 +152,23 @@ export interface TabHeading {
 	line: number;
 }
 
+/**
+ * A named page (page trees, ahead of the format: format 0.17, not yet in SPEC): `> [!page|id parent:x icon:name] Title` starts a page of
+ * the tab it stands in, which runs to the next page, tab, activity or module line. The tree it makes is built by core/nav.ts.
+ */
+export interface PageHeading {
+	type: "page";
+	/** The id written after the bar and valid, else null (the page's id is then made from its title, by nav.ts). */
+	id: string | null;
+	/** The title as written: inline Markdown, "" when the line has none. */
+	title: string;
+	/** `parent:`, the id of the page it sits under in the same tab, as written; null when there is none. */
+	parent: string | null;
+	/** `icon:` as written (a name in Booklet's set is drawn; the view checks). */
+	icon: string | null;
+	line: number;
+}
+
 export interface Unsupported {
 	type: "unsupported";
 	/**
@@ -209,7 +227,7 @@ export interface QuerySegment {
 	source: QuerySource | null;
 }
 
-export type Segment = Question | Prose | TabHeading | Unsupported | QuerySegment;
+export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment;
 
 export interface Activity {
 	id: string;
@@ -332,7 +350,7 @@ const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "s
 /** Every kind the format defines (SPEC section 4's table). */
 const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
-	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
+	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "page", "choice", "multi", "number", "widget",
 ]);
 
 const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);
@@ -498,6 +516,21 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 }
 
 /**
+ * In an activity with tab lines, what comes before the first one is the activity's opening, drawn above every tab, so it cannot be a
+ * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in (page trees; the
+ * pages round, 2.6).
+ */
+function dropOpeningPages(act: Activity, problems: string[]): void {
+	const firstTab = act.segments.findIndex((s) => s.type === "tab");
+	if (firstTab <= 0) return;
+	act.segments = act.segments.filter((s, n) => {
+		if (n >= firstTab || s.type !== "page") return true;
+		problems.push(`Line ${s.line}: a page line in the opening that every tab shows, before the activity's first tab line, belongs to no tab, so it was ignored.`);
+		return false;
+	});
+}
+
+/**
  * Reads a booklet. Never throws on a file's content: what it cannot read goes into `problems`, and a
  * file it must refuse (no marker, a non-0.x marker, broken module fences, an id used twice in a
  * module) comes back with `ok: false` and the reason, still with whatever structure was found.
@@ -602,9 +635,13 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
+	/** A row has been opened (`> [!row]`) and not closed: a page line there belongs to no tab (SPEC section 6, "a row does not cross a page break, a tab line, an activity line or a module fence"). */
+	let inRow = false;
 	const endActivity = () => {
 		flush();
+		if (act) dropOpeningPages(act, problems);
 		act = null;
+		inRow = false;
 	};
 
 	for (let i = fm.bodyStart; i < lines.length; i++) {
@@ -717,15 +754,35 @@ export function parseBooklet(text: string): Booklet {
 			}
 			if (kind === "notice" || kind === "manifest" || kind === "row" || kind === "records") {
 				flush();
+				if (kind === "row") inRow = !w.flags.has("end");
 				if (kind === "notice") unshown.push({ kind: "notice", scope: mod ? mod.id : "", line: i + 1 });
 				i = bodyEnd(lines, i) - 1; // a row's two marker lines: its cells are drawn one under another
 				continue;
 			}
 			if (kind === "tab") {
 				flush();
+				inRow = false;
 				if (act) act.segments.push({ type: "tab", title: title || w.id || "Tab", line: i + 1 });
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a tab line's `>` lines are the tab's first prose
+				i = k - 1;
+				continue;
+			}
+			if (kind === "page") {
+				flush();
+				const where = at(i);
+				let id = w.id;
+				if (id && !ID_PATTERN.test(id)) {
+					problems.push(`${where}: the page id "${id}" is not letters, digits and dashes, so the page's id is made from its title.`);
+					id = null;
+				}
+				// a page is never folded: the marker means nothing on a page line (page trees; the pages round, 2.1)
+				if (m[3]) problems.push(`${where}: a page is never folded, so the \`${m[3]}\` after its bracket was ignored.`);
+				const k = bodyEnd(lines, i);
+				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
+				else if (inRow) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
+				else act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a page line's `>` lines are the page's first prose
 				i = k - 1;
 				continue;
 			}

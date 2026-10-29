@@ -131,6 +131,7 @@ export function corpusDirs() {
 		{ name: "booklet examples (BOOKLET_EXAMPLES)", dir: EXAMPLES, filter: (f) => f.endsWith(".booklet.md"), external: true },
 		{ name: "kit starters (BOOKLET_STARTERS)", dir: STARTERS, filter: (f) => f.endsWith(".md"), external: true },
 		{ name: "the test vault", dir: join(ROOT, "test-vault"), filter: (f) => f.endsWith(".booklet.md"), external: false },
+		{ name: "made-up page-tree notes (test/page-notes)", dir: join(ROOT, "test", "page-notes"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 	].map((d) => ({ ...d, present: existsSync(d.dir) }));
 }
 
