@@ -174,6 +174,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private focusTab = false;
 	/** A heading to scroll to once the screen is drawn (a heading link). */
 	private headingTo: string | null = null;
+	/** The words of a link from another note (`[[Note.booklet#Words]]`), handed over before the note was drawn. */
+	private subpath: string | null = null;
 	/** Pieces of Markdown in this drawing still being rendered, and which drawing they belong to. */
 	private rendering = 0;
 	private gen = 0;
@@ -298,11 +300,32 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	override setEphemeralState(state: unknown): void {
 		super.setEphemeralState(state);
-		const y = state && typeof state === "object" ? (state as Record<string, unknown>)["scroll"] : undefined;
+		const o = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
+		// A link from another note, `[[Note.booklet#Words]]`: Obsidian opens the note in the pane and hands the view the `#Words`
+		// part as `subpath` (Obsidian's code, not its API). A block link (`#^id`) does nothing here (design 4.6).
+		const sub = o["subpath"];
+		if (typeof sub === "string" && sub.startsWith("#") && !sub.startsWith("#^") && sub.length > 1) {
+			this.followSubpath(sub.slice(1));
+			return;
+		}
+		const y = o["scroll"];
 		if (typeof y !== "number") return;
 		// Back and Forward hand the scroll back: applied once the screen is drawn (a drawing that is finished already takes it at once)
 		if (this.rendering > 0 || !this.nav) this.scrollWanted = y;
 		else this.contentEl.scrollTop = y;
+	}
+
+	/**
+	 * A link from outside belongs to no module, so the whole file is searched and the first match in file order opens (design
+	 * decision 9, call c). Typed words are written first, as before every other move. A note not drawn yet takes the place when it is.
+	 */
+	private followSubpath(words: string): void {
+		if (!this.nav) {
+			this.subpath = words;
+			return;
+		}
+		const hit = findHeading(this.nav, words, null);
+		if (hit) this.followHeading(hit, false);
 	}
 
 	/** Takes `p` as the place on show: remembered for this pane, and the part of its tab remembered for as long as the pane is open. */
@@ -369,13 +392,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/** A heading link's place, opened as the reader's press asks: in this pane (a step if it moves), or in a new one (Ctrl or Cmd). */
-	private followHeading(hit: { place: Place; heading: string | null; keepTab: boolean }, pane: ReturnType<typeof Keymap.isModEvent>): void {
+	/** The place a heading hit opens: a heading in the opening of an activity with tabs is drawn above every tab, so the tab and part on show stay. */
+	private keepTabFor(hit: { place: Place; keepTab: boolean }, now: Place | null): Place {
 		const place = { ...hit.place };
-		// a heading in the opening of an activity with tabs is drawn above every tab: the tab and part on show stay
-		if (hit.keepTab && this.place && this.place.screen === place.screen) {
-			place.tab = this.place.tab;
-			place.part = this.place.part;
+		if (hit.keepTab && now && now.screen === place.screen) {
+			place.tab = now.tab;
+			place.part = now.part;
 		}
+		return place;
+	}
+
+	/** A heading link's place, opened as the reader's press asks: in this pane (a step if it moves), or in a new one (Ctrl or Cmd). */
+	private followHeading(hit: { place: Place; heading: string | null; keepTab: boolean }, pane: ReturnType<typeof Keymap.isModEvent>): void {
+		const place = this.keepTabFor(hit, this.place);
 		if (pane && this.file && this.nav) {
 			void this.app.workspace.getLeaf(pane).setViewState({ type: VIEW_TYPE, state: { file: this.file.path, ...placeState(resolvePlace(this.nav, place)) }, active: true });
 			return;
@@ -695,7 +724,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const remembered = lastPlace.get(this.leaf);
 		const asked = this.wanted ?? this.place ?? (opened && remembered && this.file && remembered.path === this.file.path ? remembered.place : null);
 		this.wanted = null;
-		const place = resolvePlace(nav, asked);
+		let place = resolvePlace(nav, asked);
+		const outside = this.subpath !== null ? findHeading(nav, this.subpath, null) : null;
+		this.subpath = null;
+		if (outside) {
+			place = resolvePlace(nav, this.keepTabFor(outside, place));
+			this.headingTo = outside.heading;
+		}
 		this.setPlace(place);
 		const shown = this.drawnPlace;
 		this.drawnPlace = place;
@@ -904,10 +939,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (single) drawNotice(page, m.notice);
 	}
 
-	/** Is the activity's finish (Finalize, its notes and its kept entries) drawn under the tab on show? */
-	private showsFinish(_na: NavAct, _tab: ActTab): boolean {
-		// stage B (design decision 8, call H): only where the tab on show holds a question. For now, under every page as 0.5.0 drew it.
-		return true;
+	/**
+	 * Is the activity's finish (Finalize, its notes and its kept entries) drawn under the page on show? Only where the tab on show
+	 * holds a question of the activity, or the opening above every tab does (design decision 8, call H): a reading tab, or a
+	 * tab of queries, has nothing to finalize. Applies to 0.16 files too.
+	 */
+	private showsFinish(na: NavAct, tab: ActTab): boolean {
+		const asks = (s: Segment) => s.type === "question" || (s.type === "unsupported" && (COMMON_KINDS as readonly string[]).includes(s.kind));
+		return na.opening.some(asks) || tab.pages.some((pg) => pg.some(asks));
 	}
 
 	private drawSegs(into: HTMLElement, a: Activity, segs: readonly Segment[]): void {
