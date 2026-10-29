@@ -25,11 +25,12 @@ function open(text = NOTE) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {}, on() {} },
+		workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
 	view.load();
+	void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
 	view.setViewData(text, true);
 	const card = () => view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 	const widget = (n) => card().querySelectorAll(".booklet-kind-widget")[n];
@@ -196,11 +197,15 @@ test("a shared list's options are drawn, and its answer is a position in the men
 	button(v.menu(), "At home").click();
 	await v.settled();
 	assert.deepEqual(v.draft().where, [3, 1]);
-	const text = v.view.contentEl.textContent;
+	// the openings are on the screens of their own: the booklet's on home, the module's on its screen
+	await v.view.setState({ version: 1, screen: "home" }, {});
+	let text = v.view.contentEl.textContent;
 	assert.ok(text.includes("A made-up check-in for testing the Booklet plugin."), "the booklet's opening");
-	assert.ok(text.includes("Five short questions about the day"), "the module's opening");
 	assert.ok(!text.includes("# Check-in"), "the heading that repeats the title is drawn once, as the title");
-	assert.equal(v.view.contentEl.querySelector(".booklet-booklet-title").textContent, "Check-in");
+	assert.equal(v.view.contentEl.querySelector(".booklet-screentitle").textContent, "Check-in");
+	await v.view.setState({ version: 1, screen: "module:day-check" }, {});
+	text = v.view.contentEl.textContent;
+	assert.ok(text.includes("Five short questions about the day"), "the module's opening");
 	assert.ok(!/Not yet supported: the opening/.test(text));
 	v.close();
 });
@@ -247,6 +252,7 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = file;
 	view.load();
+	void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
 	view.setViewData(NOTE, true);
 	const grid = () => view.contentEl.querySelectorAll('[data-booklet-activity="day-check/today"] .booklet-kind-widget')[1];
 	const cellOf = (id) => grid().querySelector(`[data-booklet-cell="${id}"]`);

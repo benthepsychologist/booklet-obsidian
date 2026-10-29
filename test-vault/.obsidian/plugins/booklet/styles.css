@@ -897,3 +897,274 @@
 .is-phone .booklet-q-table td {
 	padding: var(--size-2-2) var(--size-2-3);
 }
+
+/* ---- screens and moves (0.6.0): home, a module, an activity, one screen at a time ---- */
+
+/* the trail: from the booklet down, each step above the screen a link */
+.booklet-trail {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-1) var(--size-4-2);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	margin-bottom: var(--size-4-4);
+}
+
+.booklet-trail p {
+	margin: 0;
+}
+
+.booklet-trail-link {
+	color: var(--text-muted);
+	text-decoration: none;
+}
+
+.booklet-trail-link:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
+.booklet-trail-sep {
+	color: var(--text-faint);
+}
+
+.booklet-trail-here {
+	color: var(--text-normal);
+}
+
+/* a screen's head: a picture beside the title, the title at the size of Obsidian's own note title */
+.booklet-screenhead {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-bottom: var(--size-4-3);
+}
+
+.booklet-screentitle {
+	font-size: var(--inline-title-size, var(--h1-size));
+	font-weight: var(--inline-title-weight, var(--h1-weight));
+	color: var(--inline-title-color, var(--h1-color));
+	line-height: var(--line-height-tight);
+	margin: 0;
+}
+
+.booklet-screentitle p {
+	margin: 0;
+}
+
+.booklet-screenhead .booklet-card-title {
+	margin-bottom: 0;
+}
+
+/* an opening: its first paragraph larger, the rest at the body size */
+.booklet-opening > p:first-child {
+	font-size: calc(var(--font-text-size, 16px) * 1.15);
+	color: var(--text-normal);
+}
+
+.booklet-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin: 0 0 var(--size-4-3);
+}
+
+/* an activity's screen is the page itself: no frame around it */
+.booklet-card.booklet-act {
+	background: none;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	margin-bottom: var(--size-4-4);
+}
+
+/* a picture: a tile of Obsidian's own icon or an emoji */
+.booklet-pic {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-8);
+	height: var(--size-4-8);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+.booklet-pic svg {
+	width: var(--icon-l, 20px);
+	height: var(--icon-l, 20px);
+}
+
+.booklet-pic-emoji {
+	font-size: var(--font-ui-large);
+	line-height: 1;
+}
+
+.booklet-pic-big {
+	width: var(--size-4-12);
+	height: var(--size-4-12);
+}
+
+.booklet-pic-big svg {
+	width: var(--icon-xl, 24px);
+	height: var(--icon-xl, 24px);
+}
+
+.booklet-pic-big.booklet-pic-emoji {
+	font-size: var(--font-ui-larger, 24px);
+}
+
+.booklet-pic-none {
+	background: none;
+}
+
+/* the cards: one row each, the number before the title, the whole row a link */
+.booklet-cards {
+	list-style: none;
+	margin: var(--size-4-3) 0 var(--size-4-4);
+	padding: 0;
+}
+
+.booklet-cards > li {
+	margin: 0 0 var(--size-4-2);
+	padding: 0;
+}
+
+.booklet-cardrow {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-4-3) var(--size-4-4);
+	background-color: var(--background-primary-alt);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	cursor: pointer;
+}
+
+.booklet-cardrow:hover {
+	border-color: var(--background-modifier-border-hover);
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-cardrow:focus-visible {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	outline: none;
+}
+
+.booklet-cardtext {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-cardtitle {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.booklet-cardtitle p {
+	margin: 0;
+}
+
+.booklet-num {
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-blurb {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-top: var(--size-2-1);
+}
+
+.booklet-status {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	margin-top: var(--size-2-1);
+}
+
+.booklet-status p {
+	margin: 0;
+}
+
+.booklet-chevron {
+	flex: 0 0 auto;
+	color: var(--text-faint);
+	display: flex;
+}
+
+/* the tab bar: Obsidian's buttons, wrapping onto another row when they do not fit */
+.booklet-tabbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin: var(--size-4-3) 0 var(--size-4-4);
+}
+
+.booklet-tabbtn p {
+	margin: 0;
+}
+
+/* the pager: after the page, not pinned */
+.booklet-pager {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--size-4-3);
+	margin: var(--size-4-6) 0 var(--size-4-4);
+}
+
+.booklet-pager button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-pager button p {
+	margin: 0;
+}
+
+.booklet-pager-at {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-pager-gap {
+	flex: 1 1 0;
+}
+
+.booklet-pager-icon {
+	display: inline-flex;
+}
+
+/* a module's terms: quiet, closed until opened */
+.booklet-notice {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin: var(--size-4-6) 0 var(--size-4-4);
+}
+
+.booklet-notice summary {
+	cursor: pointer;
+}
+
+.booklet-notice dt {
+	font-weight: var(--font-semibold);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-notice dd {
+	margin: 0;
+}
+
+/* a link to a module this booklet does not hold: its words, and why it leads nowhere */
+.booklet-module-chip {
+	color: var(--text-muted);
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: 0 var(--size-2-3);
+}

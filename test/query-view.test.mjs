@@ -16,7 +16,8 @@ const { BookletView } = await import("./.build/view.mjs");
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function open(text, path = "Note.booklet.md") {
+/** The screen a note's queries are drawn on: the check-in's roll-up is its own activity, "This week"; the views notes' queries are in "Show". */
+function open(text, path = "Note.booklet.md", screen = /\[!activity\|show\]/.test(text) ? "activity:/show" : "activity:day-check/week") {
 	const disk = { text, writes: 0 };
 	const opened = [];
 	const app = {
@@ -27,11 +28,14 @@ function open(text, path = "Note.booklet.md") {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async (to) => opened.push(to) },
+		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async (to) => opened.push(to), requestSaveLayout() {} },
 	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
+	// the pane: a move through it comes back as the view's own setState, as Obsidian does it
+	const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
+	const view = new BookletView(leaf, { setMode: async () => {} });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
+	void view.setState({ version: 1, screen }, {});
 	view.setViewData(text, true);
 	return {
 		view,
@@ -96,19 +100,28 @@ test("the check-in's roll-up is drawn from made-up entries: a table of the feeli
 	}
 });
 
-test("a kept entry finalized in the view shows in the roll-up at once, without drawing the page again", async () => {
+test("a kept entry finalized in the view shows in the roll-up when the reader moves on to it", async () => {
 	mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
 	try {
-		const v = open(CHECKIN, "Check-in.booklet.md");
+		const v = open(CHECKIN, "Check-in.booklet.md", "activity:day-check/today");
+		const show = async (key) => {
+			v.view.go({ screen: `activity:day-check/${key}`, tab: null, part: 0 });
+			await v.settled();
+		};
+		await show("week");
 		const [sum] = v.queries();
 		assert.equal(sum.querySelector(".booklet-q-empty").textContent, "Nothing kept here yet.");
+		await show("today");
 		const card = v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 		const grid = card.querySelectorAll(".booklet-kind-widget")[1];
 		[...grid.querySelectorAll("button")].find((b) => b.textContent.trim() === "Tense").click();
 		await v.settled();
+		await show("week");
 		assert.ok(v.queries()[0].querySelector(".booklet-q-empty"), "a draft is never read");
-		card.querySelector(".booklet-finalize").click();
+		await show("today");
+		v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"] .booklet-finalize').click();
 		await v.settled();
+		await show("week");
 		const first = v.queries()[0].querySelector("tbody tr");
 		assert.deepEqual([...first.querySelectorAll("td")].map((x) => x.textContent).slice(0, 3), ["How do you feel?", "1", "Tense"]);
 		v.close();

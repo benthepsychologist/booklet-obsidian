@@ -265,11 +265,12 @@ function open(text = CHECKIN) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {}, on() {} },
+		workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
 	view.load();
+	void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
 	view.setViewData(text, true);
 	const card = () => view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
@@ -561,19 +562,23 @@ test("each in the view: an answer of the wrong shape is kept as written, the que
 	v.close();
 });
 
-test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", () => {
+test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", async () => {
 	const disk = { text: NOTE };
-	const app = { vault: { process: async (_f, fn) => (disk.text = fn(disk.text)) }, workspace: { iterateAllLeaves() {}, on() {} } };
+	const app = { vault: { process: async (_f, fn) => (disk.text = fn(disk.text)) }, workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} } };
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Each.booklet.md", basename: "Each.booklet" };
 	view.load();
+	void view.setState({ version: 1, screen: "activity:/log" }, {});
 	view.setViewData(NOTE, true);
 	const un = view.contentEl.querySelector('[data-booklet-unsupported="each"]');
 	assert.ok(un, "drawn as not yet supported");
 	assert.match(un.textContent, /Not yet supported: a text question asked for each pick \(each:\)\. Its answers are kept\./);
 	const problems = [...view.contentEl.querySelectorAll(".booklet-problems li")].map((x) => x.textContent).join("\n");
 	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.match(problems, new RegExp(`"${id}" is to be asked for each pick`));
-	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
+	for (const id of ["lost", "self", "kind", "chain"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
+	// "far" is in the other activity: its own screen
+	await view.setState({ version: 1, screen: "activity:/other" }, {});
+	assert.ok(view.contentEl.querySelector('[data-booklet-q="far"].booklet-kind-multi:not(.booklet-each)'), "far is drawn as a plain multi");
 	view.unload();
 	view.containerEl.remove();
 });

@@ -188,7 +188,7 @@ test("a kept entry says an answer of the wrong shape is kept as written, and sho
 
 /* ---- in the view ---- */
 
-function open(text) {
+function open(text, screen = "/log") {
 	const disk = { text };
 	const app = {
 		vault: {
@@ -197,11 +197,12 @@ function open(text) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {}, on() {} },
+		workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Shapes.booklet.md", basename: "Shapes.booklet" };
 	view.load();
+	void view.setState({ version: 1, screen: `activity:${screen}` }, {});
 	view.setViewData(text, true);
 	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	return {
@@ -212,6 +213,8 @@ function open(text) {
 			disk.text = edit(disk.text);
 			view.setViewData(disk.text, false);
 		},
+		/** Shows another activity's screen. */
+		on: (key) => view.setState({ version: 1, screen: `activity:${key}` }, {}),
 		settled: async (ms = 0) => {
 			await sleep(ms + 30);
 			await view.writes;
@@ -232,8 +235,9 @@ const typeInto = (el, value) => {
 test("the view: every question holding an answer of the wrong shape is drawn read-only with a notice; opening, answering another question and Finalize leave every one as written", async () => {
 	for (let n = 0; n < 7; n++) {
 		const text = noteWithWrong(n);
-		const v = open(text);
-		for (const p of ["o-", "r-"])
+		const v = open(text, "/once");
+		for (const p of ["o-", "r-"]) {
+			await v.on(p === "o-" ? "/once" : "/log");
 			for (const kind of Object.keys(WRONG)) {
 				const box = v.q(`${p}${kind}`);
 				assert.ok(box, `${p}${kind} is drawn`);
@@ -247,11 +251,14 @@ test("the view: every question holding an answer of the wrong shape is drawn rea
 				for (const c of cs) if (c.tagName === "BUTTON") c.click();
 				assert.ok(!box.querySelector('[aria-pressed="true"]'), `${p}${kind}: nothing is shown pressed`);
 			}
+		}
+		await v.on("/once");
 		assert.ok(v.q("o-fine").querySelector(".booklet-kept-note").classList.contains("booklet-none"), "a question answered as it should be has no notice");
 		await v.settled();
 		assert.equal(v.disk.text, text, "opening and pressing wrote nothing");
 		// another question answered, in both activities
 		for (const id of ["o-fine", "r-fine"]) {
+			await v.on(id === "o-fine" ? "/once" : "/log");
 			const f = v.q(id).querySelector("input");
 			f.focus();
 			typeInto(f, "an answer");
@@ -276,7 +283,7 @@ test("the view: every question holding an answer of the wrong shape is drawn rea
 });
 
 test("the view: an answer that comes to be of the wrong shape from elsewhere switches its question off at once; one that stops being so is drawn again, answerable", async () => {
-	const v = open(DESIGN);
+	const v = open(DESIGN, "/once");
 	const box0 = v.q("o-scale");
 	const anchors = () => controls(v.q("o-scale")).filter((c) => c.tagName === "BUTTON");
 	anchors()[1].click();
@@ -299,7 +306,7 @@ test("the view: an answer that comes to be of the wrong shape from elsewhere swi
 });
 
 test("the view: typing in a field whose answer becomes of the wrong shape meanwhile is not written over it; the reader is told", async () => {
-	const v = open(DESIGN);
+	const v = open(DESIGN, "/once");
 	const f = v.q("o-text").querySelector("input");
 	f.focus();
 	typeInto(f, "half typed");

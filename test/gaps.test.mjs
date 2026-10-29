@@ -34,7 +34,7 @@ function appWith(text) {
 			},
 			getName: () => "Made-up vault",
 		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {} },
+		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {} },
 		loadLocalStorage: (k) => (store.has(k) ? JSON.parse(store.get(k)) : null),
 		saveLocalStorage: (k, d) => (d === null ? store.delete(k) : store.set(k, JSON.stringify(d))),
 	};
@@ -45,6 +45,7 @@ function openOn(env, path) {
 	const view = new BookletView({ app: env.app }, { setMode: async () => {} });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
+	if (path.startsWith("Check-in")) void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
 	view.setViewData(env.disk.text, true);
 	return {
 		view,

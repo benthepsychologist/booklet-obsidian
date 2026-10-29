@@ -354,11 +354,12 @@ function open(text) {
 				return disk.text;
 			},
 		},
-		workspace: { iterateAllLeaves() {}, on() {} },
+		workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} },
 	};
 	const view = new BookletView({ app }, { setMode: async () => {} });
 	view.file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
 	view.load();
+	void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
 	view.setViewData(text, true);
 	const q = (id) => view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	const places = () => q("places");
