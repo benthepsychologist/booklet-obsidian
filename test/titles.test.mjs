@@ -7,7 +7,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
-import { pane, sleepFor } from "./pane.mjs";
+import { pane } from "./pane.mjs";
 
 const BOOK = `---\nbooklet: "0.16"\ntitle: "2026. Mood log"\n---\n\n> [!activity|a1] 1. First step\n\nHello.\n\n> [!activity|a2] # Second\n\nMore.\n`;
 
@@ -42,7 +42,7 @@ test("titles that start like a list or a heading are drawn as words on home, in 
 	globalThis.__bookletStubRender = render;
 	try {
 		const p = pane(BOOK);
-		await sleepFor(p);
+		await p.settled();
 		assert.equal(p.screen, "home");
 		assert.equal(p.title(), "2026. Mood log");
 		assert.deepEqual(p.cards(), ["1.1. First step", "2.# Second"]);

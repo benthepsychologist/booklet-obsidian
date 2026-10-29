@@ -12,7 +12,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, core, norm } from "./helpers.mjs";
 
-const { BookletView } = await import("./.build/view.mjs");
 const { Notice } = await import("./obsidian-stub.mjs");
 
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
@@ -530,13 +529,8 @@ test("each in the view: an answer of the wrong shape is kept as written, the que
 });
 
 test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", async () => {
-	const disk = { text: NOTE };
-	const app = { vault: { process: async (_f, fn) => (disk.text = fn(disk.text)) }, workspace: { iterateAllLeaves() {}, on() {}, requestSaveLayout() {} } };
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Each.booklet.md", basename: "Each.booklet" };
-	view.load();
-	void view.setState({ version: 1, screen: "activity:/log" }, {});
-	view.setViewData(NOTE, true);
+	const v = openView(NOTE, { path: "Each.booklet.md", screen: "activity:/log" });
+	const view = v.view;
 	const un = view.contentEl.querySelector('[data-booklet-unsupported="each"]');
 	assert.ok(un, "drawn as not yet supported");
 	assert.match(un.textContent, /Not yet supported: a text question asked for each pick \(each:\)\. Its answers are kept\./);
@@ -546,6 +540,5 @@ test("each in the view: a question of another kind asked for each pick is not ye
 	// "far" is in the other activity: its own screen
 	await view.setState({ version: 1, screen: "activity:/other" }, {});
 	assert.ok(view.contentEl.querySelector('[data-booklet-q="far"].booklet-kind-multi:not(.booklet-each)'), "far is drawn as a plain multi");
-	view.unload();
-	view.containerEl.remove();
+	v.close();
 });

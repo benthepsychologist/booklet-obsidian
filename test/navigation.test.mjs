@@ -7,22 +7,14 @@
 import { window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
-
-import { BookletView, pane, sleep, sleepFor } from "./pane.mjs";
-
-const SAMPLE = readFileSync(join(ROOT, "test-vault", "Learning to sketch.booklet.md"), "utf8");
-const sha = (s) => createHash("sha256").update(s).digest("hex");
-
+import { SKETCH, core, norm, sha } from "./helpers.mjs";
+import { BookletView, pane, sleep } from "./pane.mjs";
 
 /* ---- the three screens ---- */
 
 test("home: one card for each module and each bare activity, in rows numbered by reading order, with no trail", async () => {
-	const p = pane(SAMPLE);
-	await sleepFor(p);
+	const p = pane(SKETCH);
+	await p.settled();
 	assert.equal(p.screen, "home");
 	assert.equal(p.title(), "Learning to sketch");
 	assert.deepEqual(p.cards(), ["1.Warm up", "2.The basics", "3.A sketch a day"]);
@@ -37,8 +29,8 @@ test("home: one card for each module and each bare activity, in rows numbered by
 });
 
 test("a module's screen: its opening, its tab bar, the activities of the chosen tab as cards numbered by place in the module; the notice is a closed disclosure", async () => {
-	const p = pane(SAMPLE, { screen: "module:basics" });
-	await sleepFor(p);
+	const p = pane(SKETCH, { screen: "module:basics" });
+	await p.settled();
 	assert.equal(p.title(), "The basics");
 	assert.deepEqual(p.trail(), ["Learning to sketch", "The basics"]);
 	assert.deepEqual(p.tabs(), ["Practice", "Read first"]);
@@ -57,8 +49,8 @@ test("a module's screen: its opening, its tab bar, the activities of the chosen 
 });
 
 test("an activity's screen: trail down to it, tab bar, one page at a time, and a pager at the foot with the counter", async () => {
-	const p = pane(SAMPLE, { screen: "activity:basics/lines" });
-	await sleepFor(p);
+	const p = pane(SKETCH, { screen: "activity:basics/lines" });
+	await p.settled();
 	assert.equal(p.title(), "Lines that hold");
 	assert.deepEqual(p.trail(), ["Learning to sketch", "The basics", "Lines that hold"]);
 	assert.deepEqual(p.pager(), { at: "Page 1 of 3", buttons: ["Back to the overview", "Next"] });
@@ -75,7 +67,7 @@ test("an activity's screen: trail down to it, tab bar, one page at a time, and a
 test("a booklet that offers one activity opens into it; a bare activity's pager labels the next one with no number", async () => {
 	const text = `---\nbooklet: "0.16"\ntitle: Three notes\n---\n\n> [!activity|first] First\n\nOne.\n\n> [!activity|second] Second\n\nTwo.\n\n> [!activity|third hidden] Hidden\n\nNot offered.\n`;
 	const p = pane(text);
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(p.screen, "home", "two offered activities: home");
 	await p.card("1.First");
 	assert.equal(p.screen, "activity:/first");
@@ -83,7 +75,7 @@ test("a booklet that offers one activity opens into it; a bare activity's pager 
 	assert.deepEqual(p.pager().buttons, ["Back to the overview", "Next: Second"]);
 	p.close();
 	const one = pane(`---\nbooklet: "0.16"\ntitle: One note\n---\n\n> [!activity|only] Only\n\nHi.\n`);
-	await sleepFor(one);
+	await one.settled();
 	assert.equal(one.screen, "activity:/only");
 	assert.deepEqual(one.pager().buttons, ["Back to the overview"]);
 	one.close();
@@ -92,8 +84,8 @@ test("a booklet that offers one activity opens into it; a bare activity's pager 
 /* ---- the moves, and which of them are steps ---- */
 
 test("every move, and whether it is a step: into a module, into an activity, a tab, a page, up, out from page 1, next activity", async () => {
-	const p = pane(SAMPLE);
-	await sleepFor(p);
+	const p = pane(SKETCH);
+	await p.settled();
 	const steps = () => p.hist.back.length;
 	assert.equal(steps(), 0);
 
@@ -120,6 +112,7 @@ test("every move, and whether it is a step: into a module, into an activity, a t
 	assert.equal(steps(), 4);
 	assert.deepEqual(p.trail(), ["Learning to sketch", "The basics", "Where the light falls"]);
 	assert.deepEqual(p.pager().buttons, ["Back to the overview", "Next: 4. Cast shadows"]);
+	assert.equal(p.pager().at, "", "a one-page activity counts nothing, and its Back is out");
 
 	await p.pageNext(); // into the child: a step; the trail names the ancestor
 	assert.equal(p.screen, "activity:basics/shadow");
@@ -144,8 +137,8 @@ test("every move, and whether it is a step: into a module, into an activity, a t
 });
 
 test("Back and Forward take the pane through the same places, and leave the tab chosen and the page where they were", async () => {
-	const p = pane(SAMPLE);
-	await sleepFor(p);
+	const p = pane(SKETCH);
+	await p.settled();
 	await p.card("2.The basics");
 	await p.card("2.Boxes and cylinders");
 	await p.tab("Cylinders");
@@ -168,7 +161,7 @@ test("Back and Forward take the pane through the same places, and leave the tab 
 test("each tab keeps the page last seen while the pane is open", async () => {
 	const text = `---\nbooklet: "0.16"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
 	const p = pane(text);
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(p.screen, "activity:/a");
 	await p.pageNext();
 	await p.pageNext();
@@ -208,19 +201,11 @@ test("a tab chosen while a page is turning ends on that tab; a double press on N
 	p.close();
 });
 
-test("a booklet's pager counts nothing on a one-page activity, and its Back is out", async () => {
-	const p = pane(SAMPLE, { screen: "activity:basics/light" });
-	await sleepFor(p);
-	assert.equal(p.pager().at, "");
-	assert.deepEqual(p.pager().buttons, ["Back to the overview", "Next: 4. Cast shadows"]);
-	p.close();
-});
-
 /* ---- parent: drawn plainly ---- */
 
 test("parent: the child is a card under its parent, the trail names the ancestors, and the pager's left button leads up", async () => {
-	const p = pane(SAMPLE, { screen: "activity:basics/light" });
-	await sleepFor(p);
+	const p = pane(SKETCH, { screen: "activity:basics/light" });
+	await p.settled();
 	assert.equal(p.el.querySelector(".booklet-meta + .booklet-cards, .booklet-meta")?.textContent.includes("Under this one"), true);
 	assert.deepEqual(p.cards(), ["4.Cast shadows", "5.Reflected light"]);
 	await p.card("4.Cast shadows");
@@ -234,8 +219,8 @@ test("parent: the child is a card under its parent, the trail names the ancestor
 /* ---- the saved place ---- */
 
 test("the view's state is { version, screen, tab, part } beside the file, and a pane restored from it opens in the same place", async () => {
-	const p = pane(SAMPLE);
-	await sleepFor(p);
+	const p = pane(SKETCH);
+	await p.settled();
 	await p.card("2.The basics");
 	await p.card("2.Boxes and cylinders");
 	await p.tab("Cylinders");
@@ -243,27 +228,27 @@ test("the view's state is { version, screen, tab, part } beside the file, and a 
 	assert.deepEqual(saved, { file: "Note.booklet.md", version: 1, screen: "activity:basics/shapes", tab: "cylinders", part: 0 });
 	p.close();
 
-	const q = pane(SAMPLE, { state: saved });
-	await sleepFor(q);
+	const q = pane(SKETCH, { state: saved });
+	await q.settled();
 	assert.equal(q.screen, "activity:basics/shapes");
 	assert.equal(q.tabOn(), "Cylinders");
 	assert.deepEqual(norm(q.view.getState()), saved);
 	q.close();
 
 	// a state from another version of the plugin, or one naming an activity the note no longer has, opens where the note opens
-	const odd = pane(SAMPLE, { state: { file: "Note.booklet.md", version: 9, screen: "activity:basics/shapes", part: 1 } });
-	await sleepFor(odd);
+	const odd = pane(SKETCH, { state: { file: "Note.booklet.md", version: 9, screen: "activity:basics/shapes", part: 1 } });
+	await odd.settled();
 	assert.equal(odd.screen, "home");
 	odd.close();
-	const gone = pane(SAMPLE, { state: { file: "Note.booklet.md", version: 1, screen: "activity:basics/vanished", part: 0 } });
-	await sleepFor(gone);
+	const gone = pane(SKETCH, { state: { file: "Note.booklet.md", version: 1, screen: "activity:basics/vanished", part: 0 } });
+	await gone.settled();
 	assert.equal(gone.screen, "home");
 	gone.close();
 });
 
 test("the place is kept when a pane toggles to Markdown and back: the leaf remembers it in memory only", async () => {
-	const p = pane(SAMPLE, { screen: "activity:basics/lines" });
-	await sleepFor(p);
+	const p = pane(SKETCH, { screen: "activity:basics/lines" });
+	await p.settled();
 	await p.pageNext();
 	const leaf = p.leaf;
 	p.view.unload();
@@ -271,7 +256,7 @@ test("the place is kept when a pane toggles to Markdown and back: the leaf remem
 	const view2 = new BookletView(leaf, { setMode: async () => {} });
 	view2.file = { path: "Note.booklet.md", basename: "Note.booklet" };
 	view2.load();
-	view2.setViewData(SAMPLE, true);
+	view2.setViewData(SKETCH, true);
 	await sleep(15);
 	assert.equal(view2.contentEl.querySelector(".booklet-page").getAttribute("data-booklet-screen"), "activity:basics/lines");
 	assert.match(view2.contentEl.querySelector(".booklet-pager-at").textContent, /Page 2 of 3/);
@@ -282,7 +267,7 @@ test("the place is kept when a pane toggles to Markdown and back: the leaf remem
 
 test("no move writes anything into a note: three made-up notes are byte-for-byte the same after every move", async () => {
 	const notes = {
-		sampler: SAMPLE,
+		sampler: SKETCH,
 		tabbed: `---\nbooklet: "0.16"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n\n> [!tab] Two\n\nTwo p1\n\n> [!activity|b parent:a] B\n\nUnder A.\n`,
 		kept: (() => {
 			let t = `---\nbooklet: "0.16"\ntitle: A daily note\n---\n\n> [!module|d] Day\n\n> [!activity|today repeat daily] Today\n\n> [!text|what] What happened?\n\n> [!activity|other] Other\n\nWords.\n\n> [!module|d end] E\n`;
@@ -292,7 +277,7 @@ test("no move writes anything into a note: three made-up notes are byte-for-byte
 	};
 	for (const [name, text] of Object.entries(notes)) {
 		const p = pane(text);
-		await sleepFor(p);
+		await p.settled();
 		const before = sha(p.disk.text);
 		// a run of every move the screen offers, for as long as there is a card, tab, page or link to press
 		const seen = new Set();
@@ -337,7 +322,7 @@ test("a heading link opens the place its words name, as a step; a dead one is pl
 	try {
 		const text = `---\nbooklet: "0.16"\ntitle: Links\n---\n\n> [!module|one] One\n\n> [!activity|a] Alpha\n\nSee [[#Beta]] and [[#Nowhere at all]] and [[two.booklet]] and [[three.booklet|the third]].\n\n> [!activity|b] Beta\n\nBeta words.\n\n> [!module|one end] E\n\n> [!module|two] Two\n\n> [!activity|c] Gamma\n\nGamma words.\n\n> [!activity|d] Delta\n\nMore.\n\n> [!module|two end] E\n`;
 		const p = pane(text, { screen: "activity:one/a" });
-		await sleepFor(p);
+		await p.settled();
 		const links = p.all(".booklet-pagebody a");
 		const kinds = links.map((a) => a.getAttribute("data-href"));
 		assert.deepEqual(kinds, ["#Beta", "two.booklet"], "the dead heading link is plain words");

@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { typeInto } from "./dom.mjs";
-import { pane, sleep, sleepFor } from "./pane.mjs";
+import { pane, sleep } from "./pane.mjs";
 
 const BOOK = `---
 booklet: "0.16"
@@ -59,7 +59,7 @@ for (const [route, leave] of Object.entries(ROUTES)) {
 	for (const [kind, { words, field }] of Object.entries(FIELDS)) {
 		test(`leaving by ${route} with a ${kind} typed and not written: it is in the note`, async () => {
 			const p = pane(BOOK, { screen: "activity:/a1" });
-			await sleepFor(p);
+			await p.settled();
 			await p.pageNext(); // page 2 of tab One (a step, so Obsidian's Back has somewhere to go)
 			const input = field(p);
 			assert.ok(input, "the field is drawn");

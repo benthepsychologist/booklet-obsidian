@@ -69,7 +69,6 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		},
 		trail: () => all(".booklet-trail > *").map(words),
 		cards: () => all(".booklet-cardrow").map((r) => words(r.querySelector(".booklet-cardtitle"))),
-		cardRows: () => all(".booklet-cardrow"),
 		tabs: () => all(".booklet-tabbtn").map(words),
 		tabOn: () => words(el.querySelector(".booklet-tabbtn.is-active") ?? { textContent: "" }),
 		pager: () => ({ at: words(el.querySelector(".booklet-pager-at") ?? { textContent: "" }), buttons: all(".booklet-pager button").map(words) }),
@@ -109,8 +108,3 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 	};
 	return p;
 }
-
-export const sleepFor = async (p) => {
-	await sleep(15);
-	await p.view.writes;
-};

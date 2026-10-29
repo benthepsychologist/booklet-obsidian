@@ -6,7 +6,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { typeInto } from "./dom.mjs";
-import { pane, sleepFor, sleep } from "./pane.mjs";
+import { pane, sleep } from "./pane.mjs";
 
 const BOOK = `---
 booklet: "0.16"
@@ -61,13 +61,13 @@ const held = (d) => [...d.store.values()].map((v) => JSON.parse(v)).flatMap((o) 
 test("a reload adds the words held for an activity that is not on the screen it reopens on", async () => {
 	const d = device();
 	let p = d.open({ screen: "activity:/a2" });
-	await sleepFor(p);
+	await p.settled();
 	type(own(p), "mine-a2");
 	assert.deepEqual(held(d), ["mine-a2"]);
 	// the reload: the view is gone with nothing added, the layout still says the first activity
 	p.close();
 	p = d.open({ state: { version: 1, screen: "activity:/a1", part: 0 } });
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(p.screen, "activity:/a1");
 	assert.ok(p.disk.text.includes("mine-a2"), "the second activity's held words are in the note: " + p.disk.text);
 	assert.deepEqual(held(d), [], "and no longer held");
@@ -78,21 +78,21 @@ test("the words are added as the field's own leaving adds them: the same note, b
 	// reopened on the screen that holds the field, the words are added by the field's own commit
 	const here = device();
 	let p = here.open({ screen: "activity:/a2" });
-	await sleepFor(p);
+	await p.settled();
 	type(own(p), "mine-a2");
 	p.close();
 	p = here.open({ screen: "activity:/a2" });
-	await sleepFor(p);
+	await p.settled();
 	const onScreen = p.disk.text;
 	p.close();
 	// reopened on another screen, they are added through the same closure
 	const away = device();
 	p = away.open({ screen: "activity:/a2" });
-	await sleepFor(p);
+	await p.settled();
 	type(own(p), "mine-a2");
 	p.close();
 	p = away.open({ state: { version: 1, screen: "activity:/a1", part: 0 } });
-	await sleepFor(p);
+	await p.settled();
 	assert.ok(onScreen.includes("mine-a2"));
 	assert.equal(p.disk.text, onScreen);
 	p.close();
@@ -103,7 +103,7 @@ test("words held for a later page of a tab and for another activity are all adde
 	const typedOn = async (state, words) => {
 		const d = device();
 		const p = d.open({ state });
-		await sleepFor(p);
+		await p.settled();
 		type(own(p), words);
 		p.close();
 		return JSON.parse([...d.store.values()][0]);
@@ -114,7 +114,7 @@ test("words held for a later page of a tab and for another activity are all adde
 	d.store.set("booklet-held:Note.booklet.md", JSON.stringify({ ...late, ...second }));
 	assert.equal(held(d).length, 2);
 	const p = d.open({ state: { version: 1, screen: "activity:/a1", part: 0 } });
-	await sleepFor(p);
+	await p.settled();
 	await sleep(20);
 	assert.ok(p.disk.text.includes("late-page"), "the words held for the later page of a tab are in the note: " + p.disk.text);
 	assert.ok(p.disk.text.includes("mine-a2"), "and those of another activity: " + p.disk.text);

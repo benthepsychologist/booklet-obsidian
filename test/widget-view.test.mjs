@@ -4,14 +4,12 @@
  * view's own buttons and fields, and what the note then holds is read back. A field for words of the reader's own
  * is never replaced by a change to the note while the reader is in it (the 0.1.0 rule), and keeps its words.
  */
-import { openView, press, typeInto, window as w } from "./dom.mjs";
+import { openView, press, testApp, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, core, norm, sleep } from "./helpers.mjs";
-
-const { BookletView } = await import("./.build/view.mjs");
 
 const NOTE = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
@@ -192,11 +190,28 @@ test("Finalize keeps the widgets' answers, and the kept entry shows them in word
 
 test("with the note open as Markdown, a saved text older than that pane's editor is not taken back, and a change the pane takes in later is followed", async () => {
 	const { MarkdownView } = await import("./obsidian-stub.mjs");
-	const file = { path: "Check-in.booklet.md", basename: "Check-in.booklet" };
 	// the Markdown pane of the same note: the view writes into its editor
 	let buffer = NOTE;
-	const md = Object.assign(new MarkdownView(), {
-		file,
+	let md;
+	const listeners = [];
+	const v = openView(NOTE, {
+		path: "Check-in.booklet.md",
+		screen: "activity:day-check/today",
+		app: testApp(
+			{ text: NOTE, writes: 0 },
+			{
+				vault: {
+					process: async () => {
+						throw new Error("with a Markdown pane open, the view writes into its editor");
+					},
+				},
+				workspace: { iterateAllLeaves: (fn) => fn({ view: md }), on: (name, cb) => (listeners.push([name, cb]), {}) },
+			},
+		),
+	});
+	const view = v.view;
+	md = Object.assign(new MarkdownView(), {
+		file: view.file,
 		editor: {
 			getValue: () => buffer,
 			offsetToPos: (n) => n,
@@ -205,20 +220,6 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 			},
 		},
 	});
-	const listeners = [];
-	const app = {
-		vault: {
-			process: async () => {
-				throw new Error("with a Markdown pane open, the view writes into its editor");
-			},
-		},
-		workspace: { iterateAllLeaves: (fn) => fn({ view: md }), on: (name, cb) => (listeners.push([name, cb]), {}) },
-	};
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = file;
-	view.load();
-	void view.setState({ version: 1, screen: "activity:day-check/today" }, {});
-	view.setViewData(NOTE, true);
 	const grid = () => view.contentEl.querySelectorAll('[data-booklet-activity="day-check/today"] .booklet-kind-widget')[1];
 	const cellOf = (id) => grid().querySelector(`[data-booklet-cell="${id}"]`);
 	const feelings = () => norm(core.parseBooklet(buffer).records.drafts["day-check"]?.today?.feelings);
@@ -249,8 +250,7 @@ test("with the note open as Markdown, a saved text older than that pane's editor
 	await sleep(20);
 	assert.equal(view.getViewData(), changed);
 	assert.ok(view.contentEl.textContent.includes("MARK-ELSEWHERE"), "the change, once in the Markdown pane's editor, is drawn");
-	view.unload();
-	view.containerEl.remove();
+	v.close();
 });
 
 test("readonly: a grid shows its words and the body widget names its places from `regions`, with nothing to press; describe lists the notes; a figure is a line saying it is not drawn", () => {

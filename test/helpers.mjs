@@ -1,5 +1,6 @@
 /* Shared by the tests: the bundled core, the byte-identity check, and the linter. */
 import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +22,12 @@ export const EXAMPLES = process.env.BOOKLET_EXAMPLES || join(BOOKLET, "examples"
 export const LINTER = process.env.BOOKLET_LINTER || join(BOOKLET, "lint-booklet.py");
 export const STARTERS = process.env.BOOKLET_STARTERS || "/workspace/fleet/hubs/booklet-hub/tools/booklet-obsidian/kit/Starter";
 export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+
+/** The sampler booklet the navigation tests open (made-up). */
+export const SKETCH = readFileSync(join(ROOT, "test-vault", "Learning to sketch.booklet.md"), "utf8");
+
+/** A string's sha256 in hex, for "the file is byte for byte what it was". */
+export const sha = (s) => createHash("sha256").update(s).digest("hex");
 
 /** Waits `ms` milliseconds. */
 export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

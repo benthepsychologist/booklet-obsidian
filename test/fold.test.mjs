@@ -5,11 +5,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
-import { core, norm } from "./helpers.mjs";
-import { pane, sleepFor } from "./pane.mjs";
+import { core, norm, sha } from "./helpers.mjs";
+import { pane } from "./pane.mjs";
 
-const sha = (s) => createHash("sha256").update(s).digest("hex");
 const BASE = `---\nbooklet: "0.16"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
 
 /** The note with `n` made-up kept entries for the activity `id` (its one question `q`). */
@@ -31,7 +29,7 @@ const press = async (p, el) => {
 
 test("the heading of the kept entries says how many are kept, starts open, and folds and unfolds the list", async () => {
 	const p = pane(withEntries(BASE, "log", "what", 4), { screen: "activity:/log" });
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(fold(p).tagName, "BUTTON", "a real button");
 	assert.equal(fold(p).textContent, "Kept entries (4)");
 	assert.ok(isOpen(p), "open to begin with, as it was drawn before it could fold");
@@ -53,19 +51,19 @@ test("the heading of the kept entries says how many are kept, starts open, and f
 
 test("a repeat daily activity says Kept days; none kept says (0) and the list says so when open", async () => {
 	const p = pane(BASE, { screen: "activity:/mood" });
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(fold(p).textContent, "Kept days (0)");
 	assert.match(list(p).textContent, /No entries kept yet\./);
 	p.close();
 	const one = pane(withEntries(BASE, "log", "what", 1), { screen: "activity:/log" });
-	await sleepFor(one);
+	await one.settled();
 	assert.equal(fold(one).textContent, "Kept entries (1)");
 	one.close();
 });
 
 test("the choice survives a redraw (leaving the screen and coming back, an answer, Finalize) and each activity keeps its own", async () => {
 	const p = pane(withEntries(withEntries(BASE, "log", "what", 3), "mood", "how", 2), { screen: "activity:/log" });
-	await sleepFor(p);
+	await p.settled();
 	await press(p, fold(p));
 	assert.equal(isOpen(p), false);
 	// to the other activity: its own list is open; fold it too, then go back
@@ -97,7 +95,7 @@ test("the choice survives a redraw (leaving the screen and coming back, an answe
 
 test("Show all works inside the open fold; a long list is the same list", async () => {
 	const p = pane(withEntries(BASE, "log", "what", 25), { screen: "activity:/log" });
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(fold(p).textContent, "Kept entries (25)");
 	const more = p.el.querySelector(".booklet-more");
 	assert.ok(more && /Show all 25 entries/.test(more.textContent));
@@ -115,7 +113,7 @@ test("Show all works inside the open fold; a long list is the same list", async 
 test("the choice is no part of the note or of the saved place: nothing is written, the state is the same", async () => {
 	const text = withEntries(BASE, "log", "what", 3);
 	const p = pane(text, { screen: "activity:/log" });
-	await sleepFor(p);
+	await p.settled();
 	const state = JSON.stringify(norm(p.view.getState()));
 	const hash = sha(p.disk.text);
 	await press(p, fold(p));
@@ -129,7 +127,7 @@ test("the choice is no part of the note or of the saved place: nothing is writte
 
 test("the fold starts open: the hook that will read the file's mark returns false", async () => {
 	const p = pane(withEntries(BASE, "log", "what", 2), { screen: "activity:/log" });
-	await sleepFor(p);
+	await p.settled();
 	assert.equal(p.view.entriesStartFolded({ id: "log", scope: "" }), false);
 	p.close();
 });
