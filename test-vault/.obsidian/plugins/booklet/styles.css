@@ -933,6 +933,11 @@
 	margin: 0;
 }
 
+/* the home title is rendered Markdown with no inline wrapper, so its paragraph needs this one */
+.booklet-screentitle p {
+	margin: 0;
+}
+
 /* an opening: its first paragraph larger, the rest at the body size */
 .booklet-opening > p:first-child {
 	font-size: calc(var(--font-text-size, 16px) * 1.15);
