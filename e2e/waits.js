@@ -47,9 +47,11 @@ const kit = (env, note) => {
   };
   const open = async (o, rel) => {
     await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 30000, polling: 100 });
-    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
-    await waitActiveType(o, "booklet", 20000);
-    await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
+    const openIt = () => o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
+    await openIt();
+    /* A pane that did not become a booklet view in time gets the note once more (as plugin-check.js's openNote does). */
+    try { await waitActiveType(o, "booklet", 10000); await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 10000 }); }
+    catch (e) { await openIt(); await waitActiveType(o, "booklet", 20000); await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 }); }
     await quiet(o);
   };
   const answers = vault => {
