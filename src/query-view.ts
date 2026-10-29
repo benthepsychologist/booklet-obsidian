@@ -93,12 +93,11 @@ function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 	const { set, roles, cols } = p;
 	const all = p.groups.flatMap((g) => g.rows);
 	// a column of numbers is set to the right (worked out once for each column, not for each cell)
-	const numbers = numericColumns(all, cols);
-	const numeric = (k: string) => numbers.has(k);
+	const numeric = numericColumns(all, cols);
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
 	const head = t.createEl("thead").createEl("tr");
-	for (const k of cols) words(host, head.createEl("th", { cls: numeric(k) ? "booklet-q-num" : "", attr: { scope: "col" } }), set.label(k));
+	for (const k of cols) words(host, head.createEl("th", { cls: numeric.has(k) ? "booklet-q-num" : "", attr: { scope: "col" } }), set.label(k));
 	// the first column that is not the badge leads the row: it carries the row's picture and its link
 	const leadKey = cols.find((k) => k !== roles.badge);
 	for (const g of p.groups) {
@@ -111,7 +110,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 		for (const r of g.rows) {
 			const tr = body.createEl("tr");
 			for (const k of cols) {
-				const td = tr.createEl("td", { cls: numeric(k) ? "booklet-q-num" : "" });
+				const td = tr.createEl("td", { cls: numeric.has(k) ? "booklet-q-num" : "" });
 				if (k === roles.badge) {
 					const tone = toneOf(r, roles);
 					pills(td, badgesOf(r, roles), tone);

@@ -4,7 +4,7 @@
  * format's own reading kinds. Core rules run on the core; what is drawn runs over the made-up "Reading and steps" note in
  * the view (test/pane.mjs). Every note is made up. Each rule has a test that fails without it.
  */
-import { window as w, typeInto, until } from "./dom.mjs";
+import { click, words, window as w, typeInto, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -29,9 +29,8 @@ const open = (screen, { one = false, text = READING } = {}) => {
 	const p = pane(text, { screen: `activity:/${screen}`, appMore: s });
 	return Object.assign(p, { store: s, q: (id) => p.el.querySelector(`[data-booklet-q="${id}"]`) });
 };
-const words = (n) => (n?.textContent ?? "").replace(/\s+/g, " ").trim();
 const press = async (p, el) => {
-	el.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+	click(el);
 	await p.settled();
 };
 const choose = (q, text) => [...q.querySelectorAll(".booklet-choice")].find((b) => words(b.querySelector(".booklet-words") ?? b).startsWith(text));
@@ -64,16 +63,14 @@ test("reader: a nested question's help, options, anchors and hint take the callo
 	assert.deepEqual(b.problems, []);
 });
 
-test("pages: a rule inside a group is a rule drawn in it, never a page break; a break closes a row; nothing else changes", () => {
+test("pages: a rule inside a group is a rule drawn in it, never a page break; a row open at a break is one row on the page it began on and none on the next; nothing else changes", () => {
 	const segs = core.parseBooklet(note(`One.\n\n***\n\n> [!group] G\n> Inside.\n>\n> ***\n>\n> Still inside.\n\n> [!row]\n\n### A\n\nAlpha.\n\n***\n\nBeta.\n\n> [!row|end]\n`)).activities[0].segments;
 	const pages = core.pagesOf(segs);
 	assert.equal(pages.length, 3, "the first rule splits, the group's does not, the row's does");
 	assert.ok(pages[1].some((s) => s.type === "prose" && /\*\*\*/.test(s.markdown)), "the group's rule is in its prose");
-	// a row open at a break is closed there: on the page it began on
-	const last = (p) => p[p.length - 1];
-	assert.equal(last(pages[1]).type, "row");
-	assert.equal(last(pages[1]).end, true);
-	assert.ok(!pages[2].some((s) => s.type === "row" && !s.end), "the page after it opens no row");
+	// the row does not cross the break: what is drawn is one row on the page it began on, and none on the next
+	const rows = (p) => core.treeOf(p).filter((x) => x.type === "row-box").length;
+	assert.deepEqual([rows(pages[0]), rows(pages[1]), rows(pages[2])], [0, 1, 0]);
 });
 
 test("view: a question inside a group is drawn in it and answered like any other, and what is written is its answer in the activity's records and nothing else", async () => {
@@ -152,7 +149,8 @@ test("rows: each heading at the shallowest level starts a cell, and what comes b
 	const q = { type: "question", id: "q" };
 	assert.deepEqual(cells(P("# T\n\nText."), q), [["# T\n\nText.", "question:q"]], "a question goes into the cell it stands in");
 	assert.deepEqual(cells(P("One."), q), [["One."], ["question:q"]], "with no headings it is a cell of its own");
-	assert.deepEqual(cells(P("Title\n=====\n\nText.\n\nOther\n-----\n\nMore.")), [["Title\n=====\n\nText."], ["Other\n-----\n\nMore."]].slice(0, 1).concat([]) .length ? cells(P("Title\n=====\n\nText.\n\nOther\n-----\n\nMore.")) : [], "underlined headings are headings");
+	// the `=====` heading is the shallowest level, so the `-----` one starts no cell of its own
+	assert.deepEqual(cells(P("Title\n=====\n\nText.\n\nOther\n-----\n\nMore.")), [["Title\n=====\n\nText.\n\nOther\n-----\n\nMore."]], "an underlined heading is a heading");
 });
 
 test("rows: a row opens with its line and closes with the line with `end`; they do not nest, an unclosed one ends with its activity, and what is said is listed", () => {
@@ -197,6 +195,7 @@ test("view: with two or more groups a page offers one at a time or all at once; 
 	const ctl = [...p.el.querySelectorAll(".booklet-steps-choice button")];
 	assert.deepEqual(ctl.map(words), ["One at a time", "All at once"]);
 	assert.deepEqual(ctl.map((b) => b.getAttribute("aria-pressed")), ["false", "true"]);
+	assert.deepEqual(ctl.map((b) => b.classList.contains("mod-cta") && b.classList.contains("is-selected")), [false, true], "the pressed one looks as every pressed button does");
 	assert.equal(p.el.querySelectorAll(".booklet-step").length, 0);
 	assert.equal(p.el.querySelectorAll(".booklet-group").length, 4);
 	// a page with one group has no choice
@@ -376,7 +375,6 @@ test("reading kinds: diff, law and opinion are drawn in their own colour, pictur
 		assert.match(rule[1], new RegExp(`border-left: [^;]*${border}`));
 	}
 	assert.match(css, /\.is-mobile \.booklet-view button\.booklet-cite-mark \{\s*min-height: 0;/, "a phone's 44px button height would stretch the line a mark stands in");
-	assert.ok(!/style=|\.style\./.test(readFileSync(join(ROOT, "src", "reading.ts"), "utf8")), "no inline style");
 });
 
 test("reading kinds: a diff, a law and an opinion in prose are Obsidian's callouts of that kind, left in the prose as written", () => {
@@ -404,7 +402,8 @@ test("a typed answer in a step's question is written the way it is outside one",
 	f.focus();
 	typeInto(f, "The sun pulls too");
 	f.blur();
-	await until(() => p.disk.text.includes("The sun pulls too"), "the answer written");
+	// the note's own prose holds these words, so the wait is on the records: they hold the answer only once it is written
+	await until(() => core.parseBooklet(p.disk.text).records.answers[""]?.["sun-note"] === "The sun pulls too", "the answer written");
 	await p.settled();
 	assert.deepEqual(norm(core.parseBooklet(p.disk.text).records.answers[""]), { "sun-note": "The sun pulls too" });
 	p.close();

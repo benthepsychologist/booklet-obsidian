@@ -3,35 +3,16 @@
 //   Back and Forward), a row's cells side by side (stacked on a phone), footnotes as numbered marks with a source under the
 //   paragraph, and the format's own reading kinds (diff, law, opinion) in their own colour, picture and border.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
-const { quiet, drawing, frames, mobile } = require("./waits");
+const fs = require("fs"), path = require("path");
+const { quiet, frames, mobile, kit } = require("./waits");
 
 module.exports = function readingChecks(env) {
-  const { withApp, Check, SHOTS, sleep, BOOK, waitActiveType } = env;
+  const { withApp, Check, BOOK } = env;
   const READ = "Reading and steps.booklet.md";
-  const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
-  const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+  const { shot, sha, goTo, open, recordsOf } = kit(env, READ);
 
-  const answers = vault => {
-    const text = fs.readFileSync(path.join(vault, READ), "utf8"), out = {};
-    for (const m of text.matchAll(/```booklet answers([^\n]*)\n([\s\S]*?)```/g)) out[m[1].trim()] = JSON.parse(m[2]);
-    return out;
-  };
   // the text of the note from its records region on
   const records = f => { const t = fs.readFileSync(f, "utf8"), i = t.indexOf("%%"); return i < 0 ? "" : t.slice(i); };
-  const recordsOf = (vault, act) => { const a = answers(vault); return a[act] || a[""] || {}; };
-  const goTo = async (o, screen) => {
-    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
-    await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
-    await quiet(o);
-  };
-  const open = async (o, rel) => {
-    await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 10000, polling: 100 });
-    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
-    await waitActiveType(o, "booklet", 20000);
-    await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
-    await quiet(o);
-  };
   const q = id => BOOK + " [data-booklet-q='" + id + "']";
   const press = async (o, sel, text) => { await o.page.locator(sel).filter({ hasText: text }).first().click({ timeout: 6000 }); await quiet(o); };
   const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "center" }), sel); await frames(o); };
@@ -121,6 +102,26 @@ module.exports = function readingChecks(env) {
       await o.setScheme("dark"); await frames(o); await shot(o, "rows-desktop-dark");
       await o.setScheme("light"); await frames(o);
 
+      /* ---- a row around a group and around a tip that hold a question (a row's cell holds anything) ---- */
+      await goTo(o, "activity:/around");
+      const around = () => o.evaluate(sel => {
+        const cells = [...document.querySelectorAll(sel + " .booklet-row > .booklet-rowcell")];
+        const rects = cells.map(x => x.getBoundingClientRect());
+        return { n: cells.length, side: rects.length === 2 && rects[1].left >= rects[0].right - 1 && Math.abs(rects[1].top - rects[0].top) < 4, stacked: rects.length === 2 && rects[1].top >= rects[0].bottom - 1 && Math.abs(rects[1].left - rects[0].left) < 4,
+          groupIn: !!cells[0] && !!cells[0].querySelector(".booklet-group [data-booklet-q='around-q']"), tipIn: !!cells[1] && !!cells[1].querySelector(".callout [data-booklet-q='around-tip']"), problems: document.querySelectorAll(sel + " .booklet-problems li").length };
+      }, BOOK);
+      r = await around();
+      c.ok(r.n === 2 && r.side && r.groupIn && r.tipIn && r.problems === 0, "on a desktop a row around a group and a tip, each holding a question, is drawn: two cells side by side, the group in the first, the tip in the second, nothing listed: " + JSON.stringify(r));
+      await press(o, q("around-q") + " .booklet-choices button", "Yes");
+      await o.page.locator(q("around-tip") + " input.booklet-text").fill("Two cells");
+      await o.page.locator(q("around-tip") + " input.booklet-text").blur();
+      await quiet(o);
+      const ar = recordsOf(vault, "around");
+      c.ok(ar["around-q"] === 1 && ar["around-tip"] === "Two cells", "both questions are answered and kept: " + JSON.stringify(ar));
+      await shot(o, "row-around-desktop-light");
+      await o.setScheme("dark"); await frames(o); await shot(o, "row-around-desktop-dark");
+      await o.setScheme("light"); await frames(o);
+
       /* ---- groups, a folded one, and steps ---- */
       await goTo(o, "activity:/lesson");
       let st = await steps(o);
@@ -186,9 +187,21 @@ module.exports = function readingChecks(env) {
         for (const k of ["diff", "law", "opinion"]) { await scrollTo(o, BOOK + " .callout[data-callout='" + k + "']"); await shot(o, k + "-phone-" + scheme); }
         const markH = await o.evaluate(sel => { const b = document.querySelector(sel + " button.booklet-cite-mark"); return { mark: Math.round(b.getBoundingClientRect().height), line: Math.round(parseFloat(getComputedStyle(b.closest("p")).lineHeight)) }; }, BOOK);
         c.ok(markH.mark <= markH.line + 4, "phone (" + scheme + "): an inline source mark does not stretch its line (mark " + markH.mark + " px, line " + markH.line + " px): " + JSON.stringify(markH));
+        // the touch area: the pseudo-element's own size, and a touch 20 px from the number's centre on every side lands on the mark
+        // (the mark in the diff callout is the only one in its paragraph, so no other mark's touch area lies over it)
+        await scrollTo(o, BOOK + " .callout[data-callout='diff'] button.booklet-cite-mark");
+        const touch = await o.evaluate(sel => {
+          const b = document.querySelector(sel + " .callout[data-callout='diff'] button.booklet-cite-mark"), r = b.getBoundingClientRect(), a = getComputedStyle(b, "::after");
+          const cx = r.left + r.width / 2, cy = r.top + r.height / 2, hit = (dx, dy) => { const e = document.elementFromPoint(cx + dx, cy + dy); return !!e && (e === b || b.contains(e)); };
+          return { w: r.width, h: r.height, after: [parseFloat(a.width), parseFloat(a.height)], was: [Math.round((r.width + 0.8 * parseFloat(getComputedStyle(b).fontSize)) * 10) / 10, Math.round((r.height + 1.6 * parseFloat(getComputedStyle(b).fontSize)) * 10) / 10], hits: [hit(0, 0), hit(20, 0), hit(-20, 0), hit(0, 20), hit(0, -20)] };
+        }, BOOK);
+        c.ok(touch.after[0] >= 44 && touch.after[1] >= 44 && touch.hits.every(Boolean), "phone (" + scheme + "): an inline source mark has a touch area of at least 44 by 44 px (the number is " + touch.w.toFixed(1) + " by " + touch.h.toFixed(1) + "; the area was about " + touch.was.join(" by ") + " before), and a touch 20 px from its centre on each side lands on it: " + JSON.stringify(touch));
         if (scheme === "light") {
           await o.page.locator(BOOK + " button.booklet-cite-mark").first().click(); await quiet(o);
+          await frames(o); await frames(o); // the mark's colour eases in: the picture is taken once it has
           await shot(o, "source-open-phone-light");
+          const closeH = await o.evaluate(sel => { const b = document.querySelector(sel + " .booklet-cite-close"); return b ? Math.round(b.getBoundingClientRect().height) : 0; }, BOOK);
+          c.ok(closeH >= 44, "phone: the Close button of an open source is 44 px or taller (by the general rule for a button in the view): " + closeH);
           await o.page.keyboard.press("Escape"); await quiet(o);
         }
         await scrollTo(o, q("tip-q")); await shot(o, "tip-question-phone-" + scheme);
@@ -196,16 +209,23 @@ module.exports = function readingChecks(env) {
         r = await rowLay();
         c.ok(r.n === 2 && r.stacked, "phone (" + scheme + "): a row's cells are stacked, one under the other: " + JSON.stringify(r));
         await shot(o, "rows-phone-" + scheme);
+        await goTo(o, "activity:/around");
+        r = await around();
+        c.ok(r.n === 2 && r.stacked && r.groupIn && r.tipIn && r.problems === 0, "phone (" + scheme + "): the row around a group and a tip is stacked, each holding its question: " + JSON.stringify(r));
+        await shot(o, "row-around-phone-" + scheme);
         await goTo(o, "activity:/lesson");
         st = await steps(o);
         c.ok(st.n === 4, "phone (" + scheme + "): the page is in steps, as chosen on this device: " + JSON.stringify(st));
+        // a step draws its group open though the note wrote it folded (SPEC section 12); the view is new since the phone mode came, so no fold of the reader's is remembered yet
+        const sg = await o.evaluate(sel => { const g = document.querySelector(sel + " [data-booklet-q='extra']").closest(".booklet-group"); return { collapsed: g.classList.contains("is-collapsed"), expanded: g.querySelector(".booklet-group-title").getAttribute("aria-expanded") }; }, BOOK);
+        c.ok(!sg.collapsed && sg.expanded === "true", "phone (" + scheme + "): the step whose group is written [!group]- is drawn open: " + JSON.stringify(sg));
         await scrollTo(o, BOOK + " .booklet-steps");
         await shot(o, "step-phone-" + scheme);
         await press(o, BOOK + " .booklet-steps-choice button", "All at once");
         await scrollTo(o, q("moon"));
         await shot(o, "group-question-phone-" + scheme);
         await press(o, BOOK + " .booklet-steps-choice button", "One at a time");
-        for (const act of ["sources", "rows", "lesson", "plain"]) {
+        for (const act of ["sources", "rows", "around", "lesson", "plain"]) {
           await goTo(o, "activity:/" + act);
           const l = await layout(o);
           c.ok(l.sideways <= 0 && l.small.length === 0, "phone (" + scheme + ", " + act + "): no sideways scroll (" + l.sideways + "), and every control 44 px or taller (inline source marks apart: their touch area is a wider invisible one): " + JSON.stringify(l.small));

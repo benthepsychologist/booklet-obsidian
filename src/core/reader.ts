@@ -164,7 +164,7 @@ export interface TabHeading {
 
 export interface Unsupported {
 	type: "unsupported";
-	/** The line's kind, or `group` (questions inside a group) or `in-callout` (questions inside another reading callout). */
+	/** The line's kind: one this plugin does not draw yet, or a question kind written with no id (a group, or a callout that holds a question, is read as a callout and is not this). */
 	kind: string;
 	id: string | null;
 	title: string;
@@ -297,18 +297,9 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
-	/** The module notices found outside every activity, in file order. A notice is drawn (under its module's screen, "About this module"), from the module's own lines; this list only says where each one stands. */
-	unshown: Unshown[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
 	records: RecordsRead;
-}
-
-/** A module's notice outside every activity: `scope` is the module's id. */
-export interface Unshown {
-	kind: "notice";
-	scope: string;
-	line: number;
 }
 
 /* ---- front matter ---- */
@@ -595,7 +586,6 @@ export function parseBooklet(text: string): Booklet {
 	const modules: Module[] = [];
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
-	const unshown: Unshown[] = [];
 	const notes: Note[] = [];
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
@@ -695,7 +685,7 @@ export function parseBooklet(text: string): Booklet {
 			const was = open.pop();
 			if (!was) break;
 			flush();
-			if (rowOpen) closeRow("at the end of the callout it is in", i);
+			// a row line cannot go inside a callout, so a row open here was opened outside it and ends at its own end line
 			if (act) act.segments.push({ type: "callout-end" });
 			lines = was.lines;
 			i = was.resume - 1;
@@ -836,7 +826,6 @@ export function parseBooklet(text: string): Booklet {
 			}
 			if (kind === "notice" || kind === "manifest" || kind === "records") {
 				flush();
-				if (kind === "notice") unshown.push({ kind: "notice", scope: mod ? mod.id : "", line: i + 1 });
 				i = bodyEnd(lines, i) - 1;
 				continue;
 			}
@@ -1033,7 +1022,6 @@ export function parseBooklet(text: string): Booklet {
 		openings,
 		widgets,
 		menus,
-		unshown,
 		notes,
 		records,
 	};

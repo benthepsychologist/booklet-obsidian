@@ -8,10 +8,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BOOKLET, ROOT, SKETCH, norm } from "./helpers.mjs";
+import { BOOKLET, CHECKIN, norm, ROOT, SKETCH } from "./helpers.mjs";
 import { pane, sleep } from "./pane.mjs";
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const BOOKLET_ICONS = new Set([...readFileSync(join(ROOT, "src", "booklet-icons.ts"), "utf8").matchAll(/"([a-z0-9-]+)"/g)].map((m) => m[1]));
 
 /* ---- a link from another note ---- */

@@ -19,7 +19,7 @@ export function drawMatrix(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 	const wrap = box.createDiv({ cls: "booklet-mxwrap" });
 	// measured, never seen: the anchors in one row, after room for an item's words (the grid's width, in styles.css)
 	const probe = wrap.createDiv({ cls: "booklet-mxprobebox", attr: { "aria-hidden": "true" } }).createDiv({ cls: "booklet-mxprobe" });
-	for (const a of q.anchors) host.md(a.text, probe.createSpan({ cls: "booklet-mxprobe-anchor markdown-rendered" }));
+	for (const a of q.anchors) host.md(a.text, probe.createSpan({ cls: "booklet-mxprobe-anchor booklet-inline markdown-rendered" }));
 
 	const rows = wrap.createDiv({ cls: "booklet-mx" });
 	const buttons: HTMLButtonElement[][] = [];

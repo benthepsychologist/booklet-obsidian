@@ -13,6 +13,7 @@ import {
 	activityStatus,
 	answerWords,
 	barTabs,
+	type CalloutBox,
 	buildNav,
 	designKey,
 	earlierEntries,
@@ -23,6 +24,7 @@ import {
 	hasScreen,
 	holdsSomething,
 	noteNumbers,
+	tokenise,
 	questionsIn,
 	stepsOf,
 	treeOf,
@@ -77,9 +79,9 @@ import {
 	type WordPart,
 } from "./core";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
-import { drawCallout, drawMarks, drawSteps, tokenise, type CiteScope } from "./reading";
+import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { drawQueryPlan, words } from "./query-view";
-import { drawQuestion, keyOf, type QuestionHost, type Target } from "./questions";
+import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
 
@@ -96,7 +98,8 @@ const TYPING_PAUSE_MS = 700;
 const PRESS_END_MS = 300;
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;
-
+/** Ids handed out by every view, so two panes in one window never share one (a tab names its panel by id). */
+let uidCount = 0;
 
 /** What the pager asks of the steps of the page on show. */
 interface SteppingView {
@@ -185,7 +188,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * when it comes back into use on a later day (see onload).
 	 */
 	private drawnAt = new Date();
-	private seq = 0;
 	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note (design 4.1) ---- */
 	private nav: NavModel | null = null;
 	private place: Place | null = null;
@@ -420,7 +422,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!p.tab) delete state["tab"];
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
-			.catch(() => undefined)
+			.catch(() => {
+				// the move did not happen, so no draw is coming to take the focus
+				this.focusScreen = false;
+			})
 			.finally(() => {
 				this.moving = false;
 				this.stepWanted = false;
@@ -621,7 +626,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	uid(): string {
-		return `booklet-${++this.seq}`;
+		return `booklet-${++uidCount}`;
 	}
 
 	onShow(key: string, show: () => void): void {
@@ -1022,13 +1027,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: pages.length > 1 ? { role: "group", "aria-label": `Page ${at + 1} of ${pages.length}` } : {} });
-		// under a tab bar the page body is the chosen tab's panel (named by its tab; the page count is its description)
+		// under a tab bar the page body is the chosen tab's panel (named by its tab, so the page group's own label stays but does not name it; the page count is also its description)
 		if (asPanel) {
 			asPanel(body);
-			if (pages.length > 1) {
-				body.removeAttribute("aria-label");
-				body.setAttr("aria-description", `Page ${at + 1} of ${pages.length}`);
-			}
+			if (pages.length > 1) body.setAttr("aria-description", `Page ${at + 1} of ${pages.length}`);
 		}
 		const stepKey = (part: number) => `${place.screen}#${tab.id}#${part}`;
 		const blocks = treeOf(pages[at] ?? []);
@@ -1102,7 +1104,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return { scope, notes: book, numbers: noteNumbers(book, scope, texts) };
 	}
 
-	private drawNodes(into: HTMLElement, a: Activity, blocks: readonly Block[]): void {
+	/** `step` is the group a step draws, which is open however the note wrote it (SPEC section 12) until the reader folds it. */
+	private drawNodes(into: HTMLElement, a: Activity, blocks: readonly Block[], step?: CalloutBox): void {
 		const t: Target = { scope: a.scope, activity: a };
 		for (const s of blocks) {
 			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
@@ -1112,7 +1115,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				const key = `${a.scope}/${a.id}#${s.start.line}`;
 				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
 				const held = questionsIn(s.children).some((q) => holdsSomething(this.heldAnswer(t, q)));
-				const open = this.calloutOpen.get(key) ?? (s.start.fold !== "-" || held);
+				const open = this.calloutOpen.get(key) ?? (s === step || s.start.fold !== "-" || held);
 				const body = drawCallout(this, into, s, open, (now) => this.calloutOpen.set(key, now));
 				this.drawNodes(body, a, s.children);
 			} else if (s.type === "row-box") {
@@ -1134,8 +1137,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawStepChoice(body: HTMLElement, one: boolean): void {
 		const ctl = body.createDiv({ cls: "booklet-steps-choice" });
 		for (const [words, now] of [["One at a time", true], ["All at once", false]] as const) {
-			const b = ctl.createEl("button", { text: words, attr: { "aria-pressed": String(one === now) } });
-			if (one === now) b.addClass("is-active");
+			const b = ctl.createEl("button", { text: words });
+			pressed(b, one === now);
 			b.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				if (one === now || !this.file) return;
@@ -1163,7 +1166,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const clamp = (n: number) => Math.max(0, Math.min(steps.length - 1, n));
 		let cur = clamp(this.stepAt.get(key) ?? (first < 0 ? 0 : first));
 		this.stepAt.set(key, cur);
-		const drawn = drawSteps(this, body, steps, cur, done, (el, step) => this.drawNodes(el, a, step.nodes));
+		const drawn = drawSteps(body, steps, cur, done, (el, step) => this.drawNodes(el, a, step.nodes, step.group));
 		const view: SteppingView = {
 			count: steps.length,
 			at: () => cur,

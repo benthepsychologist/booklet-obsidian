@@ -3,7 +3,7 @@
  * column; the tabs' panels and focus after a move for a keyboard reader; names for a screen reader without Markdown marks; a `- - -`
  * line under text read as a break; a press's default stopped; a closing code fence's rules. Every note is made up.
  */
-import { window as w } from "./dom.mjs";
+import { click, words } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, core, norm } from "./helpers.mjs";
@@ -11,12 +11,6 @@ import { pane } from "./pane.mjs";
 
 const { numericColumns } = await import("./.build/screens.mjs");
 
-const words = (n) => (n?.textContent ?? "").replace(/\s+/g, " ").trim();
-const click = (el) => {
-	const evt = new w.MouseEvent("click", { bubbles: true, cancelable: true });
-	el.dispatchEvent(evt);
-	return evt;
-};
 
 /* ---- a long table: the numeric columns are worked out once for each column ---- */
 
@@ -60,7 +54,7 @@ test("activity tabs: the page body under a tab bar is the panel, and says which 
 	assert.ok(panel?.classList.contains("booklet-pagebody"));
 	assert.equal(panel.getAttribute("aria-labelledby"), p.all("[role=tab]").find((t) => t.getAttribute("aria-selected") === "true").id);
 	assert.equal(panel.getAttribute("aria-description"), "Page 1 of 2", "the page count is its description, the name being its tab's");
-	assert.ok(!panel.hasAttribute("aria-label"));
+	assert.equal(panel.getAttribute("aria-label"), "Page 1 of 2", "the page group's own label is kept; the panel is named by its tab, which aria-labelledby gives");
 	await p.pageNext();
 	assert.equal(p.el.querySelector("[role=tabpanel]").getAttribute("aria-description"), "Page 2 of 2");
 	p.close();
@@ -88,11 +82,9 @@ test("focus after a move: a press that goes to another screen puts focus on its 
 	await p.tab("Cylinders");
 	assert.ok(active().matches("[role=tab]"), "a tab chosen keeps focus on its tab, as before");
 	// not a press: Obsidian's own Back puts focus where Obsidian puts it
-	const was = active();
 	await p.back();
 	await p.settled();
 	assert.notEqual(active()?.className, "booklet-pagebody");
-	assert.ok(was);
 	p.close();
 });
 

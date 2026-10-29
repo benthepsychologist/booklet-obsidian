@@ -98,6 +98,15 @@ export function testApp(disk, more = {}) {
 	};
 }
 
+/** A press: the click a pointer sends to `el`. Gives back the event, to see whether a handler stopped its default. */
+export const click = (el) => {
+	const evt = new w.MouseEvent("click", { bubbles: true, cancelable: true });
+	el.dispatchEvent(evt);
+	return evt;
+};
+/** The words an element shows, white space collapsed. */
+export const words = (n) => (n?.textContent ?? "").replace(/\s+/g, " ").trim();
+
 /** Waits for a state a test names (polling, 5 ms apart, for at most 5 s), in place of sleeping a time the state is hoped to be there by. */
 export async function until(cond, what = "the state the test waits for") {
 	for (let n = 0; n < 1000; n++) {
@@ -119,6 +128,8 @@ export async function until(cond, what = "the state the test waits for") {
  * `ms` is only for a test that must let a timer of the view's own run (a debounce), and says so by asking for it.
  */
 export async function quiet(view, ms = 0) {
+	// it reads the view's own fields: if one is renamed it must fail, not return at once as if all were quiet
+	for (const k of ["writes", "moving", "afterMove", "rendering"]) if (!(k in view)) throw new Error(`quiet reads the view's "${k}", which the view no longer has`);
 	if (ms) await sleep(ms);
 	for (let turn = 0; ; turn++) {
 		await new Promise((r) => setTimeout(r, turn ? 2 : 0));

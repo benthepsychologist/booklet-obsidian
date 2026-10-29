@@ -2,7 +2,7 @@
  * A pane as Obsidian runs it, for the tests of the view's moves (test/navigation*.test.mjs): the booklet view on a fake leaf, over a
  * jsdom document, with the helpers that press a card, a tab or a pager button by its words.
  */
-import { quiet, testApp, window as w } from "./dom.mjs";
+import { click, quiet, testApp, words } from "./dom.mjs";
 import { sleep } from "./helpers.mjs";
 import assert from "node:assert/strict";
 
@@ -52,7 +52,6 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 	if (!drawLater) view.setViewData(text, true);
 	const el = view.contentEl;
 	const all = (sel) => [...el.querySelectorAll(sel)];
-	const words = (n) => (n.textContent ?? "").replace(/\s+/g, " ").trim();
 	const p = {
 		view,
 		disk,
@@ -77,7 +76,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		async press(sel, label) {
 			const hit = all(sel).find((b) => words(b).startsWith(label));
 			assert.ok(hit, `no ${sel} reading "${label}" on ${p.screen}; there are: ${all(sel).map(words).join(" | ")}`);
-			hit.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+			click(hit);
 			await p.settled();
 		},
 		card: (label) => p.press(".booklet-cardrow", label),

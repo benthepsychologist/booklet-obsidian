@@ -6,7 +6,7 @@
  * gridNames). An svg-regions answer is shown as each marked region with its words, "Feet — Restless, Sore", as
  * booklet.html's regionNames shows it. Plain TypeScript: nothing here imports Obsidian.
  */
-import { pickWords as pickWordsOf, shownPairs, sourceOf } from "./each";
+import { pickWords as pickWordsOf, plainOf, shownPairs, sourceOf } from "./each";
 import { plainWords } from "./earlier";
 import type { Activity, Question } from "./reader";
 import { holdsSomething, shapeIssue } from "./shape";
@@ -89,6 +89,6 @@ export function eachWords(act: Pick<Activity, "segments">, q: Question, entry: R
 	if (issue) return { kept: JSON.stringify(v), issue };
 	const src = sourceOf(act, q);
 	if (!src) return [];
-	const plain: Question = { ...q, each: null };
+	const plain = plainOf(q);
 	return shownPairs(src, entry, q).flatMap(({ pick, pair }) => (pair && holdsSomething(pair.a) ? [{ pick: pickWordsOf(src, pick), words: answerWords(plain, pair.a) }] : []));
 }

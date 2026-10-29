@@ -3,14 +3,13 @@
 //   a tab bar and its panel (module screen and activity screen), a tab bar named in plain words, focus after a press that moves
 //   (a card, the pager) for a keyboard reader, a `- - -` line under text as a page break, and a long table's numeric column.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
-const { quiet, drawing, frames, mobile } = require("./waits");
+const fs = require("fs"), path = require("path");
+const { quiet, drawing, frames, mobile, kit } = require("./waits");
 
 module.exports = function leftoversChecks(env) {
-  const { withApp, Check, SHOTS, sleep, BOOK, waitActiveType } = env;
+  const { withApp, Check, BOOK } = env;
   const NOTE = "Leftovers.booklet.md";
-  const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
-  const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
+  const { shot, sha, goTo, open } = kit(env, NOTE);
 
   const noteText = () => {
     const rows = Array.from({ length: 240 }, (_, i) => `{"ts": "2026-0${1 + Math.floor(i / 28)}-${String((i % 28) + 1).padStart(2, "0")}T09:00:00Z", "steps": ${1000 + i * 7}, "note": "Made-up entry ${i + 1}"}`).join(",\n");
@@ -18,18 +17,6 @@ module.exports = function leftoversChecks(env) {
       + `> [!activity|walk tab:a] A **walk** [with a link](https://example.org)\n\nA line of text\n- - -\nAfter the break.\n\n> [!activity|talk tab:b] Talk it over\n\nWords for talking.\n\n> [!module|mod end] End\n\n`
       + `> [!activity|multi] Two tabs\n\n> [!tab|one] One\n\nPage one text.\n\n***\n\nPage two text.\n\n> [!tab|two] Two\n\nOther tab text.\n\n> [!activity|log repeat] Log\n\n> [!number|steps] How many steps?\n\n> [!text|note] A note\n\n\`\`\`booklet query\nfrom: log\nas: table\nfields: steps, note\nlimit: 500\n\`\`\`\n\n`
       + `%%\n> [!records] App record — do not edit below this line\n\n\`\`\`booklet entries log\n{"items": [\n${rows}\n]}\n\`\`\`\n%%\n`;
-  };
-  const open = async (o, rel) => {
-    await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 30000, polling: 100 });
-    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
-    await waitActiveType(o, "booklet", 20000);
-    await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
-    await quiet(o);
-  };
-  const goTo = async (o, screen) => {
-    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
-    await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
-    await quiet(o);
   };
   const panelInfo = o => o.evaluate(sel => {
     const root = document.querySelector(sel), list = root.querySelector("[role=tablist]");
@@ -96,7 +83,7 @@ module.exports = function leftoversChecks(env) {
         // an activity's tab bar: the page body is the chosen tab's panel
         await goTo(o, "activity:/multi");
         const ap = await o.evaluate(sel => { const root = document.querySelector(sel), on = root.querySelector("[role=tab][aria-selected=true]"), panel = root.querySelector("[role=tabpanel]"); return { panel: !!panel, isBody: !!panel && panel.classList.contains("booklet-pagebody"), controls: on && panel && on.getAttribute("aria-controls") === panel.id, named: on && panel && panel.getAttribute("aria-labelledby") === on.id, desc: panel && panel.getAttribute("aria-description"), label: panel && panel.getAttribute("aria-label"), label2: root.querySelector("[role=tablist]").getAttribute("aria-label") }; }, BOOK);
-        c.ok(ap.panel && ap.isBody && ap.controls && ap.named && ap.desc === "Page 1 of 2" && ap.label === null, where + ": under an activity's tab bar the page body is the tab's panel, named by the tab and described by its page: " + JSON.stringify(ap));
+        c.ok(ap.panel && ap.isBody && ap.controls && ap.named && ap.desc === "Page 1 of 2" && ap.label === "Page 1 of 2", where + ": under an activity's tab bar the page body is the tab's panel, named by the tab, described by its page, and still carrying the page group's label: " + JSON.stringify(ap));
         // a long table: its numeric column is set to the right once for the column
         await goTo(o, "activity:/log");
         const t = await o.evaluate(sel => {

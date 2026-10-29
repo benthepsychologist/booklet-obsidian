@@ -17,6 +17,9 @@ export type PickValue = number | string;
 /** One pair of the answer: its other keys, if a hand edit gave it any, are kept as written. */
 export type Pair = { pick: PickValue; a: unknown } & Record<string, unknown>;
 
+/** The question without its `each:`: what a pair's answer is read as. */
+export const plainOf = (q: Question): Question => (q.each ? { ...q, each: null } : q);
+
 /** A question's source: the choice, multi or widget its `each:` names in the same activity. */
 export function sourceOf(act: Pick<Activity, "segments">, q: Question): Question | null {
 	if (!q.each) return null;

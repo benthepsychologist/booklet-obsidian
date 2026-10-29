@@ -272,26 +272,17 @@ export function pagesOf(segs: readonly Segment[]): Segment[][] {
 	const pages: Segment[][] = [[]];
 	/** How deep in callouts: a page break inside a callout is a rule drawn in it, not a break (SPEC section 6, "A group holds blocks"). */
 	let depth = 0;
-	/** A row is open: it does not cross a page break, so a break closes it (SPEC section 3, "Rows"). */
-	let row = false;
 	const page = () => pages[pages.length - 1] as Segment[];
 	for (const s of segs) {
 		if (s.type === "callout") depth++;
 		else if (s.type === "callout-end") depth--;
-		else if (s.type === "row") row = !s.end;
 		if (s.type !== "prose" || depth > 0) {
 			page().push(s);
 			continue;
 		}
 		let at = 0;
 		splitAtBreaks(s.markdown).forEach((ls, n) => {
-			if (n) {
-				if (row) {
-					page().push({ type: "row", end: true, line: s.line + at });
-					row = false;
-				}
-				pages.push([]);
-			}
+			if (n) pages.push([]);
 			const md = ls.join("\n").replace(/^\n+|\n+$/g, "");
 			if (md.trim()) page().push({ type: "prose", markdown: md, line: s.line + at });
 			at += ls.length + 1;

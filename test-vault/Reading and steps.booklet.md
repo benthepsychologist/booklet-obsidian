@@ -86,3 +86,29 @@ Read this before the steps. It stays above every one of them.
 > A group alone is no step; it is drawn where it stands, and folded when written so.
 >
 > > [!text|alone] A question in a lone group
+
+> [!activity|around] A row around a group
+
+> [!row]
+
+### The group side
+
+Words before the group.
+
+> [!group] A group in a cell
+> It holds a question.
+>
+> > [!choice|around-q] Does it show?
+> - [ ] Yes
+> - [ ] No
+
+### The tip side
+
+> [!tip] A tip in a cell
+> It holds a question too.
+>
+> > [!text|around-tip] Say what you see
+
+> [!row|end]
+
+Words after the row.

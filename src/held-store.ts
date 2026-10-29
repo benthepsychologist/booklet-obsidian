@@ -5,7 +5,8 @@
  * event). A reload does not: Obsidian reloads the page at once and waits for no write. So every keystroke in such a
  * field is also kept here, in the vault's own local storage, and the next time the note is drawn the words are added
  * as leaving the field would add them. Nothing here is a record: it never goes in the note, and it is taken out as
- * soon as the words are added.
+ * soon as the words are added. The same store keeps one more thing of the reader's, never the note's: whether the steps of
+ * a note's parts show one at a time (SPEC section 12), by note.
  */
 import type { App } from "obsidian";
 
@@ -71,15 +72,20 @@ export function keepHeld(app: App, path: string, field: string, words: string): 
 	}
 }
 
-/** A note renamed or moved: its held words go with it. */
+/** A note renamed or moved: its held words go with it, and so does the choice of its steps. */
 export function moveHeld(app: App, from: string, to: string): void {
 	try {
 		const store = storeOf(app);
 		if (!store) return;
 		const held = loadHeld(app, from);
-		if (!Object.keys(held).length) return;
-		store.save(PREFIX + from, null);
-		store.save(PREFIX + to, { ...loadHeld(app, to), ...held });
+		if (Object.keys(held).length) {
+			store.save(PREFIX + from, null);
+			store.save(PREFIX + to, { ...loadHeld(app, to), ...held });
+		}
+		if (loadStepsOne(app, from)) {
+			keepStepsOne(app, from, false);
+			keepStepsOne(app, to, true);
+		}
 	} catch {
 		// as above
 	}

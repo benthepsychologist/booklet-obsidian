@@ -443,7 +443,6 @@ Text between modules, drawn nowhere.
 		{ module: null, title: "The *Booklet*", markdown: "The booklet's first paragraph.\n\n> [!tip] A reading callout in the opening\n> It is part of it.\n\n\nThe rest of the opening.", line: 10 },
 		{ module: "m", title: "Module **M**", markdown: "M's opening.", line: 30 },
 	]);
-	assert.deepEqual(norm(b.unshown), [{ kind: "notice", scope: "m", line: 27 }]);
 	assert.ok(!JSON.stringify(b).includes("drawn nowhere"));
 	// a file with no module and no activity line is one activity: it has no opening
 	assert.deepEqual(core.parseBooklet(`${fm('booklet: "0.16"')}\nJust prose.\n`).openings, []);

@@ -5,7 +5,7 @@
  * and never the note's: which callout is folded, which step is on show, which source is open.
  */
 import { setIcon } from "obsidian";
-import { noteFor, type CalloutBox, type Note, type Step } from "./core";
+import { MARK_OPEN, MARK_CLOSE, noteFor, type Booklet, type CalloutBox, type Note, type Step } from "./core";
 
 export interface ReadingHost {
 	/** Inline or block Markdown, drawn by Obsidian. */
@@ -43,13 +43,12 @@ export function drawCallout(host: ReadingHost, into: HTMLElement, box: CalloutBo
 	const group = kind === "group";
 	const foldable = box.start.fold !== "";
 	const bodyId = host.uid();
-	const titleId = host.uid();
 	const outer = into.createDiv({ cls: group ? "booklet-group" : "callout booklet-callout", attr: { "data-callout": kind, "data-booklet-callout": kind } });
 	if (foldable) outer.addClass(group ? "is-foldable" : "is-collapsible");
 	const head = outer.createDiv({ cls: group ? "booklet-group-title" : "callout-title" });
 	if (!group) setIcon(head.createDiv({ cls: "callout-icon", attr: { "aria-hidden": "true" } }), iconOf(head));
 	const words = box.start.title || (group ? (foldable ? firstWords(box) : "") : kindWord(kind));
-	const label = head.createDiv({ cls: group ? "booklet-group-words markdown-rendered" : "callout-title-inner", attr: { id: titleId } });
+	const label = head.createDiv({ cls: group ? "booklet-group-words markdown-rendered" : "callout-title-inner" });
 	if (words) host.md(words, label);
 	else if (!foldable) head.addClass("booklet-none");
 	const body = outer.createDiv({ cls: group ? "booklet-group-body" : "callout-content", attr: { id: bodyId } });
@@ -85,17 +84,11 @@ export function drawCallout(host: ReadingHost, into: HTMLElement, box: CalloutBo
 
 /* ---- steps ---- */
 
-export interface StepsView {
-	/** The step on show (0-based), and moving it. */
-	at(): number;
-	go(to: number): void;
-}
-
 /**
  * The steps of a part, every one drawn and the ones not on show only hidden, so no answer is lost on a step (as the
  * reference renderer does it). `draw` draws a step's nodes into its box. Returns the boxes and what shows the step on show.
  */
-export function drawSteps(host: ReadingHost, into: HTMLElement, steps: readonly Step[], at: number, done: (i: number) => boolean, draw: (el: HTMLElement, step: Step) => void): { show: (at: number) => void; box: (i: number) => HTMLElement | undefined } {
+export function drawSteps(into: HTMLElement, steps: readonly Step[], at: number, done: (i: number) => boolean, draw: (el: HTMLElement, step: Step) => void): { show: (at: number) => void; box: (i: number) => HTMLElement | undefined } {
 	const holder = into.createDiv({ cls: "booklet-steps" });
 	const head = holder.createDiv({ cls: "booklet-steps-head" });
 	const progress = head.createSpan({ cls: "booklet-steps-progress", attr: { role: "status" } });
@@ -112,12 +105,13 @@ export function drawSteps(host: ReadingHost, into: HTMLElement, steps: readonly 
 		draw(box, s);
 		return box;
 	});
-	void host;
 	let shown = at;
 	const show = (now: number) => {
 		shown = Math.max(0, Math.min(steps.length - 1, now));
 		boxes.forEach((b, i) => b.toggleAttribute("hidden", i !== shown));
-		progress.setText(`Step ${shown + 1} of ${steps.length}`);
+		// set only when it changes: a status line read out again on every answer is noise to a screen reader
+		const line = `Step ${shown + 1} of ${steps.length}`;
+		if (progress.textContent !== line) progress.setText(line);
 		dotEls.forEach((d, i) => {
 			d.toggleClass("is-done", done(i));
 			d.toggleClass("is-current", i === shown);
@@ -129,35 +123,7 @@ export function drawSteps(host: ReadingHost, into: HTMLElement, steps: readonly 
 
 /* ---- footnotes ---- */
 
-/** Private-use marks that stand for a footnote's mark in text sent to Obsidian, which would draw `[^id]` its own way. */
-const OPEN = "";
-const CLOSE = "";
-const TOKEN = new RegExp(`${OPEN}(\\d+)${CLOSE}`, "g");
-
-/** Text with each mark outside code swapped for a token naming its place in `ids`, which gets the ids in order. */
-export function tokenise(markdown: string, ids: string[]): string {
-	if (!markdown.includes("[^")) return markdown;
-	const lines = markdown.split("\n");
-	let fence: string | null = null;
-	return lines
-		.map((l) => {
-			const f = /^ {0,3}(`{3,}|~{3,})/.exec(l);
-			if (fence) {
-				if (f && f[1] && f[1][0] === fence[0] && f[1].length >= fence.length && !/\S/.test(l.slice((f[0] ?? "").length))) fence = null;
-				return l;
-			}
-			if (f && f[1]) {
-				fence = f[1];
-				return l;
-			}
-			// inline code is left alone: the line is cut at its backtick spans
-			return l
-				.split(/(`+[^`]*`+)/)
-				.map((part, n) => (n % 2 ? part : part.replace(/\[\^([A-Za-z0-9][A-Za-z0-9_.:-]*)\]/g, (_m, id: string) => `${OPEN}${ids.push(id) - 1}${CLOSE}`)))
-				.join("");
-		})
-		.join("\n");
-}
+const TOKEN = new RegExp(`${MARK_OPEN}(\\d+)${MARK_CLOSE}`, "g");
 
 /** A date written `2026-09-20` in words, in the view's language. */
 function longDate(iso: string): string {
@@ -188,7 +154,7 @@ export function drawSource(host: ReadingHost, into: HTMLElement, note: Note): vo
 export interface CiteScope {
 	/** The module whose notes a mark is read in ("" for the bare activities). */
 	scope: string;
-	notes: Pick<{ notes: Note[] }, "notes">;
+	notes: Pick<Booklet, "notes">;
 	numbers: Map<string, number>;
 }
 
@@ -200,7 +166,7 @@ export function drawMarks(host: ReadingHost, el: HTMLElement, ids: readonly stri
 	const doc = el.ownerDocument;
 	const walker = doc.createTreeWalker(el, 4);
 	const texts: Text[] = [];
-	for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes(OPEN) && !(n.parentElement?.closest("code, pre"))) texts.push(n as Text);
+	for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes(MARK_OPEN) && !(n.parentElement?.closest("code, pre"))) texts.push(n as Text);
 	for (const t of texts) {
 		const parts = t.data.split(TOKEN);
 		const frag = doc.createDocumentFragment();
@@ -247,7 +213,11 @@ function closePanel(panel: { open: { mark: HTMLElement; el: HTMLElement } | null
 	panel.open = null;
 }
 
-/** A mark pressed: its source opens under the block it is in (a second press, or Escape, shuts it). */
+/**
+ * A mark pressed: its source opens under the block it is in (a second press, or Escape, shuts it). Where the block is a
+ * list item the source goes inside the item, after its content, and where it is a table cell it goes in a row of its own
+ * under the cell's row, across the table: a `div` beside an `li` or a `td` would be a child its parent cannot have.
+ */
 function toggle(host: ReadingHost, mark: HTMLElement, note: Note, num: number, panel: { open: { mark: HTMLElement; el: HTMLElement } | null }): void {
 	const was = panel.open?.mark === mark;
 	closePanel(panel);
@@ -258,7 +228,16 @@ function toggle(host: ReadingHost, mark: HTMLElement, note: Note, num: number, p
 	el.className = "booklet-cite-panel";
 	el.setAttribute("role", "region");
 	el.setAttribute("aria-label", `Source ${num}`);
-	block.insertAdjacentElement("afterend", el);
+	let put: Element = el;
+	if (block.matches("li")) block.appendChild(el);
+	else if (block.matches("td, th") && block.closest("tr")) {
+		const tr = block.closest("tr") as HTMLTableRowElement;
+		put = mark.ownerDocument.createElement("tr");
+		put.className = "booklet-cite-row";
+		put.appendChild(mark.ownerDocument.createElement("td")).setAttribute("colspan", String(tr.children.length));
+		(put.firstElementChild as Element).appendChild(el);
+		tr.insertAdjacentElement("afterend", put);
+	} else block.insertAdjacentElement("afterend", el);
 	drawSource(host, el, note);
 	const close = el.createEl("button", { cls: "booklet-cite-close", text: "Close", attr: { "aria-label": `Close source ${num}` } });
 	close.addEventListener("click", (evt) => {
@@ -274,5 +253,5 @@ function toggle(host: ReadingHost, mark: HTMLElement, note: Note, num: number, p
 		mark.focus();
 	});
 	mark.setAttr("aria-expanded", "true");
-	panel.open = { mark, el };
+	panel.open = { mark, el: put as HTMLElement };
 }

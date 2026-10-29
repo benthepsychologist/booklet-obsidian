@@ -6,7 +6,7 @@
  * of a single question with a summary gives that question's distribution. Nothing here is saved: a summary is drawn,
  * never written. Plain TypeScript: nothing here imports Obsidian.
  */
-import { pairFor, pickKey, pickWords, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
+import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import type { Activity, Booklet, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
@@ -239,7 +239,7 @@ function entryRows(book: Booklet, a: Activity, qs: readonly Question[], named: r
 			if (x.each) {
 				// one field per pick the source holds in this entry, with that pick's answer; an answer of the wrong shape is left out
 				if (!src || shapeIssue(x, v)) continue;
-				const plain: Question = { ...x, each: null };
+				const plain = plainOf(x);
 				for (const { pick: p, pair } of shownPairs(src, e, x)) {
 					const c = pair && holdsSomething(pair.a) ? answerCell(plain, pair.a) : null;
 					if (!c) continue;
@@ -417,7 +417,7 @@ function answersOf(q: Question, ents: readonly Record<string, unknown>[]): unkno
 function pickAnswers(a: Activity, q: Question, ents: readonly Record<string, unknown>[]): { pick: PickValue; parts: WordPart; values: unknown[] }[] {
 	const src = sourceOf(a, q);
 	if (!src) return [];
-	const plain: Question = { ...q, each: null };
+	const plain = plainOf(q);
 	return picksInOrder(src, ents).map((p) => {
 		const values: unknown[] = [];
 		for (const e of ents) {
@@ -444,7 +444,7 @@ function summaryRows(a: Activity, qs: readonly Question[], q: Query, ents: reado
 		if (!want(x.id)) continue;
 		if (x.each) {
 			// one row per pick, summarised by its own kind
-			const plain: Question = { ...x, each: null };
+			const plain = plainOf(x);
 			for (const p of pickAnswers(a, x, ents)) rows.push(...summariseAll(plain, [...titleParts(x), { text: " · " }, p.parts], p.values, locale));
 			continue;
 		}
@@ -568,7 +568,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		if (q.summary) {
 			// one row per value; a question asked for each pick, one row per pick and value
 			const rows = one.each
-				? pickAnswers(a, one, ents).flatMap((p) => distribution({ ...one, each: null }, p.values, locale, [p.parts, { text: " · " }]))
+				? pickAnswers(a, one, ents).flatMap((p) => distribution(plainOf(one), p.values, locale, [p.parts, { text: " · " }]))
 				: distribution(one, answersOf(one, ents), locale);
 			set = summarySet(ents.length ? rows : [], "answer");
 		} else {

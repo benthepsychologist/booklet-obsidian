@@ -8,13 +8,10 @@
 import { openView, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { CHECKIN, core, norm } from "./helpers.mjs";
 
 const { Notice } = await import("./obsidian-stub.mjs");
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
 const GRID = { engine: "grid-select", cells: [{ id: "up", label: "Up", color: "green" }, { id: "down", label: "Down", color: "blue" }], items: [{ id: "glad", cell: "up", label: "Glad" }, { id: "low", cell: "down", label: "Low" }] };
 const SPOTS = { engine: "svg-regions", regions: [{ id: "top", label: "Top" }, { id: "base", label: "Base" }], senses: [{ id: "feel", label: "Feel", words: [{ id: "warm", label: "Warm" }] }], chips: ["top", "base"] };
@@ -502,7 +499,8 @@ test("each in the view: a press lands while a copy above it is taken away by a c
 	w.document.dispatchEvent(new w.Event("pointerup", { bubbles: true }));
 	assert.ok(target.isConnected);
 	target.click();
-	await until(() => JSON.stringify(v.draft().feelings) === JSON.stringify(["lively"]), "the press written");
+	// the change made meanwhile already put the pick on disk, so the wait is on what only the press writes: the pair
+	await until(() => JSON.stringify(v.draft().felt) === JSON.stringify([{ pick: "lively", a: [1] }]), "the press written");
 	await v.settled();
 	assert.deepEqual(v.draft().felt, [{ pick: "lively", a: [1] }]);
 	assert.deepEqual(v.draft().feelings, ["lively"]);

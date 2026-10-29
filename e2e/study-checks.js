@@ -2,34 +2,13 @@
 //   right and wrong marked on a choice and a multi (with each option's reply), a matrix (a grid on a desktop, separate
 //   questions on a phone), and a question asked for each pick of another (`each:`), of several kinds.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
-const { quiet, drawing, frames, mobile } = require("./waits");
+const fs = require("fs"), path = require("path");
+const { quiet, drawing, frames, mobile, kit } = require("./waits");
 
 module.exports = function studyChecks(env) {
-  const { withApp, Check, SHOTS, sleep, BOOK, waitActiveType } = env;
+  const { withApp, Check, BOOK } = env;
   const STUDY = "Study quiz.booklet.md";
-  const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
-  const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
-
-  // the answers the note holds on disk now: every `booklet answers` block, by the header after the kind
-  const answers = vault => {
-    const text = fs.readFileSync(path.join(vault, STUDY), "utf8"), out = {};
-    for (const m of text.matchAll(/```booklet answers([^\n]*)\n([\s\S]*?)```/g)) out[m[1].trim()] = JSON.parse(m[2]);
-    return out;
-  };
-  const recordsOf = (vault, act) => { const a = answers(vault); return a[act] || a[""] || {}; };
-  const goTo = async (o, screen) => {
-    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
-    await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
-    await quiet(o);
-  };
-  const open = async (o, rel) => {
-    await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 10000, polling: 100 });
-    await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
-    await waitActiveType(o, "booklet", 20000);
-    await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 });
-    await quiet(o);
-  };
+  const { shot, sha, goTo, open, recordsOf } = kit(env, STUDY);
   const q = id => BOOK + " [data-booklet-q='" + id + "']";
   const press = async (o, sel, text) => { await o.page.locator(sel + " button").filter({ hasText: text }).first().click({ timeout: 6000 }); await quiet(o); };
   const scrollTo = async (o, sel) => { await o.evaluate(sel => document.querySelector(sel).scrollIntoView({ block: "start" }), sel); await frames(o); };

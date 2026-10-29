@@ -18,9 +18,9 @@
  */
 import type { Activity, Booklet, Question } from "./reader";
 import type { Entry } from "./records";
-import { pairFor, sourceOf, sourcePicks, type PickValue } from "./each";
+import { pairFor, plainOf, sourceOf, sourcePicks, type PickValue } from "./each";
 import { shapeIssue } from "./shape";
-import { normWords, regionsOf, senseWord, type Regions } from "./widgets";
+import { normWords, senseWord, type Regions } from "./widgets";
 import { todaysEntry, type DayRule } from "./write";
 
 /** How many earlier words a question offers at each place when its line does not say (Ben: "keep the limit of 12"). */
@@ -79,9 +79,6 @@ function takeWords(from: Iterable<string>, limit: number, same: (a: string, b: s
 	}
 	return out;
 }
-
-/** The question without its `each:`: what a pair's answer is read as. */
-const plainOf = (q: Question): Question => (q.each ? { ...q, each: null } : q);
 
 /**
  * The answers one record (a draft as shown, the answers, or a kept entry) holds for a question, each in its kind's
@@ -195,12 +192,6 @@ export function earlierPlaceWords(q: Question, rg: Regions, now: unknown, entrie
 	}
 	const same = (a: string, b: string) => normWords(a) === normWords(b);
 	return takeWords(from(), earlierLimit(q), same, (w) => w.includes(",") || listed.has(normWords(w)) || here.has(normWords(w)));
-}
-
-/** The words an svg-regions widget question offers under `place`: its data read, then earlierPlaceWords. */
-export function earlierPlaceWordsOf(q: Question, now: unknown, entries: readonly Entry[], place: string, each?: EachContext): string[] {
-	if (!q.widget) return [];
-	return earlierPlaceWords(q, regionsOf(q.widget.data), now, entries, place, each);
 }
 
 /* ---- a lines question ---- */

@@ -162,7 +162,6 @@ function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 }
 
 export type Label = (el: HTMLElement) => void;
-export { labeller };
 
 function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const field = q.long ? box.createEl("textarea", { cls: "booklet-text booklet-long", attr: { rows: 4 } }) : box.createEl("input", { cls: "booklet-text", type: "text" });
@@ -491,7 +490,8 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	// the options that are right: all the `[x]` ones of a multi, the first of a choice (booklet.html choiceBlock)
 	const right = q.options.flatMap((o, i) => (o.correct ? [i + 1] : [])).slice(0, multi ? undefined : 1);
 	const graded = right.length > 0;
-	// the picks a multi's Check was pressed on: its marks show while the picks are those, and not after they change
+	// the picks a multi's Check was pressed on: its marks show while the picks are those. A change of the picks takes them
+	// away for good, as the reference renderer does (booklet.html put): putting a pick back does not bring the marks back
 	let checkedOn: string | null = null;
 	const row = box.createDiv({ cls: "booklet-choices" });
 	row.setAttr("role", "group");
@@ -565,6 +565,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 	};
 	const show = () => {
 		const c = io.picks();
+		if (checkedOn !== null && checkedOn !== JSON.stringify(c)) checkedOn = null;
 		listed.forEach((b, n) => {
 			pressed(b, c.includes(n + 1));
 			showMark(b, n, markOf(n + 1, c));
@@ -622,7 +623,9 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			const told = multi ? checked : typeof c[0] === "number";
 			const bad = multi ? right.some((n) => !c.includes(n)) || c.some((x) => typeof x === "number" && !right.includes(x)) : !right.includes(c[0] as number);
 			const answers = right.flatMap((n) => (q.options[n - 1] ? [plainWords(q.options[n - 1]!.text)] : [])).join(", ");
-			live.setText(told ? (bad ? `Not quite. The answer is ${answers}.` : "Right.") : "");
+			// set only when it changes: a live region read out again on every redraw of the screen is noise to a screen reader
+			const line = told ? (bad ? `Not quite. The answer is ${answers}.` : "Right.") : "";
+			if (live.textContent !== line) live.setText(line);
 		}
 	};
 	let acts: HTMLElement | null = null;

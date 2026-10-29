@@ -37,17 +37,17 @@ interface Copy {
 export type DrawCopy = (host: QuestionHost, into: HTMLElement, key: string, labelledBy: string) => void;
 
 /**
- * A host for one copy of a question asked for each pick: the copy's answer is the `a` of its pick's pair, a press and
- * typing write that, and the function it registers to show its answer again is `onShow`'s to call (the copies are shown
- * together with the question).
- */
-/**
  * The key a copy's controls are drawn under: one for each pick. For a `choice` or a `multi` it is the key the words typed
  * in the copy's Add your own field are held under on the device (held-store.ts), so it must stay `<key>#own:<pick>`:
  * words held under it by an earlier version are found again, and not lost.
  */
 const copyKey = (key: string, p: PickValue): string => `${key}#own:${pickKey(p)}`;
 
+/**
+ * A host for one copy of a question asked for each pick: the copy's answer is the `a` of its pick's pair, a press and
+ * typing write that, and the function it registers to show its answer again is `onShow`'s to call (the copies are shown
+ * together with the question).
+ */
 function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (show: () => void) => void): QuestionHost {
 	return {
 		md: (markdown, el) => host.md(markdown, el),

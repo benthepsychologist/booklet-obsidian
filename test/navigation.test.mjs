@@ -4,7 +4,7 @@
  * Back and Forward, a restored pane, links inside a note, and the rule that no move writes anything into the note.
  * Every note is made up.
  */
-import { window as w, quiet } from "./dom.mjs";
+import { click, quiet } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, core, norm, sha } from "./helpers.mjs";
@@ -181,7 +181,7 @@ test("a tab chosen while a page is turning ends on that tab; a double press on N
 	const text = `---\nbooklet: "0.16"\ntitle: Quick hands\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
 	const p = pane(text, { delay: 40 });
 	await p.settled();
-	const press = (sel, label) => p.all(sel).find((b) => p.words(b).startsWith(label)).dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+	const press = (sel, label) => click(p.all(sel).find((b) => p.words(b).startsWith(label)));
 	// the turn is under way (its state not yet landed) when the tab is chosen
 	press(".booklet-pager button", "Next");
 	press(".booklet-tabbtn", "Two");
@@ -287,7 +287,7 @@ test("no move writes anything into a note: three made-up notes are byte-for-byte
 			seen.add(key);
 			const next = targets[i % Math.max(1, targets.length)];
 			if (!next) break;
-			next.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+			click(next);
 			await p.settled();
 			if (p.hist.back.length > 3 && i % 5 === 4) await p.back();
 		}
@@ -329,14 +329,14 @@ test("a heading link opens the place its words name, as a step; a dead one is pl
 		assert.match(p.words(p.el.querySelector(".booklet-pagebody")), /and Nowhere at all and/);
 		assert.match(p.words(p.el.querySelector(".booklet-module-chip")), /^the third · not in this booklet$/);
 		// a heading link: the place its words name
-		links[0].dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+		click(links[0]);
 		await p.settled();
 		assert.equal(p.screen, "activity:one/b");
 		assert.equal(p.hist.back.length, 1, "a heading link that moves is a step");
 		await p.back();
 		assert.equal(p.screen, "activity:one/a");
 		// a link to a module the booklet holds: its screen (a module of two activities has one)
-		p.all(".booklet-pagebody a")[1].dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+		click(p.all(".booklet-pagebody a")[1]);
 		await p.settled();
 		assert.equal(p.screen, "module:two");
 		assert.equal(p.disk.writes, 0);

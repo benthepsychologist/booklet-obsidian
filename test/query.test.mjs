@@ -6,9 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, keepDays, norm } from "./helpers.mjs";
+import { CHECKIN, core, keepDays, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
@@ -524,7 +522,6 @@ test("a summary never reads a draft, and nothing is saved: working out a query c
 
 /* ---- the check-in: a grid-select and a question asked for each pick ---- */
 
-const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 const DAYS = [
 	["2026-10-22T09:00:00Z", { feelings: ["tense", "tired"], felt: [{ pick: "tense", a: [5] }, { pick: "tired", a: [1, "Eyes"] }], thoughts: ["A walk at lunch"] }],
 	["2026-10-23T09:00:00Z", { feelings: ["tense"], felt: [{ pick: "tense", a: [5, 8] }], thoughts: ["Too many emails", "Call a friend"] }],

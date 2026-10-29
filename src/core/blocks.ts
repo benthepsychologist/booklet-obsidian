@@ -23,17 +23,23 @@ export interface RowBox {
 
 export type Block = Exclude<Segment, { type: "callout" | "callout-end" | "row" }> | CalloutBox | RowBox;
 
-/** The segments of a page (or of an activity's opening) as a tree. A callout or a row left open at the end is closed there. */
+/**
+ * The segments of a page (or of an activity's opening) as a tree. A callout or a row left open at the end is closed there.
+ * A row keeps the depth it opened at: a callout opened inside one of its cells is a box inside that cell, and what the
+ * callout holds is the callout's; the row ends where its own end line is, never at the end of a callout it did not open.
+ */
 export function treeOf(segs: readonly Segment[]): Block[] {
 	const root: Block[] = [];
 	const stack: CalloutBox[] = [];
-	let row: { line: number; children: Block[] } | null = null;
-	const here = (): Block[] => row?.children ?? stack[stack.length - 1]?.children ?? root;
+	let row: { line: number; children: Block[]; depth: number } | null = null;
+	const at = (depth: number): Block[] => (depth ? (stack[depth - 1] as CalloutBox).children : root);
+	const here = (): Block[] => (row && row.depth === stack.length ? row.children : at(stack.length));
 	const closeRow = () => {
 		if (!row) return;
 		const done: RowBox = { type: "row-box", line: row.line, cells: cellsOf(row.children) };
+		const depth = row.depth;
 		row = null;
-		here().push(done);
+		at(depth).push(done);
 	};
 	for (const s of segs) {
 		if (s.type === "callout") {
@@ -41,11 +47,12 @@ export function treeOf(segs: readonly Segment[]): Block[] {
 			here().push(box);
 			stack.push(box);
 		} else if (s.type === "callout-end") {
-			closeRow();
+			if (row && row.depth === stack.length) closeRow();
 			stack.pop();
 		} else if (s.type === "row") {
-			if (s.end) closeRow();
-			else if (!row) row = { line: s.line, children: [] };
+			if (s.end) {
+				if (row && row.depth === stack.length) closeRow();
+			} else if (!row) row = { line: s.line, children: [], depth: stack.length };
 		} else here().push(s);
 	}
 	closeRow();
@@ -81,15 +88,15 @@ function headingAt(lines: readonly string[], i: number, fenced: readonly boolean
 }
 
 /** Where a block of prose starts a new cell, and the level of each heading that does. */
-function headingsOf(markdown: string): { at: number; level: number; span: number }[] {
+function headingsOf(markdown: string): { at: number; level: number }[] {
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
-	const out: { at: number; level: number; span: number }[] = [];
+	const out: { at: number; level: number }[] = [];
 	for (let i = 0; i < lines.length; i++) {
 		const level = headingAt(lines, i, fenced);
 		if (!level) continue;
 		const setext = !ATX.test(lines[i] ?? "");
-		out.push({ at: i, level, span: setext ? 2 : 1 });
+		out.push({ at: i, level });
 		if (setext) i++;
 	}
 	return out;
@@ -149,7 +156,7 @@ export function cellsOf(children: readonly Block[]): Block[][] {
 		const lines = c.markdown.split("\n");
 		const starts = headingsOf(c.markdown).filter((h) => h.level === shallowest);
 		let from = 0;
-		for (const h of [...starts, { at: lines.length, level: 0, span: 0 }]) {
+		for (const h of [...starts, { at: lines.length, level: 0 }]) {
 			const part = lines.slice(from, h.at).join("\n").replace(/^\n+|\n+$/g, "");
 			if (part.trim()) into(prose(part, c.line + from));
 			if (h.level) cells.push((cur = []));
@@ -192,18 +199,107 @@ export function stepsOf(nodes: readonly Block[]): { lead: Block[]; steps: Step[]
 /* ---- footnotes and citations (SPEC section 6, "Citations") ---- */
 
 const MARK = /\[\^([A-Za-z0-9][A-Za-z0-9_.:-]*)\]/g;
+/** Private-use marks that stand for a footnote's mark in text sent to Obsidian, which would draw `[^id]` its own way. */
+export const MARK_OPEN = "\uE000";
+export const MARK_CLOSE = "\uE001";
 
-/** The footnote ids a text holds marks for, in reading order; a mark in a fenced block or in code is not one. */
-export function marksIn(markdown: string): string[] {
-	if (!markdown.includes("[^")) return [];
-	const lines = markdown.split("\n");
-	const fenced = fencedLines(lines);
-	const out: string[] = [];
-	lines.forEach((l, i) => {
-		if (fenced[i]) return;
-		for (const m of l.replace(/`[^`]*`/g, "").matchAll(MARK)) out.push(m[1] as string);
-	});
+/** A fence line, with any indent (a fence inside a list item sits further in): its mark run, and what follows it. */
+const FENCE_ANY = /^[ \t]*(`{3,}|~{3,})(.*)$/;
+/** A list item's first line. */
+const LIST_ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]/;
+/** A footnote's definition label at the start of a line: where a note is defined, not a mark. */
+const DEFINITION = /^ {0,3}\[\^[^\]\s]+\]:/;
+
+/**
+ * Per line, is it code or maths, where a mark is no mark: a fenced block (any indent, closed by a line of the same
+ * character at least as long and nothing after it; an unclosed one runs to the end), an indented code block (four spaces
+ * or a tab, after a blank line or other code, and not in a list item), or a block of maths between two `$$` lines.
+ */
+function inertLines(lines: readonly string[]): boolean[] {
+	const out = lines.map(() => false);
+	let fence: string | null = null;
+	let maths = false;
+	let inList = false;
+	for (let i = 0; i < lines.length; i++) {
+		const l = lines[i] ?? "";
+		const f = FENCE_ANY.exec(l);
+		if (fence) {
+			out[i] = true;
+			if (f && f[1] && f[1][0] === fence[0] && f[1].length >= fence.length && !/\S/.test(f[2] ?? "")) fence = null;
+			continue;
+		}
+		if (maths) {
+			out[i] = true;
+			if (l.trim() === "$$") maths = false;
+			continue;
+		}
+		if (f && f[1] && !(f[1][0] === "`" && (f[2] ?? "").includes("`"))) {
+			fence = f[1];
+			out[i] = true;
+			continue;
+		}
+		if (l.trim() === "$$") {
+			maths = true;
+			out[i] = true;
+			continue;
+		}
+		if (/^(?: {4,}|\t)\S/.test(l)) {
+			if (!inList && (i === 0 || isBlank(lines[i - 1]) || out[i - 1])) out[i] = true;
+			continue;
+		}
+		if (!isBlank(l)) inList = LIST_ITEM.test(l);
+	}
 	return out;
+}
+
+/**
+ * The line with its inline code and maths, and a definition's label, blanked out to the same length, so a mark found in it
+ * stands where it stood in the line. A code span runs from a run of backticks to the next run of the same length (a run
+ * with no match is only backticks); maths is `$...$` with no space inside its ends, or `$$...$$`.
+ */
+function inertSpans(l: string): string {
+	let out = l.replace(DEFINITION, (m) => " ".repeat(m.length));
+	const ticks = [...l.matchAll(/`+/g)];
+	for (let a = 0; a < ticks.length; a++) {
+		const open = ticks[a] as RegExpMatchArray;
+		const close = ticks.slice(a + 1).findIndex((t) => t[0].length === open[0].length);
+		if (close < 0) continue;
+		const end = ticks[a + 1 + close] as RegExpMatchArray;
+		const from = open.index as number;
+		const to = (end.index as number) + end[0].length;
+		out = out.slice(0, from) + " ".repeat(to - from) + out.slice(to);
+		a += 1 + close;
+	}
+	return out.replace(/\$\$[^$]*\$\$|\$(?=\S)[^$]*?\S\$(?!\d)/g, (m) => " ".repeat(m.length));
+}
+
+/**
+ * Text with each mark outside code and maths swapped for a token naming its place in `ids`, which gets the ids in order.
+ * The one rule for what a mark is: the numbers (`marksIn`) and the drawing (here) cannot disagree.
+ */
+export function tokenise(markdown: string, ids: string[]): string {
+	if (!markdown.includes("[^")) return markdown;
+	const lines = markdown.split("\n");
+	const inert = inertLines(lines);
+	return lines
+		.map((l, i) => {
+			if (inert[i]) return l;
+			let out = "";
+			let at = 0;
+			for (const m of inertSpans(l).matchAll(MARK)) {
+				out += `${l.slice(at, m.index)}${MARK_OPEN}${ids.push(m[1] as string) - 1}${MARK_CLOSE}`;
+				at = (m.index as number) + m[0].length;
+			}
+			return out + l.slice(at);
+		})
+		.join("\n");
+}
+
+/** The footnote ids a text holds marks for, in reading order; a mark in code or maths is not one. */
+export function marksIn(markdown: string): string[] {
+	const ids: string[] = [];
+	tokenise(markdown, ids);
+	return ids;
 }
 
 /** The note a mark leads to, as a module sees it: its own module's first, then the plain data section's. */

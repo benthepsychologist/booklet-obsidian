@@ -4,13 +4,13 @@
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
+const fs = require("fs"), path = require("path");
+const { kit } = require("./waits");
 
 module.exports = function navChecks(env) {
-  const { withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType } = env;
+  const { withApp, Check, launch, opt, BOOK, read, SRC_VAULT, waitActiveType } = env;
   const SKETCH = "Learning to sketch.booklet.md", CHECKIN = "Check-in.booklet.md", WEEKLY = "Weekly plan.booklet.md";
-  const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
-  const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
+  const { shot, sha } = kit(env, SKETCH);
 
   /* ---- made-up notes the checks write into their own copy of the vault ---- */
   const WEEKLY_NOTE = `---
@@ -235,7 +235,14 @@ Two p2
       const wanted = await state(o);
       await o.evaluate(() => app.workspace.requestSaveLayout());
       // Obsidian writes the layout after a pause of its own: wait until the file holds the place the pane is in
-      const saved = await untilTrue(() => { try { return new RegExp('"screen":\\s*"' + wanted.screen.replace(/[/.]/g, "\\$&") + '"').test(fs.readFileSync(path.join(o.vault, ".obsidian", "workspace.json"), "utf8")); } catch (e) { return false; } }, 15000);
+      // (the screen and the tab and part the pane is on: an earlier save may already hold the screen alone)
+      const saved = await untilTrue(() => {
+        try {
+          const found = [];
+          JSON.parse(fs.readFileSync(path.join(o.vault, ".obsidian", "workspace.json"), "utf8"), (k, v) => { if (v && v.type === "booklet" && v.state) found.push(v.state); return v; });
+          return found.some(st => st.screen === wanted.vs.screen && st.tab === wanted.vs.tab && st.part === wanted.vs.part);
+        } catch (e) { return false; }
+      }, 15000);
       c.ok(saved, "Obsidian saved the pane's place into its layout file: " + wanted.screen);
       const { vault: v2, configDir } = o;
       await o.close();

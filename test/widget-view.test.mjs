@@ -7,11 +7,8 @@
 import { openView, press, testApp, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, norm } from "./helpers.mjs";
+import { CHECKIN as NOTE, core, norm } from "./helpers.mjs";
 
-const NOTE = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
 function open(text = NOTE) {
 	const v = openView(text, { path: "Check-in.booklet.md", screen: "activity:day-check/today" });
