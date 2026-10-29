@@ -6,6 +6,7 @@
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
+import { treeOf, questionsIn } from "./blocks";
 import { COMMON_KINDS, HEADING_WORDS, THEMATIC_BREAK, kvLine, openingMarkdown, type Activity, type Booklet, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
 
@@ -263,21 +264,45 @@ function splitAtBreaks(markdown: string): string[][] {
  */
 export function pagesOf(segs: readonly Segment[]): Segment[][] {
 	const pages: Segment[][] = [[]];
+	/** How deep in callouts: a page break inside a callout is a rule drawn in it, not a break (SPEC section 6, "A group holds blocks"). */
+	let depth = 0;
+	/** A row is open: it does not cross a page break, so a break closes it (SPEC section 3, "Rows"). */
+	let row = false;
+	const page = () => pages[pages.length - 1] as Segment[];
 	for (const s of segs) {
-		if (s.type !== "prose") {
-			(pages[pages.length - 1] as Segment[]).push(s);
+		if (s.type === "callout") depth++;
+		else if (s.type === "callout-end") depth--;
+		else if (s.type === "row") row = !s.end;
+		if (s.type !== "prose" || depth > 0) {
+			page().push(s);
 			continue;
 		}
 		let at = 0;
 		splitAtBreaks(s.markdown).forEach((ls, n) => {
-			if (n) pages.push([]);
+			if (n) {
+				if (row) {
+					page().push({ type: "row", end: true, line: s.line + at });
+					row = false;
+				}
+				pages.push([]);
+			}
 			const md = ls.join("\n").replace(/^\n+|\n+$/g, "");
-			if (md.trim()) (pages[pages.length - 1] as Segment[]).push({ type: "prose", markdown: md, line: s.line + at });
+			if (md.trim()) page().push({ type: "prose", markdown: md, line: s.line + at });
 			at += ls.length + 1;
 		});
 	}
 	const kept = pages.filter((p) => p.length);
 	return kept.length ? kept : [[]];
+}
+
+/** The folded callouts that hold booklet lines and no question, read as the folded callouts of prose are (not a hint or a solution). */
+function foldedGroups(segs: readonly Segment[]): number {
+	return treeOf(segs).reduce(function count(n: number, x): number {
+		if (x.type !== "callout-box") return n;
+		const kind = x.start.kind.toLowerCase();
+		const here = x.start.fold === "-" && kind !== "hint" && kind !== "solution" && !questionsIn(x.children).length ? 1 : 0;
+		return x.children.reduce(count, n + here);
+	}, 0);
 }
 
 /** The folded callouts of some prose that are there to be read: not a hint or a solution, holding no question; the outer one only. */
@@ -440,7 +465,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 			? raw.map((r, n) => ({ id: ids[n] as string, title: r.title, pages: pagesOf(r.segs) }))
 			: [{ id: "", title: "", pages: pagesOf(opening) }];
 		const first = a.segments[0];
-		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0);
+		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0) + foldedGroups(a.segments);
 		const na: NavAct = {
 			act: a,
 			key: actKey(a.scope, a.id),

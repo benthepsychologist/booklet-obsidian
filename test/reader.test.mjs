@@ -158,11 +158,13 @@ test("repeat and daily: daily needs repeat; a repeating activity with no id is s
 	assert.ok(b.problems.some((p) => /`daily` needs `repeat`/.test(p)), b.problems.join("; "));
 });
 
-test("a question inside a group is not drawn as a question yet; the group's words stay", () => {
+test("a question inside a group is a question of its activity, between the group's opening and closing; the group's own lines are not drawn as prose", () => {
 	const b = core.parseBooklet(`${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!group] A group\n> > [!text|inside] Inside\n\n> [!text|outside] Outside\n`);
 	const segs = b.activities[0].segments;
-	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["outside"]);
-	assert.ok(segs.some((s) => s.type === "unsupported" && s.kind === "group"), JSON.stringify(segs.map((s) => s.type + ":" + (s.kind ?? ""))));
+	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["inside", "outside"]);
+	assert.deepEqual(norm(segs.map((s) => s.type)), ["callout", "question", "callout-end", "question"]);
+	assert.deepEqual(norm([segs[0].kind, segs[0].title, segs[0].fold]), ["group", "A group", ""]);
+	assert.deepEqual(b.problems, []);
 });
 
 test("refused: a module opened and not closed, closed and not opened, overlapping; an id used twice in a module", () => {

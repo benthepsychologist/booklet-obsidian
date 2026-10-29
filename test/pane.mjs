@@ -16,11 +16,11 @@ export { sleep };
  * move a step, keeps the place left in a Back list; a second move asked for while one is under way is dropped (design 4.2);
  * Back and Forward hand a kept state to the view without adding a step.
  */
-export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state = null, drawLater = false } = {}) {
+export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state = null, drawLater = false, appMore = {} } = {}) {
 	const disk = { text, writes: 0 };
 	const hist = { back: [], fwd: [] };
 	const flight = { busy: false, dropped: 0, calls: 0 };
-	const app = testApp(disk, { workspace: { getLeaf: () => leaf } });
+	const app = testApp(disk, { workspace: { getLeaf: () => leaf }, ...appMore });
 
 	const leaf = {
 		app,

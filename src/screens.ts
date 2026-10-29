@@ -149,6 +149,8 @@ export interface PagerButton {
 	words: string;
 	md: boolean;
 	to: Place;
+	/** What a press does in place of going to `to` (one step of a page, Back or Next within it). */
+	press?: () => void;
 }
 
 /**
@@ -166,7 +168,7 @@ export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton
 		if (b.md) host.md(inlineMd(linkless(b.words)), words);
 		else words.setText(b.words);
 		if (!before) icon_();
-		onPress(el, () => host.go(b.to));
+		onPress(el, () => (b.press ? b.press() : host.go(b.to)));
 	};
 	if (back) button(back, "booklet-pager-back", "lucide-arrow-left", true);
 	else foot.createSpan({ cls: "booklet-pager-gap" });

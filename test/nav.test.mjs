@@ -170,13 +170,13 @@ test("pages: a thematic break splits by Markdown's own rules; `---` needs a blan
 	const text = `${head()}\n> [!activity|a] A\n\nOne.\n***\nTwo.\n\n---\n\nThree\n---\n\n\`\`\`\n***\n\`\`\`\n\n> [!group]\n> inside\n> ***\n> still inside\n\n___\n\n***\n\nLast.\n\n***\n`;
 	const { nav } = build(text);
 	const pages = act(nav, "/a").tabs[0].pages;
-	const words = pages.map((p) => p.map((s) => s.markdown.replace(/\s+/g, " ").trim()));
+	const words = pages.map((p) => p.filter((s) => s.type === "prose").map((s) => s.markdown.replace(/\s+/g, " ").trim()));
 	// "Three\n---" is a heading (the break needs a blank line above); the fence and the group keep their lines
 	assert.equal(pages.length, 4, JSON.stringify(words));
 	assert.equal(words[0][0], "One.");
 	assert.equal(words[1][0], "Two.");
 	assert.match(words[2][0], /^Three --- /);
-	assert.match(words[2][0], /inside > \*\*\* > still inside/);
+	assert.equal(words[2][1], "inside *** still inside", "the group is read with one `>` less, and its rule stays in it");
 	assert.equal(words[3][0], "Last.");
 	// an activity with no rule is one page
 	assert.equal(core.pagesOf([{ type: "prose", markdown: "Just words.", line: 1 }]).length, 1);

@@ -207,7 +207,50 @@ export interface QuerySegment {
 	source: QuerySource | null;
 }
 
-export type Segment = Question | Prose | TabHeading | Unsupported | QuerySegment;
+/**
+ * A callout that holds Booklet lines, opened (SPEC section 6, "A group holds blocks"): a `group` always, and any other
+ * reading callout that has a question inside it. The segments of its body follow, up to the matching `CalloutEnd`; a
+ * callout inside it opens and closes in the same way. A body is read with one `>` less, as the activity's own text is.
+ */
+export interface CalloutStart {
+	type: "callout";
+	kind: string;
+	title: string;
+	/** The fold marker after the bracket: `-` starts folded, `+` starts open, empty is no fold. */
+	fold: "" | "-" | "+";
+	line: number;
+}
+
+export interface CalloutEnd {
+	type: "callout-end";
+}
+
+/**
+ * A row's opening line or its closing line (`> [!row]`, `> [!row|end]`; SPEC section 3, "Rows"): what is between them is
+ * laid side by side where there is room.
+ */
+export interface RowMark {
+	type: "row";
+	end: boolean;
+	line: number;
+}
+
+export type Segment = Question | Prose | TabHeading | Unsupported | QuerySegment | CalloutStart | CalloutEnd | RowMark;
+
+/**
+ * A footnote's definition, `[^id]: …` (SPEC section 6, "Citations"), read where the file puts it and never drawn as
+ * prose. `scope` is the module it is in ("" for the bare activities), or null in a plain data section, which every
+ * module may use for an id it does not define itself.
+ */
+export interface Note {
+	id: string;
+	scope: string | null;
+	/** The note's words as written, one paragraph, as inline Markdown. */
+	text: string;
+	line: number;
+	/** What the pattern `*Title*, details, p. N: "quote" Verified YYYY-MM-DD.` read out of it, when the note fits it. */
+	source: { title: string; detail: string; page: string; quote: string; verified: string } | null;
+}
 
 export interface Activity {
 	id: string;
@@ -248,6 +291,8 @@ export interface Booklet {
 	menus: MenuBlock[];
 	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
 	unshown: Unshown[];
+	/** The footnotes' definitions, in file order. */
+	notes: Note[];
 	records: RecordsRead;
 }
 
@@ -332,6 +377,27 @@ const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
 	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
 ]);
+
+/** The kinds of line that make structure: none can go inside a callout's body (SPEC section 6, "A group holds blocks"). */
+const STRUCTURE_KINDS = new Set(["module", "activity", "tab", "row", "data", "records"]);
+/** A footnote's definition line: `[^id]: words`. */
+const NOTE_DEF = /^ {0,3}\[\^([A-Za-z0-9][A-Za-z0-9_.:-]*)\]:[ \t]*(.*)$/;
+/** A page or a place in a footnote's details: `p. 12`, `pp. 12-14`, `art. 14`. */
+const PLACE_WORDS = /^(?:p|pp|art|sec|ch|para)\.[ \t]*\S|^§/i;
+
+/**
+ * What a footnote's words read out as a source and a citation, where they fit the pattern
+ * `*Title*, details, p. N: "quote" Verified YYYY-MM-DD.` (SPEC section 6, "A footnote's note, read into a citation"; the
+ * title and the quote are required, the rest optional); null when they do not, and the note is a plain reference.
+ */
+export function sourceOfNote(text: string): Note["source"] {
+	const m = /^\*([^*]+)\*[ \t]*(?:,[ \t]*([^:]*?))?[ \t]*:[ \t]*["\u201C](.+)["\u201D][ \t]*(?:Verified[ \t]+(\d{4}-\d{2}-\d{2})\.?)?[ \t]*$/.exec(text.trim());
+	if (!m) return null;
+	const parts = (m[2] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+	const last = parts[parts.length - 1];
+	const page = last && PLACE_WORDS.test(last) ? (parts.pop() as string) : "";
+	return { title: (m[1] ?? "").trim(), detail: parts.join(", "), page, quote: (m[3] ?? "").trim(), verified: m[4] ?? "" };
+}
 
 const isCommon = (k: string): k is QuestionKind => (COMMON_KINDS as readonly string[]).includes(k);
 
@@ -499,7 +565,8 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
  * module) comes back with `ok: false` and the reason, still with whatever structure was found.
  */
 export function parseBooklet(text: string): Booklet {
-	const lines = splitLines(text).map((l) => l.text);
+	/** The file's lines; while a callout's body is read it is the file's lines with that body's `>` taken off, down to the body's end. */
+	let lines = splitLines(text).map((l) => l.text);
 	const fm = frontMatterOf(lines);
 	const frontMatter: Record<string, string> = Object.create(null) as Record<string, string>;
 	for (const l of fm.head ?? []) {
@@ -521,6 +588,7 @@ export function parseBooklet(text: string): Booklet {
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
 	const unshown: Unshown[] = [];
+	const notes: Note[] = [];
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const dataBlocks: DataBlock[] = [];
@@ -598,12 +666,33 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
+	/** A row is open: its `> [!row]` line was read and its `> [!row|end]` line has not been. */
+	let rowOpen = false;
+	const closeRow = (why: string, i: number) => {
+		if (rowOpen) problems.push(`${at(i)}: a row is still open ${why}, so it ends there.`);
+		rowOpen = false;
+	};
 	const endActivity = () => {
 		flush();
 		act = null;
 	};
+	/** The footnote ids by scope are said once each (a repeat is ignored: the first wins, booklet.html registries). */
+	const noteScope = (): string | null => (section === "content" ? (mod ? mod.id : "") : dataMod ? dataMod.id : null);
+	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
+	const open: { lines: string[]; resume: number }[] = [];
 
-	for (let i = fm.bodyStart; i < lines.length; i++) {
+	for (let i = fm.bodyStart; ; i++) {
+		if (i >= lines.length) {
+			// the end of a callout's body: what it held is closed, and the file's own lines go on after it
+			const was = open.pop();
+			if (!was) break;
+			flush();
+			if (rowOpen) closeRow("at the end of the callout it is in", i);
+			if (act) act.segments.push({ type: "callout-end" });
+			lines = was.lines;
+			i = was.resume - 1;
+			continue;
+		}
 		if (inRegion[i]) {
 			flush();
 			continue;
@@ -651,7 +740,14 @@ export function parseBooklet(text: string): Booklet {
 				problems.push(`${at(i)}: \`earlier:${earlier}\` is not a whole number written in digits, so it was ignored and the question offers its default.`);
 				delete w.set["earlier"];
 			}
+			if (open.length && STRUCTURE_KINDS.has(kind)) {
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines
+				problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
+				i = bodyEnd(lines, i) - 1;
+				continue;
+			}
 			if (kind === "module") {
+				closeRow("when the module line came", i);
 				endActivity();
 				section = "content";
 				dataMod = null;
@@ -673,6 +769,7 @@ export function parseBooklet(text: string): Booklet {
 				continue;
 			}
 			if (kind === "activity") {
+				closeRow("when the activity line came", i);
 				endActivity();
 				section = "content";
 				dataMod = null;
@@ -696,6 +793,7 @@ export function parseBooklet(text: string): Booklet {
 				continue;
 			}
 			if (kind === "data") {
+				closeRow("when the data section came", i);
 				endActivity();
 				section = "data";
 				// the module id on a data line says whose its blocks are, until the next data, module or activity line;
@@ -711,14 +809,32 @@ export function parseBooklet(text: string): Booklet {
 				i = claimEnd(kind, lines, i) - 1;
 				continue;
 			}
-			if (kind === "notice" || kind === "manifest" || kind === "row" || kind === "records") {
+			if (kind === "row") {
+				flush();
+				// a row's two marker lines: what is between them is laid side by side where there is room (SPEC section 3, "Rows")
+				if (act) {
+					if (w.flags.has("end")) {
+						if (!rowOpen) problems.push(`${at(i)}: a row is closed that was never opened, so its line was ignored.`);
+						else act.segments.push({ type: "row", end: true, line: i + 1 });
+						rowOpen = false;
+					} else if (rowOpen) problems.push(`${at(i)}: a row opens inside a row (rows do not nest), so its line was ignored.`);
+					else {
+						act.segments.push({ type: "row", end: false, line: i + 1 });
+						rowOpen = true;
+					}
+				}
+				i = bodyEnd(lines, i) - 1;
+				continue;
+			}
+			if (kind === "notice" || kind === "manifest" || kind === "records") {
 				flush();
 				if (kind === "notice") unshown.push({ kind: "notice", scope: mod ? mod.id : "", line: i + 1 });
-				i = bodyEnd(lines, i) - 1; // a row's two marker lines: its cells are drawn one under another
+				i = bodyEnd(lines, i) - 1;
 				continue;
 			}
 			if (kind === "tab") {
 				flush();
+				closeRow("when the tab line came", i);
 				if (act) act.segments.push({ type: "tab", title: title || w.id || "Tab", line: i + 1 });
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a tab line's `>` lines are the tab's first prose
@@ -808,17 +924,21 @@ export function parseBooklet(text: string): Booklet {
 			// a reading callout (note, tip, hint, solution, group, diff, law, opinion, …): Obsidian draws it
 			const k = bodyEnd(lines, i);
 			if (act && section === "content") {
-				const nested = lines.slice(i + 1, k).find((l) => {
-					const t = l.replace(/^(?:>[ \t]?)+/, "> ");
-					const mm = CALLOUT_LINE.exec(t);
+				const nested = lines.slice(i + 1, k).some((l) => {
+					const mm = CALLOUT_LINE.exec(l.replace(/^(?:>[ \t]?)+/, "> "));
 					return !!mm && QUESTION_KINDS.has((mm[1] ?? "").toLowerCase());
 				});
-				if (nested !== undefined) problems.push(`${at(i)}: a question inside a ${kind} callout is drawn as text here, not as a question (not yet supported).`);
-				pushText(lines.slice(i, k), i);
-				if (nested !== undefined) {
+				// a group is always a container (it is how steps are made); another callout is one when a question is inside it
+				if (kind === "group" || nested) {
 					flush();
-					act.segments.push({ type: "unsupported", kind: kind === "group" ? "group" : "in-callout", id: null, title, line: i + 1 });
+					act.segments.push({ type: "callout", kind, title, fold: (m[3] ?? "") as "" | "-" | "+", line: i + 1 });
+					// its body is read with one `>` less, from here to its end, as the activity's own text is
+					open.push({ lines, resume: k });
+					lines = lines.slice(0, k);
+					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
+					continue;
 				}
+				pushText(lines.slice(i, k), i);
 				i = k - 1;
 				continue;
 			}
@@ -827,11 +947,23 @@ export function parseBooklet(text: string): Booklet {
 			continue;
 		}
 		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
+		const def = NOTE_DEF.exec(ln);
+		if (def && def[1] && !open.length) {
+			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
+			const words = [(def[2] ?? "").trim()];
+			let j = i + 1;
+			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) words.push((lines[j] ?? "").trim()), j++;
+			const text = words.filter(Boolean).join(" ");
+			notes.push({ id: def[1], scope: noteScope(), text, line: i + 1, source: sourceOfNote(text) });
+			i = j - 1;
+			continue;
+		}
 		if (section !== "content") continue;
 		// outside every activity a page break is no page, and is not drawn (`---` under a line of text is its heading)
 		if (!act && THEMATIC_BREAK.test(ln) && !(/^ {0,3}-/.test(ln) && !isBlank(lines[i - 1]))) continue;
 		pushText([ln], i);
 	}
+	closeRow("at the end of the file", lines.length);
 	endActivity();
 	if (mod) refusals.push(`The module "${mod.id}" is opened and never closed.`);
 
@@ -894,6 +1026,7 @@ export function parseBooklet(text: string): Booklet {
 		widgets,
 		menus,
 		unshown,
+		notes,
 		records,
 	};
 }

@@ -84,3 +84,20 @@ export function moveHeld(app: App, from: string, to: string): void {
 		// as above
 	}
 }
+
+/** Do the steps of a note's parts show one at a time? The reader's choice for this note on this device, never part of the note. */
+export function loadStepsOne(app: App, path: string): boolean {
+	try {
+		return storeOf(app)?.load(`booklet-steps:${path}`) === "one";
+	} catch {
+		return false;
+	}
+}
+
+export function keepStepsOne(app: App, path: string, one: boolean): void {
+	try {
+		storeOf(app)?.save(`booklet-steps:${path}`, one ? "one" : null);
+	} catch {
+		// a store that cannot be written keeps the choice for this drawing only
+	}
+}
