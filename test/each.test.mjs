@@ -12,7 +12,6 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, core, norm } from "./helpers.mjs";
 
-const { BookletView } = await import("./.build/view.mjs");
 const { Notice } = await import("./obsidian-stub.mjs");
 
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
@@ -256,7 +255,7 @@ test("each: a kept entry, one line for each pick its source holds, in the source
 /* ---- the view ---- */
 
 function open(text = CHECKIN) {
-	const v = openView(text, { path: "Check-in.booklet.md" });
+	const v = openView(text, { path: "Check-in.booklet.md", screen: "activity:day-check/today" });
 	const card = () => v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 	const q = (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	return {
@@ -529,19 +528,17 @@ test("each in the view: an answer of the wrong shape is kept as written, the que
 	v.close();
 });
 
-test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", () => {
-	const disk = { text: NOTE };
-	const app = { vault: { process: async (_f, fn) => (disk.text = fn(disk.text)) }, workspace: { iterateAllLeaves() {}, on() {} } };
-	const view = new BookletView({ app }, { setMode: async () => {} });
-	view.file = { path: "Each.booklet.md", basename: "Each.booklet" };
-	view.load();
-	view.setViewData(NOTE, true);
+test("each in the view: a question of another kind asked for each pick is not yet supported, and the setting's mistakes are listed on screen", async () => {
+	const v = openView(NOTE, { path: "Each.booklet.md", screen: "activity:/log" });
+	const view = v.view;
 	const un = view.contentEl.querySelector('[data-booklet-unsupported="each"]');
 	assert.ok(un, "drawn as not yet supported");
 	assert.match(un.textContent, /Not yet supported: a text question asked for each pick \(each:\)\. Its answers are kept\./);
 	const problems = [...view.contentEl.querySelectorAll(".booklet-problems li")].map((x) => x.textContent).join("\n");
 	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.match(problems, new RegExp(`"${id}" is to be asked for each pick`));
-	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
-	view.unload();
-	view.containerEl.remove();
+	for (const id of ["lost", "self", "kind", "chain"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
+	// "far" is in the other activity: its own screen
+	await view.setState({ version: 1, screen: "activity:/other" }, {});
+	assert.ok(view.contentEl.querySelector('[data-booklet-q="far"].booklet-kind-multi:not(.booklet-each)'), "far is drawn as a plain multi");
+	v.close();
 });

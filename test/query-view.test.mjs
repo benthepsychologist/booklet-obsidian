@@ -14,11 +14,11 @@ process.env.TZ = "UTC";
 
 const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
-/** A view on `text`; `disk.writes` counts the vault's writes, and `opened` the notes a link opened. */
-function open(text, path = "Note.booklet.md") {
+/** A view on `text`, on the screen its queries are drawn on: the check-in's roll-up is its own activity, "This week"; the views notes' queries are in "Show". `disk.writes` counts the vault's writes, and `opened` the notes a link opened. */
+function open(text, path = "Note.booklet.md", screen = /\[!activity\|show\]/.test(text) ? "activity:/show" : "activity:day-check/week") {
 	const disk = { text, writes: 0 };
 	const opened = [];
-	const v = openView(text, { path, disk, app: testApp(disk, { workspace: { openLinkText: async (to) => opened.push(to) } }) });
+	const v = openView(text, { path, disk, app: testApp(disk, { workspace: { openLinkText: async (to) => opened.push(to) } }), screen });
 	return { ...v, opened, queries: () => [...v.view.contentEl.querySelectorAll(".booklet-query")] };
 }
 
@@ -59,18 +59,27 @@ test("the check-in's roll-up is drawn from made-up entries: a table of the feeli
 	v.close();
 });
 
-test("a kept entry finalized in the view shows in the roll-up at once, without drawing the page again", async (t) => {
+test("a kept entry finalized in the view shows in the roll-up when the reader moves on to it", async (t) => {
 	t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
-	const v = open(CHECKIN, "Check-in.booklet.md");
+	const v = open(CHECKIN, "Check-in.booklet.md", "activity:day-check/today");
+	const show = async (key) => {
+		v.view.go({ screen: `activity:day-check/${key}`, tab: null, part: 0 });
+		await v.settled();
+	};
+	await show("week");
 	const [sum] = v.queries();
 	assert.equal(sum.querySelector(".booklet-q-empty").textContent, "Nothing kept here yet.");
+	await show("today");
 	const card = v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"]');
 	const grid = card.querySelectorAll(".booklet-kind-widget")[1];
 	[...grid.querySelectorAll("button")].find((b) => b.textContent.trim() === "Tense").click();
 	await v.settled();
+	await show("week");
 	assert.ok(v.queries()[0].querySelector(".booklet-q-empty"), "a draft is never read");
-	card.querySelector(".booklet-finalize").click();
+	await show("today");
+	v.view.contentEl.querySelector('[data-booklet-activity="day-check/today"] .booklet-finalize').click();
 	await v.settled();
+	await show("week");
 	const first = v.queries()[0].querySelector("tbody tr");
 	assert.deepEqual([...first.querySelectorAll("td")].map((x) => x.textContent).slice(0, 3), ["How do you feel?", "1", "Tense"]);
 	v.close();

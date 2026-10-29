@@ -93,7 +93,7 @@ export function testApp(disk, more = {}) {
 			},
 			...vault,
 		},
-		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, ...workspace },
+		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {}, ...workspace },
 		...rest,
 	};
 }
@@ -103,10 +103,14 @@ export function testApp(disk, more = {}) {
  * vault holds it, and `app` the app the view is in (testApp(disk) unless a test brings its own). Each test file adds
  * its own finders to what this returns.
  */
-export function openView(text, { path = "Note.booklet.md", disk = { text, writes: 0 }, app = testApp(disk) } = {}) {
-	const view = new BookletView({ app }, { setMode: async () => {} });
+export function openView(text, { path = "Note.booklet.md", disk = { text, writes: 0 }, app = testApp(disk), screen = null } = {}) {
+	// the pane: a move through it comes back as the view's own setState, as Obsidian does it
+	const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
+	const view = new BookletView(leaf, { setMode: async () => {} });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
+	// the screen the pane is on (a saved place), when a test works on one activity's screen
+	if (screen) void view.setState({ version: 1, screen }, {});
 	view.setViewData(text, true);
 	return {
 		view,

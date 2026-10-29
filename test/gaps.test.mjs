@@ -32,7 +32,7 @@ function appWith(text) {
 }
 
 function openOn(env, path) {
-	const v = openView(env.disk.text, { path, disk: env.disk, app: env.app });
+	const v = openView(env.disk.text, { path, disk: env.disk, app: env.app, screen: path.startsWith("Check-in") ? "activity:day-check/today" : null });
 	return {
 		...v,
 		/** The view goes away as a reload takes it: no field is left, nothing is written. */

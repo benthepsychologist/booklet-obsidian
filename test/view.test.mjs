@@ -17,7 +17,7 @@ const NOTE = readFileSync(join(ROOT, "test-vault", "Every kind.booklet.md"), "ut
 
 /** A view open on a copy of the every-kind note; `disk` is the note as the vault holds it. */
 function open(text = NOTE) {
-	const v = openView(text, { path: "Every kind.booklet.md" });
+	const v = openView(text, { path: "Every kind.booklet.md", screen: "activity:/kinds" });
 	return {
 		...v,
 		q: (kind) => v.view.contentEl.querySelector(`[data-booklet-activity="/kinds"] .booklet-kind-${kind}`),

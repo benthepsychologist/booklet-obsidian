@@ -51,7 +51,19 @@ export class TextFileView extends Component {
 	}
 	onPaneMenu() {}
 	async onUnloadFile() {}
+	getState() {
+		return this.file ? { file: this.file.path } : {};
+	}
+	/** The real one loads the file named in the state; a test sets `view.file` and hands the text itself. */
+	async setState() {}
+	getEphemeralState() {
+		return {};
+	}
+	setEphemeralState() {}
 }
+
+/** What the view asks of a click: a plain click opens in the pane. */
+export const Keymap = { isModEvent: () => false };
 
 /** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file. */
 export const MarkdownView = (globalThis.__bookletStubMarkdownView ??= class MarkdownView {});
@@ -68,12 +80,22 @@ export const Notice = (globalThis.__bookletStubNotice ??= class Notice {
 /** Markdown is drawn as its plain words: enough to see which text a drawing came from. */
 export const MarkdownRenderer = {
 	render(_app, markdown, el) {
+		// a test that needs links or other parts may stand in for the renderer
+		if (globalThis.__bookletStubRender) return Promise.resolve(globalThis.__bookletStubRender(markdown, el));
 		el.appendText(markdown);
 		return Promise.resolve();
 	},
 };
 
-export function setIcon() {}
+/** An icon drawn into an element: an svg named for the id, for the ids Obsidian's set has here (the few below); any other draws nothing, as Obsidian's does. */
+const DRAWN = /^(lucide-(?!zzz)[a-z0-9-]+|book-open|file-text|chevron-right)$/;
+export function setIcon(el, id) {
+	el.empty?.();
+	if (!DRAWN.test(id) || /^lucide-nothing/.test(id)) return;
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	svg.setAttribute("data-icon", id);
+	el.appendChild(svg);
+}
 
 /** An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. */
 const ICONS = new Set(["heart", "sun", "moon", "book-open", "check"]);

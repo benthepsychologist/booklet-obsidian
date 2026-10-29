@@ -343,7 +343,7 @@ function withEntries(list, text = CHECKIN) {
 }
 
 function open(text) {
-	const v = openView(text, { path: "Check-in.booklet.md" });
+	const v = openView(text, { path: "Check-in.booklet.md", screen: "activity:day-check/today" });
 	const q = (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`);
 	const places = () => q("places");
 	return {

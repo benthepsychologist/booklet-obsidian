@@ -5,6 +5,7 @@
  *   test/.build/main.js    src/main.ts with the release options, for the check that it uses no Node API
  *   test/.build/view.mjs   src/view.ts, with "obsidian" standing for the few parts of its API the view uses
  *                          (test/obsidian-stub.mjs), run over a jsdom document by test/view.test.mjs
+ *   test/.build/screens.mjs  drawPicture and Booklet's icon set from src/, the same way, for test/picture.test.mjs
  */
 import esbuild from "esbuild";
 import { pluginOptions } from "../build-options.mjs";
@@ -27,5 +28,15 @@ await esbuild.build({
 	target: "es2021",
 	alias: { obsidian: "./test/obsidian-stub.mjs" },
 	outfile: "test/.build/view.mjs",
+	logLevel: "warning",
+});
+await esbuild.build({
+	stdin: { contents: 'export { drawPicture } from "./src/screens"; export { BOOKLET_ICONS } from "./src/booklet-icons";', resolveDir: ".", loader: "ts" },
+	bundle: true,
+	format: "esm",
+	platform: "neutral",
+	target: "es2021",
+	alias: { obsidian: "./test/obsidian-stub.mjs" },
+	outfile: "test/.build/screens.mjs",
 	logLevel: "warning",
 });
