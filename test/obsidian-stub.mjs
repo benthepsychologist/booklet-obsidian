@@ -80,6 +80,8 @@ export const Notice = (globalThis.__bookletStubNotice ??= class Notice {
 /** Markdown is drawn as its plain words: enough to see which text a drawing came from. */
 export const MarkdownRenderer = {
 	render(_app, markdown, el) {
+		// a test that needs links or other parts may stand in for the renderer
+		if (globalThis.__bookletStubRender) return Promise.resolve(globalThis.__bookletStubRender(markdown, el));
 		el.appendText(markdown);
 		return Promise.resolve();
 	},
