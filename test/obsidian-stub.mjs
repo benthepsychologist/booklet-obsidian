@@ -74,3 +74,12 @@ export const MarkdownRenderer = {
 };
 
 export function setIcon() {}
+
+/** An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. */
+const ICONS = new Set(["heart", "sun", "moon", "book-open", "check"]);
+export function getIcon(name) {
+	if (!ICONS.has(name)) return null;
+	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+	svg.setAttribute("data-icon", name);
+	return svg;
+}

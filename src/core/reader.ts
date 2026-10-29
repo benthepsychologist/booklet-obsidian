@@ -1,9 +1,10 @@
 /*
  * Reads a booklet's design: its front matter and marker, its module fences, the booklet's and each
  * module's opening, its activities, the seven common question kinds (choice, multi, scale, text, lines,
- * number, date), the widget questions with the widget blocks they embed, and the shared menus a choice
- * or a multi takes its options from. Everything else is recorded, by kind and title, as not yet
- * supported. Plain TypeScript: nothing here imports Obsidian.
+ * number, date), the widget questions with the widget blocks they embed, the shared menus a choice
+ * or a multi takes its options from, and the queries an activity's prose holds, with what each reads.
+ * Everything else is recorded, by kind and title, as not yet supported. Plain TypeScript: nothing here
+ * imports Obsidian.
  */
 import {
 	CALLOUT_ANY,
@@ -19,6 +20,7 @@ import {
 	splitLines,
 } from "./lines";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
+import { shapeIssue } from "./shape";
 
 /** A thematic break line: three or more of one of `-`, `*`, `_`, with spaces between allowed. */
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
@@ -54,6 +56,13 @@ export interface WidgetBlock {
 	module: string | null;
 	/** The block's JSON object, as read. */
 	data: Record<string, unknown>;
+	line: number;
+}
+
+/** A `booklet data` block with its block id: `module` as for a widget block. Its rows are not read here: no view draws them yet. */
+export interface DataBlock {
+	id: string;
+	module: string | null;
 	line: number;
 }
 
@@ -140,7 +149,7 @@ export interface TabHeading {
 export interface Unsupported {
 	type: "unsupported";
 	/**
-	 * The line's kind, or `query`, `group` (questions inside a group), `in-callout` (questions inside another reading
+	 * The line's kind, or `group` (questions inside a group), `in-callout` (questions inside another reading
 	 * callout) or `each` (a question of a kind other than `multi` asked for each pick of another, `of` its kind).
 	 */
 	kind: string;
@@ -150,7 +159,54 @@ export interface Unsupported {
 	line: number;
 }
 
-export type Segment = Question | Prose | TabHeading | Unsupported;
+/* ---- queries (SPEC section 6, "Queries: showing kept entries and data" and "A span of days, and summaries") ---- */
+
+/** A query's fifteen keys (written as one string, so that no line here reads as an import to test/safety.test.mjs). */
+export const QUERY_KEYS: readonly string[] = "from as fields group limit parent empty label value note badge tone link icon summary".split(" ");
+/** The six views. */
+export const QUERY_VIEWS = ["cards", "table", "list", "tiles", "bars", "line"] as const;
+export type ViewName = (typeof QUERY_VIEWS)[number];
+/** The seven roles a field plays in a row, each read from the field of its own name unless the query names another. */
+export const ROLE_NAMES = ["label", "value", "note", "badge", "tone", "link", "icon"] as const;
+export type Role = (typeof ROLE_NAMES)[number];
+
+/** A `booklet query` block's settings, as read: a key that was ignored (and reported) is not here. */
+export interface Query {
+	/** The fence line, from 1. */
+	line: number;
+	from: string;
+	as: ViewName | null;
+	/** `fields:`, comma-separated, in order. */
+	fields: string[] | null;
+	empty: string | null;
+	/** `limit: 7`: the first (for kept entries, the newest) that many rows. */
+	limit: number | null;
+	/** `limit: 7 days`: the entries of today and the 6 dates before it. */
+	days: number | null;
+	/** `summary: on`. */
+	summary: boolean;
+	group: string | null;
+	parent: string | null;
+	/** The roles the query points at a field of another name (`label: bucket`). */
+	roles: Partial<Record<Role, string>>;
+}
+
+/** What a query reads: an activity's kept entries, one question's answers, or a data block (not drawn yet). */
+export type QuerySource =
+	| { kind: "activity"; act: Activity }
+	/** `q` is null for a question this view does not draw (a matrix, or a question of another kind than multi asked for each pick). */
+	| { kind: "question"; act: Activity; q: Question | null; id: string; title: string }
+	| { kind: "data"; id: string };
+
+export interface QuerySegment {
+	type: "query";
+	line: number;
+	query: Query;
+	/** Found once the whole file is read; a query whose source cannot be found is reported and not drawn. */
+	source: QuerySource | null;
+}
+
+export type Segment = Question | Prose | TabHeading | Unsupported | QuerySegment;
 
 export interface Activity {
 	id: string;
@@ -191,6 +247,7 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
+	dataBlocks: DataBlock[];
 	/** Parts of the design this view does not draw yet, outside every activity: a module's notice. */
 	unshown: Unshown[];
 	records: RecordsRead;
@@ -470,6 +527,7 @@ export function parseBooklet(text: string): Booklet {
 	const unshown: Unshown[] = [];
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
+	const dataBlocks: DataBlock[] = [];
 	const menuUses: { q: Question; act: Activity; menu: string; module: string | null; line: number }[] = [];
 	const eachUses: EachUse[] = [];
 	const openingLines = new Map<string | null, { lines: string[]; line: number }>();
@@ -568,8 +626,16 @@ export function parseBooklet(text: string): Booklet {
 				const what = (info[1] ?? "").toLowerCase();
 				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
 				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
-				if (act && section === "content" && what === "query")
-					act.segments.push({ type: "unsupported", kind: "query", id: null, title: "A query of kept entries or data", line: i + 1 });
+				if (what === "data" && hasId) dataBlocks.push({ id: (lines[n] ?? "").trim().slice(1), module: blockModule(), line: i + 1 });
+				if (what === "query") {
+					// a query is read where it stands in an activity's prose, and drawn there (booklet.html FENCE_KIND.query)
+					if (section === "data") problems.push(`${at(i)}: a query belongs in an activity's prose, not in the data section, so it was ignored.`);
+					else if (!act) problems.push(`${at(i)}: a query belongs in an activity's prose, so it was refused.`);
+					else {
+						const query = readQuery(lines.slice(i + 1, Math.min(k, lines.length)), i + 1, problems);
+						if (query) act.segments.push({ type: "query", line: i + 1, query, source: null });
+					}
+				}
 			} else if (hasId) {
 				flush(); // a figure or data block placed by reference: drawn at its embed, not here
 			} else pushText(lines.slice(i, Math.min(k + 1, lines.length)), i);
@@ -786,6 +852,7 @@ export function parseBooklet(text: string): Booklet {
 		for (const s of a.segments)
 			if (s.type === "question" && s.kind === "widget" && s.embed)
 				s.widget = (a.scope ? widgets.find((x) => x.id === s.embed && x.module === a.scope) : undefined) ?? widgets.find((x) => x.id === s.embed && x.module === null) ?? null;
+	linkQueries(activities, dataBlocks, problems);
 
 	// a file with no module and no activity line is one activity, and so has no opening (SPEC section 3)
 	const openings: Opening[] = [];
@@ -803,6 +870,13 @@ export function parseBooklet(text: string): Booklet {
 	for (const r of regions.slice(1)) problems.push(`Line ${r.start + 1}: a second records section; its records are read as if they sat in the first.`);
 	const afterRegion = regions[0] && regions[0].closed ? lines.slice(regions[0].end + 1).some((l, n) => !inRegion[regions[0]!.end + 1 + n] && l.trim()) : false;
 	if (afterRegion) problems.push("There is text after the records section; the reference renderer would move it above the records when it saves.");
+	const wrong = wrongShapes(activities, records);
+	if (wrong)
+		problems.push(
+			wrong === 1
+				? "One answer is not in the shape its question keeps, so it is kept as written: shown read-only with a notice, and left out of what views show."
+				: `${wrong} answers are not in the shape their questions keep, so they are kept as written: shown read-only with a notice, and left out of what views show.`,
+		);
 	const refusal = refusals[0] ?? null;
 	return {
 		ok: !refusal,
@@ -817,8 +891,141 @@ export function parseBooklet(text: string): Booklet {
 		openings,
 		widgets,
 		menus,
+		dataBlocks,
 		unshown,
 		records,
 	};
+}
+
+/**
+ * How many answers are of the wrong shape (SPEC section 8), in the answers, the drafts and the kept entries, for the
+ * questions this view draws: said once among the file's problems (booklet.html noteShapes). Each such question also
+ * says so where it is drawn.
+ */
+function wrongShapes(activities: readonly Activity[], records: RecordsRead): number {
+	let n = 0;
+	for (const a of activities) {
+		const qs = a.segments.filter((s): s is Question => s.type === "question");
+		const recs = a.repeat ? [records.drafts[a.scope]?.[a.id], ...(records.entries[a.scope]?.[a.id] ?? [])] : [records.answers[a.scope]];
+		for (const r of recs) if (r) for (const q of qs) if (Object.prototype.hasOwnProperty.call(r, q.id) && shapeIssue(q, r[q.id])) n++;
+	}
+	return n;
+}
+
+/* ---- queries ---- */
+
+const LIMIT_RE = /^([1-9]\d*)([ \t]+days?)?$/;
+
+/**
+ * A query block's `key: value` lines (booklet.html readQuery). A line that is not one refuses the block; a key a query
+ * does not have, a `limit:` that is neither a positive whole number nor a number of days (`7 days`), and a `summary:`
+ * that is not `on` are ignored and reported.
+ */
+function readQuery(body: readonly string[], line: number, problems: string[]): Query | null {
+	const at = `Line ${line}`;
+	const o = Object.create(null) as Record<string, string>;
+	for (const raw of body) {
+		const ln = raw.trim();
+		if (!ln) continue;
+		const kv = kvLine(ln);
+		if (!kv) {
+			problems.push(`${at}: the query block has a line that is not \`key: value\` (${ln}), so it was refused.`);
+			return null;
+		}
+		o[kv[0].toLowerCase()] = kv[1];
+	}
+	for (const k of Object.keys(o)) if (!QUERY_KEYS.includes(k)) problems.push(`${at}: a query has no setting "${k}", so it was ignored.`);
+	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
+	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
+	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);
+	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k]! : null);
+	const roles: Partial<Record<Role, string>> = {};
+	for (const r of ROLE_NAMES) {
+		const v = text(r);
+		if (v !== null) roles[r] = v;
+	}
+	const as = text("as");
+	return {
+		line,
+		from: o.from ?? "",
+		as: as === null ? null : (as.toLowerCase() as ViewName),
+		fields:
+			text("fields")
+				?.split(",")
+				.map((x) => x.trim())
+				.filter(Boolean) ?? null,
+		empty: text("empty"),
+		limit: lim && !lim[2] ? Number(lim[1]) : null,
+		days: lim && lim[2] ? Number(lim[1]) : null,
+		summary: o["summary"] === "on",
+		group: text("group"),
+		parent: text("parent"),
+		roles,
+	};
+}
+
+/** What of an activity a query may name as a question: one drawn here, or a matrix or another kind's `each:`, not drawn yet. */
+function questionNamed(a: Activity, id: string): { q: Question | null; title: string } | null {
+	for (const s of a.segments) {
+		if (s.type === "question" && s.id === id) return { q: s, title: s.title };
+		if (s.type === "unsupported" && s.id === id && (s.kind === "matrix" || s.kind === "each")) return { q: null, title: s.title };
+	}
+	return null;
+}
+
+/**
+ * Where each query reads (booklet.html linkQueries), within its own module only: an activity or a question of an
+ * activity in the query's module (the activities outside every module are one module), else a data block in its
+ * module or the shared data section. One that names nothing there, names something in another module, names an
+ * activity that keeps no entries, or has an `as:` that is not one of the six views, cannot be drawn: it is reported
+ * and taken out, and the note still opens. A span of days and a summary read kept entries: on a data block, or on a
+ * question whose activity keeps none, they are ignored and reported; so is `group:` on a summary.
+ */
+function linkQueries(activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): void {
+	for (const act of activities)
+		act.segments = act.segments.filter((s) => {
+			if (s.type !== "query") return true;
+			const why = linkQuery(s, act, activities, data, problems);
+			if (why) problems.push(`Line ${s.line}: a query in "${act.id || act.title}" ${why}, so it is not drawn.`);
+			return !why;
+		});
+}
+
+function linkQuery(s: QuerySegment, act: Activity, activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): string | null {
+	const q = s.query;
+	if (q.as !== null && !(QUERY_VIEWS as readonly string[]).includes(q.as)) return `has \`as: ${q.as}\`, which is not cards, table, list, tiles, bars or line`;
+	if (!q.from) return "has no from:, the activity, question or data block it shows";
+	const here = activities.filter((a) => a.scope === act.scope);
+	const a = here.find((x) => x.id === q.from);
+	let source: QuerySource | null = a ? { kind: "activity", act: a } : null;
+	for (const x of here) {
+		if (source) break;
+		const named = questionNamed(x, q.from);
+		if (named) source = { kind: "question", act: x, q: named.q, id: q.from, title: named.title };
+	}
+	if (!source) {
+		const d = data.find((z) => z.id === q.from && z.module === (act.scope || null)) ?? data.find((z) => z.id === q.from && z.module === null);
+		if (d) source = { kind: "data", id: d.id };
+	}
+	if (!source) {
+		const elsewhere =
+			activities.some((x) => x.scope !== act.scope && (x.id === q.from || questionNamed(x, q.from) !== null)) ||
+			data.some((z) => z.id === q.from && z.module !== null && z.module !== act.scope);
+		return elsewhere ? `names "${q.from}", which is in another module` : `names "${q.from}", which is nothing in this module`;
+	}
+	if (source.kind === "activity" && !source.act.repeat) return `names "${q.from}", which keeps no entries (only a repeat activity does)`;
+	const keeps = source.kind === "activity" || (source.kind === "question" && source.act.repeat);
+	if (!keeps && (q.days !== null || q.summary)) {
+		const ks = [...(q.days !== null ? [`\`limit: ${q.days} ${q.days === 1 ? "day" : "days"}\``] : []), ...(q.summary ? ["`summary: on`"] : [])];
+		problems.push(`Line ${s.line}: the query's ${ks.join(" and ")} ${ks.length > 1 ? "read" : "reads"} kept entries only, so ${ks.length > 1 ? "they were" : "it was"} ignored.`);
+		q.days = null;
+		q.summary = false;
+	}
+	if (q.summary && q.group !== null) {
+		problems.push(`Line ${s.line}: the query's \`group: ${q.group}\` is ignored: summary rows have nothing to group by.`);
+		q.group = null;
+	}
+	s.source = source;
+	return null;
 }
 

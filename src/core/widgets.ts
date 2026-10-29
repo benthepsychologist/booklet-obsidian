@@ -33,12 +33,34 @@ export const normWords = (s: string): string =>
 		.replace(/\s+/g, " ")
 		.trim();
 
-/** Words typed with commas between them, as booklet.html's `splitList` reads a tag field: trimmed, none empty, in order. */
-export const splitWords = (s: string): string[] =>
-	String(s)
-		.split(",")
-		.map((x) => x.trim())
-		.filter(Boolean);
+/** Two words compared as normWords compares them, and a comma's spaces aside ("Calm,settled" is "Calm, settled"). */
+const sameAround = (a: string, b: string): boolean => normWords(a).replace(/ ?, ?/g, ",") === normWords(b).replace(/ ?, ?/g, ",");
+
+/**
+ * Words typed with commas between them, as booklet.html's tag field reads them (`parseTagValue`): trimmed, none empty,
+ * in order. A word in `known` whose label holds a comma ("Calm, settled"), typed whole, is one word, not two: a listed
+ * item or sense word, or a word the field already holds. Where two known words could be read, the longer is.
+ */
+export function splitWords(s: string, known: readonly string[] = []): string[] {
+	const keep = known.filter((w) => w.includes(","));
+	const segs = String(s).split(",");
+	const out: string[] = [];
+	for (let i = 0; i < segs.length; ) {
+		let n = 1;
+		let whole: string | null = null;
+		for (const w of keep) {
+			const k = w.split(",").length;
+			const typed = segs.slice(i, i + k).join(",");
+			if (k > n && i + k <= segs.length && sameAround(typed, w)) {
+				n = k;
+				whole = typed.trim();
+			}
+		}
+		out.push(whole ?? segs[i]!.trim());
+		i += n;
+	}
+	return out.filter(Boolean);
+}
 
 /** The same word twice is kept once, as first written (booklet.html `dedupeLabels`). */
 export function dedupeWords(words: readonly string[]): string[] {
@@ -142,7 +164,7 @@ export function gridCellWords(grid: Grid, v: unknown, cell: string): string[] {
 export function gridSetCellWords(grid: Grid, v: unknown, cell: string, words: readonly string[]): unknown[] {
 	const known = cellItems(grid, cell);
 	const mine = (id: unknown) => isOwnIn(id, cell) || known.some((k) => k.id === id);
-	const ids = words.map((w) => known.find((k) => normWords(k.label) === normWords(w))?.id ?? ownIn(cell) + w);
+	const ids = words.map((w) => known.find((k) => sameAround(k.label, w))?.id ?? ownIn(cell) + w);
 	const stay = gridChosen(v).filter((id) => !mine(id) || ids.includes(id as string));
 	return [...stay, ...ids.filter((id) => !stay.includes(id))];
 }
@@ -154,7 +176,7 @@ export function gridSetCellWords(grid: Grid, v: unknown, cell: string, words: re
  */
 export function gridAddOwn(grid: Grid, v: unknown, cell: string, typed: string): unknown[] {
 	const now = gridCellWords(grid, v, cell);
-	const next = dedupeWords([...now, ...splitWords(typed)]);
+	const next = dedupeWords([...now, ...splitWords(typed, [...cellItems(grid, cell).map((k) => k.label), ...now])]);
 	return sameList(next, now) ? gridChosen(v) : gridSetCellWords(grid, v, cell, next);
 }
 
@@ -216,7 +238,7 @@ export function senseWord(rg: Regions, code: unknown): string {
 
 /** Words back to what is stored: a sense word's id when the words are its label, else the words as typed (booklet.html `labelToSense`). */
 export function labelToSense(rg: Regions, label: string): string {
-	for (const g of rg.senses) for (const w of g.words) if (normWords(w.label) === normWords(label)) return w.id;
+	for (const g of rg.senses) for (const w of g.words) if (sameAround(w.label, label)) return w.id;
 	return label;
 }
 
@@ -286,7 +308,7 @@ export function regionSetWords(rg: Regions, v: unknown, region: string, words: r
  */
 export function regionAddOwn(rg: Regions, v: unknown, region: string, typed: string): unknown[] {
 	const now = regionWords(rg, v, region);
-	const next = dedupeWords([...now, ...splitWords(typed)]);
+	const next = dedupeWords([...now, ...splitWords(typed, [...rg.senses.flatMap((g) => g.words.map((w) => w.label)), ...now])]);
 	return sameList(next, now) ? regionRows(v) : regionSetWords(rg, v, region, next);
 }
 

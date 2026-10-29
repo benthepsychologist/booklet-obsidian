@@ -290,6 +290,11 @@ export interface DayRule {
 	today: string;
 	/** The calendar day of an entry's `ts`, on the same calendar. Defaults to the device's (localDayOf). */
 	dayOf?: (ts: string) => string;
+	/**
+	 * The last moment of today, in ms. Today is the day the page was drawn (SPEC section 8): a Finalize after this
+	 * moment, past midnight, keeps the entry on today, at its last second, as the check-in still shows that day.
+	 */
+	until?: number;
 }
 
 /** The first kept entry of an activity whose day is `rule.today`, in file order (booklet.html seedUpsertDraft). */
@@ -423,11 +428,19 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 		throw new RecordsWriteError(keptToday ? "Today's entry is already kept. Change an answer to keep it again." : "Nothing to keep yet: the entry is empty.");
 	}
 	const kept = d.book.records.entries[scope]?.[activityId] ?? [];
-	const taken = new Set(kept.map((e) => String(e.ts)));
 	let at = Date.parse(opts.ts);
 	if (!Number.isFinite(at)) throw new RecordsWriteError(`"${opts.ts}" is not a time.`);
+	// a daily activity's entry is kept on the day the page shows: past midnight, at that day's last second
+	const rule = act.daily ? opts.rule : undefined;
+	const late = !!rule && rule.until !== undefined && at > rule.until;
+	if (late) at = Math.floor(rule.until! / 1000) * 1000;
+	const dayOf = rule?.dayOf ?? localDayOf;
+	// the entry a daily Finalize replaces gives up its time: the new entry may take it
+	const day = rule ? dayOf(isoSecond(new Date(at))) : "";
+	const replacing = rule ? kept.find((e) => dayOf(String(e.ts)) === day) : undefined;
+	const taken = new Set(kept.filter((e) => e !== replacing).map((e) => String(e.ts)));
 	let ts = isoSecond(new Date(at));
-	while (taken.has(ts)) ts = isoSecond(new Date((at += 1000)));
+	while (taken.has(ts)) ts = isoSecond(new Date((at += late ? -1000 : 1000)));
 	const entry = Object.create(null) as Entry;
 	entry.ts = ts;
 	for (const [k, v] of Object.entries(merged!)) {
@@ -442,13 +455,12 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	const ops: Op[] = [];
 	let replaced = false;
 
-	if (act.daily && opts.rule) {
-		const dayOf = opts.rule.dayOf ?? localDayOf;
-		const day = dayOf(ts);
+	if (rule) {
+		const onDay = dayOf(ts);
 		for (let bi = 0; bi < entryBlocks.length && !replaced; bi++) {
 			const b = entryBlocks[bi]!;
 			const items = entryItems(b.value) ?? [];
-			const ix = items.findIndex((e) => dayOf(String(e.ts)) === day);
+			const ix = items.findIndex((e) => dayOf(String(e.ts)) === onDay);
 			if (ix < 0) continue;
 			const oldTs = String(items[ix]!.ts);
 			ops.push({ b, code: replaceItem(b.code, ix, itemText)! });

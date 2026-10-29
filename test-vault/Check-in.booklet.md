@@ -30,6 +30,25 @@ Take a moment. There are no right answers here.
 
 > [!lines|thoughts earlier:12] What is on your mind?
 
+> [!activity|week] This week
+
+The past seven days of check-ins, worked out each time the page is drawn. Nothing here is saved.
+
+```booklet query
+from: today
+limit: 7 days
+summary: on
+fields: feelings, felt
+```
+
+The week's thoughts:
+
+```booklet query
+from: today
+limit: 7 days
+fields: thoughts
+```
+
 > [!module|day-check end] End of A short check-in
 
 > [!data|day-check] Data for A short check-in

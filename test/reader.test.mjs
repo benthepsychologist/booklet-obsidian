@@ -136,7 +136,10 @@ from: a
 	assert.deepEqual(qs[5].options.map((o) => o.text), ["Home", "Away"]);
 	assert.equal(qs[5].menu, "places");
 	const un = segs.filter((s) => s.type === "unsupported").map((s) => s.kind);
-	for (const k of ["mystery", "matrix", "query"]) assert.ok(un.includes(k), `${k} is recorded as not supported: ${un.join(", ")}`);
+	for (const k of ["mystery", "matrix"]) assert.ok(un.includes(k), `${k} is recorded as not supported: ${un.join(", ")}`);
+	// a query is read (test/query.test.mjs): this one names an activity that keeps no entries, so it is reported and not drawn
+	assert.ok(!segs.some((s) => s.type === "query"));
+	assert.ok(b.problems.some((p) => /a query in "a" names "a", which keeps no entries/.test(p)), b.problems.join("; "));
 	assert.ok(!un.includes("widget") && !un.includes("menu-list"), un.join(", "));
 	assert.ok(segs.some((s) => s.type === "prose" && s.markdown.startsWith("> [!tip] A tip")));
 	assert.ok(segs.some((s) => s.type === "tab" && s.title === "A tab"));
