@@ -18,7 +18,7 @@ type Roles = Record<Role, string | null>;
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
 /** Words, as text and the file's own inline Markdown. */
-function words(host: QueryHost, into: HTMLElement, parts: readonly WordPart[]): void {
+export function words(host: Pick<QueryHost, "md">, into: HTMLElement, parts: readonly WordPart[]): void {
 	for (const p of parts) {
 		if ("md" in p) host.md(p.md, into.createSpan({ cls: "booklet-inline markdown-rendered" }));
 		else into.appendText(p.text);
