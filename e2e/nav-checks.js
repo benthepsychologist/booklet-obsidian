@@ -7,7 +7,7 @@
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 
 module.exports = function navChecks(env) {
-  const { withApp, Check, launch, opt, SHOTS, sleep, goTo, BOOK, read, SRC_VAULT, waitActiveType } = env;
+  const { withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType } = env;
   const SKETCH = "Learning to sketch.booklet.md", CHECKIN = "Check-in.booklet.md", WEEKLY = "Weekly plan.booklet.md";
   const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));

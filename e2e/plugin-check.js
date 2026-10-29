@@ -455,6 +455,16 @@ async function openNote(o, rel, key) {
   if (key) await goTo(o, key);
   else { await o.page.waitForSelector(BOOK + " .booklet-card", { timeout: 8000 }); await sleep(900); }   // a note of one activity opens into it
 }
+// with a Markdown pane open on the check-in note: a word typed at the end of the line that says "There are no right answers here.", in that pane's editor
+const typeInMarkdown = o => async word => {
+  await o.evaluate(() => {
+    let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
+    app.workspace.setActiveLeaf(leaf, { focus: true });
+    const ed = leaf.view.editor; const n = ed.getValue().split("\n").findIndex(x => x.includes("There are no right answers here."));
+    ed.setCursor({ line: n, ch: ed.getLine(n).length }); ed.focus();
+  });
+  await o.page.keyboard.type(" " + word);
+};
 // close every booklet leaf and open the note again: a new view, drawn from the file
 async function reopen(o, rel, key) {
   await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
@@ -1230,15 +1240,7 @@ async function check11() {
     const s = await splitWithMarkdown(o, c, CHECKIN);
     c.ok(same(s.types, ["booklet", "markdown"]) && s.leaves.every(l => l.file === CHECKIN), "with Markdown: two leaves on the same file: " + JSON.stringify(s.leaves.map(l => l.type)));
     await o.page.waitForSelector(BOOK + " .booklet-place", { timeout: 8000 }); await sleep(800);
-    const typeInMd = async word => {
-      await o.evaluate(() => {
-        let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
-        app.workspace.setActiveLeaf(leaf, { focus: true });
-        const ed = leaf.view.editor; const n = ed.getValue().split("\n").findIndex(x => x.includes("There are no right answers here."));
-        ed.setCursor({ line: n, ch: ed.getLine(n).length }); ed.focus();
-      });
-      await o.page.keyboard.type(" " + word);
-    };
+    const typeInMd = typeInMarkdown(o);
     const { last, added } = await checkinFlow(c, o, vault, "with Markdown", "markdown", typeInMd);
     const buf = await mdBuffer(o);
     c.ok(buf === last, "with Markdown: the Markdown buffer equals the file on disk: " + (buf === last) + (buf === last ? "" : " (buffer " + buf.length + ", disk " + last.length + ")"));
@@ -1377,15 +1379,7 @@ async function check12() {
     const s = await splitWithMarkdown(o, c, CHECKIN);
     c.ok(same(s.types, ["booklet", "markdown"]) && s.leaves.every(l => l.file === CHECKIN), "with Markdown: two leaves on the same file: " + JSON.stringify(s.leaves.map(l => l.type)));
     await o.page.waitForSelector(BOOK + " .booklet-cell", { timeout: 8000 }); await sleep(800);
-    const typeInMd = async word => {
-      await o.evaluate(() => {
-        let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
-        app.workspace.setActiveLeaf(leaf, { focus: true });
-        const ed = leaf.view.editor; const n = ed.getValue().split("\n").findIndex(x => x.includes("There are no right answers here."));
-        ed.setCursor({ line: n, ch: ed.getLine(n).length }); ed.focus();
-      });
-      await o.page.keyboard.type(" " + word);
-    };
+    const typeInMd = typeInMarkdown(o);
     const { last, added } = await eachFlow(c, o, vault, "with Markdown", "markdown", typeInMd);
     const buf = await mdBuffer(o);
     c.ok(buf === last, "with Markdown: the Markdown buffer equals the file on disk: " + (buf === last) + (buf === last ? "" : " (buffer " + buf.length + ", disk " + last.length + ")"));
@@ -1541,15 +1535,7 @@ async function check13() {
     const s = await splitWithMarkdown(o, c, CHECKIN);
     c.ok(same(s.types, ["booklet", "markdown"]) && s.leaves.every(l => l.file === CHECKIN), "with Markdown: two leaves on the same file: " + JSON.stringify(s.leaves.map(l => l.type)));
     await o.page.waitForSelector(BOOK + " .booklet-place", { timeout: 8000 }); await sleep(800);
-    const typeInMd = async word => {
-      await o.evaluate(() => {
-        let leaf = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") leaf = l; });
-        app.workspace.setActiveLeaf(leaf, { focus: true });
-        const ed = leaf.view.editor; const n = ed.getValue().split("\n").findIndex(x => x.includes("There are no right answers here."));
-        ed.setCursor({ line: n, ch: ed.getLine(n).length }); ed.focus();
-      });
-      await o.page.keyboard.type(" " + word);
-    };
+    const typeInMd = typeInMarkdown(o);
     const { last, added } = await earlierFlow(c, o, vault, "with Markdown", typeInMd, prepped);
     const buf = await mdBuffer(o);
     c.ok(buf === last, "with Markdown: the Markdown buffer equals the file on disk: " + (buf === last) + (buf === last ? "" : " (buffer " + buf.length + ", disk " + last.length + ")"));
@@ -1926,7 +1912,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
-  const nav = require("./nav-checks")({ withApp, Check, launch, opt, SHOTS, sleep, goTo, BOOK, read, SRC_VAULT, waitActiveType });
+  const nav = require("./nav-checks")({ withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType });
   const fns = { ...nav, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
