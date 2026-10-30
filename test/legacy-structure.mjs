@@ -3,10 +3,10 @@
  * the DOM of every place the view can show (home, each module screen and tab, each activity's screen, tab and part), hashed.
  *
  * The page-trees release (0.8.0) must leave every 0.16 note exactly as it was: test/legacy.test.mjs compares this structure with
- * test/legacy-golden.json, which was made from the code of release 0.6.0 (810f9cb). To make it again, build that commit's tests
+ * test/legacy-golden.json, which was made from the code of release 0.7.0 (bb9283e). To make it again, build that commit's tests
  * (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs copied in) and run
  *   node test/legacy-structure.mjs > legacy-golden.json
- * This file uses only what release 0.6.0 had (parseBooklet, buildNav, barTabs, the pane helper), so it runs on either code.
+ * This file uses only what release 0.7.0 had (parseBooklet, buildNav, barTabs, the pane helper), so it runs on either code.
  */
 import "./fixed-date.mjs";
 import { createHash } from "node:crypto";
@@ -27,7 +27,7 @@ const sha = (s) => createHash("sha256").update(s).digest("hex");
 /** As plain data; a query's source names its activity by key (the activity itself holds the query). */
 const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "act" && x && typeof x === "object" && "segments" in x ? `${x.scope}/${x.id}` : x)));
 
-/** The reading and the model of a note, with only what release 0.6.0 had in them. */
+/** The reading and the model of a note, with only what release 0.7.0 had in them. */
 export function modelOf(text) {
 	const book = core.parseBooklet(text);
 	const nav = core.buildNav(book, text);
@@ -67,7 +67,7 @@ export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.
 	const p = pane(text, { path, state: { file: path, version: 1, screen, ...(tab ? { tab } : {}), part } });
 	await p.settled();
 	const html = p.el.innerHTML.replace(/booklet-\d+/g, "booklet-N");
-	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line is what 0.6.0 saved)
+	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line is what 0.7.0 saved)
 	const state = { writes: p.disk.writes, same: p.disk.text === text, drawn: p.screen, saved: JSON.parse(JSON.stringify(p.view.getState())) };
 	p.close();
 	return { sha: sha(html), ...state };

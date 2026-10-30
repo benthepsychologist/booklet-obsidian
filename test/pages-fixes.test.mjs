@@ -393,6 +393,7 @@ test("\"Mentioned on\" counts a link after a closed <pre>, $$ or comment block, 
 	assert.deepEqual(core.headingLinksIn(`[[#Before]]\n\`\`\`\n[[#Hidden]]\n\`\`\`\n[[#After]]`), ["Before", "After"], "a fence in the middle");
 	assert.deepEqual(core.headingLinksIn("Text.\n\n    [[#Hidden]]\n\n[[#Seen]]"), ["Seen"], "after an indented block and a blank line");
 	assert.deepEqual(core.headingLinksIn("    [[#Hidden]]\n\n[[#Seen]]"), ["Seen"], "an indented block that opens the text is code");
+	assert.deepEqual(core.headingLinksIn("Text.\n\n    [[#Hidden]]\nA plain line\n    [[#Seen]]"), ["Seen"], "an indented line after a plain line is its paragraph's, not code");
 });
 
 test("the search holds the prompts of a page's questions, as the README says", () => {
@@ -402,8 +403,8 @@ test("the search holds the prompts of a page's questions, as the README says", (
 	assert.deepEqual(core.searchPages(tab, "zebra words").map((p) => p.title), ["One"], "with a word of its prose too");
 });
 
-test("a page whose title starts with an emoji is found by a link with or without it, and counted in \"Mentioned on\" for either", () => {
-	const text = `${head()}> [!activity|a] A\n\n> [!page|waves] 🌊 Big waves\n\nWords.\n\n> [!page|plain] Plain one\n\nSee [[#Big waves]].\n\n> [!page|written] Written one\n\nSee [[#🌊 Big waves]].\n\n> [!page|none] Unlinked\n\nNothing.\n`;
+test("a page whose title starts with an emoji is found by a link with or without it, and counted in \"Mentioned on\" for either; one with no letters is found by each form alone", () => {
+	const text = `${head()}> [!activity|a] A\n\n> [!page|waves] 🌊 Big waves\n\nWords.\n\n> [!page|marks] 🌊 !!!\n\nMarks.\n\n> [!page|plain] Plain one\n\nSee [[#Big waves]] and [[#!!!]].\n\n> [!page|written] Written one\n\nSee [[#🌊 Big waves]] and [[#🌊 !!!]].\n\n> [!page|none] Unlinked\n\nNothing.\n`;
 	const { nav } = build(text);
 	const na = only(nav);
 	const tab = na.tabs[0];
@@ -411,6 +412,11 @@ test("a page whose title starts with an emoji is found by a link with or without
 	assert.equal(waves.title, "Big waves");
 	for (const link of ["Big waves", "🌊 Big waves"]) assert.equal(core.findHeading(nav, link, null)?.place.part, waves.at, `a link to "${link}"`);
 	assert.deepEqual(core.mentionsOf(nav, na, tab, waves).map((m) => m.title), ["Plain one", "Written one"]);
+	// a title with no letters has no slug, so the plain form and the written form are each found only by their own entry in the index
+	const marks = tab.tree.find((p) => p.id === "marks");
+	assert.deepEqual([marks.title, marks.written], ["!!!", "🌊 !!!"]);
+	for (const link of ["!!!", "🌊 !!!"]) assert.equal(core.findHeading(nav, link, null)?.place.part, marks.at, `a link to "${link}"`);
+	assert.deepEqual(core.mentionsOf(nav, na, tab, marks).map((m) => m.title), ["Plain one", "Written one"]);
 });
 
 test("the menu's search box stops the keys it uses: Escape (with words) and Enter (with a hit) keep their default and go no further", async () => {
