@@ -23,7 +23,14 @@ test("the marker: none, or not 0.x, is refused; another 0.x opens with the notic
 		assert.equal(prev.activities[0].segments.filter((s) => s.type === "question").length, 1, `${m}: its question is read`);
 	}
 	// a later 0.x opens the same way
-	assert.match(core.parseBooklet(fm('booklet: "0.17"') + body).problems[0], /^This file says booklet: 0\.17\. This view reads format 0\.16 and has opened it as it is/);
+	assert.match(core.parseBooklet(fm('booklet: "0.18"') + body).problems[0], /^This file says booklet: 0\.18\. This view reads format 0\.16 and has opened it as it is/);
+	// 0.17 is read for its page lines, so the marker alone says nothing; the note comes when the file holds a kind or a setting this view does not read
+	assert.deepEqual(core.parseBooklet(fm('booklet: "0.17"') + body).problems, []);
+	const odd = core.parseBooklet(fm('booklet: "0.17"') + body + "\n> [!bars|b] Bars\n");
+	assert.match(odd.problems[0], /^This file says booklet: 0\.17\. This view reads format 0\.16 and the page lines of 0\.17, and has opened the rest as it is/);
+	assert.ok(odd.problems.some((p) => /"bars" is not a kind this format defines/.test(p)), "the line itself is listed");
+	const setting = core.parseBooklet(fm('booklet: "0.17"') + body.replace("[!text|t]", "[!text|t shiny:1]"));
+	assert.match(setting.problems[0] ?? "", /^This file says booklet: 0\.17\./);
 	assert.equal(core.parseBooklet(fm("booklet: 0.16") + body).problems.length, 0);
 	assert.equal(core.parseBooklet(fm("booklet: '0.16'") + body).problems.length, 0);
 	assert.equal(core.parseBooklet(fm('booklet: "0.10"') + body).ok, true, "0.10 is a 0.x version, not 0.1");

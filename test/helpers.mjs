@@ -28,6 +28,19 @@ export const SKETCH = readFileSync(join(ROOT, "test-vault", "Learning to sketch.
 /** The made-up check-in note (a repeating activity with a grid, a body map, and a question asked for each pick). */
 export const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
 
+/** The made-up wiki note the page-tree tests open: a check-in with a wiki tab, a quiz tab and a dashboard tab. */
+export const WIKI = readFileSync(join(ROOT, "test", "page-notes", "Check-in with a wiki.booklet.md"), "utf8");
+/** The screen of its one activity. */
+export const WIKI_SCREEN = "activity:calm/check-in";
+/** A version 1 saved place of that screen (release 0.6.0 and 0.7.0 wrote these). */
+export const wikiAt = (tab, part) => ({ version: 1, screen: WIKI_SCREEN, tab, part });
+
+/** A note read, then its navigation model built. */
+export const build = (text) => {
+	const book = core.parseBooklet(text);
+	return { book, nav: core.buildNav(book, text) };
+};
+
 /** A string's sha256 in hex, for "the file is byte for byte what it was". */
 export const sha = (s) => createHash("sha256").update(s).digest("hex");
 
@@ -133,6 +146,7 @@ export function corpusDirs() {
 		{ name: "booklet examples (BOOKLET_EXAMPLES)", dir: EXAMPLES, filter: (f) => f.endsWith(".booklet.md"), external: true },
 		{ name: "kit starters (BOOKLET_STARTERS)", dir: STARTERS, filter: (f) => f.endsWith(".md"), external: true },
 		{ name: "the test vault", dir: join(ROOT, "test-vault"), filter: (f) => f.endsWith(".booklet.md"), external: false },
+		{ name: "made-up page-tree notes (test/page-notes)", dir: join(ROOT, "test", "page-notes"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 	].map((d) => ({ ...d, present: existsSync(d.dir) }));
 }
 

@@ -1,14 +1,15 @@
-// Checks 16 to 23 of plugin-check.js: the 0.6.0 navigation, in the real app. Every note is made up.
+// Checks 16 to 23, 27 and 28 of plugin-check.js: the 0.6.0 navigation, in the real app (27 and 28: page trees). Every note is made up.
 //   16 the three screens and the moves (cards, trail, pager, tabs, pages, parent:, heading links, a restart, nothing written)
 //   17 to 21 design section 4.9, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
+//   27 and 28 page trees (ahead of format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { kit } = require("./waits");
 
 module.exports = function navChecks(env) {
-  const { withApp, Check, launch, opt, BOOK, read, SRC_VAULT, waitActiveType } = env;
+  const { withApp, Check, launch, opt, sleep, BOOK, read, SRC_VAULT, waitActiveType } = env;
   const SKETCH = "Learning to sketch.booklet.md", CHECKIN = "Check-in.booklet.md", WEEKLY = "Weekly plan.booklet.md";
   const { shot, sha } = kit(env, SKETCH);
 
@@ -128,6 +129,88 @@ Two p1
 ***
 Two p2
 `;
+
+  // a made-up wiki of 13 pages in three levels, one activity with no tab line (the pages round's worked example 5.2, with made-up words)
+  const GARDEN_NOTE = `---
+booklet: "0.17"
+title: A small garden
+---
+
+> [!module|garden] A small garden
+
+> [!activity|garden icon:sprout] Garden notes
+
+Start with [[#Soil]], then [[#Water]] and [[#Sun]]. The compost heap is on [[#Compost]].
+
+> [!page|soil icon:shovel] Soil
+
+What the plants stand in. It changes from one corner to the next.
+
+> [!page|clay parent:soil] Clay
+
+Heavy and slow to dry.
+
+> [!page|sand parent:soil] Sand
+
+Light and quick to dry.
+
+> [!page|loam parent:soil] Loam
+
+A mix of both, the easiest to grow in.
+
+> [!page|drainage parent:loam] Drainage
+
+How fast the water leaves. Dig a hole, fill it, and time it.
+
+> [!page|compost parent:loam] Compost
+
+Kitchen scraps turn into loam in about a year. Back to [[#Drainage]].
+
+> [!page|water icon:droplets] Water
+
+Most plants want a slow, deep drink rather than a splash.
+
+> [!page|rain parent:water] Rain
+
+A butt by the shed catches what the roof sheds.
+
+> [!page|watering parent:water] Watering
+
+Water early in the morning.
+
+***
+
+Water the soil, not the leaves.
+
+***
+
+Check the soil with a finger before you start.
+
+> [!page|sun icon:sun] Sun
+
+Six hours is full sun.
+
+> [!page|shade parent:sun] Shade
+
+Ferns and hostas do well here.
+
+> [!page|tools] Tools
+
+A spade, a fork and a trowel are enough.
+
+> [!module|garden end]
+`;
+  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself (the fix round after the review)
+  const DEEP_NOTE = (() => {
+    let t = `---\nbooklet: "0.17"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
+    for (let n = 1; n <= 14; n++) {
+      t += `\n> [!page|level-${n}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} of the tree\n\nWords on level ${n}.\n`;
+      for (const side of ["a", "b"]) t += `\n> [!page|level-${n}${side}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} side ${side}\n\nA page beside level ${n}.\n`;
+    }
+    return t;
+  })();
+
+
   // a note of one repeating activity ("Log") with `n` made-up kept entries; with `two`, a second one ("More") with 4
   function foldNote(n, two) {
     const entries = (id, k) => `\`\`\`booklet entries ${id}\n{"items": [\n${Array.from({ length: k }, (_, i) => `{"ts": "2026-09-${String(i + 1).padStart(2, "0")}T09:00:00Z", "${id === "log" ? "what" : "else"}": "Made-up entry ${i + 1} of ${id}"}`).join(",\n")}\n]}\n\`\`\`\n`;
@@ -175,6 +258,12 @@ Two p2
   const back = o => drawing(o, () => o.evaluate(() => app.commands.executeCommandById("app:go-back")));
   const forward = o => drawing(o, () => o.evaluate(() => app.commands.executeCommandById("app:go-forward")));
   const toKey = k => JSON.stringify([k.screen, k.tab, k.at]);
+  // the page-tree checks (27, 28) wait a moment after a press that draws nothing again (a menu opened), and where their notes ask for it
+  const tap = async (o, sel, text, ms = 300) => { await o.page.locator(BOOK + " " + sel).filter({ hasText: text }).first().click({ timeout: 6000 }); await sleep(ms); };
+  // ask the pane for a place, keeping the rest of its state (a value of null undoes a kept one), and wait for it to draw
+  const setPlace = async (o, st) => { await o.evaluate(async (st) => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, ...st }, active: true }); }, st); await sleep(900); };
+  // open the page menu if it is closed
+  const openMenu = o => o.evaluate(() => { const d = app.workspace.getLeavesOfType("booklet")[0].view.contentEl.querySelector(".booklet-pagemenu"); if (!d.open) d.querySelector("summary").click(); });
 
   /* ================= CHECK 16 ================= */
   async function check16() {
@@ -479,7 +568,7 @@ Two p2
       i2 = await info();
       c.ok(i2.expanded === "false", "coming back, the first activity is still folded: " + i2.expanded);
       st = await state(o);
-      c.ok(JSON.stringify(st.vs) === stateBefore && Object.keys(st.vs).every(k => ["file", "version", "screen", "tab", "part"].includes(k)), "the saved place holds only file, version, screen, tab and part: " + JSON.stringify(st.vs));
+      c.ok(JSON.stringify(st.vs) === stateBefore && Object.keys(st.vs).every(k => ["file", "version", "screen", "tab", "page", "part"].includes(k)), "the saved place holds only file, version, screen, tab, page and part: " + JSON.stringify(st.vs));
       await quiet(o);
       c.ok(sha(two) === h0, "folding wrote nothing into the note");
       // the fold on a phone
@@ -568,5 +657,201 @@ Two p2
     return c;
   }
 
-  return { 16: check16, 17: check17, 18: check18, 19: check19, 20: check20, 21: check21, 22: check22, 23: check23 };
+  /* ================= CHECK 27 ================= */
+  async function check27() {
+    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, ahead of format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
+    await withApp("c27", async (o, vault) => {
+      const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden", DEEP = "Deep.booklet.md", DEEPKEY = "activity:/deep";
+      put(vault, NOTE, GARDEN_NOTE);
+      const before = sha(path.join(vault, NOTE));
+      await ready(o, NOTE);
+      const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: (q(".booklet-pager-at")[0] || ""), cards: q(".booklet-cardrow .booklet-cardtitle"), mentioned: q(".booklet-mentioned a"), trail: q(".booklet-trail > *"), menu: q(".booklet-pagelist a"), menuOpen: !!(root.querySelector(".booklet-pagemenu") || {}).open, hasMenu: !!root.querySelector(".booklet-pagemenu") }; });
+      const goPage = (id, part = 0) => setPlace(o, { version: 2, screen: KEY, page: id, part });
+      let s = await state(o), pg = await page();
+      c.ok(s.screen === KEY && pg.hasMenu && !pg.menuOpen, `a note of one activity opens into it, with the tree menu drawn and closed: ${s.screen}, menu ${pg.hasMenu}, open ${pg.menuOpen}`);
+      await tap(o, ".booklet-pagemenu summary", "Pages in this tab", 400);
+      pg = await page();
+      c.ok(pg.menuOpen && pg.menu.length === 13 && pg.menu[0] === "Garden notes", `opened by a press: the menu lists all ${pg.menu.length} pages of the tab, the first page first`);
+      const nested = await o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const depth = a => { let d = 0; for (let e = a.parentElement; e && !e.classList.contains("booklet-pagelist"); e = e.parentElement) if (e.tagName === "UL") d++; return d; }; return Object.fromEntries([...root.querySelectorAll(".booklet-pagelist a")].map(a => [a.textContent.trim(), depth(a)])); });
+      c.ok(nested["Soil"] === 1 && nested["Loam"] === 2 && nested["Drainage"] === 3 && nested["Rain"] === 2, `three levels: Soil ${nested["Soil"]}, Loam ${nested["Loam"]}, Drainage ${nested["Drainage"]}`);
+      // search
+      const input = o.page.locator(BOOK + " .booklet-pagemenu input");
+      await input.fill("drain"); await sleep(300);
+      pg = await page();
+      c.ok(pg.menu.join("|") === "Drainage|Compost", `searching "drain": the page by that title first, then the pages whose words have it: ${pg.menu.join(" | ")}`);
+      await input.fill("nothing like this"); await sleep(300);
+      const none = await o.evaluate(() => (document.querySelector(".booklet-pagelist p") || {}).textContent);
+      c.ok(none === "No page has those words.", `no match says so: ${none}`);
+      await input.fill("drain"); await o.page.keyboard.press("Enter"); await sleep(900);
+      s = await state(o); pg = await page();
+      c.ok(pg.title[0] === "Drainage" && s.back === 1, `Enter opens the first match, as a step: ${pg.title}, history ${s.back}`);
+      c.ok(s.vs.version === 2 && s.vs.page === "drainage" && s.vs.part === 0 && s.vs.tab === undefined, `the saved place names the page: ${JSON.stringify(s.vs)}`);
+      const foc = await o.evaluate(() => { const e = document.activeElement; return { cls: e ? e.className : "", tag: e ? e.tagName : "", current: document.querySelectorAll(".booklet-view [aria-current='page']").length }; });
+      c.ok(/booklet-pagetitle/.test(foc.cls) && foc.tag === "H2", `after the move by Enter, focus is on the page title, a heading: ${foc.tag} ${foc.cls}`);
+      c.ok(foc.current === 1, `one aria-current=page on the screen (the menu's): ${foc.current}`);
+      c.ok(pg.trail.slice(-3).join("|") === "Soil|Loam|Drainage", `the trail names the pages above, then the page: ${pg.trail.join(" / ")}`);
+      c.ok(pg.pager[0] === "Up: Loam" && pg.pager.at(-1) === "Next: Compost", `Up names the parent, Next the next page: ${pg.pager.join(" | ")}`);
+      c.ok(pg.menuOpen && pg.menu.join("|") === "Drainage|Compost", `the menu stays open for the pane, with its search: ${pg.menu.join(" | ")}`);
+      await click(o, ".booklet-pager button", "Up: Loam");
+      pg = await page();
+      c.ok(pg.title[0] === "Loam" && pg.cards.join("|") === "1.Drainage|2.Compost", `Up goes to the parent; under it, cards for its pages: ${pg.title}, ${pg.cards}`);
+      await click(o, ".booklet-cardrow", "Compost");
+      pg = await page();
+      c.ok(pg.title[0] === "Compost" && pg.mentioned.join("|") === "Garden notes", `Mentioned on: the pages that link here: ${pg.mentioned}`);
+      await click(o, ".booklet-mentioned a", "Garden notes");
+      pg = await page();
+      c.ok(pg.title.length === 0 && pg.pager[0] === "Back to the overview", `a mention leads to the page that holds the link (the tab's first page): ${pg.pager[0]}`);
+      // history: every page was a step; Obsidian's Back retraces
+      s = await state(o);
+      const steps = s.back;
+      await back(o); await back(o);
+      pg = await page();
+      c.ok(pg.title[0] === "Loam", `Obsidian's Back retraces the pages: Loam after two Backs (steps ${steps})`);
+      await forward(o);
+      pg = await page();
+      c.ok(pg.title[0] === "Compost", `and Forward: ${pg.title}`);
+      // parts: Watering has three
+      await goPage("watering", 0);
+      pg = await page();
+      c.ok(pg.title[0] === "Watering" && pg.at === "1 of 3" && pg.pager[0] === "Up: Water", `a page of three parts: "${pg.at}", Up: ${pg.pager[0]}`);
+      await click(o, ".booklet-pager button", "Next"); await click(o, ".booklet-pager button", "Next");
+      pg = await page();
+      c.ok(pg.at === "3 of 3" && pg.title[0] === "Watering" && pg.pager[0] === "Back" && /^Next: Sun/.test(pg.pager.at(-1)), `Next twice: "${pg.at}", the title on every part, Back goes to the part before, Next names the next page: ${pg.pager.join(" | ")}`);
+      await click(o, ".booklet-pager button", "Next: Sun");
+      pg = await page();
+      c.ok(pg.title[0] === "Sun" && pg.cards.join("|") === "1.Shade", `Next: Sun, with the card for Shade`);
+      await goPage("tools", 0);
+      pg = await page();
+      c.ok(pg.title[0] === "Tools" && pg.pager[0] === "Back" && !pg.pager.some(x => /^Next/.test(x)), `the tab's last page, no activity after it: Back only`);
+      await click(o, ".booklet-pager button", "Back");
+      pg = await page();
+      c.ok(pg.title[0] === "Sun", `Back from a top page goes to the top page before it: ${pg.title}`);
+      // an old (version 1) place, flat part counted over every part of the tab, still opens where it was
+      await setPlace(o, { version: 1, screen: KEY, page: null, part: 4 });
+      pg = await page();
+      c.ok(pg.title[0] === "Loam", `a version 1 place opens by its flat part: ${pg.title}`);
+      c.ok(sha(path.join(vault, NOTE)) === before, "the SHA-256 of the note is the same after every move: nothing about the place is written into it");
+      for (const scheme of ["light", "dark"]) {
+        await o.setScheme(scheme); await sleep(300);
+        await goPage("drainage", 0); await shot(o, `wiki-trail-desktop-${scheme}`);
+        await goPage("compost", 0); await shot(o, `wiki-mentioned-desktop-${scheme}`);
+        await openMenu(o);
+        await sleep(300); await o.page.locator(BOOK + " .booklet-pagemenu input").fill("so"); await sleep(300);
+        await shot(o, `wiki-menu-search-desktop-${scheme}`);
+        await o.page.locator(BOOK + " .booklet-pagemenu input").fill(""); await sleep(300);
+        await shot(o, `wiki-menu-tree-desktop-${scheme}`);
+        await goPage("loam", 0); await shot(o, `wiki-cards-desktop-${scheme}`);
+        await goPage("watering", 1); await shot(o, `wiki-parts-desktop-${scheme}`);
+      }
+      // a deep tree scrolls inside its menu, not the page (desktop, dark)
+      put(vault, DEEP, DEEP_NOTE);
+      await o.setScheme("dark"); await sleep(300);
+      await ready(o, DEEP);
+      await setPlace(o, { version: 2, screen: DEEPKEY, page: "level-14", part: 0 });
+      await openMenu(o);
+      await sleep(400);
+      const deepDesk = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { n: l.querySelectorAll("a").length, scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: v.scrollWidth - v.clientWidth, title: (v.querySelector(".booklet-pagetitle") || {}).textContent }; });
+      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.5 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
+      await shot(o, "deep-menu-desktop-dark");
+      // the phone, light and dark
+      await o.page.setViewportSize({ width: 390, height: 844 });
+      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      const metrics = () => o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, r = e => e.getBoundingClientRect(), min = q => { const h = [...v.querySelectorAll(q)].map(e => r(e).height); return h.length ? Math.min(...h) : null; }; return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), summary: min(".booklet-pagemenu summary"), link: min(".booklet-pagelink"), card: min(".booklet-cardrow"), pager: min(".booklet-pager button"), phone: document.body.classList.contains("is-phone"), search: min(".booklet-pagesearch input") }; });
+      for (const scheme of ["light", "dark"]) {
+        await o.setScheme(scheme); await sleep(300);
+        await ready(o, NOTE); await goPage("compost", 0);
+        let m = await metrics();
+        c.ok(m.phone && m.sideways <= 0 && m.summary >= 44 && m.pager >= 44, `[${scheme}] phone, Compost: no sideways scroll (${m.sideways}), menu summary ${Math.round(m.summary)} px, pager ${Math.round(m.pager)} px`);
+        await shot(o, `wiki-compost-phone-${scheme}`);
+        await openMenu(o);
+        await sleep(300);
+        await o.page.locator(BOOK + " .booklet-pagemenu input").fill("so"); await sleep(300);
+        m = await metrics();
+        c.ok(m.sideways <= 0 && m.link >= 44, `[${scheme}] the menu open with a search: links ${Math.round(m.link)} px, no sideways scroll (${m.sideways})`);
+        await shot(o, `wiki-menu-search-phone-${scheme}`);
+        await goPage("loam", 0);
+        m = await metrics();
+        c.ok(m.sideways <= 0 && m.card >= 44, `[${scheme}] Loam's cards: ${Math.round(m.card)} px, no sideways scroll (${m.sideways})`);
+        await shot(o, `wiki-cards-phone-${scheme}`);
+      }
+      // the deep tree on a phone, light
+      await o.setScheme("light"); await sleep(300);
+      await ready(o, DEEP);
+      await setPlace(o, { version: 2, screen: DEEPKEY, page: "level-14", part: 0 });
+      await openMenu(o);
+      await sleep(400);
+      const deepPhone = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), phone: document.body.classList.contains("is-phone"), link: Math.min(...[...l.querySelectorAll("a")].map(a => a.getBoundingClientRect().height)) }; });
+      c.ok(deepPhone.phone && deepPhone.scrolls && deepPhone.box <= deepPhone.win * 0.5 + 1 && deepPhone.sideways <= 0 && deepPhone.link >= 44, `phone, the deep tree: the list scrolls inside itself (${deepPhone.box} px of ${deepPhone.win}), links ${Math.round(deepPhone.link)} px, no sideways scroll (${deepPhone.sideways})`);
+      await shot(o, "deep-menu-phone-light");
+      await o.evaluate(() => app.emulateMobile(false));
+      c.ok(sha(path.join(vault, NOTE)) === before, "and still nothing written into the note");
+    });
+    return c;
+  }
+
+  /* ================= CHECK 28 ================= */
+  async function check28() {
+    const c = new Check(28, "the check-in as one activity with a wiki tab (the pages round's worked example 5.1, made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
+    await withApp("c28", async (o, vault) => {
+      const NOTE = "Check-in with a wiki.booklet.md", KEY = "activity:calm/check-in";
+      const text = fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", NOTE), "utf8");
+      put(vault, NOTE, text);
+      await ready(o, NOTE);
+      const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { tabs: q(".booklet-tabbtn"), on: q(".booklet-tabbtn.is-active")[0], title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: q(".booklet-pager-at")[0] || "", finalize: root.querySelectorAll(".booklet-finalize").length, menu: q(".booklet-pagelist a"), questions: root.querySelectorAll("[data-booklet-q]").length, problems: q(".booklet-problems li") }; });
+      const goTo = st => setPlace(o, { version: 1, screen: KEY, ...st });
+      await goTo({ tab: "wiki", part: 0 });
+      let pg = await page(), s = await state(o);
+      const b0 = s.back;
+      c.ok(pg.tabs.join("|") === "Learn|Check in|Past check-ins" && pg.on === "Learn", `three tabs, opening on the wiki: ${pg.tabs.join(" | ")}`);
+      c.ok(pg.problems.length === 0, `a file marked 0.17 that this view reads says nothing of its marker: ${pg.problems.length} problems`);
+      c.ok(pg.menu.length === 8 && pg.finalize === 0 && pg.questions === 0, `the wiki tab: a menu of ${pg.menu.length} pages, no Finalize, no question`);
+      const seen = [];
+      for (let i = 0; i < 8; i++) { await click(o, ".booklet-pager button", "Next"); const x = await page(); seen.push(x.title[0] + (x.at ? ` (${x.at})` : "")); }
+      c.ok(seen.join(" | ") === "The body map | Choosing a place | Words for what you notice | The feelings grid | The two axes (1 of 2) | The two axes (2 of 2) | More than one at once | Thoughts as headlines", `Next walks the tree depth first, naming pages: ${seen.join(" | ")}`);
+      await shot(o, "checkin-wiki-last-desktop-light");
+      const afterPages = (await state(o)).back;
+      c.ok(afterPages === b0 + 8, `eight pages are eight steps: history ${b0} -> ${afterPages}`);
+      await click(o, ".booklet-tabbtn", "Check in");
+      pg = await page(); s = await state(o);
+      c.ok(pg.title[0] === "Your body" && pg.finalize === 1 && pg.questions >= 1, `the quiz tab opens on its first named page, with the finish: ${pg.title}, Finalize ${pg.finalize}`);
+      c.ok(s.back === afterPages, `choosing a tab is no step: history ${s.back}`);
+      await click(o, ".booklet-pager button", "Next: Your mind");
+      pg = await page();
+      c.ok(pg.title[0] === "Your mind" && pg.pager.join("|").includes("Back"), `the quiz's second page: ${pg.title}`);
+      const field = o.page.locator(BOOK + " [data-booklet-q='other'] textarea, " + BOOK + " [data-booklet-q='other'] input.booklet-text").first();
+      await field.click(); await o.page.keyboard.type("made-up words about the day"); await sleep(1800);
+      const disk = fs.readFileSync(path.join(vault, NOTE), "utf8");
+      c.ok(disk.includes("made-up words about the day"), "the typed words reached the note's draft");
+      c.ok(disk.startsWith(text.split("%%")[0].trimEnd()) && !/\bpage\b.*:\s*"?(your|the)/i.test(disk.split("%%")[1] || ""), "everything above the records is as it was, and no page is stored in it");
+      await click(o, ".booklet-pager button", "Back");
+      await click(o, ".booklet-pager button", "Next");
+      const again = await o.page.locator(BOOK + " [data-booklet-q='other'] textarea, " + BOOK + " [data-booklet-q='other'] input.booklet-text").first().inputValue();
+      c.ok(again === "made-up words about the day", `the words are there when the reader comes back to the page: "${again}"`);
+      await click(o, ".booklet-tabbtn", "Past check-ins");
+      pg = await page();
+      c.ok(pg.finalize === 0 && pg.menu.length === 0, `the dashboard tab: no Finalize, no menu (one page): Finalize ${pg.finalize}, menu ${pg.menu.length}`);
+      await click(o, ".booklet-tabbtn", "Learn");
+      pg = await page();
+      c.ok(pg.title[0] === "Thoughts as headlines", `the wiki comes back on the page last seen there: ${pg.title}`);
+      await tap(o, ".booklet-pagemenu summary", "Pages in this tab", 300);
+      await shot(o, "checkin-wiki-menu-desktop-light");
+      for (const scheme of ["dark", "light"]) {
+        await o.setScheme(scheme); await sleep(300);
+        await goTo({ tab: "wiki", part: 4 }); await shot(o, `checkin-wiki-grid-desktop-${scheme}`);
+      }
+      await o.page.setViewportSize({ width: 390, height: 844 });
+      await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
+      for (const scheme of ["light", "dark"]) {
+        await o.setScheme(scheme); await sleep(300);
+        await ready(o, NOTE); await goTo({ tab: "wiki", part: 5 });
+        const m = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, h = q => Math.min(...[...v.querySelectorAll(q)].map(e => e.getBoundingClientRect().height)); return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), pager: h(".booklet-pager button"), tab: h(".booklet-tabbtn"), summary: h(".booklet-pagemenu summary") }; });
+        c.ok(m.sideways <= 0 && m.pager >= 44 && m.tab >= 44 && m.summary >= 44, `[${scheme}] phone, The two axes: no sideways scroll (${m.sideways}), pager ${Math.round(m.pager)}, tabs ${Math.round(m.tab)}, menu ${Math.round(m.summary)} px`);
+        await shot(o, `checkin-wiki-axes-phone-${scheme}`);
+      }
+      await o.evaluate(() => app.emulateMobile(false));
+    });
+    return c;
+  }
+
+  return { 16: check16, 17: check17, 18: check18, 19: check19, 20: check20, 21: check21, 22: check22, 23: check23, 27: check27, 28: check28 };
 };

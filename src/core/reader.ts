@@ -11,6 +11,7 @@ import {
 	CALLOUT_LINE,
 	BLOCK_ID_LINE,
 	FENCE_OPEN,
+	ID_PATTERN,
 	bodyEnd,
 	calloutWords,
 	earlierValue,
@@ -39,6 +40,8 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 }
 
 export const FORMAT_VERSION = "0.16";
+/** The marker of the next format, whose page lines this view reads ahead of SPEC (page trees; design/pages/proposal.md). */
+export const NEXT_FORMAT = "0.17";
 
 export interface Option {
 	text: string;
@@ -162,6 +165,23 @@ export interface TabHeading {
 	line: number;
 }
 
+/**
+ * A named page (page trees, ahead of the format: format 0.17, not yet in SPEC): `> [!page|id parent:x icon:name] Title` starts a page of
+ * the tab it stands in, which runs to the next page, tab, activity or module line. The tree it makes is built by core/nav.ts.
+ */
+export interface PageHeading {
+	type: "page";
+	/** The id written after the bar and valid, else null (the page's id is then made from its title, by nav.ts). */
+	id: string | null;
+	/** The title as written: inline Markdown, "" when the line has none. */
+	title: string;
+	/** `parent:`, the id of the page it sits under in the same tab, as written; null when there is none. */
+	parent: string | null;
+	/** `icon:` as written (a name in Booklet's set is drawn; the view checks). */
+	icon: string | null;
+	line: number;
+}
+
 export interface Unsupported {
 	type: "unsupported";
 	/** The line's kind: one this plugin does not draw yet, or a question kind written with no id (a group, or a callout that holds a question, is read as a callout and is not this). */
@@ -243,7 +263,7 @@ export interface RowMark {
 	line: number;
 }
 
-export type Segment = Question | Prose | TabHeading | Unsupported | QuerySegment | CalloutStart | CalloutEnd | RowMark;
+export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment | CalloutStart | CalloutEnd | RowMark;
 
 /**
  * A footnote's definition, `[^id]: …` (SPEC section 6, "Citations"), read where the file puts it and never drawn as
@@ -375,6 +395,12 @@ const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "s
 const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
 	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
+]);
+
+/** The callout kinds Obsidian itself draws (and its aliases): a line of one of these is an ordinary callout, never a kind of a newer format. */
+const OBSIDIAN_CALLOUTS = new Set([
+	"note", "abstract", "summary", "tldr", "info", "todo", "tip", "hint", "important", "success", "check", "done", "question", "help", "faq",
+	"warning", "caution", "attention", "failure", "fail", "missing", "danger", "error", "bug", "example", "quote", "cite",
 ]);
 
 /** The kinds of line that make structure: none can go inside a callout's body (SPEC section 6, "A group holds blocks"). */
@@ -559,6 +585,21 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 }
 
 /**
+ * In an activity with tab lines, what comes before the first one is the activity's opening, drawn above every tab, so it cannot be a
+ * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in (page trees; the
+ * pages round, 2.6).
+ */
+function dropOpeningPages(act: Activity, problems: string[]): void {
+	const firstTab = act.segments.findIndex((s) => s.type === "tab");
+	if (firstTab <= 0) return;
+	act.segments = act.segments.filter((s, n) => {
+		if (n >= firstTab || s.type !== "page") return true;
+		problems.push(`Line ${s.line}: a page line in the opening that every tab shows, before the activity's first tab line, belongs to no tab, so it was ignored.`);
+		return false;
+	});
+}
+
+/**
  * Reads a booklet. Never throws on a file's content: what it cannot read goes into `problems`, and a
  * file it must refuse (no marker, a non-0.x marker, broken module fences, an id used twice in a
  * module) comes back with `ok: false` and the reason, still with whatever structure was found.
@@ -576,8 +617,14 @@ export function parseBooklet(text: string): Booklet {
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
 	const ver = versionOf(marker);
+	let pagesMarker = false;
+	let unread = 0;
 	if (!marker) refusals.push("This note has no booklet: marker in its front matter, so it is not a booklet.");
 	else if (!ver || ver[0] !== 0) refusals.push(`This note says booklet: ${marker}, which is not a 0.x version, so it is not a booklet for format ${FORMAT_VERSION}.`);
+	else if (marker === NEXT_FORMAT)
+		// page trees are ahead of the format: this view draws what 0.17's page lines say, so it says nothing of the marker unless the file
+		// then holds a line or a setting this view does not read (counted in `unread`, and said at the end)
+		pagesMarker = true;
 	else if (marker !== FORMAT_VERSION)
 		problems.push(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and has opened it as it is; some of it may not draw.`);
 
@@ -672,6 +719,7 @@ export function parseBooklet(text: string): Booklet {
 	};
 	const endActivity = () => {
 		flush();
+		if (act) dropOpeningPages(act, problems);
 		act = null;
 	};
 	/** The footnote ids by scope are said once each (a repeat is ignored: the first wins, booklet.html registries). */
@@ -731,17 +779,27 @@ export function parseBooklet(text: string): Booklet {
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
-			problems.push(...settingProblems(kind, w, at(i)));
+			const sp = settingProblems(kind, w, at(i));
+			// a setting a page line does not take is the author's to fix, not a sign of a newer format: said, and not counted as unread
+			if (kind !== "page") unread += sp.length;
+			problems.push(...sp);
+			// a line of a kind that is none of the format's nor Obsidian's, with no words after the bar, is drawn as the callout it looks like:
+			// a newer format may mean more by it
+			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind)) unread++;
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
 				problems.push(`${at(i)}: \`earlier:${earlier}\` is not a whole number written in digits, so it was ignored and the question offers its default.`);
 				delete w.set["earlier"];
 			}
-			if (open.length && STRUCTURE_KINDS.has(kind)) {
-				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines
-				problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
-				i = bodyEnd(lines, i) - 1;
+			if (open.length && (STRUCTURE_KINDS.has(kind) || kind === "page")) {
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line there is that
+				// body's text, not a page: a page is a part of a tab, and a callout is a part of a page (the body is read with one `>`
+				// less, so a `> > [!page]` there looks like a page line)
+				const k = bodyEnd(lines, i);
+				if (kind === "page") pushText(lines.slice(i, k), i);
+				else problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
+				i = k - 1;
 				continue;
 			}
 			if (kind === "module") {
@@ -804,6 +862,7 @@ export function parseBooklet(text: string): Booklet {
 			if (section === "data") {
 				// in a data section only its blocks are read: a shared menu among them
 				if (kind === "menu") readMenu(w.id, i);
+				if (kind === "page") problems.push(`${at(i)}: a page line in a data section, where only blocks are read, so it was ignored.`);
 				i = claimEnd(kind, lines, i) - 1;
 				continue;
 			}
@@ -838,6 +897,24 @@ export function parseBooklet(text: string): Booklet {
 				i = k - 1;
 				continue;
 			}
+			if (kind === "page") {
+				flush();
+				const where = at(i);
+				let id = w.id;
+				if (id && !ID_PATTERN.test(id)) {
+					problems.push(`${where}: the page id "${id}" is not letters, digits and dashes, so the page's id is made from its title.`);
+					id = null;
+				}
+				// a page is never folded: the marker means nothing on a page line (page trees; the pages round, 2.1)
+				if (m[3]) problems.push(`${where}: a page is never folded, so the \`${m[3]}\` after its bracket was ignored.`);
+				const k = bodyEnd(lines, i);
+				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
+				else if (rowOpen) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
+				else act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a page line's `>` lines are the page's first prose
+				i = k - 1;
+				continue;
+			}
 			if (kind === "menu" || QUESTION_KINDS.has(kind) || (!KNOWN_KINDS.has(kind) && hasWords)) {
 				flush();
 				const k = claimEnd(kind, lines, i);
@@ -852,7 +929,10 @@ export function parseBooklet(text: string): Booklet {
 					i = k - 1;
 					continue;
 				}
-				if (!KNOWN_KINDS.has(kind)) problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
+				if (!KNOWN_KINDS.has(kind)) {
+					unread++;
+					problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
+				}
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
@@ -1008,6 +1088,7 @@ export function parseBooklet(text: string): Booklet {
 				? "One answer is not in the shape its question keeps, so it is kept as written: shown read-only with a notice, and left out of what views show."
 				: `${wrong} answers are not in the shape their questions keep, so they are kept as written: shown read-only with a notice, and left out of what views show.`,
 		);
+	if (pagesMarker && unread) problems.unshift(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and the page lines of ${marker}, and has opened the rest as it is: the lines listed below, and anything else new in ${marker}, may not draw.`);
 	const refusal = refusals[0] ?? null;
 	return {
 		ok: !refusal,

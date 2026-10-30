@@ -34,17 +34,25 @@ function onPress(el: HTMLElement, fn: () => void): void {
 	});
 }
 
-/** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). */
-export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[]): void {
+/**
+ * A link to a place, the words drawn as inline Markdown: the trail, a page in the menu and a mention are all this. Returns the anchor
+ * (the menu marks the page on show on it). The place is worked out when the link is drawn.
+ */
+export function placeLink(host: ScreenHost, into: HTMLElement, cls: string, md: string, to: Place): HTMLElement {
+	const a = into.createEl("a", { cls, attr: { href: "#" } });
+	host.md(inlineMd(linkless(md)), a.createSpan({ cls: "booklet-inline markdown-rendered" }));
+	onPress(a, () => host.go(to));
+	return a;
+}
+
+/** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). `noCurrent`: the last step is plain text and not marked as the page (the page menu marks it, and a screen has one). */
+export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], noCurrent = false): void {
 	const nav = page.createEl("nav", { cls: "booklet-trail", attr: { "aria-label": "Where you are" } });
 	// the slash after each crumb but the last is drawn by the stylesheet, so it stays on the line its crumb ends on
 	crumbs.forEach((c) => {
 		const to = c.to;
-		if (to) {
-			const link = nav.createEl("a", { cls: "booklet-trail-link", attr: { href: "#" } });
-			host.md(inlineMd(linkless(c.md)), link.createSpan({ cls: "booklet-inline markdown-rendered" }));
-			onPress(link, () => host.go(to));
-		} else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: { "aria-current": "page" } }));
+		if (to) placeLink(host, nav, "booklet-trail-link", c.md, to);
+		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }));
 	});
 }
 
@@ -167,12 +175,18 @@ export interface PagerButton {
 	press?: () => void;
 }
 
+/** The pager's counter, for the eye and for the page group's spoken label: "2 of 3" (`noPageWord`, in a tab with a page line, where a part is not a page) or "Page 2 of 3". */
+export function pagerCount(at: number, of: number, noPageWord: boolean): string {
+	return noPageWord ? `${at + 1} of ${of}` : `Page ${at + 1} of ${of}`;
+}
+
 /**
  * Back, "Page 2 of 3" and Next, at the foot of an activity (SPEC section 3, pages), after the page, not pinned: the reader meets
  * Next where they finish reading. Back leads out from the first page ("Up: <parent>", else "Back to the overview"); Next on the last
- * page goes to the next activity ("Next: 3. Title", no number between bare activities).
+ * page goes to the next activity ("Next: 3. Title", no number between bare activities). In a tab of pages (page trees) `at` and `of` count
+ * the parts of the page on show, and the counter says "2 of 3" (`noPageWord`), not "Page 2 of 3": a part is not a page there.
  */
-export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton | null, at: number, of: number, next: PagerButton | null): void {
+export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton | null, at: number, of: number, next: PagerButton | null, noPageWord = false): void {
 	const foot = page.createDiv({ cls: "booklet-pager" });
 	const button = (b: PagerButton, cls: string, icon: string, before: boolean) => {
 		const el = foot.createEl("button", { cls });
@@ -187,7 +201,7 @@ export function drawPager(host: ScreenHost, page: HTMLElement, back: PagerButton
 	if (back) button(back, "booklet-pager-back", "lucide-arrow-left", true);
 	else foot.createSpan({ cls: "booklet-pager-gap" });
 	// the counter keeps the middle even when nothing follows the page
-	if (of > 1) foot.createSpan({ cls: "booklet-pager-at", text: `Page ${at + 1} of ${of}` });
+	if (of > 1) foot.createSpan({ cls: "booklet-pager-at", text: pagerCount(at, of, noPageWord) });
 	else foot.createSpan({ cls: "booklet-pager-gap" });
 	if (next) button(next, "mod-cta booklet-pager-next", "lucide-arrow-right", false);
 }
