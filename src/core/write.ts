@@ -510,20 +510,20 @@ export interface Removed {
  * that is no longer where it was, or has another `ts`, is not removed (the text comes back unchanged, `removed` is 0). It is
  * never found by `ts` alone, because two entries of one block may share one and then taking out "the entry with that `ts`"
  * would rewrite the other. An entry read from items in several blocks (the same `ts` in each: they merge) goes from all of them.
- * With `expect` (the entry's `entryKey` when the card was drawn) the entry at the position must also read the same now: two
+ * `expect` (the entry's `entryKey` when the card was drawn) is required: the entry at the position must also read the same now: two
  * entries can share a `ts`, and a pane that is a step behind the file would otherwise remove the one that moved into the place.
  * Each item goes with the comma that joined it and nothing else changes; a block left with no item stays as `{"items": []}`.
  * Drafts, answers and every other block are not looked at.
  */
-export function removeEntry(text: string, scope: string, activityId: string, at: number, ts: string, expect?: string): Removed {
+export function removeEntry(text: string, scope: string, activityId: string, at: number, ts: string, expect: string): Removed {
 	const d = openDoc(text, scope);
 	activityIn(d, scope, activityId);
 	const kept = d.book.records.entries[scope]?.[activityId] ?? [];
 	const entry = kept[at];
 	if (!entry || String(entry.ts) !== ts) return { text, removed: 0 };
-	// two entries may share a `ts`: when the caller says what the entry looked like (`entryKey`, taken when its card was drawn),
-	// the one at this position must still read the same, or it is another entry that moved here and nothing is removed
-	if (expect !== undefined && entryKey(entry) !== expect) return { text, removed: 0 };
+	// two entries may share a `ts`: the caller says what the entry looked like (`entryKey`, taken when its card was drawn),
+	// and the one at this position must still read the same, or it is another entry that moved here and nothing is removed
+	if (entryKey(entry) !== expect) return { text, removed: 0 };
 	const readableBlocks = readable(d, "entries", scope, activityId);
 	const byBlock = new Map<RecordBlock, number[]>();
 	for (const p of entryPlaces(entry)) {

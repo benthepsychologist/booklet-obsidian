@@ -8,6 +8,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { assertOutsideUnchanged, core, keepDays } from "./helpers.mjs";
 
+// removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
+const rm = (text, scope, id, at, ts, expect) => {
+	if (expect === undefined) {
+		const e = core.parseBooklet(text).records.entries[scope]?.[id]?.[at];
+		expect = e ? core.entryKey(e) : "";
+	}
+	return core.removeEntry(text, scope, id, at, ts, expect);
+};
+
 process.env.TZ = "UTC";
 
 const DRAWN = new Date("2026-10-28T12:00:00Z");
@@ -257,7 +266,7 @@ test("a data block is not a record: Finalize and the writer leave it, and the te
 	const done = keepDays(text, "", "log", [["2026-10-27T09:00:00Z", { n: 3 }]]);
 	assert.ok(done.includes(data(JOBS, "jobs")) && done.includes(data({ rows: [{ a: "  spaced   out " }] }, "other")));
 	assertOutsideUnchanged(text, done, "keeping an entry");
-	const removed = core.removeEntry(done, "", "log", 0, "2026-10-27T09:00:00Z");
+	const removed = rm(done, "", "log", 0, "2026-10-27T09:00:00Z");
 	assert.equal(removed.removed, 1);
 	assertOutsideUnchanged(text, removed.text, "removing it");
 });

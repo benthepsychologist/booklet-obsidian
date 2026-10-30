@@ -23,6 +23,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, expectedLint, lint, lintDiffers, norm, pythonAvailable, read } from "./helpers.mjs";
 
+// removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
+const rm = (text, scope, id, at, ts, expect) => {
+	if (expect === undefined) {
+		const e = core.parseBooklet(text).records.entries[scope]?.[id]?.[at];
+		expect = e ? core.entryKey(e) : "";
+	}
+	return core.removeEntry(text, scope, id, at, ts, expect);
+};
+
 // the external corpus exists only on the box the plugin was built on: a folder that is not there is skipped, not failed
 for (const d of corpusDirs())
 	if (d.external && !d.present) test(`corpus: ${d.name}`, { skip: `not found at ${d.dir}; set the environment variable to run these files` }, () => {});
@@ -299,7 +308,7 @@ for (const file of corpusFiles()) {
 			const ts = lastKept.get(a);
 			const at = was.findIndex((x) => x.ts === ts);
 			assert.ok(at >= 0, `${a.id}: the entry kept last is in the list`);
-			const r = core.removeEntry(before, a.scope, a.id, at, ts);
+			const r = rm(before, a.scope, a.id, at, ts);
 			assert.ok(r.removed >= 1, `${a.id}: the entry is removed`);
 			gone = r.text;
 			assertOutsideUnchanged(orig, gone, `remove ${a.id}`);

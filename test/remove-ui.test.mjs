@@ -10,6 +10,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core, keepDays } from "./helpers.mjs";
 
+// removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
+const rm = (text, scope, id, at, ts, expect) => {
+	if (expect === undefined) {
+		const e = core.parseBooklet(text).records.entries[scope]?.[id]?.[at];
+		expect = e ? core.entryKey(e) : "";
+	}
+	return core.removeEntry(text, scope, id, at, ts, expect);
+};
+
 process.env.TZ = "UTC";
 
 const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
@@ -86,7 +95,7 @@ test("Yes takes out exactly the entry on that card (the newest is first), and ev
 	await v.settled();
 	assert.equal(v.disk.writes, 1);
 	assert.deepEqual(tsList(v.disk.text), ["2026-10-25T08:00:00Z", "2026-10-27T06:55:00Z"]);
-	assert.equal(v.disk.text, core.removeEntry(t, "", "log", 1, "2026-10-26T08:10:00Z").text, "the same bytes the writer gives: only that entry's item is gone");
+	assert.equal(v.disk.text, rm(t, "", "log", 1, "2026-10-26T08:10:00Z").text, "the same bytes the writer gives: only that entry's item is gone");
 	assert.equal(v.cards().length, 2, "the list is drawn again without it");
 	assert.equal(v.view.contentEl.querySelectorAll(".booklet-query .booklet-entry-delete").length, 0);
 	v.close();
@@ -135,7 +144,7 @@ test("a draft the reader has begun is not cleared by a deletion: the note's draf
 	await v.settled();
 	assert.equal(tsList(v.disk.text).length, 2);
 	assert.ok(field(), "and still is");
-	assert.equal(v.disk.text, core.removeEntry(t, "", "log", 2, "2026-10-27T06:55:00Z").text);
+	assert.equal(v.disk.text, rm(t, "", "log", 2, "2026-10-27T06:55:00Z").text);
 	v.close();
 });
 
@@ -155,7 +164,7 @@ test("Delete still works after the reader has answered something (the pane's lat
 	click(v.cards()[1].querySelector(".booklet-entry-ask button"));
 	await v.settled();
 	assert.deepEqual(tsList(v.disk.text), ["2026-10-25T08:00:00Z", "2026-10-27T06:55:00Z"], "the 26th is gone");
-	assert.equal(v.disk.text, core.removeEntry(before, "", "log", 1, "2026-10-26T08:10:00Z").text, "and nothing else changed, the draft included");
+	assert.equal(v.disk.text, rm(before, "", "log", 1, "2026-10-26T08:10:00Z").text, "and nothing else changed, the draft included");
 	v.close();
 });
 
@@ -195,12 +204,12 @@ test("a pane a step behind the file does not delete the other entry that has the
 	assert.equal(v.cards().length, 2);
 	const six = v.cards().findIndex((c) => words(c.querySelector("dd")) === "6");
 	// the first entry is deleted elsewhere (another pane, another box); this pane has not heard of it
-	v.disk.text = core.removeEntry(SAME, "", "log", 0, SAME_TS).text;
+	v.disk.text = rm(SAME, "", "log", 0, SAME_TS).text;
 	const before = Notice.said.length;
 	click(v.cards()[six].querySelector(".booklet-entry-delete"));
 	click(v.cards()[six].querySelector(".booklet-entry-ask button"));
 	await v.settled();
-	assert.equal(v.disk.text, core.removeEntry(SAME, "", "log", 0, SAME_TS).text, "the 9 entry, the only one left, is still there");
+	assert.equal(v.disk.text, rm(SAME, "", "log", 0, SAME_TS).text, "the 9 entry, the only one left, is still there");
 	assert.match(Notice.said.slice(before).join("\n"), /no longer where it was/);
 	const card = v.cards()[six];
 	assert.equal(card.querySelector(".booklet-entry-delete").hidden, false, "the card shows its Delete button again");
