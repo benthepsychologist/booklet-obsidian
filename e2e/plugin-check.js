@@ -1929,7 +1929,7 @@ async function check10() {
   c.ok(!only.includes(29) || ["c29-desktop", "c29-phone"].every(x => sessions.includes(x)), "and the charts check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(30) || ["c30-desktop", "c30-phone"].every(x => sessions.includes(x)), "and the data check's two: " + sessions.join(", "));
   c.ok(!only.includes(31) || ["c31-desktop", "c31-phone"].every(x => sessions.includes(x)), "and the sort and filter check's two: " + sessions.join(", "));
-  c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone"].every(x => sessions.includes(x)), "and the deleting check's three (one pane, with a Markdown pane, a phone's width): " + sessions.join(", "));
+  c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }

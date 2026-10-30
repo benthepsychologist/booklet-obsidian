@@ -236,7 +236,20 @@ module.exports = function dashboardChecks(env) {
         c.ok(sorted1 === "ascending" && sorted2 === "descending" && sorted3 === 0 && menuNow === "", `[${where}] a heading sorts ascending, then descending, then the original order: ${sorted1}, ${sorted2}, ${sorted3} (menu: "${menuNow}")`);
         await sel.selectOption("date"); await box.locator(".booklet-qc-dir").click(); await sleep(250);
         await shot(o, `sort-open-${where}-light`);
-        await scheme(o, "dark"); await shot(o, `sort-open-${where}-dark`); await scheme(o, "light");
+        await scheme(o, "dark");
+        // dark: the same steps work and the words read against what they sit on
+        await box.locator(".booklet-qc-search input").fill("rain"); await sleep(250);
+        const dk = await o.evaluate(sel => {
+          const lum = c => { const m = c.match(/[\d.]+/g).map(Number); const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
+          const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+          const b = [...document.querySelectorAll(sel + " .booklet-query")][0], bar = b.querySelector(".booklet-qc-bar"), bg = getComputedStyle(bar).backgroundColor, cnt = b.querySelector(".booklet-qc-count"), tg = b.querySelector(".booklet-qc-toggle"), page = getComputedStyle(document.querySelector(sel + " .view-content")).backgroundColor;
+          return { dark: document.body.classList.contains("theme-dark"), count: cnt.textContent.trim(), rows: b.querySelectorAll("tbody tr").length, cr: ratio(getComputedStyle(cnt).color, bg), tr: ratio(getComputedStyle(tg).color, page), bar: ratio(bg, page) };
+        }, BOOK);
+        c.ok(dk.dark && dk.count === "1 of 12 shown" && dk.rows === 1 && dk.cr >= 3 && dk.tr >= 3, `[${where}] dark: the filter works and its count reads against the panel (${dk.cr.toFixed(1)}:1), the button against the page (${dk.tr.toFixed(1)}:1)`);
+        await shot(o, `sort-open-${where}-dark`);
+        await box.locator(".booklet-qc-clear").click(); await sleep(200);
+        await box.locator(".booklet-qc-sort select").selectOption("date"); await box.locator(".booklet-qc-dir").click(); await sleep(200);
+        await scheme(o, "light");
         // what is set is never saved or written
         const st1 = await o.evaluate(() => JSON.stringify(app.workspace.getLeavesOfType("booklet")[0].view.getState()));
         await quiet(o); await sleep(2200);
@@ -265,12 +278,12 @@ module.exports = function dashboardChecks(env) {
   /* ================= CHECK 32 ================= */
   async function check32() {
     const c = new Check(32, "0.9.0 deleting a kept entry: Delete asks \"Delete this entry?\" in place, No writes nothing, Yes takes out exactly that item and leaves every other byte as written; also with a Markdown pane open; desktop and phone");
-    for (const mode of ["one pane", "markdown pane", "phone"]) {
+    for (const mode of ["one pane", "markdown pane", "phone", "typed draft"]) {
       await withApp("c32-" + mode.replace(" ", "-"), async (o, vault) => {
         const where = mode === "phone" ? "phone" : "desktop";
         await setup(o, vault, where);
         const file = path.join(vault, NOTE);
-        const orig = fs.readFileSync(file, "utf8");
+        let orig = fs.readFileSync(file, "utf8");
         const items = orig.split("\n").filter(l => /^\{"ts":"2026-10-\d\dT07:30:00Z","sleep"/.test(l));
         const lineOf = day => items.find(l => l.includes(`2026-10-${day}T07:30:00Z`));
         if (mode === "markdown pane") {
@@ -283,16 +296,42 @@ module.exports = function dashboardChecks(env) {
         const card = n => o.page.locator(BOOK + " .booklet-entry-list .booklet-entry").nth(n);
         const n0 = await o.page.locator(BOOK + " .booklet-entry-list .booklet-entry").count();
         c.ok(items.length === 12 && n0 === 10, `[${mode}] twelve kept days, ten shown, a Delete on each card: ${n0}, Delete ${await o.page.locator(BOOK + " .booklet-entry-delete").count()}`);
+        if (mode === "typed draft") {
+          // the reader answers something first: the pane's later copies of the note then hold new objects for the same entries (the first draft's Delete did nothing after this)
+          await o.page.locator(BOOK + " [data-booklet-q='sleep'] input").first().click();
+          await o.page.keyboard.type("4");
+          await o.page.locator(BOOK + " .booklet-entries-title").click(); await sleep(2500);
+          await quiet(o);
+          const typed = fs.readFileSync(file, "utf8");
+          c.ok(typed !== orig && /```booklet draft log\n\{[^}]*"sleep"\s*:\s*4/.test(typed), `[${mode}] the typed answer is in the draft on disk`);
+          orig = typed;
+          // the list's fold was pressed to leave the field: it is open again
+          if (await o.page.locator(BOOK + " .booklet-entry-list").evaluate(e => e.hidden)) await o.page.locator(BOOK + " .booklet-entries-title").click();
+        }
         // the second card, newest first, is Oct 27
         const when = (await card(1).locator(".booklet-entry-when").textContent()).trim();
         await card(1).locator(".booklet-entry-delete").click(); await sleep(150);
         const ask = await o.evaluate(sel => { const a = document.querySelectorAll(sel + " .booklet-entry-list .booklet-entry")[1]; const ask = a.querySelector(".booklet-entry-ask"); return { text: ask.querySelector(".booklet-entry-ask-text").textContent, shown: ask.offsetParent !== null, del: a.querySelector(".booklet-entry-delete").offsetParent !== null, buttons: [...ask.querySelectorAll("button")].map(b => b.textContent), focus: document.activeElement === ask.querySelectorAll("button")[1] }; }, BOOK);
         c.ok(ask.text === "Delete this entry?" && ask.shown && !ask.del && ask.buttons.join() === "Yes, delete,No" && ask.focus, `[${mode}] ${when}: Delete asks in place, with focus on No: ${JSON.stringify(ask)}`);
         await shot(o, `remove-ask-${mode.replace(" ", "-")}-light`);
+        // dark: the question and its buttons are readable against the card
+        await scheme(o, "dark");
+        const dark = await o.evaluate(sel => {
+          const lum = c => { const m = c.match(/[\d.]+/g).map(Number); const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
+          const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+          const card = document.querySelectorAll(sel + " .booklet-entry-list .booklet-entry")[1], bg = getComputedStyle(document.querySelector(sel + " .view-content")).backgroundColor;
+          const q = card.querySelector(".booklet-entry-ask-text"), yes = card.querySelector(".booklet-entry-ask button");
+          return { q: ratio(getComputedStyle(q).color, bg), yes: ratio(getComputedStyle(yes).color, getComputedStyle(yes).backgroundColor), dark: document.body.classList.contains("theme-dark") };
+        }, BOOK);
+        c.ok(dark.dark && dark.q >= 3 && dark.yes >= 3, `[${mode}] dark: the question reads against the card (${dark.q.toFixed(1)}:1) and "Yes, delete" against its button (${dark.yes.toFixed(1)}:1)`);
+        await shot(o, `remove-ask-${mode.replace(" ", "-")}-dark`);
+        await scheme(o, "light");
         if (mode === "phone") {
           const hs = (await heights(o, ".booklet-entry-foot button")).filter(h => h > 0);
           c.ok(hs.length >= 4 && hs.every(h => h >= 44), `[phone] every shown Delete, and the Yes and No of the card asked, are at least 44 px high: ${hs}`);
         }
+        const names = await o.evaluate(sel => { const c = document.querySelectorAll(sel + " .booklet-entry-list .booklet-entry")[1], n = el => el.getAttribute("aria-labelledby").split(" ").map(i => document.getElementById(i).textContent.trim()).join(" "); return [n(c.querySelector(".booklet-entry-delete")), n(c.querySelector(".booklet-entry-ask")), c.querySelectorAll("svg[aria-label]").length]; }, BOOK);
+        c.ok(/^Delete \(the entry from .*Oct 27/.test(names[0]) && /^Delete this entry\? \(the entry from .*Oct 27/.test(names[1]) && names[2] === 0, `[${mode}] the Delete button and its question are named with the entry: ${names[0]} | ${names[1]}`);
         await card(1).locator(".booklet-entry-ask button", { hasText: "No" }).click(); await sleep(2300);
         c.ok(fs.readFileSync(file, "utf8") === orig, `[${mode}] No writes nothing`);
         await card(1).locator(".booklet-entry-delete").click(); await sleep(100);
