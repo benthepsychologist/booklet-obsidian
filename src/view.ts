@@ -14,6 +14,7 @@ import {
 	activityPlace,
 	activityStatus,
 	answerWords,
+	appendImageDefs,
 	barTabs,
 	type CalloutBox,
 	buildNav,
@@ -626,7 +627,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
 		const ids: string[] = [];
-		const text = tokenise(markdown, ids);
+		const text = tokenise(appendImageDefs(markdown, this.text), ids);
 		this.rendering++;
 		const cite = marks ? this.cite : null;
 		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", this.drawing)
