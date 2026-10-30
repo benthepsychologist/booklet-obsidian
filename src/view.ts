@@ -9,6 +9,7 @@ import {
 	COMMON_KINDS,
 	HOME,
 	RecordsWriteError,
+	removeEntry,
 	activityPlace,
 	activityStatus,
 	answerWords,
@@ -86,7 +87,8 @@ import {
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
-import { drawQueryPlan, words } from "./query-view";
+import { mountQuery } from "./query-controls";
+import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
@@ -1347,6 +1349,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && holdsSomething(e[k])).length;
 			if (!rows && !other) item.createDiv({ cls: "booklet-muted", text: "No answers in this entry." });
 			if (other) item.createDiv({ cls: "booklet-muted", text: `${other === 1 ? "One answer" : `${other} answers`} kept here ${other === 1 ? "is" : "are"} for a question this view does not show yet.` });
+			this.drawRemove(item, list, a, e);
 		}
 		if (all.length > ENTRIES_SHOWN) {
 			const more = list.createEl("button", { cls: "booklet-more", text: open ? "Show fewer" : `Show all ${all.length} entries` });
@@ -1358,6 +1361,63 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.syncWidgets();
 			});
 		}
+	}
+
+	/**
+	 * The Delete button on a kept entry's card. It asks first, in place ("Delete this entry?", Yes or No), and nothing is
+	 * written until Yes. It is only in the Kept entries list under Finalize, never on a query's cards.
+	 */
+	private drawRemove(item: HTMLElement, list: HTMLElement, a: Activity, e: Entry): void {
+		const foot = item.createDiv({ cls: "booklet-entry-foot" });
+		const del = foot.createEl("button", { cls: "booklet-entry-delete", text: "Delete", attr: { type: "button" } });
+		const ask = foot.createDiv({ cls: "booklet-entry-ask", attr: { role: "group" } });
+		ask.hidden = true;
+		const askId = this.uid();
+		ask.createSpan({ cls: "booklet-entry-ask-text", text: "Delete this entry?", attr: { id: askId } });
+		ask.setAttr("aria-labelledby", askId);
+		const yes = ask.createEl("button", { cls: "mod-warning", text: "Yes, delete", attr: { type: "button" } });
+		const no = ask.createEl("button", { text: "No", attr: { type: "button" } });
+		del.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			del.hidden = true;
+			ask.hidden = false;
+			no.focus();
+		});
+		no.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			ask.hidden = true;
+			del.hidden = false;
+			del.focus();
+		});
+		yes.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			yes.disabled = true;
+			no.disabled = true;
+			this.removeKept(list, a, e);
+		});
+	}
+
+	/** Takes one kept entry out of the note, by its place among the activity's entries and its time (core/write.ts removeEntry). */
+	private removeKept(list: HTMLElement, a: Activity, e: Entry): void {
+		const file = this.file;
+		if (!file) return;
+		const at = (this.book?.records.entries[a.scope]?.[a.id] ?? []).indexOf(e);
+		const ts = String(e.ts);
+		let removed = 0;
+		this.queue(
+			file,
+			(text) => {
+				const r = at < 0 ? { text, removed: 0 } : removeEntry(text, a.scope, a.id, at, ts);
+				removed = r.removed;
+				return r.text;
+			},
+			"The entry was not deleted.",
+			() => {
+				if (!removed) new Notice("Booklet: that entry is no longer where it was in the note, so nothing was deleted.");
+				// the card is gone: keep the reader's place in the list
+				(list.closest(".booklet-entries")?.querySelector(".booklet-entries-title") as HTMLElement | null)?.focus();
+			},
+		);
 	}
 
 	/** A query's rows, from the kept entries (never a draft), worked out again when the records change; nothing is written. */
@@ -1372,6 +1432,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
+		const draw = mountQuery(host, box, st);
 		let sig = "";
 		const show = () => {
 			if (!this.book) return;
@@ -1381,7 +1442,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
 			if (now === sig) return;
 			sig = now;
-			drawQueryPlan(host, box, planQuery(this.book, s, { drawn: this.drawnAt }), { state: st });
+			draw(planQuery(this.book, s, { drawn: this.drawnAt }));
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);

@@ -5,7 +5,7 @@
  * here is saved: a reader's sorting and filtering, and the parents they open in a nested list, are the view's to keep
  * for as long as the pane is open (core/view-state.ts).
  */
-import { getIcon } from "obsidian";
+import { getIcon, setIcon } from "obsidian";
 import { drawChart } from "./charts";
 import { QUERY_WORDS, badgesOf, buildChart, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type WordPart } from "./core";
 
@@ -25,6 +25,8 @@ export interface QueryUi {
 	/** A search is on: the parents of a match stand open, and a parent the reader opens or closes now is not remembered. */
 	filtering?: boolean;
 	force?: ReadonlySet<Row>;
+	/** The table headings sort (the control is offered): the field sorted by and which way, the fields that may be, and what a click on a heading does. */
+	sort?: { key: string | null; dir: 1 | -1; keys: ReadonlySet<string>; on(key: string): void };
 }
 
 /** Words, as text and the file's own inline Markdown. */
@@ -99,7 +101,7 @@ export function numericColumns(rows: readonly Row[], cols: readonly string[]): S
 	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined)));
 }
 
-function table(host: QueryHost, into: HTMLElement, p: Plan): void {
+function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void {
 	const { set, roles, cols } = p;
 	const all = p.groups.flatMap((g) => g.rows);
 	// a column of numbers is set to the right (worked out once for each column, not for each cell)
@@ -107,7 +109,24 @@ function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
 	const head = t.createEl("thead").createEl("tr");
-	for (const k of cols) words(host, head.createEl("th", { cls: numeric.has(k) ? "booklet-q-num" : "", attr: { scope: "col" } }), set.label(k));
+	for (const k of cols) {
+		const th = head.createEl("th", { cls: numeric.has(k) ? "booklet-q-num" : "", attr: { scope: "col" } });
+		const sort = ui?.sort;
+		if (!sort || !sort.keys.has(k)) {
+			words(host, th, set.label(k));
+			continue;
+		}
+		// a heading that sorts: a button holding the field's words and which way it is sorted
+		const mine = sort.key === k;
+		if (mine) th.setAttr("aria-sort", sort.dir === 1 ? "ascending" : "descending");
+		const b = th.createEl("button", { cls: `booklet-q-sort${mine ? " is-sorted" : ""}`, attr: { type: "button", "data-key": k } });
+		words(host, b.createSpan({ cls: "booklet-q-sort-label" }), set.label(k));
+		setIcon(b.createSpan({ cls: "booklet-q-sort-icon", attr: { "aria-hidden": "true" } }), mine ? (sort.dir === 1 ? "lucide-arrow-up" : "lucide-arrow-down") : "lucide-chevrons-up-down");
+		b.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			sort.on(k);
+		});
+	}
 	// the first column that is not the badge leads the row: it carries the row's picture and its link
 	const leadKey = cols.find((k) => k !== roles.badge);
 	for (const g of p.groups) {
@@ -270,7 +289,7 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, 
 	into.setAttr("data-booklet-view", p.view);
 	if (p.empty !== null) into.createEl("p", { cls: "booklet-muted booklet-q-empty", text: p.empty });
 	else if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
-	else if (p.view === "table") table(host, into, p);
+	else if (p.view === "table") table(host, into, p, ui);
 	else if (p.view === "list") listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);
 	else cards(host, into, p);
