@@ -1,0 +1,42 @@
+# Checks every pull request to main, and every push to main, with what can run on a plain runner: the unit
+# tests (the safety test among them) and a fresh-build comparison. The real-Obsidian suite (e2e/) needs the
+# Obsidian binary and a display, about 9 minutes, and stays a local gate; see the README.
+# Same hardening as release.yml: no secrets, no dependency cache, read-only permissions.
+name: CI
+
+on:
+  pull_request:
+    branches: [main, "feat/pr-ci"]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      # No dependency cache, as in release.yml (setup-node's own docs turn it off for publishing jobs, because of
+      # cache poisoning), so the two workflows keep one rule. npm ci takes a few seconds more.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22.x"
+          package-manager-cache: false
+
+      - run: npm ci
+
+      - name: Test
+        # The corpus tests skip here (no Booklet repository or kit starters on the runner); the rest run.
+        run: npm test
+
+      - name: The vault copies are a fresh production build
+        # test-vault/.obsidian/plugins/booklet/ holds main.js, manifest.json and styles.css, committed so the
+        # real-Obsidian suite and a hand test open the vault as it is. A change to src/ or styles.css that did
+        # not rebuild them leaves them stale, and this fails the pull request.
+        run: |
+          node esbuild.config.mjs production
+          git diff --exit-code -- test-vault/.obsidian/plugins/booklet
