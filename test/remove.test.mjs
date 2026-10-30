@@ -220,3 +220,24 @@ test("removing every entry one by one, newest position first, ends with an empty
 	assert.deepEqual(entriesOf(t), []);
 	assert.equal(t, orig.replace('{"items": [\n' + [E1, E2, E3].join(",\n") + "\n]}", '{"items": []}'));
 });
+
+test("with `expect`, the entry now at the position must read as it did when its card was drawn: a stale pane does not remove the other entry that has the same ts", () => {
+	const A = '{"ts": "2026-10-27T07:00:00Z", "hours": 6}';
+	const B = '{"ts": "2026-10-27T07:00:00Z", "hours": 9}';
+	const was = note(block("log", [A, B]));
+	const keyA = core.entryKey(entriesOf(was)[0]);
+	const keyB = core.entryKey(entriesOf(was)[1]);
+	assert.notEqual(keyA, keyB);
+	// as the pane drew it: both are there, and each is removed by its own key
+	assert.equal(core.removeEntry(was, "", "log", 1, "2026-10-27T07:00:00Z", keyB).removed, 1);
+	// the file has since lost A: the entry at position 0 is B, with A's ts
+	const now = core.removeEntry(was, "", "log", 0, "2026-10-27T07:00:00Z", keyA).text;
+	const stale = core.removeEntry(now, "", "log", 0, "2026-10-27T07:00:00Z", keyA);
+	assert.deepEqual([stale.removed, stale.text], [0, now], "A is gone: nothing is removed, the text comes back as it was");
+	assert.deepEqual(entriesOf(now).map((e) => e.hours), [9]);
+	// without `expect` the old rule (position and ts) still holds
+	assert.equal(core.removeEntry(now, "", "log", 0, "2026-10-27T07:00:00Z").removed, 1);
+	// two entries that read the same (the same ts and answers) are one and the same to the reader: either may go
+	const twin = note(block("log", [A, A]));
+	assert.equal(core.removeEntry(twin, "", "log", 1, "2026-10-27T07:00:00Z", core.entryKey(entriesOf(twin)[0])).removed, 1);
+});

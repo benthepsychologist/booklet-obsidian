@@ -9,6 +9,7 @@ import {
 	COMMON_KINDS,
 	HOME,
 	RecordsWriteError,
+	entryKey,
 	removeEntry,
 	activityPlace,
 	activityStatus,
@@ -1315,6 +1316,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		const qs = questionsOf(a);
+		// the activity's entries as this drawing's book holds them, in file order: a card's Delete names its entry by place in this list
+		const base = this.book?.records.entries[a.scope]?.[a.id] ?? [];
 		for (const e of open ? all : all.slice(0, ENTRIES_SHOWN)) {
 			const item = list.createDiv({ cls: "booklet-entry" });
 			item.createDiv({ cls: "booklet-entry-when", text: whenText(e.ts) });
@@ -1349,7 +1352,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && holdsSomething(e[k])).length;
 			if (!rows && !other) item.createDiv({ cls: "booklet-muted", text: "No answers in this entry." });
 			if (other) item.createDiv({ cls: "booklet-muted", text: `${other === 1 ? "One answer" : `${other} answers`} kept here ${other === 1 ? "is" : "are"} for a question this view does not show yet.` });
-			this.drawRemove(item, list, a, e);
+			this.drawRemove(item, list, a, e, base.indexOf(e), entryKey(e));
 		}
 		if (all.length > ENTRIES_SHOWN) {
 			const more = list.createEl("button", { cls: "booklet-more", text: open ? "Show fewer" : `Show all ${all.length} entries` });
@@ -1365,18 +1368,32 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/**
 	 * The Delete button on a kept entry's card. It asks first, in place ("Delete this entry?", Yes or No), and nothing is
-	 * written until Yes. It is only in the Kept entries list under Finalize, never on a query's cards.
+	 * written until Yes. It is only in the Kept entries list under Finalize, never on a query's cards. `at` is the entry's place
+	 * among the activity's kept entries and `key` what it read as, both taken when the card was drawn: the pane's later copies
+	 * of the note hold new objects for the same entries, so the card cannot look its entry up by object.
 	 */
-	private drawRemove(item: HTMLElement, list: HTMLElement, a: Activity, e: Entry): void {
+	private drawRemove(item: HTMLElement, list: HTMLElement, a: Activity, e: Entry, at: number, key: string): void {
 		const foot = item.createDiv({ cls: "booklet-entry-foot" });
-		const del = foot.createEl("button", { cls: "booklet-entry-delete", text: "Delete", attr: { type: "button" } });
+		// each button and the question are named with the entry they are for, by hidden words (ten cards would otherwise be ten buttons named "Delete")
+		const which = this.uid();
+		foot.createSpan({ cls: "booklet-sr", attr: { id: which }, text: `(the entry from ${whenText(e.ts)})` });
+		const delId = this.uid();
+		const del = foot.createEl("button", { cls: "booklet-entry-delete", text: "Delete", attr: { type: "button", id: delId, "aria-labelledby": `${delId} ${which}` } });
 		const ask = foot.createDiv({ cls: "booklet-entry-ask", attr: { role: "group" } });
 		ask.hidden = true;
 		const askId = this.uid();
 		ask.createSpan({ cls: "booklet-entry-ask-text", text: "Delete this entry?", attr: { id: askId } });
-		ask.setAttr("aria-labelledby", askId);
-		const yes = ask.createEl("button", { cls: "mod-warning", text: "Yes, delete", attr: { type: "button" } });
-		const no = ask.createEl("button", { text: "No", attr: { type: "button" } });
+		ask.setAttr("aria-labelledby", `${askId} ${which}`);
+		const yesId = this.uid();
+		const yes = ask.createEl("button", { cls: "mod-warning", text: "Yes, delete", attr: { type: "button", id: yesId, "aria-labelledby": `${yesId} ${which}` } });
+		const noId = this.uid();
+		const no = ask.createEl("button", { text: "No", attr: { type: "button", id: noId, "aria-labelledby": `${noId} ${which}` } });
+		const back = (): void => {
+			ask.hidden = true;
+			del.hidden = false;
+			yes.disabled = false;
+			no.disabled = false;
+		};
 		del.addEventListener("click", (evt) => {
 			evt.preventDefault();
 			del.hidden = true;
@@ -1385,38 +1402,53 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		});
 		no.addEventListener("click", (evt) => {
 			evt.preventDefault();
-			ask.hidden = true;
-			del.hidden = false;
+			back();
+			del.focus();
+		});
+		// Escape is the usual way out of a question
+		ask.addEventListener("keydown", (evt: KeyboardEvent) => {
+			if (evt.key !== "Escape") return;
+			evt.preventDefault();
+			evt.stopPropagation();
+			back();
 			del.focus();
 		});
 		yes.addEventListener("click", (evt) => {
 			evt.preventDefault();
 			yes.disabled = true;
 			no.disabled = true;
-			this.removeKept(list, a, e);
+			// a refusal or a failure leaves the card as it was, with its Delete button, so the reader can try again
+			this.removeKept(list, a, e, at, key, () => {
+				back();
+				del.focus();
+			});
 		});
 	}
 
-	/** Takes one kept entry out of the note, by its place among the activity's entries and its time (core/write.ts removeEntry). */
-	private removeKept(list: HTMLElement, a: Activity, e: Entry): void {
+	/** Takes one kept entry out of the note, by its place among the activity's entries and its time and what it read as (core/write.ts removeEntry). */
+	private removeKept(list: HTMLElement, a: Activity, e: Entry, at: number, key: string, undone: () => void): void {
 		const file = this.file;
 		if (!file) return;
-		const at = (this.book?.records.entries[a.scope]?.[a.id] ?? []).indexOf(e);
 		const ts = String(e.ts);
 		let removed = 0;
 		this.queue(
 			file,
 			(text) => {
-				const r = at < 0 ? { text, removed: 0 } : removeEntry(text, a.scope, a.id, at, ts);
+				const r = at < 0 ? { text, removed: 0 } : removeEntry(text, a.scope, a.id, at, ts, key);
 				removed = r.removed;
 				return r.text;
 			},
 			"The entry was not deleted.",
 			() => {
-				if (!removed) new Notice("Booklet: that entry is no longer where it was in the note, so nothing was deleted.");
+				if (!removed) {
+					new Notice("Booklet: that entry is no longer where it was in the note, so nothing was deleted.");
+					undone();
+					return;
+				}
 				// the card is gone: keep the reader's place in the list
 				(list.closest(".booklet-entries")?.querySelector(".booklet-entries-title") as HTMLElement | null)?.focus();
 			},
+			undone,
 		);
 	}
 
@@ -1442,7 +1474,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
 			if (now === sig) return;
 			sig = now;
-			draw(planQuery(this.book, s, { drawn: this.drawnAt }));
+			const book = this.book;
+			draw(() => planQuery(book, s, { drawn: this.drawnAt }));
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);
@@ -1601,7 +1634,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		);
 	}
 
-	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void): void {
+	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void, undone?: () => void): void {
 		this.writes = this.writes
 			.then(() => this.write(file, change))
 			.then(() => after?.())
@@ -1609,6 +1642,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				// a refusal the reader can act on (nothing to keep yet) is said as it is; anything else, as a failure
 				const why = e instanceof Error ? e.message : String(e);
 				new Notice(e instanceof RecordsWriteError ? `Booklet: ${why}` : `Booklet: ${failed} ${why}`);
+				undone?.();
 				if (this.file === file) {
 					this.book = parseBooklet(this.text);
 					this.syncWidgets();
