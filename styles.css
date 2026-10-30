@@ -1082,12 +1082,6 @@
 .booklet-ch {
 	/* a bar is the accent; a tone is the theme's green, orange or red; a line is one of the theme's named colours, with its own dash and marker too */
 	--booklet-ch-bar: var(--interactive-accent);
-	--booklet-ch-s0: var(--color-blue);
-	--booklet-ch-s1: var(--color-orange);
-	--booklet-ch-s2: var(--color-purple);
-	--booklet-ch-s3: var(--color-cyan);
-	--booklet-ch-s4: var(--color-pink);
-	--booklet-ch-s5: var(--color-green);
 	container-type: inline-size;
 	margin: 0 0 var(--size-4-3);
 	min-width: 0;
@@ -1211,7 +1205,6 @@
 }
 
 .booklet-ch-pt {
-	stroke: var(--background-primary);
 	stroke-width: 1;
 }
 
@@ -1220,57 +1213,42 @@
 	stroke-width: 2;
 }
 
-/* a line's colour and dash: both on the line and its legend sample; a marker takes the colour as its fill */
+/* a line's colour and dash: both on the line and its legend sample; a marker takes the colour as its fill (and as its outline) */
+.booklet-ch-path,
+.booklet-ch-pt {
+	stroke: var(--booklet-ch-c);
+}
+
+.booklet-ch-pt {
+	fill: var(--booklet-ch-c);
+}
+
 .booklet-ch-s0 {
-	stroke: var(--booklet-ch-s0);
+	--booklet-ch-c: var(--color-blue);
 }
 
 .booklet-ch-s1 {
-	stroke: var(--booklet-ch-s1);
+	--booklet-ch-c: var(--color-orange);
 	stroke-dasharray: 7 4;
 }
 
 .booklet-ch-s2 {
-	stroke: var(--booklet-ch-s2);
+	--booklet-ch-c: var(--color-purple);
 	stroke-dasharray: 2 4;
 }
 
 .booklet-ch-s3 {
-	stroke: var(--booklet-ch-s3);
+	--booklet-ch-c: var(--color-cyan);
 	stroke-dasharray: 9 3 2 3;
 }
 
 .booklet-ch-s4 {
-	stroke: var(--booklet-ch-s4);
+	--booklet-ch-c: var(--color-pink);
 }
 
 .booklet-ch-s5 {
-	stroke: var(--booklet-ch-s5);
+	--booklet-ch-c: var(--color-green);
 	stroke-dasharray: 4 2;
-}
-
-.booklet-ch-pt.booklet-ch-s0 {
-	fill: var(--booklet-ch-s0);
-}
-
-.booklet-ch-pt.booklet-ch-s1 {
-	fill: var(--booklet-ch-s1);
-}
-
-.booklet-ch-pt.booklet-ch-s2 {
-	fill: var(--booklet-ch-s2);
-}
-
-.booklet-ch-pt.booklet-ch-s3 {
-	fill: var(--booklet-ch-s3);
-}
-
-.booklet-ch-pt.booklet-ch-s4 {
-	fill: var(--booklet-ch-s4);
-}
-
-.booklet-ch-pt.booklet-ch-s5 {
-	fill: var(--booklet-ch-s5);
 }
 
 /* a marker has its colour as a fill and no dash */
@@ -1356,11 +1334,8 @@
 	font-size: var(--font-ui-small);
 }
 
-.is-mobile .booklet-qc-toggle {
-	min-height: 44px;
-}
-
-.booklet-qc-icon {
+.booklet-qc-icon,
+.booklet-q-sort-icon {
 	display: inline-flex;
 }
 
@@ -1411,8 +1386,7 @@
 }
 
 .is-mobile .booklet-qc-bar select,
-.is-mobile .booklet-qc-bar input,
-.is-mobile .booklet-qc-bar button {
+.is-mobile .booklet-qc-bar input {
 	min-height: 44px;
 }
 
@@ -1438,34 +1412,23 @@
 	border-radius: var(--radius-s);
 }
 
-.booklet-q-sort-icon {
-	display: inline-flex;
-}
-
 .booklet-q-sort-icon svg {
 	width: 0.9em;
 	height: 0.9em;
 }
 
-.is-mobile .booklet-q-sort {
-	min-height: 44px;
-}
-
 /* ---- deleting a kept entry, asked in place (0.9.0) ---- */
 
-.booklet-entry-foot {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--size-4-2);
-	margin-top: var(--size-4-2);
-}
-
+.booklet-entry-foot,
 .booklet-entry-ask {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
 	gap: var(--size-4-2);
+}
+
+.booklet-entry-foot {
+	margin-top: var(--size-4-2);
 }
 
 .booklet-entry-ask[hidden],
@@ -1487,10 +1450,6 @@
 
 .booklet-entry-delete:hover {
 	background: rgba(var(--color-red-rgb), 0.1);
-}
-
-.is-mobile .booklet-entry-foot button {
-	min-height: 44px;
 }
 
 /* ---- screens and moves (0.6.0): home, a module, an activity, one screen at a time ---- */
