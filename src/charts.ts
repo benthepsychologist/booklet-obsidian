@@ -7,7 +7,7 @@
  * svg that carried one). The same numbers are always under a closed "Show the numbers" as a table, so nothing is shown only
  * as a picture; a chart that cannot be drawn says why in one plain sentence in its place.
  */
-import { QUERY_WORDS, lineDomain, niceScale, thinLabels, type Chart } from "./core";
+import { QUERY_WORDS, lineDomain, maxOf, minOf, niceScale, thinLabels, type Chart } from "./core";
 
 /** The line chart's markers, one shape for each series (so two lines differ by more than colour). */
 const MARKERS = ["circle", "square", "triangle", "diamond"] as const;
@@ -45,7 +45,7 @@ function bars(into: HTMLElement, c: Chart): void {
 	const vals = c.series[0]?.values ?? [];
 	const nums = vals.filter((x): x is number => x !== null);
 	// always from zero, on a round scale: a negative value runs left of the zero line
-	const sc = niceScale(Math.min(0, ...(nums.length ? nums : [0])), Math.max(0, ...(nums.length ? nums : [0])));
+	const sc = niceScale(Math.min(0, minOf(nums)), Math.max(0, maxOf(nums)));
 	const span = sc.max - sc.min;
 	const zero = ((0 - sc.min) / span) * 100;
 	const nameId = nextId();
@@ -112,8 +112,8 @@ function line(into: HTMLElement, c: Chart): void {
 		drawnW = w;
 		const H = Math.round(Math.min(340, Math.max(200, W * 0.42)));
 		const sc = lineDomain(all);
-		const yw = Math.max(...sc.ticks.map((t) => c.fmt(t).length)) * 7 + 10;
-		const lw = Math.min(14, Math.max(1, ...c.labels.map((l) => l.length))) * 6.6 + 10;
+		const yw = maxOf(sc.ticks.map((t) => c.fmt(t).length)) * 7 + 10;
+		const lw = Math.min(14, Math.max(1, maxOf(c.labels.map((l) => l.length)))) * 6.6 + 10;
 		const L = Math.max(yw, 10);
 		const R = Math.max(10, Math.ceil(lw / 2));
 		const padTop = 12;

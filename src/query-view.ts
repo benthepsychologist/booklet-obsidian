@@ -16,6 +16,9 @@ export interface QueryHost {
 	openNote(path: string): void;
 }
 
+/** How many levels of a nested list are drawn inside one another. */
+const MAX_NEST = 200;
+
 type Roles = Record<Role, string | null>;
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
@@ -69,7 +72,7 @@ function lead(host: QueryHost, into: HTMLElement, r: Row, roles: Roles, draw: (e
 		return;
 	}
 	if (to.kind === "web") {
-		const a = into.createEl("a", { cls: "external-link", attr: { href: to.to, target: "_blank", rel: "noopener" } });
+		const a = into.createEl("a", { cls: "external-link", attr: { href: to.to, target: "_blank", rel: "noopener noreferrer" } });
 		draw(a);
 		return;
 	}
@@ -182,27 +185,39 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): vo
 	if (p.tree) {
 		// a nested list: a row with children is a native details, shut until the reader opens it (what they open is kept with the query's view, never saved)
 		const tree = p.tree;
-		const level = (ul: HTMLElement, list: readonly Row[]): void => {
-			for (const r of list) {
-				const mine = tree.kids.get(r);
-				if (!mine || !mine.length) {
-					row(ul, r);
-					continue;
-				}
-				const id = (r.cells["id"]?.text ?? "").trim();
-				const d = ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": id } });
-				d.open = !!ui && (ui.force?.has(r) || ui.state.opens.has(id));
-				if (ui)
-					d.addEventListener("toggle", () => {
-						if (ui.filtering) return;
-						if (d.open) ui.state.opens.add(id);
-						else ui.state.opens.delete(id);
-					});
-				fill(d.createEl("summary", { cls: "booklet-q-row" }), r);
-				level(d.createEl("ul", { cls: "booklet-q-list" }), mine);
+		// drawn with a stack of its own, not a call for each level: a chain thousands deep must not overflow the stack. Past
+		// MAX_NEST levels a parent's children are drawn in the same list as it, not inside it (a browser lays out a tree
+		// that deep very slowly, and no reader opens two hundred levels one by one).
+		const work: { ul: HTMLElement; list: readonly Row[]; at: number; depth: number }[] = [{ ul: into.createEl("ul", { cls: "booklet-q-list booklet-q-tree" }), list: tree.roots, at: 0, depth: 0 }];
+		while (work.length) {
+			const w = work[work.length - 1]!;
+			if (w.at >= w.list.length) {
+				work.pop();
+				continue;
 			}
-		};
-		level(into.createEl("ul", { cls: "booklet-q-list booklet-q-tree" }), tree.roots);
+			const r = w.list[w.at++]!;
+			const mine = tree.kids.get(r);
+			if (!mine || !mine.length) {
+				row(w.ul, r);
+				continue;
+			}
+			if (w.depth >= MAX_NEST) {
+				row(w.ul, r);
+				work.push({ ul: w.ul, list: mine, at: 0, depth: w.depth });
+				continue;
+			}
+			const id = (r.cells["id"]?.text ?? "").trim();
+			const d = w.ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": id } });
+			d.open = !!ui && (ui.force?.has(r) || ui.state.opens.has(id));
+			if (ui)
+				d.addEventListener("toggle", () => {
+					if (ui.filtering) return;
+					if (d.open) ui.state.opens.add(id);
+					else ui.state.opens.delete(id);
+				});
+			fill(d.createEl("summary", { cls: "booklet-q-row" }), r);
+			work.push({ ul: d.createEl("ul", { cls: "booklet-q-list" }), list: mine, at: 0, depth: w.depth + 1 });
+		}
 		return;
 	}
 	for (const g of p.groups) {

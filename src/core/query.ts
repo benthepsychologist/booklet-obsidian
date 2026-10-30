@@ -56,6 +56,8 @@ export const QUERY_WORDS = {
 		notNumbers: (names: string[]) => (names.length === 1 ? `${names[0]} is not a number.` : `${names.join(" and ")} are not numbers.`),
 		readout: "Tap or hover a point to read it.",
 	},
+	/** A query that threw while it was worked out or drawn: said in its own place (the reason is the error's own words). */
+	failed: (why: string) => `This query could not be drawn: ${why}`,
 	controls: {
 		toggle: "Sort and filter",
 		search: "Filter rows",
@@ -96,6 +98,10 @@ export interface Row {
 	/** A kept entry's `ts` (what a date sort and a chart's date label read); a summary row or a data row has none. */
 	ts?: string;
 }
+
+/** The smallest and largest of a list, by a loop: `Math.min(...list)` passes every number as an argument and throws past about 120,000. */
+export const minOf = (list: readonly number[]): number => list.reduce((m, x) => (x < m ? x : m), Infinity);
+export const maxOf = (list: readonly number[]): number => list.reduce((m, x) => (x > m ? x : m), -Infinity);
 
 /** The number a cell stands for in a chart or a sort: a number answer, a scale answer, a statistic or a data value; else none. */
 export const numberOf = (c: Cell | undefined): number | undefined => (c ? (c.plot ?? c.num) : undefined);
@@ -440,8 +446,8 @@ function summarise(q: Question, label: WordPart[], values: readonly unknown[], l
 		if (!ns.length) return summaryRow(label, { count: numCell(0, fmt(0)) }, null, null);
 		const total = ns.reduce((s, n) => s + n, 0);
 		const avg = round1(total / ns.length);
-		const lo = Math.min(...ns);
-		const hi = Math.max(...ns);
+		const lo = minOf(ns);
+		const hi = maxOf(ns);
 		return summaryRow(
 			label,
 			{
@@ -742,7 +748,12 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
 	const roots: Row[] = [];
 	for (const r of rows) {
 		const p = up.get(r);
-		if (p) kids.set(p, [...(kids.get(p) ?? []), r]);
+		if (p) {
+			// push onto the parent's list (copying it for each child made a parent with many children quadratic)
+			const list = kids.get(p);
+			if (list) list.push(r);
+			else kids.set(p, [r]);
+		}
 		else roots.push(r);
 	}
 	const top = limit ? roots.slice(0, limit) : roots;

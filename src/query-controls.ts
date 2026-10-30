@@ -21,7 +21,7 @@ interface Controls {
  * Draws one query into `box`: the control above (when the view has enough rows) and the rows below. Returns what to call,
  * with the query's plan, each time the plan is worked out again. The first call draws.
  */
-export function mountQuery(host: QueryHost, box: HTMLElement, st: QueryViewState): (plan: QueryPlan) => void {
+export function mountQuery(host: QueryHost, box: HTMLElement, st: QueryViewState): (plan: () => QueryPlan) => void {
 	// a view with no control is drawn straight into the box; one with it holds the control (slot) above its rows (out)
 	let slot: HTMLElement | null = null;
 	let out: HTMLElement = box;
@@ -80,9 +80,20 @@ export function mountQuery(host: QueryHost, box: HTMLElement, st: QueryViewState
 		box.setAttr("data-booklet-view", out.getAttribute("data-booklet-view") ?? "");
 		if (focusHead) out.querySelector<HTMLElement>(`button.booklet-q-sort[data-key="${CSS.escape(focusHead)}"]`)?.focus();
 	};
-	return (p) => {
-		plan = p;
-		paint();
+	return (make) => {
+		// one query that cannot be worked out or drawn says so in its own place, and the rest of the screen still draws
+		try {
+			plan = make();
+			paint();
+		} catch (e) {
+			plan = null;
+			slot = null;
+			out = box;
+			controls = null;
+			box.empty();
+			box.removeAttribute("data-booklet-view");
+			box.createEl("p", { cls: "booklet-muted booklet-q-error", text: QUERY_WORDS.failed(e instanceof Error ? e.message : String(e)) });
+		}
 	};
 }
 

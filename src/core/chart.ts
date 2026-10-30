@@ -7,7 +7,7 @@
  * helpers are booklet.html's (niceScale, lineDomain, thinLabels), so a chart is scaled as the reference renderer scales
  * it. Plain TypeScript: nothing here imports Obsidian.
  */
-import { QUERY_WORDS, formatNumber, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
+import { QUERY_WORDS, formatNumber, maxOf, minOf, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
@@ -63,7 +63,7 @@ export function buildChart(p: Plan, rows: readonly Row[]): Chart {
 	}));
 	const tones = rows.map((r) => (spec.kind === "bars" ? toneOf(r, roles) : null));
 	const all = series.flatMap((s) => s.values).filter((x): x is number => x !== null);
-	const range: [number, number] | null = all.length ? [Math.min(...all), Math.max(...all)] : null;
+	const range: [number, number] | null = all.length ? [minOf(all), maxOf(all)] : null;
 	const what = spec.kind === "bars" ? "bars" : "a line";
 	let cannot: string | null = null;
 	if (!all.length && rows.length) {
@@ -120,6 +120,8 @@ export function niceScale(lo: number, hi: number): Scale {
 		else hi = 0;
 	}
 	let best: Scale = { min: lo, max: hi, step: hi - lo, ticks: [lo, hi] };
+	// a range so small or so large that no round step fits it keeps its own ends, never NaN or Infinity in a drawing
+	if (!(hi - lo > 0) || !Number.isFinite(hi - lo)) return { min: 0, max: 1, step: 1, ticks: [0, 1] };
 	for (const want of [4, 5, 3, 6, 2]) {
 		const step = niceNum(niceNum(hi - lo, false) / (want - 1), true);
 		const d = decimalsOf(step) + 1;
@@ -127,6 +129,7 @@ export function niceScale(lo: number, hi: number): Scale {
 		const max = Number((Math.ceil(hi / step - 1e-9) * step).toFixed(d));
 		const ticks: number[] = [];
 		for (let k = 0; k <= Math.round((max - min) / step) && k < 50; k++) ticks.push(Number((min + k * step).toFixed(d)));
+		if (!(max > min) || !Number.isFinite(step) || ticks.length < 2) continue;
 		best = { min, max, step, ticks };
 		if (ticks.length >= 3 && ticks.length <= 5) break;
 	}
@@ -136,8 +139,8 @@ export function niceScale(lo: number, hi: number): Scale {
 /** Where a line's y scale begins: zero when zero is within reach of the data, else a nice value under the smallest. */
 export function lineDomain(values: readonly number[]): Scale {
 	if (!values.length) return niceScale(0, 1);
-	const lo = Math.min(...values);
-	const hi = Math.max(...values);
+	const lo = minOf(values);
+	const hi = maxOf(values);
 	return niceScale(lo >= 0 && lo < 0.6 * hi ? 0 : lo, hi);
 }
 
