@@ -11,6 +11,7 @@ export * from "./widgets";
 export * from "./each";
 export * from "./earlier";
 export * from "./query";
+export * from "./chart";
 export * from "./view-state";
 export * from "./nav";
 export * from "./blocks";

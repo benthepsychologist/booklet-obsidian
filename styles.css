@@ -1038,6 +1038,307 @@
 	padding: var(--size-2-2) var(--size-2-3);
 }
 
+/* a data block's card: a line for every field that plays no role, as a kept entry's card has them */
+.booklet-q-card:not(.booklet-entry) dl {
+	display: grid;
+	grid-template-columns: minmax(6em, max-content) 1fr;
+	gap: var(--size-2-1) var(--size-4-3);
+	margin: var(--size-4-1) 0 0;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-q-card:not(.booklet-entry) dt {
+	color: var(--text-muted);
+}
+
+.booklet-q-card:not(.booklet-entry) dd {
+	margin: 0;
+}
+
+.is-phone .booklet-q-card:not(.booklet-entry) dl {
+	grid-template-columns: 1fr;
+}
+
+/* a nested list: a row with children is a details, shut until the reader opens it (Obsidian draws its own triangle) */
+.booklet-q-tree details > summary {
+	cursor: pointer;
+	list-style-position: outside;
+}
+
+.booklet-q-tree .booklet-q-list {
+	margin-inline-start: var(--size-4-5);
+}
+
+.booklet-q-tree {
+	padding-inline-start: var(--size-4-5);
+}
+
+.booklet-q-node {
+	list-style: none;
+}
+
+/* ---- charts (0.9.0): bars and a line, plain svg that reads Obsidian's own variables, so light and dark and the reader's theme recolour it ---- */
+
+.booklet-ch {
+	/* a bar is the accent; a tone is the theme's green, orange or red; a line is one of the theme's named colours, with its own dash and marker too */
+	--booklet-ch-bar: var(--interactive-accent);
+	--booklet-ch-s0: var(--color-blue);
+	--booklet-ch-s1: var(--color-orange);
+	--booklet-ch-s2: var(--color-purple);
+	--booklet-ch-s3: var(--color-cyan);
+	--booklet-ch-s4: var(--color-pink);
+	--booklet-ch-s5: var(--color-green);
+	container-type: inline-size;
+	margin: 0 0 var(--size-4-3);
+	min-width: 0;
+}
+
+.booklet-ch-barlist {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-ch-row {
+	display: grid;
+	grid-template-columns: minmax(6rem, 30%) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--size-2-1) var(--size-4-3);
+	padding: var(--size-4-1) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-ch-row:last-child {
+	border-bottom: 0;
+}
+
+.booklet-ch-l {
+	font-weight: var(--font-semibold);
+	overflow-wrap: anywhere;
+	min-width: 0;
+}
+
+.booklet-ch-v {
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-semibold);
+	text-align: end;
+	min-width: 2.5rem;
+}
+
+.booklet-ch-track {
+	display: block;
+	width: 100%;
+	height: 1.15rem;
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+}
+
+.booklet-ch-bar {
+	fill: var(--booklet-ch-bar);
+}
+
+.booklet-ch-bar.booklet-tone-good,
+.booklet-ch-bar.booklet-tone-warn,
+.booklet-ch-bar.booklet-tone-bad {
+	fill: var(--booklet-q-tone);
+}
+
+.booklet-ch-zero {
+	stroke: var(--text-muted);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+}
+
+/* on a narrow box the label and the value share a line and the track goes under them, across */
+@container (max-width: 30rem) {
+	.booklet-ch-row {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.booklet-ch-row .booklet-ch-track {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
+
+	.booklet-ch-row .booklet-ch-v {
+		grid-column: 2;
+		grid-row: 1;
+	}
+}
+
+.booklet-ch-note,
+.booklet-ch-cannot {
+	margin: var(--size-4-2) 0 0;
+}
+
+.booklet-ch-plot {
+	width: 100%;
+	min-width: 0;
+}
+
+.booklet-ch-svg {
+	display: block;
+	overflow: visible;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.booklet-ch-svg:focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: 2px;
+}
+
+.booklet-ch-grid {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.booklet-ch-axis {
+	stroke: var(--text-muted);
+	stroke-width: 1;
+}
+
+.booklet-ch-tick {
+	fill: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-ch-path {
+	fill: none;
+	stroke-width: 2.25;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.booklet-ch-pt {
+	stroke: var(--background-primary);
+	stroke-width: 1;
+}
+
+.booklet-ch-pt.is-active {
+	stroke: var(--text-normal);
+	stroke-width: 2;
+}
+
+/* a line's colour and dash: both on the line and its legend sample; a marker takes the colour as its fill */
+.booklet-ch-s0 {
+	stroke: var(--booklet-ch-s0);
+}
+
+.booklet-ch-s1 {
+	stroke: var(--booklet-ch-s1);
+	stroke-dasharray: 7 4;
+}
+
+.booklet-ch-s2 {
+	stroke: var(--booklet-ch-s2);
+	stroke-dasharray: 2 4;
+}
+
+.booklet-ch-s3 {
+	stroke: var(--booklet-ch-s3);
+	stroke-dasharray: 9 3 2 3;
+}
+
+.booklet-ch-s4 {
+	stroke: var(--booklet-ch-s4);
+}
+
+.booklet-ch-s5 {
+	stroke: var(--booklet-ch-s5);
+	stroke-dasharray: 4 2;
+}
+
+.booklet-ch-pt.booklet-ch-s0 {
+	fill: var(--booklet-ch-s0);
+}
+
+.booklet-ch-pt.booklet-ch-s1 {
+	fill: var(--booklet-ch-s1);
+}
+
+.booklet-ch-pt.booklet-ch-s2 {
+	fill: var(--booklet-ch-s2);
+}
+
+.booklet-ch-pt.booklet-ch-s3 {
+	fill: var(--booklet-ch-s3);
+}
+
+.booklet-ch-pt.booklet-ch-s4 {
+	fill: var(--booklet-ch-s4);
+}
+
+.booklet-ch-pt.booklet-ch-s5 {
+	fill: var(--booklet-ch-s5);
+}
+
+/* a marker has its colour as a fill and no dash */
+.booklet-ch-pt {
+	stroke-dasharray: none;
+}
+
+.booklet-ch-guide {
+	stroke: var(--text-faint);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+}
+
+.booklet-ch-guide.is-off {
+	display: none;
+}
+
+.booklet-ch-hit {
+	fill: transparent;
+	cursor: pointer;
+}
+
+.booklet-ch-legend {
+	list-style: none;
+	margin: 0 0 var(--size-4-2);
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1) var(--size-4-4);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-ch-legend li {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-ch-sw {
+	flex: none;
+}
+
+.booklet-ch-readout {
+	min-height: 1.5em;
+	margin-top: var(--size-4-2);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-ch-nums {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-ch-nums summary {
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	min-height: 1.6rem;
+}
+
+.is-mobile .booklet-ch-nums summary {
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+}
+
 /* ---- screens and moves (0.6.0): home, a module, an activity, one screen at a time ---- */
 
 /* the trail: from the booklet down, each step above the screen a link */

@@ -6,7 +6,8 @@
  * for as long as the pane is open (core/view-state.ts).
  */
 import { getIcon } from "obsidian";
-import { QUERY_WORDS, badgesOf, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type WordPart } from "./core";
+import { drawChart } from "./charts";
+import { QUERY_WORDS, badgesOf, buildChart, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
@@ -268,9 +269,9 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, 
 	}
 	into.setAttr("data-booklet-view", p.view);
 	if (p.empty !== null) into.createEl("p", { cls: "booklet-muted booklet-q-empty", text: p.empty });
+	else if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
 	else if (p.view === "table") table(host, into, p);
 	else if (p.view === "list") listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);
-	else if (p.view === "cards") cards(host, into, p);
-	else into.createEl("p", { cls: "booklet-muted", text: "Charts are drawn in the next stage." });
+	else cards(host, into, p);
 }
