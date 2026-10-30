@@ -47,6 +47,7 @@ import {
 	placeFrom,
 	placeState,
 	plainText,
+	newViewState,
 	planQuery,
 	questionsOf,
 	resolvePlace,
@@ -76,6 +77,7 @@ import {
 	type Place,
 	type Question,
 	type QuerySegment,
+	type QueryViewState,
 	type Segment,
 	type TreePage,
 	type ShownDraft,
@@ -203,6 +205,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private tabPart = new Map<string, number>();
 	/** The tree menu of each tab of pages, open or not, and the words in its search box: kept for as long as the pane is open, never saved. */
 	private menus = new Map<string, MenuState>();
+	/** What the reader has done to each query's view (the parents opened in a nested list; the sort and filter): kept for as long as the pane is open, never saved. */
+	private queryViews = new Map<string, QueryViewState>();
 	/** A step through the pane is under way (Obsidian drops a second one asked for meanwhile: a double press turns one page). */
 	private moving = false;
 	/** A tab chosen while a step was under way: made when the step has landed, so that the last move asked for is the one that lands. */
@@ -538,6 +542,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.drawnPlace = null;
 				this.tabPart.clear();
 				this.menus.clear();
+				this.queryViews.clear();
 			}
 			this.draw(true);
 			return;
@@ -581,6 +586,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.place = null;
 		this.drawnPlace = null;
 		this.tabPart.clear();
+		this.queryViews.clear();
 		this.afterMove = null;
 		this.headingTo = null;
 		this.text = "";
@@ -1163,7 +1169,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		for (const s of blocks) {
 			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
 			else if (s.type === "tab" || s.type === "page") continue;
-			else if (s.type === "query") this.drawQuery(into, s);
+			else if (s.type === "query") this.drawQuery(into, a, s);
 			else if (s.type === "callout-box") {
 				const key = `${a.scope}/${a.id}#${s.start.line}`;
 				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
@@ -1355,9 +1361,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/** A query's rows, from the kept entries (never a draft), worked out again when the records change; nothing is written. */
-	private drawQuery(card: HTMLElement, s: QuerySegment): void {
+	private drawQuery(card: HTMLElement, a: Activity, s: QuerySegment): void {
 		const box = card.createDiv({ cls: "booklet-query" });
 		box.setAttr("data-booklet-query", s.query.from);
+		// the reader's own view of this query is found by the activity and the query's place among its queries, so a change above it does not move it
+		const vkey = `${a.scope}/${a.id}#${a.segments.filter((x) => x.type === "query").indexOf(s)}`;
+		const st = this.queryViews.get(vkey) ?? newViewState();
+		this.queryViews.set(vkey, st);
 		const host = {
 			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
@@ -1371,7 +1381,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
 			if (now === sig) return;
 			sig = now;
-			drawQueryPlan(host, box, planQuery(this.book, s, { drawn: this.drawnAt }));
+			drawQueryPlan(host, box, planQuery(this.book, s, { drawn: this.drawnAt }), { state: st });
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);

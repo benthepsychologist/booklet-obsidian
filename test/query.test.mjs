@@ -209,9 +209,9 @@ ${fence("from: log\nlimit: 7 days\ngroup: mood")}
 	assert.match(said, /`summary: on` reads kept entries only, so it was ignored/);
 	assert.match(said, /`limit: 1 day` reads kept entries only, so it was ignored/);
 	assert.match(said, /`group: mood` is ignored: summary rows have nothing to group by/);
-	// a query of a data block draws a line saying so, in place of the view
+	// a query of a data block is planned from its rows, as a table unless it says another view
 	const data = core.planQuery(b, qs[2], { drawn: DRAWN });
-	assert.deepEqual([data.kind, /data block/.test(data.text)], ["not-yet", true]);
+	assert.deepEqual([data.kind, data.view, data.set.kind, data.groups[0].rows.length], ["rows", "table", "data", 1]);
 });
 
 test("a query belongs in an activity's prose: one outside every activity, or in the data section, is reported", () => {
@@ -313,14 +313,14 @@ test("roles over kept entries: the label falls back to the date; a single questi
 	);
 });
 
-test("tiles with no value are pills; bars and line say they are not yet supported, in place of the view", () => {
+test("tiles with no value are pills; bars and line are planned as charts, with nothing to plot when no field is named", () => {
 	const text = tracker(["from: evening\nas: tiles", "from: evening\nas: bars", "from: evening\nas: line"], WEEK.slice(0, 2));
 	const tiles = plan(text, 0).p;
 	assert.equal(tiles.roles.value, null);
-	for (const i of [1, 2]) {
+	for (const [i, kind] of [[1, "bars"], [2, "line"]]) {
 		const p = plan(text, i).p;
-		assert.equal(p.kind, "not-yet");
-		assert.match(p.text, /^Not yet supported: a query drawn as/);
+		assert.equal(p.kind, "rows");
+		assert.deepEqual([p.view, p.chart.kind, p.chart.keys], [kind, kind, [null]], "no value: and no fields: name nothing to plot");
 	}
 });
 

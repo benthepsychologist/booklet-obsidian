@@ -8,7 +8,8 @@
  */
 import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
-import type { Activity, Booklet, Query, QuerySegment, Question, Role, ViewName } from "./reader";
+import type { DataValue } from "./data";
+import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
 import type { Entry } from "./records";
 import { holdsSomething, shapeIssue } from "./shape";
@@ -26,8 +27,8 @@ export const VIEW_DRAWS: Record<ViewName, readonly string[]> = {
 	line: ["label", "value", "fields", "limit"],
 };
 
-/** The views this plugin draws; `bars` and `line` say they are not yet supported. */
-export type DrawnView = "cards" | "table" | "list" | "tiles";
+/** The views this plugin draws: all six of the format's (SPEC section 6). */
+export type DrawnView = ViewName;
 
 /** The renderer's own words for a query (SPEC section 9: in the renderer's language, here English). */
 export const QUERY_WORDS = {
@@ -42,7 +43,37 @@ export const QUERY_WORDS = {
 	answer: "Answer",
 	tone: { good: "Good", warn: "Needs a look", bad: "Needs action" } as Record<string, string>,
 	rows: (n: number) => (n === 1 ? "1 row" : `${n} rows`),
+	/** A chart's own words (SPEC section 6: a chart always offers its numbers as a table, and what cannot be drawn says so). */
+	chart: {
+		numbers: "Show the numbers",
+		one: "One reading so far.",
+		zero: "Every value is 0, so no bar is drawn.",
+		bars: (n: number, lo: string | null, hi: string | null) => `Bar chart, ${n === 1 ? "1 bar" : `${n} bars`}${lo !== null && hi !== null ? `, from ${lo} to ${hi}` : ""}`,
+		line: (names: string, n: number, lo: string, hi: string) => `Line chart of ${names}, ${n === 1 ? "1 point" : `${n} points`}, from ${lo} to ${hi}`,
+		/** Why a chart cannot be drawn, in the chart's place: `what` is "bars" or "a line". */
+		cannot: (what: string, why: string) => `Cannot draw as ${what}: ${why}`,
+		noField: (what: string) => (what === "bars" ? "no field was named for the length of a bar (value:)." : "no field was named to plot (fields: or value:)."),
+		notNumbers: (names: string[]) => (names.length === 1 ? `${names[0]} is not a number.` : `${names.join(" and ")} are not numbers.`),
+		readout: "Tap or hover a point to read it.",
+	},
+	controls: {
+		toggle: "Sort and filter",
+		search: "Filter rows",
+		clearSearch: "Clear filter",
+		sortBy: "Sort by",
+		original: "Original order",
+		date: "Date",
+		ascending: "Ascending",
+		descending: "Descending",
+		clear: "Clear",
+		nothing: "Nothing matches.",
+		shown: (n: number, of: number) => `${n} of ${of} shown`,
+		count: (n: number) => (n === 1 ? "1 row" : `${n} rows`),
+	},
 };
+
+/** How many rows a view needs before the reader's sort and filter is offered (booklet.html CONTROLS_MIN). */
+export const CONTROLS_MIN = 9;
 
 /** One field of a row. */
 export interface Cell {
@@ -54,17 +85,24 @@ export interface Cell {
 	list?: string[];
 	/** Each member's plain words (a multi's picks): a badge that is a list is several pills. */
 	items?: string[];
-	/** The field is this number (a number answer, a statistic): a table sets it to the right. */
+	/** The field is this number (a number answer, a statistic, a data value): a table sets it to the right. */
 	num?: number;
+	/** A scale answer's number, which a chart plots and a sort compares: not `num`, so a scale column stays set to the left as it was. */
+	plot?: number;
 }
 
 export interface Row {
 	cells: Record<string, Cell>;
+	/** A kept entry's `ts` (what a date sort and a chart's date label read); a summary row or a data row has none. */
+	ts?: string;
 }
 
+/** The number a cell stands for in a chart or a sort: a number answer, a scale answer, a statistic or a data value; else none. */
+export const numberOf = (c: Cell | undefined): number | undefined => (c ? (c.plot ?? c.num) : undefined);
+
 export interface RowSet {
-	/** Kept entries as rows, or summary rows (a summary, or a distribution). */
-	kind: "entries" | "summary";
+	/** Kept entries as rows, summary rows (a summary, or a distribution), a data block's rows, or one row for each pick of a question asked for each pick. */
+	kind: "entries" | "summary" | "data" | "picks";
 	rows: Row[];
 	/** The fields, in order: a table's columns without `fields:`; the first is what the label falls back to. */
 	own: string[];
@@ -83,6 +121,23 @@ export interface Group {
 	rows: Row[];
 }
 
+/** What a chart plots: the field of each series (a bar chart has one; a `null` is a series with no field) and the locale its numbers are written in. */
+export interface ChartSpec {
+	kind: "bars" | "line";
+	keys: (string | null)[];
+	locale: string;
+}
+
+/** A nested list (SPEC section 6, "parent:"): rows with a `parent` that is another row's `id` stand under it. */
+export interface Tree {
+	/** The top rows, in order. */
+	roots: Row[];
+	/** Each row's children, in order. */
+	kids: Map<Row, Row[]>;
+	/** Each row's parent row, or null for a top row. */
+	up: Map<Row, Row | null>;
+}
+
 export type QueryPlan =
 	| { kind: "not-yet"; text: string }
 	| {
@@ -96,6 +151,10 @@ export type QueryPlan =
 			cols: string[];
 			/** What shows when there are no rows (the query's `empty:`, else the renderer's own line); null when there are rows. */
 			empty: string | null;
+			/** For `bars` and `line`: what is plotted. The chart itself is made from the rows left after the reader's filter (chart.ts). */
+			chart?: ChartSpec;
+			/** For a nested `list`: the tree the rows stand in (the rows are in the order the tree is drawn). */
+			tree?: Tree;
 	  };
 
 export interface PlanOptions {
@@ -155,7 +214,7 @@ export function whenText(ts: unknown): string {
 
 /* ---- cells ---- */
 
-const textOf = (parts: readonly WordPart[]): string => parts.map((p) => ("md" in p ? plainWords(p.md) : p.text)).join("");
+export const textOf = (parts: readonly WordPart[]): string => parts.map((p) => ("md" in p ? plainWords(p.md) : p.text)).join("");
 const plainCell = (s: string): Cell => ({ text: s, parts: [{ text: s }] });
 const numCell = (n: number, shown: string): Cell => ({ text: shown, parts: [{ text: shown }], num: n });
 const partsCell = (parts: WordPart[]): Cell => ({ text: textOf(parts), parts });
@@ -167,6 +226,7 @@ function answerCell(q: Question, v: unknown): Cell | null {
 	if ("list" in w) return { text: w.list.join("; "), parts: [{ text: w.list.join("; ") }], list: w.list };
 	const cell = partsCell(w.parts);
 	if (q.kind === "number" && typeof v === "number") cell.num = v;
+	if (q.kind === "scale" && typeof v === "number") cell.plot = v;
 	const items = memberWords(q, v);
 	if (items.length > 1) cell.items = items;
 	return cell;
@@ -254,7 +314,7 @@ function entryRows(book: Booklet, a: Activity, qs: readonly Question[], named: r
 			if (named.includes(x)) any = true;
 		}
 		// with `fields:`, an entry that answers none of the questions named is not shown (and with none named, one that answers nothing)
-		if (any) rows.push({ cells });
+		if (any) rows.push(a.repeat ? { cells, ts: String(e["ts"]) } : { cells });
 	}
 	const expand = (k: string): string[] => {
 		const ps = picks.get(k);
@@ -524,46 +584,103 @@ export function rolesOf(set: RowSet, rows: readonly Row[], q: Query, view: ViewN
 	return out;
 }
 
-/** The other fields a view shows (SPEC section 6): a table's columns, a list row's extras, a card's questions. */
+/** The other fields a view shows (SPEC section 6): a table's columns, a list row's extras, a card's questions or lines. */
 export function colsOf(set: RowSet, q: Query, view: ViewName, roles: Record<Role, string | null>): string[] {
 	// on a summary, `fields:` picks the rows: a table shows every field, and the other views draw a row by its roles
 	if (set.kind === "summary") return view === "table" ? set.own : [];
 	const named = VIEW_DRAWS[view].includes("fields") ? q.fields : null;
 	if (view === "table") return named ? named.flatMap(set.expand) : set.own;
-	if (view === "list") {
-		if (named) return named.flatMap(set.expand);
+	// the fields that play no role: a list's extras and a data block's card lines (never `id`, the group or the parent)
+	const rest = (): string[] => {
 		const skip = new Set<string | null>([...ROLE_NAMES.map((n) => roles[n]), q.group, q.parent ?? "parent", "id"]);
 		return set.own.filter((k) => !skip.has(k));
+	};
+	if (view === "list") return named ? named.flatMap(set.expand) : rest();
+	if (view === "cards") {
+		if (set.kind === "data") return named ?? rest();
+		return named ? named.filter((k) => set.questions.some((x) => x.id === k)) : set.questions.map((x) => x.id);
 	}
-	if (view === "cards") return named ? named.filter((k) => set.questions.some((x) => x.id === k)) : set.questions.map((x) => x.id);
 	return [];
 }
 
-const NOT_YET = {
-	bars: "Not yet supported: a query drawn as bars (as: bars). It is in the Markdown.",
-	line: "Not yet supported: a query drawn as a line chart (as: line). It is in the Markdown.",
-	data: "Not yet supported: a query of a data block. It is in the Markdown.",
-	eachAlone: "Not yet supported: tiles of a question asked for each pick. A table, a list or cards show it.",
-};
+/** What a query without a source says (a query whose source is not found is taken out when the note is read, so this is a guard). */
+const NO_SOURCE = "Not drawn: this query names nothing it can read.";
+
+/** A data block as rows: its declared `fields` (else the first row's keys) are its columns, in order; a value that is `null` or empty is no cell. */
+function dataSet(b: DataBlock): RowSet {
+	const own = b.fields ? Object.keys(b.fields) : Object.keys(b.rows[0] ?? {});
+	const rows: Row[] = b.rows.map((r) => {
+		const cells = Object.create(null) as Record<string, Cell>;
+		for (const [k, v] of Object.entries(r)) {
+			const c = dataCell(v);
+			if (c) cells[k] = c;
+		}
+		return { cells };
+	});
+	const named = (k: string): string => (b.fields && Object.prototype.hasOwnProperty.call(b.fields, k) ? b.fields[k]! : k);
+	return { kind: "data", rows, own, label: (k) => [{ text: named(k) }], questions: [], expand: (k) => [k], valueField: null };
+}
+
+/** A data value as a cell: plain words, never Markdown; a number carries its number; a list is shown comma-separated and each member can be a pill. */
+function dataCell(v: DataValue | DataValue[]): Cell | null {
+	if (Array.isArray(v)) {
+		const items = v.filter((x) => x !== null && String(x) !== "").map(String);
+		return items.length ? { text: items.join(", "), parts: [{ text: items.join(", ") }], items } : null;
+	}
+	if (v === null || v === "") return null;
+	return typeof v === "number" && Number.isFinite(v) ? numCell(v, String(v)) : plainCell(String(v));
+}
+
+/**
+ * A question asked for each pick, named alone and drawn as tiles, bars or a line (SPEC section 6: "one row per pick and
+ * value"; the format does not say what the row holds, so this is the plugin's reading): one row for each pick the source
+ * holds over the entries read, in the source's order, its label the pick's words and its value the pick's answer, taken
+ * from the newest entry that answered it.
+ */
+function pickRows(a: Activity, x: Question, ents: readonly Record<string, unknown>[]): RowSet {
+	const src = sourceOf(a, x);
+	const plain = plainOf(x);
+	const rows: Row[] = [];
+	if (src)
+		for (const p of picksInOrder(src, ents)) {
+			for (const e of ents) {
+				if (shapeIssue(x, e[x.id])) continue;
+				const pair = shownPairs(src, e, x).find((sp) => pickKey(sp.pick) === pickKey(p))?.pair;
+				const c = pair && holdsSomething(pair.a) ? answerCell(plain, pair.a) : null;
+				if (!c) continue;
+				const cells = Object.create(null) as Record<string, Cell>;
+				cells["label"] = partsCell([pickWords(src, p)]);
+				cells["value"] = c;
+				rows.push(a.repeat && e["ts"] !== undefined ? { cells, ts: String(e["ts"]) } : { cells });
+				break;
+			}
+		}
+	return { kind: "picks", rows, own: ["label", "value"], label: (k) => [{ text: k === "label" ? titleText(x) : QUERY_WORDS.answer }], questions: [x], expand: (k) => [k], valueField: "value" };
+}
+
+const titleText = (q: Question): string => (q.title ? plainWords(q.title) : q.id);
 
 /**
  * What a query draws (SPEC section 6): the rows in their groups, the roles, the other fields and what shows when there
- * are none; or a line saying the plugin does not draw it yet, in place of the view.
+ * are none; for a chart, what it plots; for a nested list, its tree.
  */
 export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): QueryPlan {
 	const q = seg.query;
 	const src = seg.source;
 	const locale = opts.locale ?? "en";
-	if (q.as === "bars" || q.as === "line") return { kind: "not-yet", text: NOT_YET[q.as] };
-	if (!src || src.kind === "data") return { kind: "not-yet", text: NOT_YET.data };
-	const view: DrawnView = q.as ?? (q.summary ? "table" : "cards");
+	if (!src) return { kind: "not-yet", text: NO_SOURCE };
+	const view: DrawnView = q.as ?? (src.kind === "data" || q.summary ? "table" : "cards");
+	let set: RowSet;
+
+	if (src.kind === "data") {
+		set = dataSet(src.block);
+		return finishPlan(set, q, view, locale);
+	}
 	const a = src.act;
 	const all = questionsOf(a);
-	let set: RowSet;
 
 	if (src.kind === "question") {
 		const one = src.q;
-		if (one.each && !q.summary && view === "tiles") return { kind: "not-yet", text: NOT_YET.eachAlone };
 		const ents = keptFor(book, a, q, opts);
 		if (q.summary) {
 			// one row per value; a question asked for each pick, one row per pick and value
@@ -571,6 +688,8 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 				? pickAnswers(a, one, ents).flatMap((p) => distribution(plainOf(one), p.values, locale, [p.parts, { text: " · " }]))
 				: distribution(one, answersOf(one, ents), locale);
 			set = summarySet(ents.length ? rows : [], "answer");
+		} else if (one.each && (view === "tiles" || view === "bars" || view === "line")) {
+			set = pickRows(a, one, a.repeat ? ents : [book.records.answers[a.scope] ?? {}]);
 		} else {
 			set = entryRows(book, a, [one], [one], q, opts);
 			set.valueField = one.each ? null : one.id;
@@ -583,11 +702,82 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		const named = q.fields ? all.filter((x) => q.fields!.includes(x.id)) : [];
 		set = entryRows(book, a, all, named.length ? named : all, q, opts);
 	}
+	return finishPlan(set, q, view, locale);
+}
 
+/** The text of a cell that holds a row's `parent` or `id`, trimmed. */
+const keyText = (r: Row, k: string): string => (r.cells[k]?.text ?? "").trim();
+
+/**
+ * A nested list (booklet.html nestRows): rows whose `parent` is another row's `id` stand under it. The first row with an
+ * id is the parent when two share one; a row whose parent is empty or no row of the list is a top row; a cycle is cut at
+ * the first row met, which is then a top row; children keep the order of the rows; `limit` counts top rows.
+ */
+export function nestRows(rows: readonly Row[], parentKey: string, limit: number | null): Tree & { flat: Row[] } {
+	const byId = new Map<string, Row>();
+	for (const r of rows) {
+		const i = keyText(r, "id");
+		if (i && !byId.has(i)) byId.set(i, r);
+	}
+	const up = new Map<Row, Row | null>();
+	for (const r of rows) {
+		const p = byId.get(keyText(r, parentKey));
+		up.set(r, p && p !== r ? p : null);
+	}
+	const done = new Set<Row>();
+	for (const r of rows) {
+		const path = new Set<Row>();
+		let x: Row | null | undefined = r;
+		while (x && !done.has(x)) {
+			if (path.has(x)) {
+				up.set(x, null);
+				break;
+			}
+			path.add(x);
+			x = up.get(x);
+		}
+		for (const y of path) done.add(y);
+	}
+	const kids = new Map<Row, Row[]>();
+	const roots: Row[] = [];
+	for (const r of rows) {
+		const p = up.get(r);
+		if (p) kids.set(p, [...(kids.get(p) ?? []), r]);
+		else roots.push(r);
+	}
+	const top = limit ? roots.slice(0, limit) : roots;
+	const flat: Row[] = [];
+	// depth first with a stack of its own: a chain thousands deep is a note that opens, not a stack overflow
+	for (const r of top) {
+		const st = [r];
+		while (st.length) {
+			const x = st.pop()!;
+			flat.push(x);
+			const k = kids.get(x);
+			if (k) for (let i = k.length - 1; i >= 0; i--) st.push(k[i]!);
+		}
+	}
+	return { roots: top, kids, up, flat };
+}
+
+/** Everything a plan holds after the rows are known: limit, nesting, empty, roles, the other fields, tone and groups; or, for a chart, what it plots. */
+function finishPlan(set: RowSet, q: Query, view: DrawnView, locale: string): QueryPlan {
 	let rows = set.rows;
-	if (q.limit !== null && VIEW_DRAWS[view].includes("limit")) rows = rows.slice(0, q.limit);
-	if (!rows.length) return { kind: "rows", view, set, groups: [], roles: rolesOf(set, rows, q, view), cols: [], empty: q.empty ?? QUERY_WORDS.empty };
+	const chartView = view === "bars" || view === "line";
+	const pk = q.parent ?? "parent";
+	// a list whose rows carry a parent is nested, and `limit` counts its top rows
+	const nested = view === "list" && rows.some((r) => keyText(r, pk) !== "") ? nestRows(rows, pk, q.limit) : null;
+	if (nested) rows = nested.flat;
+	else if (q.limit !== null && VIEW_DRAWS[view].includes("limit")) rows = rows.slice(0, q.limit);
+	// a chart runs from the oldest to the newest: `limit` kept the newest N of the entries (newest first), and now they are turned round
+	if (chartView && set.kind === "entries") rows = [...rows].reverse();
 	const roles = rolesOf(set, rows, q, view);
+	if (!rows.length) return { kind: "rows", view, set, groups: [], roles, cols: [], empty: q.empty ?? QUERY_WORDS.empty };
+	if (chartView) {
+		// a line plots the fields `fields:` names (a question asked for each pick is a line for each pick), else the value
+		const keys = view === "line" && q.fields ? q.fields.flatMap(set.expand) : [roles.value];
+		return { kind: "rows", view, set, groups: [{ name: null, rows }], roles, cols: [], empty: null, chart: { kind: view, keys, locale } };
+	}
 	const cols = colsOf(set, q, view, roles);
 	// a table's tone colours its badge column: a table with no badge column ignores tone
 	if (view === "table" && !(roles.badge && cols.includes(roles.badge))) {
@@ -595,7 +785,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		roles.tone = null;
 	}
 	let groups: Group[] = [{ name: null, rows }];
-	const gk = VIEW_DRAWS[view].includes("group") ? q.group : null;
+	const gk = VIEW_DRAWS[view].includes("group") && !nested ? q.group : null;
 	if (gk) {
 		groups = [];
 		const at = new Map<string, Group>();
@@ -610,7 +800,9 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 			g.rows.push(r);
 		}
 	}
-	return { kind: "rows", view, set, groups, roles, cols, empty: null };
+	const plan: QueryPlan = { kind: "rows", view, set, groups, roles, cols, empty: null };
+	if (nested) plan.tree = { roots: nested.roots, kids: nested.kids, up: nested.up };
+	return plan;
 }
 
 /** A tone as written, when it is one of the three; else none. */

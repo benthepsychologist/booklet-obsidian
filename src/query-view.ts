@@ -2,10 +2,11 @@
  * A query's rows drawn (SPEC section 6): as a table, a list, tiles or cards, each by the parts its fields play (the
  * roles), from the plan the core works out (core/query.ts). Words are set as text, and the file's own inline Markdown
  * (an option, a title) through Obsidian's renderer; a value from the rows is never read as Markdown or HTML. Nothing
- * here is saved: a reader's sorting and filtering are not offered yet.
+ * here is saved: a reader's sorting and filtering, and the parents they open in a nested list, are the view's to keep
+ * for as long as the pane is open (core/view-state.ts).
  */
 import { getIcon } from "obsidian";
-import { QUERY_WORDS, badgesOf, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type Role, type Row, type RowSet, type WordPart } from "./core";
+import { QUERY_WORDS, badgesOf, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
@@ -16,6 +17,14 @@ export interface QueryHost {
 
 type Roles = Record<Role, string | null>;
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
+
+/** What the reader has done to the view that drawing needs: the parents they opened, and the parents a search has opened. */
+export interface QueryUi {
+	state: QueryViewState;
+	/** A search is on: the parents of a match stand open, and a parent the reader opens or closes now is not remembered. */
+	filtering?: boolean;
+	force?: ReadonlySet<Row>;
+}
 
 /** Words, as text and the file's own inline Markdown. */
 export function words(host: Pick<QueryHost, "md">, into: HTMLElement, parts: readonly WordPart[]): void {
@@ -124,10 +133,10 @@ function table(host: QueryHost, into: HTMLElement, p: Plan): void {
 	}
 }
 
-function listView(host: QueryHost, into: HTMLElement, p: Plan): void {
+function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void {
 	const { set, roles, cols } = p;
-	const row = (ul: HTMLElement, r: Row) => {
-		const li = ul.createEl("li", { cls: "booklet-q-row" });
+	/** One row's parts, in the element that holds it: an `li`, or the `summary` of a parent. */
+	const fill = (li: HTMLElement, r: Row) => {
 		const tone = toneOf(r, roles);
 		const badges = badgesOf(r, roles);
 		const line = li.createDiv({ cls: "booklet-q-line" });
@@ -149,6 +158,33 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan): void {
 		toneWords(line, tone);
 		if (roles.note && r.cells[roles.note]) cellInto(host, li.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
 	};
+	const row = (ul: HTMLElement, r: Row) => fill(ul.createEl("li", { cls: "booklet-q-row" }), r);
+	if (p.tree) {
+		// a nested list: a row with children is a native details, shut until the reader opens it (what they open is kept with the query's view, never saved)
+		const tree = p.tree;
+		const level = (ul: HTMLElement, list: readonly Row[]): void => {
+			for (const r of list) {
+				const mine = tree.kids.get(r);
+				if (!mine || !mine.length) {
+					row(ul, r);
+					continue;
+				}
+				const id = (r.cells["id"]?.text ?? "").trim();
+				const d = ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": id } });
+				d.open = !!ui && (ui.force?.has(r) || ui.state.opens.has(id));
+				if (ui)
+					d.addEventListener("toggle", () => {
+						if (ui.filtering) return;
+						if (d.open) ui.state.opens.add(id);
+						else ui.state.opens.delete(id);
+					});
+				fill(d.createEl("summary", { cls: "booklet-q-row" }), r);
+				level(d.createEl("ul", { cls: "booklet-q-list" }), mine);
+			}
+		};
+		level(into.createEl("ul", { cls: "booklet-q-list booklet-q-tree" }), tree.roots);
+		return;
+	}
 	for (const g of p.groups) {
 		groupHead(into, g);
 		const ul = into.createEl("ul", { cls: "booklet-q-list" });
@@ -192,6 +228,15 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan): void {
 				pills(card, badgesOf(r, roles), tone);
 				if (roles.value && r.cells[roles.value]) cellInto(host, card.createDiv({ cls: "booklet-q-big" }), r.cells[roles.value], false);
 				if (roles.note && r.cells[roles.note]) cellInto(host, card.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
+				// a data block's row: every field that plays no role is a line under the title, as on a kept entry's card
+				const lines = set.kind === "data" ? cols.filter((k) => r.cells[k]) : [];
+				if (lines.length) {
+					const dl = card.createEl("dl");
+					for (const k of lines) {
+						words(host, dl.createEl("dt"), set.label(k));
+						cellInto(host, dl.createEl("dd"), r.cells[k], true);
+					}
+				}
 				toneWords(card, tone);
 			}
 		}
@@ -215,7 +260,7 @@ function entryCard(host: QueryHost, box: HTMLElement, set: RowSet, r: Row, roles
 }
 
 /** Draws a query's plan into `into` (emptied first). */
-export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan): void {
+export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, ui?: QueryUi): void {
 	into.empty();
 	if (p.kind === "not-yet") {
 		into.createEl("p", { cls: "booklet-muted", text: p.text });
@@ -224,7 +269,8 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan):
 	into.setAttr("data-booklet-view", p.view);
 	if (p.empty !== null) into.createEl("p", { cls: "booklet-muted booklet-q-empty", text: p.empty });
 	else if (p.view === "table") table(host, into, p);
-	else if (p.view === "list") listView(host, into, p);
+	else if (p.view === "list") listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);
-	else cards(host, into, p);
+	else if (p.view === "cards") cards(host, into, p);
+	else into.createEl("p", { cls: "booklet-muted", text: "Charts are drawn in the next stage." });
 }
