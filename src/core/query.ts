@@ -27,9 +27,6 @@ export const VIEW_DRAWS: Record<ViewName, readonly string[]> = {
 	line: ["label", "value", "fields", "limit"],
 };
 
-/** The views this plugin draws: all six of the format's (SPEC section 6). */
-export type DrawnView = ViewName;
-
 /** The renderer's own words for a query (SPEC section 9: in the renderer's language, here English). */
 export const QUERY_WORDS = {
 	empty: "Nothing kept here yet.",
@@ -70,7 +67,6 @@ export const QUERY_WORDS = {
 		clear: "Clear",
 		nothing: "Nothing matches.",
 		shown: (n: number, of: number) => `${n} of ${of} shown`,
-		count: (n: number) => (n === 1 ? "1 row" : `${n} rows`),
 	},
 };
 
@@ -145,10 +141,9 @@ export interface Tree {
 }
 
 export type QueryPlan =
-	| { kind: "not-yet"; text: string }
 	| {
 			kind: "rows";
-			view: DrawnView;
+			view: ViewName;
 			set: RowSet;
 			/** The rows in their groups (one group with no name unless the query groups them); none when `empty` shows. */
 			groups: Group[];
@@ -609,9 +604,6 @@ export function colsOf(set: RowSet, q: Query, view: ViewName, roles: Record<Role
 	return [];
 }
 
-/** What a query without a source says (a query whose source is not found is taken out when the note is read, so this is a guard). */
-const NO_SOURCE = "Not drawn: this query names nothing it can read.";
-
 /** A data block as rows: its declared `fields` (else the first row's keys) are its columns, in order; a value that is `null` or empty is no cell. */
 function dataSet(b: DataBlock): RowSet {
 	const own = b.fields ? Object.keys(b.fields) : Object.keys(b.rows[0] ?? {});
@@ -674,8 +666,9 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 	const q = seg.query;
 	const src = seg.source;
 	const locale = opts.locale ?? "en";
-	if (!src) return { kind: "not-yet", text: NO_SOURCE };
-	const view: DrawnView = q.as ?? (src.kind === "data" || q.summary ? "table" : "cards");
+	// a query whose source is not found is taken out when the note is read (linkQueries), so this cannot happen; it is for the type checker
+	if (!src) throw new Error("planQuery: a query with no source");
+	const view: ViewName = q.as ?? (src.kind === "data" || q.summary ? "table" : "cards");
 	let set: RowSet;
 
 	if (src.kind === "data") {
@@ -757,9 +750,13 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
 		else roots.push(r);
 	}
 	const top = limit ? roots.slice(0, limit) : roots;
+	return { roots: top, kids, up, flat: flatTree(top, kids) };
+}
+
+/** A tree's rows in reading order, each parent before its children: depth first with a stack of its own, so a chain thousands deep is a note that opens, not a stack overflow. */
+export function flatTree(roots: readonly Row[], kids: ReadonlyMap<Row, readonly Row[]>): Row[] {
 	const flat: Row[] = [];
-	// depth first with a stack of its own: a chain thousands deep is a note that opens, not a stack overflow
-	for (const r of top) {
+	for (const r of roots) {
 		const st = [r];
 		while (st.length) {
 			const x = st.pop()!;
@@ -768,11 +765,11 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
 			if (k) for (let i = k.length - 1; i >= 0; i--) st.push(k[i]!);
 		}
 	}
-	return { roots: top, kids, up, flat };
+	return flat;
 }
 
 /** Everything a plan holds after the rows are known: limit, nesting, empty, roles, the other fields, tone and groups; or, for a chart, what it plots. */
-function finishPlan(set: RowSet, q: Query, view: DrawnView, locale: string): QueryPlan {
+function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): QueryPlan {
 	let rows = set.rows;
 	const chartView = view === "bars" || view === "line";
 	const pk = q.parent ?? "parent";

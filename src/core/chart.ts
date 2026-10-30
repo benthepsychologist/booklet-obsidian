@@ -68,7 +68,7 @@ export function buildChart(p: Plan, rows: readonly Row[]): Chart {
 	let cannot: string | null = null;
 	if (!all.length && rows.length) {
 		const named = spec.keys.some((k) => k !== null);
-		cannot = QUERY_WORDS.chart.cannot(what, named ? QUERY_WORDS.chart.notNumbers(series.filter((s, i) => spec.keys[i] !== null).map((s) => s.name)) : QUERY_WORDS.chart.noField(spec.kind));
+		cannot = QUERY_WORDS.chart.cannot(what, named ? QUERY_WORDS.chart.notNumbers(series.filter((_, i) => spec.keys[i] !== null).map((s) => s.name)) : QUERY_WORDS.chart.noField(spec.kind));
 	}
 	let note: string | null = null;
 	if (!cannot) {
@@ -138,7 +138,6 @@ export function niceScale(lo: number, hi: number): Scale {
 
 /** Where a line's y scale begins: zero when zero is within reach of the data, else a nice value under the smallest. */
 export function lineDomain(values: readonly number[]): Scale {
-	if (!values.length) return niceScale(0, 1);
 	const lo = minOf(values);
 	const hi = maxOf(values);
 	return niceScale(lo >= 0 && lo < 0.6 * hi ? 0 : lo, hi);
@@ -147,7 +146,6 @@ export function lineDomain(values: readonly number[]): Scale {
 /** Which of n labels to write along an axis so none overlaps: the first, then every step-th, then the last. */
 export function thinLabels(n: number, plotW: number, labelW: number): number[] {
 	if (n <= 0) return [];
-	if (n === 1) return [0];
 	const per = plotW / (n - 1);
 	const step = Math.max(1, Math.ceil(labelW / Math.max(per, 0.0001)));
 	const out: number[] = [];

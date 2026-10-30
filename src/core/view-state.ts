@@ -5,7 +5,7 @@
  * state, and the rows it leaves (booklet.html's viewNodes pipeline: filter, then sort, then group, after `limit`). The
  * control and the drawing are in the view. Plain TypeScript: nothing here imports Obsidian.
  */
-import { CONTROLS_MIN, QUERY_WORDS, numberOf, textOf, type Cell, type Group, type QueryPlan, type Row, type Tree } from "./query";
+import { CONTROLS_MIN, QUERY_WORDS, flatTree, numberOf, textOf, type Cell, type Group, type QueryPlan, type Row, type Tree } from "./query";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
@@ -114,16 +114,7 @@ export function applyViewState(p: Plan, st: QueryViewState): Shown {
 		}
 		const roots = among(p.tree.roots);
 		const tree: Tree = { roots, kids, up: p.tree.up };
-		const flat: Row[] = [];
-		for (const r of roots) {
-			const stack = [r];
-			while (stack.length) {
-				const x = stack.pop()!;
-				flat.push(x);
-				const k = kids.get(x);
-				if (k) for (let i = k.length - 1; i >= 0; i--) stack.push(k[i]!);
-			}
-		}
+		const flat = flatTree(roots, kids);
 		return { plan: { ...p, groups: flat.length ? [{ name: null, rows: flat }] : [], tree }, shown: match.length, total, filtering, force };
 	}
 	const groups: Group[] = p.groups

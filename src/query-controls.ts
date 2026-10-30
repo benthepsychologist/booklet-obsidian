@@ -147,13 +147,11 @@ function drawControls(into: HTMLElement, p: Extract<QueryPlan, { kind: "rows" }>
 	paintChoices();
 	input.addEventListener("input", () => {
 		st.q = input.value;
-		paintChoices();
 		changed();
 	});
 	wipe.addEventListener("click", () => {
 		st.q = "";
 		input.value = "";
-		paintChoices();
 		changed();
 		input.focus();
 	});
@@ -167,13 +165,11 @@ function drawControls(into: HTMLElement, p: Extract<QueryPlan, { kind: "rows" }>
 	sel?.addEventListener("change", () => {
 		st.key = sel!.value || null;
 		if (st.key === null) st.dir = 1;
-		paintChoices();
 		changed();
 	});
 	dir?.addEventListener("click", (evt) => {
 		evt.preventDefault();
 		st.dir = st.dir === 1 ? -1 : 1;
-		paintChoices();
 		changed();
 	});
 	reset.addEventListener("click", (evt) => {
@@ -182,13 +178,12 @@ function drawControls(into: HTMLElement, p: Extract<QueryPlan, { kind: "rows" }>
 		st.key = null;
 		st.dir = 1;
 		input.value = "";
-		paintChoices();
 		changed();
 	});
 	return {
 		signature: keys.map((k) => k.key).join("\n"),
 		tell(shown, total) {
-			count.setText(st.q.trim() === "" ? W.count(total) : shown === 0 ? W.nothing : W.shown(shown, total));
+			count.setText(st.q.trim() === "" ? QUERY_WORDS.rows(total) : shown === 0 ? W.nothing : W.shown(shown, total));
 			paintChoices();
 		},
 	};

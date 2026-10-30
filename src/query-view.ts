@@ -297,10 +297,6 @@ function entryCard(host: QueryHost, box: HTMLElement, set: RowSet, r: Row, roles
 /** Draws a query's plan into `into` (emptied first). */
 export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, ui?: QueryUi): void {
 	into.empty();
-	if (p.kind === "not-yet") {
-		into.createEl("p", { cls: "booklet-muted", text: p.text });
-		return;
-	}
 	into.setAttr("data-booklet-view", p.view);
 	if (p.empty !== null) into.createEl("p", { cls: "booklet-muted booklet-q-empty", text: p.empty });
 	else if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
