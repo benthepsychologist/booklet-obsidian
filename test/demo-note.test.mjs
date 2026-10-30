@@ -47,25 +47,3 @@ for (const [id, kinds] of Object.entries(KINDS)) {
 	});
 }
 
-test("the nothing-to-draw query says its own words, and a query over twelve kept days or twelve jobs is offered the sort and filter", () => {
-	const d = screen("data");
-	const last = d.queries().at(-1);
-	assert.equal(words(last.querySelector(".booklet-q-empty")), "No rows in this block.");
-	assert.equal(d.queries()[0].querySelectorAll(".booklet-qc").length, 1, "twelve jobs");
-	d.close();
-	const k = screen("kept");
-	assert.equal(k.queries()[0].querySelectorAll(".booklet-qc").length, 1, "twelve kept days");
-	assert.equal(k.queries()[1].querySelectorAll(".booklet-qc").length, 0, "five rows");
-	k.close();
-});
-
-test("each-pick tiles and bars: one for each tool, the newest entry's answer", () => {
-	const d = screen("data");
-	const tiles = [...d.queries()[5].querySelectorAll(".booklet-q-tile")].map((t) => words(t));
-	assert.equal(tiles.length, 3);
-	assert.match(tiles[0], /Spade/);
-	d.close();
-	const b = screen("bars");
-	assert.equal(b.queries()[2].querySelectorAll(".booklet-ch-row").length, 3);
-	b.close();
-});

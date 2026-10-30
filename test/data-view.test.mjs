@@ -7,12 +7,10 @@
 import { openView, testApp } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { keepDays } from "./helpers.mjs";
+import { fence, fm, keepDays } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 const JOBS = {
 	fields: { job: "Job", when: "When", state: "State", hrs: "Hours", tone: "Tone", go: "Where", pic: "Picture", what: "Detail" },
 	rows: [

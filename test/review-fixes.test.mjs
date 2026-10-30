@@ -9,13 +9,12 @@
 import { openView, testApp, typeInto, press, click, words, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core } from "./helpers.mjs";
+import { core, fence } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 const { mountQuery } = await import("./.build/screens.mjs");
 
 const fm = `---\nbooklet: "0.16"\ntitle: T\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 const data = (rows, id) => "```booklet data\n" + (typeof rows === "string" ? rows : JSON.stringify(rows)) + "\n```\n^" + id + "\n";
 const note = (queries, blocks, extra = "") => `${fm}\n${extra}> [!activity|show] Show\n\n${queries.map(fence).join("\n\n")}\n\n> [!data] Data\n\n${blocks}`;
 const planOf = (t, i = 0) => {

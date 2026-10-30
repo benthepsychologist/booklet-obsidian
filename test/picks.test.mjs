@@ -6,13 +6,11 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, keepDays } from "./helpers.mjs";
+import { core, DRAWN, fence, keepDays, rowsOf } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const DRAWN = new Date("2026-10-28T12:00:00Z");
 const fm = `---\nbooklet: "0.16"\ntitle: Tools\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 
 const NOTE = (queries) => `${fm}
 > [!activity|log repeat] Log
@@ -54,7 +52,6 @@ const planOf = (queries, days = DAYS, i = 0) => {
 	const seg = b.activities.find((a) => a.id === "show").segments.filter((s) => s.type === "query")[i];
 	return core.planQuery(b, seg, { drawn: DRAWN, now: DRAWN });
 };
-const rowsOf = (p) => p.groups.flatMap((g) => g.rows);
 
 test("a row carries its entry's time; a scale answer carries its chart number and not a table's number; a number answer carries both", () => {
 	const p = planOf(["from: log\nfields: mood, hours"]);

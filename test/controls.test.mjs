@@ -7,12 +7,10 @@
 import { openView, testApp, click, typeInto, press, words, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, keepDays } from "./helpers.mjs";
+import { core, fence, fm, keepDays } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 const CROPS = ["Beet", "Kale", "Leek", "Pea", "Chard", "Dill", "Fennel", "Basil", "Mint", "Sage"];
 const rowsOf = (n) => CROPS.slice(0, n).map((crop, i) => ({ crop, rows: (i * 7) % 5 + 1, bed: i % 2 ? "east" : "west", ...(i === 3 ? {} : { when: `2026-04-${String(10 + i)}` }) }));
 const note = (queries, n = 10, tree = null) =>

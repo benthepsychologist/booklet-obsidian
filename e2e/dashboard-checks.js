@@ -23,6 +23,8 @@ module.exports = function dashboardChecks(env) {
     await open(o, NOTE);
   };
   const sideways = o => o.evaluate(sel => { const v = document.querySelector(sel + " .view-content"); return v.scrollWidth - v.clientWidth; }, BOOK);
+  // the text of the first match of a selector inside the first query of the note
+  const textIn = (o, s) => o.evaluate(([b, s]) => document.querySelectorAll(b + " .booklet-query")[0].querySelector(s).textContent.trim(), [BOOK, s]);
   const heights = (o, sel) => o.evaluate(([b, s]) => [...document.querySelectorAll(b + " " + s)].map(e => Math.round(e.getBoundingClientRect().height)), [BOOK, sel]);
   const setup = async (o, vault, where) => {
     put(vault);
@@ -96,16 +98,16 @@ module.exports = function dashboardChecks(env) {
         const hit = q(o, 0).locator(".booklet-ch-hit").nth(3);
         if (where === "desktop") { await hit.hover(); } else { await hit.click(); }
         await sleep(200);
-        let r = await o.evaluate(sel => document.querySelector(sel + " .booklet-query .booklet-ch-readout").textContent, BOOK);
+        let r = await textIn(o, ".booklet-ch-readout");
         c.ok(/: Hours slept .* · Hours of focused work /.test(r), `[${where}] ${where === "desktop" ? "hovering" : "tapping"} the fourth point reads it: ${r}`);
         await q(o, 0).locator("svg.booklet-ch-svg").focus();
         await o.page.keyboard.press("ArrowRight"); await sleep(100);
-        const r2 = await o.evaluate(sel => document.querySelector(sel + " .booklet-query .booklet-ch-readout").textContent, BOOK);
+        const r2 = await textIn(o, ".booklet-ch-readout");
         c.ok(r2 !== r && /: Hours slept /.test(r2), `[${where}] ArrowRight moves to the next point: ${r2}`);
         await o.page.keyboard.press("Home"); await sleep(100);
-        const r3 = await o.evaluate(sel => document.querySelector(sel + " .booklet-query .booklet-ch-readout").textContent, BOOK);
+        const r3 = await textIn(o, ".booklet-ch-readout");
         await o.page.keyboard.press("End"); await sleep(100);
-        const r4 = await o.evaluate(sel => document.querySelector(sel + " .booklet-query .booklet-ch-readout").textContent, BOOK);
+        const r4 = await textIn(o, ".booklet-ch-readout");
         c.ok(r3 !== r4 && r3 !== r2, `[${where}] Home and End go to the first and last points: ${r3} | ${r4}`);
         await shot(o, `charts-line-point-${where}-light`);
         const single = await o.evaluate(sel => { const box = document.querySelectorAll(sel + " .booklet-query")[1]; return { pts: box.querySelectorAll(".booklet-ch-hit").length, names: (s => s ? box.querySelector("#" + s.getAttribute("aria-labelledby")).textContent : "")(box.querySelector("svg.booklet-ch-svg")) }; }, BOOK);
@@ -211,10 +213,10 @@ module.exports = function dashboardChecks(env) {
         await o.page.keyboard.press("Escape"); await sleep(200);
         c.ok((await first()) === 12, `[${where}] Escape puts the twelve rows back`);
         await o.page.keyboard.type("zzz"); await sleep(200);
-        const none = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")][0].querySelector(".booklet-qc-count").textContent.trim(), BOOK);
+        const none = await textIn(o, ".booklet-qc-count");
         c.ok(none === "Nothing matches.", `[${where}] nothing matching says so: ${none}`);
         await box.locator(".booklet-qc-clear").click(); await sleep(200);
-        c.ok((await first()) === 12 && (await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")][0].querySelector(".booklet-qc-count").textContent.trim(), BOOK)) === "12 rows", `[${where}] Clear puts them back and counts the rows`);
+        c.ok((await first()) === 12 && (await textIn(o, ".booklet-qc-count")) === "12 rows", `[${where}] Clear puts them back and counts the rows`);
         // the menu and the direction; the headings
         const sel = box.locator(".booklet-qc-sort select");
         await sel.selectOption("sleep"); await sleep(250);

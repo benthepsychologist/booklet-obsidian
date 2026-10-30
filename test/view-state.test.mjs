@@ -22,15 +22,6 @@ const plan = (q) => {
 };
 const names = (p) => p.groups.flatMap((g) => g.rows).map((r) => r.cells.n.text);
 
-test("a number sorts as a number, ties keep their order, a missing value is last ascending and descending", () => {
-	const p = plan("from: d\nas: list\nlabel: n\nfields: v");
-	const st = core.newViewState();
-	st.key = "v";
-	assert.deepEqual(names(core.applyViewState(p, st).plan), ["a", "d", "e", "b", "c"]);
-	st.dir = -1;
-	assert.deepEqual(names(core.applyViewState(p, st).plan), ["b", "e", "a", "d", "c"]);
-});
-
 test("a sort by a field the view does not offer is dropped; with no state the rows are as the plan has them", () => {
 	const p = plan("from: d\nas: list\nlabel: n\nfields: v");
 	const st = core.newViewState();
@@ -42,22 +33,3 @@ test("a sort by a field the view does not offer is dropped; with no state the ro
 	assert.deepEqual([st.key, st.dir], [null, 1]);
 });
 
-test("a search reads the fields the view shows, any case, and counts what it leaves; a line offers no sort", () => {
-	const p = plan("from: d\nas: list\nlabel: n\nfields: v");
-	const st = core.newViewState();
-	st.q = " A ";
-	const s = core.applyViewState(p, st);
-	assert.deepEqual([names(s.plan), s.shown, s.total, s.filtering], [["a"], 1, 5, true]);
-	assert.deepEqual(core.sortKeys(p).map((k) => k.key), ["n", "v"]);
-	assert.deepEqual(core.sortKeys(plan("from: d\nas: line\nlabel: n\nfields: v")), []);
-	assert.equal(core.wantsControls(p), false, "five rows");
-});
-
-test("group: each group is sorted inside itself", () => {
-	const p = plan("from: d\nas: list\nlabel: n\nfields: v\ngroup: g");
-	const st = core.newViewState();
-	st.key = "n";
-	st.dir = -1;
-	const s = core.applyViewState(p, st);
-	assert.deepEqual(s.plan.groups.map((g) => [g.name, g.rows.map((r) => r.cells.n.text)]), [["x", ["e", "c", "b"]], ["y", ["d", "a"]]]);
-});

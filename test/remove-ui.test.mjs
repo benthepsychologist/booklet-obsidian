@@ -8,7 +8,7 @@ import { openView, testApp, click, words, typeInto, press } from "./dom.mjs";
 import { Notice } from "./obsidian-stub.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, keepDays } from "./helpers.mjs";
+import { core, fm, keepDays } from "./helpers.mjs";
 
 // removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
 const rm = (text, scope, id, at, ts, expect) => {
@@ -21,7 +21,6 @@ const rm = (text, scope, id, at, ts, expect) => {
 
 process.env.TZ = "UTC";
 
-const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
 const BASE = `${fm}
 > [!activity|log repeat] Log
 

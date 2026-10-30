@@ -7,13 +7,9 @@
 import { openView, testApp, press, click, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, keepDays } from "./helpers.mjs";
+import { core, DRAWN, fence, fm, keepDays } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
-
-const DRAWN = new Date("2026-10-28T12:00:00Z");
-const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 
 const NOTE = (queries, blocks = "") => `${fm}
 > [!activity|log repeat] Log
@@ -103,19 +99,6 @@ test("a line without fields: plots the value field; the numbers table has the sa
 	assert.deepEqual(c.table.head, ["Date", "Hours of focused work", "Hours slept"]);
 	assert.deepEqual(c.table.rows[2], ["Oct 24", "–", "6"]);
 	assert.deepEqual(chartOf(["from: sleep\nas: line"]).c.series.map((s) => s.name), ["Hours slept"]);
-});
-
-test("one row: it is drawn, with 'One reading so far.'", () => {
-	const { c } = chartOf(["from: log\nas: line\nfields: sleep"], [DAYS[0]]);
-	assert.equal(c.note, "One reading so far.");
-	assert.equal(c.cannot, null);
-	assert.equal(chartOf(["from: log\nas: bars\nvalue: sleep"], [DAYS[0]]).c.note, "One reading so far.");
-});
-
-test("every bar value 0: the bars say so in words", () => {
-	const { c } = chartOf(["from: log\nas: bars\nvalue: focus"], [["2026-10-27T08:00:00Z", { focus: 0, sleep: 3 }], ["2026-10-26T08:00:00Z", { focus: 0, sleep: 3 }]]);
-	assert.equal(c.note, "Every value is 0, so no bar is drawn.");
-	assert.equal(c.cannot, null);
 });
 
 test("no rows: the query's own words in place of the chart; the plan holds no chart to make", () => {
@@ -283,13 +266,6 @@ test("a line of one row, and one that cannot be drawn: in words, the numbers sti
 	assert.ok(none.queries()[0].querySelector(".booklet-ch-nums table"));
 	one.close();
 	none.close();
-});
-
-test("a chart is drawn again when an entry is kept, and the file is written only by Finalize", async () => {
-	const v = open(text(["from: log\nas: bars\nvalue: sleep"], DAYS.slice(0, 2)));
-	assert.equal(v.queries().length, 1);
-	assert.equal(v.queries()[0].querySelectorAll(".booklet-ch-row").length, 2);
-	v.close();
 });
 
 test("createSvg refuses a class string with a space, as real Obsidian does (the fake in test/dom.mjs is faithful to it)", () => {

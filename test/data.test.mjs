@@ -6,7 +6,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertOutsideUnchanged, core, keepDays } from "./helpers.mjs";
+import { assertOutsideUnchanged, core, DRAWN, fence, fm, keepDays, rowsOf } from "./helpers.mjs";
 
 // removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
 const rm = (text, scope, id, at, ts, expect) => {
@@ -19,9 +19,6 @@ const rm = (text, scope, id, at, ts, expect) => {
 
 process.env.TZ = "UTC";
 
-const DRAWN = new Date("2026-10-28T12:00:00Z");
-const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
-const fence = (body) => "```booklet query\n" + body + "\n```";
 const data = (json, id) => "```booklet data\n" + (typeof json === "string" ? json : JSON.stringify(json)) + "\n```\n^" + id;
 
 const JOBS = {
@@ -44,7 +41,6 @@ const planOf = (text, i = 0) => {
 	const seg = b.activities.find((a) => a.id === "show").segments.filter((s) => s.type === "query")[i];
 	return { b, seg, p: seg ? core.planQuery(b, seg, { drawn: DRAWN, now: DRAWN }) : null };
 };
-const rowsOf = (p) => p.groups.flatMap((g) => g.rows);
 const textsOf = (p, k) => rowsOf(p).map((r) => r.cells[k]?.text);
 
 /* ---- reading a block ---- */
