@@ -1208,7 +1208,22 @@ function questionNamed(a: Activity, id: string): { q: Question; title: string } 
  * and taken out, and the note still opens. A span of days and a summary read kept entries: on a data block, or on a
  * question whose activity keeps none, they are ignored and reported; so is `group:` on a summary.
  */
+/**
+ * A data block whose id is also an activity's or a question's (SPEC section 7 forbids it), or another block's, is said among the
+ * note's problems. Which one a query reads is not changed: the activity, then the question, then the first block.
+ */
+function checkDataIds(activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): void {
+	data.forEach((d, i) => {
+		const seen = activities.filter((a) => d.module === null || a.scope === d.module);
+		const act = seen.find((a) => a.id === d.id);
+		const asked = act ? null : seen.find((a) => questionNamed(a, d.id) !== null);
+		if (act || asked) problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${act ? "an activity" : "a question"}, so a query that names it reads that, not the block.`);
+		else if (data.slice(0, i).some((x) => x.id === d.id && x.module === d.module)) problems.push(`Line ${d.line}: a second data block has the id "${d.id}", so a query that names it reads the first one.`);
+	});
+}
+
 function linkQueries(activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): void {
+	checkDataIds(activities, data, problems);
 	for (const act of activities)
 		act.segments = act.segments.filter((s) => {
 			if (s.type !== "query") return true;
