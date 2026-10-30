@@ -1436,6 +1436,14 @@
 	display: none;
 }
 
+/* Obsidian's warning button is white on a bright red (3.5:1 in a dark theme, 4.2:1 in a light one), and on a phone its red words on the pale button read 3.9:1 in a light one;
+   a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces) */
+.booklet-view .booklet-entry-ask button.mod-warning,
+.booklet-view .booklet-entry-ask button.mod-warning:hover {
+	background: color-mix(in srgb, var(--background-modifier-error) 70%, black);
+	color: var(--text-on-accent);
+}
+
 .booklet-entry-ask-text {
 	color: var(--text-error);
 	font-weight: var(--font-semibold);

@@ -314,16 +314,20 @@ module.exports = function dashboardChecks(env) {
         const ask = await o.evaluate(sel => { const a = document.querySelectorAll(sel + " .booklet-entry-list .booklet-entry")[1]; const ask = a.querySelector(".booklet-entry-ask"); return { text: ask.querySelector(".booklet-entry-ask-text").textContent, shown: ask.offsetParent !== null, del: a.querySelector(".booklet-entry-delete").offsetParent !== null, buttons: [...ask.querySelectorAll("button")].map(b => b.textContent), focus: document.activeElement === ask.querySelectorAll("button")[1] }; }, BOOK);
         c.ok(ask.text === "Delete this entry?" && ask.shown && !ask.del && ask.buttons.join() === "Yes, delete,No" && ask.focus, `[${mode}] ${when}: Delete asks in place, with focus on No: ${JSON.stringify(ask)}`);
         await shot(o, `remove-ask-${mode.replace(" ", "-")}-light`);
-        // dark: the question and its buttons are readable against the card
-        await scheme(o, "dark");
-        const dark = await o.evaluate(sel => {
-          const lum = c => { const m = c.match(/[\d.]+/g).map(Number); const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
+        // the Yes button reads at 4.5:1 (WCAG AA for small text) and the question at 3:1 or more against the card, light and dark; the question is the theme's error red on the card, 4.2:1 in a light theme, which a fixed colour could not improve in both
+        const contrasts = () => o.evaluate(sel => {
+          // a colour as rgb(...) or, once a colour is mixed, as color(srgb 0.5 0.1 0.1) with each part from 0 to 1
+          const lum = c => { const m = c.match(/[\d.]+/g).map(Number).map(v => /^color\(/.test(c) ? v * 255 : v); const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(m[0]) + 0.7152 * f(m[1]) + 0.0722 * f(m[2]); };
           const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
           const card = document.querySelectorAll(sel + " .booklet-entry-list .booklet-entry")[1], bg = getComputedStyle(document.querySelector(sel + " .view-content")).backgroundColor;
           const q = card.querySelector(".booklet-entry-ask-text"), yes = card.querySelector(".booklet-entry-ask button");
           return { q: ratio(getComputedStyle(q).color, bg), yes: ratio(getComputedStyle(yes).color, getComputedStyle(yes).backgroundColor), dark: document.body.classList.contains("theme-dark") };
         }, BOOK);
-        c.ok(dark.dark && dark.q >= 3 && dark.yes >= 3, `[${mode}] dark: the question reads against the card (${dark.q.toFixed(1)}:1) and "Yes, delete" against its button (${dark.yes.toFixed(1)}:1)`);
+        const lit = await contrasts();
+        c.ok(!lit.dark && lit.q >= 3 && lit.yes >= 4.5, `[${mode}] light: the question reads against the card (${lit.q.toFixed(1)}:1) and "Yes, delete" against its button (${lit.yes.toFixed(1)}:1, at least 4.5:1)`);
+        await scheme(o, "dark");
+        const dark = await contrasts();
+        c.ok(dark.dark && dark.q >= 3 && dark.yes >= 4.5, `[${mode}] dark: the question reads against the card (${dark.q.toFixed(1)}:1) and "Yes, delete" against its button (${dark.yes.toFixed(1)}:1, at least 4.5:1)`);
         await shot(o, `remove-ask-${mode.replace(" ", "-")}-dark`);
         await scheme(o, "light");
         if (mode === "phone") {
