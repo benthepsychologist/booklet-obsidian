@@ -132,6 +132,12 @@ npm test         # bundles src/core and src/view.ts with esbuild, then runs node
 
 `e2e/` drives the real Obsidian desktop app over the DevTools protocol and checks the plugin there, thirty-two checks in all; see `e2e/README.md`.
 
+## What CI runs
+
+`.github/workflows/ci.yml` runs on every pull request to `main` and on every push to `main`, on a plain runner with no secrets, no dependency cache and read-only permissions (the hardening `release.yml` has). It runs `npm ci`, then `npm test` (the unit tests and the safety test; the corpus tests skip, with a message, because there is no Booklet repository or kit starters on the runner), then a check that the committed `test-vault/.obsidian/plugins/booklet/` copies equal a fresh `node esbuild.config.mjs production` build (`git diff --exit-code` over that folder). A pull request that changes `src/` or `styles.css` without rebuilding the vault copies fails it: run `npm run build` and commit the result.
+
+CI does not run the real-Obsidian suite (`e2e/`): it needs the Obsidian binary and a display and takes about 9 minutes, so it stays a local gate that a builder runs before a pull request is opened. Whether to run it on a runner is left open. Branch protection (requiring the check before a merge) is a switch on GitHub, not in this repository.
+
 ## Releasing
 
 Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. Until Booklet is listed, every release is marked a pre-release, and nothing is submitted to the directory from here.
