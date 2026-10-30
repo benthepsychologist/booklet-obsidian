@@ -9,7 +9,7 @@
  * One difference is allowed and was made once, in its own commit: the Delete button (with its question, Yes and No) that 0.9.0 puts on each
  * card of the Kept entries list under Finalize. It changed two places only, "Daily tracker" evening-log and "Kept records" walk-log; with the
  * button's element taken out of the drawing, both hash exactly as they did in 0.8.0, and every other place in the file is the same hash.
- * The golden file of that commit is the 0.9.0 reference from then on.
+ * The button was made again once after the cold review: each Delete, its question, Yes and No are named by hidden words, which are inside the same element, so the same two places hash differently again and only they. The golden file of the latest such commit is the 0.9.0 reference from then on.
  *
  * To make the 0.8.0 file again, build that commit's tests (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs
  * copied in) and run
