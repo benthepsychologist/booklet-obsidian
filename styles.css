@@ -1449,6 +1449,11 @@
 	font-weight: var(--font-semibold);
 }
 
+/* the theme's error red on a light page reads 4.2:1; darkened a tenth it reads 5.0:1 (a dark page is already 4.9:1 or more, and darkening would lower it) */
+.theme-light .booklet-entry-ask-text {
+	color: color-mix(in srgb, var(--text-error) 90%, black);
+}
+
 .booklet-entry-delete {
 	background: transparent;
 	color: var(--text-error);

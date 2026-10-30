@@ -1217,7 +1217,13 @@ function checkDataIds(activities: readonly Activity[], data: readonly DataBlock[
 		const seen = activities.filter((a) => d.module === null || a.scope === d.module);
 		const act = seen.find((a) => a.id === d.id);
 		const asked = act ? null : seen.find((a) => questionNamed(a, d.id) !== null);
-		if (act || asked) problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${act ? "an activity" : "a question"}, so a query that names it reads that, not the block.`);
+		const clash = act ?? asked;
+		if (clash) {
+			const what = act ? "an activity" : "a question";
+			// a shared block is read by every module, so the activity or question wins only in its own module; the others read the block
+			if (d.module === null) problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${what} in ${clash.scope ? `the module "${clash.scope}"` : "the activities outside every module"}, so a query there that names it reads that, not the block (a query in any other module reads the block).`);
+			else problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${what}, so a query that names it reads that, not the block.`);
+		}
 		else if (data.slice(0, i).some((x) => x.id === d.id && x.module === d.module)) problems.push(`Line ${d.line}: a second data block has the id "${d.id}", so a query that names it reads the first one.`);
 	});
 }

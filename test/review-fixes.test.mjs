@@ -52,6 +52,32 @@ test("a data block that has the id of an activity, of a question or of another b
 	const b3 = core.parseBooklet(two);
 	assert.ok(b3.problems.some((p) => /a second data block has the id "d", so a query that names it reads the first one/.test(p)), b3.problems.join("\n"));
 	assert.equal(planOf(two).groups[0].rows[0].cells.w.text, "first");
+	// a shared block and an activity of one module: the activity wins in its own module only, and the problem says so
+	const shared = `${fm}
+> [!module|m1] One
+
+> [!activity|log repeat] Log
+
+> [!number|hours] Hours
+
+> [!module|m1 end]
+
+> [!module|m2] Two
+
+> [!activity|show] Show
+
+${fence("from: log\nas: table")}
+
+> [!module|m2 end]
+
+> [!data] Data
+
+${data([{ w: "shared" }], "log")}`;
+	const bs = core.parseBooklet(shared);
+	const said = bs.problems.filter((p) => /the data block "log"/.test(p));
+	assert.equal(said.length, 1, bs.problems.join("\n"));
+	assert.match(said[0], /has the same id as an activity in the module "m1", so a query there that names it reads that, not the block \(a query in any other module reads the block\)/);
+	assert.equal(bs.activities.find((a) => a.id === "show").segments.find((s) => s.type === "query").source.kind, "data", "a query of the other module reads the block");
 	const fine = core.parseBooklet(note(["from: d\nas: table"], data([{ w: "a" }], "d")));
 	assert.deepEqual(fine.problems, []);
 });
