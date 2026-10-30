@@ -4,21 +4,13 @@
  * its search box, links); the plugin's CSS only lays them out. The view decides what a press does (`go`); this file only draws.
  * Nothing here is ever written to the note: the menu's open state and its search words are the pane's, in memory.
  */
-import { inlineMd, linkless, searchPages, searchWords, type ActTab, type Mention, type Place, type TreePage } from "./core";
-import type { ScreenHost } from "./screens";
+import { searchPages, searchWords, type ActTab, type Mention, type Place, type TreePage } from "./core";
+import { placeLink, type ScreenHost } from "./screens";
 
 /** What the menu keeps while the pane is open: is it open, and the words in its search box. */
 export interface MenuState {
 	open: boolean;
 	query: string;
-}
-
-/** A press on a link: its own action only (a link's address is `#`, so the default is stopped). */
-function onPress(el: HTMLElement, fn: () => void): void {
-	el.addEventListener("click", (evt) => {
-		evt.preventDefault();
-		fn();
-	});
 }
 
 /**
@@ -39,10 +31,8 @@ export function drawPageMenu(host: ScreenHost, into: HTMLElement, tab: ActTab, h
 	const list = d.createDiv({ cls: "booklet-pagelist" });
 
 	const link = (li: HTMLElement, p: TreePage) => {
-		const a = li.createEl("a", { cls: p === here ? "booklet-pagelink is-active" : "booklet-pagelink", attr: { href: "#" } });
+		const a = placeLink(host, li, p === here ? "booklet-pagelink is-active" : "booklet-pagelink", p.written || p.title, placeOf(p));
 		if (p === here) a.setAttr("aria-current", "page");
-		host.md(inlineMd(linkless(p.written || p.title)), a.createSpan({ cls: "booklet-inline markdown-rendered" }));
-		onPress(a, () => host.go(placeOf(p)));
 	};
 	const branch = (into_: HTMLElement, pages: TreePage[]) => {
 		const ul = into_.createEl("ul");
@@ -58,7 +48,7 @@ export function drawPageMenu(host: ScreenHost, into: HTMLElement, tab: ActTab, h
 		if (!state.query.trim()) branch(list, tab.top);
 		else if (!found.length) list.createEl("p", { cls: "booklet-muted", text: "No page has those words." });
 		else {
-			const ul = list.createEl("ul", { cls: "booklet-pagehits" });
+			const ul = list.createEl("ul");
 			for (const p of found) link(ul.createEl("li"), p);
 		}
 	};
@@ -92,8 +82,6 @@ export function drawMentions(host: ScreenHost, into: HTMLElement, mentions: Ment
 	into.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Mentioned on" });
 	const ul = into.createEl("ul", { cls: "booklet-mentioned" });
 	for (const m of mentions) {
-		const a = ul.createEl("li").createEl("a", { cls: "booklet-pagelink", attr: { href: "#" } });
-		host.md(inlineMd(linkless(m.title)), a.createSpan({ cls: "booklet-inline markdown-rendered" }));
-		onPress(a, () => host.go(m.place));
+		placeLink(host, ul.createEl("li"), "booklet-pagelink", m.title, m.place);
 	}
 }

@@ -69,6 +69,8 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 		trail: () => all(".booklet-trail > *").map(words),
 		cards: () => all(".booklet-cardrow").map((r) => words(r.querySelector(".booklet-cardtitle"))),
 		tabs: () => all(".booklet-tabbtn").map(words),
+		/** The titles of the named pages drawn (a page title heads each part of a named page). */
+		pageTitles: () => all(".booklet-pagetitle").map(words),
 		tabOn: () => words(el.querySelector(".booklet-tabbtn.is-active") ?? { textContent: "" }),
 		pager: () => ({ at: words(el.querySelector(".booklet-pager-at") ?? { textContent: "" }), buttons: all(".booklet-pager button").map(words) }),
 		title: () => words(el.querySelector(".booklet-screentitle")),

@@ -62,25 +62,24 @@ function store(one) {
 const open = (part) => pane(LESSON, { state: { version: 1, screen: "activity:/a", part }, appMore: store(true) });
 const progress = (p) => (p.el.querySelector(".booklet-steps-progress")?.textContent ?? "").trim();
 const counter = (p) => p.pager().at;
-const titles = (p) => p.all(".booklet-pagetitle").map(p.words);
 
 test("one at a time on a named page: Next moves a step, then a part, then a page, each arriving on its first step; no step is a step in Obsidian's Back", async () => {
 	const p = open(0);
 	await p.settled();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["One"], "1 of 2", "Step 1 of 2"]);
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["One"], "1 of 2", "Step 1 of 2"]);
 	assert.deepEqual(p.pager().buttons, ["Back to the overview", "Next"]);
 	await p.pageNext();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["One"], "1 of 2", "Step 2 of 2"]);
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["One"], "1 of 2", "Step 2 of 2"]);
 	assert.equal(p.hist.back.length, 0, "a step is no step in the pane's history");
 	assert.equal(p.flight.calls, 0, "and asks the pane for nothing");
 	await p.pageNext();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["One"], "2 of 2", "Step 1 of 2"], "the next part, on its first step");
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["One"], "2 of 2", "Step 1 of 2"], "the next part, on its first step");
 	assert.equal(p.hist.back.length, 1);
 	await p.pageNext();
 	assert.deepEqual([counter(p), progress(p)], ["2 of 2", "Step 2 of 2"]);
 	assert.deepEqual(p.pager().buttons.slice(-1), ["Next: Two"], "past the last step of the last part, Next names the next page");
 	await p.pageNext();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["Two"], "", ""], "page two has no steps");
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["Two"], "", ""], "page two has no steps");
 	assert.equal(p.view.getState().page, "two");
 	p.close();
 });
@@ -90,15 +89,15 @@ test("one at a time: Back moves a step first; Back to the part before opens on i
 	await p.settled();
 	assert.deepEqual([counter(p), progress(p)], ["2 of 2", "Step 1 of 2"]);
 	await p.pageBack();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["One"], "1 of 2", "Step 2 of 2"], "the part before, on its last step");
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["One"], "1 of 2", "Step 2 of 2"], "the part before, on its last step");
 	await p.pageBack();
 	assert.equal(progress(p), "Step 1 of 2", "then a step back inside it");
 	assert.deepEqual(p.pager().buttons[0], "Back to the overview");
 	// from page two, Back goes to the top page before it, on its first part and first step
 	for (let i = 0; i < 4; i++) await p.pageNext();
-	assert.deepEqual(titles(p), ["Two"]);
+	assert.deepEqual(p.pageTitles(), ["Two"]);
 	await p.pageBack();
-	assert.deepEqual([titles(p), counter(p), progress(p)], [["One"], "1 of 2", "Step 1 of 2"]);
+	assert.deepEqual([p.pageTitles(), counter(p), progress(p)], [["One"], "1 of 2", "Step 1 of 2"]);
 	p.close();
 });
 
@@ -107,6 +106,6 @@ test("without steps nothing about moving through the pages changes: Back on a la
 	await p.settled();
 	assert.equal(progress(p), "");
 	await p.pageBack();
-	assert.deepEqual([titles(p), counter(p)], [["One"], "1 of 2"]);
+	assert.deepEqual([p.pageTitles(), counter(p)], [["One"], "1 of 2"]);
 	p.close();
 });

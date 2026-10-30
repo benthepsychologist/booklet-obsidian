@@ -19,6 +19,7 @@
 .booklet-card-title p,
 .booklet-prompt p,
 .booklet-words p,
+.booklet-pagetitle p,
 .booklet-tab p {
 	margin: 0;
 }
@@ -33,10 +34,6 @@
 }
 
 /* a named page's title, at the head of each of its parts (page trees: ahead of the format); a heading a move lands on */
-.booklet-pagetitle p {
-	margin: 0;
-}
-
 .booklet-pagetitle {
 	font-size: var(--h3-size);
 	font-weight: var(--h3-weight);
@@ -1632,7 +1629,7 @@
 	min-height: 44px;
 }
 
-/* a screen's title and a page take focus after a move so a keyboard reader starts there; they are not controls, so they show no ring */
+/* a screen's title and a page take focus after a move so a keyboard reader starts there; they are not controls, so they show no ring (the page title is the exception: it shows a ring after a keyboard move, so a keyboard reader sees where focus went; see `.booklet-pagetitle:focus:not(:focus-visible)` above) */
 .booklet-view .booklet-screentitle:focus,
 .booklet-view .booklet-pagebody:focus {
 	outline: none;

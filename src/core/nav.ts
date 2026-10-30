@@ -96,7 +96,7 @@ export function placeFrom(state: unknown): Place | null {
  * One tab of an activity. An activity with no tab line has one, unnamed.
  *
  * `pages` is every part of the tab (a part is a stretch between page breaks, empty ones left out) in reading order, one after another:
- * the 0.16 list, which a place's `part` counts in and the pager walks until the view moves through the tree (page trees, below). `tree`
+ * the 0.16 list, which a place's `part` counts in (the pager walks the tree, `pagerOf`; page trees, below). `tree`
  * is the tab's named pages and its first page, depth first; `top` the ones at the top of the tree. A tab with no page line has a tree
  * of one page, whose parts are exactly `pages`.
  */
@@ -136,7 +136,7 @@ export interface TreePage {
 	parts: Segment[][];
 	/** Where its first part is in the tab's `pages`. */
 	at: number;
-	/** The line of its page line (1-based); the tab's, or the activity's, for a page no page line made. */
+	/** The line of its page line (1-based); 0 for a page no page line made. */
 	line: number;
 }
 
@@ -264,10 +264,13 @@ function splitEmoji(title: string): { title: string; emoji: string | null } {
 	return { title: t.slice(m[0].length), emoji: m[1] };
 }
 
+/** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
+const COMMENT = /<!--[\s\S]*?-->/g;
+
 /** Inline Markdown as plain words: marks, link addresses and footnote marks gone, a link its label, an image its alt text. */
 export function plainText(md: string): string {
 	return md
-		.replace(/<!--[\s\S]*?-->/g, "")
+		.replace(COMMENT, "")
 		.replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1")
 		.replace(/!\[\[[^\]]*\]\]/g, "")
 		.replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
@@ -286,7 +289,7 @@ export function plainText(md: string): string {
  * ends at a thematic break written straight under its text (`- - -`, `***`); one underlined as a heading (`===`, `---`) is a heading.
  */
 export function firstParagraph(md: string): string {
-	for (const p of md.replace(/<!--[\s\S]*?-->/g, "").split(/\n{2,}/)) {
+	for (const p of md.replace(COMMENT, "").split(/\n{2,}/)) {
 		if (!p.trim() || /^\s*(#|>|[-*+] |\d+[.)] |`{3}|~{3})/.test(p)) continue;
 		const lines = p.split("\n");
 		if (lines.some((l, i) => i > 0 && /^ {0,3}(=+|-+)[ \t]*$/.test(l))) continue;
@@ -403,7 +406,7 @@ function readsOf(markdown: string): number {
 
 /** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page (the pages round, 2.3). */
 function holdsWords(segs: readonly Segment[]): boolean {
-	return segs.some((s) => s.type !== "prose" || pagesOf([{ ...s, markdown: s.markdown.replace(/<!--[\s\S]*?-->/g, "") }]).some((pg) => pg.length));
+	return segs.some((s) => s.type !== "prose" || pagesOf([{ ...s, markdown: s.markdown.replace(COMMENT, "") }]).some((pg) => pg.length));
 }
 
 /** The blurb of a page: the first paragraph of its words, when they begin with prose (as an activity's card reads its own). */
@@ -420,7 +423,7 @@ function pageBlurb(parts: readonly Segment[][]): string {
  * numbered and the first is the parent. The reading order is depth first (a page, its first child, that child's children, its next
  * sibling), and `pages` of the result is every part of every page in that order.
  */
-function pageTreeOf(segs: readonly Segment[], first: { title: string; line: number }, problems: string[]): { tree: TreePage[]; top: TreePage[]; pages: Segment[][] } {
+function pageTreeOf(segs: readonly Segment[], first: { title: string }, problems: string[]): { tree: TreePage[]; top: TreePage[]; pages: Segment[][] } {
 	const mk = (o: Partial<TreePage> & Pick<TreePage, "id" | "named" | "written" | "parts" | "line">): TreePage => {
 		const t = splitEmoji(o.written);
 		return { title: t.title || o.id, emoji: t.emoji, icon: null, blurb: pageBlurb(o.parts), parentId: null, parent: null, children: [], at: 0, ...o };
@@ -435,11 +438,11 @@ function pageTreeOf(segs: readonly Segment[], first: { title: string; line: numb
 	// a tab with no page line is one page, its words: every 0.16 tab (the pages are only its parts)
 	if (!heads.length) {
 		const parts = pagesOf(segs);
-		const only = mk({ id: "", named: false, written: first.title, parts, line: first.line });
+		const only = mk({ id: "", named: false, written: first.title, parts, line: 0 });
 		return { tree: [only], top: [only], pages: parts };
 	}
 	const list: TreePage[] = [];
-	if (holdsWords(before)) list.push(mk({ id: "", named: false, written: first.title, parts: pagesOf(before), line: first.line }));
+	if (holdsWords(before)) list.push(mk({ id: "", named: false, written: first.title, parts: pagesOf(before), line: 0 }));
 	const written = heads.map((h, n) => h.seg.id ?? pageIdOf(h.seg.title, n + 1));
 	// a page's id must name one page, since a saved place and a `parent:` name it: a second `g` is `g-2`, and when a later page wrote `g-2`
 	// itself the next free number is taken (`g`, `g`, `g-2` are `g`, `g-2`, `g-3`), each decided in the file's order so the ids stay as they are
@@ -513,7 +516,7 @@ function pageTreeOf(segs: readonly Segment[], first: { title: string; line: numb
 	return { tree, top, pages };
 }
 
-function tabOf(id: string, title: string, segs: readonly Segment[], first: { title: string; line: number }, problems: string[]): ActTab {
+function tabOf(id: string, title: string, segs: readonly Segment[], first: { title: string }, problems: string[]): ActTab {
 	const t = pageTreeOf(segs, first, problems);
 	return { id, title, pages: t.pages, tree: t.tree, top: t.top };
 }
@@ -645,19 +648,18 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const w = calloutWords("activity", lm?.[2]);
 		const t = splitEmoji(a.title);
 		const opening: Segment[] = [];
-		const raw: { id: string | null; title: string; segs: Segment[]; line: number }[] = [];
-		const hasTabLine = a.segments.some((x) => x.type === "tab");
+		const raw: { id: string | null; title: string; segs: Segment[] }[] = [];
 		for (const s of a.segments) {
 			if (s.type === "tab") {
 				const tm = CALLOUT_LINE.exec(lines[s.line - 1] ?? "");
-				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, segs: [], line: s.line });
+				raw.push({ id: calloutWords("tab", tm?.[2]).id, title: s.title, segs: [] });
 			} else if (raw.length) (raw[raw.length - 1] as (typeof raw)[number]).segs.push(s);
-			else if (s.type !== "page" || !hasTabLine) opening.push(s); // a page line in the opening above the tabs is not read (the reader says so)
+			else opening.push(s);
 		}
 		const ids = uniqueIds(raw.map((r, n) => r.id ?? tabIdOf(r.title, n + 1)));
 		const tabs: ActTab[] = raw.length
-			? raw.map((r, n) => tabOf(ids[n] as string, r.title, r.segs, { title: r.title, line: r.line }, problems))
-			: [tabOf("", "", opening, { title: t.title, line: a.line + 1 }, problems)];
+			? raw.map((r, n) => tabOf(ids[n] as string, r.title, r.segs, { title: r.title }, problems))
+			: [tabOf("", "", opening, { title: t.title }, problems)];
 		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line (the pages round, 2.7)
 		const first = a.segments.find((s) => s.type !== "page");
 		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0) + foldedGroups(a.segments);
@@ -1169,7 +1171,7 @@ export function headingLinksIn(markdown: string): string[] {
 			l = l.slice(end + 3);
 			comment = false;
 		}
-		l = l.replace(/<!--[\s\S]*?-->/g, "");
+		l = l.replace(COMMENT, "");
 		const open = l.indexOf("<!--");
 		if (open >= 0) {
 			l = l.slice(0, open);

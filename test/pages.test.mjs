@@ -6,15 +6,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { core, norm } from "./helpers.mjs";
+import { WIKI, build, core, norm } from "./helpers.mjs";
 
 const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Harbour\n${extra}---\n`;
 const ACT = "> [!activity|notes] Harbour notes\n";
 const note = (body, act = ACT) => `${head()}\n${act}\n${body}`;
-const build = (text) => {
-	const book = core.parseBooklet(text);
-	return { book, nav: core.buildNav(book, text) };
-};
 const tabOf = (text, n = 0, key = "/notes") => build(text).nav.byKey.get(key).tabs[n];
 /** A tab's tree as indented lines: the id of a named page (its title for a page no page line made, in brackets), two spaces for each level. */
 const outline = (tab) =>
@@ -118,19 +114,6 @@ test("in an activity with tabs, a page line before the first tab line is ignored
 	const a = build(t).nav.byKey.get("/notes");
 	assert.deepEqual(norm(a.opening.map((s) => s.type === "prose" && s.markdown)), ["Opening words.", "More opening."]);
 	assert.deepEqual(outline(a.tabs[0]), ["p"]);
-});
-
-test("a page line inside a row, in a data section and in a group is not a page; one after the row is", () => {
-	const row = note("> [!row]\n\n## Cell\n\n> [!page|inrow] In the row\n\nWords.\n\n> [!row|end]\n\n> [!page|after] After the row\n\nMore.\n");
-	assert.deepEqual(problems(row), ["Line 12: a page line inside a row, which cannot hold one, so it was ignored."]);
-	assert.deepEqual(outline(tabOf(row)), ["(Harbour notes)", "after"], "the row's words are the tab's first page");
-	// in a group the line is nested, so it is the group's text and not a line of its own
-	const group = note("> [!group]\n> > [!page|inside] Inside a group\n\n> [!page|outside] Outside\n\nWords.\n");
-	assert.deepEqual(problems(group).filter((x) => /page/.test(x)), []);
-	assert.deepEqual(outline(tabOf(group)), ["(Harbour notes)", "outside"]);
-	// in a data section only blocks are read
-	const data = `${head()}\n${ACT}\n> [!page|p] Real\n\nWords.\n\n> [!data] Data\n\n> [!page|indata] In the data section\n`;
-	assert.deepEqual(outline(tabOf(data)), ["p"]);
 });
 
 /* ---- the shape of a tab's tree (the proposal's shape (b)) ---- */
@@ -290,8 +273,7 @@ test("a link by words reaches a page by its title, on its first part; a heading 
 /* ---- the worked examples (proposal 5.1 and 5.2), with made-up words ---- */
 
 test("the check-in as one activity with a wiki tab (5.1): three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
-	const src = readFileSync(new URL("./page-notes/Check-in with a wiki.booklet.md", import.meta.url), "utf8");
-	const { book, nav } = build(src);
+	const { book, nav } = build(WIKI);
 	assert.deepEqual(book.problems, [], "a 0.17 file whose lines the view reads says nothing of its marker");
 	assert.deepEqual(nav.problems, []);
 	const a = nav.byKey.get("calm/check-in");

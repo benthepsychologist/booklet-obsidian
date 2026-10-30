@@ -41,7 +41,6 @@ import {
 	moduleTitle,
 	newestFirst,
 	mentionsOf,
-	pageAtPart,
 	pagerOf,
 	parseBooklet,
 	pickKey,
@@ -87,7 +86,7 @@ import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { drawQueryPlan, words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
-import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
+import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
 
 export const VIEW_TYPE = "booklet";
@@ -425,8 +424,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.moving = true;
 		this.stepWanted = true;
-		const asked = placeState(p, this.nav);
-		const state: Record<string, unknown> = { ...this.getState(), ...asked };
+		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p, this.nav) };
 		if (!p.tab) delete state["tab"];
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
@@ -1011,8 +1009,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
 		const bar = barTabs(na);
 		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
-		const shownAt = Math.min(place.part, tab.pages.length - 1);
-		const here = pageAtPart(tab, shownAt).page;
+		const pager = pagerOf(na, tab, place);
+		const here = pager.page;
 		const above: TreePage[] = [];
 		for (let q = here.parent; q; q = q.parent) above.unshift(q);
 		const onTree = here.named && !!here.parent;
@@ -1023,7 +1021,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			crumbs.push({ md: here.title, to: null });
 		}
 		// a tab with a menu marks the page on show there, and a screen marks one: its trail ends in plain words
-		const menu = tab.tree.some((x) => x.named) && tab.tree.length > 1;
+		const menu = pager.pageLines && tab.tree.length > 1;
 		drawTrail(this, page, crumbs, menu);
 
 		const card = page.createDiv({ cls: "booklet-card booklet-act" });
@@ -1051,16 +1049,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!asPanel && na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
-		const pager = pagerOf(na, tab, place);
 		// a tab of named pages with two or more pages has a menu of its tree, with a search (a tab with none is a 0.16 tab and is drawn as it was)
-		const tree = tab.tree.some((x) => x.named);
 		if (menu) {
 			const key = `${place.screen}#${tab.id}`;
 			const state = this.menus.get(key) ?? { open: false, query: "" };
 			this.menus.set(key, state);
 			drawPageMenu(this, card, tab, pager.page, (q) => ({ screen: place.screen, tab: place.tab, part: q.at }), state);
 		}
-		const counter = pager.of > 1 ? (pager.pageLines ? `${pager.at + 1} of ${pager.of}` : `Page ${pager.at + 1} of ${pager.of}`) : null;
+		const counter = pager.of > 1 ? pagerCount(pager.at, pager.of, pager.pageLines) : null;
 		// the group keeps its own name with the count: "Soil, 2 of 3" on a named page ("2 of 3" alone says nothing of what it counts)
 		const label = counter && pager.page.named ? `${plainText(pager.page.title)}, ${counter}` : counter;
 		const body = card.createDiv({ cls: "booklet-pagebody", attr: label ? { role: "group", "aria-label": label } : {} });
@@ -1083,7 +1079,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const stepping = one ? this.drawStepsOf(body, a, lead, steps, stepKey(at)) : null;
 		if (!one) this.drawNodes(body, a, blocks);
 		// under the last part of a page come the pages under it, as cards, and the pages that link to it
-		if (tree && pager.at === pager.of - 1) {
+		if (pager.pageLines && pager.at === pager.of - 1) {
 			if (pager.page.children.length) {
 				card.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Pages under this one" });
 				drawCards(

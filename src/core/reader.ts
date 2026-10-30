@@ -792,17 +792,13 @@ export function parseBooklet(text: string): Booklet {
 				problems.push(`${at(i)}: \`earlier:${earlier}\` is not a whole number written in digits, so it was ignored and the question offers its default.`);
 				delete w.set["earlier"];
 			}
-			if (open.length && STRUCTURE_KINDS.has(kind)) {
-				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines
-				problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
-				i = bodyEnd(lines, i) - 1;
-				continue;
-			}
-			if (open.length && kind === "page") {
-				// a page line inside a group or another callout's body is that body's text, not a page: a page is a part of a tab, and a
-				// callout is a part of a page (the body is read with one `>` less, so a `> > [!page]` there looks like a page line)
+			if (open.length && (STRUCTURE_KINDS.has(kind) || kind === "page")) {
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line there is that
+				// body's text, not a page: a page is a part of a tab, and a callout is a part of a page (the body is read with one `>`
+				// less, so a `> > [!page]` there looks like a page line)
 				const k = bodyEnd(lines, i);
-				pushText(lines.slice(i, k), i);
+				if (kind === "page") pushText(lines.slice(i, k), i);
+				else problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
 				i = k - 1;
 				continue;
 			}

@@ -5,21 +5,11 @@
 import "./fixed-date.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { core, norm, sha } from "./helpers.mjs";
-import { window as w, typeInto } from "./dom.mjs";
+import { SKETCH, WIKI, build, core, norm, sha, wikiAt } from "./helpers.mjs";
+import { window as w, click, press, typeInto } from "./dom.mjs";
 import { pane } from "./pane.mjs";
 
-const CHECKIN = readFileSync(new URL("./page-notes/Check-in with a wiki.booklet.md", import.meta.url), "utf8");
-const SKETCH = readFileSync(new URL("../test-vault/Learning to sketch.booklet.md", import.meta.url), "utf8");
-const SCREEN = "activity:calm/check-in";
-const at = (tab, part) => ({ version: 1, screen: SCREEN, tab, part });
-const build = (text) => {
-	const book = core.parseBooklet(text);
-	return { book, nav: core.buildNav(book, text) };
-};
-const wiki = () => build(CHECKIN).nav.byKey.get("calm/check-in").tabs.find((t) => t.id === "wiki");
-const click = (el) => el.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+const wiki = () => build(WIKI).nav.byKey.get("calm/check-in").tabs.find((t) => t.id === "wiki");
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
 const menuTree = (p) => {
 	const walk = (ul) => [...ul.children].map((li) => ({ t: p.words(li.querySelector(":scope > a")), kids: li.querySelector(":scope > ul") ? walk(li.querySelector(":scope > ul")) : [] }));
@@ -28,8 +18,7 @@ const menuTree = (p) => {
 const hits = (p) => [...menu(p).querySelectorAll(".booklet-pagelist a")].map(p.words);
 const search = (p, words) => {
 	const input = menu(p).querySelector("input");
-	input.value = words;
-	input.dispatchEvent(new w.Event("input", { bubbles: true }));
+	typeInto(input, words);
 };
 
 /* ---- the search and the mentions, in the model ---- */
@@ -53,7 +42,7 @@ test("heading links are found as the view follows them: [[#Words]], [[#Words|lab
 });
 
 test("\"Mentioned on\": every page whose words hold a link that opens the page, from anywhere in the module; never the page itself", () => {
-	const { nav } = build(CHECKIN);
+	const { nav } = build(WIKI);
 	const na = nav.byKey.get("calm/check-in");
 	const tab = na.tabs.find((t) => t.id === "wiki");
 	const of = (title) => norm(core.mentionsOf(nav, na, tab, tab.tree.find((p) => p.title === title)).map((m) => [m.title, m.place.part]));
@@ -130,7 +119,7 @@ test("\"Mentioned on\" names a source by its page, with its tab and activity whe
 /* ---- the menu, the cards and "Mentioned on", in the view ---- */
 
 test("a tab of pages has a closed menu \"Pages in this tab\" holding its tree, the page on show marked; a 0.16 tab and a tab of one page have none", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 3) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 3) });
 	await p.settled();
 	const m = menu(p);
 	assert.ok(m, "the menu is drawn");
@@ -146,12 +135,12 @@ test("a tab of pages has a closed menu \"Pages in this tab\" holding its tree, t
 	assert.equal(m.querySelector("a.is-active").getAttribute("aria-current"), "page");
 	p.close();
 	// the quiz tab holds two pages and no tree below them: a menu of two is drawn all the same, as the rule is the same for every tab of pages
-	const quiz = pane(CHECKIN, { state: at("quiz", 0) });
+	const quiz = pane(WIKI, { state: wikiAt("quiz", 0) });
 	await quiz.settled();
 	assert.deepEqual(menuTree(quiz).map((x) => x.t), ["Your body", "Your mind"]);
 	quiz.close();
 	// the dashboard tab has one page and no page line; a 0.16 note has no menu at all
-	const dash = pane(CHECKIN, { state: at("dashboard", 0) });
+	const dash = pane(WIKI, { state: wikiAt("dashboard", 0) });
 	await dash.settled();
 	assert.equal(menu(dash), null);
 	dash.close();
@@ -163,7 +152,7 @@ test("a tab of pages has a closed menu \"Pages in this tab\" holding its tree, t
 });
 
 test("a press on a page in the menu opens it as a step; the menu stays open for the pane, and the words in its search box with it", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 0) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 0) });
 	await p.settled();
 	menu(p).open = true;
 	menu(p).dispatchEvent(new w.Event("toggle"));
@@ -172,22 +161,22 @@ test("a press on a page in the menu opens it as a step; the menu stays open for 
 	const link = [...menu(p).querySelectorAll(".booklet-pagelist a")].find((a) => p.words(a) === "The feelings grid");
 	click(link);
 	await p.settled();
-	assert.deepEqual(p.all(".booklet-pagetitle").map(p.words), ["The feelings grid"]);
+	assert.deepEqual(p.pageTitles(), ["The feelings grid"]);
 	assert.equal(p.hist.back.length, before + 1, "a step");
 	assert.equal(menu(p).open, true, "still open on the next page");
 	assert.equal(menu(p).querySelector("input").value, "grid", "with its words");
 	assert.equal(p.disk.writes, 0);
-	assert.equal(sha(p.disk.text), sha(CHECKIN));
+	assert.equal(sha(p.disk.text), sha(WIKI));
 	// a pane closed and a note opened again starts with the menu closed
 	p.close();
-	const q = pane(CHECKIN, { state: at("wiki", 4) });
+	const q = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await q.settled();
 	assert.equal(menu(q).open, false);
 	q.close();
 });
 
 test("the search lists the pages whose title or words hold the words typed, titles first; none says so; Enter opens the first; Escape clears", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 0) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 0) });
 	await p.settled();
 	search(p, "grid");
 	assert.deepEqual(hits(p), ["The feelings grid", "Learn", "The two axes"], "the title first, then the pages whose words hold it, in reading order");
@@ -195,10 +184,10 @@ test("the search lists the pages whose title or words hold the words typed, titl
 	assert.equal(p.words(menu(p).querySelector(".booklet-pagelist")), "No page has those words.");
 	search(p, "axes");
 	const input = menu(p).querySelector("input");
-	input.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+	press(input, "Enter");
 	await p.settled();
-	assert.deepEqual(p.all(".booklet-pagetitle").map(p.words), ["The two axes"]);
-	menu(p).querySelector("input").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	assert.deepEqual(p.pageTitles(), ["The two axes"]);
+	press(menu(p).querySelector("input"), "Escape");
 	assert.equal(menu(p).querySelector("input").value, "");
 	assert.equal(menuTree(p).length, 4, "the tree again");
 	assert.equal(p.disk.writes, 0);
@@ -206,26 +195,26 @@ test("the search lists the pages whose title or words hold the words typed, titl
 });
 
 test("under the last part of a page come the pages under it as cards, numbered, with their blurbs; a page with none has none, and a tab's first page has none", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 1) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 1) });
 	await p.settled();
 	assert.deepEqual(p.cards(), ["1.Choosing a place", "2.Words for what you notice"]);
 	assert.equal(p.words(p.el.querySelector(".booklet-cards .booklet-blurb")), "Tap the place that comes nearest. If nothing fits, write it in Something else on the Check in tab.");
 	click(p.all(".booklet-cardrow")[1]);
 	await p.settled();
-	assert.deepEqual(p.all(".booklet-pagetitle").map(p.words), ["Words for what you notice"]);
+	assert.deepEqual(p.pageTitles(), ["Words for what you notice"]);
 	assert.deepEqual(p.cards(), []);
 	assert.equal(p.hist.back.length, 1, "a card is a step");
 	p.close();
-	// a page of two parts shows its cards only after its last part
-	const grid = pane(CHECKIN, { state: at("wiki", 4) });
+	// a page of one part shows its cards at once; the first of two parts shows none (the full rule is the test "a page of two parts with a page under it...", below)
+	const grid = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await grid.settled();
 	assert.deepEqual(grid.cards(), ["1.The two axes", "2.More than one at once"]);
 	grid.close();
-	const parts = pane(CHECKIN, { state: at("wiki", 5) });
+	const parts = pane(WIKI, { state: wikiAt("wiki", 5) });
 	await parts.settled();
 	assert.deepEqual(parts.cards(), [], "the two axes has no page under it");
 	parts.close();
-	const first = pane(CHECKIN, { state: at("wiki", 0) });
+	const first = pane(WIKI, { state: wikiAt("wiki", 0) });
 	await first.settled();
 	assert.deepEqual(first.cards(), [], "the tab's first page, made of the words before the first page line, has no pages under it");
 	first.close();
@@ -240,17 +229,17 @@ test("a tab with an activity-level card list still shows its own: pages under a 
 });
 
 test("\"Mentioned on\" lists the pages that link to the page on show, each a link to the page that holds the link; it is shown under the cards, and writes nothing", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 2) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 2) });
 	await p.settled();
 	assert.ok(p.el.querySelector(".booklet-meta + .booklet-mentioned"), "a heading, then the list");
 	assert.equal(p.words(p.el.querySelector(".booklet-mentioned").previousElementSibling), "Mentioned on");
 	assert.deepEqual(p.all(".booklet-mentioned a").map(p.words), ["The body map"]);
 	click(p.all(".booklet-mentioned a")[0]);
 	await p.settled();
-	assert.deepEqual(p.all(".booklet-pagetitle").map(p.words), ["The body map"]);
+	assert.deepEqual(p.pageTitles(), ["The body map"]);
 	assert.equal(p.hist.back.length, 1);
 	// a page nobody links to has none
-	const q = pane(CHECKIN, { state: at("wiki", 5) });
+	const q = pane(WIKI, { state: wikiAt("wiki", 5) });
 	await q.settled();
 	assert.equal(q.all(".booklet-mentioned").length, 0);
 	assert.equal(q.disk.writes + p.disk.writes, 0);
@@ -259,7 +248,7 @@ test("\"Mentioned on\" lists the pages that link to the page on show, each a lin
 });
 
 test("typed words survive a move through the menu: they are written before the move", async () => {
-	const p = pane(CHECKIN, { state: at("quiz", 1) });
+	const p = pane(WIKI, { state: wikiAt("quiz", 1) });
 	await p.settled();
 	const field = p.all("[data-booklet-q='other'] input.booklet-text")[0] ?? p.all("[data-booklet-q='other'] textarea")[0];
 	assert.ok(field);

@@ -7,22 +7,12 @@ import "./fixed-date.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { core, sha } from "./helpers.mjs";
-import { window as w, typeInto } from "./dom.mjs";
+import { WIKI, build, core, sha, wikiAt } from "./helpers.mjs";
+import { window as w, click, press, typeInto } from "./dom.mjs";
 import { pane, sleep } from "./pane.mjs";
 
-const CHECKIN = readFileSync(new URL("./page-notes/Check-in with a wiki.booklet.md", import.meta.url), "utf8");
-const SCREEN = "activity:calm/check-in";
-const at = (tab, part) => ({ version: 1, screen: SCREEN, tab, part });
 const head = (marker = "0.17") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
-const build = (text) => {
-	const book = core.parseBooklet(text);
-	return { book, nav: core.buildNav(book, text) };
-};
-const click = (el) => el.dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
-const key = (el, k) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
-const titleOf = (p) => p.all(".booklet-pagetitle").map(p.words);
 const only = (nav) => [...nav.byKey.values()][0];
 
 /* ---- S1: a page line inside a comment, a `<pre>` or a `$$` block; what "Mentioned on" counts ---- */
@@ -80,25 +70,23 @@ test("a source whose only link sits in a comment is not listed under the page it
 /* ---- S2: Enter in an empty search box ---- */
 
 test("Enter in a search box with no words does nothing: no move, no step in the history; with words it opens the first hit", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 4) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await p.settled();
-	const here = titleOf(p);
+	const here = p.pageTitles();
 	const steps = p.hist.back.length;
 	const calls = p.flight.calls;
 	const input = menu(p).querySelector("input");
 	for (const typed of ["", "   ", " * "]) {
-		input.value = typed;
-		input.dispatchEvent(new w.Event("input", { bubbles: true }));
-		key(input, "Enter");
+		typeInto(input, typed);
+		press(input, "Enter");
 		await p.settled();
-		assert.deepEqual(titleOf(p), here, `"${typed}": the page on show is the same`);
+		assert.deepEqual(p.pageTitles(), here, `"${typed}": the page on show is the same`);
 		assert.equal(p.hist.back.length, steps, "no history step");
 		assert.equal(p.flight.calls, calls, "no move asked for");
 	}
 	assert.equal(p.disk.writes, 0);
-	input.value = "axes";
-	input.dispatchEvent(new w.Event("input", { bubbles: true }));
-	key(input, "Enter");
+	typeInto(input, "axes");
+	press(input, "Enter");
 	await p.settled();
 	assert.equal(p.hist.back.length, steps + 1);
 	p.close();
@@ -156,7 +144,7 @@ test("a page turn in the view on 600 cross-linked pages takes well under the bou
 	const t0 = performance.now();
 	await p.pageNext();
 	const ms = performance.now() - t0;
-	assert.deepEqual(titleOf(p), ["Page 300"]);
+	assert.deepEqual(p.pageTitles(), ["Page 300"]);
 	assert.ok(ms < 3000, `${Math.round(ms)} ms`);
 	p.close();
 });
@@ -196,7 +184,7 @@ test("a saved place for the third of g, g, g-2 reopens the third page, not the s
 	const text = `${head()}> [!activity|a] A\n\n> [!page|g] First\n\nOne.\n\n> [!page|g] Second\n\nTwo.\n\n> [!page|g-2] Third\n\nThree.\n`;
 	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "g-3", part: 0 } });
 	await p.settled();
-	assert.deepEqual(titleOf(p), ["Third"]);
+	assert.deepEqual(p.pageTitles(), ["Third"]);
 	assert.deepEqual(p.view.getState().page, "g-3");
 	p.close();
 });
@@ -269,7 +257,7 @@ test("a page line in a data section is said and ignored", () => {
 /* ---- S7: the menu, focus, headings, labels ---- */
 
 test("the page title is a heading a move lands on: a press on the menu or on Next focuses it; the first drawing and a drawing from history do not; the menu stays open", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 1) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 1) });
 	await p.settled();
 	const h = p.el.querySelector(".booklet-pagetitle");
 	assert.equal(h.tagName, "H2");
@@ -295,7 +283,7 @@ test("the page title is a heading a move lands on: a press on the menu or on Nex
 
 test("exactly one aria-current=page on a screen with a menu: the menu's; the trail's last step is plain words", async () => {
 	for (const [tab, part] of [["wiki", 0], ["wiki", 1], ["wiki", 4], ["quiz", 0]]) {
-		const p = pane(CHECKIN, { state: at(tab, part) });
+		const p = pane(WIKI, { state: wikiAt(tab, part) });
 		await p.settled();
 		const current = p.all("[aria-current='page']");
 		assert.equal(current.length, 1, `${tab} ${part}: ${current.map(p.words).join("|")}`);
@@ -317,7 +305,7 @@ test("exactly one aria-current=page on a screen with a menu: the menu's; the tra
 });
 
 test("a page group's label keeps the page's own name with the count; a tab of no page line keeps \"Page 2 of 3\"", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 5) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 5) });
 	await p.settled();
 	assert.equal(p.pager().at, "1 of 2");
 	assert.equal(p.el.querySelector(".booklet-pagebody").getAttribute("aria-label"), "The two axes, 1 of 2");
@@ -367,31 +355,18 @@ test("the menu is not drawn for a tab of one page", async () => {
 });
 
 test("the menu's open state is kept by the toggle event, and dropped when a different note loads", async () => {
-	const p = pane(CHECKIN, { state: at("wiki", 1) });
+	const p = pane(WIKI, { state: wikiAt("wiki", 1) });
 	await p.settled();
 	menu(p).open = true;
 	menu(p).dispatchEvent(new w.Event("toggle"));
 	await p.pageNext();
 	assert.equal(menu(p).open, true, "kept across a move, by the toggle alone (nothing typed)");
 	assert.equal(menu(p).querySelector("input").value, "");
-	p.view.setViewData(CHECKIN, true);
+	p.view.setViewData(WIKI, true);
 	await p.settled();
-	p.view.go(at("wiki", 1));
+	p.view.go(wikiAt("wiki", 1));
 	await p.settled();
 	assert.equal(menu(p).open, false, "a note loaded again starts with the menu closed");
-	p.close();
-});
-
-test("typed words are written before a move to another page (the draft is really typed this time)", async () => {
-	const p = pane(CHECKIN, { state: at("quiz", 1) });
-	await p.settled();
-	const field = p.all("[data-booklet-q='other'] input.booklet-text")[0] ?? p.all("[data-booklet-q='other'] textarea")[0];
-	assert.ok(field);
-	typeInto(field, "a made-up draft typed before the move");
-	await p.pageBack();
-	await sleep(40);
-	await p.view.writes;
-	assert.ok(p.disk.text.includes("a made-up draft typed before the move"));
 	p.close();
 });
 
@@ -408,4 +383,59 @@ test("moving off a named page leaves no page in the saved place: it reads as ver
 	assert.equal(s.version, 1);
 	assert.equal(sha(p.disk.text), sha(text));
 	p.close();
+});
+
+/* ---- lines the mutation run showed no test could break (the 0.8.0 trim) ---- */
+
+test("\"Mentioned on\" counts a link after a closed <pre>, $$ or comment block, after a fence, and after an indented block, wherever the text starts", () => {
+	const blocks = ["<pre>\n[[#Hidden]]\n</pre>", "$$\n[[#Hidden]]\n$$", "<!--\n[[#Hidden]]\n-->", "```\n[[#Hidden]]\n```", "Text.\n\n    [[#Hidden]]"];
+	for (const block of blocks) assert.deepEqual(core.headingLinksIn(`${block}\n[[#Seen]]`), ["Seen"], `after ${JSON.stringify(block)}`);
+	assert.deepEqual(core.headingLinksIn(`[[#Before]]\n\`\`\`\n[[#Hidden]]\n\`\`\`\n[[#After]]`), ["Before", "After"], "a fence in the middle");
+	assert.deepEqual(core.headingLinksIn("Text.\n\n    [[#Hidden]]\n\n[[#Seen]]"), ["Seen"], "after an indented block and a blank line");
+	assert.deepEqual(core.headingLinksIn("    [[#Hidden]]\n\n[[#Seen]]"), ["Seen"], "an indented block that opens the text is code");
+});
+
+test("the search holds the prompts of a page's questions, as the README says", () => {
+	const text = `${head()}> [!activity|a] A\n\n> [!page|one] One\n\nWords.\n\n> [!text|q1] Which zebra did you see?\n\n> [!page|two] Two\n\nOther words.\n`;
+	const tab = only(build(text).nav).tabs[0];
+	assert.deepEqual(core.searchPages(tab, "zebra").map((p) => p.title), ["One"]);
+	assert.deepEqual(core.searchPages(tab, "zebra words").map((p) => p.title), ["One"], "with a word of its prose too");
+});
+
+test("a page whose title starts with an emoji is found by a link with or without it, and counted in \"Mentioned on\" for either", () => {
+	const text = `${head()}> [!activity|a] A\n\n> [!page|waves] 🌊 Big waves\n\nWords.\n\n> [!page|plain] Plain one\n\nSee [[#Big waves]].\n\n> [!page|written] Written one\n\nSee [[#🌊 Big waves]].\n\n> [!page|none] Unlinked\n\nNothing.\n`;
+	const { nav } = build(text);
+	const na = only(nav);
+	const tab = na.tabs[0];
+	const waves = tab.tree.find((p) => p.id === "waves");
+	assert.equal(waves.title, "Big waves");
+	for (const link of ["Big waves", "🌊 Big waves"]) assert.equal(core.findHeading(nav, link, null)?.place.part, waves.at, `a link to "${link}"`);
+	assert.deepEqual(core.mentionsOf(nav, na, tab, waves).map((m) => m.title), ["Plain one", "Written one"]);
+});
+
+test("the menu's search box stops the keys it uses: Escape (with words) and Enter (with a hit) keep their default and go no further", async () => {
+	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
+	await p.settled();
+	let reached = 0;
+	p.el.addEventListener("keydown", () => reached++);
+	const input = menu(p).querySelector("input");
+	typeInto(input, "axes");
+	assert.equal(press(input, "Escape"), false, "Escape with words in the box: default prevented");
+	assert.equal(reached, 0, "and not passed up (Obsidian would close a modal or the pane on it)");
+	assert.equal(input.value, "", "and the words are cleared");
+	assert.equal(press(input, "Escape"), true, "Escape in an empty box is left to the app");
+	assert.equal(reached, 1);
+	typeInto(input, "axes");
+	assert.equal(press(input, "Enter"), false, "Enter with a hit: default prevented");
+	await p.settled();
+	assert.deepEqual(p.pageTitles(), ["The two axes"]);
+	p.close();
+});
+
+test("a cycle is found when a chain read earlier has already been walked, and a page under the cycle stays under its page", () => {
+	const text = `${head()}> [!activity|a] A\n\n> [!page|a1 parent:a2] A1\n\n> [!page|a2 parent:root] A2\n\n> [!page|root] Root\n\n> [!page|c parent:d] C\n\n> [!page|d parent:c] D\n\n> [!page|e parent:c] E\n`;
+	const { nav } = build(text);
+	const tab = only(nav).tabs[0];
+	assert.deepEqual(tab.tree.map((p) => `${p.id}<${p.parent?.id ?? ""}`), ["root<", "a2<root", "a1<a2", "c<", "e<c", "d<"], "the chain under Root is read, then the cycle's two pages at the top, E under C");
+	assert.deepEqual(nav.problems.map((x) => x.replace(/^Line \d+: /, "")), ['the page "c" is its own ancestor (through "d"), so it stands at the top of the tab.', 'the page "d" is its own ancestor (through "c"), so it stands at the top of the tab.']);
 });

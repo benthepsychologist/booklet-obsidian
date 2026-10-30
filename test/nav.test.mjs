@@ -4,13 +4,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SKETCH, core, norm } from "./helpers.mjs";
+import { SKETCH, build, core, norm } from "./helpers.mjs";
 
 const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Learning to sketch\n${extra}---\n`;
-const build = (text) => {
-	const book = core.parseBooklet(text);
-	return { book, nav: core.buildNav(book, text) };
-};
 const act = (nav, key) => nav.byKey.get(key);
 
 /* ---- where a booklet opens (SPEC section 2, `start`) ---- */

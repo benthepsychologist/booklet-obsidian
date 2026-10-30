@@ -71,8 +71,8 @@ export const typeInto = (el, value) => {
 	el.value = value;
 	el.dispatchEvent(new w.Event("input", { bubbles: true }));
 };
-/** A key pressed in an element. */
-export const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true }));
+/** A key pressed in an element: cancelable, so a handler's `preventDefault` can be seen. */
+export const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
 // the view's bundle, once the globals above are in place
 const { BookletView } = await import("./.build/view.mjs");
