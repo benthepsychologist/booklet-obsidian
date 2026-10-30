@@ -9,6 +9,7 @@
  *            once, into the draft of a `repeat` one;
  *   keep     Finalize every `repeat` activity that holds a draft; for a `repeat daily` one, change an
  *            answer and finalize again the same day, which replaces that day's entry;
+ *   remove   take the entry that was kept back out of every `repeat` activity, by its position in the list;
  *   clear    clear every answer that was set.
  * After every step:
  *   (a) every byte outside the records region is unchanged;
@@ -21,6 +22,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, expectedLint, lint, lintDiffers, norm, pythonAvailable, read } from "./helpers.mjs";
+
+// removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
+const rm = (text, scope, id, at, ts, expect) => {
+	if (expect === undefined) {
+		const e = core.parseBooklet(text).records.entries[scope]?.[id]?.[at];
+		expect = e ? core.entryKey(e) : "";
+	}
+	return core.removeEntry(text, scope, id, at, ts, expect);
+};
 
 // the external corpus exists only on the box the plugin was built on: a folder that is not there is skipped, not failed
 for (const d of corpusDirs())
@@ -243,6 +253,8 @@ for (const file of corpusFiles()) {
 
 		/* ---- keep: Finalize every repeating activity that holds a draft ---- */
 		let kept = answered;
+		/** The ts of the entry kept last in each repeating activity (the one the remove step takes out). */
+		const lastKept = new Map();
 		const repeating = book.activities.filter((a) => a.repeat && a.id && set.some((s) => s.act === a));
 		for (const a of repeating) {
 			const before = kept;
@@ -268,6 +280,7 @@ for (const file of corpusFiles()) {
 			}
 			for (const old of was) if (!(f.replaced && RULE.dayOf(old.ts) === RULE.today)) assert.ok(now.some((x) => x.ts === old.ts), `${a.id}: the entry ${old.ts} is kept`);
 			assertLints(kept, `finalize ${a.id}`, lintWant);
+			lastKept.set(a, f.entry.ts);
 
 			if (!a.daily) continue;
 			// the same day again: the draft shows today's entry; one change, and Finalize replaces it
@@ -284,6 +297,26 @@ for (const file of corpusFiles()) {
 			assertOutsideUnchanged(orig, g.text, `again ${a.id}`);
 			assertLints(g.text, `again ${a.id}`, lintWant);
 			kept = g.text;
+			lastKept.set(a, g.entry.ts);
+		}
+
+		/* ---- remove: the entry that was just kept goes, by its position, and nothing else changes ---- */
+		let gone = kept;
+		for (const a of repeating) {
+			const before = gone;
+			const was = core.parseBooklet(before).records.entries[a.scope]?.[a.id] ?? [];
+			const ts = lastKept.get(a);
+			const at = was.findIndex((x) => x.ts === ts);
+			assert.ok(at >= 0, `${a.id}: the entry kept last is in the list`);
+			const r = rm(before, a.scope, a.id, at, ts);
+			assert.ok(r.removed >= 1, `${a.id}: the entry is removed`);
+			gone = r.text;
+			assertOutsideUnchanged(orig, gone, `remove ${a.id}`);
+			assertRecordsKept(before, gone, new Map([[`entries|${a.scope}|${a.id}`, new Set([String(ts)])]]), `remove ${a.id}`);
+			const now = core.parseBooklet(gone).records;
+			assert.deepEqual(norm(now.entries[a.scope]?.[a.id] ?? []), norm(was.filter((_, i) => i !== at)), `${a.id}: every other entry reads back as it was`);
+			assert.deepEqual(norm(now.drafts), norm(core.parseBooklet(before).records.drafts), `${a.id}: the drafts are as they were`);
+			assertLints(gone, `remove ${a.id}`, lintWant);
 		}
 
 		/* ---- clear every answer that was set ---- */

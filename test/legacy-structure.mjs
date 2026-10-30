@@ -2,11 +2,19 @@
  * What a note with no page line is, as a plain structure, and how it draws: the reading (parseBooklet), the navigation model (buildNav), and
  * the DOM of every place the view can show (home, each module screen and tab, each activity's screen, tab and part), hashed.
  *
- * The page-trees release (0.8.0) must leave every 0.16 note exactly as it was: test/legacy.test.mjs compares this structure with
- * test/legacy-golden.json, which was made from the code of release 0.7.0 (bb9283e). To make it again, build that commit's tests
- * (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs copied in) and run
+ * The dashboards release (0.9.0) must leave every note with no chart, no data source and no removal exactly as it was: test/legacy.test.mjs
+ * compares this structure with test/legacy-golden.json, which was made from the code of release 0.8.0 (e692029) before 0.9.0 changed
+ * anything (it came out byte for byte the same as the file made from 0.7.0's code, bb9283e, so 0.8.0 did leave these notes as they were).
+ *
+ * One difference is allowed and was made once, in its own commit: the Delete button (with its question, Yes and No) that 0.9.0 puts on each
+ * card of the Kept entries list under Finalize. It changed two places only, "Daily tracker" evening-log and "Kept records" walk-log; with the
+ * button's element taken out of the drawing, both hash exactly as they did in 0.8.0, and every other place in the file is the same hash.
+ * The button was made again once after the cold review: each Delete, its question, Yes and No are named by hidden words, which are inside the same element, so the same two places hash differently again and only they. The golden file of the latest such commit is the 0.9.0 reference from then on.
+ *
+ * To make the 0.8.0 file again, build that commit's tests (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs
+ * copied in) and run
  *   node test/legacy-structure.mjs > legacy-golden.json
- * This file uses only what release 0.7.0 had (parseBooklet, buildNav, barTabs, the pane helper), so it runs on either code.
+ * This file uses only what release 0.7.0 had (parseBooklet, buildNav, barTabs, the pane helper), so it runs on any code since.
  */
 import "./fixed-date.mjs";
 import { createHash } from "node:crypto";

@@ -168,18 +168,6 @@ test("tiles: a big value over a label; with no value anywhere, pills. Cards: dat
 	v.close();
 });
 
-test("bars, line and a data block draw a line saying they are not yet supported, in place of the view", () => {
-	const text = VIEWS(["from: log\nas: bars", "from: log\nas: line", "from: rows"], ITEMS).replace("%%\n> [!records]", "> [!data] Data\n\n```booklet data\n{ \"rows\": [ { \"label\": \"A\" } ] }\n```\n^rows\n\n%%\n> [!records]");
-	const v = open(text);
-	const said = v.queries().map((q) => q.textContent);
-	assert.deepEqual(said, [
-		"Not yet supported: a query drawn as bars (as: bars). It is in the Markdown.",
-		"Not yet supported: a query drawn as a line chart (as: line). It is in the Markdown.",
-		"Not yet supported: a query of a data block. It is in the Markdown.",
-	]);
-	v.close();
-});
-
 test("a query that cannot be drawn is listed with the note's problems, and the note still opens with everything else drawn", () => {
 	const v = open(VIEWS(["from: nowhere", "from: log\nas: pie", "from: log\nas: list\nfields: n"], ITEMS));
 	const problems = [...v.view.contentEl.querySelectorAll(".booklet-problems li")].map((x) => x.textContent);

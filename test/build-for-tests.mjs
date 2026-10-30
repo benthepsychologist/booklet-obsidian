@@ -32,7 +32,7 @@ await esbuild.build({
 	logLevel: "warning",
 });
 await esbuild.build({
-	stdin: { contents: 'export { drawPicture } from "./src/screens"; export { BOOKLET_ICONS } from "./src/booklet-icons"; export { numericColumns } from "./src/query-view"; export { drawMarks } from "./src/reading"; export { keepStepsOne, loadStepsOne, moveHeld, keepHeld, loadHeld } from "./src/held-store";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export { drawPicture } from "./src/screens"; export { BOOKLET_ICONS } from "./src/booklet-icons"; export { numericColumns } from "./src/query-view"; export { drawMarks } from "./src/reading"; export { mountQuery } from "./src/query-controls"; export { drawChart } from "./src/charts"; export { keepStepsOne, loadStepsOne, moveHeld, keepHeld, loadHeld } from "./src/held-store";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",

@@ -25,7 +25,7 @@
 // roll-up (format 0.16 queries: a span of days and a summary) drawn from made-up entries, an older entry and the draft not
 // counted, nothing written, an entry kept showing at once, then screenshots at a desktop's and a phone's width, light and
 // dark; 16 to 23 (nav-checks.js, the 0.6.0 navigation): 16 the three screens and the moves, 17 Back is free, 18 no step for a
-// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 27 and 28 (0.8.0, page trees, ahead of format 0.17; nav-checks.js): a made-up wiki of 13 pages in three levels, and the check-in as one activity with a wiki tab; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
+// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 29 to 32 (0.9.0, dashboards; dashboard-checks.js): charts, data blocks and the kept days in every view, the reader's sort and filter, deleting a kept entry; 27 and 28 (0.8.0, page trees, ahead of format 0.17; nav-checks.js): a made-up wiki of 13 pages in three levels, and the check-in as one activity with a wiki tab; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -35,7 +35,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1926,6 +1926,10 @@ async function check10() {
   c.ok(!only.includes(15) || ["c15", "c15-phone"].every(x => sessions.includes(x)), "and the roll-up check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(16) || sessions.includes("c16"), "and the screens-and-moves check's: " + sessions.join(", "));
   c.ok(!only.includes(22) || sessions.includes("c22"), "and the fold check's: " + sessions.join(", "));
+  c.ok(!only.includes(29) || ["c29-desktop", "c29-phone"].every(x => sessions.includes(x)), "and the charts check's two (a desktop's width, a phone's): " + sessions.join(", "));
+  c.ok(!only.includes(30) || ["c30-desktop", "c30-phone"].every(x => sessions.includes(x)), "and the data check's two: " + sessions.join(", "));
+  c.ok(!only.includes(31) || ["c31-desktop", "c31-phone"].every(x => sessions.includes(x)), "and the sort and filter check's two: " + sessions.join(", "));
+  c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
 }
@@ -1937,7 +1941,8 @@ async function check10() {
   const study = require("./study-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const reading = require("./reading-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const leftovers = require("./leftovers-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
-  const fns = { ...nav, ...study, ...reading, ...leftovers, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  const dashboards = require("./dashboard-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
     let c;

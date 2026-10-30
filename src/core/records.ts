@@ -130,6 +130,23 @@ export interface RecordsRead {
 const plainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
 
+/** Where one item of an entries block stands: its block, and its position in the block's `items` list. */
+export interface ItemPlace {
+	block: RecordBlock;
+	index: number;
+}
+
+/**
+ * The items a kept entry was read from, in file order: one, or more when a later block holds an item with the same `ts`
+ * (across blocks an entry is known by its `ts`, and the items merge). Kept beside the entries, never on them, so an entry
+ * is still exactly what the file says and nothing about where it was read from can be saved or compared. The writer takes
+ * an entry out by these places, never by its `ts` (two entries in one block may share one).
+ */
+const placesOfEntry = new WeakMap<object, ItemPlace[]>();
+
+/** The items an entry that `readRecords` returned was read from; empty for any other object. */
+export const entryPlaces = (e: object): readonly ItemPlace[] => placesOfEntry.get(e) ?? [];
+
 /** Parses a block's JSON into an object, or undefined: one broken record costs one record. */
 export function parseRecordJson(code: string): Record<string, unknown> | undefined {
 	try {
@@ -250,15 +267,18 @@ export function readRecords(lines: readonly string[], from: number, ctx: Records
 			const ix = seen.get(key) ?? new Map<string, Entry>();
 			seen.set(key, ix);
 			const added: Entry[] = [];
-			for (const item of entryItems(b.value) ?? []) {
+			(entryItems(b.value) ?? []).forEach((item, index) => {
 				const e = own(item) as Entry;
 				const same = ix.get(String(e.ts));
-				if (same) Object.assign(same, e);
-				else {
+				if (same) {
+					Object.assign(same, e);
+					placesOfEntry.get(same)?.push({ block: b, index });
+				} else {
 					list.push(e);
 					added.push(e);
+					placesOfEntry.set(e, [{ block: b, index }]);
 				}
-			}
+			});
 			for (const e of added) if (!ix.has(String(e.ts))) ix.set(String(e.ts), e);
 		}
 	}

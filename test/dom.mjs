@@ -22,7 +22,8 @@ function apply(el, o) {
 	return el;
 }
 
-const P = w.HTMLElement.prototype;
+// on Element, not HTMLElement, as Obsidian has them: an svg element made by createSvg has them too
+const P = w.Element.prototype;
 P.createEl = function (tag, o, cb) {
 	const el = apply(this.ownerDocument.createElement(tag), o);
 	this.appendChild(el);
@@ -56,6 +57,21 @@ P.setText = function (t) {
 };
 P.appendText = function (t) {
 	this.appendChild(this.ownerDocument.createTextNode(t));
+};
+/**
+ * Obsidian's createSvg: an svg element made in the SVG namespace and put in this node. As in real Obsidian 1.14.5 a class
+ * is one name or a list of names, and a string with a space in it throws (a list is how a second name is given): the fake
+ * adds the classes with classList, which throws the same InvalidCharacterError, so a test cannot pass what Obsidian refuses.
+ */
+w.Node.prototype.createSvg = function (tag, o, cb) {
+	const el = this.ownerDocument.createElementNS("http://www.w3.org/2000/svg", tag);
+	const info = typeof o === "string" ? { cls: o } : (o ?? {});
+	if (info.cls) el.classList.add(...(Array.isArray(info.cls) ? info.cls : [info.cls]));
+	if (info.text !== undefined) el.textContent = String(info.text);
+	for (const [k, v] of Object.entries(info.attr ?? {})) if (v !== null && v !== undefined && v !== false) el.setAttribute(k, String(v));
+	this.appendChild(el);
+	cb?.(el);
+	return el;
 };
 w.Node.prototype.instanceOf = function (T) {
 	return this instanceof T;

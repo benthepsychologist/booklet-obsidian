@@ -1896,7 +1896,7 @@
     }
    },
    "activity:/evening-log||0": {
-    "sha": "d00d7de33a791e04dbcc2108a6b2e79496abfa4dae6757bd25d429e925d63c82",
+    "sha": "3ff6912607d86ccb5681839870b20ce64d622003ba5061a933ff44670ffe6920",
     "writes": 0,
     "same": true,
     "drawn": "activity:/evening-log",
@@ -4308,7 +4308,7 @@
     }
    },
    "activity:walks/walk-log||0": {
-    "sha": "44066a8207510015712d61e66ece75bae525db39755c2b99101e3ff192d4b3d2",
+    "sha": "415a134795a346da6cc44563e12e4a1fe91a3582c0cbe2f8c4f3f394e90d0381",
     "writes": 0,
     "same": true,
     "drawn": "activity:walks/walk-log",

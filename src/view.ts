@@ -9,6 +9,8 @@ import {
 	COMMON_KINDS,
 	HOME,
 	RecordsWriteError,
+	entryKey,
+	removeEntry,
 	activityPlace,
 	activityStatus,
 	answerWords,
@@ -47,6 +49,7 @@ import {
 	placeFrom,
 	placeState,
 	plainText,
+	newViewState,
 	planQuery,
 	questionsOf,
 	resolvePlace,
@@ -76,6 +79,7 @@ import {
 	type Place,
 	type Question,
 	type QuerySegment,
+	type QueryViewState,
 	type Segment,
 	type TreePage,
 	type ShownDraft,
@@ -84,7 +88,8 @@ import {
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
-import { drawQueryPlan, words } from "./query-view";
+import { mountQuery } from "./query-controls";
+import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import type { LeafMode } from "./switch";
@@ -203,6 +208,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private tabPart = new Map<string, number>();
 	/** The tree menu of each tab of pages, open or not, and the words in its search box: kept for as long as the pane is open, never saved. */
 	private menus = new Map<string, MenuState>();
+	/** What the reader has done to each query's view (the parents opened in a nested list; the sort and filter): kept for as long as the pane is open, never saved. */
+	private queryViews = new Map<string, QueryViewState>();
 	/** A step through the pane is under way (Obsidian drops a second one asked for meanwhile: a double press turns one page). */
 	private moving = false;
 	/** A tab chosen while a step was under way: made when the step has landed, so that the last move asked for is the one that lands. */
@@ -538,6 +545,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.drawnPlace = null;
 				this.tabPart.clear();
 				this.menus.clear();
+				this.queryViews.clear();
 			}
 			this.draw(true);
 			return;
@@ -581,6 +589,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.place = null;
 		this.drawnPlace = null;
 		this.tabPart.clear();
+		this.queryViews.clear();
 		this.afterMove = null;
 		this.headingTo = null;
 		this.text = "";
@@ -1163,7 +1172,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		for (const s of blocks) {
 			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
 			else if (s.type === "tab" || s.type === "page") continue;
-			else if (s.type === "query") this.drawQuery(into, s);
+			else if (s.type === "query") this.drawQuery(into, a, s);
 			else if (s.type === "callout-box") {
 				const key = `${a.scope}/${a.id}#${s.start.line}`;
 				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
@@ -1307,6 +1316,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		const qs = questionsOf(a);
+		// the activity's entries as this drawing's book holds them, in file order: a card's Delete names its entry by place in this list
+		const base = this.book?.records.entries[a.scope]?.[a.id] ?? [];
 		for (const e of open ? all : all.slice(0, ENTRIES_SHOWN)) {
 			const item = list.createDiv({ cls: "booklet-entry" });
 			item.createDiv({ cls: "booklet-entry-when", text: whenText(e.ts) });
@@ -1341,6 +1352,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && holdsSomething(e[k])).length;
 			if (!rows && !other) item.createDiv({ cls: "booklet-muted", text: "No answers in this entry." });
 			if (other) item.createDiv({ cls: "booklet-muted", text: `${other === 1 ? "One answer" : `${other} answers`} kept here ${other === 1 ? "is" : "are"} for a question this view does not show yet.` });
+			this.drawRemove(item, list, a, e, base.indexOf(e), entryKey(e));
 		}
 		if (all.length > ENTRIES_SHOWN) {
 			const more = list.createEl("button", { cls: "booklet-more", text: open ? "Show fewer" : `Show all ${all.length} entries` });
@@ -1354,14 +1366,105 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 	}
 
+	/**
+	 * The Delete button on a kept entry's card. It asks first, in place ("Delete this entry?", Yes or No), and nothing is
+	 * written until Yes. It is only in the Kept entries list under Finalize, never on a query's cards. `at` is the entry's place
+	 * among the activity's kept entries and `key` what it read as, both taken when the card was drawn: the pane's later copies
+	 * of the note hold new objects for the same entries, so the card cannot look its entry up by object.
+	 */
+	private drawRemove(item: HTMLElement, list: HTMLElement, a: Activity, e: Entry, at: number, key: string): void {
+		const foot = item.createDiv({ cls: "booklet-entry-foot" });
+		// each button and the question are named with the entry they are for, by hidden words (ten cards would otherwise be ten buttons named "Delete")
+		const which = this.uid();
+		foot.createSpan({ cls: "booklet-sr", attr: { id: which }, text: `(the entry from ${whenText(e.ts)})` });
+		const delId = this.uid();
+		const del = foot.createEl("button", { cls: "booklet-entry-delete", text: "Delete", attr: { type: "button", id: delId, "aria-labelledby": `${delId} ${which}` } });
+		const ask = foot.createDiv({ cls: "booklet-entry-ask", attr: { role: "group" } });
+		ask.hidden = true;
+		const askId = this.uid();
+		ask.createSpan({ cls: "booklet-entry-ask-text", text: "Delete this entry?", attr: { id: askId } });
+		ask.setAttr("aria-labelledby", `${askId} ${which}`);
+		const yesId = this.uid();
+		const yes = ask.createEl("button", { cls: "mod-warning", text: "Yes, delete", attr: { type: "button", id: yesId, "aria-labelledby": `${yesId} ${which}` } });
+		const noId = this.uid();
+		const no = ask.createEl("button", { text: "No", attr: { type: "button", id: noId, "aria-labelledby": `${noId} ${which}` } });
+		const back = (): void => {
+			ask.hidden = true;
+			del.hidden = false;
+			yes.disabled = false;
+			no.disabled = false;
+		};
+		del.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			del.hidden = true;
+			ask.hidden = false;
+			no.focus();
+		});
+		no.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			back();
+			del.focus();
+		});
+		// Escape is the usual way out of a question
+		ask.addEventListener("keydown", (evt: KeyboardEvent) => {
+			if (evt.key !== "Escape") return;
+			evt.preventDefault();
+			evt.stopPropagation();
+			back();
+			del.focus();
+		});
+		yes.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			yes.disabled = true;
+			no.disabled = true;
+			// a refusal or a failure leaves the card as it was, with its Delete button, so the reader can try again
+			this.removeKept(list, a, e, at, key, () => {
+				back();
+				del.focus();
+			});
+		});
+	}
+
+	/** Takes one kept entry out of the note, by its place among the activity's entries and its time and what it read as (core/write.ts removeEntry). */
+	private removeKept(list: HTMLElement, a: Activity, e: Entry, at: number, key: string, undone: () => void): void {
+		const file = this.file;
+		if (!file) return;
+		const ts = String(e.ts);
+		let removed = 0;
+		this.queue(
+			file,
+			(text) => {
+				const r = at < 0 ? { text, removed: 0 } : removeEntry(text, a.scope, a.id, at, ts, key);
+				removed = r.removed;
+				return r.text;
+			},
+			"The entry was not deleted.",
+			() => {
+				if (!removed) {
+					new Notice("Booklet: that entry is no longer where it was in the note, so nothing was deleted.");
+					undone();
+					return;
+				}
+				// the card is gone: keep the reader's place in the list
+				(list.closest(".booklet-entries")?.querySelector(".booklet-entries-title") as HTMLElement | null)?.focus();
+			},
+			undone,
+		);
+	}
+
 	/** A query's rows, from the kept entries (never a draft), worked out again when the records change; nothing is written. */
-	private drawQuery(card: HTMLElement, s: QuerySegment): void {
+	private drawQuery(card: HTMLElement, a: Activity, s: QuerySegment): void {
 		const box = card.createDiv({ cls: "booklet-query" });
 		box.setAttr("data-booklet-query", s.query.from);
+		// the reader's own view of this query is found by the activity and the query's place among its queries, so a change above it does not move it
+		const vkey = `${a.scope}/${a.id}#${a.segments.filter((x) => x.type === "query").indexOf(s)}`;
+		const st = this.queryViews.get(vkey) ?? newViewState();
+		this.queryViews.set(vkey, st);
 		const host = {
 			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
+		const draw = mountQuery(host, box, st);
 		let sig = "";
 		const show = () => {
 			if (!this.book) return;
@@ -1371,7 +1474,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
 			if (now === sig) return;
 			sig = now;
-			drawQueryPlan(host, box, planQuery(this.book, s, { drawn: this.drawnAt }));
+			const book = this.book;
+			draw(() => planQuery(book, s, { drawn: this.drawnAt }));
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);
@@ -1530,7 +1634,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		);
 	}
 
-	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void): void {
+	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void, undone?: () => void): void {
 		this.writes = this.writes
 			.then(() => this.write(file, change))
 			.then(() => after?.())
@@ -1538,6 +1642,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				// a refusal the reader can act on (nothing to keep yet) is said as it is; anything else, as a failure
 				const why = e instanceof Error ? e.message : String(e);
 				new Notice(e instanceof RecordsWriteError ? `Booklet: ${why}` : `Booklet: ${failed} ${why}`);
+				undone?.();
 				if (this.file === file) {
 					this.book = parseBooklet(this.text);
 					this.syncWidgets();

@@ -161,3 +161,9 @@ export function corpusFiles() {
 }
 
 export const read = (f) => readFileSync(f, "utf8");
+
+// the set-up the 0.9.0 test files share: a note's front matter, a query fence, the day the views are drawn on, a plan's rows
+export const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
+export const fence = (body) => "```booklet query\n" + body + "\n```";
+export const DRAWN = new Date("2026-10-28T12:00:00Z");
+export const rowsOf = (p) => p.groups.flatMap((g) => g.rows);

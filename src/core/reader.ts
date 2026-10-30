@@ -20,6 +20,7 @@ import {
 	settingProblems,
 	splitLines,
 } from "./lines";
+import { readDataRows, type DataRows } from "./data";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
 
@@ -75,8 +76,11 @@ export interface WidgetBlock {
 	line: number;
 }
 
-/** A `booklet data` block with its block id: `module` as for a widget block. Its rows are not read here: no view draws them yet. */
-export interface DataBlock {
+/**
+ * A `booklet data` block with its block id: `module` as for a widget block. Its rows are read once (data.ts) and drawn by a
+ * query that names the block; the block is never written. A block that cannot be read is reported and is not here.
+ */
+export interface DataBlock extends DataRows {
 	id: string;
 	module: string | null;
 	line: number;
@@ -221,11 +225,11 @@ export interface Query {
 	roles: Partial<Record<Role, string>>;
 }
 
-/** What a query reads: an activity's kept entries, one question's answers, or a data block (not drawn yet). */
+/** What a query reads: an activity's kept entries, one question's answers, or a data block's rows. */
 export type QuerySource =
 	| { kind: "activity"; act: Activity }
 	| { kind: "question"; act: Activity; q: Question; id: string; title: string }
-	| { kind: "data"; id: string };
+	| { kind: "data"; id: string; block: DataBlock };
 
 export interface QuerySegment {
 	type: "query";
@@ -688,6 +692,19 @@ export function parseBooklet(text: string): Booklet {
 		}
 		widgets.push({ id, module: blockModule(), data: data as Record<string, unknown>, line: i + 1 });
 	};
+	/** A data block's rows: JSON read as SPEC section 7 says; a block that cannot be read is reported and no query can name it. */
+	const readData = (i: number, close: number, id: string) => {
+		let json: unknown;
+		try {
+			json = JSON.parse(lines.slice(i + 1, Math.min(close, lines.length)).join("\n"));
+		} catch {
+			problems.push(`${at(i)}: the data block "${id}" is not JSON, so no query can draw it.`);
+			return;
+		}
+		const r = readDataRows(json);
+		if ("bad" in r) problems.push(`${at(i)}: the data block "${id}" ${r.bad}, so no query can draw it.`);
+		else dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: r.rows, fields: r.fields });
+	};
 	const flush = () => {
 		if (act && buf.some((l) => l.trim())) {
 			const md = buf.join("\n").replace(/^\n+|\n+$/g, "");
@@ -757,7 +774,7 @@ export function parseBooklet(text: string): Booklet {
 				const what = (info[1] ?? "").toLowerCase();
 				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
 				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
-				if (what === "data" && hasId) dataBlocks.push({ id: (lines[n] ?? "").trim().slice(1), module: blockModule(), line: i + 1 });
+				if (what === "data" && hasId) readData(i, k, (lines[n] ?? "").trim().slice(1));
 				if (what === "query") {
 					// a query is read where it stands in an activity's prose, and drawn there (booklet.html FENCE_KIND.query)
 					if (section === "data") problems.push(`${at(i)}: a query belongs in an activity's prose, not in the data section, so it was ignored.`);
@@ -1191,7 +1208,28 @@ function questionNamed(a: Activity, id: string): { q: Question; title: string } 
  * and taken out, and the note still opens. A span of days and a summary read kept entries: on a data block, or on a
  * question whose activity keeps none, they are ignored and reported; so is `group:` on a summary.
  */
+/**
+ * A data block whose id is also an activity's or a question's (SPEC section 7 forbids it), or another block's, is said among the
+ * note's problems. Which one a query reads is not changed: the activity, then the question, then the first block.
+ */
+function checkDataIds(activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): void {
+	data.forEach((d, i) => {
+		const seen = activities.filter((a) => d.module === null || a.scope === d.module);
+		const act = seen.find((a) => a.id === d.id);
+		const asked = act ? null : seen.find((a) => questionNamed(a, d.id) !== null);
+		const clash = act ?? asked;
+		if (clash) {
+			const what = act ? "an activity" : "a question";
+			// a shared block is read by every module, so the activity or question wins only in its own module; the others read the block
+			if (d.module === null) problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${what} in ${clash.scope ? `the module "${clash.scope}"` : "the activities outside every module"}, so a query there that names it reads that, not the block (a query in any other module reads the block).`);
+			else problems.push(`Line ${d.line}: the data block "${d.id}" has the same id as ${what}, so a query that names it reads that, not the block.`);
+		}
+		else if (data.slice(0, i).some((x) => x.id === d.id && x.module === d.module)) problems.push(`Line ${d.line}: a second data block has the id "${d.id}", so a query that names it reads the first one.`);
+	});
+}
+
 function linkQueries(activities: readonly Activity[], data: readonly DataBlock[], problems: string[]): void {
+	checkDataIds(activities, data, problems);
 	for (const act of activities)
 		act.segments = act.segments.filter((s) => {
 			if (s.type !== "query") return true;
@@ -1215,7 +1253,7 @@ function linkQuery(s: QuerySegment, act: Activity, activities: readonly Activity
 	}
 	if (!source) {
 		const d = inScope(data, q.from, act.scope || null);
-		if (d) source = { kind: "data", id: d.id };
+		if (d) source = { kind: "data", id: d.id, block: d };
 	}
 	if (!source) {
 		const elsewhere =

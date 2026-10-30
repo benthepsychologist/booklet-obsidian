@@ -1,7 +1,8 @@
 /*
- * A note with no page line is exactly what it was in release 0.7.0 (page trees, 0.8.0): the same reading, the same navigation model, and
+ * A note with no page line is exactly what it was in release 0.8.0 (dashboards, 0.9.0): the same reading, the same navigation model, and
  * the same drawing in every place the view can show, with nothing written to the note. The golden file (legacy-golden.json) was made
- * from the code of 0.7.0 (bb9283e) by test/legacy-structure.mjs, which says how to make it again. It covers every 0.16 note in the test
+ * from the code of 0.8.0 (e692029) by test/legacy-structure.mjs, which says how to make it again and what the one allowed difference is
+ * (the Delete button on a kept entry's card, in two places). It covers every 0.16 note in the test
  * vault, and made-up ones for what the vault lacks: a wiki written with `parent:` on activities, in a module and bare.
  */
 import "./fixed-date.mjs";
@@ -26,8 +27,8 @@ for (const [name, want] of Object.entries(golden)) {
 			assert.equal(got.drawn, key.split("|")[0], `${name}: ${key} did not open on its screen`);
 			assert.equal(got.writes, 0, `${name}: drawing ${key} wrote to the note`);
 			assert.ok(got.same, `${name}: drawing ${key} changed the note's text`);
-			assert.equal(got.sha, want.places[key].sha, `${name}: ${key} draws differently from 0.7.0`);
-			assert.deepEqual(got.saved, want.places[key].saved, `${name}: ${key} saves a different place from 0.7.0`);
+			assert.equal(got.sha, want.places[key].sha, `${name}: ${key} draws differently from 0.8.0`);
+			assert.deepEqual(got.saved, want.places[key].saved, `${name}: ${key} saves a different place from 0.8.0`);
 		}
 	});
 }
