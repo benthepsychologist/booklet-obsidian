@@ -66,3 +66,16 @@ test("view passes only the owning module's reference definitions, including afte
   assert.doesNotMatch(body, /\[pic\]: one\.png/);
  } finally { home?.close(); one?.close(); two?.close(); delete globalThis.__bookletStubRender; }
 });
+
+test("view supplies reference context only to fragments that can use it", async () => {
+ const seen = [];
+ globalThis.__bookletStubRender = (md, el) => { seen.push(md); el.textContent = md; };
+ let p;
+ try {
+  const text = `---\nbooklet: "0.16"\ntitle: Sample\n---\n\n> [!activity|a] A\n\nPlain words.\n\nA [link][pic].\n\n> [!data] Data\n\n[pic]: picture.png\n`;
+  p = pane(text, {screen: "activity:/a"});
+  await p.settled();
+  assert.ok(seen.some(md => md.trim() === "Sample"));
+  assert.ok(seen.some(md => md.includes("[link][pic]") && md.includes("[pic]: picture.png")));
+ } finally { p?.close(); delete globalThis.__bookletStubRender; }
+});

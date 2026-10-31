@@ -153,6 +153,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** The note's text as last read or written by this view: what getViewData returns. */
 	private text = "";
 	private book: Booklet | null = null;
+	/** Reference contexts are shared by fragments of the same parsed note and scope. */
+	private referenceContexts = new WeakMap<Booklet, Map<string | null, string>>();
 	/** The module whose text is being drawn; null denotes the booklet opening. */
 	private mdScope: string | null = null;
 	/** Child component for one drawing's rendered Markdown, unloaded at the next drawing. */
@@ -631,7 +633,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
 		const ids: string[] = [];
-		const context = referenceContext(this.book?.references ?? [], at);
+		let context = "";
+		if (this.book && markdown.includes("[")) {
+			let contexts = this.referenceContexts.get(this.book);
+			if (!contexts) this.referenceContexts.set(this.book, (contexts = new Map()));
+			if (!contexts.has(at)) contexts.set(at, referenceContext(this.book.references, at));
+			context = contexts.get(at) ?? "";
+		}
 		const text = tokenise(context ? `${markdown}\n\n${context}` : markdown, ids);
 		this.rendering++;
 		const cite = marks ? this.cite : null;
