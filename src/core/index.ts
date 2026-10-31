@@ -1,6 +1,6 @@
 /* The plugin's core: reading a booklet and writing its records. Imports nothing from Obsidian. */
 export * from "./lines";
-export * from "./image-defs";
+export * from "./references";
 export * from "./json-edit";
 export * from "./records";
 export * from "./reader";

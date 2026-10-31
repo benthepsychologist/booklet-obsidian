@@ -14,7 +14,7 @@ import {
 	activityPlace,
 	activityStatus,
 	answerWords,
-	appendImageDefs,
+	referenceContext,
 	barTabs,
 	type CalloutBox,
 	buildNav,
@@ -153,6 +153,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** The note's text as last read or written by this view: what getViewData returns. */
 	private text = "";
 	private book: Booklet | null = null;
+	/** The module whose text is being drawn; null denotes the booklet opening. */
+	private mdScope: string | null = null;
 	/** Child component for one drawing's rendered Markdown, unloaded at the next drawing. */
 	private drawing: Component | null = null;
 	/** One updater per drawn question (and per repeating activity), so an answer is shown without drawing the view again. */
@@ -623,11 +625,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/* ---- QuestionHost ---- */
 
 	/** Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). */
-	md(markdown: string, el: HTMLElement, marks = false): void {
+	md(markdown: string, el: HTMLElement, marksOrScope: boolean | string | null = false, scope: string | null = this.mdScope): void {
+		const marks = typeof marksOrScope === "boolean" ? marksOrScope : false;
+		const at = typeof marksOrScope === "string" || marksOrScope === null ? marksOrScope : scope;
 		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
 		const ids: string[] = [];
-		const text = tokenise(appendImageDefs(markdown, this.text), ids);
+		const context = referenceContext(this.book?.references ?? [], at);
+		const text = tokenise(context ? `${markdown}\n\n${context}` : markdown, ids);
 		this.rendering++;
 		const cite = marks ? this.cite : null;
 		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", this.drawing)
@@ -934,7 +939,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	private actRow(na: NavAct, n: number): CardRow {
 		const st = activityStatus(na, this.book as Booklet);
-		return { title: na.title, emoji: na.emoji, icon: na.icon, blurb: na.blurb, status: st.text, statusMd: st.md, n, to: activityPlace(na) };
+		return { title: na.title, emoji: na.emoji, icon: na.icon, blurb: na.blurb, status: st.text, statusMd: st.md, n, to: activityPlace(na), scope: na.act.scope };
 	}
 
 	/** The home screen's cards: a module is a card; a module of one activity is its activity's card (SPEC section 3); each bare activity at the top is its own. */
@@ -942,7 +947,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return nav.cards.map((c, i) => {
 			if (c.kind === "module") {
 				const t = moduleTitle(nav, c.mod);
-				return { title: t.title, emoji: t.emoji, icon: c.mod.icon, blurb: c.mod.blurb, status: moduleStatus(c.mod, book), statusMd: false, n: i + 1, to: entryPlace(c.mod) ?? homePlace() };
+				return { title: t.title, emoji: t.emoji, icon: c.mod.icon, blurb: c.mod.blurb, status: moduleStatus(c.mod, book), statusMd: false, n: i + 1, to: entryPlace(c.mod) ?? homePlace(), scope: c.mod.id };
 			}
 			const na = c.act;
 			const row = this.actRow(na, i + 1);
@@ -963,6 +968,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private drawHome(page: HTMLElement, nav: NavModel, book: Booklet): void {
+		this.mdScope = null;
 		const t = page.createDiv({ cls: "booklet-screenhead" }).createDiv({ cls: "booklet-screentitle", attr: { role: "heading", "aria-level": "1" } });
 		t.addClass("markdown-rendered");
 		this.md(inlineMd(this.bookTitle(nav)), t);
@@ -973,9 +979,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private drawModuleScreen(page: HTMLElement, nav: NavModel, book: Booklet, m: NavMod, place: Place): void {
+		this.mdScope = m.id;
 		drawTrail(this, page, [
-			{ md: this.bookTitle(nav), to: homePlace() },
-			{ md: m.title, to: null },
+			{ md: this.bookTitle(nav), to: homePlace(), scope: null },
+			{ md: m.title, to: null, scope: m.id },
 		]);
 		this.head(page, m.title, m.icon, m.emoji);
 		// a module's own screen numbers the sources of its opening and its tabs' prose, in that order
@@ -1007,13 +1014,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawActivityScreen(page: HTMLElement, nav: NavModel, na: NavAct, place: Place): void {
 		const a = na.act;
 		const m = na.mod;
+		this.mdScope = a.scope;
 		// a module of one activity has no screen of its own: this one is also the module's, its title, picture and opening first
 		const single = !m.bare && m.acts.length === 1;
-		const crumbs: Crumb[] = [{ md: this.bookTitle(nav), to: homePlace() }];
-		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na) });
+		const crumbs: Crumb[] = [{ md: this.bookTitle(nav), to: homePlace(), scope: null }];
+		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na), scope: m.id });
 		const ups: NavAct[] = [];
 		for (let p = na.parent; p; p = p.parent) ups.unshift(p);
-		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p) });
+		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p), scope: p.act.scope });
 		const mt = single ? moduleTitle(nav, m) : null;
 		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
@@ -1169,6 +1177,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** `step` is the group a step draws, which is open however the note wrote it (SPEC section 12) until the reader folds it. */
 	private drawNodes(into: HTMLElement, a: Activity, blocks: readonly Block[], step?: CalloutBox): void {
+		this.mdScope = a.scope;
 		const t: Target = { scope: a.scope, activity: a };
 		for (const s of blocks) {
 			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
@@ -1462,7 +1471,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const st = this.queryViews.get(vkey) ?? newViewState();
 		this.queryViews.set(vkey, st);
 		const host = {
-			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
+			md: (markdown: string, el: HTMLElement) => this.md(markdown, el, false, a.scope),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
 		const draw = mountQuery(host, box, st);

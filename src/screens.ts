@@ -11,7 +11,7 @@ import { BOOKLET_ICONS } from "./booklet-icons";
 /** What these parts need from the view. */
 export interface ScreenHost {
 	/** Draws inline Markdown from the file with Obsidian's own renderer. */
-	md(markdown: string, el: HTMLElement): void;
+	md(markdown: string, el: HTMLElement, scope?: string | null): void;
 	/** The reader asked for a place (a link of the trail, a card, a pager button). */
 	go(to: Place): void;
 	/** Is there a request to put focus back on the tab bar's chosen tab (a key moved the choice, and the screen was drawn again)? Taken once. */
@@ -24,6 +24,7 @@ export interface ScreenHost {
 export interface Crumb {
 	md: string;
 	to: Place | null;
+	scope?: string | null;
 }
 
 /** A press on a link or a button: its own action only (a link's address is `#`, so the default is stopped). */
@@ -38,9 +39,9 @@ function onPress(el: HTMLElement, fn: () => void): void {
  * A link to a place, the words drawn as inline Markdown: the trail, a page in the menu and a mention are all this. Returns the anchor
  * (the menu marks the page on show on it). The place is worked out when the link is drawn.
  */
-export function placeLink(host: ScreenHost, into: HTMLElement, cls: string, md: string, to: Place): HTMLElement {
+export function placeLink(host: ScreenHost, into: HTMLElement, cls: string, md: string, to: Place, scope?: string | null): HTMLElement {
 	const a = into.createEl("a", { cls, attr: { href: "#" } });
-	host.md(inlineMd(linkless(md)), a.createSpan({ cls: "booklet-inline markdown-rendered" }));
+	host.md(inlineMd(linkless(md)), a.createSpan({ cls: "booklet-inline markdown-rendered" }), scope);
 	onPress(a, () => host.go(to));
 	return a;
 }
@@ -51,8 +52,8 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], 
 	// the slash after each crumb but the last is drawn by the stylesheet, so it stays on the line its crumb ends on
 	crumbs.forEach((c) => {
 		const to = c.to;
-		if (to) placeLink(host, nav, "booklet-trail-link", c.md, to);
-		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }));
+		if (to) placeLink(host, nav, "booklet-trail-link", c.md, to, c.scope);
+		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }), c.scope);
 	});
 }
 
@@ -89,6 +90,7 @@ export interface CardRow {
 	/** The number written before the title. */
 	n: number;
 	to: Place;
+	scope?: string | null;
 }
 
 /**
@@ -107,11 +109,11 @@ export function drawCards(host: ScreenHost, page: HTMLElement, rows: CardRow[]):
 		const text = row.createDiv({ cls: "booklet-cardtext" });
 		const title = text.createDiv({ cls: "booklet-cardtitle" });
 		title.createSpan({ cls: "booklet-num", text: `${r.n}.` });
-		host.md(inlineMd(linkless(r.title)), title.createSpan({ cls: "booklet-cardtitle-words booklet-inline markdown-rendered" }));
+		host.md(inlineMd(linkless(r.title)), title.createSpan({ cls: "booklet-cardtitle-words booklet-inline markdown-rendered" }), r.scope);
 		if (r.blurb) text.createDiv({ cls: "booklet-blurb", text: r.blurb });
 		if (r.status) {
 			const st = text.createDiv({ cls: "booklet-status" });
-			if (r.statusMd) host.md(inlineMd(linkless(r.status)), st.createSpan({ cls: "booklet-inline markdown-rendered" }));
+			if (r.statusMd) host.md(inlineMd(linkless(r.status)), st.createSpan({ cls: "booklet-inline markdown-rendered" }), r.scope);
 			else st.setText(r.status);
 		}
 		setIcon(row.createDiv({ cls: "booklet-chevron", attr: { "aria-hidden": "true" } }), "lucide-chevron-right");
