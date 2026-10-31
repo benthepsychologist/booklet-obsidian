@@ -50,7 +50,9 @@ test("src/: imports only obsidian, monkey-around and its own files; src/core/ im
 		const src = readFileSync(f, "utf8");
 		for (const s of specifiers(src)) {
 			assert.ok(!NODE_MODULES.has(s), `${relative(ROOT, f)} imports the Node or Electron module "${s}"`);
-			const allowed = s.startsWith("./") || s.startsWith("../") || (!f.includes("/src/core/") && (s === "obsidian" || s === "monkey-around"));
+			// Reference extraction uses the approved Obsidian-compatible Markdown parser.
+			const parser = f.endsWith("/src/core/references.ts") && (s === "unified" || s === "@quartz-community/remark-obsidian");
+			const allowed = s.startsWith("./") || s.startsWith("../") || parser || (!f.includes("/src/core/") && (s === "obsidian" || s === "monkey-around"));
 			assert.ok(allowed, `${relative(ROOT, f)} imports "${s}"`);
 		}
 		assert.ok(!/\b(window\.)?require\s*\(/.test(src), `${relative(ROOT, f)} calls require`);

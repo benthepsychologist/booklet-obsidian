@@ -21,6 +21,7 @@ import {
 	splitLines,
 } from "./lines";
 import { readDataRows, type DataRows } from "./data";
+import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
 
@@ -323,6 +324,7 @@ export interface Booklet {
 	menus: MenuBlock[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
+	references: ReferenceDefinition[];
 	records: RecordsRead;
 }
 
@@ -638,6 +640,8 @@ export function parseBooklet(text: string): Booklet {
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
 	const notes: Note[] = [];
+	const references: ReferenceDefinition[] = [];
+	const referenceTokens = referenceSource(text);
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const dataBlocks: DataBlock[] = [];
@@ -728,6 +732,18 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
+	/** Collect definitions inside a Markdown-only callout without exposing its other content twice. */
+	const calloutText = (start: number, end: number): string[] => {
+		const kept: string[] = [];
+		for (let n = start; n < end; n++) {
+			const ref = referenceTokens.definitions.get(n);
+			if (!ref || ref.end >= end) { kept.push(lines[n] ?? ""); continue; }
+			references.push({ text: ref.text.replace(/\n(?:>[ \t]?)+/g, "\n"), module: section === "content" && act && !mod ? "" : blockModule(), section });
+			for (let j = n; j <= ref.end; j++) kept.push((lines[j] ?? "").match(/^(?:>[ \t]?)+/)?.[0] ?? "");
+			n = ref.end;
+		}
+		return kept;
+	};
 	/** A row is open: its `> [!row]` line was read and its `> [!row|end]` line has not been. */
 	let rowOpen = false;
 	const closeRow = (why: string, i: number) => {
@@ -761,6 +777,9 @@ export function parseBooklet(text: string): Booklet {
 			continue;
 		}
 		const ln = lines[i] ?? "";
+		if (referenceTokens.comments.has(i) && !/^>[ \t]?\[!(?:page|tab)(?:[|\]])/i.test(ln)) { if (section === "content") pushText([ln], i); continue; }
+		const ref = referenceTokens.definitions.get(i);
+		if (ref) { references.push({ text: open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text, module: section === "content" && act && !mod ? "" : blockModule(), section }); i = ref.end; continue; }
 		const f = FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
@@ -1032,11 +1051,11 @@ export function parseBooklet(text: string): Booklet {
 					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
 					continue;
 				}
-				pushText(lines.slice(i, k), i);
+				pushText(calloutText(i, k), i);
 				i = k - 1;
 				continue;
 			}
-			pushText(lines.slice(i, k), i);
+			pushText(calloutText(i, k), i);
 			i = k - 1;
 			continue;
 		}
@@ -1121,6 +1140,7 @@ export function parseBooklet(text: string): Booklet {
 		widgets,
 		menus,
 		notes,
+		references,
 		records,
 	};
 }

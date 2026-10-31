@@ -1,6 +1,6 @@
 {
 	"name": "booklet",
-	"version": "0.9.0",
+	"version": "0.10.0",
 	"description": "An Obsidian plugin: a Booklet note opens in a view of its own, and the answers given there are written into its records section.",
 	"main": "main.js",
 	"type": "module",
@@ -19,6 +19,8 @@
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
-		"monkey-around": "3.0.0"
+		"@quartz-community/remark-obsidian": "^2.1.0",
+		"monkey-around": "3.0.0",
+		"unified": "^11.0.5"
 	}
 }
