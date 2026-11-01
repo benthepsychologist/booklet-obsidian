@@ -32,11 +32,19 @@ export interface QueryUi {
 	sort?: { key: string | null; dir: 1 | -1; keys: ReadonlySet<string>; on(key: string): void };
 }
 
+/**
+ * Words with nothing in them Markdown reads: letters and digits with single spaces between, starting with a letter (so not a list
+ * mark or a number). Obsidian's renderer returns exactly these words, so they are set as text: a table of three thousand kept days
+ * with a choice and a scale among its columns was spending most of its time rendering the same few option words thousands of times.
+ */
+const PLAIN_WORDS = /^\p{L}[\p{L}\p{N}]*(?: [\p{L}\p{N}]+)*$/u;
+
 /** Words, as text and the file's own inline Markdown. */
 export function words(host: Pick<QueryHost, "md">, into: HTMLElement, parts: readonly WordPart[]): void {
 	for (const p of parts) {
-		if ("md" in p) host.md(p.md, into.createSpan({ cls: "booklet-inline markdown-rendered" }));
-		else into.appendText(p.text);
+		if (!("md" in p)) into.appendText(p.text);
+		else if (PLAIN_WORDS.test(p.md)) into.createSpan({ cls: "booklet-inline markdown-rendered", text: p.md });
+		else host.md(p.md, into.createSpan({ cls: "booklet-inline markdown-rendered" }));
 	}
 }
 

@@ -206,11 +206,18 @@ export function inSpan(entries: readonly Entry[], days: number, drawn: Date, now
 	});
 }
 
+/**
+ * One formatter for every kept entry's moment, made when it is first needed: the same words as `toLocaleString` with these options,
+ * but not built again for each entry, which for three thousand kept days was a fifth of drawing a table of them.
+ */
+let momentFormat: Intl.DateTimeFormat | undefined;
+
 /** A kept entry's moment, in the reader's own words and time zone: "Tue, 27 Oct 2026, 14:02". */
 export function whenText(ts: unknown): string {
 	const t = Date.parse(String(ts));
 	if (!Number.isFinite(t)) return String(ts);
-	return new Date(t).toLocaleString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+	momentFormat ??= new Intl.DateTimeFormat(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+	return momentFormat.format(t);
 }
 
 /* ---- cells ---- */

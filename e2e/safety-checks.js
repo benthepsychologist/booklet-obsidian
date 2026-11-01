@@ -612,5 +612,170 @@ The garden is quiet today.
     return c;
   }
 
-  return { 35: check35, 36: check36, 38: check38, 39: check39, 40: check40 };
+  /* ================= CHECK 41 ================= */
+  // a large note: 3000 kept days (about eight years) of a daily tracker, with a line chart and a table over all of them
+  const DAYS = 3000, BIG = "Big tracker.booklet.md";
+  const bigText = () => {
+    const end = Date.UTC(2026, 9, 30), items = [];
+    for (let i = 0; i < DAYS; i++) {
+      const d = new Date(end - (DAYS - 1 - i) * 86400000).toISOString().slice(0, 10);
+      const sleep = 5 + ((i * 7) % 9), mood = 1 + ((i * 5) % 4), verdict = 1 + ((i * 11) % 3);
+      items.push(JSON.stringify({ ts: d + "T08:00:00Z", sleep, mood, verdict, note: "Day " + (i + 1) + ": a made-up line about the garden, the tides and a long walk." }));
+    }
+    return `---
+booklet: "0.17"
+id: booklet-test/big-tracker
+title: Big tracker
+lang: en
+---
+
+> [!activity|log repeat daily] Daily log
+
+A made-up daily log with eight years of kept days.
+
+> [!number|sleep min:0 max:14] Hours slept
+
+> [!scale|mood] Mood
+
+1. Low
+2. Okay
+3. Good
+4. Bright
+
+> [!choice|verdict] Verdict on the day
+- [ ] good
+- [ ] warn
+- [ ] bad
+
+> [!text|note] One line about the day
+
+> [!activity|line] Mood over every day
+
+\`\`\`booklet query
+from: log
+as: line
+fields: mood
+\`\`\`
+
+> [!activity|bars] The last month
+
+\`\`\`booklet query
+from: log
+as: bars
+value: sleep
+tone: verdict
+limit: 30
+\`\`\`
+
+> [!activity|table] Every kept day
+
+\`\`\`booklet query
+from: log
+as: table
+fields: date, sleep, mood, verdict, note
+\`\`\`
+
+%%
+> [!records] App record — do not edit below this line
+
+\`\`\`booklet entries log
+{"items": [
+${items.join(",\n")}
+]}
+\`\`\`
+%%
+`;
+  };
+  async function check41() {
+    const c = new Check(41, "a large note: " + DAYS + " kept days of a daily tracker with a line over all of them and a table of all of them: time to draw each screen, from a press to the file written, typing, the heap, console errors");
+    await withApp("c41", async (o, vault) => {
+      const text = bigText();
+      const file = put(vault, BIG, text);
+      c.info("the note is " + (text.length / 1024).toFixed(0) + " KiB, " + text.split("\n").length + " lines, " + DAYS + " kept days (" + new Date(Date.UTC(2026, 9, 30) - (DAYS - 1) * 86400000).toISOString().slice(0, 10) + " to 2026-10-30)");
+      const K = kit(env, BIG);
+      const heap = () => o.evaluate(() => Math.round(performance.memory.usedJSHeapSize / 1048576));
+      // long tasks (the main thread busy for 50 ms or more) are recorded from here on
+      await o.evaluate(() => { window.__long = []; try { new PerformanceObserver(l => { for (const e of l.getEntries()) window.__long.push(Math.round(e.duration)); }).observe({ entryTypes: ["longtask"] }); } catch (e) { /* no longtask support */ } });
+      const longs = () => o.evaluate(() => { const r = window.__long.slice(); window.__long.length = 0; return r; });
+      const h0 = await heap();
+      // time to first draw: from the call that opens the note to the page drawn, with every piece of Markdown rendered and no write under way
+      await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, BIG, { timeout: 30000, polling: 100 });
+      await longs();
+      const t0 = Date.now();
+      await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, BIG);
+      await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 30000 });
+      await quiet(o);
+      const firstDraw = Date.now() - t0;
+      c.ok(firstDraw < 1000, "time to first draw of the home screen: " + firstDraw + " ms (limit 1000); long tasks " + JSON.stringify(await longs()));
+      // each screen, the way a reader gets to it
+      const screenTime = async (screen, ready) => {
+        const t = Date.now();
+        await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
+        await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "'] " + ready, { timeout: 30000 });
+        await quiet(o);
+        return Date.now() - t;
+      };
+      const tLog = await screenTime("activity:/log", ".booklet-kind-number");
+      c.ok(tLog < 1000, "the daily log's screen (its fields, and the newest of the " + DAYS + " kept days): " + tLog + " ms; long tasks " + JSON.stringify(await longs()));
+      const nEntries = await entryCount(o);
+      c.info("kept days listed on that screen at first: " + nEntries + " of " + DAYS);
+      const tLine = await screenTime("activity:/line", "svg");
+      c.ok(tLine < 1000, "the line over all " + DAYS + " days: " + tLine + " ms; long tasks " + JSON.stringify(await longs()));
+      const tBars = await screenTime("activity:/bars", ".booklet-query");
+      c.ok(tBars < 1000, "the bars of the last 30 days: " + tBars + " ms; long tasks " + JSON.stringify(await longs()));
+      const tTable = await screenTime("activity:/table", "table");
+      const rows = await o.evaluate(sel => document.querySelectorAll(sel + " table tbody tr").length, BOOK);
+      c.ok(tTable < 1000, "the table of every kept day (" + rows + " rows drawn): " + tTable + " ms; long tasks " + JSON.stringify(await longs()));
+      // the words set without the renderer are the words the renderer gives (the table's choice and scale cells)
+      const same2 = await o.evaluate(async sel => {
+        const view = app.workspace.getLeavesOfType("booklet")[0].view;
+        const cell = document.querySelector(sel + " table tbody tr:nth-child(1)");
+        const texts = [...cell.querySelectorAll("td")].map(t => t.textContent);
+        const out = [];
+        for (const w of [texts[2], texts[3]]) { const d = document.createElement("div"); view.md(w, d); for (let n = 0; n < 200 && !d.textContent; n++) await new Promise(r => setTimeout(r, 10)); out.push([w, d.textContent.trim()]); }
+        return { texts, out };
+      }, BOOK);
+      c.ok(same2.out.every(([a, b]) => a === b && a !== ""), "the choice and scale words in the table's first row are the words Obsidian's renderer gives for them: " + JSON.stringify(same2));
+      const h1 = await heap();
+      c.info("JS heap used: " + h0 + " MiB before the note was opened, " + h1 + " MiB after drawing every screen");
+      // a press: from the click to the file holding it, and to the button showing it
+      await K.goTo(o, "activity:/log");
+      await longs();
+      const press = async (n, label) => {
+        const t = Date.now();
+        const btn = inCard(o, "/log", ".booklet-kind-choice button.booklet-choice").nth(n);
+        await btn.click();
+        const shown = await o.page.waitForFunction(([sel, n]) => document.querySelectorAll(sel + " .booklet-kind-choice button.booklet-choice")[n].getAttribute("aria-pressed") === "true", [cardSel("/log"), n], { timeout: 10000, polling: 5 }).then(() => Date.now() - t);
+        const w = await waitDisk(file, tx => new RegExp('```booklet draft log\\n[^\\n]*"verdict":\\s*' + (n + 1) + '[,}]').test(tx), 15000);
+        return { shown, written: Date.now() - t, ok: w.ok };
+      };
+      const p1 = await press(1), p2 = await press(2), p3 = await press(0);
+      c.ok(p1.ok && p2.ok && p3.ok && Math.max(p1.shown, p2.shown, p3.shown) < 200, "a press shows at once (" + [p1, p2, p3].map(x => x.shown + " ms").join(", ") + ") and is in the file after " + [p1, p2, p3].map(x => x.written + " ms").join(", ") + "; long tasks " + JSON.stringify(await longs()));
+      // typing: a key every 60 ms for 3 s; how long the main thread stalls, and the text arrives whole
+      const word = "Typing into a note of " + DAYS + " kept days";
+      const field = inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first();
+      await field.click();
+      await longs();
+      const tt = Date.now();
+      for (const ch of word) { await o.page.keyboard.type(ch); await sleep(60); }
+      await o.evaluate(() => document.activeElement && document.activeElement.blur());
+      const typedAll = await waitDisk(file, t => t.includes('"note":"' + word + '"'), 15000);
+      const lg = await longs();
+      c.ok(typedAll.ok, "text typed for " + (Date.now() - tt) + " ms arrived whole; long tasks while typing: " + JSON.stringify(lg) + " (a write every 700 ms)");
+      c.ok(Math.max(0, ...lg) < 200, "no stall of 200 ms or more while typing: worst " + Math.max(0, ...lg) + " ms");
+      const fin = Date.now();
+      await inCard(o, "/log", "button.booklet-finalize").click();
+      const kept = await waitDisk(file, t => t.split("\n").filter(l => l.startsWith('{"ts"')).length === DAYS + 1, 20000);
+      c.ok(kept.ok, "Finalize keeps the " + (DAYS + 1) + "th day: in the file " + (Date.now() - fin) + " ms after the press");
+      // only the records region changed; the earlier days are as they were
+      const after = kept.text;
+      const lines0 = text.split("\n"), lines1 = after.split("\n");
+      c.ok(after.slice(0, text.indexOf("%%\n> [!records]")) === text.slice(0, text.indexOf("%%\n> [!records]")) && lines1.filter(l => l.startsWith('{"ts"')).slice(0, DAYS).every((l, i) => l.replace(/,$/, "") === lines0.filter(x => x.startsWith('{"ts"'))[i].replace(/,$/, "")), "the design and the " + DAYS + " earlier days are as they were after all of it");
+      c.info("JS heap used after the presses, typing and Finalize: " + (await heap()) + " MiB, and " + (await (async () => { await sleep(8000); return heap(); })()) + " MiB after 8 s idle");
+      c.info("file size after: " + (after.length / 1024).toFixed(0) + " KiB");
+    });
+    return c;
+  }
+
+  return { 35: check35, 36: check36, 38: check38, 39: check39, 40: check40, 41: check41 };
 };
