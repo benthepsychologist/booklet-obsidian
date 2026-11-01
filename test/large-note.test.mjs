@@ -88,3 +88,27 @@ test(`a note of ${DAYS} kept days: read, answered and kept, the design and every
 	assert.ok(done.startsWith(orig.slice(0, orig.indexOf("%%\n> [!records]"))));
 	assert.deepEqual(norm(core.parseBooklet(done).records.entries[""].log.at(-1)), { ts: "2026-11-01T08:00:00Z", mood: 3, note: "Typed on the last day" });
 });
+
+test("the moment and day labels follow the time zone the machine is in now, not the one it was in when the first was drawn", () => {
+	const zone = process.env.TZ;
+	const realNow = Date.now;
+	let clock = realNow();
+	Date.now = () => clock;
+	try {
+		const ts = "2026-10-27T23:30:00Z", t = Date.parse(ts);
+		const moment = { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+		const seen = [];
+		for (const tz of ["UTC", "Asia/Tokyo", "America/Los_Angeles"]) {
+			process.env.TZ = tz;
+			clock += 5000;
+			assert.equal(core.whenText(ts), new Date(t).toLocaleString(undefined, moment), tz);
+			assert.equal(core.shortDay(ts), new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" }), tz);
+			seen.push(core.whenText(ts));
+		}
+		assert.equal(new Set(seen).size, 3, "three zones, three different moments");
+	} finally {
+		Date.now = realNow;
+		if (zone === undefined) delete process.env.TZ;
+		else process.env.TZ = zone;
+	}
+});

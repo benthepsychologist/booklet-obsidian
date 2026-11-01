@@ -7,7 +7,7 @@
  * helpers are booklet.html's (niceScale, lineDomain, thinLabels), so a chart is scaled as the reference renderer scales
  * it. Plain TypeScript: nothing here imports Obsidian.
  */
-import { QUERY_WORDS, formatNumber, maxOf, minOf, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
+import { QUERY_WORDS, formatNumber, localFormat, maxOf, minOf, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
@@ -42,15 +42,13 @@ export interface Chart {
 
 const finite = (n: number | undefined): n is number => typeof n === "number" && Number.isFinite(n);
 
-/** One formatter for every label, made when it is first needed (see whenText in query.ts). */
-let dayFormat: Intl.DateTimeFormat | undefined;
+const DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
 
 /** A kept entry's day without the year, in the reader's own way of writing it: "Oct 27". */
 export function shortDay(ts: string): string {
 	const t = Date.parse(ts);
 	if (!Number.isFinite(t)) return ts;
-	dayFormat ??= new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
-	return dayFormat.format(t);
+	return localFormat(DAY).format(t);
 }
 
 /** The chart for these rows (the plan's rows, or those the reader's filter and sort left). */
