@@ -1,5 +1,5 @@
 /*
- * Plugin 0.7.0, stage A: right and wrong marked (SPEC section 5, "`[x]` marks a correct option"), a matrix question,
+ * Right and wrong marked (SPEC section 5, "`[x]` marks a correct option"), a matrix question,
  * and a question of any kind asked for each pick. They run over the test vault's made-up study quiz, in the view
  * (test/dom.mjs), and over the core where the rule is one of reading or writing.
  *
@@ -238,19 +238,25 @@ test("matrix: laid out as a grid or as separate questions by the room it has, th
 	try {
 		const v = open("grid-quiz");
 		const q = v.q("topics");
-		const fit = () => seen.forEach((cb) => cb());
-		fit();
+		// the plugin measures on the next frame, not inside the observer (Chromium reports a loop error otherwise)
+		const fit = async () => {
+			seen.forEach((cb) => cb());
+			await new Promise((r) => w.requestAnimationFrame(() => r()));
+		};
+		await fit();
 		assert.ok(!q.classList.contains("booklet-mx-stacked"), "700 px holds a 400 px grid");
 		[...q.querySelectorAll(".booklet-mxitem")][1].querySelectorAll("button")[1].click();
 		await v.settled();
 		widths.wrap = 300;
-		fit();
+		seen.forEach((cb) => cb());
+		assert.ok(!q.classList.contains("booklet-mx-stacked"), "not laid out inside the observer's own call");
+		await fit();
 		assert.ok(q.classList.contains("booklet-mx-stacked"), "300 px does not: each item is a question of its own, the matrix's words its stem");
 		assert.ok(q.querySelector(".booklet-mxwrap").classList.contains("booklet-mx-stacked"));
 		const stacked = [...q.querySelectorAll(".booklet-mxitem")][1].querySelectorAll("button")[1];
 		assert.equal(stacked.getAttribute("aria-pressed"), "true", "the answer is the same list under the same key");
 		widths.wrap = 700;
-		fit();
+		await fit();
 		assert.ok(!q.classList.contains("booklet-mx-stacked"));
 		assert.deepEqual(v.answers().topics, [null, 1, null], "nothing lost by the pane changing width");
 		v.close();
@@ -286,7 +292,7 @@ test("matrix: shape (core) is a list of whole anchor numbers from 0 and null; ho
 
 test("matrix: Finalize keeps the list, a kept entry shows each item with its anchor's words, and a query's cards list them", () => {
 	const text = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/matrix
 title: Matrix
 lang: en
@@ -321,7 +327,7 @@ from: log
 /* ---- a query's summary of a matrix ---- */
 
 const SUMMARY_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/matrix-summary
 title: Matrix summary
 lang: en
@@ -483,7 +489,7 @@ test("each: shape (core) is a list of pairs whose answer is the kind's shape, or
 
 test("each: a lines copy and a widget copy are drawn, answer and keep their blank lines out of the entry", async () => {
 	const text = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/each-lines
 title: Each lines
 lang: en
@@ -586,7 +592,7 @@ test("a reader's work is never cleared by marking or by Check: the picks stay af
 /* ---- words held on the device for a copy's Add your own field ---- */
 
 const OPEN_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/held
 title: Held
 lang: en

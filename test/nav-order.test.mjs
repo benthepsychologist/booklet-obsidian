@@ -1,12 +1,11 @@
 /*
- * A heading link that several places could answer opens the first one in the file's order (design decision 9, call c; the prototype
- * took reading order, the design changed it). Every note here is made up.
+ * A heading link that several places could answer opens the first one in the file's order. Every note here is made up.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core, norm } from "./helpers.mjs";
 
-const head = `---\nbooklet: "0.16"\ntitle: Order\n---\n`;
+const head = `---\nbooklet: "0.17"\ntitle: Order\n---\n`;
 const find = (text, words, scope = null) => {
 	const book = core.parseBooklet(text);
 	return norm(core.findHeading(core.buildNav(book, text), words, scope));

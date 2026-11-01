@@ -1,7 +1,7 @@
 /*
- * Page trees, the fix round after the cold review (plugin 0.8.0): the documented 0.16 reading of a page line in a comment, a `<pre>` or a `$$`
- * block; what "Mentioned on" counts; Enter in an empty search box; a linear link lookup; ids that stay unique; the 0.17 note's rule; the
- * menu's focus, headings and labels; a very deep chain; and the gaps the review found in the earlier tests. Every note is made up.
+ * Page trees, further cases: how a 0.16 note's page line in a comment, a `<pre>` or a `$$` block is read; what "Mentioned on" counts; Enter in an
+ * empty search box; a linear link lookup; ids that stay unique; the rule for a 0.17 note; the menu's focus, headings and labels; a very deep
+ * chain; and cases the other page tests leave out. Every note is made up.
  */
 import "./fixed-date.mjs";
 import test from "node:test";
@@ -139,7 +139,7 @@ test("600 pages with two links each, and 1,200 activities each linking to the ne
 test("a page turn in the view on 600 cross-linked pages takes well under the bound", async () => {
 	let text = `${head()}> [!activity|a] A\n\nStart.\n`;
 	for (let i = 0; i < 600; i++) text += `\n> [!page|p${i}] Page ${i}\n\nSee [[#Page ${i + 1}]] and [[#Page ${i + 2}]].\n`;
-	const p = pane(text, { state: { version: 1, screen: "activity:/a", part: 300 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", part: 300 } });
 	await p.settled();
 	const t0 = performance.now();
 	await p.pageNext();
@@ -163,53 +163,57 @@ test("the link lookup answers as it always did: the first place in file order, t
 
 /* ---- S4: ids stay unique ---- */
 
-test("page ids written g, g, g-2 are g, g-2, g-3, the same on every reading; a parent: of a shared id is the first page that wrote it", () => {
+test("page ids written g, g, g-2 are g, g-3, g-2 (the first to write an id keeps it, the third keeps the id it wrote), the same on every reading; a parent: of a shared id is the first page that wrote it", () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|g] First\n\nOne.\n\n> [!page|g] Second\n\nTwo.\n\n> [!page|g-2] Third\n\nThree.\n\n> [!page|kid parent:g] Kid\n\nFour.\n\n> [!page|kid3 parent:g-2] Kid of the third\n\nFive.\n`;
 	const read = () => only(build(text).nav).tabs[0].tree.map((p) => [p.id, p.title, p.parent?.title ?? null]);
 	assert.deepEqual(read(), [
 		["g", "First", null],
 		["kid", "Kid", "First"],
-		["g-2", "Second", null],
-		["g-3", "Third", null],
+		["g-3", "Second", null],
+		["g-2", "Third", null],
 		["kid3", "Kid of the third", "Third"],
 	]);
 	assert.deepEqual(read(), read(), "stable");
 	const said = build(text).nav.problems;
-	assert.equal(said.length, 2);
-	assert.match(said[0], /the page id "g" is used twice in this tab, so this page is "g-2"/);
-	assert.match(said[1], /the page id "g-2" is used twice in this tab, so this page is "g-3"/);
+	assert.equal(said.length, 1, "only the page that lost its id is said");
+	assert.match(said[0], /the page id "g" is used twice in this tab, so this page is "g-3"/);
+	// the same pages the other way round: the first to write g-2 keeps it, and the second g takes the next free number
+	const rev = `${head()}> [!activity|a] A\n\n> [!page|g-2] A1\n\n> [!page|g] A2\n\n> [!page|g] A3\n\n> [!page|g] A4\n`;
+	assert.deepEqual(only(build(rev).nav).tabs[0].tree.map((p) => [p.id, p.title]), [["g-2", "A1"], ["g", "A2"], ["g-3", "A3"], ["g-4", "A4"]]);
 });
 
-test("a saved place for the third of g, g, g-2 reopens the third page, not the second", async () => {
+test("a saved place for the third of g, g, g-2 reopens the third page (which kept g-2), not the second", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|g] First\n\nOne.\n\n> [!page|g] Second\n\nTwo.\n\n> [!page|g-2] Third\n\nThree.\n`;
-	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "g-3", part: 0 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "g-2", part: 0 } });
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["Third"]);
-	assert.deepEqual(p.view.getState().page, "g-3");
+	assert.deepEqual(p.view.getState().page, "g-2");
 	p.close();
 });
 
-/* ---- S5: the 0.17 note ---- */
+/* ---- S5: what a 0.17 note holds that this view does not read ---- */
 
-const note17 = (body, marker = "0.17") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`).problems;
-const MAY_NOT_DRAW = /may not draw/;
+const read17 = (body, marker = "0.17") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`);
+const note17 = (body, marker = "0.17") => read17(body, marker).problems;
 
-test("a 0.17 file with a wordless unknown kind gets the note; Obsidian's own callouts and a plain file do not", () => {
-	const lesson = note17("> [!lesson] Title\n> body\n");
-	assert.match(lesson[0] ?? "", /This file says booklet: 0.17\. This view reads format 0\.16 and the page lines of 0\.17/);
-	assert.match(lesson[0], MAY_NOT_DRAW);
-	assert.deepEqual(note17("> [!note] Title\n> body\n\n> [!warning] Careful\n\n> [!TIP] Tip\n"), [], "an Obsidian callout is a callout");
-	assert.deepEqual(note17("Plain words.\n"), []);
-	assert.match(note17("> [!lesson|x] Title\n")[0], MAY_NOT_DRAW, "with an id, as before");
+test("a 0.17 file with a wordless unknown kind lists it in the notice; Obsidian's own callouts and a plain file do not", () => {
+	const lesson = read17("> [!lesson] Title\n> body\n");
+	assert.equal(lesson.unread.length, 1);
+	assert.equal(lesson.unread[0].line, 8, "the line in the file, counting the front matter");
+	assert.equal(lesson.unread[0].text, "> [!lesson] Title");
+	assert.match(lesson.unread[0].why, /"lesson" is not a kind this view reads/);
+	assert.deepEqual(note17("> [!lesson] Title\n"), [], "it is in the notice, not among the other problems");
+	assert.deepEqual(read17("> [!note] Title\n> body\n\n> [!warning] Careful\n\n> [!TIP] Tip\n").unread, [], "an Obsidian callout is a callout");
+	assert.deepEqual(read17("Plain words.\n").unread, []);
+	assert.equal(read17("> [!lesson|x] Title\n").unread.length, 1, "with an id, as before");
 });
 
-test("a page line with a setting it does not take says so on its own line and is not the view's failing: no \"may not draw\"", () => {
-	const said = note17("> [!page|x hidden] T\n\nWords.\n");
-	assert.deepEqual(said, ["Line 8: a page line takes no `hidden` setting, so it was ignored."]);
-	const key = note17("> [!page|x shiny:1] T\n\nWords.\n");
-	assert.deepEqual(key, ["Line 8: a page line takes no `shiny:` setting, so it was ignored."]);
-	// another kind's refused setting still counts as unread in a 0.17 file
-	assert.match(note17("> [!text|q shiny:1] Q\n")[0], MAY_NOT_DRAW);
+test("a page line with a setting it does not take is listed in the notice as the author's mistake: no update is suggested for it", () => {
+	const hidden = read17("> [!page|x hidden] T\n\nWords.\n");
+	assert.deepEqual(hidden.unread.map((u) => [u.line, u.text, u.why, u.newer]), [[8, "> [!page|x hidden] T", "a page line takes no `hidden` setting", false]]);
+	const key = read17("> [!page|x shiny:1] T\n\nWords.\n");
+	assert.deepEqual(key.unread.map((u) => [u.line, u.why, u.newer]), [[8, "a page line takes no `shiny:` setting", true]], "a name nobody has might be a newer plugin's");
+	assert.equal(read17("> [!text|q shiny:1] Q\n").unread.length, 1);
 });
 
 test("every 0.x marker reads page lines: a 0.16 note with a page line draws its tree and says nothing of it", () => {
@@ -292,13 +296,13 @@ test("exactly one aria-current=page on a screen with a menu: the menu's; the tra
 	}
 	// with no menu (a tab of one named page) the trail keeps its mark: still one
 	const one = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n`;
-	const q = pane(one, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const q = pane(one, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await q.settled();
 	assert.equal(menu(q), null);
 	assert.equal(q.all("[aria-current='page']").length, 1);
 	q.close();
 	// a tab with no page line is drawn as in 0.6.0
-	const old = pane(`${head("0.16")}> [!activity|a] A\n\nWords.\n`, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const old = pane(`${head("0.16")}> [!activity|a] A\n\nWords.\n`, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await old.settled();
 	assert.equal(old.all("[aria-current='page']").length, 1);
 	old.close();
@@ -311,7 +315,7 @@ test("a page group's label keeps the page's own name with the count; a tab of no
 	assert.equal(p.el.querySelector(".booklet-pagebody").getAttribute("aria-label"), "The two axes, 1 of 2");
 	p.close();
 	const text = `${head("0.16")}> [!activity|a] A\n\nOne.\n\n***\n\nTwo.\n\n***\n\nThree.\n`;
-	const q = pane(text, { state: { version: 1, screen: "activity:/a", part: 1 } });
+	const q = pane(text, { state: { version: 2, screen: "activity:/a", part: 1 } });
 	await q.settled();
 	assert.equal(q.el.querySelector(".booklet-pagebody").getAttribute("aria-label"), "Page 2 of 3");
 	q.close();
@@ -325,7 +329,7 @@ test("a deep tree scrolls inside its menu: the list has an overflow rule", () =>
 	assert.match(css, /\.booklet-treelabel \{[^}]*margin-top:\s*var\(--size-4-/);
 });
 
-/* ---- the gaps the review found ---- */
+/* ---- more cases ---- */
 
 test("Back from \"3 of 3\" goes to part 2, and from \"2 of 3\" to part 1", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Long\n\nOne.\n\n***\n\nTwo.\n\n***\n\nThree.\n`;
@@ -347,7 +351,7 @@ test("the title search needs every word: a title with one of two words is not a 
 
 test("the menu is not drawn for a tab of one page", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n`;
-	const p = pane(text, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await p.settled();
 	assert.equal(menu(p), null);
 	assert.equal(p.all(".booklet-pagetitle").length, 1, "its title is still drawn");
@@ -370,7 +374,7 @@ test("the menu's open state is kept by the toggle event, and dropped when a diff
 	p.close();
 });
 
-test("moving off a named page leaves no page in the saved place: it reads as version 1 and nothing more", async () => {
+test("moving off a named page leaves no page in the saved place: it has no page key and nothing more", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n\n> [!activity|b] B\n\nPlain words.\n`;
 	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "p", part: 0 } });
 	await p.settled();
@@ -380,12 +384,12 @@ test("moving off a named page leaves no page in the saved place: it reads as ver
 	assert.equal(p.screen, "activity:/b");
 	const s = p.view.getState();
 	assert.equal(s.page, undefined);
-	assert.equal(s.version, 1);
+	assert.equal(s.version, 2);
 	assert.equal(sha(p.disk.text), sha(text));
 	p.close();
 });
 
-/* ---- lines the mutation run showed no test could break (the 0.8.0 trim) ---- */
+/* ---- links after blocks, the search, and titles that start with an emoji ---- */
 
 test("\"Mentioned on\" counts a link after a closed <pre>, $$ or comment block, after a fence, and after an indented block, wherever the text starts", () => {
 	const blocks = ["<pre>\n[[#Hidden]]\n</pre>", "$$\n[[#Hidden]]\n$$", "<!--\n[[#Hidden]]\n-->", "```\n[[#Hidden]]\n```", "Text.\n\n    [[#Hidden]]"];

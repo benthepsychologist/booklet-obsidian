@@ -15,12 +15,12 @@ export { core };
  *   BOOKLET_REPO       a checkout of the booklet format repository (default /workspace/booklet)
  *   BOOKLET_EXAMPLES   its examples folder (default $BOOKLET_REPO/examples)
  *   BOOKLET_LINTER     its reference linter (default $BOOKLET_REPO/lint-booklet.py)
- *   BOOKLET_STARTERS   a folder of kit starter booklets (default the booklet hub's Obsidian kit starters)
+ *   BOOKLET_STARTERS   a folder of kit starter booklets (no default: those notes are skipped when it is not set)
  */
 export const BOOKLET = process.env.BOOKLET_REPO || "/workspace/booklet";
 export const EXAMPLES = process.env.BOOKLET_EXAMPLES || join(BOOKLET, "examples");
 export const LINTER = process.env.BOOKLET_LINTER || join(BOOKLET, "lint-booklet.py");
-export const STARTERS = process.env.BOOKLET_STARTERS || "/workspace/fleet/hubs/booklet-hub/tools/booklet-obsidian/kit/Starter";
+export const STARTERS = process.env.BOOKLET_STARTERS || "";
 export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
 /** The sampler booklet the navigation tests open (made-up). */
@@ -32,8 +32,8 @@ export const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.m
 export const WIKI = readFileSync(join(ROOT, "test", "page-notes", "Check-in with a wiki.booklet.md"), "utf8");
 /** The screen of its one activity. */
 export const WIKI_SCREEN = "activity:calm/check-in";
-/** A version 1 saved place of that screen (release 0.6.0 and 0.7.0 wrote these). */
-export const wikiAt = (tab, part) => ({ version: 1, screen: WIKI_SCREEN, tab, part });
+/** A saved place of that screen with no page key: its part counts every part of the tab. */
+export const wikiAt = (tab, part) => ({ version: 2, screen: WIKI_SCREEN, tab, part });
 
 /** A note read, then its navigation model built. */
 export const build = (text) => {
@@ -101,7 +101,7 @@ export function assertOutsideUnchanged(orig, next, what = "") {
 
 /**
  * The errors the reference linter is expected to report on a test-vault note, by its file name, and no others. The
- * format 0.16 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
+ * format 0.17 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
  * cells, which the 0.15 linter reported, are format 0.16's. Every check that lints a note expects exactly these
  * (e2e/plugin-check.js keeps the same list).
  */
@@ -163,7 +163,7 @@ export function corpusFiles() {
 export const read = (f) => readFileSync(f, "utf8");
 
 // the set-up the 0.9.0 test files share: a note's front matter, a query fence, the day the views are drawn on, a plan's rows
-export const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
+export const fm = `---\nbooklet: "0.17"\ntitle: Garden\n---\n`;
 export const fence = (body) => "```booklet query\n" + body + "\n```";
 export const DRAWN = new Date("2026-10-28T12:00:00Z");
 export const rowsOf = (p) => p.groups.flatMap((g) => g.rows);

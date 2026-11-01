@@ -7,7 +7,7 @@
  * helpers are booklet.html's (niceScale, lineDomain, thinLabels), so a chart is scaled as the reference renderer scales
  * it. Plain TypeScript: nothing here imports Obsidian.
  */
-import { QUERY_WORDS, formatNumber, maxOf, minOf, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
+import { QUERY_WORDS, formatNumber, localFormat, maxOf, minOf, numberOf, roleText, textOf, toneOf, type QueryPlan, type Row } from "./query";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
@@ -42,10 +42,13 @@ export interface Chart {
 
 const finite = (n: number | undefined): n is number => typeof n === "number" && Number.isFinite(n);
 
+const DAY: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+
 /** A kept entry's day without the year, in the reader's own way of writing it: "Oct 27". */
 export function shortDay(ts: string): string {
 	const t = Date.parse(ts);
-	return Number.isFinite(t) ? new Date(t).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : ts;
+	if (!Number.isFinite(t)) return ts;
+	return localFormat(DAY).format(t);
 }
 
 /** The chart for these rows (the plan's rows, or those the reader's filter and sort left). */
@@ -82,7 +85,7 @@ export function buildChart(p: Plan, rows: readonly Row[]): Chart {
 			? QUERY_WORDS.chart.bars(rows.length, range ? lo : null, range ? hi : null)
 			: QUERY_WORDS.chart.line(series.map((s) => s.name).join(", "), rows.length, lo, hi);
 	const head = [roles.label ? textOf(set.label(roles.label)) : "", ...series.map((s) => s.name)];
-	const table = { head, rows: rows.map((_, i) => [labels[i]!, ...series.map((s) => (s.values[i] === null || s.values[i] === undefined ? "–" : fmt(s.values[i]!)))]) };
+	const table = { head, rows: rows.map((_, i) => [labels[i]!, ...series.map((s) => (s.values[i] === null || s.values[i] === undefined ? "–" : fmt(s.values[i])))]) };
 	return { kind: spec.kind, labels, series, tones, name, range, fmt, cannot, note, table };
 }
 

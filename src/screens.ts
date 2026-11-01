@@ -184,7 +184,7 @@ export function pagerCount(at: number, of: number, noPageWord: boolean): string 
 
 /**
  * Back, "Page 2 of 3" and Next, at the foot of an activity (SPEC section 3, pages), after the page, not pinned: the reader meets
- * Next where they finish reading. Back leads out from the first page ("Up: <parent>", else "Back to the overview"); Next on the last
+ * Next where they finish reading. Back leads out from the first page ("Back to the overview"); Next on the last
  * page goes to the next activity ("Next: 3. Title", no number between bare activities). In a tab of pages (page trees) `at` and `of` count
  * the parts of the page on show, and the counter says "2 of 3" (`noPageWord`), not "Page 2 of 3": a part is not a page there.
  */

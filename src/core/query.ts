@@ -206,11 +206,35 @@ export function inSpan(entries: readonly Entry[], days: number, drawn: Date, now
 	});
 }
 
+const formats = new WeakMap<object, { zone: string; format: Intl.DateTimeFormat }>();
+let zone = "";
+let zoneRead = -Infinity;
+
+/**
+ * The formatter for these options in the reader's own locale and time zone, built once per distinct locale and zone: the same words
+ * as `toLocaleString` with these options. Building one for each entry is a large part of drawing a table of thousands of kept
+ * days, and `Intl` resolving the locale and zone costs as much as building one, so the pair is read at most once a second.
+ * `options` is one object per caller, kept across calls.
+ */
+export function localFormat(options: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+	const now = Date.now();
+	if (now - zoneRead >= 1000) {
+		const r = new Intl.DateTimeFormat().resolvedOptions();
+		zone = `${r.locale} ${r.timeZone}`;
+		zoneRead = now;
+	}
+	let hit = formats.get(options);
+	if (!hit || hit.zone !== zone) formats.set(options, (hit = { zone, format: new Intl.DateTimeFormat(undefined, options) }));
+	return hit.format;
+}
+
+const MOMENT: Intl.DateTimeFormatOptions = { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" };
+
 /** A kept entry's moment, in the reader's own words and time zone: "Tue, 27 Oct 2026, 14:02". */
 export function whenText(ts: unknown): string {
 	const t = Date.parse(String(ts));
 	if (!Number.isFinite(t)) return String(ts);
-	return new Date(t).toLocaleString(undefined, { weekday: "short", year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+	return localFormat(MOMENT).format(t);
 }
 
 /* ---- cells ---- */
@@ -430,7 +454,7 @@ function summariseAll(q: Question, label: WordPart[], values: readonly unknown[]
 }
 
 /** One item's anchor numbers over a matrix's answers (an item not answered is `null`, which counts for nothing). */
-const itemValues = (values: readonly unknown[], i: number): unknown[] => values.map((v) => (Array.isArray(v) ? v[i] : undefined));
+const itemValues = (values: readonly unknown[], i: number): unknown[] => values.map((v) => (Array.isArray(v) ? (v as unknown[])[i] : undefined));
 
 /** A question's answers over the records, summarised as its kind is (one row). `values` are the answers in their kind's shape. */
 function summarise(q: Question, label: WordPart[], values: readonly unknown[], locale: string): Row {
@@ -649,7 +673,7 @@ function pickRows(a: Activity, x: Question, ents: readonly Record<string, unknow
 				const cells = Object.create(null) as Record<string, Cell>;
 				cells["label"] = partsCell([pickWords(src, p)]);
 				cells["value"] = c;
-				rows.push(a.repeat && e["ts"] !== undefined ? { cells, ts: String(e["ts"]) } : { cells });
+				rows.push(a.repeat && e["ts"] !== undefined ? { cells, ts: `${e["ts"] as string}` } : { cells });
 				break;
 			}
 		}

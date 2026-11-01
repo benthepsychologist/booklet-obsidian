@@ -1,5 +1,5 @@
 /*
- * Page trees with plugin 0.7.0 (lessons: groups, steps, rows): a page line inside a group or another callout's body is that body's text;
+ * Page trees with groups, steps and rows: a page line inside a group or another callout's body is that body's text;
  * a page line inside an open row is ignored and said, and the row stays open; one step at a time works inside a named page, and Back and
  * Next move a step, then a part, then a page. Every note is made up.
  */
@@ -18,15 +18,24 @@ const only = (text) => {
 
 /* ---- a page line inside a callout body ---- */
 
-test("a page line inside a group's body is the group's text, not a page: no page is made, nothing is said, the words stay in the group", () => {
+test("a page line inside a group is ignored and said (SPEC 0.17 section 3: a group cannot hold one): no page is made, and the group keeps its other words", () => {
 	const text = note(`> [!group] Steps\n> Words.\n>\n> > [!page|x] Not a page\n> > Words of it.\n>\n> More words.\n\nAfter the group.`);
 	const book = core.parseBooklet(text);
-	assert.deepEqual(book.problems, []);
+	assert.deepEqual(book.problems, ["Line 10: a page line cannot go inside a group, so it was ignored."]);
 	assert.deepEqual(norm(book.activities[0].segments.map((s) => (s.type === "callout" ? `callout:${s.kind}` : s.type))), ["callout:group", "prose", "callout-end", "prose"]);
 	const group = book.activities[0].segments[1];
-	assert.match(group.markdown, /\[!page\|x\] Not a page/, "the line is in the group's words");
+	assert.doesNotMatch(group.markdown, /Not a page/, "the line is not drawn");
+	assert.match(group.markdown, /Words\.[\s\S]*More words\./, "the group's other words stay");
 	const { na } = only(text);
 	assert.deepEqual(na.tabs[0].tree.map((p) => p.named), [false], "one unnamed page, no page made by the line");
+});
+
+test("a page line inside another callout's body, one that holds a question, is that body's text, not a page, and nothing is said (SPEC 0.17 section 3)", () => {
+	const text = note(`> [!tip] Tip\n>\n> > [!choice|c] One?\n> - [ ] Yes\n> - [ ] No\n>\n> > [!page|x] Not a page\n> > Words of it.\n\nAfter.`);
+	const book = core.parseBooklet(text);
+	assert.deepEqual(book.problems, []);
+	const tip = book.activities[0].segments.filter((s) => s.type === "prose").map((s) => s.markdown).join("\n");
+	assert.match(tip, /\[!page\|x\] Not a page/, "the line is in the callout's words");
 });
 
 test("the same inside a tip that holds a question; and the page line after the group still starts a page", () => {
@@ -59,7 +68,7 @@ function store(one) {
 	if (one) m.set("booklet-steps:Note.booklet.md", JSON.stringify("one"));
 	return { loadLocalStorage: (k) => (m.has(k) ? JSON.parse(m.get(k)) : null), saveLocalStorage: (k, d) => (d === null ? m.delete(k) : m.set(k, JSON.stringify(d))), m };
 }
-const open = (part) => pane(LESSON, { state: { version: 1, screen: "activity:/a", part }, appMore: store(true) });
+const open = (part) => pane(LESSON, { state: { version: 2, screen: "activity:/a", part }, appMore: store(true) });
 const progress = (p) => (p.el.querySelector(".booklet-steps-progress")?.textContent ?? "").trim();
 const counter = (p) => p.pager().at;
 
@@ -102,7 +111,7 @@ test("one at a time: Back moves a step first; Back to the part before opens on i
 });
 
 test("without steps nothing about moving through the pages changes: Back on a later part goes to the part before", async () => {
-	const p = pane(LESSON, { state: { version: 1, screen: "activity:/a", part: 1 }, appMore: store(false) });
+	const p = pane(LESSON, { state: { version: 2, screen: "activity:/a", part: 1 }, appMore: store(false) });
 	await p.settled();
 	assert.equal(progress(p), "");
 	await p.pageBack();

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { pane } from "./pane.mjs";
 
 const note = `---
-booklet: "0.16"
+booklet: "0.17"
 title: Scoped references
 ---
 
@@ -72,7 +72,7 @@ test("view supplies reference context only to fragments that can use it", async 
  globalThis.__bookletStubRender = (md, el) => { seen.push(md); el.textContent = md; };
  let p;
  try {
-  const text = `---\nbooklet: "0.16"\ntitle: Sample\n---\n\n> [!activity|a] A\n\nPlain words.\n\nA [link][pic].\n\n> [!data] Data\n\n[pic]: picture.png\n`;
+  const text = `---\nbooklet: "0.17"\ntitle: Sample\n---\n\n> [!activity|a] A\n\nPlain words.\n\nA [link][pic].\n\n> [!data] Data\n\n[pic]: picture.png\n`;
   p = pane(text, {screen: "activity:/a"});
   await p.settled();
   assert.ok(seen.some(md => md.trim() === "Sample"));
@@ -83,7 +83,7 @@ test("view supplies reference context only to fragments that can use it", async 
 // Where each piece of the view takes its definitions from: every title, crumb and status below holds a reference `[x][pic]`, and
 // the module, the bare activity and the shared section each define `pic` differently.
 const drawn = `---
-booklet: "0.16"
+booklet: "0.17"
 title: Book [bt][pic]
 ---
 
@@ -187,7 +187,7 @@ test("a scope's definitions are worked out once while a screen is drawn", async 
    set: (b) => { if (b) b.references = new Proxy(b.references, { get: (t, k) => { if (count.has(k)) passes++; const v = Reflect.get(t, k, t); return typeof v === "function" ? v.bind(t) : v; } }); book = b; },
   });
   seen.length = 0;
-  await p.view.setState({ version: 1, screen: "activity:two/b" }, {});
+  await p.view.setState({ version: 2, screen: "activity:two/b" }, {});
   await p.settled();
   // the booklet's title and module two's crumb, title and words: four fragments, two scopes
   assert.equal(seen.filter((md) => md.includes("[pic]: ")).length, 4);

@@ -322,7 +322,7 @@ export function tokenise(markdown: string, ids: string[]): string {
 			let at = 0;
 			for (const m of inertSpans(l).matchAll(MARK)) {
 				out += `${l.slice(at, m.index)}${MARK_OPEN}${ids.push(m[1] as string) - 1}${MARK_CLOSE}`;
-				at = (m.index as number) + m[0].length;
+				at = m.index + m[0].length;
 			}
 			return out + l.slice(at);
 		})

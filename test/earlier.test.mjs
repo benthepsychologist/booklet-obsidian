@@ -1,6 +1,6 @@
 /*
- * A reader's own words offered again (src/core/earlier.ts, drawn by src/questions.ts and src/engines.ts), as the
- * approved earlier-answers design for format 0.16 has it: the `earlier:<n>` setting and its bad values, the settings a
+ * A reader's own words offered again (src/core/earlier.ts, drawn by src/questions.ts and src/engines.ts), as format 0.16
+ * has it: the `earlier:<n>` setting and its bad values, the settings a
  * kind does not take (now reported, as SPEC section 4 says), and for each place that offers words (own options, a body
  * widget's places, a lines question) where the words come from, how many, in what order and how they are matched; the
  * source rule's edge cases (today's entry in a daily activity, pairs whose pick was taken back, a stale word id); and
@@ -16,8 +16,12 @@ const A = "today";
 
 /* ---- the setting, and the settings a kind does not take ---- */
 
-const head = (body) => `---\nbooklet: "0.16"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
-const problemsOf = (body) => core.parseBooklet(head(body)).problems;
+const head = (body) => `---\nbooklet: "0.17"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
+/** What the note says it could not read: the problems, then each setting a kind does not take as the notice lists it (with its line). */
+const problemsOf = (body) => {
+	const b = core.parseBooklet(head(body));
+	return [...b.problems, ...b.unread.map((u) => `Line ${u.line}: ${u.why}, so it was ignored.`)];
+};
 const questionOf = (body, id) => {
 	for (const a of core.parseBooklet(head(body)).activities) for (const s of a.segments) if (s.type === "question" && s.id === id) return s;
 	return null;
@@ -66,12 +70,12 @@ test("earlier: read on a choice, a multi, a lines and a widget line: digits only
 	assert.deepEqual(problemsOf(t), ["Line 10: a text line takes no `earlier:` setting, so it was ignored."]);
 });
 
-test("settings a kind does not take are reported and ignored (SPEC section 4); no setting of the 0.16 table is reported", () => {
-	// every setting the 0.16 table gives each kind
+test("settings a kind does not take are reported and ignored (SPEC section 4); no setting of the 0.17 table is reported", () => {
+	// every setting the 0.17 table gives each kind
 	const good = [
 		"> [!module|m icon:book] A module",
 		"",
-		"> [!activity|log repeat daily hidden icon:pencil parent:other status:off tab:t1] A log",
+		"> [!activity|log repeat daily hidden icon:pencil status:off tab:t1 entries:folded] A log",
 		"",
 		"> [!multi|src open menu:made-up each:none-such earlier:3] Source",
 		"- [ ] One",
@@ -111,7 +115,7 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 	const bad = [
 		"> [!module|m colour:red] A module",
 		"",
-		"> [!activity|log repeat weekly] A log",
+		"> [!activity|log repeat weekly parent:other] A log",
 		"",
 		"> [!text|a lng mx:5] Text",
 		"",
@@ -129,6 +133,7 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 		problemsOf(bad).filter((x) => /takes no/.test(x)),
 		[
 			"Line 8: a module line takes no `colour:` setting, so it was ignored.",
+			"Line 10: an activity line takes no `parent:` setting, so it was ignored.",
 			"Line 10: an activity line takes no `weekly` setting, so it was ignored.",
 			"Line 12: a text line takes no `mx:` setting, so it was ignored.",
 			"Line 12: a text line takes no `lng` setting, so it was ignored.",
@@ -153,7 +158,7 @@ test("settings: on every booklet file of the corpus and the test vault, the plug
 		const text = read(file);
 		const book = core.parseBooklet(text);
 		const said = (re, s) => [...s.matchAll(re)].map((m) => `${m[1]} ${m[2]} ${m[3].replace(/:$/, "").toLowerCase()}`);
-		const mine = book.problems.flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
+		const mine = [...book.problems, ...book.unread.map((u) => `Line ${u.line}: ${u.why}, so it was ignored.`)].flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
 		const r = lint(text, file.split("/").pop());
 		const theirs = said(/line (\d+): an? (\S+) line takes no `([^`]+)`/g, r.out);
 		assert.deepEqual(mine.sort(), theirs.sort(), file);

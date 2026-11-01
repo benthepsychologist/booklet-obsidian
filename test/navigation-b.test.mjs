@@ -1,5 +1,5 @@
 /*
- * Stage B of the navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
+ * Navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
  * drawn only where the tab on show holds a question, the set of icon names, and the scroll that waits for the draw to finish.
  * Every note is made up.
  */
@@ -24,7 +24,11 @@ test("a link from another note opens the screen, tab and page that hold the word
 		return p;
 	};
 	let p = await to("Cast shadows");
-	assert.equal(p.screen, "activity:basics/shadow", "an activity's title, which is no Markdown heading");
+	assert.equal(p.screen, "activity:basics/light", "a page's title, which is no Markdown heading");
+	assert.deepEqual(p.pageTitles(), ["Cast shadows"], "the page is shown");
+	p.close();
+	p = await to("Where the light falls");
+	assert.equal(p.screen, "activity:basics/light", "an activity's title, which is no Markdown heading");
 	p.close();
 	p = await to("Ten in a row");
 	assert.equal(p.screen, "activity:basics/lines");
@@ -68,7 +72,7 @@ test("a link from another note moves the pane without a step of its own (Obsidia
 	assert.equal(p.hist.back.length, steps);
 	p.view.setEphemeralState({ subpath: "#Cast shadows" });
 	await p.settled();
-	assert.equal(p.screen, "activity:basics/shadow");
+	assert.equal(p.screen, "activity:basics/light");
 	assert.equal(p.hist.back.length, steps, "Obsidian's own opening of the note is the step; the view adds none, which it could not (a move asked of the pane during an opening is dropped)");
 	assert.equal(p.flight.calls, 0, "no move was asked of the pane");
 	p.close();
@@ -85,7 +89,7 @@ test("a link from another note moves the pane without a step of its own (Obsidia
 });
 
 test("a link to a heading in the opening of a tabbed activity leaves the tab and the page as they are", async () => {
-	const text = `---\nbooklet: "0.16"\ntitle: Opening\n---\n\n> [!activity|a] A\n\n## Above every tab\n\nWords.\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n***\nTwo p3\n`;
+	const text = `---\nbooklet: "0.17"\ntitle: Opening\n---\n\n> [!activity|a] A\n\n## Above every tab\n\nWords.\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n***\nTwo p3\n`;
 	const p = pane(text);
 	await p.settled();
 	await p.tab("Two");
@@ -97,9 +101,9 @@ test("a link to a heading in the opening of a tabbed activity leaves the tab and
 	p.close();
 });
 
-/* ---- the finish rule (call H) ---- */
+/* ---- the finish rule ---- */
 
-const FINISH = `---\nbooklet: "0.16"\ntitle: Finish\n---\n\n> [!activity|log repeat daily] Log\n\n> [!tab] Read\n\nSome words to read.\n\n> [!tab] Answer\n\n> [!text|what] What happened?\n\n> [!activity|plain repeat] Plain\n\nOnly words.\n\n> [!activity|asked repeat] Asked\n\n> [!text|above] Asked above every tab\n\n> [!tab] One\n\nWords.\n\n> [!tab] Two\n\nMore words.\n`;
+const FINISH = `---\nbooklet: "0.17"\ntitle: Finish\n---\n\n> [!activity|log repeat daily] Log\n\n> [!tab] Read\n\nSome words to read.\n\n> [!tab] Answer\n\n> [!text|what] What happened?\n\n> [!activity|plain repeat] Plain\n\nOnly words.\n\n> [!activity|asked repeat] Asked\n\n> [!text|above] Asked above every tab\n\n> [!tab] One\n\nWords.\n\n> [!tab] Two\n\nMore words.\n`;
 
 test("the finish is drawn under the page only where the tab on show holds a question, or the opening above every tab does", async () => {
 	const p = pane(FINISH, { screen: "activity:/log" });
@@ -129,7 +133,7 @@ test("the finish is drawn under the page only where the tab on show holds a ques
 });
 
 test("the finish stays under every page of a tab that holds a question, wherever the question is in it", async () => {
-	const text = `---\nbooklet: "0.16"\ntitle: Pages\n---\n\n> [!activity|log repeat] Log\n\nOne words\n***\nTwo words\n***\n> [!text|what] What?\n`;
+	const text = `---\nbooklet: "0.17"\ntitle: Pages\n---\n\n> [!activity|log repeat] Log\n\nOne words\n***\nTwo words\n***\n> [!text|what] What?\n`;
 	const p = pane(text);
 	await p.settled();
 	assert.equal(p.all(".booklet-finalize").length, 1, "page 1 has no question but its tab does");
@@ -141,11 +145,11 @@ test("the finish stays under every page of a tab that holds a question, wherever
 
 /* ---- the set of icon names ---- */
 
-test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", () => {
+test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", (t) => {
 	assert.equal(BOOKLET_ICONS.size, 161);
 	for (const n of BOOKLET_ICONS) assert.match(n, /^[a-z0-9]+(-[a-z0-9]+)*$/, n);
 	const dir = join(BOOKLET, "art", "icons");
-	if (!existsSync(dir)) return console.log("skipped: no art/icons folder at " + dir);
+	if (!existsSync(dir)) return t.skip("no art/icons folder at " + dir);
 	const files = readdirSync(dir).filter((f) => f.endsWith(".svg")).map((f) => f.replace(/\.svg$/, ""));
 	assert.deepEqual([...BOOKLET_ICONS].sort(), files.sort());
 });

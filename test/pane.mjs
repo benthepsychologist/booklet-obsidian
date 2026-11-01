@@ -13,7 +13,7 @@ export { sleep };
 
 /**
  * A pane as Obsidian runs it, as far as the moves need: `setViewState` hands the state to the view and, when the view marks the
- * move a step, keeps the place left in a Back list; a second move asked for while one is under way is dropped (design 4.2);
+ * move a step, keeps the place left in a Back list; a second move asked for while one is under way is dropped;
  * Back and Forward hand a kept state to the view without adding a step.
  */
 export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state = null, drawLater = false, appMore = {} } = {}) {
@@ -45,10 +45,10 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 			}
 		},
 	};
-	const view = new BookletView(leaf, { setMode: async () => {} });
+	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
-	void view.setState(state ?? (screen ? { version: 1, screen } : {}), {});
+	void view.setState(state ?? (screen ? { version: 2, screen } : {}), {});
 	if (!drawLater) view.setViewData(text, true);
 	const el = view.contentEl;
 	const all = (sel) => [...el.querySelectorAll(sel)];

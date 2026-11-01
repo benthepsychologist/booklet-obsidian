@@ -13,13 +13,19 @@ import {
 	FENCE_OPEN,
 	ID_PATTERN,
 	bodyEnd,
+	KIND_SETTINGS,
 	calloutWords,
 	earlierValue,
 	fenceEnd,
+	ignoredSettings,
 	isBlank,
-	settingProblems,
 	splitLines,
+	tabIdOf,
+	uniqueIds,
+	type Words,
 } from "./lines";
+import { BOOKLET_ICONS } from "../booklet-icons";
+import { looksLikeMistake, shortLine, type Unread } from "./unread";
 import { readDataRows, type DataRows } from "./data";
 import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
@@ -41,9 +47,8 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 	return THEMATIC_BREAK.test(line) && !(textAbove && /^ {0,3}-+[ \t]*$/.test(line));
 }
 
-export const FORMAT_VERSION = "0.16";
-/** The marker of the next format, whose page lines this view reads ahead of SPEC (page trees; design/pages/proposal.md). */
-export const NEXT_FORMAT = "0.17";
+/** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
+export const FORMAT_VERSION = "0.17";
 
 export interface Option {
 	text: string;
@@ -171,7 +176,7 @@ export interface TabHeading {
 }
 
 /**
- * A named page (page trees, ahead of the format: format 0.17, not yet in SPEC): `> [!page|id parent:x icon:name] Title` starts a page of
+ * A named page (SPEC 0.17 section 3, "Pages: a tree inside a tab"): `> [!page|id parent:x icon:name] Title` starts a page of
  * the tab it stands in, which runs to the next page, tab, activity or module line. The tree it makes is built by core/nav.ts.
  */
 export interface PageHeading {
@@ -194,6 +199,8 @@ export interface Unsupported {
 	id: string | null;
 	title: string;
 	line: number;
+	/** A block (a fenced `booklet` block of a type this view does not define), not a line of a kind it does not draw. */
+	block?: boolean;
 }
 
 /* ---- queries (SPEC section 6, "Queries: showing kept entries and data" and "A span of days, and summaries") ---- */
@@ -295,6 +302,8 @@ export interface Activity {
 	repeat: boolean;
 	/** `repeat daily`: one kept entry per day; completing again replaces today's. */
 	daily: boolean;
+	/** `entries:folded`: the list of kept entries starts folded (SPEC section 3, "Kept entries, folded"); the reader may open it, and nothing is stored. */
+	entriesFolded: boolean;
 	hidden: boolean;
 	segments: Segment[];
 }
@@ -316,8 +325,13 @@ export interface Booklet {
 	bodyStart: number;
 	modules: Module[];
 	activities: Activity[];
-	/** What could not be read, first among them a note about another 0.x marker. */
+	/** What could not be read, apart from `unread`. The note about another 0.x marker is made from `marker` (notice.ts). */
 	problems: string[];
+	/**
+	 * The kinds of line, settings, query keys and blocks this view does not read, one entry for each place, in file order. They stay in the
+	 * file as written; the notice at the top of the view lists them (notice.ts).
+	 */
+	unread: Unread[];
 	/** The booklet's opening and each module's, in file order. */
 	openings: Opening[];
 	widgets: WidgetBlock[];
@@ -408,6 +422,13 @@ const OBSIDIAN_CALLOUTS = new Set([
 	"note", "abstract", "summary", "tldr", "info", "todo", "tip", "hint", "important", "success", "check", "done", "question", "help", "faq",
 	"warning", "caution", "attention", "failure", "fail", "missing", "danger", "error", "bug", "example", "quote", "cite",
 ]);
+
+/** Every setting name the format has on any kind of line, and every key a query has, without the colon: what a mistyped one is held against. */
+function knownSettings(): ReadonlySet<string> {
+	knownNames ??= new Set([...Object.values(KIND_SETTINGS).flat().map((x) => x.replace(/:$/, "")), ...QUERY_KEYS]);
+	return knownNames;
+}
+let knownNames: Set<string> | null = null;
 
 /** The kinds of line that make structure: none can go inside a callout's body (SPEC section 6, "A group holds blocks"). */
 const STRUCTURE_KINDS = new Set(["module", "activity", "tab", "row", "data", "records"]);
@@ -532,6 +553,21 @@ const plainWords = (md: string): string =>
 		.trim()
 		.toLowerCase();
 
+/** Does the body hold a module line or an activity line, outside fences and the records region? */
+function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[]): boolean {
+	for (let i = from; i < lines.length; i++) {
+		if (inRegion[i]) continue;
+		const f = FENCE_OPEN.exec(lines[i] ?? "");
+		if (f && f[1]) {
+			i = fenceEnd(lines, i, f[1]);
+			continue;
+		}
+		const kind = CALLOUT_LINE.exec(lines[i] ?? "")?.[1]?.toLowerCase();
+		if (kind === "activity" || kind === "module") return true;
+	}
+	return false;
+}
+
 /** An opening's lines as Markdown: the blank lines around it off, and a leading heading that repeats `title` off too. */
 export function openingMarkdown(ls: readonly string[], title: string): string {
 	let from = 0;
@@ -592,8 +628,7 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 
 /**
  * In an activity with tab lines, what comes before the first one is the activity's opening, drawn above every tab, so it cannot be a
- * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in (page trees; the
- * pages round, 2.6).
+ * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in.
  */
 function dropOpeningPages(act: Activity, problems: string[]): void {
 	const firstTab = act.segments.findIndex((s) => s.type === "tab");
@@ -615,24 +650,21 @@ export function parseBooklet(text: string): Booklet {
 	let lines = splitLines(text).map((l) => l.text);
 	const fm = frontMatterOf(lines);
 	const frontMatter: Record<string, string> = Object.create(null) as Record<string, string>;
-	for (const l of fm.head ?? []) {
+	/** The index in the file's lines of the front matter's `start:` line, or -1. */
+	let startAt = -1;
+	(fm.head ?? []).forEach((l, n) => {
 		const kv = kvLine(l);
-		if (kv) frontMatter[kv[0]] = kv[1];
-	}
+		if (!kv) return;
+		frontMatter[kv[0]] = kv[1];
+		if (kv[0] === "start") startAt = n + 1;
+	});
 	const problems: string[] = [];
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
 	const ver = versionOf(marker);
-	let pagesMarker = false;
-	let unread = 0;
 	if (!marker) refusals.push("This note has no booklet: marker in its front matter, so it is not a booklet.");
 	else if (!ver || ver[0] !== 0) refusals.push(`This note says booklet: ${marker}, which is not a 0.x version, so it is not a booklet for format ${FORMAT_VERSION}.`);
-	else if (marker === NEXT_FORMAT)
-		// page trees are ahead of the format: this view draws what 0.17's page lines say, so it says nothing of the marker unless the file
-		// then holds a line or a setting this view does not read (counted in `unread`, and said at the end)
-		pagesMarker = true;
-	else if (marker !== FORMAT_VERSION)
-		problems.push(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and has opened it as it is; some of it may not draw.`);
+	// any other 0.x marker, earlier or later, opens as it is; the notice made from the marker says so (notice.ts)
 
 	const regions = findRegions(lines, fm.bodyStart);
 	const inRegion = regionMask(lines.length, regions);
@@ -649,6 +681,23 @@ export function parseBooklet(text: string): Booklet {
 	const eachUses: EachUse[] = [];
 	const openingLines = new Map<string | null, { lines: string[]; line: number }>();
 	const at = (i: number) => `Line ${i + 1}`;
+	/** The file's own lines: the notice shows a line as written, not with a callout's `>` taken off. */
+	const fileLines = lines;
+	const unread: Unread[] = [];
+	const known = knownSettings();
+	/** Records that line `i` holds something this view does not read. `newer`: could a later version of the plugin read it? */
+	const noteUnread = (i: number, why: string, newer: boolean, text = fileLines[i] ?? "") => {
+		if (!unread.some((u) => u.line === i + 1 && u.why === why)) unread.push({ line: i + 1, text: shortLine(text), why, newer });
+	};
+	// a setting with a fixed set of values: any other value is reported and ignored (SPEC sections 2 and 3)
+	if (startAt >= 0 && (frontMatter["start"] ?? "").trim() !== "home") noteUnread(startAt, "`start:` takes only the value `home`, so it was ignored", false);
+	/** An `icon:` outside Booklet's set draws no picture. A name close to one in the set is a mistake; the set may grow, so another may be a later one. */
+	const noteIcon = (i: number, w: Words) => {
+		const icon = w.set["icon"];
+		if (icon && !BOOKLET_ICONS.has(icon)) noteUnread(i, `\`icon:${icon}\` names no icon in Booklet's set, so it was ignored`, !looksLikeMistake(icon, BOOKLET_ICONS));
+	};
+	/** The ids of the tabs in the open module's opening, as written or made from the name; an activity's `tab:` names one of them (once made unique). */
+	let modTabs: string[] = [];
 
 	let mod: Module | null = null;
 	let act: Activity | null = null;
@@ -769,7 +818,15 @@ export function parseBooklet(text: string): Booklet {
 	/** The footnote ids by scope are said once each (a repeat is ignored: the first wins, booklet.html registries). */
 	const noteScope = (): string | null => (section === "content" ? (mod ? mod.id : "") : dataMod ? dataMod.id : null);
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
-	const open: { lines: string[]; resume: number }[] = [];
+	const open: { lines: string[]; resume: number; kind: string }[] = [];
+
+	// a file with no activity line and no module line is one activity, named by the front matter title (SPEC section 3): its prose, its tab
+	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries
+	if (!hasStructureLine(lines, fm.bodyStart, inRegion) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
+		started = true;
+		act = { id: "", title: frontMatter["title"] || "Activity", scope: "", line: -1, repeat: false, daily: false, entriesFolded: false, hidden: false, segments: [] };
+		activities.push(act);
+	}
 
 	for (let i = fm.bodyStart; ; i++) {
 		if (i >= lines.length) {
@@ -804,12 +861,17 @@ export function parseBooklet(text: string): Booklet {
 				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
 				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
 				if (what === "data" && hasId) readData(i, k, (lines[n] ?? "").trim().slice(1));
+				if (what !== "widget" && what !== "data" && what !== "query") {
+					// a block this view does not define: shown where it stands in an activity as not yet supported, and kept as written
+					noteUnread(i, `${what ? `"booklet ${what}"` : "a booklet block with no type"} is not a block this view reads, so it is drawn as "not yet supported"`, true);
+					if (act && section === "content") act.segments.push({ type: "unsupported", kind: what ? `booklet ${what}` : "booklet", id: null, title: "", line: i + 1, block: true });
+				}
 				if (what === "query") {
 					// a query is read where it stands in an activity's prose, and drawn there (booklet.html FENCE_KIND.query)
 					if (section === "data") problems.push(`${at(i)}: a query belongs in an activity's prose, not in the data section, so it was ignored.`);
 					else if (!act) problems.push(`${at(i)}: a query belongs in an activity's prose, so it was refused.`);
 					else {
-						const query = readQuery(lines.slice(i + 1, Math.min(k, lines.length)), i + 1, problems);
+						const query = readQuery(lines.slice(i + 1, Math.min(k, lines.length)), i + 1, problems, noteUnread);
 						if (query) act.segments.push({ type: "query", line: i + 1, query, source: null });
 					}
 				}
@@ -825,13 +887,12 @@ export function parseBooklet(text: string): Booklet {
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
-			const sp = settingProblems(kind, w, at(i));
-			// a setting a page line does not take is the author's to fix, not a sign of a newer format: said, and not counted as unread
-			if (kind !== "page") unread += sp.length;
-			problems.push(...sp);
+			// a setting the line's kind does not take is ignored and listed in the notice; whether a newer plugin might read it depends on the name
+			for (const sp of ignoredSettings(kind, w)) noteUnread(i, sp.why, !looksLikeMistake(sp.name, known));
 			// a line of a kind that is none of the format's nor Obsidian's, with no words after the bar, is drawn as the callout it looks like:
 			// a newer format may mean more by it
-			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind)) unread++;
+			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind))
+				noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as an ordinary callout`, true);
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
@@ -839,12 +900,12 @@ export function parseBooklet(text: string): Booklet {
 				delete w.set["earlier"];
 			}
 			if (open.length && (STRUCTURE_KINDS.has(kind) || kind === "page")) {
-				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line there is that
-				// body's text, not a page: a page is a part of a tab, and a callout is a part of a page (the body is read with one `>`
-				// less, so a `> > [!page]` there looks like a page line)
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line in a group is the same
+				// (SPEC section 3: a group cannot hold one); in another callout it is that body's text, not a page: a page is a part of a tab,
+				// and a callout is a part of a page (the body is read with one `>` less, so a `> > [!page]` there looks like a page line)
 				const k = bodyEnd(lines, i);
-				if (kind === "page") pushText(lines.slice(i, k), i);
-				else problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
+				if (kind === "page" && open[open.length - 1]?.kind !== "group") pushText(lines.slice(i, k), i);
+				else problems.push(`${at(i)}: a ${kind} line cannot go inside ${kind === "page" ? "a group" : "a callout"}, so it was ignored.`);
 				i = k - 1;
 				continue;
 			}
@@ -859,6 +920,7 @@ export function parseBooklet(text: string): Booklet {
 					else if (w.id !== mod.id) refusals.push(`${at(i)}: the module "${mod.id}" is closed by a line naming "${w.id ?? ""}".`);
 					else mod.endLine = i;
 					mod = null;
+					modTabs = [];
 				} else {
 					if (mod) refusals.push(`${at(i)}: a module opens inside the module "${mod.id}", which is not closed.`);
 					const id = w.id ?? "";
@@ -866,6 +928,8 @@ export function parseBooklet(text: string): Booklet {
 					if (modules.some((x) => x.id === id && id)) refusals.push(`${at(i)}: the module id "${id}" is used twice in this file.`);
 					mod = { id, title: title || id, line: i, endLine: null };
 					modules.push(mod);
+					modTabs = [];
+					noteIcon(i, w);
 				}
 				i = bodyEnd(lines, i) - 1;
 				continue;
@@ -880,6 +944,14 @@ export function parseBooklet(text: string): Booklet {
 				claimId(w.id, i);
 				const repeat = w.flags.has("repeat");
 				if (w.flags.has("daily") && !repeat) problems.push(`${at(i)}: \`daily\` needs \`repeat\`, so it was ignored.`);
+				// `entries:` takes the one value `folded`; any other is reported and ignored (SPEC section 3, "Kept entries, folded")
+				const entries = w.set["entries"];
+				const status = w.set["status"];
+				if (status !== undefined && status.toLowerCase() !== "off") noteUnread(i, `\`status:\` takes only the value \`off\`, so \`status:${status}\` was ignored`, false);
+				const tab = w.set["tab"];
+				if (tab !== undefined && !uniqueIds(modTabs).includes(tab)) noteUnread(i, `\`tab:${tab}\` names no tab of its module, so it was ignored`, false);
+				noteIcon(i, w);
+				if (entries !== undefined && entries !== "folded") problems.push(`${at(i)}: \`entries:${entries}\` is not a setting an activity line takes (only \`entries:folded\`, which starts the kept-entries list folded), so it was ignored.`);
 				act = {
 					id: w.id ?? "",
 					title: title || w.id || "Activity",
@@ -887,6 +959,7 @@ export function parseBooklet(text: string): Booklet {
 					line: i,
 					repeat,
 					daily: repeat && w.flags.has("daily"),
+					entriesFolded: entries === "folded",
 					hidden: w.flags.has("hidden"),
 					segments: [],
 				};
@@ -939,6 +1012,7 @@ export function parseBooklet(text: string): Booklet {
 				flush();
 				closeRow("when the tab line came", i);
 				if (act) act.segments.push({ type: "tab", title: title || w.id || "Tab", line: i + 1 });
+				else if (mod) modTabs.push(w.id ?? tabIdOf(title || "Tab", modTabs.length + 1));
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a tab line's `>` lines are the tab's first prose
 				i = k - 1;
@@ -952,12 +1026,15 @@ export function parseBooklet(text: string): Booklet {
 					problems.push(`${where}: the page id "${id}" is not letters, digits and dashes, so the page's id is made from its title.`);
 					id = null;
 				}
-				// a page is never folded: the marker means nothing on a page line (page trees; the pages round, 2.1)
+				// a page is never folded: the marker means nothing on a page line
 				if (m[3]) problems.push(`${where}: a page is never folded, so the \`${m[3]}\` after its bracket was ignored.`);
 				const k = bodyEnd(lines, i);
 				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
 				else if (rowOpen) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
-				else act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+				else {
+					act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+					noteIcon(i, w);
+				}
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a page line's `>` lines are the page's first prose
 				i = k - 1;
 				continue;
@@ -971,21 +1048,18 @@ export function parseBooklet(text: string): Booklet {
 					continue;
 				}
 				if (QUESTION_KINDS.has(kind)) claimId(w.id, i);
+				if (!KNOWN_KINDS.has(kind)) noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as "not yet supported"`, true);
 				if (!act) {
 					if (QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a question before the first activity belongs to no activity, so it is not drawn.`);
 					i = k - 1;
 					continue;
-				}
-				if (!KNOWN_KINDS.has(kind)) {
-					unread++;
-					problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
 				}
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
 					const q: Question = {
 						type: "question",
-						kind: kind as QuestionKind,
+						kind: kind,
 						id: w.id,
 						title,
 						// a widget line's embed is not its help (booklet.html helpOf)
@@ -1057,7 +1131,7 @@ export function parseBooklet(text: string): Booklet {
 					flush();
 					act.segments.push({ type: "callout", kind, title, fold: (m[3] ?? "") as "" | "-" | "+", line: i + 1 });
 					// its body is read with one `>` less, from here to its end, as the activity's own text is
-					open.push({ lines, resume: k });
+					open.push({ lines, resume: k, kind });
 					lines = lines.slice(0, k);
 					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
 					continue;
@@ -1076,7 +1150,10 @@ export function parseBooklet(text: string): Booklet {
 			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
 			const words = [(def[2] ?? "").trim()];
 			let j = i + 1;
-			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) words.push((lines[j] ?? "").trim()), j++;
+			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) {
+				words.push((lines[j] ?? "").trim());
+				j++;
+			}
 			const text = words.filter(Boolean).join(" ");
 			notes.push({ id: def[1], scope: noteScope(), text, line: i + 1, source: sourceOfNote(text) });
 			i = j - 1;
@@ -1127,7 +1204,7 @@ export function parseBooklet(text: string): Booklet {
 	problems.push(...records.problems);
 	for (const r of regions.slice(1)) problems.push(`Line ${r.start + 1}: a second records section; its records are read as if they sat in the first.`);
 	const afterRegion = regions[0] && regions[0].closed ? lines.slice(regions[0].end + 1).some((l, n) => !inRegion[regions[0]!.end + 1 + n] && l.trim()) : false;
-	if (afterRegion) problems.push("There is text after the records section; the reference renderer would move it above the records when it saves.");
+	if (afterRegion) problems.push("There is text after the records section. It is read as design and stays where it is, after the records, when an answer is saved.");
 	const wrong = wrongShapes(activities, records);
 	if (wrong)
 		problems.push(
@@ -1135,7 +1212,6 @@ export function parseBooklet(text: string): Booklet {
 				? "One answer is not in the shape its question keeps, so it is kept as written: shown read-only with a notice, and left out of what views show."
 				: `${wrong} answers are not in the shape their questions keep, so they are kept as written: shown read-only with a notice, and left out of what views show.`,
 		);
-	if (pagesMarker && unread) problems.unshift(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and the page lines of ${marker}, and has opened the rest as it is: the lines listed below, and anything else new in ${marker}, may not draw.`);
 	const refusal = refusals[0] ?? null;
 	return {
 		ok: !refusal,
@@ -1147,6 +1223,7 @@ export function parseBooklet(text: string): Booklet {
 		modules,
 		activities,
 		problems: [...refusals.slice(1), ...problems],
+		unread: unread.sort((a, b) => a.line - b.line),
 		openings,
 		widgets,
 		menus,
@@ -1183,10 +1260,13 @@ const LIMIT_RE = /^([1-9]\d*)([ \t]+days?)?$/;
  * does not have, a `limit:` that is neither a positive whole number nor a number of days (`7 days`), and a `summary:`
  * that is not `on` are ignored and reported.
  */
-function readQuery(body: readonly string[], line: number, problems: string[]): Query | null {
+function readQuery(body: readonly string[], line: number, problems: string[], unread: (i: number, why: string, newer: boolean) => void): Query | null {
 	const at = `Line ${line}`;
 	const o = Object.create(null) as Record<string, string>;
-	for (const raw of body) {
+	/** The line (counting from 0) of each key written, for the notice. */
+	const where = new Map<string, number>();
+	const known = knownSettings();
+	for (const [n, raw] of body.entries()) {
 		const ln = raw.trim();
 		if (!ln) continue;
 		const kv = kvLine(ln);
@@ -1195,12 +1275,13 @@ function readQuery(body: readonly string[], line: number, problems: string[]): Q
 			return null;
 		}
 		o[kv[0].toLowerCase()] = kv[1];
+		if (!where.has(kv[0].toLowerCase())) where.set(kv[0].toLowerCase(), line + n); // `line` counts from 1 and is the fence's: the first body line is index `line`
 	}
-	for (const k of Object.keys(o)) if (!QUERY_KEYS.includes(k)) problems.push(`${at}: a query has no setting "${k}", so it was ignored.`);
+	for (const [k, n] of where) if (!QUERY_KEYS.includes(k)) unread(n, `a query has no setting "${k}", so it was ignored`, !looksLikeMistake(k, known));
 	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
 	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
 	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);
-	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k]! : null);
+	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k] : null);
 	const roles: Partial<Record<Role, string>> = {};
 	for (const r of ROLE_NAMES) {
 		const v = text(r);

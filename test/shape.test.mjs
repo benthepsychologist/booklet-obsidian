@@ -46,7 +46,7 @@ const questions = (p) => `> [!text|${p}text] A text
 > [!text|${p}fine] One answered as it should be
 `;
 const DESIGN = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/shapes
 title: Shapes
 lang: en
@@ -192,7 +192,7 @@ function open(text, screen = "/log") {
 		...v,
 		q: (id) => v.view.contentEl.querySelector(`[data-booklet-q="${id}"]`),
 		/** Shows another activity's screen. */
-		on: (key) => v.view.setState({ version: 1, screen: `activity:${key}` }, {}),
+		on: (key) => v.view.setState({ version: 2, screen: `activity:${key}` }, {}),
 	};
 }
 const controls = (box) => [...box.querySelectorAll("button, input, textarea")];

@@ -1,7 +1,7 @@
 /*
- * Page trees, stage B (plugin 0.8.0): moving through a tree (design/pages/proposal.md section 3). Back and Next between the parts of a page
+ * Page trees, moving through a tree. Back and Next between the parts of a page
  * and between pages, the counter, the trail, a page as a step in Obsidian's history and a tab as none, links by a page's title and by a heading,
- * and the saved place: version 2 with a page key, and a version 1 place (release 0.6.0 and 0.7.0) read as it was. Every note is made up.
+ * and the saved place: a page key, and a place with none. Every note is made up.
  */
 import "./fixed-date.mjs";
 import test from "node:test";
@@ -14,7 +14,7 @@ const buttons = (p) => p.pager().buttons;
 
 /* ---- the moves, in the model ---- */
 
-test("Back and Next as the proposal lays them out: the wiki tab, every part of it", () => {
+test("Back and Next through the wiki tab, every part of it", () => {
 	const { nav } = build(WIKI);
 	const na = nav.byKey.get("calm/check-in");
 	const tab = na.tabs.find((t) => t.id === "wiki");
@@ -151,7 +151,7 @@ test("the view saves version 2 with the page's id and the part within it; a rest
 	q.close();
 });
 
-test("a version 1 place, as releases 0.6.0 and 0.7.0 save it, opens where it was: its part counts every part of the tab", async () => {
+test("a saved place with no page key opens where it was: its part counts every part of the tab", async () => {
 	const want = ["", "The body map", "Choosing a place", "Words for what you notice", "The feelings grid", "The two axes", "The two axes", "More than one at once", "Thoughts as headlines"];
 	for (let part = 0; part < want.length; part++) {
 		const p = pane(WIKI, { state: wikiAt("wiki", part) });
@@ -170,7 +170,7 @@ test("a version 1 place, as releases 0.6.0 and 0.7.0 save it, opens where it was
 	assert.deepEqual(norm(core.resolvePlace(nav, core.placeFrom(wikiAt("wiki", 6)))), { screen: WIKI_SCREEN, tab: "wiki", part: 6 });
 });
 
-test("a version 2 place: the part is within its page and cannot spill into the next; a page the note no longer has opens the tab's first page; a version 1 place ignores a page key", () => {
+test("a version 2 place: the part is within its page and cannot spill into the next; a page the note no longer has opens the tab's first page", () => {
 	const { nav } = build(WIKI);
 	const at = (state) => norm(core.resolvePlace(nav, core.placeFrom(state)));
 	const v2 = (page, part, tab = "wiki") => ({ version: 2, screen: WIKI_SCREEN, tab, page, part });
@@ -180,11 +180,10 @@ test("a version 2 place: the part is within its page and cannot spill into the n
 	assert.deepEqual(at(v2("vanished", 1)), { screen: WIKI_SCREEN, tab: "wiki", part: 0 });
 	assert.deepEqual(at(v2("your-mind", 0, "quiz")), { screen: WIKI_SCREEN, tab: "quiz", part: 1 });
 	assert.deepEqual(at(v2("your-mind", 0, "wiki")), { screen: WIKI_SCREEN, tab: "wiki", part: 0 }, "a page of another tab is not found");
-	assert.deepEqual(at({ version: 1, screen: WIKI_SCREEN, tab: "wiki", page: "grid", part: 2 }), { screen: WIKI_SCREEN, tab: "wiki", part: 2 }, "no page key in version 1");
-	// what is saved: the page's id only for a named page, and nothing but the version differs for a note with no page line
-	assert.deepEqual(norm(core.placeState({ screen: WIKI_SCREEN, tab: "wiki", part: 0 }, nav)), { version: 1, screen: WIKI_SCREEN, tab: "wiki", part: 0 }, "the tab's own first page is no named page: version 1");
+	// what is saved: the page's id only for a named page
+	assert.deepEqual(norm(core.placeState({ screen: WIKI_SCREEN, tab: "wiki", part: 0 }, nav)), { version: 2, screen: WIKI_SCREEN, tab: "wiki", part: 0 }, "the tab's own first page is no named page: no page key");
 	assert.deepEqual(norm(core.placeState({ screen: WIKI_SCREEN, tab: "wiki", part: 7 }, nav)), { version: 2, screen: WIKI_SCREEN, tab: "wiki", page: "more-than-one-at-once", part: 0 });
-	assert.deepEqual(norm(core.placeState({ screen: WIKI_SCREEN, tab: "wiki", part: 7 })), { version: 1, screen: WIKI_SCREEN, tab: "wiki", part: 7 }, "with no note to look in, the flat part");
+	assert.deepEqual(norm(core.placeState({ screen: WIKI_SCREEN, tab: "wiki", part: 7 })), { version: 2, screen: WIKI_SCREEN, tab: "wiki", part: 7 }, "with no note to look in, the flat part");
 	// round trip over every part of every tab
 	for (const t of nav.byKey.get("calm/check-in").tabs)
 		for (let part = 0; part < t.pages.length; part++) {
@@ -193,13 +192,13 @@ test("a version 2 place: the part is within its page and cannot spill into the n
 		}
 });
 
-test("a note with no page line saves exactly what 0.6.0 did: version 1, no page key", async () => {
+test("a note with no page line saves a place with no page key", async () => {
 	const p = pane(SKETCH);
 	await p.settled();
 	await p.card("2.The basics");
 	await p.card("2.Boxes and cylinders");
 	await p.pageNext();
-	assert.deepEqual(norm(p.view.getState()), { file: "Note.booklet.md", version: 1, screen: "activity:basics/shapes", tab: "boxes", part: 1 });
+	assert.deepEqual(norm(p.view.getState()), { file: "Note.booklet.md", version: 2, screen: "activity:basics/shapes", tab: "boxes", part: 1 });
 	p.close();
 });
 
@@ -253,7 +252,7 @@ Floating.
 > [!module|harbour end]
 `;
 const H = "activity:harbour/tides";
-const at = (tab, part) => ({ version: 1, screen: H, tab, part });
+const at = (tab, part) => ({ version: 2, screen: H, tab, part });
 
 test("Next on the last page of a tab goes on to the next activity; Back on a tab's first page leaves the activity and never goes to another tab", async () => {
 	const p = pane(HARBOUR, { state: at("read", 4) });
@@ -346,7 +345,7 @@ test("moving through the wiki writes nothing: the page on show is never written 
 
 test("the pager and the trail name a page by its title without the leading emoji (the picture), as an activity's is; the page itself heads with the title as written", async () => {
 	const text = `---\nbooklet: "0.17"\ntitle: Waves\n---\n\n> [!activity|w] Waves\n\n> [!page|a] 🌊 Big waves\n\nOne.\n\n> [!page|b parent:a] 🌀 Small waves\n\nTwo.\n\n> [!page|c parent:b] 🪨 Ripples\n\nThree.\n`;
-	const p = pane(text, { state: { version: 1, screen: "activity:/w", part: 0 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/w", part: 0 } });
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["🌊 Big waves"]);
 	assert.deepEqual(buttons(p), ["Back to the overview", "Next: Small waves"].map((x) => x));

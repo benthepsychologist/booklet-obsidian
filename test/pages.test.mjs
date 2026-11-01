@@ -1,14 +1,14 @@
 /*
- * Page trees, the tree model (plugin 0.8.0, stage A; ahead of the format: format 0.17, not yet in SPEC; design/pages/proposal.md): the page
- * line `> [!page|id parent:x icon:name] Title`, the shape of a tab's tree (the proposal's shape (b)), parts (`***`), and what a page line
- * out of place does. Every note here is made up. That a note with no page line is exactly what it was is test/legacy.test.mjs's.
+ * Page trees, the tree model (SPEC 0.17 section 3, "Pages: a tree inside a tab"): the page
+ * line `> [!page|id parent:x icon:name] Title`, the shape of a tab's tree, parts (`***`), and what a page line
+ * out of place does. Every note here is made up. test/legacy.test.mjs holds that a note with no page line reads and draws unchanged.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { WIKI, build, core, norm } from "./helpers.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Harbour\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.17"\ntitle: Harbour\n${extra}---\n`;
 const ACT = "> [!activity|notes] Harbour notes\n";
 const note = (body, act = ACT) => `${head()}\n${act}\n${body}`;
 const tabOf = (text, n = 0, key = "/notes") => build(text).nav.byKey.get(key).tabs[n];
@@ -52,14 +52,23 @@ test("a page line: an id first, parent: and icon:, or none; the title is inline 
 	assert.deepEqual(problems(t), [], "page is a kind the format will define: nothing is said of it");
 });
 
-test("a first word that holds a colon is a setting and the line has no written id; for every other kind the first word is still the id", () => {
+test("a first word that holds a colon is a setting and the line has no written id, on every kind that takes an id (SPEC section 4); a kind that takes none has settings only", () => {
 	assert.equal(core.calloutWords("page", "parent:map").id, null);
 	assert.equal(core.calloutWords("page", "parent:map").set["parent"], "map");
 	assert.equal(core.calloutWords("page", "map parent:other").id, "map");
 	assert.equal(core.calloutWords("page", "icon:waves parent:tides").set["icon"], "waves");
-	// 0.16's reading of every other kind is not touched (a note with no page line is unchanged)
-	assert.equal(core.calloutWords("activity", "repeat:x").id, "repeat:x");
-	assert.equal(core.calloutWords("tab", "plan:x").id, "plan:x");
+	// 0.17 reads every kind this way, so a line written `> [!activity|parent:x]` has no id (and says so) in place of an id that is not valid
+	for (const kind of ["activity", "tab", "text", "module"]) {
+		const w = core.calloutWords(kind, "plan:x later");
+		assert.equal(w.id, null, kind);
+		assert.equal(w.set["plan"], "x", kind);
+		assert.ok(w.flags.has("later"), kind);
+	}
+	assert.equal(core.calloutWords("activity", "repeat daily").id, "repeat", "a flag written first is still read as the id");
+	assert.equal(core.calloutWords("row", "end").id, null, "a kind that takes no id");
+	const book = core.parseBooklet(note("", "> [!activity|parent:x] No id\n"));
+	assert.ok(book.problems.includes("Line 6: an activity line has no id, so it cannot keep entries here."), book.problems.join(" | "));
+	assert.deepEqual(book.unread.map((u) => `Line ${u.line}: ${u.why}`), ["Line 6: an activity line takes no `parent:` setting"]);
 });
 
 test("a page takes parent: and icon: only: hidden, status:, tab: and repeat are said and ignored", () => {
@@ -67,9 +76,9 @@ test("a page takes parent: and icon: only: hidden, status:, tab: and repeat are 
 	const [p] = segs(t).filter((s) => s.type === "page");
 	assert.equal(p.parent, "q");
 	assert.equal(p.icon, "waves");
-	const said = core.parseBooklet(t).problems.filter((x) => /page line takes no/.test(x));
-	assert.equal(said.length, 4, said.join("\n"));
-	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.includes(w)), `${w} is said`);
+	const said = core.parseBooklet(t).unread.filter((x) => /page line takes no/.test(x.why));
+	assert.equal(said.length, 4, said.map((x) => x.why).join("\n"));
+	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.why.includes(w)), `${w} is said`);
 });
 
 test("a fold marker on a page line is ignored with a note in the problems", () => {
@@ -116,7 +125,7 @@ test("in an activity with tabs, a page line before the first tab line is ignored
 	assert.deepEqual(outline(a.tabs[0]), ["p"]);
 });
 
-/* ---- the shape of a tab's tree (the proposal's shape (b)) ---- */
+/* ---- the shape of a tab's tree ---- */
 
 test("a tab with no page line is one page, its words in parts: exactly the pages 0.16 drew", () => {
 	const t = note("> [!tab|a] A\n\nOne.\n\n***\n\nTwo.\n\n***\n\n***\n\nThree.\n");
@@ -270,9 +279,9 @@ test("a link by words reaches a page by its title, on its first part; a heading 
 	assert.equal(at("No such page"), null);
 });
 
-/* ---- the worked examples (proposal 5.1 and 5.2), with made-up words ---- */
+/* ---- two whole examples, with made-up words ---- */
 
-test("the check-in as one activity with a wiki tab (5.1): three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
+test("the check-in as one activity with a wiki tab: three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
 	const { book, nav } = build(WIKI);
 	assert.deepEqual(book.problems, [], "a 0.17 file whose lines the view reads says nothing of its marker");
 	assert.deepEqual(nav.problems, []);
@@ -297,11 +306,11 @@ test("a wiki as pages (5.2): nothing before the first page line, so the activity
 	assert.deepEqual(norm(core.startPlace(nav)), { screen: "activity:harbour/notes", tab: null, part: 0 });
 });
 
-test("a wiki written with parent: on activities still draws as an activity tree, beside page lines in another activity", () => {
+test("a wiki written with parent: on activities is no tree any more: the setting is reported and ignored, and page lines in another activity still make theirs", () => {
 	const t = `${head()}\n> [!module|m] M\n\n> [!activity|tides] Tides\n\nA.\n\n> [!activity|spring parent:tides] Spring\n\nB.\n\n> [!activity|pages] Pages\n\n> [!page|p1] P1\n\nC.\n\n> [!page|p2 parent:p1] P2\n\nD.\n\n> [!module|m end] E\n`;
 	const { nav } = build(t);
 	const m = nav.mods[0];
-	assert.deepEqual(norm(m.order.map((x) => x.act.id)), ["tides", "spring", "pages"]);
-	assert.equal(nav.byKey.get("m/spring").parent.act.id, "tides");
+	assert.deepEqual(norm(m.acts.map((x) => x.act.id)), ["tides", "spring", "pages"]);
+	assert.deepEqual(norm(build(t).book.unread.map((u) => `Line ${u.line}: ${u.why}`)), ["Line 12: an activity line takes no `parent:` setting"]);
 	assert.deepEqual(outline(nav.byKey.get("m/pages").tabs[0]), ["p1", "  p2"]);
 });

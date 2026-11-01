@@ -23,7 +23,7 @@ import { shapeIssue } from "./shape";
 import { normWords, senseWord, type Regions } from "./widgets";
 import { todaysEntry, type DayRule } from "./write";
 
-/** How many earlier words a question offers at each place when its line does not say (Ben: "keep the limit of 12"). */
+/** How many earlier words a question offers at each place when its line does not say. */
 export const EARLIER_DEFAULT = 12;
 
 /** How many earlier words a question offers at each place: its `earlier:<n>`; else 12, and none for a lines question. */
@@ -181,7 +181,7 @@ export interface EachContext {
  */
 export function earlierPlaceWords(q: Question, rg: Regions, now: unknown, entries: readonly Entry[], place: string, each?: EachContext): string[] {
 	const listed = new Set(rg.senses.flatMap((g) => g.words.map((w) => normWords(w.label))));
-	const row = Array.isArray(now) ? now.find((r) => !!r && typeof r === "object" && (r as Record<string, unknown>)["id"] === place) : undefined;
+	const row: unknown = Array.isArray(now) ? (now as unknown[]).find((r) => !!r && typeof r === "object" && (r as Record<string, unknown>)["id"] === place) : undefined;
 	const here = new Set(
 		(row && Array.isArray((row as Record<string, unknown>)["s"]) ? ((row as Record<string, unknown>)["s"] as unknown[]) : []).map((x) => normWords(senseWord(rg, x))),
 	);

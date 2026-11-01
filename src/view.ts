@@ -57,6 +57,7 @@ import {
 	samePlace,
 	setAnswer,
 	setPair,
+	openingNotice,
 	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
@@ -69,7 +70,6 @@ import {
 	type Entry,
 	type AnswerWords,
 	type Finalized,
-	type ModTab,
 	type Block,
 	type Step,
 	type NavAct,
@@ -100,9 +100,15 @@ export const VIEW_TYPE = "booklet";
 /** What the view needs from the plugin. */
 export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
+	/** The plugin's own manifest: the notice at the top of a note says which version of the plugin is reading it. */
+	manifest: { version: string };
 }
 
-/** How long a text field waits after the last key before its answer is written. */
+/**
+ * How long typed words wait, counted from the first key not yet written, before the answer is written. Later keys do not move
+ * it, so a reader who never stops typing still has their words written every TYPING_PAUSE_MS, and a hard stop (a crash, a kill,
+ * a power cut) loses no more than that.
+ */
 const TYPING_PAUSE_MS = 700;
 /** After a press ends with no click (a touch that scrolled, say), how long a drawing that waits is held back still. */
 const PRESS_END_MS = 300;
@@ -176,6 +182,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private settleTimer: number | null = null;
 	/** Writes run one after another. */
 	private writes: Promise<void> = Promise.resolve();
+	/** How many writes are queued or under way (the chain above settles to a resolved promise either way). */
+	private queued = 0;
 	/** The note's text was handed over while a Markdown pane of it held a different text: follow that pane's next change. */
 	private following = false;
 	/** A press has ended and its click has not come yet: the buttons are still kept (see syncWidgets). */
@@ -202,7 +210,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * when it comes back into use on a later day (see onload).
 	 */
 	private drawnAt = new Date();
-	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note (design 4.1) ---- */
+	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note ---- */
 	private nav: NavModel | null = null;
 	private place: Place | null = null;
 	/** A place handed over by setState before the note was drawn (a restored pane, Back and Forward). */
@@ -294,6 +302,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
+	 * Is anything typed, added or written still on its way? Obsidian turns a reload into a quit when a quit hook has
+	 * work, and closes the window once that work is done, so the plugin offers a task only when there is some.
+	 */
+	hasUnsaved(): boolean {
+		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key));
+	}
+
+	/**
 	 * Writes everything typed and not yet written, and adds the words typed in Add your own and widget fields, as
 	 * leaving each field would: the plugin runs this before the app quits or the window closes (main.ts).
 	 */
@@ -318,7 +334,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return "book-open";
 	}
 
-	/* ---- the view's state: where the reader is, Obsidian's Back and Forward, a restored pane (design section 4) ---- */
+	/* ---- the view's state: where the reader is, Obsidian's Back and Forward, a restored pane ---- */
 
 	/** Saved by Obsidian into the workspace layout, beside which note the pane shows: never into the note. */
 	override getState(): Record<string, unknown> {
@@ -356,7 +372,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		super.setEphemeralState(state);
 		const o = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
 		// A link from another note, `[[Note.booklet#Words]]`: Obsidian opens the note in the pane and hands the view the `#Words`
-		// part as `subpath` (Obsidian's code, not its API). A block link (`#^id`) does nothing here (design 4.6).
+		// part as `subpath` (Obsidian's code, not its API). A block link (`#^id`) does nothing here.
 		const sub = o["subpath"];
 		if (typeof sub === "string" && sub.startsWith("#") && !sub.startsWith("#^") && sub.length > 1) {
 			this.followSubpath(sub.slice(1));
@@ -370,8 +386,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * A link from outside belongs to no module, so the whole file is searched and the first match in file order opens (design
-	 * decision 9, call c). Typed words are written first, as before every other move. A note not drawn yet takes the place when it is.
+	 * A link from outside belongs to no module, so the whole file is searched and the first match in file order opens.
+	 * Typed words are written first, as before every other move. A note not drawn yet takes the place when it is.
 	 */
 	private followSubpath(words: string): void {
 		if (!this.nav) {
@@ -380,8 +396,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		const hit = findHeading(this.nav, words, null);
 		if (!hit) return;
-		// Obsidian hands this over while it is still opening the note in the pane, and drops a second move asked of the pane then
-		// (design 4.2), so the place is taken here, not through the pane: Obsidian's own opening is the step the reader's Back undoes.
+		// Obsidian hands this over while it is still opening the note in the pane, and drops a second move asked of the pane then,
+		// so the place is taken here, not through the pane: Obsidian's own opening is the step the reader's Back undoes.
 		const place = resolvePlace(this.nav, this.keepTabFor(hit, this.place));
 		this.flushAll();
 		if (samePlace(this.place, place)) {
@@ -409,7 +425,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * A move (design 3.4). A tab is chosen in place; another screen or another part goes through the pane (`setViewState`), so
+	 * A move. A tab is chosen in place; another screen or another part goes through the pane (`setViewState`), so
 	 * that Obsidian records the step. Obsidian drops a second move asked for while one is under way, which is right for a
 	 * double press on Next (one page turns) and wrong for a tab chosen during a turn: that one waits for the turn to land
 	 * and is made then, so the last move the reader asked for is the one that lands.
@@ -438,8 +454,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.moving = true;
 		this.stepWanted = true;
-		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p, this.nav) };
+		const placed = placeState(p, this.nav);
+		const state: Record<string, unknown> = { ...this.getState(), ...placed };
 		if (!p.tab) delete state["tab"];
+		// the place being left may have named a page; this one names none
+		if (!placed.page) delete state["page"];
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
 			.catch(() => {
@@ -571,7 +590,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (clear || !this.book) {
 			this.text = data;
 			this.data = data;
-			// a note newly loaded into the view opens where the pane last was in it, else where the booklet opens (design 4.4)
+			// a note newly loaded into the view opens where the pane last was in it, else where the booklet opens
 			if (clear) {
 				this.place = null;
 				this.drawnPlace = null;
@@ -663,7 +682,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		let context = "";
 		if (this.book && markdown.includes("[")) {
 			let contexts = this.referenceContexts.get(this.book);
-			if (!contexts) this.referenceContexts.set(this.book, (contexts = new Map()));
+			if (!contexts) this.referenceContexts.set(this.book, (contexts = new Map<string | null, string>()));
 			if (!contexts.has(at)) contexts.set(at, referenceContext(this.book.references, at));
 			context = contexts.get(at) ?? "";
 		}
@@ -772,8 +791,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const key = pendingKey(t, q, pick);
 		const p = this.pending.get(key) ?? { t, q, pick, value, timer: null };
 		p.value = value;
-		if (p.timer !== null) window.clearTimeout(p.timer);
-		p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
+		if (p.timer === null) p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
 		this.pending.set(key, p);
 	}
 
@@ -831,17 +849,29 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 
-		// one screen at a time: the booklet's home, a module's screen, an activity's screen (design section 3)
+		// one screen at a time: the booklet's home, a module's screen, an activity's screen
 		const nav = buildNav(book, this.text);
 		this.nav = nav;
 		const problems = [...book.problems, ...nav.problems]; // the reader's, then the pages' trees'
-		if (problems.length) {
-			const n = problems.length;
+		// the notice comes first: the note's marker, the plugin and its format, and each part of the note this view does not read (notice.ts)
+		const notice = openingNotice(book, this.host.manifest.version);
+		const n = problems.length + (notice?.count ?? 0);
+		if (n) {
 			const said = n === 1 ? "1 thing in this note could not be read" : `${n} things in this note could not be read`;
 			if (opened) new Notice(`Booklet: ${said}. They are listed at the top of the view.`);
 			const details = page.createEl("details", { cls: "booklet-problems" });
 			details.createEl("summary", { text: said });
 			const list = details.createEl("ul");
+			if (notice) {
+				const box = list.createEl("li", { cls: "booklet-notice" });
+				notice.paragraphs.forEach((words, k) => {
+					box.createEl("p", { text: words });
+					if (k === notice.entriesAfter) {
+						const parts = box.createEl("ul");
+						for (const e of notice.entries) parts.createEl("li", { text: e });
+					}
+				});
+			}
 			for (const p of problems) list.createEl("li", { text: p });
 		}
 
@@ -864,7 +894,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!nav.mods.some((m) => m.acts.length))
 			page.createEl("p", {
 				cls: "booklet-muted",
-				text: book.activities.length || book.modules.length ? "This booklet has no activity to draw." : "This note has no activity line. Drawing a note with none as one activity is not yet supported.",
+				text: book.activities.length || book.modules.length ? "This booklet has no activity to draw." : "This note has nothing to draw.",
 			});
 		else if (place.screen === HOME) this.drawHome(page, nav, book);
 		else if (place.screen.startsWith("module:")) {
@@ -884,8 +914,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * Words held for a field on another screen than the one drawn are added too: 0.5.0 drew every activity at once, so a reload added
-	 * every held word, and a reload that shortly follows a move reopens on the screen before it. Each owning activity's questions are
+	 * Words held for a field on another screen than the one drawn are added too: only the fields of the screen drawn exist, and a reload
+	 * that shortly follows a move reopens on the screen before it. Each owning activity's questions are
 	 * drawn once, off the page (nothing of Markdown, nothing kept of what they register), so that the words are added by the very
 	 * closure the field's own commit runs: the same write, the same bytes. The drawing then keeps only the fields on the screen.
 	 */
@@ -1024,9 +1054,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.cite = this.citeScope(book, m.id, [m.opening, ...m.tabs.map((x) => x.md)]);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
-		let tops = m.top;
+		let tops = m.acts;
 		const bar = m.tabs.length > 1;
-		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? (m.tabs[0] as ModTab)) : (m.tabs[0] ?? null);
+		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? m.tabs[0]!) : (m.tabs[0] ?? null);
 		// what a tab holds (its prose and its cards) is the tab's panel
 		let panel = page;
 		if (tab) {
@@ -1038,7 +1068,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
 			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
 			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
-			if (bar) tops = m.top.filter((x) => x.modTab === tab.id);
+			if (bar) tops = m.acts.filter((x) => x.modTab === tab.id);
 		}
 		const rows = (): CardRow[] => tops.map((x) => this.actRow(x, x.number));
 		drawCards(this, panel, rows());
@@ -1054,14 +1084,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const single = !m.bare && m.acts.length === 1;
 		const crumbs: Crumb[] = [{ md: this.bookTitle(nav), to: homePlace(), scope: null }];
 		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na) });
-		const ups: NavAct[] = [];
-		for (let p = na.parent; p; p = p.parent) ups.unshift(p);
-		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p) });
 		const mt = single ? moduleTitle(nav, m) : null;
 		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
 		const bar = barTabs(na);
-		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
+		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? bar[0]!) : (na.tabs[0] as ActTab);
 		const pager = pagerOf(na, tab, place);
 		const here = pager.page;
 		const above: TreePage[] = [];
@@ -1081,7 +1108,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		card.setAttr("data-booklet-activity", `${a.scope}/${a.id}`);
 		this.head(card, mt ? mt.title : na.title, single ? (m.icon ?? na.icon) : na.icon, mt ? (mt.emoji ?? na.emoji) : na.emoji);
 		if (a.repeat) card.addClass("booklet-repeats");
-		if (a.repeat && !a.id) card.createEl("p", { cls: "booklet-muted booklet-repeat-note", text: "This activity repeats, and its line has no id, so its entries cannot be kept. Give it an id in Markdown." });
+		if (a.repeat && !a.id) card.createEl("p", { cls: "booklet-muted booklet-repeat-note", text: "This activity repeats, and its line has no ID, so its entries cannot be kept. Give it an ID in Markdown." });
 		const keeps = a.repeat && !!a.id;
 		if (keeps) {
 			const seed = card.createDiv({ cls: "booklet-muted booklet-seed" });
@@ -1143,14 +1170,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			}
 			drawMentions(this, card, mentionsOf(nav, na, tab, pager.page));
 		}
-		if (na.children.length) {
-			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
-			drawCards(
-				this,
-				card,
-				na.children.map((c, i) => this.actRow(c, m.bare ? i + 1 : c.number)),
-			);
-		}
 		if (this.showsFinish(na, tab)) this.drawFinish(card, a);
 
 		// the pager: Back, the counter, Next (SPEC section 3, pages); one step at a time, Back and Next move a step first, then a part, then a page
@@ -1175,8 +1194,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 						return { words: `Up: ${st.page.title}`, md: true, to: st.to, press: arrive(st.to, false) };
 					case "next-page":
 						return { words: `Next: ${st.page.title}`, md: true, to: st.to, press: arrive(st.to, false) };
-					case "up-activity":
-						return { words: `Up: ${st.act.title}`, md: true, to: st.to };
 					case "next-activity":
 						return { words: m.bare ? `Next: ${st.act.title}` : `Next: ${st.act.number}. ${st.act.title}`, md: true, to: st.to };
 					case "overview":
@@ -1194,7 +1211,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/**
 	 * Is the activity's finish (Finalize, its notes and its kept entries) drawn under the page on show? Only where the tab on show
-	 * holds a question of the activity, or the opening above every tab does (design decision 8, call H): a reading tab, or a
+	 * holds a question of the activity, or the opening above every tab does: a reading tab, or a
 	 * tab of queries, has nothing to finalize. Applies to 0.16 files too.
 	 */
 	private showsFinish(na: NavAct, tab: ActTab): boolean {
@@ -1233,8 +1250,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				box.setAttr("data-booklet-unsupported", s.kind);
 				this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
-					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
-					: `Not yet supported: the kind "${s.kind}".`;
+					? `This ${s.kind} question has no ID, so it cannot hold an answer. Give it an ID in Markdown.`
+					: s.block
+						? `Not yet supported: the block "${s.kind}".`
+						: `Not yet supported: the kind "${s.kind}".`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
 			} else drawQuestion(this, into, t, s, a.repeat && !a.id);
 		}
@@ -1318,7 +1337,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const chevron = fold.createSpan({ cls: "booklet-fold-chevron", attr: { "aria-hidden": "true" } });
 		const label = fold.createSpan({ cls: "booklet-fold-label" });
 		const list = kept.createDiv({ cls: "booklet-entry-list", attr: { id: uid } });
-		const shown = () => !(this.entriesFolded.get(key) ?? this.entriesStartFolded(a));
+		// the list starts folded only where the activity's line says `entries:folded`; the reader's own choice, once made, wins for as long as the pane is open
+		const shown = () => !(this.entriesFolded.get(key) ?? a.entriesFolded);
 		const setFold = () => {
 			const open = shown();
 			fold.setAttr("aria-expanded", open ? "true" : "false");
@@ -1343,14 +1363,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		setFold();
 		showEntries();
 		this.onShow(`activity:${a.scope}/${a.id}:entries`, showEntries);
-	}
-
-	/**
-	 * Does an activity's list of kept entries start folded? Always open for now, as it was drawn before it could fold. Whether an
-	 * activity starts folded is a mark in the file that the format does not have yet: it is read here once the format names it.
-	 */
-	private entriesStartFolded(_a: Activity): boolean {
-		return false;
 	}
 
 	/** An activity's kept entries, newest first, each with its date and its answers in words from the file's own lists. */
@@ -1680,6 +1692,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void, undone?: () => void): void {
+		this.queued++;
 		this.writes = this.writes
 			.then(() => this.write(file, change))
 			.then(() => after?.())
@@ -1692,6 +1705,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					this.book = parseBooklet(this.text);
 					this.syncWidgets();
 				}
+			})
+			.finally(() => {
+				this.queued--;
 			});
 	}
 

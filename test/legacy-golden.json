@@ -4,9 +4,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
@@ -508,6 +508,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -797,14 +798,6 @@
        "day-check/today",
        "day-check/week"
       ],
-      "top": [
-       "day-check/today",
-       "day-check/week"
-      ],
-      "order": [
-       "day-check/today",
-       "day-check/week"
-      ],
       "line": 11
      }
     ],
@@ -818,9 +811,6 @@
       "blurb": "Take a moment. There are no right answers here.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -1254,9 +1244,6 @@
       "blurb": "The past seven days of check-ins, worked out each time the page is drawn. Nothing here is saved.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -1352,7 +1339,7 @@
     "drawn": "home",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -1364,7 +1351,7 @@
     "drawn": "module:day-check",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:day-check",
      "part": 0
     }
@@ -1376,7 +1363,7 @@
     "drawn": "activity:day-check/today",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:day-check/today",
      "part": 0
     }
@@ -1388,7 +1375,7 @@
     "drawn": "activity:day-check/week",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:day-check/week",
      "part": 0
     }
@@ -1400,9 +1387,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
@@ -1577,6 +1564,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -1675,12 +1663,6 @@
       "acts": [
        "/evening-log"
       ],
-      "top": [
-       "/evening-log"
-      ],
-      "order": [
-       "/evening-log"
-      ],
       "line": -1
      }
     ],
@@ -1694,9 +1676,6 @@
       "blurb": "A made-up daily tracker for testing the Booklet plugin. Nothing in it is about a real person, and any answer will do. Finalize keeps today's entry; finalizing again the same day replaces it.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -1890,7 +1869,7 @@
     "drawn": "home",
     "saved": {
      "file": "Daily tracker.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -1902,7 +1881,7 @@
     "drawn": "activity:/evening-log",
     "saved": {
      "file": "Daily tracker.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/evening-log",
      "part": 0
     }
@@ -1914,9 +1893,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
@@ -2049,6 +2028,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -2081,12 +2061,6 @@
       "acts": [
        "/evening"
       ],
-      "top": [
-       "/evening"
-      ],
-      "order": [
-       "/evening"
-      ],
       "line": -1
      }
     ],
@@ -2100,9 +2074,6 @@
       "blurb": "This is a made-up test note for the Booklet plugin. Nothing in it is about a real person, and any answer will do.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -2254,7 +2225,7 @@
     "drawn": "home",
     "saved": {
      "file": "Evening check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -2266,7 +2237,7 @@
     "drawn": "activity:/evening",
     "saved": {
      "file": "Evening check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/evening",
      "part": 0
     }
@@ -2278,9 +2249,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
@@ -2805,6 +2776,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [
      {
@@ -2908,18 +2880,6 @@
        "/not-yet",
        "/tally"
       ],
-      "top": [
-       "/kinds",
-       "/shared",
-       "/not-yet",
-       "/tally"
-      ],
-      "order": [
-       "/kinds",
-       "/shared",
-       "/not-yet",
-       "/tally"
-      ],
       "line": -1
      }
     ],
@@ -2933,9 +2893,6 @@
       "blurb": "A made-up test note with one question of each kind the Booklet plugin draws. Nothing in it is about a real person, and any answer will do.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -3175,9 +3132,6 @@
       "blurb": "A question whose options come from a shared menu, and a grid of cells to press.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -3326,9 +3280,6 @@
       "blurb": "The parts below are in the format and are not drawn by the plugin yet. Each one says so.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [
        {
@@ -3445,9 +3396,6 @@
       "blurb": "A repeating activity: each Finalize keeps a dated entry. The query under the question lists them, newest first.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -3551,7 +3499,7 @@
     "drawn": "home",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -3563,7 +3511,7 @@
     "drawn": "activity:/kinds",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/kinds",
      "part": 0
     }
@@ -3575,7 +3523,7 @@
     "drawn": "activity:/shared",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/shared",
      "part": 0
     }
@@ -3587,7 +3535,7 @@
     "drawn": "activity:/not-yet",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/not-yet",
      "part": 0
     }
@@ -3599,7 +3547,7 @@
     "drawn": "activity:/not-yet",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/not-yet",
      "part": 1
     }
@@ -3611,7 +3559,7 @@
     "drawn": "activity:/tally",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/tally",
      "part": 0
     }
@@ -3623,9 +3571,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
@@ -3838,6 +3786,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -3966,12 +3915,6 @@
       "acts": [
        "/warm-up"
       ],
-      "top": [
-       "/warm-up"
-      ],
-      "order": [
-       "/warm-up"
-      ],
       "line": -1
      },
      {
@@ -3989,14 +3932,6 @@
        "walks/walk-log",
        "walks/walk-review"
       ],
-      "top": [
-       "walks/walk-log",
-       "walks/walk-review"
-      ],
-      "order": [
-       "walks/walk-log",
-       "walks/walk-review"
-      ],
       "line": 18
      }
     ],
@@ -4010,9 +3945,6 @@
       "blurb": "A made-up test note that already holds records, to show the plugin keeps every one of them.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -4106,9 +4038,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -4194,9 +4123,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -4278,7 +4204,7 @@
     "drawn": "home",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -4290,7 +4216,7 @@
     "drawn": "module:walks",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:walks",
      "part": 0
     }
@@ -4302,7 +4228,7 @@
     "drawn": "activity:/warm-up",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/warm-up",
      "part": 0
     }
@@ -4314,7 +4240,7 @@
     "drawn": "activity:walks/walk-log",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:walks/walk-log",
      "part": 0
     }
@@ -4326,7 +4252,7 @@
     "drawn": "activity:walks/walk-review",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:walks/walk-review",
      "part": 0
     }
@@ -4338,9 +4264,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "nav-proto/sketching",
      "title": "Learning to sketch",
      "lang": "en"
@@ -4603,34 +4529,28 @@
         "type": "prose",
         "markdown": "One light, one object, and the shapes the light makes on it.",
         "line": 91
-       }
-      ]
-     },
-     {
-      "id": "shadow",
-      "title": "Cast shadows",
-      "scope": "basics",
-      "line": 93,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
+       },
+       {
+        "type": "page",
+        "id": "shadow",
+        "title": "Cast shadows",
+        "parent": null,
+        "icon": "moon",
+        "line": 94
+       },
        {
         "type": "prose",
         "markdown": "The shadow falls away from the light, on the ground.",
         "line": 95
-       }
-      ]
-     },
-     {
-      "id": "reflected",
-      "title": "Reflected light",
-      "scope": "basics",
-      "line": 97,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
+       },
+       {
+        "type": "page",
+        "id": "reflected",
+        "title": "Reflected light",
+        "parent": "shadow",
+        "icon": null,
+        "line": 98
+       },
        {
         "type": "prose",
         "markdown": "Light bounces back up from the table into the shadow side.",
@@ -4796,6 +4716,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -4847,12 +4768,6 @@
       "acts": [
        "/warm-up"
       ],
-      "top": [
-       "/warm-up"
-      ],
-      "order": [
-       "/warm-up"
-      ],
       "line": -1
      },
      {
@@ -4897,21 +4812,7 @@
       "acts": [
        "basics/lines",
        "basics/shapes",
-       "basics/light",
-       "basics/shadow",
-       "basics/reflected"
-      ],
-      "top": [
-       "basics/lines",
-       "basics/shapes",
        "basics/light"
-      ],
-      "order": [
-       "basics/lines",
-       "basics/shapes",
-       "basics/light",
-       "basics/shadow",
-       "basics/reflected"
       ],
       "line": 22
      },
@@ -4930,14 +4831,6 @@
        "journal/today",
        "journal/studies"
       ],
-      "top": [
-       "journal/today",
-       "journal/studies"
-      ],
-      "order": [
-       "journal/today",
-       "journal/studies"
-      ],
       "line": 103
      }
     ],
@@ -4951,9 +4844,6 @@
       "blurb": "Loosen your hand with a page of circles and long lines.",
       "statusMd": "Two minutes, before anything else",
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -5019,9 +4909,6 @@
       "blurb": "A line drawn fast comes out straighter than a line drawn slowly.",
       "statusMd": "3 pages · about 10 minutes",
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": "practice",
       "opening": [],
       "tabs": [
@@ -5126,9 +5013,6 @@
       "blurb": "Most things are a box or a cylinder underneath.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": "practice",
       "opening": [
        {
@@ -5242,13 +5126,7 @@
       "icon": "sun",
       "blurb": "One light, one object, and the shapes the light makes on it.",
       "statusMd": null,
-      "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [
-       "basics/shadow",
-       "basics/reflected"
-      ],
+      "statusOff": true,
       "modTab": "read",
       "opening": [],
       "tabs": [
@@ -5262,68 +5140,14 @@
            "markdown": "One light, one object, and the shapes the light makes on it.",
            "line": 91
           }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 3,
-      "line": 89
-     },
-     {
-      "key": "basics/shadow",
-      "mod": "basics",
-      "title": "Cast shadows",
-      "emoji": null,
-      "icon": null,
-      "blurb": "The shadow falls away from the light, on the ground.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": "light",
-      "parent": "basics/light",
-      "children": [],
-      "modTab": "practice",
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
+         ],
          [
           {
            "type": "prose",
            "markdown": "The shadow falls away from the light, on the ground.",
            "line": 95
           }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 4,
-      "line": 93
-     },
-     {
-      "key": "basics/reflected",
-      "mod": "basics",
-      "title": "Reflected light",
-      "emoji": null,
-      "icon": null,
-      "blurb": "Light bounces back up from the table into the shadow side.",
-      "statusMd": null,
-      "statusOff": true,
-      "parentId": "light",
-      "parent": "basics/light",
-      "children": [],
-      "modTab": "practice",
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
+         ],
          [
           {
            "type": "prose",
@@ -5336,8 +5160,8 @@
       ],
       "named": false,
       "reads": 0,
-      "number": 5,
-      "line": 97
+      "number": 3,
+      "line": 89
      },
      {
       "key": "journal/today",
@@ -5348,9 +5172,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -5436,9 +5257,6 @@
       "blurb": "One study for each day of a week, each on a tab of its own.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [
        {
@@ -5578,32 +5396,32 @@
     "drawn": "home",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
    },
    "module:basics|practice|0": {
-    "sha": "2744b899a5d76032b09346c4177ef4cfa1e86bfad5546bf5406c0c5c818d5c5a",
+    "sha": "8ed7e3ea78b0f617ebdcd7140935ea0b26358a46904d7ab8ee3c24271cefa033",
     "writes": 0,
     "same": true,
     "drawn": "module:basics",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:basics",
      "tab": "practice",
      "part": 0
     }
    },
    "module:basics|read|0": {
-    "sha": "3be0bb2c03bc00c68d6f9b807049ce364d6bd810ce602038928cfe24f2511df2",
+    "sha": "f94cc4815db5db17282298829ef164e18d7f4d7fb3c26683d0d7e3a7fc5bfae5",
     "writes": 0,
     "same": true,
     "drawn": "module:basics",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:basics",
      "tab": "read",
      "part": 0
@@ -5616,7 +5434,7 @@
     "drawn": "module:journal",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:journal",
      "part": 0
     }
@@ -5628,7 +5446,7 @@
     "drawn": "activity:/warm-up",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/warm-up",
      "part": 0
     }
@@ -5640,7 +5458,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 0
     }
@@ -5652,7 +5470,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 1
     }
@@ -5664,7 +5482,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 2
     }
@@ -5676,7 +5494,7 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "boxes",
      "part": 0
@@ -5689,7 +5507,7 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "boxes",
      "part": 1
@@ -5702,45 +5520,47 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "cylinders",
      "part": 0
     }
    },
    "activity:basics/light||0": {
-    "sha": "f8471e30bff0ea076227279dca5a6320177a1368c9316d381b84c6cb8a643f9d",
+    "sha": "50f216045bbaa9274b2b47816428e3c88f33aa696e1f45fb677f990e0ceed65b",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/light",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/light",
      "part": 0
     }
    },
-   "activity:basics/shadow||0": {
-    "sha": "7cf8c0984e8cfa5abe47690f8c7cf93825947f1ad60bb58de274690107db2e0f",
+   "activity:basics/light||1": {
+    "sha": "90ecbeec7453ab2a2f404b324b96c7cdb0c29494ff2633c5133bd1560fba7961",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/shadow",
+    "drawn": "activity:basics/light",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
-     "screen": "activity:basics/shadow",
+     "version": 2,
+     "screen": "activity:basics/light",
+     "page": "shadow",
      "part": 0
     }
    },
-   "activity:basics/reflected||0": {
-    "sha": "9ce9fd4ef1047cee3ede3ba5755ca436c2e066aec2b3b643cb57a9579f2c84a5",
+   "activity:basics/light||2": {
+    "sha": "9718ff9c5a427d4060dbc72ec4a6984d61f71494d0e9dd10a199ae4c056d6a20",
     "writes": 0,
     "same": true,
-    "drawn": "activity:basics/reflected",
+    "drawn": "activity:basics/light",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
-     "screen": "activity:basics/reflected",
+     "version": 2,
+     "screen": "activity:basics/light",
+     "page": "reflected",
      "part": 0
     }
    },
@@ -5751,7 +5571,7 @@
     "drawn": "activity:journal/today",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/today",
      "part": 0
     }
@@ -5763,7 +5583,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "hands",
      "part": 0
@@ -5776,7 +5596,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "cups",
      "part": 0
@@ -5789,7 +5609,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "trees",
      "part": 0
@@ -5802,7 +5622,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "faces",
      "part": 0
@@ -5815,7 +5635,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "shoes",
      "part": 0
@@ -5828,7 +5648,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "chairs",
      "part": 0
@@ -5841,7 +5661,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "clouds",
      "part": 0
@@ -5854,9 +5674,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
@@ -6347,6 +6167,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -6411,20 +6232,6 @@
        "/plain",
        "/around"
       ],
-      "top": [
-       "/sources",
-       "/rows",
-       "/lesson",
-       "/plain",
-       "/around"
-      ],
-      "order": [
-       "/sources",
-       "/rows",
-       "/lesson",
-       "/plain",
-       "/around"
-      ],
       "line": -1
      }
     ],
@@ -6438,9 +6245,6 @@
       "blurb": "Most harbours see two high tides each lunar day. A second source is a plain reference.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -6521,9 +6325,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -6588,9 +6389,6 @@
       "blurb": "Read this before the steps. It stays above every one of them.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -6800,9 +6598,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -6867,9 +6662,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -7042,7 +6834,7 @@
     "drawn": "home",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -7054,7 +6846,7 @@
     "drawn": "activity:/sources",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/sources",
      "part": 0
     }
@@ -7066,7 +6858,7 @@
     "drawn": "activity:/rows",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/rows",
      "part": 0
     }
@@ -7078,7 +6870,7 @@
     "drawn": "activity:/lesson",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/lesson",
      "part": 0
     }
@@ -7090,7 +6882,7 @@
     "drawn": "activity:/plain",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/plain",
      "part": 0
     }
@@ -7102,7 +6894,7 @@
     "drawn": "activity:/around",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/around",
      "part": 0
     }
@@ -7114,9 +6906,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
@@ -7514,6 +7306,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -7555,16 +7348,6 @@
        "/grid-quiz",
        "/each-quiz"
       ],
-      "top": [
-       "/marked",
-       "/grid-quiz",
-       "/each-quiz"
-      ],
-      "order": [
-       "/marked",
-       "/grid-quiz",
-       "/each-quiz"
-      ],
       "line": -1
      }
     ],
@@ -7578,9 +7361,6 @@
       "blurb": "Pick an answer and the question says whether it was right, with a reply for the option you picked.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -7746,9 +7526,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -7815,9 +7592,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -8043,7 +7817,7 @@
     "drawn": "home",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -8055,7 +7829,7 @@
     "drawn": "activity:/marked",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/marked",
      "part": 0
     }
@@ -8067,7 +7841,7 @@
     "drawn": "activity:/grid-quiz",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/grid-quiz",
      "part": 0
     }
@@ -8079,685 +7853,8 @@
     "drawn": "activity:/each-quiz",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/each-quiz",
-     "part": 0
-    }
-   }
-  }
- },
- "wiki-in-a-module (made up here)": {
-  "model": {
-   "book": {
-    "ok": true,
-    "refusal": null,
-    "marker": "0.16",
-    "frontMatter": {
-     "booklet": "0.16",
-     "title": "Harbour notes"
-    },
-    "title": "Harbour notes",
-    "bodyStart": 4,
-    "modules": [
-     {
-      "id": "harbour",
-      "title": "Harbour notes",
-      "line": 5,
-      "endLine": 29
-     }
-    ],
-    "activities": [
-     {
-      "id": "tides",
-      "title": "Tides",
-      "scope": "harbour",
-      "line": 9,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "How the water moves. See [[#Spring tides]].",
-        "line": 11
-       }
-      ]
-     },
-     {
-      "id": "spring",
-      "title": "Spring tides",
-      "scope": "harbour",
-      "line": 13,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "The widest range.\n\n***\n\nTwice a month.",
-        "line": 15
-       }
-      ]
-     },
-     {
-      "id": "neap",
-      "title": "Neap tides",
-      "scope": "harbour",
-      "line": 21,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "The narrowest range.",
-        "line": 23
-       }
-      ]
-     },
-     {
-      "id": "moon",
-      "title": "The moon",
-      "scope": "harbour",
-      "line": 25,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "It pulls.",
-        "line": 27
-       }
-      ]
-     }
-    ],
-    "problems": [],
-    "openings": [
-     {
-      "module": "harbour",
-      "title": "Harbour notes",
-      "markdown": "A small wiki.",
-      "line": 8
-     }
-    ],
-    "widgets": [],
-    "menus": [],
-    "notes": [],
-    "records": {
-     "regions": [],
-     "recordsLines": [],
-     "blocks": [],
-     "answers": {},
-     "drafts": {},
-     "entries": {},
-     "problems": []
-    }
-   },
-   "nav": {
-    "title": "Harbour notes",
-    "startHome": false,
-    "mods": [
-     {
-      "id": "harbour",
-      "bare": false,
-      "title": "Harbour notes",
-      "written": "Harbour notes",
-      "emoji": null,
-      "icon": "anchor",
-      "opening": "A small wiki.",
-      "blurb": "A small wiki.",
-      "tabs": [],
-      "notice": [],
-      "acts": [
-       "harbour/tides",
-       "harbour/spring",
-       "harbour/neap",
-       "harbour/moon"
-      ],
-      "top": [
-       "harbour/tides",
-       "harbour/moon"
-      ],
-      "order": [
-       "harbour/tides",
-       "harbour/spring",
-       "harbour/neap",
-       "harbour/moon"
-      ],
-      "line": 5
-     }
-    ],
-    "acts": [
-     {
-      "key": "harbour/tides",
-      "mod": "harbour",
-      "title": "Tides",
-      "emoji": null,
-      "icon": "waves",
-      "blurb": "How the water moves. See Spring tides.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [
-       "harbour/spring",
-       "harbour/neap"
-      ],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "How the water moves. See [[#Spring tides]].",
-           "line": 11
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 1,
-      "line": 9
-     },
-     {
-      "key": "harbour/spring",
-      "mod": "harbour",
-      "title": "Spring tides",
-      "emoji": null,
-      "icon": null,
-      "blurb": "The widest range.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": "tides",
-      "parent": "harbour/tides",
-      "children": [],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "The widest range.",
-           "line": 15
-          }
-         ],
-         [
-          {
-           "type": "prose",
-           "markdown": "Twice a month.",
-           "line": 18
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 2,
-      "line": 13
-     },
-     {
-      "key": "harbour/neap",
-      "mod": "harbour",
-      "title": "Neap tides",
-      "emoji": null,
-      "icon": null,
-      "blurb": "The narrowest range.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": "tides",
-      "parent": "harbour/tides",
-      "children": [],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "The narrowest range.",
-           "line": 23
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 3,
-      "line": 21
-     },
-     {
-      "key": "harbour/moon",
-      "mod": "harbour",
-      "title": "The moon",
-      "emoji": null,
-      "icon": null,
-      "blurb": "It pulls.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "It pulls.",
-           "line": 27
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 4,
-      "line": 25
-     }
-    ],
-    "cards": [
-     {
-      "kind": "module",
-      "mod": "harbour",
-      "line": 5
-     }
-    ]
-   },
-   "start": {
-    "screen": "module:harbour",
-    "tab": null,
-    "part": 0
-   }
-  },
-  "places": {
-   "home||0": {
-    "sha": "e380378c24889767ff5e29b20ce69b9d3f33962ee470de00c3a9c691be929e8f",
-    "writes": 0,
-    "same": true,
-    "drawn": "home",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "home",
-     "part": 0
-    }
-   },
-   "module:harbour||0": {
-    "sha": "ec1bf08820aa71bde94f73c57dfdb38f5e7789661aaf8ef30086c85c642d6fcf",
-    "writes": 0,
-    "same": true,
-    "drawn": "module:harbour",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "module:harbour",
-     "part": 0
-    }
-   },
-   "activity:harbour/tides||0": {
-    "sha": "11eb712e46d007200fa0784cad884724b991830ea187057ad9376a9d8777897c",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:harbour/tides",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "activity:harbour/tides",
-     "part": 0
-    }
-   },
-   "activity:harbour/spring||0": {
-    "sha": "35fed3de955e2c57978c1eb8ce232c22c0cced9562f1e6e4a243e30f7f047f2c",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:harbour/spring",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "activity:harbour/spring",
-     "part": 0
-    }
-   },
-   "activity:harbour/spring||1": {
-    "sha": "2b109e7f91806668fb9f3b4b0be7002d000b7303ddf32ef2b56ca155e212ccdd",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:harbour/spring",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "activity:harbour/spring",
-     "part": 1
-    }
-   },
-   "activity:harbour/neap||0": {
-    "sha": "94ee04cb1202dec800453af054506389cfba5c143a1d7fdd1fef925f26ac0ed6",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:harbour/neap",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "activity:harbour/neap",
-     "part": 0
-    }
-   },
-   "activity:harbour/moon||0": {
-    "sha": "3bcc011928202379d7fb34b786ff68b8135d027ffd18ce36ffc1b6c673527a61",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:harbour/moon",
-    "saved": {
-     "file": "wiki-in-a-module (made up here)",
-     "version": 1,
-     "screen": "activity:harbour/moon",
-     "part": 0
-    }
-   }
-  }
- },
- "bare-wiki (made up here)": {
-  "model": {
-   "book": {
-    "ok": true,
-    "refusal": null,
-    "marker": "0.16",
-    "frontMatter": {
-     "booklet": "0.16",
-     "title": "Bare"
-    },
-    "title": "Bare",
-    "bodyStart": 4,
-    "modules": [],
-    "activities": [
-     {
-      "id": "a",
-      "title": "A",
-      "scope": "",
-      "line": 5,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "One.",
-        "line": 7
-       }
-      ]
-     },
-     {
-      "id": "b",
-      "title": "B",
-      "scope": "",
-      "line": 9,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "Two.",
-        "line": 11
-       }
-      ]
-     },
-     {
-      "id": "c",
-      "title": "C",
-      "scope": "",
-      "line": 13,
-      "repeat": false,
-      "daily": false,
-      "hidden": false,
-      "segments": [
-       {
-        "type": "prose",
-        "markdown": "Three, with a parent that is not there.",
-        "line": 15
-       }
-      ]
-     }
-    ],
-    "problems": [],
-    "openings": [],
-    "widgets": [],
-    "menus": [],
-    "notes": [],
-    "records": {
-     "regions": [],
-     "recordsLines": [],
-     "blocks": [],
-     "answers": {},
-     "drafts": {},
-     "entries": {},
-     "problems": []
-    }
-   },
-   "nav": {
-    "title": "Bare",
-    "startHome": false,
-    "mods": [
-     {
-      "id": "",
-      "bare": true,
-      "title": "",
-      "written": "",
-      "emoji": null,
-      "icon": null,
-      "opening": "",
-      "blurb": "",
-      "tabs": [],
-      "notice": [],
-      "acts": [
-       "/a",
-       "/b",
-       "/c"
-      ],
-      "top": [
-       "/a",
-       "/c"
-      ],
-      "order": [
-       "/a",
-       "/b",
-       "/c"
-      ],
-      "line": -1
-     }
-    ],
-    "acts": [
-     {
-      "key": "/a",
-      "mod": "",
-      "title": "A",
-      "emoji": null,
-      "icon": null,
-      "blurb": "One.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [
-       "/b"
-      ],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "One.",
-           "line": 7
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 1,
-      "line": 5
-     },
-     {
-      "key": "/b",
-      "mod": "",
-      "title": "B",
-      "emoji": null,
-      "icon": null,
-      "blurb": "Two.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": "a",
-      "parent": "/a",
-      "children": [],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "Two.",
-           "line": 11
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 2,
-      "line": 9
-     },
-     {
-      "key": "/c",
-      "mod": "",
-      "title": "C",
-      "emoji": null,
-      "icon": null,
-      "blurb": "Three, with a parent that is not there.",
-      "statusMd": null,
-      "statusOff": false,
-      "parentId": "zzz",
-      "parent": null,
-      "children": [],
-      "modTab": null,
-      "opening": [],
-      "tabs": [
-       {
-        "id": "",
-        "title": "",
-        "pages": [
-         [
-          {
-           "type": "prose",
-           "markdown": "Three, with a parent that is not there.",
-           "line": 15
-          }
-         ]
-        ]
-       }
-      ],
-      "named": false,
-      "reads": 0,
-      "number": 3,
-      "line": 13
-     }
-    ],
-    "cards": [
-     {
-      "kind": "activity",
-      "act": "/a",
-      "line": 5
-     },
-     {
-      "kind": "activity",
-      "act": "/c",
-      "line": 13
-     }
-    ]
-   },
-   "start": {
-    "screen": "home",
-    "tab": null,
-    "part": 0
-   }
-  },
-  "places": {
-   "home||0": {
-    "sha": "6de3335467d2d3ef59bebf5c710708928efd39d9eee7db9f7d82f9884ec2198d",
-    "writes": 0,
-    "same": true,
-    "drawn": "home",
-    "saved": {
-     "file": "bare-wiki (made up here)",
-     "version": 1,
-     "screen": "home",
-     "part": 0
-    }
-   },
-   "activity:/a||0": {
-    "sha": "d6c80d18c68f826777ccd70702241d48e74a8d62979a426e62864d8df3690073",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:/a",
-    "saved": {
-     "file": "bare-wiki (made up here)",
-     "version": 1,
-     "screen": "activity:/a",
-     "part": 0
-    }
-   },
-   "activity:/b||0": {
-    "sha": "71233f2db01e9f9e6ade9379da53b1315972c5e1d9f4f1f12b5adabc1b4d5b41",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:/b",
-    "saved": {
-     "file": "bare-wiki (made up here)",
-     "version": 1,
-     "screen": "activity:/b",
-     "part": 0
-    }
-   },
-   "activity:/c||0": {
-    "sha": "211f4673347356ddaa02f60341d1f4167e29e0862937090ea5fd29690bafff0c",
-    "writes": 0,
-    "same": true,
-    "drawn": "activity:/c",
-    "saved": {
-     "file": "bare-wiki (made up here)",
-     "version": 1,
-     "screen": "activity:/c",
      "part": 0
     }
    }
@@ -8848,6 +7945,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -8880,12 +7978,6 @@
       "acts": [
        "/t"
       ],
-      "top": [
-       "/t"
-      ],
-      "order": [
-       "/t"
-      ],
       "line": -1
      }
     ],
@@ -8899,9 +7991,6 @@
       "blurb": "Above every tab.",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [
        {
@@ -8998,64 +8087,64 @@
   },
   "places": {
    "home||0": {
-    "sha": "b9e870067414b61cd5645ad8ef8c98720b7fd2a1dea20357e085ca5ae871a994",
+    "sha": "b51f9aad0cdb46253fd0290dcdb2a398b5724df0730d6cd1eeb3dfa2226ad127",
     "writes": 0,
     "same": true,
     "drawn": "home",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
    },
    "activity:/t|first|0": {
-    "sha": "fb017b70eaf86b41289fbecc76a8531b73d4d6b0321e795b971d42a79bed7386",
+    "sha": "9d0f1a8c46b3c49c8ad48b63db2f699590b4e3de7eaee3ab48a59ffec5cc1f21",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "first",
      "part": 0
     }
    },
    "activity:/t|first|1": {
-    "sha": "2085a30122016277c5b3d81a258440b32a3dce7afcc416ac91d239c5dddb790d",
+    "sha": "9aa2ff92d85268c5af5d37e880f54f4a53895e97452659dec6cfb74fa3ca4add",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "first",
      "part": 1
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "f7d73d63f616dcae732e000f54c69f1c6e75e669b643faf1bf67dafd996576f7",
+    "sha": "5e46c1c2ae45536ea22716892efd513c11c9489f1a02f3f09ccfdc3cf9ddfc95",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "second-one",
      "part": 0
     }
    },
    "activity:/t|third|0": {
-    "sha": "40b543235740b93c4258c61322421bec079bcf91f1683711fe8716f7eab021eb",
+    "sha": "cf97f970ec1df37022de9fb5a7e0feec331d14f71fb16c2ed8aae2e0929e7c64",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "third",
      "part": 0
@@ -9161,8 +8250,15 @@
      }
     ],
     "problems": [
-     "Line 12: a tab line cannot go inside a callout, so it was ignored.",
-     "Line 27: \"invented\" is not a kind this format defines."
+     "Line 12: a tab line cannot go inside a callout, so it was ignored."
+    ],
+    "unread": [
+     {
+      "line": 27,
+      "text": "> [!invented|what] Not a kind",
+      "why": "\"invented\" is not a kind this view reads, so it is drawn as \"not yet supported\"",
+      "newer": true
+     }
     ],
     "openings": [],
     "widgets": [],
@@ -9196,12 +8292,6 @@
       "acts": [
        "/o"
       ],
-      "top": [
-       "/o"
-      ],
-      "order": [
-       "/o"
-      ],
       "line": -1
      }
     ],
@@ -9215,9 +8305,6 @@
       "blurb": "",
       "statusMd": null,
       "statusOff": false,
-      "parentId": null,
-      "parent": null,
-      "children": [],
       "modTab": null,
       "opening": [],
       "tabs": [
@@ -9323,25 +8410,25 @@
   },
   "places": {
    "home||0": {
-    "sha": "63fe6e5dffadfe98fccfbbdb4be6c13334a39a661b89dd004d9815a7f0562a5f",
+    "sha": "68a30ffea275ba30287f941d83a0fbf9e7ec8653d8027f992ff79cfcc363abdd",
     "writes": 0,
     "same": true,
     "drawn": "home",
     "saved": {
      "file": "odd-lines (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
    },
    "activity:/o||0": {
-    "sha": "1482695d4dcf11ca2d29f647452631ac90df1660e3a4299de9d911cd7b47c72e",
+    "sha": "f597de801e9d167f1b7345a60b3859cd8bcd120abe19d9c6cab1bcae7c9c2815",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",
     "saved": {
      "file": "odd-lines (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/o",
      "part": 0
     }

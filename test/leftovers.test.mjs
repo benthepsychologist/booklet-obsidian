@@ -1,7 +1,7 @@
 /*
- * Plugin 0.7.0, stage C: the small leftovers of 0.6.0 and what pins them. A long table's numeric-column check made once for each
- * column; the tabs' panels and focus after a move for a keyboard reader; names for a screen reader without Markdown marks; a `- - -`
- * line under text read as a break; a press's default stopped; a closing code fence's rules. Every note is made up.
+ * Small cases: a long table's numeric-column check made once for each column; the tabs' panels and focus after a move for a keyboard
+ * reader; names for a screen reader without Markdown marks; a `- - -` line under text read as a break; a press's default stopped; a closing
+ * code fence's rules. Every note is made up.
  */
 import { click, words } from "./dom.mjs";
 import test from "node:test";
@@ -133,14 +133,14 @@ test("a run of hyphens under text underlines it; `- - -` is a break, as Markdown
 });
 
 test("pages: `- - -` straight under a line of text makes a new page, and `---` there does not", () => {
-	const pages = (rule) => core.pagesOf(core.parseBooklet(`---\nbooklet: "0.16"\n---\n\n> [!activity|a] A\n\nA line of text\n${rule}\nMore text.\n`).activities[0].segments).length;
+	const pages = (rule) => core.pagesOf(core.parseBooklet(`---\nbooklet: "0.17"\n---\n\n> [!activity|a] A\n\nA line of text\n${rule}\nMore text.\n`).activities[0].segments).length;
 	assert.equal(pages("---"), 1, "a heading underline");
 	assert.equal(pages("- - -"), 2, "a break");
 	assert.equal(pages("***"), 2);
 });
 
 test("an opening: a `- - -` line under text is a break and is not drawn, a `---` there stays as the heading underline", () => {
-	const opening = (rule) => core.parseBooklet(`---\nbooklet: "0.16"\n---\n\nA line of text\n${rule}\nMore.\n\n> [!activity|a] A\n`).openings[0].markdown;
+	const opening = (rule) => core.parseBooklet(`---\nbooklet: "0.17"\n---\n\nA line of text\n${rule}\nMore.\n\n> [!activity|a] A\n`).openings[0].markdown;
 	assert.ok(!/- - -/.test(opening("- - -")), "the break is dropped");
 	assert.match(opening("---"), /A line of text\n---\nMore/, "the underline stays");
 });

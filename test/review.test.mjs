@@ -1,13 +1,11 @@
 /*
- * Plugin 0.7.0, after the cold review of the draft: a row around a group or a callout that holds a question; a step's group
- * drawn open; ids that no two panes share; a live region set only when it changes; the marks a multi's Check puts up taken
- * away by a change of the picks; the one rule for a footnote's mark in code and maths; a source opened from a list item or a
- * table cell; and the places the first review found no test for. Every note is made up.
+ * A row around a group or a callout that holds a question; a step's group drawn open; ids that no two panes share; a live region set only
+ * when it changes; the marks a multi's Check puts up taken away by a change of the picks; the one rule for a footnote's mark in code and
+ * maths; a source opened from a list item or a table cell; a list item's later paragraphs, maths in a row, a long line, a repeated line.
+ * Every note is made up.
  *
- * Which tests fail without a fix: all but the ten whose title starts "[pin]". Those ten pin behaviour that was already right
- * (the places the reviews found a mutation that no test noticed), so there is no fix for them to fail without; each was
- * broken once by hand to show it fails when that behaviour is changed. Against the 0.7.0 draft's source (97e1086) the first
- * twenty tests of this file split 13 that fail and 7 that pass.
+ * A test whose title starts "[pin]" pins behaviour that was right when it was written, with no fix for it to fail without; it fails when
+ * that behaviour is changed.
  */
 import { click, openView, typeInto, window as w, until, quiet, words } from "./dom.mjs";
 import test from "node:test";
@@ -20,7 +18,7 @@ import { pane } from "./pane.mjs";
 const { drawMarks, keepStepsOne, loadStepsOne, moveHeld, keepHeld, loadHeld } = await import("./.build/screens.mjs");
 
 const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
-const head = 'booklet: "0.16"';
+const head = 'booklet: "0.17"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 /** A device store, as Obsidian's saveLocalStorage keeps one; `one` holds the steps one at a time. */
 function store(one) {
@@ -360,10 +358,10 @@ test("[pin] callouts: a reader's fold or open of any callout that holds a questi
 	await press(p, group().querySelector(".booklet-group-title"));
 	assert.ok(!tip().classList.contains("is-collapsed") && group().classList.contains("is-collapsed"), "opened and folded");
 	// the screen is left and drawn again: what the reader chose is what comes back
-	await p.view.setState({ version: 1, screen: "home" }, {});
+	await p.view.setState({ version: 2, screen: "home" }, {});
 	await p.settled();
 	assert.equal(p.q("t"), null, "the activity is not on screen");
-	await p.view.setState({ version: 1, screen: "activity:/a" }, {});
+	await p.view.setState({ version: 2, screen: "activity:/a" }, {});
 	await p.settled();
 	assert.ok(!tip().classList.contains("is-collapsed"), "the tip stays open through a drawing");
 	assert.ok(group().classList.contains("is-collapsed"), "the group stays folded through a drawing");
@@ -461,7 +459,7 @@ test("focus: a step move the pane refuses does not leave the view ready to take 
 	assert.equal(p.view.focusScreen, false, "the refused move cleared it");
 	p.leaf.setViewState = real;
 	// the pane then draws another screen on its own (Obsidian's Back, say): focus is left where it was
-	await p.view.setState({ version: 1, screen: "home" }, {});
+	await p.view.setState({ version: 2, screen: "home" }, {});
 	await p.settled();
 	assert.equal(w.document.activeElement, input, "focus was not taken");
 	await p.card(p.cards()[0]);
@@ -509,7 +507,7 @@ test("styles: on the phone a footnote mark's touch area is a 44px square about t
 	assert.match(rule[1], /width:\s*max\(44px,/);
 });
 
-/* ---- the second review: a list item's later paragraphs, maths in a row, a long line, a repeated line, the survivors ---- */
+/* ---- a list item's later paragraphs, maths in a row, a long line, a repeated line ---- */
 /* (the [pin] tests below pin behaviour that was already right) */
 
 test("marks: a list item goes on through its later paragraphs and nested items; an unindented line ends it, and indented code after a blank line outside a list is still code", () => {

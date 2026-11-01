@@ -86,7 +86,7 @@ export const pairFor = (v: unknown, p: PickValue): Pair | undefined => pairsOf(v
  * out, as a pick with no answer has no pair. Every other member stays as it is, pairs for picks taken back among them.
  */
 export function setPair(v: unknown, p: PickValue, a: unknown): unknown[] {
-	const list = Array.isArray(v) ? v : [];
+	const list: unknown[] = Array.isArray(v) ? (v as unknown[]) : [];
 	const at = list.findIndex((x) => isPair(x) && x.pick === p);
 	if (!holdsSomething(a)) return at < 0 ? list : list.filter((_, i) => i !== at);
 	if (at < 0) return [...list, { pick: p, a }];
@@ -100,7 +100,7 @@ export function shownPairs(src: Question, record: Record<string, unknown> | unde
 }
 
 /**
- * Whether a draft or an entry holds any answer, as the proposal's rule for a pick taken back has it: a question asked
+ * Whether a draft or an entry holds any answer. A question asked
  * for each pick counts only for the pairs whose pick its source holds in the same record, so a draft whose only
  * answers are pairs for picks taken back counts as empty. An answer of the wrong shape counts as an answer.
  */

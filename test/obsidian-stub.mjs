@@ -62,6 +62,24 @@ export class TextFileView extends Component {
 	setEphemeralState() {}
 }
 
+/** A plugin: what main.ts's onload calls on itself, doing nothing (a test hands onload an app that records what it is given). */
+export class Plugin extends Component {
+	constructor(app, manifest) {
+		super();
+		this.app = app;
+		this.manifest = manifest;
+	}
+	registerView() {}
+	addCommand() {}
+}
+
+/** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
+export class FileView extends Component {}
+export class TFile {}
+export class WorkspaceLeaf {
+	async setViewState() {}
+}
+
 /** What the view asks of a click: a plain click opens in the pane, Ctrl or Cmd in a new one. */
 export const Keymap = { isModEvent: (evt) => (evt && (evt.ctrlKey || evt.metaKey) ? "tab" : false) };
 

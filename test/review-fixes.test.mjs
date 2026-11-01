@@ -1,5 +1,5 @@
 /*
- * What the cold review of the first 0.9.0 draft found, as tests: a data block whose id clashes with an activity's, a question's or
+ * Data blocks and queries: a data block whose id clashes with an activity's, a question's or
  * another block's is said among the note's problems (and which one a query reads is not changed); a null and a number too big to be
  * one in a data row; a query that throws says so in its own place and the screen still draws; a nested list thousands deep and a chart
  * of hundreds of thousands of numbers do not overflow the stack; the sort and filter control's state is each query's own, is rebuilt when
@@ -14,7 +14,7 @@ import { core, fence } from "./helpers.mjs";
 process.env.TZ = "UTC";
 const { mountQuery } = await import("./.build/screens.mjs");
 
-const fm = `---\nbooklet: "0.16"\ntitle: T\n---\n`;
+const fm = `---\nbooklet: "0.17"\ntitle: T\n---\n`;
 const data = (rows, id) => "```booklet data\n" + (typeof rows === "string" ? rows : JSON.stringify(rows)) + "\n```\n^" + id + "\n";
 const note = (queries, blocks, extra = "") => `${fm}\n${extra}> [!activity|show] Show\n\n${queries.map(fence).join("\n\n")}\n\n> [!data] Data\n\n${blocks}`;
 const planOf = (t, i = 0) => {
@@ -161,7 +161,10 @@ test("a tiny bar beside a huge one is still drawn at least as wide as a sliver (
 	v.close();
 });
 
-test("a line is drawn again, to the new width, when its box changes width, and not before it changes by 4 px", () => {
+// the plugin redraws on the next frame, not inside the observer (Chromium reports a loop error otherwise)
+const frame = () => new Promise((r) => w.requestAnimationFrame(() => r()));
+
+test("a line is drawn again, to the new width, when its box changes width, and not before it changes by 4 px", async () => {
 	const RO = w.ResizeObserver;
 	const seen = [];
 	w.ResizeObserver = globalThis.ResizeObserver = class {
@@ -179,11 +182,14 @@ test("a line is drawn again, to the new width, when its box changes width, and n
 		assert.equal(first.getAttribute("viewBox").split(" ")[2], "640", "no width yet: the default");
 		Object.defineProperty(plot, "clientWidth", { value: 500, configurable: true });
 		seen.forEach((cb) => cb());
+		assert.equal(plot.querySelector("svg"), first, "not drawn inside the observer's own call");
+		await frame();
 		const second = plot.querySelector("svg");
 		assert.notEqual(second, first, "drawn again");
 		assert.equal(second.getAttribute("viewBox").split(" ")[2], "500");
 		Object.defineProperty(plot, "clientWidth", { value: 502, configurable: true });
 		seen.forEach((cb) => cb());
+		await frame();
 		assert.equal(plot.querySelector("svg"), second, "2 px is not a change");
 		v.close();
 	} finally {

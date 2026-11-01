@@ -23,7 +23,7 @@
  * made again.
  */
 import { pairFor, pickKey, pickWords, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
-import type { QuestionHost, Target } from "./questions";
+import { nodeOf, type QuestionHost, type Target } from "./questions";
 
 interface Copy {
 	el: HTMLElement;
@@ -118,8 +118,8 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 	};
 	// leaving a copy whose pick was taken back lets it go; a press elsewhere is not disturbed (reshow waits for it)
 	copies.addEventListener("focusout", (evt) => {
-		const to = evt.relatedTarget;
-		if (to instanceof Node && copies.contains(to)) return;
+		const to = nodeOf(evt.relatedTarget);
+		if (to && copies.contains(to)) return;
 		window.setTimeout(() => host.reshow(), 0);
 	});
 	show();

@@ -1,6 +1,6 @@
 /*
- * A question asked for each pick of another (`each:<id>`, src/core/each.ts and src/each-question.ts), as the approved
- * design for format 0.16 has it: the setting and its mistakes, the picks and their words, the pairs it stores (a pick
+ * A question asked for each pick of another (`each:<id>`, src/core/each.ts and src/each-question.ts), as format 0.16
+ * has it: the setting and its mistakes, the picks and their words, the pairs it stores (a pick
  * taken back keeps its pair, picking it again brings it back), the empty-draft rule, kept entries one line per pick,
  * the reader's own options offered under every pick and in later entries, and the reader's field and press kept safe
  * as copies come and go around them. The view runs over a jsdom document on the test vault's made-up check-in note.
@@ -18,7 +18,7 @@ const SPOTS = { engine: "svg-regions", regions: [{ id: "top", label: "Top" }, { 
 
 /** A made-up note with a question asked for each pick of every kind of source, and every mistake the setting can be. */
 const NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/each
 title: Each
 lang: en
@@ -536,7 +536,7 @@ test("each in the view: a question of any kind asked for each pick is drawn, and
 	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.match(problems, new RegExp(`"${id}" is to be asked for each pick`));
 	for (const id of ["lost", "self", "kind", "chain"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
 	// "far" is in the other activity: its own screen
-	await view.setState({ version: 1, screen: "activity:/other" }, {});
+	await view.setState({ version: 2, screen: "activity:/other" }, {});
 	assert.ok(view.contentEl.querySelector('[data-booklet-q="far"].booklet-kind-multi:not(.booklet-each)'), "far is drawn as a plain multi");
 	v.close();
 });

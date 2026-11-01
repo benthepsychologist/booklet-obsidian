@@ -2,30 +2,10 @@
 //   PLAYWRIGHT=<node_modules path> node plugin-check.js --obsidian <obsidian binary> --vault <test-vault> --out <dir> [--only 1,3] [--lint <lint-booklet.py>]
 // It NEVER touches --vault: every check works on its own fresh copy of the vault and its own scratch config folder, both
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
-// Checks: 1 opens and toggles; 2 draws natively (screenshots); 3 answers reach the records on disk; 4 an open Markdown
-// editor survives interleaved typing; 5 the text field keeps focus across a write; 6 every common kind, a shared list
-// and a widget are answered and cleared, checked on disk, and the first answer to a note with no records does not
-// redraw the view, and a change made on disk while a field is being edited leaves that field and what was typed in it
-// alone; 7 drafts, Finalize and kept entries, for `repeat` and `repeat daily` (finishing twice in a day replaces that
-// day's entry), and a draft survives a reload of the view; 8 the same with the note also open in a Markdown pane
-// (nothing lost or doubled, the buffer equals the disk), and a change made in that pane while a field is being edited;
-// 9 layout: a text box's border in the dark theme, room at the view's foot, the grid's cell names on their colours,
-// touch sizes (the tracker, and the check-in note with a place open, also in a window a phone's width), and the
-// tracker's and check-in note's screenshots in light, dark and mobile emulation; 11 the check-in note's widgets and shared list: drawn, answered and
-// cleared on disk with words of the reader's own, a widget's own field kept while the note changes, its words added
-// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), a
-// press on the very item or place word the words name held as booklet.html holds it, finished and kept,
-// in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
-// taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
-// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
-// under every body place and under the thoughts, in a group named Earlier words, a tap storing
-// what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
-// Markdown pane, then touch sizes and screenshots at a phone's width; 14 Add your own adds the words typed when it is
-// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 15 the check-in note's weekly
-// roll-up (format 0.16 queries: a span of days and a summary) drawn from made-up entries, an older entry and the draft not
-// counted, nothing written, an entry kept showing at once, then screenshots at a desktop's and a phone's width, light and
-// dark; 16 to 23 (nav-checks.js, the 0.6.0 navigation): 16 the three screens and the moves, 17 Back is free, 18 no step for a
-// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 29 to 32 (0.9.0, dashboards; dashboard-checks.js): charts, data blocks and the kept days in every view, the reader's sort and filter, deleting a kept entry; 27 and 28 (0.8.0, page trees, ahead of format 0.17; nav-checks.js): a made-up wiki of 13 pages in three levels, and the check-in as one activity with a wiki tab; 33 (0.10.0, pictures from image definition lines; pictures-checks.js) and 34 (0.10.0, links to other notes and selecting words; note-link-checks.js), each on a desktop's width and in Obsidian's phone mode; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
+// Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
+// leftovers-checks.js; 29 to 32 in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
+// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js. README.md in this folder says what each one checks.
+// Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -33,9 +13,12 @@ const argv = process.argv.slice(2), opt = {};
 for (let i = 0; i < argv.length; i++) if (argv[i].startsWith("--")) opt[argv[i].slice(2)] = argv[++i];
 opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || process.env.VAULT;
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
-const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
+// the reference linter: --lint, else BOOKLET_LINTER, else lint-booklet.py in the format repository (BOOKLET_REPO, default /workspace/booklet)
+const LINT = opt.lint || process.env.BOOKLET_LINTER || path.join(process.env.BOOKLET_REPO || "/workspace/booklet", "lint-booklet.py");
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
+// checks 35 to 41 (0.11.0, data safety; safety-checks.js) and 42 to 45 (access-checks.js) join the default list, just before check 10
+if (!opt.only) only.splice(only.length - 1, 0, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -95,7 +78,7 @@ const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
 // The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
-// with the format 0.16 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
+// with the format 0.17 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
 // test/helpers.mjs keeps the same list.
 const EXPECTED_LINT = {};
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
@@ -443,7 +426,7 @@ async function check5() {
 const START = { [EVERY]: "/kinds", [KEPT]: "/warm-up", [CHECKIN]: "day-check/today" };
 // the booklet view shows the screen of that activity (by the pane's own state, as Back and Forward do), and waits for it to be drawn
 async function goTo(o, key) {
-  await o.evaluate(async key => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen: "activity:" + key, part: 0 }, active: true }); }, key);
+  await o.evaluate(async key => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen: "activity:" + key, part: 0 }, active: true }); }, key);
   await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='activity:" + key + "']", { timeout: 8000 });
   await sleep(900);   // rendered markdown is async
 }
@@ -1613,12 +1596,12 @@ async function check14() {
     const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
     fs.writeFileSync(file, orig);
     const OLDER = "Older marker.booklet.md";
-    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.16"', 'booklet: "0.15"'));
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.17"', 'booklet: "0.15"'));
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
-    // a note marked with the format before this one: opened as it is, the notice first among its problems
+    // a note marked with an earlier format: opened as it is, the notice first among its problems
     await openNote(o, OLDER, "/kinds");
-    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems li")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
-    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems .booklet-notice > p")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
+    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.17 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
     await openNote(o, EVERY);
     const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
     const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();
@@ -1931,6 +1914,11 @@ async function check10() {
   c.ok(!only.includes(31) || ["c31-desktop", "c31-phone"].every(x => sessions.includes(x)), "and the sort and filter check's two: " + sessions.join(", "));
   c.ok(!only.includes(33) || ["c33-desktop", "c33-phone"].every(x => sessions.includes(x)), "and the pictures check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(34) || ["c34-desktop", "c34-phone"].every(x => sessions.includes(x)), "and the links and selection check's two: " + sessions.join(", "));
+  c.ok(!only.includes(46) || ["c46-desktop", "c46-phone"].every(x => sessions.includes(x)), "and the notice check's two (a desktop's width, a phone's): " + sessions.join(", "));
+  c.ok(!only.includes(47) || sessions.includes("c47"), "and the names check's: " + sessions.join(", "));
+  c.ok(!only.includes(35) || sessions.includes("c35"), "and the damaged records check's: " + sessions.join(", "));
+  const labels38 = ["half", "after", "continuous", "quit"].flatMap(l => ["c38-" + l, "c38-" + l + "-restart"]);
+  for (const [n, names] of [[36, ["c36-view", "c36-md"]], [37, ["c37"]], [38, [...labels38, "c38-leave"]], [39, ["c39-disk", "c39-move"]], [40, ["c40-toggle", "c40-popout", "c40-panes", "c40-restart", "c40-restart-again"]], [41, ["c41"]], [42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
   c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
@@ -1946,7 +1934,10 @@ async function check10() {
   const dashboards = require("./dashboard-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const pictures = require("./pictures-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const noteLinks = require("./note-link-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
-  const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  const notice = require("./notice-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, ...notice, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  Object.assign(fns, require("./safety-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
+  Object.assign(fns, require("./access-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType }));
   for (const n of only) {
     const t0 = Date.now();
     let c;

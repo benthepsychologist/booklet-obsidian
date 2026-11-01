@@ -1,11 +1,11 @@
 /*
- * The booklet's navigation model (SPEC 0.16 section 3): what a booklet shows one screen at a time. It reads the parts
+ * The booklet's navigation model (SPEC 0.17 section 3): what a booklet shows one screen at a time. It reads the parts
  * of the design the reader (reader.ts) does not keep, from the note's own lines: a card's picture, blurb and status
- * line, `parent:` and `tab:`, a module's tabs and notice, and the page breaks inside an activity. It also holds
+ * line, `tab:`, a module's tabs and notice, and the page breaks inside an activity. It also holds
  * the rules for where a booklet opens, what is next, where a heading link leads, and how a saved place is read back.
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
-import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
+import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
 import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
@@ -14,19 +14,13 @@ import { holdsSomething } from "./shape";
 
 export const HOME = "home";
 
-/**
- * The version written with a saved place that names a page: a later release can tell a place that came from this one (view state).
- * Version 1 (releases 0.6.0 and 0.7.0) had no page key; 2 (page trees) adds it. A place with no page key is still written as version 1,
- * so a note with no named page on show saves exactly what 0.6.0 did and an older device restores it. Places of either version are read
- * (placeFrom).
- */
+/** The version written with a saved place: a later release can tell a place that came from this one (view state). A place of any other version is not read (placeFrom). */
 export const PLACE_VERSION = 2;
-const PLACE_VERSION_1 = 1;
 
 /**
  * Where the reader is: the screen (`home`, `module:<id>` or `activity:<module id>/<activity id>`, the module id empty
  * for a bare activity), the tab on show (a tab's id, null where the screen has no tab bar), and the part of the tab on
- * show, counted from 0 (a stretch between page breaks: SPEC's "page", the pages round's working word). With a tree of named pages, `part`
+ * show, counted from 0 (a stretch between page breaks: SPEC's "page"). With a tree of named pages, `part`
  * counts every part of the tab in reading order (the tab's `pages`); a place read from a saved view state may instead carry `page`, the
  * id of a named page, and then `part` counts within that page (resolvePlace turns it into the first kind; a drawn place never has `page`).
  */
@@ -45,7 +39,7 @@ export const homePlace = (): Place => ({ screen: HOME, tab: null, part: 0 });
 export const samePlace = (a: Place | null, b: Place | null): boolean => !!a && !!b && a.screen === b.screen && a.tab === b.tab && a.part === b.part;
 
 /**
- * Is a move from one place to the other a step in Obsidian's Back and Forward (design 3.4)? Another screen is, and so is
+ * Is a move from one place to the other a step in Obsidian's Back and Forward? Another screen is, and so is
  * another part of the same tab; choosing a tab never is, even when the tab opens on another part than the one left.
  * Both places are resolved ones (resolvePlace).
  */
@@ -56,29 +50,26 @@ export function isStep(from: Place | null, to: Place): boolean {
 
 /**
  * A place as the view saves it: `{ version, screen, tab, page, part }`, `tab` left out when there is none and `page` left out unless a
- * named page is on show (the page's id; `part` is then within that page, and the version is 2). With no page key, or with no `nav` to
- * find the page in, the version is 1 and `part` counts every part of the tab, exactly as release 0.6.0 saved it: a 0.16 note saves
- * what it always did.
+ * named page is on show (the page's id; `part` is then within that page). With no page key, or with no `nav` to find the page in,
+ * `part` counts every part of the tab.
  */
 export function placeState(p: Place, nav?: NavModel): { version: number; screen: string; tab?: string; page?: string; part: number } {
 	const base = { screen: p.screen, ...(p.tab ? { tab: p.tab } : {}) };
 	const a = nav && p.screen.startsWith("activity:") ? nav.byKey.get(p.screen.slice(9)) : undefined;
 	const tab = a ? tabShown(a, p.tab) : null;
 	const at = tab ? pageAtPart(tab, p.part) : null;
-	if (at?.page.named) return { version: PLACE_VERSION, ...base, page: at.page.id, part: at.part };
-	return { version: PLACE_VERSION_1, ...base, part: p.part };
+	return { version: PLACE_VERSION, ...base, ...(at?.page.named ? { page: at.page.id, part: at.part } : { part: p.part }) };
 }
 
 /**
- * A place read back from a saved view state: null when it is not one this or release 0.6.0 wrote (another version, or not a place). A
- * version 1 place has no page key and its `part` counts every part of the tab, as 0.6.0 read it; one saved by a device on 0.6.0 or 0.7.0
- * therefore opens where it was.
+ * A place read back from a saved view state: null when it is not one this release wrote (another version, or not a place), and the
+ * pane then opens the start screen.
  */
 export function placeFrom(state: unknown): Place | null {
 	if (!state || typeof state !== "object") return null;
 	const s = state as Record<string, unknown>;
 	const version = s["version"];
-	if ((version !== PLACE_VERSION_1 && version !== PLACE_VERSION) || typeof s["screen"] !== "string" || !s["screen"]) return null;
+	if (version !== PLACE_VERSION || typeof s["screen"] !== "string" || !s["screen"]) return null;
 	const part = s["part"];
 	const tab = s["tab"];
 	const page = s["page"];
@@ -86,7 +77,7 @@ export function placeFrom(state: unknown): Place | null {
 		screen: s["screen"],
 		tab: typeof tab === "string" && tab ? tab : null,
 		part: typeof part === "number" && Number.isInteger(part) && part >= 0 ? part : 0,
-		...(version === PLACE_VERSION && typeof page === "string" && page ? { page } : {}),
+		...(typeof page === "string" && page ? { page } : {}),
 	};
 }
 
@@ -109,7 +100,7 @@ export interface ActTab {
 }
 
 /**
- * A page of a tab's tree (page trees, ahead of the format: format 0.17, not yet in SPEC; design/pages/proposal.md). The words before a
+ * A page of a tab's tree (SPEC 0.17 section 3, "Pages: a tree inside a tab"). The words before a
  * tab's first page line are the tab's first page, named by the tab (by the activity, in an activity with no tab line); with those
  * empty the first named page is the first. A tab with no page line is one such page. `parts` are the stretches a `***` splits a page
  * into: one empty part for a page with no words.
@@ -154,10 +145,6 @@ export interface NavAct {
 	/** The `>` lines under the activity line, joined: inline Markdown. Null when there are none. */
 	statusMd: string | null;
 	statusOff: boolean;
-	parentId: string | null;
-	/** The activity it sits under (a hidden parent is passed over); null at the top. */
-	parent: NavAct | null;
-	children: NavAct[];
 	/** The module tab it is in, a tab's id (the first when it names none or one the module lacks); null where the module has no tab bar. */
 	modTab: string | null;
 	/** What comes before the first tab line: shown above every tab. Empty with no tab line. */
@@ -195,12 +182,8 @@ export interface NavMod {
 	tabs: ModTab[];
 	/** The notice: `[key, value]` in the order written (licence, copyright, source, version). */
 	notice: [string, string][];
-	/** The offered activities (not `hidden`), file order. */
+	/** The offered activities (not `hidden`), file order: the order Next follows. */
 	acts: NavAct[];
-	/** The ones at the top (under no other), file order. */
-	top: NavAct[];
-	/** Parent first, then its children, then the next sibling: the order Next follows (SPEC 3). */
-	order: NavAct[];
 	line: number;
 }
 
@@ -228,34 +211,8 @@ const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget"]);
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
 const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
-/** An id made from a name, as SPEC section 3 makes a tab's: accents dropped, lowercase, other runs one dash, at most 60 characters; a name that leaves nothing is `<prefix>-<n>`. */
-function idFromName(name: string, n: number, prefix: string): string {
-	const id = name
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
-		.slice(0, 60)
-		.replace(/-+$/g, "");
-	return id || `${prefix}-${n}`;
-}
-
-/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
-export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
-
-/** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing (the pages round, 2.5). */
+/** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing */
 export const pageIdOf = (title: string, n: number): string => idFromName(title, n, "page");
-
-/** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
-function uniqueIds(ids: string[]): string[] {
-	const seen = new Map<string, number>();
-	return ids.map((id) => {
-		const n = (seen.get(id) ?? 0) + 1;
-		seen.set(id, n);
-		return n === 1 ? id : `${id}-${n}`;
-	});
-}
 
 function splitEmoji(title: string): { title: string; emoji: string | null } {
 	const m = LEAD_EMOJI.exec(title.trim());
@@ -402,9 +359,9 @@ function readsOf(markdown: string): number {
 	return n;
 }
 
-/* ---- page trees (ahead of the format: format 0.17, not yet in SPEC; design/pages/proposal.md) ---- */
+/* ---- page trees (SPEC 0.17 section 3) ---- */
 
-/** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page (the pages round, 2.3). */
+/** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page. */
 function holdsWords(segs: readonly Segment[]): boolean {
 	return segs.some((s) => s.type !== "prose" || pagesOf([{ ...s, markdown: s.markdown.replace(COMMENT, "") }]).some((pg) => pg.length));
 }
@@ -416,7 +373,7 @@ function pageBlurb(parts: readonly Segment[][]): string {
 }
 
 /**
- * The tree of one tab's pages (the pages round's shape (b)). The words before the first page line are the first page, named `first`;
+ * The tree of one tab's pages. The words before the first page line are the first page, named `first`;
  * with none, the first named page is the first. Pages with no `parent:` stand side by side after it in the file's order; `parent:`
  * names a page of the same tab by its id and puts the page under it. A parent that is not a page of the tab (another tab's, or none),
  * a page that is its own ancestor and a page under itself stand at the top, said in `problems`; of two pages with one id the second is
@@ -444,17 +401,20 @@ function pageTreeOf(segs: readonly Segment[], first: { title: string }, problems
 	const list: TreePage[] = [];
 	if (holdsWords(before)) list.push(mk({ id: "", named: false, written: first.title, parts: pagesOf(before), line: 0 }));
 	const written = heads.map((h, n) => h.seg.id ?? pageIdOf(h.seg.title, n + 1));
-	// a page's id must name one page, since a saved place and a `parent:` name it: a second `g` is `g-2`, and when a later page wrote `g-2`
-	// itself the next free number is taken (`g`, `g`, `g-2` are `g`, `g-2`, `g-3`), each decided in the file's order so the ids stay as they are
-	const taken = new Set<string>();
-	const ids = written.map((w) => {
-		let id = w;
-		if (taken.has(id)) {
-			// the next number after the one the id ends in (`g-2` taken: `g-3`), else the second (`g` taken: `g-2`)
-			const m = /^(.*)-(\d+)$/.exec(w);
-			const base = m ? (m[1] as string) : w;
-			for (let n = m ? Number(m[2]) + 1 : 2; taken.has((id = `${base}-${n}`)); n++);
-		}
+	// a page's id must name one page, since a saved place and a `parent:` name it (SPEC section 3): the first page to write an id keeps it, and
+	// every other page, in the file's order, takes the next free number (`g`, `g`, `g-2` are `g`, `g-3`, `g-2`: the third keeps the id it wrote)
+	const firstAt = new Map<string, number>();
+	written.forEach((w, n) => {
+		if (!firstAt.has(w)) firstAt.set(w, n);
+	});
+	const taken = new Set<string>(firstAt.keys());
+	const ids = written.map((w, n) => {
+		if (firstAt.get(w) === n) return w;
+		// the number after the one the id ends in (`g-2` twice: `g-3`), else the second (`g` twice: `g-2`)
+		const m = /^(.*)-(\d+)$/.exec(w);
+		const base = m ? (m[1] as string) : w;
+		let id: string;
+		for (let k = m ? Number(m[2]) + 1 : 2; taken.has((id = `${base}-${k}`)); k++);
 		taken.add(id);
 		return id;
 	});
@@ -605,7 +565,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	const mods: NavMod[] = [];
 	const byKey = new Map<string, NavAct>();
 	const problems: string[] = [];
-	const bare: NavMod = { id: "", bare: true, title: "", written: "", emoji: null, icon: null, opening: "", blurb: "", tabs: [], notice: [], acts: [], top: [], order: [], line: -1 };
+	const bare: NavMod = { id: "", bare: true, title: "", written: "", emoji: null, icon: null, opening: "", blurb: "", tabs: [], notice: [], acts: [], line: -1 };
 
 	for (const m of book.modules) {
 		const line = CALLOUT_LINE.exec(lines[m.line] ?? "");
@@ -626,8 +586,6 @@ export function buildNav(book: Booklet, text: string): NavModel {
 			tabs: parts.tabs,
 			notice: parts.hasNotice ? parts.notice : [],
 			acts: [],
-			top: [],
-			order: [],
 			line: m.line,
 		});
 	}
@@ -637,7 +595,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	const holders = mods.filter((m) => book.activities.some((a) => a.scope === m.id));
 	if (holders.length === 1 && holders[0] && !holders[0].notice.length) {
 		const n: [string, string][] = [];
-		for (const k of ["license", "copyright", "source"]) if (book.frontMatter[k]) n.push([k, book.frontMatter[k] as string]);
+		for (const k of ["license", "copyright", "source"]) if (book.frontMatter[k]) n.push([k, book.frontMatter[k]]);
 		holders[0].notice = n;
 	}
 
@@ -660,7 +618,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const tabs: ActTab[] = raw.length
 			? raw.map((r, n) => tabOf(ids[n] as string, r.title, r.segs, { title: r.title }, problems))
 			: [tabOf("", "", opening, { title: t.title }, problems)];
-		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line (the pages round, 2.7)
+		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line
 		const first = a.segments.find((s) => s.type !== "page");
 		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0) + foldedGroups(a.segments);
 		const na: NavAct = {
@@ -673,9 +631,6 @@ export function buildNav(book: Booklet, text: string): NavModel {
 			blurb: first && first.type === "prose" ? firstParagraph(first.markdown) : "",
 			statusMd: statusOf(lines, a.line),
 			statusOff: (w.set["status"] ?? "").toLowerCase() === "off",
-			parentId: w.set["parent"] || null,
-			parent: null,
-			children: [],
 			modTab: w.set["tab"] || null,
 			opening: raw.length ? opening : [],
 			tabs,
@@ -687,32 +642,6 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		all.push(na);
 	}
 
-	// the tree: `parent:` places an activity under another of its module (a missing parent leaves it at the top, one that is
-	// its own ancestor is drawn at the top, a hidden parent is passed over and its children take its place)
-	const effective = new Map<NavAct, NavAct | null>();
-	for (const mod of [bare, ...mods]) {
-		const here = all.filter((x) => x.mod === mod);
-		const byId = new Map<string, NavAct>();
-		for (const x of here) if (x.act.id && !byId.has(x.act.id)) byId.set(x.act.id, x);
-		const up = (x: NavAct): NavAct | null => {
-			const p = x.parentId ? byId.get(x.parentId) : undefined;
-			return p && p !== x ? p : null;
-		};
-		const loops = (x: NavAct): boolean => {
-			const seen = new Set<NavAct>();
-			for (let p = up(x); p; p = up(p)) {
-				if (p === x) return true;
-				if (seen.has(p)) return false;
-				seen.add(p);
-			}
-			return false;
-		};
-		for (const x of here) {
-			let p = loops(x) ? null : up(x);
-			for (let n = 0; p && p.act.hidden && n < here.length; n++) p = loops(p) ? null : up(p);
-			effective.set(x, p && !p.act.hidden ? p : null);
-		}
-	}
 	for (const x of all) {
 		if (x.act.hidden) continue;
 		x.mod.acts.push(x);
@@ -720,20 +649,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	}
 	if (bare.acts.length) mods.unshift(bare);
 	for (const mod of mods) {
-		for (const x of mod.acts) {
-			const p = effective.get(x) ?? null;
-			x.parent = p;
-			if (p) p.children.push(x);
-		}
-		mod.top = mod.acts.filter((x) => !x.parent);
-		const walk = (xs: NavAct[]) => {
-			for (const x of xs) {
-				mod.order.push(x);
-				walk(x.children);
-			}
-		};
-		walk(mod.top);
-		mod.order.forEach((x, n) => (x.number = n + 1));
+		mod.acts.forEach((x, n) => (x.number = n + 1));
 		// an activity whose `tab:` names no tab of its module is in the first tab
 		if (mod.tabs.length > 1) for (const x of mod.acts) if (!x.modTab || !mod.tabs.some((t) => t.id === x.modTab)) x.modTab = (mod.tabs[0] as ModTab).id;
 	}
@@ -741,7 +657,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	// the home screen: a module is a card (a module of one activity is its activity's card); each bare activity at the top is its own
 	const cards: NavCard[] = [];
 	for (const mod of mods) {
-		if (mod.bare) for (const x of mod.top) cards.push({ kind: "activity", act: x, line: x.line });
+		if (mod.bare) for (const x of mod.acts) cards.push({ kind: "activity", act: x, line: x.line });
 		else if (mod.acts.length > 1) cards.push({ kind: "module", mod, line: mod.line });
 		else if (mod.acts[0]) cards.push({ kind: "activity", act: mod.acts[0], line: mod.line });
 	}
@@ -767,12 +683,10 @@ export function entryPlace(m: NavMod): Place | null {
 	return m.acts[0] ? activityPlace(m.acts[0]) : null;
 }
 
-/** The place of a module's screen for the reader coming from `na`: on the tab of the activity, or of its top ancestor (the reference's rule). */
+/** The place of a module's screen for the reader coming from `na`: on the tab of the activity. */
 export function modulePlaceFor(na: NavAct): Place {
 	const m = na.mod;
-	let top = na;
-	while (top.parent) top = top.parent;
-	return { screen: modScreen(m), tab: m.tabs.length > 1 ? (top.modTab ?? (m.tabs[0] as ModTab).id) : null, part: 0 };
+	return { screen: modScreen(m), tab: m.tabs.length > 1 ? (na.modTab ?? (m.tabs[0] as ModTab).id) : null, part: 0 };
 }
 
 /**
@@ -806,7 +720,7 @@ export function resolvePlace(nav: NavModel, p: Place | null): Place {
 	const bar = barTabs(a);
 	const tab = bar.length ? (bar.find((t) => t.id === p.tab)?.id ?? (bar[0] as ActTab).id) : null;
 	const shown = tabShown(a, tab) as ActTab;
-	// a place that names a page (version 2) counts its part within that page; a page the note no longer has opens the tab's first page
+	// a place that names a page counts its part within that page; a page the note no longer has opens the tab's first page
 	if (p.page !== undefined) {
 		const pg = shown.tree.find((x) => x.named && x.id === p.page);
 		return { screen: p.screen, tab, part: pg ? pg.at + Math.min(Math.max(0, p.part), pg.parts.length - 1) : 0 };
@@ -838,21 +752,21 @@ export function pageAtPart(tab: ActTab, at: number): { page: TreePage; part: num
 	return { page, part: Math.min(Math.max(0, at - page.at), page.parts.length - 1), index };
 }
 
-/** The next activity: its first child, then its next sibling, then back up (SPEC section 3, `parent:`), within its module. Null on the last. */
+/** The next activity in its module, in the file's order. Null on the last. */
 export function nextOf(na: NavAct): NavAct | null {
-	const o = na.mod.order;
+	const o = na.mod.acts;
 	return o[o.indexOf(na) + 1] ?? null;
 }
 
 /**
  * One button of the pager: where it leads and what it is called by. `part` is another part of the page on show; `before` the top page
- * before the one on show; `up` the page above it; `next-page` the next page in reading order; `up-activity`, `overview` and
- * `next-activity` leave the tab as 0.6.0 did (the activity above, the module's screen or home, the next activity).
+ * before the one on show; `up` the page above it; `next-page` the next page in reading order; `overview` and
+ * `next-activity` leave the tab (to the module's screen or home, to the next activity).
  */
 export type PagerStep =
 	| { kind: "part"; to: Place }
 	| { kind: "before" | "up" | "next-page"; page: TreePage; to: Place }
-	| { kind: "up-activity" | "next-activity"; act: NavAct; to: Place }
+	| { kind: "next-activity"; act: NavAct; to: Place }
 	| { kind: "overview"; to: Place };
 
 export interface Pager {
@@ -862,16 +776,16 @@ export interface Pager {
 	/** The part on show within its page, counted from 0, and how many parts the page has. */
 	at: number;
 	of: number;
-	/** Does the tab hold a page line? Then the counter reads "2 of 3" (pages round, call D (b)); else "Page 2 of 3" as 0.6.0 did. */
+	/** Does the tab hold a page line? Then the counter reads "2 of 3"; else "Page 2 of 3". */
 	pageLines: boolean;
 	/** The page on show. */
 	page: TreePage;
 }
 
 /**
- * Back and Next (design/pages/proposal.md section 3). Back on a later part goes to the part before; on a page's first part it goes up
- * to the page above, else to the top page before it (on its first part), and from the tab's first page it leaves the activity as
- * 0.6.0 did. Next on a part before the last goes to the next part; on a page's last part it goes to the next page in reading order,
+ * Back and Next. Back on a later part goes to the part before; on a page's first part it goes up
+ * to the page above, else to the top page before it (on its first part), and from the tab's first page it leaves the activity.
+ * Next on a part before the last goes to the next part; on a page's last part it goes to the next page in reading order,
  * and from the tab's last page to the next activity. Back and Next never go to another tab. `place` is a resolved one.
  */
 export function pagerOf(na: NavAct, tab: ActTab, place: Place): Pager {
@@ -881,10 +795,10 @@ export function pagerOf(na: NavAct, tab: ActTab, place: Place): Pager {
 	const m = na.mod;
 	let back: PagerStep;
 	if (part > 0) back = { kind: "part", to: go(page.at + part - 1) };
-	else if (index === 0) back = na.parent ? { kind: "up-activity", act: na.parent, to: activityPlace(na.parent) } : { kind: "overview", to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
+	else if (index === 0) back = { kind: "overview", to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
 	else if (page.parent) back = { kind: "up", page: page.parent, to: go(page.parent.at) };
 	else {
-		const before = tab.top[tab.top.indexOf(page) - 1] ?? (tab.tree[index - 1] as TreePage);
+		const before = tab.top[tab.top.indexOf(page) - 1] ?? tab.tree[index - 1]!;
 		back = { kind: "before", page: before, to: go(before.at) };
 	}
 	const following = nextOf(na);
@@ -1114,7 +1028,7 @@ function proseHeadings(markdown: string): string[] {
 	return out;
 }
 
-/* ---- the tree's own surfaces: the menu's search, and "Mentioned on" (page trees; design/pages/proposal.md section 3, decision 6 calls F and K) ---- */
+/* ---- the tree's own surfaces: the menu's search, and "Mentioned on" ---- */
 
 /** The words of a page as plain text, for the search: its prose and the prompts of its questions. */
 function pageWords(p: TreePage): string {
@@ -1208,8 +1122,10 @@ export function headingLinksIn(markdown: string): string[] {
 		code = false;
 		blank = false;
 		list = /^\s*(?:[-*+]|\d+[.)])\s/.test(l) || (list && indented);
-		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(?<!!)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
-			const t = m[1] ?? m[2];
+		// an embed (`![[#x]]`) is no link; a lookbehind would say so but is not supported on iOS before 16.4
+		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(!?)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
+			if (m[1] === "!") continue;
+			const t = m[2] ?? m[3];
 			if (t && !t.startsWith("^")) out.push(t);
 		}
 	}

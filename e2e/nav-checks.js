@@ -1,9 +1,9 @@
 // Checks 16 to 23, 27 and 28 of plugin-check.js: the 0.6.0 navigation, in the real app (27 and 28: page trees). Every note is made up.
-//   16 the three screens and the moves (cards, trail, pager, tabs, pages, parent:, heading links, a restart, nothing written)
-//   17 to 21 design section 4.9, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
+//   16 the three screens and the moves (cards, trail, pager, tabs, pages, a page tree, heading links, a restart, nothing written)
+//   17 to 21, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
-//   27 and 28 page trees (ahead of format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
+//   27 and 28 page trees (format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { kit } = require("./waits");
@@ -15,7 +15,7 @@ module.exports = function navChecks(env) {
 
   /* ---- made-up notes the checks write into their own copy of the vault ---- */
   const WEEKLY_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 title: Weekly plan
 ---
 
@@ -67,7 +67,7 @@ An ordinary note, made up.
 - [[Finish test.booklet#Answer]]
 `;
   const FINISH_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 title: Finish test
 ---
 
@@ -84,7 +84,7 @@ Some words to read.
 > [!text|what] What happened?
 `;
   const LONG_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 title: A booklet with a rather long title that cannot fit on one line of a phone
 ---
 
@@ -98,7 +98,7 @@ One.
 
 Two.
 
-> [!activity|second parent:first] The second activity, whose title also runs on and on
+> [!activity|second] The second activity, whose title also runs on and on
 
 Three.
 
@@ -109,7 +109,7 @@ Four.
 > [!module|long end] End
 `;
   const TABBED_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 title: Tabs and pages
 ---
 
@@ -130,7 +130,7 @@ Two p1
 Two p2
 `;
 
-  // a made-up wiki of 13 pages in three levels, one activity with no tab line (the pages round's worked example 5.2, with made-up words)
+  // a made-up wiki of 13 pages in three levels, one activity with no tab line (made-up words)
   const GARDEN_NOTE = `---
 booklet: "0.17"
 title: A small garden
@@ -200,7 +200,7 @@ A spade, a fork and a trowel are enough.
 
 > [!module|garden end]
 `;
-  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself (the fix round after the review)
+  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself
   const DEEP_NOTE = (() => {
     let t = `---\nbooklet: "0.17"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
     for (let n = 1; n <= 14; n++) {
@@ -214,7 +214,7 @@ A spade, a fork and a trowel are enough.
   // a note of one repeating activity ("Log") with `n` made-up kept entries; with `two`, a second one ("More") with 4
   function foldNote(n, two) {
     const entries = (id, k) => `\`\`\`booklet entries ${id}\n{"items": [\n${Array.from({ length: k }, (_, i) => `{"ts": "2026-09-${String(i + 1).padStart(2, "0")}T09:00:00Z", "${id === "log" ? "what" : "else"}": "Made-up entry ${i + 1} of ${id}"}`).join(",\n")}\n]}\n\`\`\`\n`;
-    let t = `---\nbooklet: "0.16"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
+    let t = `---\nbooklet: "0.17"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
     if (two) t += `\n> [!activity|more repeat] More\n\n> [!text|else] What else?\n`;
     const blocks = (n ? entries("log", n) : "") + (two ? entries("more", 4) : "");
     return blocks ? t + `\n%%\n> [!records] App record — do not edit below this line\n\n${blocks}%%\n` : t;
@@ -224,7 +224,7 @@ A spade, a fork and a trowel are enough.
     return [...src.matchAll(/^\t"([a-z0-9-]+)",$/gm)].map(m => m[1]);
   }
   function iconsNote(names) {
-    let t = `---\nbooklet: "0.16"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
+    let t = `---\nbooklet: "0.17"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
     for (const n of names) t += `> [!activity|a-${n} icon:${n}] ${n}\n\nIcon ${n}.\n\n`;
     return t + `> [!module|icons end] End\n`;
   }
@@ -267,7 +267,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 16 ================= */
   async function check16() {
-    const c = new Check(16, "the three screens and the moves: home, a module, an activity; cards, trail, pager, tabs, pages, parent:, links, a restart, nothing written into a note");
+    const c = new Check(16, "the three screens and the moves: home, a module, an activity; cards, trail, pager, tabs, pages, a page tree, links, a restart, nothing written into a note");
     await withApp("c16", async (o, vault) => {
       put(vault, WEEKLY, WEEKLY_NOTE);
       const before = { sk: sha(path.join(vault, SKETCH)), wk: sha(path.join(vault, WEEKLY)), ck: sha(path.join(vault, CHECKIN)) };
@@ -279,7 +279,7 @@ A spade, a fork and a trowel are enough.
       await click(o, ".booklet-cardrow", "The basics");
       s = await state(o);
       c.ok(s.screen === "module:basics" && s.back === 1, `into a module is a step: ${s.screen}, history ${s.back}`);
-      c.ok(s.vs && s.vs.version === 1 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
+      c.ok(s.vs && s.vs.version === 2 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
       await click(o, ".booklet-tabbtn", "Read first");
       s = await state(o);
       c.ok(s.tab === "Read first" && s.back === 1, `another tab is no step: ${s.tab}, history ${s.back}`);
@@ -298,13 +298,16 @@ A spade, a fork and a trowel are enough.
       c.ok(/Page 2 of 2/.test(s.at), "each tab keeps the page last seen while the pane is open: Boxes is on " + s.at);
       await click(o, ".booklet-pager button", "Next");
       s = await state(o);
-      c.ok(s.screen === "activity:basics/light" && s.back === 4 && s.pager.join("|") === "Back to the overview|Next: 4. Cast shadows", `Next on the last page goes to the next activity, labelled with its number: ${s.screen}, ${s.pager.join(" | ")}`);
-      c.ok(JSON.stringify(s.cards) === JSON.stringify(["4.Cast shadows", "5.Reflected light"]), "parent: drawn plainly, the children as cards under the parent: " + s.cards.join(" | "));
-      await click(o, ".booklet-cardrow", "Cast shadows");
+      c.ok(s.screen === "activity:basics/light" && s.back === 4 && s.pager.join("|") === "Back to the overview|Next: Cast shadows", `Next on the last page goes to the next activity, whose own words are its first page, and Next names the page after it: ${s.screen}, ${s.pager.join(" | ")}`);
+      c.ok(s.cards.length === 0, "an activity's first page, made of its own words, has no pages under it: " + s.cards.join(" | "));
+      await click(o, ".booklet-pager button", "Next: Cast shadows");
       s = await state(o);
-      c.ok(s.trail.join("|") === "Learning to sketch|The basics|Where the light falls|Cast shadows" && s.pager[0] === "Up: Where the light falls", `the trail names the ancestors and the pager's left button leads up: ${s.trail.join(" / ")}; ${s.pager[0]}`);
+      c.ok(JSON.stringify(s.cards) === JSON.stringify(["1.Reflected light"]) && s.back === 5, `a page with a page under it draws that one as a card: ${s.cards.join(" | ")}, history ${s.back}`);
+      await click(o, ".booklet-cardrow", "Reflected light");
+      s = await state(o);
+      c.ok(s.trail.join("|") === "Learning to sketch|The basics|Where the light falls|Cast shadows|Reflected light" && s.pager[0] === "Up: Cast shadows", `the trail names the pages above and the pager's left button leads up: ${s.trail.join(" / ")}; ${s.pager[0]}`);
       await shot(o, "nav-child-light");
-      await click(o, ".booklet-pager button", "Up: Where the light falls");
+      await click(o, ".booklet-pager button", "Up: Cast shadows");
       await click(o, ".booklet-trail-link", "The basics");
       s = await state(o);
       c.ok(s.screen === "module:basics" && s.tab === "Read first", `up by the trail: the module's screen on the tab that holds the activity: ${s.screen}, ${s.tab}`);
@@ -339,7 +342,7 @@ A spade, a fork and a trowel are enough.
       try {
         await o2.page.waitForSelector(BOOK + " .booklet-page", { timeout: 15000 }); await quiet(o2);
         const r = await state(o2);
-        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 1, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
+        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 2, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
         await shot(o2, "nav-after-restart-light");
         // the one-module booklet opens on its module screen
         await ready(o2, WEEKLY);
@@ -362,7 +365,7 @@ A spade, a fork and a trowel are enough.
     return c;
   }
 
-  /* ================= CHECK 17 to 19 (design 4.9) ================= */
+  /* ================= CHECK 17 to 19 ================= */
   async function check17() {
     const c = new Check(17, "Back is free: Back then Forward returns to the same place, and the step list does not grow");
     await withApp("c17", async o => {
@@ -454,7 +457,7 @@ A spade, a fork and a trowel are enough.
         return state(o);
       };
       let s = await link("Cast shadows");
-      c.ok(s.screen === "activity:basics/shadow" && s.file === SKETCH, "[[Learning to sketch.booklet#Cast shadows]], an activity's title (no Markdown heading): " + s.screen);
+      c.ok(s.screen === "activity:basics/light" && s.file === SKETCH, "[[Learning to sketch.booklet#Cast shadows]], a page's title (no Markdown heading): " + s.screen);
       await shot(o, "nav-link-activity-light");
       s = await link("Ten in a row");
       c.ok(s.screen === "activity:basics/lines" && /Page 3 of 3/.test(s.at), "a heading on a later page opens that page: " + s.screen + ", " + s.at);
@@ -466,7 +469,7 @@ A spade, a fork and a trowel are enough.
       c.ok(s.screen === "activity:/log" && s.tab === "Answer", "the tab that holds the question: " + s.screen + ", " + s.tab);
       await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Cast shadows", "Links.md"); }));
       s = await state(o);
-      c.ok(s.screen === "activity:basics/shadow", "a second link while a booklet is in the pane moves it: " + s.screen);
+      c.ok(s.screen === "activity:basics/light", "a second link while a booklet is in the pane moves it: " + s.screen);
       await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Ten in a row", "Links.md"); }));
       s = await state(o);
       c.ok(s.screen === "activity:basics/lines" && /Page 3 of 3/.test(s.at), "the same booklet already open in the pane, a second link to a later page: " + s.screen + ", " + s.at);
@@ -637,7 +640,7 @@ A spade, a fork and a trowel are enough.
           c.ok(a === "Cups" && b === "Clouds" && d === "Hands" && e === "Hands", `the tab bar takes ArrowRight (${a}), End (${b}), Home (${d}) and ArrowLeft on the first (${e})`);
         }
         await ready(o, "Long titles.booklet.md");
-        await click(o, ".booklet-cardrow", "The first activity"); await click(o, ".booklet-cardrow", "The second activity");
+        await click(o, ".booklet-cardrow", "The second activity");
         m = await metrics();
         c.ok(m.sideways <= 0 && m.trailRows >= 2, `[${scheme}] a long trail wraps onto ${m.trailRows} rows, no sideways scroll (${m.sideways})`);
         c.ok(m.sideways <= 0 && m.pager >= 44 && m.pagerRows >= 2, `[${scheme}] both pager labels long: buttons ${Math.round(m.pager)} px, no sideways scroll, wrapped onto ${m.pagerRows} rows`);
@@ -659,7 +662,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 27 ================= */
   async function check27() {
-    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, ahead of format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
+    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
     await withApp("c27", async (o, vault) => {
       const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden", DEEP = "Deep.booklet.md", DEEPKEY = "activity:/deep";
       put(vault, NOTE, GARDEN_NOTE);
@@ -726,10 +729,10 @@ A spade, a fork and a trowel are enough.
       await click(o, ".booklet-pager button", "Back");
       pg = await page();
       c.ok(pg.title[0] === "Sun", `Back from a top page goes to the top page before it: ${pg.title}`);
-      // an old (version 1) place, flat part counted over every part of the tab, still opens where it was
-      await setPlace(o, { version: 1, screen: KEY, page: null, part: 4 });
+      // a place with no page key: its part counts every part of the tab
+      await setPlace(o, { version: 2, screen: KEY, page: null, part: 4 });
       pg = await page();
-      c.ok(pg.title[0] === "Loam", `a version 1 place opens by its flat part: ${pg.title}`);
+      c.ok(pg.title[0] === "Loam", `a place with no page key opens by its flat part: ${pg.title}`);
       c.ok(sha(path.join(vault, NOTE)) === before, "the SHA-256 of the note is the same after every move: nothing about the place is written into it");
       for (const scheme of ["light", "dark"]) {
         await o.setScheme(scheme); await sleep(300);
@@ -791,14 +794,14 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 28 ================= */
   async function check28() {
-    const c = new Check(28, "the check-in as one activity with a wiki tab (the pages round's worked example 5.1, made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
+    const c = new Check(28, "the check-in as one activity with a wiki tab (made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
     await withApp("c28", async (o, vault) => {
       const NOTE = "Check-in with a wiki.booklet.md", KEY = "activity:calm/check-in";
       const text = fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", NOTE), "utf8");
       put(vault, NOTE, text);
       await ready(o, NOTE);
       const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { tabs: q(".booklet-tabbtn"), on: q(".booklet-tabbtn.is-active")[0], title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: q(".booklet-pager-at")[0] || "", finalize: root.querySelectorAll(".booklet-finalize").length, menu: q(".booklet-pagelist a"), questions: root.querySelectorAll("[data-booklet-q]").length, problems: q(".booklet-problems li") }; });
-      const goTo = st => setPlace(o, { version: 1, screen: KEY, ...st });
+      const goTo = st => setPlace(o, { version: 2, screen: KEY, ...st });
       await goTo({ tab: "wiki", part: 0 });
       let pg = await page(), s = await state(o);
       const b0 = s.back;

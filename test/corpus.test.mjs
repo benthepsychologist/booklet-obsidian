@@ -37,7 +37,7 @@ for (const d of corpusDirs())
 	if (d.external && !d.present) test(`corpus: ${d.name}`, { skip: `not found at ${d.dir}; set the environment variable to run these files` }, () => {});
 
 const canLint = pythonAvailable();
-if (!canLint) console.log("# (d) skipped: python3 or the linter (BOOKLET_LINTER) is not available");
+if (!canLint) test("corpus: the linter reads every file", { skip: "python3 or the linter (BOOKLET_LINTER) is not available" }, () => {});
 
 const TEXT_ANSWER = 'A made-up answer, with "quotes", a backslash \\ and %% in it';
 /** A lines answer as the view (and the reference renderer) stores it: every field, the empty one at the end included. */

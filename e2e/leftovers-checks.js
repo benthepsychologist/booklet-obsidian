@@ -1,5 +1,5 @@
-// Check 26 of plugin-check.js: the 0.7.0 stage C, the small leftovers of 0.6.0, in the real app. The note is made up and written into
-// the check's own copy of the vault:
+// Check 26 of plugin-check.js: small leftovers (tab panels, names, focus, a page break, a long table), in the real app. The note is made up
+// and written into the check's own copy of the vault:
 //   a tab bar and its panel (module screen and activity screen), a tab bar named in plain words, focus after a press that moves
 //   (a card, the pager) for a keyboard reader, a `- - -` line under text as a page break, and a long table's numeric column.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
@@ -13,7 +13,7 @@ module.exports = function leftoversChecks(env) {
 
   const noteText = () => {
     const rows = Array.from({ length: 240 }, (_, i) => `{"ts": "2026-0${1 + Math.floor(i / 28)}-${String((i % 28) + 1).padStart(2, "0")}T09:00:00Z", "steps": ${1000 + i * 7}, "note": "Made-up entry ${i + 1}"}`).join(",\n");
-    return `---\nbooklet: "0.16"\ntitle: Leftovers\n---\n\n> [!module|mod] **Bold** and *slanted* module\n\n> [!tab|a] First tab\n\nWords under the first tab.\n\n> [!tab|b] Second tab\n\nWords under the second tab.\n\n`
+    return `---\nbooklet: "0.17"\ntitle: Leftovers\n---\n\n> [!module|mod] **Bold** and *slanted* module\n\n> [!tab|a] First tab\n\nWords under the first tab.\n\n> [!tab|b] Second tab\n\nWords under the second tab.\n\n`
       + `> [!activity|walk tab:a] A **walk** [with a link](https://example.org)\n\nA line of text\n- - -\nAfter the break.\n\n> [!activity|talk tab:b] Talk it over\n\nWords for talking.\n\n> [!module|mod end] End\n\n`
       + `> [!activity|multi] Two tabs\n\n> [!tab|one] One\n\nPage one text.\n\n***\n\nPage two text.\n\n> [!tab|two] Two\n\nOther tab text.\n\n> [!activity|log repeat] Log\n\n> [!number|steps] How many steps?\n\n> [!text|note] A note\n\n\`\`\`booklet query\nfrom: log\nas: table\nfields: steps, note\nlimit: 500\n\`\`\`\n\n`
       + `%%\n> [!records] App record — do not edit below this line\n\n\`\`\`booklet entries log\n{"items": [\n${rows}\n]}\n\`\`\`\n%%\n`;
@@ -27,7 +27,7 @@ module.exports = function leftoversChecks(env) {
   const focused = o => o.evaluate(() => { const a = document.activeElement; return { cls: a && a.className, role: a && a.getAttribute("role"), text: a && a.textContent.replace(/\s+/g, " ").trim().slice(0, 40), tabindex: a && a.getAttribute("tabindex") }; });
 
   async function check26() {
-    const c = new Check(26, "stage C: the 0.6.0 leftovers in the real app: tab panels, plain-word names, focus after a move for a keyboard reader, `- - -` as a page break, a long table's numeric column; desktop and phone, light and dark; nothing written");
+    const c = new Check(26, "small leftovers in the real app: tab panels, plain-word names, focus after a move for a keyboard reader, `- - -` as a page break, a long table's numeric column; desktop and phone, light and dark; nothing written");
     await withApp("c26", async (o, vault) => {
       const file = path.join(vault, NOTE);
       fs.writeFileSync(file, noteText());

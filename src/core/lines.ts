@@ -86,9 +86,9 @@ export interface Words {
 }
 
 /**
- * `id words key:value` after the bar, as the renderer's calloutWords reads it. A page line is read by the pages round's rule (page trees,
- * ahead of the format): a first word that holds `:` is a setting and the line has no written id, so `> [!page|parent:map] Title` keeps its
- * parent. Every other kind reads its first word as the id, as 0.16 does.
+ * `id words key:value` after the bar, as the renderer's calloutWords reads it (SPEC section 4): on every kind that takes an id the first
+ * word is the id, except that a first word that holds `:` is a setting and the line has no written id, so `> [!page|parent:map] Title`
+ * keeps its parent. Every later word is a setting, and a kind that takes no id has settings only.
  */
 export function calloutWords(kind: string, s: string | undefined): Words {
 	const out: Words = { id: null, flags: new Set(), set: Object.create(null) as Record<string, string> };
@@ -99,7 +99,7 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 		.filter(Boolean)
 		.forEach((w, n) => {
 			const kv = /^([A-Za-z][A-Za-z0-9-]*):(.*)$/.exec(w);
-			if (n === 0 && !noId && !(kind === "page" && w.includes(":"))) out.id = w;
+			if (n === 0 && !noId && !w.includes(":")) out.id = w;
 			else if (kv && kv[1] !== undefined) out.set[kv[1].toLowerCase()] = kv[2] ?? "";
 			else out.flags.add(w.toLowerCase());
 		});
@@ -108,12 +108,12 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 
 /**
  * What each kind of booklet line takes after its id: a flag is a bare word, `key:` a setting written key:value.
- * This is SPEC section 4's table for format 0.16: `each:` on every question kind, and `earlier:` on a choice, a
+ * This is SPEC section 4's table for format 0.17: `each:` on every question kind, and `earlier:` on a choice, a
  * multi, a lines and a widget. A kind outside the table is an unknown kind, said on its own.
  */
 export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
 	module: ["end", "icon:"],
-	activity: ["repeat", "daily", "hidden", "icon:", "parent:", "status:", "tab:"],
+	activity: ["repeat", "daily", "hidden", "icon:", "status:", "tab:", "entries:"],
 	row: ["end"],
 	text: ["long", "each:"],
 	lines: ["each:", "earlier:"],
@@ -144,18 +144,26 @@ export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
  * ignored. `where` begins the problem ("Line 12"). A kind outside KIND_SETTINGS gives nothing here.
  */
 export function settingProblems(kind: string, w: Words, where: string): string[] {
+	return ignoredSettings(kind, w).map((s) => `${where}: ${s.why}, so it was ignored.`);
+}
+
+/**
+ * The same, with each ignored setting as its name (no colon) and the clause that says why ("a text line takes no `hidden` setting"), so
+ * that the notice can list it beside the line it stands on. Each is taken off the line.
+ */
+export function ignoredSettings(kind: string, w: Words): { name: string; why: string }[] {
 	const allowed = Object.prototype.hasOwnProperty.call(KIND_SETTINGS, kind) ? KIND_SETTINGS[kind] : undefined;
 	if (!allowed) return [];
-	const out: string[] = [];
+	const out: { name: string; why: string }[] = [];
 	const a = /^[aeiou]/.test(kind) ? "an" : "a";
 	for (const key of Object.keys(w.set)) {
 		if (allowed.includes(key + ":")) continue;
-		out.push(`${where}: ${a} ${kind} line takes no \`${key}:\` setting, so it was ignored.`);
+		out.push({ name: key, why: `${a} ${kind} line takes no \`${key}:\` setting` });
 		delete w.set[key];
 	}
 	for (const f of [...w.flags]) {
 		if (allowed.includes(f)) continue;
-		out.push(`${where}: ${a} ${kind} line takes no \`${f}\` setting, so it was ignored.`);
+		out.push({ name: f, why: `${a} ${kind} line takes no \`${f}\` setting` });
 		w.flags.delete(f);
 	}
 	return out;
@@ -174,3 +182,29 @@ export function bodyEnd(lines: readonly string[], i: number): number {
 }
 
 export const isBlank = (s: string | undefined): boolean => !s || !s.trim();
+
+/** An id made from a name, as SPEC section 3 makes a tab's: accents dropped, lowercase, other runs one dash, at most 60 characters; a name that leaves nothing is `<prefix>-<n>`. */
+export function idFromName(name: string, n: number, prefix: string): string {
+	const id = name
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 60)
+		.replace(/-+$/g, "");
+	return id || `${prefix}-${n}`;
+}
+
+/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
+export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
+
+/** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
+export function uniqueIds(ids: string[]): string[] {
+	const seen = new Map<string, number>();
+	return ids.map((id) => {
+		const n = (seen.get(id) ?? 0) + 1;
+		seen.set(id, n);
+		return n === 1 ? id : `${id}-${n}`;
+	});
+}

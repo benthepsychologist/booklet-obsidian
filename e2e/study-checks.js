@@ -1,4 +1,4 @@
-// Check 24 of plugin-check.js: the 0.7.0 stage A of the plugin, in the real app. Every note is made up (test-vault "Study quiz").
+// Check 24 of plugin-check.js: marking, a matrix and `each:`, in the real app. Every note is made up (test-vault "Study quiz").
 //   right and wrong marked on a choice and a multi (with each option's reply), a matrix (a grid on a desktop, separate
 //   questions on a phone), and a question asked for each pick of another (`each:`), of several kinds.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
@@ -31,7 +31,7 @@ module.exports = function studyChecks(env) {
   }, BOOK);
 
   async function check24() {
-    const c = new Check(24, "stage A: right and wrong marked (a choice, a multi, replies), a matrix (grid and stacked), and each: of every kind, in the real app; desktop and phone, light and dark; nothing about marking is written");
+    const c = new Check(24, "right and wrong marked (a choice, a multi, replies), a matrix (grid and stacked), and each: of every kind, in the real app; desktop and phone, light and dark; nothing about marking is written");
     await withApp("c24", async (o, vault) => {
       const file = path.join(vault, STUDY);
       await open(o, STUDY);

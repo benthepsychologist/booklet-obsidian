@@ -26,7 +26,7 @@ const lintOk = (text) => {
 	assert.equal(r.status, 0, r.out);
 };
 
-const FM = '---\nbooklet: "0.16"\nid: test/remove\ntitle: Remove\nlang: en\n---\n';
+const FM = '---\nbooklet: "0.17"\nid: test/remove\ntitle: Remove\nlang: en\n---\n';
 const ACT = `${FM}
 > [!activity|log repeat] A log
 
@@ -166,7 +166,11 @@ test("a note with no entries, an activity that keeps none, and a block that cann
 test("an activity or a module the note does not have, and a note that ends inside a fence, are refused", () => {
 	assert.throws(() => rm(note(block("log", [E1])), "", "nope", 0, "x"), core.RecordsWriteError);
 	assert.throws(() => rm(note(block("log", [E1])), "ghost", "log", 0, "x"), core.RecordsWriteError);
-	assert.throws(() => rm(note(block("log", [E1])) + "\n```booklet draft log\n{", "", "log", 0, "x"), /never closed/);
+	// a fence opened inside the records region and never closed swallows the region's end: nothing can be written safely
+	const swallowed = note(block("log", [E1])).replace(/%%\n$/, "```booklet draft log\n{\n%%\n");
+	assert.throws(() => rm(swallowed, "", "log", 0, "x"), /never closed/);
+	// but design after the region that ends in an unclosed fence is no reason to refuse (SPEC 0.17 section 8)
+	assert.doesNotThrow(() => rm(note(block("log", [E1])) + "\n```js\nopen\n", "", "log", 0, "x"));
 });
 
 test("an entry holding answers of the wrong shape is removed whole like any other, and nothing about its shape is rewritten", () => {

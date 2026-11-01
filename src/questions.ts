@@ -280,8 +280,8 @@ function drawLines(host: QuestionHost, box: HTMLElement, t: Target, q: Question,
 	// what was typed is written when focus leaves the list, not when it moves from one line to the next; the lines
 	// then show what the note holds
 	list.addEventListener("focusout", (evt) => {
-		const to = evt.relatedTarget;
-		if (to instanceof Node && list.contains(to)) return;
+		const to = nodeOf(evt.relatedTarget);
+		if (to && list.contains(to)) return;
 		host.flushTyped(t, q);
 		show();
 	});
@@ -385,6 +385,12 @@ export function earlierGroup(host: QuestionHost, into: HTMLElement, locked: bool
 	};
 }
 
+/** The node an event's target is, else null: a target that is not a node (the window) has no `instanceOf`. */
+export function nodeOf(t: EventTarget | null | undefined): Node | null {
+	const n = t as Node | null | undefined;
+	return n && typeof n.instanceOf === "function" && n.instanceOf(Node) ? n : null;
+}
+
 export function pressed(b: HTMLElement, on: boolean): void {
 	b.toggleClass("mod-cta", on);
 	b.toggleClass("is-selected", on);
@@ -420,8 +426,8 @@ export function pressHold(host: QuestionHost, scope: HTMLElement): PressHold {
 	scope.addEventListener("pointerdown", () => (held = null), { capture: true });
 	return {
 		leave(evt, buttons, add) {
-			const to = evt.relatedTarget ?? host.pressTarget();
-			const dest = to instanceof Node ? buttons.find((x) => x.b.contains(to)) : undefined;
+			const to = nodeOf(evt.relatedTarget ?? host.pressTarget());
+			const dest = to ? buttons.find((x) => x.b.contains(to)) : undefined;
 			const was = dest ? dest.on() : true;
 			add();
 			if (!dest || was || !dest.on()) return;
@@ -610,7 +616,7 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 		// an option's reply shows under the options when it is picked; a multi that marks right answers keeps them for its Check
 		// (a reply would give the answer away)
 		const checked = checkedOn === JSON.stringify(c);
-		const shownReplies = graded && multi && !checked ? [] : (c.filter((x): x is number => typeof x === "number").sort((a, b) => a - b) as number[]).slice(0, multi ? undefined : 1);
+		const shownReplies = graded && multi && !checked ? [] : (c.filter((x): x is number => typeof x === "number").sort((a, b) => a - b)).slice(0, multi ? undefined : 1);
 		const rs = JSON.stringify(shownReplies);
 		if (rs !== replySig) {
 			replySig = rs;

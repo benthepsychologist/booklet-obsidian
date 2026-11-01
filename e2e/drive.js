@@ -48,6 +48,9 @@ async function launch({ obsidian, vault, configDir, port, args = [], env = {}, e
   const jf = path.join(cfg, "obsidian.json");
   let j = {}; try { j = JSON.parse(fs.readFileSync(jf, "utf8")); } catch (e) { /* fresh */ }
   j.vaults = j.vaults || {};
+  // An older installer would otherwise fetch the newest app code into the config folder and run that, so a check
+  // meant for an old version would silently test the newest one.
+  j.updateDisabled = true;
   for (const k of Object.keys(j.vaults)) delete j.vaults[k].open;
   const id = "e2e" + Buffer.from(vault).toString("hex").slice(-13);
   j.vaults[id] = { path: vault, ts: Date.now(), open: true };
@@ -106,6 +109,8 @@ async function launch({ obsidian, vault, configDir, port, args = [], env = {}, e
       for (const pid of ids) {
         await page.evaluate(async pid => { if (!app.plugins.enabledPlugins.has(pid)) await app.plugins.enablePluginAndSave(pid); }, pid);
       }
+      // Before the trust prompt existed (Obsidian 1.5), turning plugins on opened the settings dialog and left it open.
+      await page.evaluate(() => { if (document.querySelector(".modal-container") && app.setting && app.setting.close) app.setting.close(); });
       await page.waitForFunction(() => !document.querySelector(".modal-container"), null, { timeout: 3000 }).catch(() => {});
       await page.evaluate(() => { const e = document.activeElement; if (e && e.blur) e.blur(); });
     }

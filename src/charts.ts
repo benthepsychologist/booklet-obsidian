@@ -8,6 +8,7 @@
  * as a picture; a chart that cannot be drawn says why in one plain sentence in its place.
  */
 import { QUERY_WORDS, lineDomain, maxOf, minOf, niceScale, thinLabels, type Chart } from "./core";
+import { frameObserver } from "./frame-observer";
 
 /** The line chart's markers, one shape for each series (so two lines differ by more than colour). */
 const MARKERS = ["circle", "square", "triangle", "diamond"] as const;
@@ -20,7 +21,7 @@ const nextId = (): string => `booklet-ch-name-${++counter}`;
 
 /** Obsidian's createSvg takes a class as one name or a list: a string with a space in it throws (found in real Obsidian 1.14.5). So a class here is a list. */
 function sv(parent: Node, tag: string, o: { cls?: string[]; attr?: Record<string, string> }): SVGElement {
-	return parent.createSvg(tag as "svg", { cls: o.cls, attr: o.attr }) as SVGElement;
+	return parent.createSvg(tag as "svg", { cls: o.cls, attr: o.attr });
 }
 
 const num = (x: number): string => String(Math.round(x * 100) / 100);
@@ -176,8 +177,8 @@ function line(into: HTMLElement, c: Chart): void {
 	};
 	draw(plot.clientWidth);
 	if (typeof ResizeObserver === "function") {
-		const watch = new ResizeObserver(() => {
-			if (!plot.isConnected) return watch.disconnect();
+		const watch = frameObserver(plot.win, (observer) => {
+			if (!plot.isConnected) return observer.disconnect();
 			const w = plot.clientWidth;
 			if (w > 0 && Math.abs(w - drawnW) >= 4) draw(w);
 		});
