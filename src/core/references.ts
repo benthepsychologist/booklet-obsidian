@@ -1,8 +1,8 @@
-/* Markdown definitions and comment spans, read from the current text by a small scanner. */
-import { fencedLines, splitLines } from "./lines";
+/* Markdown definition lines, read from the current text by a small scanner that leaves out code and comments. */
+import { FENCE_OPEN, fenceEnd, splitLines } from "./lines";
 
 export interface ReferenceDefinition { text: string; module: string | null; section: "content" | "data"; }
-export interface ReferenceSource { definitions: Map<number, { end: number; text: string }>; comments: Set<number>; }
+export interface ReferenceSource { definitions: Map<number, { end: number; text: string }>; }
 
 interface BlockPrefix {
 	/** Where the line's own content starts, after blockquote and list markers. */
@@ -137,114 +137,156 @@ function indexLines(text: string): LineIndex {
 	return { lines, starts };
 }
 
-/** Add one comment span: every covered line, the first only when white space comes before its start. */
-function addComment(text: string, index: LineIndex, start: number, endLine: number, comments: Set<number>, covered: boolean[]): void {
-	const startLine = lineAt(index.starts, start);
-	for (let i = startLine; i <= endLine; i++) covered[i] = true;
-	const prefix = text.slice(index.starts[startLine] ?? 0, start);
-	if (!prefix.trim()) comments.add(startLine);
-	for (let i = startLine + 1; i <= endLine; i++) comments.add(i);
+/** The marks that start a comment and the text that ends it. A `%%` comment runs past its line only when it starts a block. */
+const COMMENT_MARKS = [
+	{ open: "<!--", close: "-->", block: false },
+	{ open: "%%", close: "%%", block: true },
+] as const;
+type CommentMark = (typeof COMMENT_MARKS)[number];
+
+/** The ranges of a line that are inline code: a run of backticks up to the next run of the same length. */
+function codeSpans(line: string): [number, number][] {
+	const spans: [number, number][] = [];
+	for (let i = 0; i < line.length; i++) {
+		if (line[i] !== "`") continue;
+		let n = 1;
+		while (line[i + n] === "`") n++;
+		let at = i + n;
+		for (;;) {
+			at = line.indexOf("`", at);
+			if (at < 0) break;
+			let m = 1;
+			while (line[at + m] === "`") m++;
+			if (m === n) {
+				spans.push([i, at + m]);
+				break;
+			}
+			at += m;
+		}
+		i = at < 0 ? i + n - 1 : at + n - 1;
+	}
+	return spans;
 }
 
-/** Find HTML and Obsidian comments, marking their lines and the lines definitions must not be read on. */
-function readComments(text: string, index: LineIndex, fenced: readonly boolean[], comments: Set<number>, covered: boolean[]): void {
+/** The first comment mark at or after `pos` that is not inside inline code. */
+function nextMark(line: string, pos: number, spans: readonly [number, number][]): { at: number; mark: CommentMark } | null {
+	let best: { at: number; mark: CommentMark } | null = null;
+	for (const mark of COMMENT_MARKS) {
+		let at = line.indexOf(mark.open, pos);
+		for (let span = spans.find((s) => at >= s[0] && at < s[1]); span; span = spans.find((s) => at >= s[0] && at < s[1])) at = line.indexOf(mark.open, span[1]);
+		if (at >= 0 && (!best || at < best.at)) best = { at, mark };
+	}
+	return best;
+}
+
+/** Per line: a fence line or inside a fenced block (also in a blockquote or list item, ending where its quote does), or an indented code line. */
+function codeLines(index: LineIndex): boolean[] {
+	const raw = index.lines.map((line) => line.text);
+	const prefixes = raw.map(blockPrefix);
+	const stripped = raw.map((line, i) => line.slice(prefixes[i]?.offset ?? 0));
+	const out = raw.map(() => false);
+	for (let i = 0; i < raw.length; i++) {
+		const f = FENCE_OPEN.exec(stripped[i] ?? "");
+		if (f && f[1]) {
+			const quote = prefixes[i]?.quote ?? 0;
+			let k = Math.min(fenceEnd(quote || prefixes[i]?.list ? stripped : raw, i, f[1]), raw.length - 1);
+			for (let j = i + 1; j <= k; j++) {
+				if ((prefixes[j]?.quote ?? 0) < quote) {
+					k = j - 1;
+					break;
+				}
+			}
+			for (let j = i; j <= k; j++) out[j] = true;
+			i = k;
+			continue;
+		}
+		// four spaces or a tab, straight under a blank line, a fence or more indented code (a list item's own lines are not code)
+		const before = i === 0 || !(stripped[i - 1] ?? "").trim() || !!out[i - 1];
+		out[i] = before && prefixes[i]?.list === 0 && /^(?: {4}|\t)/.test(stripped[i] ?? "") && !!(stripped[i] ?? "").trim();
+	}
+	return out;
+}
+
+/** Find HTML and Obsidian comments, marking the lines they touch: a definition is not read on those. */
+function readComments(text: string, index: LineIndex, code: readonly boolean[], covered: boolean[]): void {
 	const { lines, starts } = index;
 	let i = 0;
 	let pos = 0;
 	while (i < lines.length) {
-		if (fenced[i]) {
-			i++;
-			pos = 0;
-			continue;
-		}
 		const line = lines[i]?.text ?? "";
-		if (pos >= line.length) {
+		const found = code[i] || pos >= line.length ? null : nextMark(line, pos, codeSpans(line));
+		if (!found) {
 			i++;
 			pos = 0;
 			continue;
 		}
-		const htmlAt = line.indexOf("<!--", pos);
-		const percentAt = line.indexOf("%%", pos);
-		if (htmlAt < 0 && percentAt < 0) {
-			i++;
-			pos = 0;
+		const { at, mark } = found;
+		const start = (starts[i] ?? 0) + at;
+		const close = text.indexOf(mark.close, start + mark.open.length);
+		const end = close < 0 ? text.length : close + mark.close.length;
+		const endLine = close < 0 ? lines.length - 1 : lineAt(starts, end - 1);
+		if (mark.block && endLine > i && line.slice(blockPrefix(line).offset, at).trim()) {
+			pos = at + mark.open.length;
 			continue;
 		}
-		if (htmlAt >= 0 && (percentAt < 0 || htmlAt < percentAt)) {
-			const start = (starts[i] ?? 0) + htmlAt;
-			const close = text.indexOf("-->", start + 4);
-			const end = close < 0 ? text.length : close + 3;
-			const endLine = close < 0 ? lines.length - 1 : lineAt(starts, end - 1);
-			addComment(text, index, start, endLine, comments, covered);
-			if (close < 0) return;
-			i = endLine;
-			pos = end - (starts[endLine] ?? 0);
-			continue;
-		}
-		const start = (starts[i] ?? 0) + percentAt;
-		const sameLine = line.indexOf("%%", percentAt + 2);
-		if (sameLine < 0) {
-			const before = line.slice(blockPrefix(line).offset, percentAt);
-			if (before.trim()) {
-				pos = percentAt + 2;
-				continue;
-			}
-			const close = text.indexOf("%%", start + 2);
-			const end = close < 0 ? text.length : close + 2;
-			const endLine = close < 0 ? lines.length - 1 : lineAt(starts, end - 1);
-			addComment(text, index, start, endLine, comments, covered);
-			if (close < 0) return;
-			i = endLine;
-			pos = end - (starts[endLine] ?? 0);
-			continue;
-		}
-		const end = (starts[i] ?? 0) + sameLine + 2;
-		addComment(text, index, start, i, comments, covered);
-		pos = sameLine + 2;
+		for (let n = i; n <= endLine; n++) covered[n] = true;
+		if (close < 0) return;
+		i = endLine;
+		pos = end - (starts[endLine] ?? 0);
 	}
 }
 
+/** Whether the line before a definition is paragraph text, which a definition cannot interrupt (CommonMark). */
+function continuesParagraph(before: string, prefix: BlockPrefix): boolean {
+	const p = blockPrefix(before);
+	if (p.quote < prefix.quote || p.list < prefix.list) return false;
+	const body = before.slice(p.offset).trim();
+	// blank, another definition or footnote line, a callout line, a heading or a rule: a new block starts after it
+	return !!body && !/^\[[^\]]*\]:/.test(body) && !/^\[!/.test(body) && !/^#{1,6}(?:[ \t]|$)/.test(body) && !/^(?:([-*_])[ \t]*){3,}$|^=+$/.test(body);
+}
+
 /** Find Markdown definition lines, including a title on the line after the target. */
-function readDefinitions(text: string, index: LineIndex, fenced: readonly boolean[], covered: readonly boolean[], definitions: ReferenceSource["definitions"]): void {
+function readDefinitions(index: LineIndex, code: readonly boolean[], covered: readonly boolean[], definitions: ReferenceSource["definitions"], text: string): void {
 	const { lines, starts } = index;
+	let lastEnd = -1;
 	for (let i = 0; i < lines.length; i++) {
-		if (fenced[i] || covered[i]) continue;
+		if (code[i] || covered[i]) continue;
 		const line = lines[i]?.text ?? "";
 		const prefix = blockPrefix(line);
 		const m = /^ {0,3}\[((?:\\.|[^\\\]])*)\]:[ \t]+(\S.*)$/.exec(line.slice(prefix.offset));
 		if (!m || m[1] === undefined || m[2] === undefined) continue;
 		const label = m[1];
-		if (!label || label.startsWith("^") || !definitionRest(m[2])) continue;
+		if (!label.trim() || label.startsWith("^") || !definitionRest(m[2])) continue;
+		if (i > 0 && i - 1 > lastEnd && !code[i - 1] && !covered[i - 1] && continuesParagraph(lines[i - 1]?.text ?? "", prefix)) continue;
 		let endLine = i;
 		const next = lines[i + 1]?.text;
-		if (next !== undefined && !fenced[i + 1] && !covered[i + 1]) {
+		if (next !== undefined && !code[i + 1] && !covered[i + 1]) {
 			const nextPrefix = blockPrefix(next);
 			if (nextPrefix.quote === prefix.quote && nextPrefix.list === prefix.list && isTitle(next.slice(nextPrefix.offset).trim())) endLine = i + 1;
 		}
 		const end = (starts[endLine] ?? 0) + (lines[endLine]?.text.length ?? 0);
 		definitions.set(i, { end: endLine, text: text.slice((starts[i] ?? 0) + prefix.offset, end) });
+		lastEnd = endLine;
 		i = endLine;
 	}
 }
 
-/** Find Markdown definitions and comments in one linear pass over the text; source slices preserve the author's spelling. */
+/** Find Markdown definitions in one linear pass over the text; source slices preserve the author's spelling. */
 export function referenceSource(text: string): ReferenceSource {
 	const definitions: ReferenceSource["definitions"] = new Map();
-	const comments = new Set<number>();
-	// Definitions need `]:`; comments also need a marker.
-	if (!text.includes("]:") && !text.includes("<!--") && !text.includes("%%")) return { definitions, comments };
+	if (!text.includes("]:")) return { definitions };
 	const index = indexLines(text);
-	const fenced = fencedLines(index.lines.map((line) => line.text));
+	const code = codeLines(index);
 	const covered = index.lines.map(() => false);
-	readComments(text, index, fenced, comments, covered);
-	readDefinitions(text, index, fenced, covered, definitions);
-	return { definitions, comments };
+	readComments(text, index, code, covered);
+	readDefinitions(index, code, covered, definitions, text);
+	return { definitions };
 }
 
-/** Definitions ordered so Obsidian resolves the current module before shared data. */
+/** Definitions ordered so Obsidian resolves the current scope's own first, then its data section, then the shared data section. The booklet's opening is scope null. */
 export function referenceContext(defs: readonly ReferenceDefinition[], scope: string | null): string {
-	const own = scope !== null ? defs.filter(d => d.module === scope && d.section === "content") : [];
+	const own = defs.filter(d => d.module === scope && d.section === "content");
 	const data = scope !== null ? defs.filter(d => d.module === scope && d.section === "data") : [];
-	const shared = defs.filter(d => d.module === null);
+	const shared = defs.filter(d => d.module === null && d.section === "data");
 	return [...own, ...data, ...shared].map(d => d.text).join("\n");
 }

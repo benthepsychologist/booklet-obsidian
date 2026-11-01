@@ -655,6 +655,8 @@ export function parseBooklet(text: string): Booklet {
 	let section: "content" | "data" = "content";
 	/** The module a data section's blocks belong to (`> [!data|module-id]`), or null for the plain data section. */
 	let dataMod: Module | null = null;
+	/** The data section names a module this file does not open: its image definitions belong to no one. */
+	let dataGhost = false;
 	/** A module or an activity line has been met: text outside every activity is no longer the booklet's opening. */
 	let started = false;
 	let buf: string[] = [];
@@ -732,13 +734,22 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
+	/** The scope an image definition here is given to: a module, the bare activities (""), the booklet's opening (null), or undefined for none. */
+	const definitionScope = (): string | null | undefined => {
+		if (section === "data") return dataGhost ? undefined : dataMod ? dataMod.id : null;
+		return mod ? mod.id : act ? "" : started ? undefined : null;
+	};
+	const addDefinition = (text: string): void => {
+		const module = definitionScope();
+		if (module !== undefined) references.push({ text, module, section });
+	};
 	/** Collect definitions inside a Markdown-only callout without exposing its other content twice. */
 	const calloutText = (start: number, end: number): string[] => {
 		const kept: string[] = [];
 		for (let n = start; n < end; n++) {
 			const ref = referenceTokens.definitions.get(n);
-			if (!ref || ref.end >= end) { kept.push(lines[n] ?? ""); continue; }
-			references.push({ text: ref.text.replace(/\n(?:>[ \t]?)+/g, "\n"), module: section === "content" && act && !mod ? "" : blockModule(), section });
+			if (!ref) { kept.push(lines[n] ?? ""); continue; }
+			addDefinition(ref.text.replace(/\n(?:>[ \t]?)+/g, "\n"));
 			for (let j = n; j <= ref.end; j++) kept.push((lines[j] ?? "").match(/^(?:>[ \t]?)+/)?.[0] ?? "");
 			n = ref.end;
 		}
@@ -777,9 +788,8 @@ export function parseBooklet(text: string): Booklet {
 			continue;
 		}
 		const ln = lines[i] ?? "";
-		if (referenceTokens.comments.has(i) && !/^>[ \t]?\[!(?:page|tab)(?:[|\]])/i.test(ln)) { if (section === "content") pushText([ln], i); continue; }
 		const ref = referenceTokens.definitions.get(i);
-		if (ref) { references.push({ text: open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text, module: section === "content" && act && !mod ? "" : blockModule(), section }); i = ref.end; continue; }
+		if (ref) { addDefinition(open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text); i = ref.end; continue; }
 		const f = FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
@@ -891,6 +901,7 @@ export function parseBooklet(text: string): Booklet {
 				// the module id on a data line says whose its blocks are, until the next data, module or activity line;
 				// a module this file does not open is said, and its blocks are read as shared (booklet.html onData)
 				dataMod = w.id ? (modules.find((x) => x.id === w.id) ?? null) : null;
+				dataGhost = !!w.id && !dataMod;
 				if (w.id && !dataMod) problems.push(`${at(i)}: a data section for the module "${w.id}", which this file does not open; its blocks are read as shared.`);
 				i = bodyEnd(lines, i) - 1;
 				continue;
