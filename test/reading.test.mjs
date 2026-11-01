@@ -1,5 +1,5 @@
 /*
- * Plugin 0.7.0, stage B: questions inside a group and inside other callouts (SPEC section 6, "A group holds blocks"),
+ * Questions inside a group and inside other callouts (SPEC section 6, "A group holds blocks"),
  * steps (one group at a time within a page), rows (cells side by side), footnotes and citations as sources, and the
  * format's own reading kinds. Core rules run on the core; what is drawn runs over the made-up "Reading and steps" note in
  * the view (test/pane.mjs). Every note is made up. Each rule has a test that fails without it.

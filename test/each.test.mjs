@@ -1,6 +1,6 @@
 /*
- * A question asked for each pick of another (`each:<id>`, src/core/each.ts and src/each-question.ts), as the approved
- * design for format 0.16 has it: the setting and its mistakes, the picks and their words, the pairs it stores (a pick
+ * A question asked for each pick of another (`each:<id>`, src/core/each.ts and src/each-question.ts), as format 0.16
+ * has it: the setting and its mistakes, the picks and their words, the pairs it stores (a pick
  * taken back keeps its pair, picking it again brings it back), the empty-draft rule, kept entries one line per pick,
  * the reader's own options offered under every pick and in later entries, and the reader's field and press kept safe
  * as copies come and go around them. The view runs over a jsdom document on the test vault's made-up check-in note.

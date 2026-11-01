@@ -1,5 +1,5 @@
 /*
- * Page trees, stage C (plugin 0.8.0): the tree's own surfaces (design/pages/proposal.md section 3, decision 6 calls F and K): the menu of a
+ * Page trees, the tree's own surfaces: the menu of a
  * tab's tree with its search ("Pages in this tab"), the pages under the one on show as cards, and "Mentioned on". Every note is made up.
  */
 import "./fixed-date.mjs";

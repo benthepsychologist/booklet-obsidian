@@ -27,7 +27,7 @@ const sha = (s) => createHash("sha256").update(s).digest("hex");
 /** As plain data; a query's source names its activity by key (the activity itself holds the query). `entriesFolded` is left out: it is false on every note here. */
 const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "entriesFolded" ? undefined : k === "act" && x && typeof x === "object" && "segments" in x ? `${x.scope}/${x.id}` : x)));
 
-/** The reading and the model of a note, with only what release 0.7.0 had in them. */
+/** The reading and the model of a note. */
 export function modelOf(text) {
 	const book = core.parseBooklet(text);
 	const nav = core.buildNav(book, text);
@@ -68,7 +68,7 @@ export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.
 	const p = pane(text, { path, state: { file: path, version: 1, screen, ...(tab ? { tab } : {}), part } });
 	await p.settled();
 	const html = p.el.innerHTML.replace(/booklet-\d+/g, "booklet-N");
-	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line is what 0.7.0 saved)
+	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line has no page key)
 	const state = { writes: p.disk.writes, same: p.disk.text === text, drawn: p.screen, saved: JSON.parse(JSON.stringify(p.view.getState())) };
 	p.close();
 	return { sha: sha(html), ...state };

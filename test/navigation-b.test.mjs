@@ -1,5 +1,5 @@
 /*
- * Stage B of the navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
+ * Navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
  * drawn only where the tab on show holds a question, the set of icon names, and the scroll that waits for the draw to finish.
  * Every note is made up.
  */
@@ -101,7 +101,7 @@ test("a link to a heading in the opening of a tabbed activity leaves the tab and
 	p.close();
 });
 
-/* ---- the finish rule (call H) ---- */
+/* ---- the finish rule ---- */
 
 const FINISH = `---\nbooklet: "0.17"\ntitle: Finish\n---\n\n> [!activity|log repeat daily] Log\n\n> [!tab] Read\n\nSome words to read.\n\n> [!tab] Answer\n\n> [!text|what] What happened?\n\n> [!activity|plain repeat] Plain\n\nOnly words.\n\n> [!activity|asked repeat] Asked\n\n> [!text|above] Asked above every tab\n\n> [!tab] One\n\nWords.\n\n> [!tab] Two\n\nMore words.\n`;
 

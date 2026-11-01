@@ -1,5 +1,5 @@
 /*
- * Plugin 0.7.0, stage A: right and wrong marked (SPEC section 5, "`[x]` marks a correct option"), a matrix question,
+ * Right and wrong marked (SPEC section 5, "`[x]` marks a correct option"), a matrix question,
  * and a question of any kind asked for each pick. They run over the test vault's made-up study quiz, in the view
  * (test/dom.mjs), and over the core where the rule is one of reading or writing.
  *

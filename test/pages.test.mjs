@@ -1,7 +1,7 @@
 /*
  * Page trees, the tree model (SPEC 0.17 section 3, "Pages: a tree inside a tab"): the page
- * line `> [!page|id parent:x icon:name] Title`, the shape of a tab's tree (the proposal's shape (b)), parts (`***`), and what a page line
- * out of place does. Every note here is made up. That a note with no page line is exactly what it was is test/legacy.test.mjs's.
+ * line `> [!page|id parent:x icon:name] Title`, the shape of a tab's tree, parts (`***`), and what a page line
+ * out of place does. Every note here is made up. test/legacy.test.mjs holds that a note with no page line reads and draws unchanged.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -125,7 +125,7 @@ test("in an activity with tabs, a page line before the first tab line is ignored
 	assert.deepEqual(outline(a.tabs[0]), ["p"]);
 });
 
-/* ---- the shape of a tab's tree (the proposal's shape (b)) ---- */
+/* ---- the shape of a tab's tree ---- */
 
 test("a tab with no page line is one page, its words in parts: exactly the pages 0.16 drew", () => {
 	const t = note("> [!tab|a] A\n\nOne.\n\n***\n\nTwo.\n\n***\n\n***\n\nThree.\n");
@@ -279,9 +279,9 @@ test("a link by words reaches a page by its title, on its first part; a heading 
 	assert.equal(at("No such page"), null);
 });
 
-/* ---- the worked examples (proposal 5.1 and 5.2), with made-up words ---- */
+/* ---- two whole examples, with made-up words ---- */
 
-test("the check-in as one activity with a wiki tab (5.1): three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
+test("the check-in as one activity with a wiki tab: three tabs, the wiki's tree in three levels, the quiz tab opening on its first named page", () => {
 	const { book, nav } = build(WIKI);
 	assert.deepEqual(book.problems, [], "a 0.17 file whose lines the view reads says nothing of its marker");
 	assert.deepEqual(nav.problems, []);

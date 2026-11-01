@@ -1,6 +1,6 @@
 /*
  * A note with thousands of kept days (a tracker kept for eight years): what drawing and writing it cost, and the two things that
- * made a table of them slow, found by measuring it in the real app (check 41 of e2e/plugin-check.js): a date formatter built again for
+ * make a table of them slow (check 41 of e2e/plugin-check.js measures it in the real app): a date formatter built again for
  * every row, and Obsidian's Markdown renderer asked to render the same few option words for every row.
  */
 import "./dom.mjs";

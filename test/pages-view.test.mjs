@@ -1,5 +1,5 @@
 /*
- * Page trees, stage A, in the view: what the view does with a tab of named pages. A note with page lines is drawn, searched and left
+ * Page trees in the view: what the view does with a tab of named pages. A note with page lines is drawn, searched and left
  * again without writing a byte of it; the page titles head their pages; what the tree could not read is listed with the reader's own
  * problems; typed words survive a move from one page to the next. Every note is made up.
  */

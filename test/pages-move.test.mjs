@@ -1,7 +1,7 @@
 /*
- * Page trees, stage B (plugin 0.8.0): moving through a tree (design/pages/proposal.md section 3). Back and Next between the parts of a page
+ * Page trees, moving through a tree. Back and Next between the parts of a page
  * and between pages, the counter, the trail, a page as a step in Obsidian's history and a tab as none, links by a page's title and by a heading,
- * and the saved place: version 2 with a page key, and a version 1 place (release 0.6.0 and 0.7.0) read as it was. Every note is made up.
+ * and the saved place: version 2 with a page key, and a version 1 place read as it was. Every note is made up.
  */
 import "./fixed-date.mjs";
 import test from "node:test";
@@ -14,7 +14,7 @@ const buttons = (p) => p.pager().buttons;
 
 /* ---- the moves, in the model ---- */
 
-test("Back and Next as the proposal lays them out: the wiki tab, every part of it", () => {
+test("Back and Next through the wiki tab, every part of it", () => {
 	const { nav } = build(WIKI);
 	const na = nav.byKey.get("calm/check-in");
 	const tab = na.tabs.find((t) => t.id === "wiki");

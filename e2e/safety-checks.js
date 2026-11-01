@@ -4,7 +4,7 @@
 //   36 CRLF, BOM, no final newline        39 the file changes under the open view
 //   37 a plugin that rewrites the note    40 the plugin off and on; pop-out window; split panes; restart
 //   (the Linter run needs a downloaded     41 a note with three thousand daily entries
-//    plugin: it is a scratch run, see the PR)
+//    plugin: it is run by hand in a scratch vault)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { quiet, frames, untilTrue, kit } = require("./waits");
@@ -790,7 +790,7 @@ ${items.join(",\n")}
 
   /* ================= CHECK 37 ================= */
   // another plugin rewrites the note whenever it is saved. The Linter plugin itself is a downloaded third-party plugin and is run by hand in a
-  // scratch vault (see the PR); this check runs a stand-in that does what a formatter does, on every change to the note: it strips trailing
+  // scratch vault; this check runs a stand-in that does what a formatter does, on every change to the note: it strips trailing
   // spaces outside code fences, collapses runs of blank lines, puts a blank line round headings, adds a `date modified` key to the front
   // matter and ends the file with one newline.
   const FORMAT = "Formatted.booklet.md";

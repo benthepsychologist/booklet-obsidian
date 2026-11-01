@@ -1,5 +1,5 @@
 /*
- * What the cold review of the first 0.9.0 draft found, as tests: a data block whose id clashes with an activity's, a question's or
+ * Data blocks and queries: a data block whose id clashes with an activity's, a question's or
  * another block's is said among the note's problems (and which one a query reads is not changed); a null and a number too big to be
  * one in a data row; a query that throws says so in its own place and the screen still draws; a nested list thousands deep and a chart
  * of hundreds of thousands of numbers do not overflow the stack; the sort and filter control's state is each query's own, is rebuilt when

@@ -1,5 +1,5 @@
 /*
- * Page trees with plugin 0.7.0 (lessons: groups, steps, rows): a page line inside a group or another callout's body is that body's text;
+ * Page trees with groups, steps and rows: a page line inside a group or another callout's body is that body's text;
  * a page line inside an open row is ignored and said, and the row stays open; one step at a time works inside a named page, and Back and
  * Next move a step, then a part, then a page. Every note is made up.
  */

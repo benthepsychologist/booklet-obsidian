@@ -26,8 +26,8 @@ for (const [name, want] of Object.entries(golden)) {
 			assert.equal(got.drawn, key.split("|")[0], `${name}: ${key} did not open on its screen`);
 			assert.equal(got.writes, 0, `${name}: drawing ${key} wrote to the note`);
 			assert.ok(got.same, `${name}: drawing ${key} changed the note's text`);
-			assert.equal(got.sha, want.places[key].sha, `${name}: ${key} draws differently from 0.8.0`);
-			assert.deepEqual(got.saved, want.places[key].saved, `${name}: ${key} saves a different place from 0.8.0`);
+			assert.equal(got.sha, want.places[key].sha, `${name}: ${key} draws differently from the golden file`);
+			assert.deepEqual(got.saved, want.places[key].saved, `${name}: ${key} saves a different place from the golden file`);
 		}
 	});
 }

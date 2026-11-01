@@ -1,5 +1,5 @@
-// Check 26 of plugin-check.js: the 0.7.0 stage C, the small leftovers of 0.6.0, in the real app. The note is made up and written into
-// the check's own copy of the vault:
+// Check 26 of plugin-check.js: small leftovers (tab panels, names, focus, a page break, a long table), in the real app. The note is made up
+// and written into the check's own copy of the vault:
 //   a tab bar and its panel (module screen and activity screen), a tab bar named in plain words, focus after a press that moves
 //   (a card, the pager) for a keyboard reader, a `- - -` line under text as a page break, and a long table's numeric column.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
@@ -27,7 +27,7 @@ module.exports = function leftoversChecks(env) {
   const focused = o => o.evaluate(() => { const a = document.activeElement; return { cls: a && a.className, role: a && a.getAttribute("role"), text: a && a.textContent.replace(/\s+/g, " ").trim().slice(0, 40), tabindex: a && a.getAttribute("tabindex") }; });
 
   async function check26() {
-    const c = new Check(26, "stage C: the 0.6.0 leftovers in the real app: tab panels, plain-word names, focus after a move for a keyboard reader, `- - -` as a page break, a long table's numeric column; desktop and phone, light and dark; nothing written");
+    const c = new Check(26, "small leftovers in the real app: tab panels, plain-word names, focus after a move for a keyboard reader, `- - -` as a page break, a long table's numeric column; desktop and phone, light and dark; nothing written");
     await withApp("c26", async (o, vault) => {
       const file = path.join(vault, NOTE);
       fs.writeFileSync(file, noteText());

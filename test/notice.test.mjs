@@ -226,7 +226,7 @@ test("the rest of the note still draws and takes answers; what is not read is by
 test("no note of the corpus or the test vault holds anything this view does not read, and none says anything of its marker", () => {
 	for (const file of corpusFiles()) {
 		const b = core.parseBooklet(read(file));
-		// an activity's `parent:` leaves the format in 0.17, and the notes that still use it are rewritten with the page tree; a theme block
+		// an activity line takes no `parent:` setting in format 0.17 (a note that still uses it is listed for that); a theme block
 		// is a block the format defines and this view does not read yet (README: "themes")
 		const left = b.unread.filter((u) => !/an activity line takes no `parent:` setting/.test(u.why) && u.text !== "```booklet theme");
 		assert.deepEqual(left, [], file);

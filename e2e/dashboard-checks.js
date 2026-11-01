@@ -299,7 +299,7 @@ module.exports = function dashboardChecks(env) {
         const n0 = await o.page.locator(BOOK + " .booklet-entry-list .booklet-entry").count();
         c.ok(items.length === 12 && n0 === 10, `[${mode}] twelve kept days, ten shown, a Delete on each card: ${n0}, Delete ${await o.page.locator(BOOK + " .booklet-entry-delete").count()}`);
         if (mode === "typed draft") {
-          // the reader answers something first: the pane's later copies of the note then hold new objects for the same entries (the first draft's Delete did nothing after this)
+          // the reader answers something first: the pane's later copies of the note then hold new objects for the same entries
           await o.page.locator(BOOK + " [data-booklet-q='sleep'] input").first().click();
           await o.page.keyboard.type("4");
           await o.page.locator(BOOK + " .booklet-entries-title").click(); await sleep(2500);
