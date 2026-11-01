@@ -33,7 +33,8 @@ const argv = process.argv.slice(2), opt = {};
 for (let i = 0; i < argv.length; i++) if (argv[i].startsWith("--")) opt[argv[i].slice(2)] = argv[++i];
 opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || process.env.VAULT;
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
-const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
+// the reference linter: --lint, else BOOKLET_LINTER, else lint-booklet.py in the format repository (BOOKLET_REPO, default /workspace/booklet)
+const LINT = opt.lint || process.env.BOOKLET_LINTER || path.join(process.env.BOOKLET_REPO || "/workspace/booklet", "lint-booklet.py");
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
 const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
 // checks 35 to 41 (0.11.0, data safety; safety-checks.js) and 42 to 45 (access-checks.js) join the default list, just before check 10

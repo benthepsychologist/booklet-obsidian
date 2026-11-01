@@ -145,11 +145,11 @@ test("the finish stays under every page of a tab that holds a question, wherever
 
 /* ---- the set of icon names ---- */
 
-test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", () => {
+test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", (t) => {
 	assert.equal(BOOKLET_ICONS.size, 161);
 	for (const n of BOOKLET_ICONS) assert.match(n, /^[a-z0-9]+(-[a-z0-9]+)*$/, n);
 	const dir = join(BOOKLET, "art", "icons");
-	if (!existsSync(dir)) return console.log("skipped: no art/icons folder at " + dir);
+	if (!existsSync(dir)) return t.skip("no art/icons folder at " + dir);
 	const files = readdirSync(dir).filter((f) => f.endsWith(".svg")).map((f) => f.replace(/\.svg$/, ""));
 	assert.deepEqual([...BOOKLET_ICONS].sort(), files.sort());
 });

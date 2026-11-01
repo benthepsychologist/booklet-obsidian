@@ -97,7 +97,7 @@ It also lists every console error/warning, `pageerror`s and Obsidian's stdout/st
 ```
 S=<the scratch folder of the setup above>
 PLAYWRIGHT=$S/npm/node_modules node plugin-check.js --obsidian $S/app/obsidian-1.14.5/obsidian \
-  --vault ../test-vault --out $S/plugin-runs/<name> [--only 1,3] [--lint /workspace/booklet/lint-booklet.py]
+  --vault ../test-vault --out $S/plugin-runs/<name> [--only 1,3] [--lint <lint-booklet.py>]
 ```
 One `PASS`/`FAIL` line per check with its evidence lines indented under it; exit 1 on any FAIL. A full run takes about ten minutes.
 Gotchas learned writing it: `executeCommandById` returns `true` for any registered command id even when its `checkCallback`

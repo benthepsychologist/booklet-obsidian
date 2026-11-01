@@ -15,12 +15,12 @@ export { core };
  *   BOOKLET_REPO       a checkout of the booklet format repository (default /workspace/booklet)
  *   BOOKLET_EXAMPLES   its examples folder (default $BOOKLET_REPO/examples)
  *   BOOKLET_LINTER     its reference linter (default $BOOKLET_REPO/lint-booklet.py)
- *   BOOKLET_STARTERS   a folder of kit starter booklets (default the booklet hub's Obsidian kit starters)
+ *   BOOKLET_STARTERS   a folder of kit starter booklets (no default: those notes are skipped when it is not set)
  */
 export const BOOKLET = process.env.BOOKLET_REPO || "/workspace/booklet";
 export const EXAMPLES = process.env.BOOKLET_EXAMPLES || join(BOOKLET, "examples");
 export const LINTER = process.env.BOOKLET_LINTER || join(BOOKLET, "lint-booklet.py");
-export const STARTERS = process.env.BOOKLET_STARTERS || "/workspace/fleet/hubs/booklet-hub/tools/booklet-obsidian/kit/Starter";
+export const STARTERS = process.env.BOOKLET_STARTERS || "";
 export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
 /** The sampler booklet the navigation tests open (made-up). */
