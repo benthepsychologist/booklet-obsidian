@@ -637,7 +637,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 	const holders = mods.filter((m) => book.activities.some((a) => a.scope === m.id));
 	if (holders.length === 1 && holders[0] && !holders[0].notice.length) {
 		const n: [string, string][] = [];
-		for (const k of ["license", "copyright", "source"]) if (book.frontMatter[k]) n.push([k, book.frontMatter[k] as string]);
+		for (const k of ["license", "copyright", "source"]) if (book.frontMatter[k]) n.push([k, book.frontMatter[k]]);
 		holders[0].notice = n;
 	}
 
@@ -884,7 +884,7 @@ export function pagerOf(na: NavAct, tab: ActTab, place: Place): Pager {
 	else if (index === 0) back = na.parent ? { kind: "up-activity", act: na.parent, to: activityPlace(na.parent) } : { kind: "overview", to: hasScreen(m) ? modulePlaceFor(na) : homePlace() };
 	else if (page.parent) back = { kind: "up", page: page.parent, to: go(page.parent.at) };
 	else {
-		const before = tab.top[tab.top.indexOf(page) - 1] ?? (tab.tree[index - 1] as TreePage);
+		const before = tab.top[tab.top.indexOf(page) - 1] ?? tab.tree[index - 1]!;
 		back = { kind: "before", page: before, to: go(before.at) };
 	}
 	const following = nextOf(na);
@@ -1208,8 +1208,10 @@ export function headingLinksIn(markdown: string): string[] {
 		code = false;
 		blank = false;
 		list = /^\s*(?:[-*+]|\d+[.)])\s/.test(l) || (list && indented);
-		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(?<!!)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
-			const t = m[1] ?? m[2];
+		// an embed (`![[#x]]`) is no link; a lookbehind would say so but is not supported on iOS before 16.4
+		for (const m of l.replace(/`[^`]*`/g, "").matchAll(/(!?)\[\[#([^\]|#]+)(?:\|[^\]]*)?\]\]|\]\(#([^)\s]+)\)/g)) {
+			if (m[1] === "!") continue;
+			const t = m[2] ?? m[3];
 			if (t && !t.startsWith("^")) out.push(t);
 		}
 	}

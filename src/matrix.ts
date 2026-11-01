@@ -88,8 +88,8 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 	// an item the keyboard moves into under the held stem is scrolled clear of it, as far as the screen has room
 	// (SPEC section 5); only the keyboard's focus: a press is never moved
 	wrap.addEventListener("focusin", (evt) => {
-		const target = evt.target;
-		if (!(target instanceof HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
+		const target = evt.target as Node | null;
+		if (!target?.instanceOf(HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
 		const stem = box.querySelector<HTMLElement>(":scope > .booklet-prompt");
 		const item = target.closest<HTMLElement>(".booklet-mxitem");
 		const scroller = box.closest<HTMLElement>(".view-content");

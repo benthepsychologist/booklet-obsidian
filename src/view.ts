@@ -69,7 +69,6 @@ import {
 	type Entry,
 	type AnswerWords,
 	type Finalized,
-	type ModTab,
 	type Block,
 	type Step,
 	type NavAct,
@@ -176,6 +175,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private settleTimer: number | null = null;
 	/** Writes run one after another. */
 	private writes: Promise<void> = Promise.resolve();
+	/** How many writes are queued or under way (the chain above settles to a resolved promise either way). */
+	private queued = 0;
 	/** The note's text was handed over while a Markdown pane of it held a different text: follow that pane's next change. */
 	private following = false;
 	/** A press has ended and its click has not come yet: the buttons are still kept (see syncWidgets). */
@@ -291,6 +292,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (leaf === this.leaf) later();
 			}),
 		);
+	}
+
+	/**
+	 * Is anything typed, added or written still on its way? Obsidian turns a reload into a quit when a quit hook has
+	 * work (1.5.8 closes the window once the work is done), so the plugin offers a task only when there is some.
+	 */
+	hasUnsaved(): boolean {
+		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key));
 	}
 
 	/**
@@ -663,7 +672,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		let context = "";
 		if (this.book && markdown.includes("[")) {
 			let contexts = this.referenceContexts.get(this.book);
-			if (!contexts) this.referenceContexts.set(this.book, (contexts = new Map()));
+			if (!contexts) this.referenceContexts.set(this.book, (contexts = new Map<string | null, string>()));
 			if (!contexts.has(at)) contexts.set(at, referenceContext(this.book.references, at));
 			context = contexts.get(at) ?? "";
 		}
@@ -1026,7 +1035,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
 		let tops = m.top;
 		const bar = m.tabs.length > 1;
-		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? (m.tabs[0] as ModTab)) : (m.tabs[0] ?? null);
+		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? m.tabs[0]!) : (m.tabs[0] ?? null);
 		// what a tab holds (its prose and its cards) is the tab's panel
 		let panel = page;
 		if (tab) {
@@ -1061,7 +1070,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
 		const bar = barTabs(na);
-		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? (bar[0] as ActTab)) : (na.tabs[0] as ActTab);
+		const tab = bar.length ? (bar.find((x) => x.id === place.tab) ?? bar[0]!) : (na.tabs[0] as ActTab);
 		const pager = pagerOf(na, tab, place);
 		const here = pager.page;
 		const above: TreePage[] = [];
@@ -1081,7 +1090,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		card.setAttr("data-booklet-activity", `${a.scope}/${a.id}`);
 		this.head(card, mt ? mt.title : na.title, single ? (m.icon ?? na.icon) : na.icon, mt ? (mt.emoji ?? na.emoji) : na.emoji);
 		if (a.repeat) card.addClass("booklet-repeats");
-		if (a.repeat && !a.id) card.createEl("p", { cls: "booklet-muted booklet-repeat-note", text: "This activity repeats, and its line has no id, so its entries cannot be kept. Give it an id in Markdown." });
+		if (a.repeat && !a.id) card.createEl("p", { cls: "booklet-muted booklet-repeat-note", text: "This activity repeats, and its line has no ID, so its entries cannot be kept. Give it an ID in Markdown." });
 		const keeps = a.repeat && !!a.id;
 		if (keeps) {
 			const seed = card.createDiv({ cls: "booklet-muted booklet-seed" });
@@ -1680,6 +1689,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private queue(file: TFile, change: (text: string) => string, failed: string, after?: () => void, undone?: () => void): void {
+		this.queued++;
 		this.writes = this.writes
 			.then(() => this.write(file, change))
 			.then(() => after?.())
@@ -1692,6 +1702,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					this.book = parseBooklet(this.text);
 					this.syncWidgets();
 				}
+			})
+			.finally(() => {
+				this.queued--;
 			});
 	}
 

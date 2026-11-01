@@ -124,7 +124,7 @@ function layoutOf(s: string, node: JsonSpan & { kind: "object" | "array" }, star
 	const last = starts.length - 1;
 	const indent = multiline && last >= 0 ? lineIndent(s, starts[last]!) : "";
 	let sep: string;
-	if (starts.length >= 2) sep = s.slice(ends[last - 1]!, starts[last]!);
+	if (starts.length >= 2) sep = s.slice(ends[last - 1], starts[last]);
 	else if (multiline) sep = ",\n" + indent;
 	else sep = colon.includes(" ") ? ", " : ",";
 	return { multiline, indent, sep, colon };

@@ -20,7 +20,7 @@ const nextId = (): string => `booklet-ch-name-${++counter}`;
 
 /** Obsidian's createSvg takes a class as one name or a list: a string with a space in it throws (found in real Obsidian 1.14.5). So a class here is a list. */
 function sv(parent: Node, tag: string, o: { cls?: string[]; attr?: Record<string, string> }): SVGElement {
-	return parent.createSvg(tag as "svg", { cls: o.cls, attr: o.attr }) as SVGElement;
+	return parent.createSvg(tag as "svg", { cls: o.cls, attr: o.attr });
 }
 
 const num = (x: number): string => String(Math.round(x * 100) / 100);

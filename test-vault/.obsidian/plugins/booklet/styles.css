@@ -132,6 +132,8 @@
 
 .booklet-field-row .booklet-date-field {
 	flex: 0 1 14em;
+	/* a date field's own least width is wider than a phone at a large zoom has */
+	min-width: 0;
 }
 
 .booklet-lines {
@@ -270,6 +272,8 @@
 	box-shadow: none;
 	text-align: start;
 	cursor: pointer;
+	/* Obsidian's buttons keep to one line; at a large zoom the heading wraps instead of running out of the view */
+	white-space: normal;
 }
 
 .booklet-entries .booklet-fold:hover {
@@ -317,6 +321,10 @@
 
 .booklet-more {
 	margin-top: var(--size-4-2);
+	/* the words wrap at a large zoom, and the button grows with them */
+	white-space: normal;
+	height: auto;
+	min-height: var(--input-height);
 }
 
 /* on a phone, every control is a full touch target, and an entry's answers sit under their questions */
@@ -393,6 +401,7 @@
 
 /* the edge labels around the cells: top and bottom across, left and right read upwards and downwards */
 .booklet-grid {
+	container-type: inline-size;
 	display: grid;
 	grid-template-columns: auto minmax(0, 1fr) auto;
 	grid-template-rows: auto auto auto;
@@ -442,6 +451,13 @@
 	display: grid;
 	grid-template-columns: repeat(2, minmax(0, 1fr));
 	gap: var(--size-4-2);
+}
+
+/* on a narrow box (a phone at a large zoom) the cells stack, one to a row, so a cell's own controls have the room they need */
+@container (max-width: 24rem) {
+	.booklet-cells {
+		grid-template-columns: minmax(0, 1fr);
+	}
 }
 
 /* a cell with no colour name has the theme's focus border for its band (the colour classes above set the tone) */
@@ -907,6 +923,10 @@
 	white-space: nowrap;
 }
 
+.booklet-q-table .booklet-q-short {
+	white-space: nowrap;
+}
+
 .booklet-q-table .booklet-q-num {
 	text-align: end;
 	font-variant-numeric: tabular-nums;
@@ -1178,6 +1198,9 @@
 
 .booklet-ch-svg {
 	display: block;
+	/* drawn at least 240 wide; a box narrower than that (a phone at a large zoom) scales it down, keeping its shape, so it does not push the page sideways */
+	max-width: 100%;
+	height: auto;
 	overflow: visible;
 	touch-action: manipulation;
 	-webkit-tap-highlight-color: transparent;
@@ -1637,7 +1660,8 @@
 }
 
 .booklet-status {
-	color: var(--text-faint);
+	/* the muted text colour, not the faint one: the faint colour is under 3:1 on the theme's background, too little for words */
+	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 	margin-top: var(--size-2-1);
 }
@@ -1912,6 +1936,7 @@
 /* steps: the choice between one at a time and all at once, then a step at a time */
 .booklet-steps-choice {
 	display: inline-flex;
+	flex-wrap: wrap;
 	gap: var(--size-2-2);
 	margin: 0 0 var(--size-4-3);
 }
@@ -1934,7 +1959,7 @@
 	width: var(--size-4-2);
 	height: var(--size-4-2);
 	border-radius: 50%;
-	border: var(--border-width) solid var(--text-faint);
+	border: var(--border-width) solid var(--text-muted);
 }
 
 .booklet-steps-dot.is-done {
@@ -2066,4 +2091,17 @@
 .booklet-view .booklet-screentitle:focus,
 .booklet-view .booklet-pagebody:focus {
 	outline: none;
+}
+
+/* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
+@media (prefers-reduced-motion: reduce) {
+	.booklet-view,
+	.booklet-view *,
+	.booklet-view *::before,
+	.booklet-view *::after {
+		/* important: Obsidian's own rules for its icons are more specific than these */
+		transition: none !important;
+		animation: none !important;
+		scroll-behavior: auto !important;
+	}
 }

@@ -118,8 +118,8 @@ export function drawEach(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 	};
 	// leaving a copy whose pick was taken back lets it go; a press elsewhere is not disturbed (reshow waits for it)
 	copies.addEventListener("focusout", (evt) => {
-		const to = evt.relatedTarget;
-		if (to instanceof Node && copies.contains(to)) return;
+		const to = evt.relatedTarget as Node | null;
+		if (to?.instanceOf(Node) && copies.contains(to)) return;
 		window.setTimeout(() => host.reshow(), 0);
 	});
 	show();

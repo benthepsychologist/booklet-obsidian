@@ -17,7 +17,7 @@ export default class BookletPlugin extends Plugin {
 
 		this.addCommand({
 			id: "toggle-view",
-			name: "Toggle between booklet view and Markdown",
+			name: "Toggle between the note view and Markdown",
 			checkCallback: (checking) => {
 				const bv = this.app.workspace.getActiveViewOfType(BookletView);
 				const mv = bv ? null : this.app.workspace.getActiveViewOfType(MarkdownView);
@@ -50,7 +50,7 @@ export default class BookletPlugin extends Plugin {
 			this.app.workspace.on("quit", (tasks) => {
 				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
 					const v = leaf.view;
-					if (v instanceof BookletView) tasks.add(() => v.saveTyped());
+					if (v instanceof BookletView && v.hasUnsaved()) tasks.add(() => v.saveTyped());
 				}
 			}),
 		);

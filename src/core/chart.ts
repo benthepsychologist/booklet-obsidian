@@ -82,7 +82,7 @@ export function buildChart(p: Plan, rows: readonly Row[]): Chart {
 			? QUERY_WORDS.chart.bars(rows.length, range ? lo : null, range ? hi : null)
 			: QUERY_WORDS.chart.line(series.map((s) => s.name).join(", "), rows.length, lo, hi);
 	const head = [roles.label ? textOf(set.label(roles.label)) : "", ...series.map((s) => s.name)];
-	const table = { head, rows: rows.map((_, i) => [labels[i]!, ...series.map((s) => (s.values[i] === null || s.values[i] === undefined ? "–" : fmt(s.values[i]!)))]) };
+	const table = { head, rows: rows.map((_, i) => [labels[i]!, ...series.map((s) => (s.values[i] === null || s.values[i] === undefined ? "–" : fmt(s.values[i])))]) };
 	return { kind: spec.kind, labels, series, tones, name, range, fmt, cannot, note, table };
 }
 
