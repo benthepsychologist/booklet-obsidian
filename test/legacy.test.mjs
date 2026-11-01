@@ -1,11 +1,8 @@
 /*
- * A note with no page line is exactly what it was in release 0.8.0 (dashboards, 0.9.0): the same reading, the same navigation model, and
- * the same drawing in every place the view can show, with nothing written to the note. The golden file (legacy-golden.json) was made
- * from the code of 0.8.0 (e692029) by test/legacy-structure.mjs, which says how to make it again and what the one allowed difference is
- * (the Delete button on a kept entry's card, in two places). It covers every note of the test
- * vault that has no page line and none of the activity `parent:` that 0.17 removed (those notes, and the made-up wikis, left the file),
- * and made-up ones for what the vault lacks. The golden file's fields for the activity tree (`parent`, `children`, `top`, `order`) were taken out of it
- * when that tree was removed; the hash of every drawing is as 0.8.0 made it.
+ * A note with no page line is read, modelled and drawn in every place the view can show, and nothing is written to the note. The golden file
+ * (legacy-golden.json) holds, for each such note, its reading and navigation model and a hash of the drawing of each place; test/legacy-structure.mjs
+ * makes it and says how to make it again. It covers every note of the test vault that has no page line and no activity `parent:`, and made-up
+ * ones for what the vault lacks. A change to the reading, the navigation or the drawing shows here as a note and a place whose hash moved.
  */
 import "./fixed-date.mjs";
 import test from "node:test";

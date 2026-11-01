@@ -6,8 +6,8 @@ lang: en
 version: "0.1"
 ---
 
-<!-- A made-up note for the page-trees tests (ahead of the format: format 0.17, not yet in SPEC). One activity with Ben's three tabs: a wiki
-     (a tree of pages), the check-in's own questions, and a dashboard of what was kept. Every word and both widgets are made up. -->
+<!-- A made-up note for the page-trees tests. One activity with three tabs: a wiki (a tree of pages), the check-in's own questions,
+     and a dashboard of what was kept. Every word and both widgets are made up. -->
 
 > [!module|calm] A calm check-in
 
