@@ -36,6 +36,7 @@ if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, -
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
 const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 10]).sort((a, b) => (a === 10) - (b === 10));
+if (!opt.only) only.splice(only.length - 1, 0, 42, 43, 44, 45);   // checks 42 to 45 (access-checks.js), before check 10 which runs last
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1931,6 +1932,7 @@ async function check10() {
   c.ok(!only.includes(31) || ["c31-desktop", "c31-phone"].every(x => sessions.includes(x)), "and the sort and filter check's two: " + sessions.join(", "));
   c.ok(!only.includes(33) || ["c33-desktop", "c33-phone"].every(x => sessions.includes(x)), "and the pictures check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(34) || ["c34-desktop", "c34-phone"].every(x => sessions.includes(x)), "and the links and selection check's two: " + sessions.join(", "));
+  for (const [n, names] of [[42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
   c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
@@ -1947,6 +1949,7 @@ async function check10() {
   const pictures = require("./pictures-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const noteLinks = require("./note-link-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  Object.assign(fns, require("./access-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType }));
   for (const n of only) {
     const t0 = Date.now();
     let c;
