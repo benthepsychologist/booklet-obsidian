@@ -494,7 +494,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const t = evt.target as Node | null;
 		const a = t && t.instanceOf(HTMLElement) ? t.closest("a") : null;
 		const linktext = a ? this.noteLinkText(a) : null;
-		if (!a || linktext === null || !this.file) return;
+		// a link in a button is the button's: a press picks the option, so a preview would promise a jump that does not come
+		if (!a || linktext === null || !this.file || a.closest("button")) return;
 		this.app.workspace.trigger("hover-link", { event: evt, source: "preview", hoverParent: this, targetEl: a, linktext, sourcePath: this.file.path });
 	}
 
@@ -652,10 +653,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/* ---- QuestionHost ---- */
 
-	/** Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). */
-	md(markdown: string, el: HTMLElement, marksOrScope: boolean | string | null = false, scope: string | null = this.mdScope): void {
+	/** Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). A scope (a module's id, "" for the bare activities, null for the booklet's) in place of `marks` names whose image definitions it is drawn with; else the screen's. */
+	md(markdown: string, el: HTMLElement, marksOrScope: boolean | string | null = false): void {
 		const marks = typeof marksOrScope === "boolean" ? marksOrScope : false;
-		const at = typeof marksOrScope === "string" || marksOrScope === null ? marksOrScope : scope;
+		const at = typeof marksOrScope === "string" || marksOrScope === null ? marksOrScope : this.mdScope;
 		if (!this.drawing || this.offscreen) return;
 		const gen = this.gen;
 		const ids: string[] = [];
@@ -1016,7 +1017,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.mdScope = m.id;
 		drawTrail(this, page, [
 			{ md: this.bookTitle(nav), to: homePlace(), scope: null },
-			{ md: m.title, to: null, scope: m.id },
+			{ md: m.title, to: null },
 		]);
 		this.head(page, m.title, m.icon, m.emoji);
 		// a module's own screen numbers the sources of its opening and its tabs' prose, in that order
@@ -1052,10 +1053,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// a module of one activity has no screen of its own: this one is also the module's, its title, picture and opening first
 		const single = !m.bare && m.acts.length === 1;
 		const crumbs: Crumb[] = [{ md: this.bookTitle(nav), to: homePlace(), scope: null }];
-		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na), scope: m.id });
+		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na) });
 		const ups: NavAct[] = [];
 		for (let p = na.parent; p; p = p.parent) ups.unshift(p);
-		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p), scope: p.act.scope });
+		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p) });
 		const mt = single ? moduleTitle(nav, m) : null;
 		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
@@ -1505,7 +1506,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const st = this.queryViews.get(vkey) ?? newViewState();
 		this.queryViews.set(vkey, st);
 		const host = {
-			md: (markdown: string, el: HTMLElement) => this.md(markdown, el, false, a.scope),
+			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
 		const draw = mountQuery(host, box, st);

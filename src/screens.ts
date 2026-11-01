@@ -53,7 +53,7 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], 
 	crumbs.forEach((c) => {
 		const to = c.to;
 		if (to) placeLink(host, nav, "booklet-trail-link", c.md, to, c.scope);
-		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }), c.scope);
+		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }));
 	});
 }
 

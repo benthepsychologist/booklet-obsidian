@@ -143,6 +143,26 @@ test("the pointer over a link to a note asks for the hover preview, with the fie
 	}
 });
 
+test("a link inside a button gets no hover preview: the press picks the option", async () => {
+	globalThis.__bookletStubRender = render;
+	const text = `---\nbooklet: "0.16"\ntitle: Links\n---\n\n> [!activity|a] Alpha\n\n> [!choice|q] Pick\n- [ ] [[Harbour notes]]\n- [ ] Other\n\nSee [[Harbour notes]].\n`;
+	const p = pane(text, { screen: "activity:/a" });
+	await p.settled();
+	const calls = [];
+	p.leaf.app.workspace.trigger = (...args) => void calls.push(args);
+	try {
+		const inButton = p.all("button a.internal-link")[0];
+		assert.ok(inButton, "the option holds a link");
+		inButton.dispatchEvent(new w.MouseEvent("mouseover", { bubbles: true }));
+		assert.deepEqual(calls, []);
+		const inProse = p.all(".booklet-prose a.internal-link")[0];
+		inProse.dispatchEvent(new w.MouseEvent("mouseover", { bubbles: true }));
+		assert.equal(calls.length, 1, "a link in the prose still asks for it");
+	} finally {
+		done(p);
+	}
+});
+
 test("prose can be selected: styles.css lets .booklet-page take a selection", () => {
 	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 	const rule = /\.booklet-page \{[^}]*user-select:\s*text;[^}]*\}/.exec(css)?.[0] ?? "";
