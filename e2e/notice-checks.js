@@ -203,6 +203,7 @@ B words.
       await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
       let t1 = false;
       for (let n = 0; n < 60 && !t1; n++) { t1 = (await type()) === "markdown"; if (!t1) await sleep(100); }
+      await sleep(400); // the pane has finished switching before the command runs again
       await o.evaluate(() => app.commands.executeCommandById("booklet:toggle-view"));
       let t2 = false;
       for (let n = 0; n < 60 && !t2; n++) { t2 = (await type()) === "booklet"; if (!t2) await sleep(100); }
