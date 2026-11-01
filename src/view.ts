@@ -334,7 +334,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return "book-open";
 	}
 
-	/* ---- the view's state: where the reader is, Obsidian's Back and Forward, a restored pane (design section 4) ---- */
+	/* ---- the view's state: where the reader is, Obsidian's Back and Forward, a restored pane ---- */
 
 	/** Saved by Obsidian into the workspace layout, beside which note the pane shows: never into the note. */
 	override getState(): Record<string, unknown> {
@@ -846,12 +846,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 
-		// one screen at a time: the booklet's home, a module's screen, an activity's screen (design section 3)
+		// one screen at a time: the booklet's home, a module's screen, an activity's screen
 		const nav = buildNav(book, this.text);
 		this.nav = nav;
 		const problems = [...book.problems, ...nav.problems]; // the reader's, then the pages' trees'
 		// the notice comes first: the note's marker, the plugin and its format, and each part of the note this view does not read (notice.ts)
-		const notice = openingNotice(book, this.host.manifest?.version ?? "");
+		const notice = openingNotice(book, this.host.manifest.version);
 		const n = problems.length + (notice?.count ?? 0);
 		if (n) {
 			const said = n === 1 ? "1 thing in this note could not be read" : `${n} things in this note could not be read`;
@@ -1334,7 +1334,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const chevron = fold.createSpan({ cls: "booklet-fold-chevron", attr: { "aria-hidden": "true" } });
 		const label = fold.createSpan({ cls: "booklet-fold-label" });
 		const list = kept.createDiv({ cls: "booklet-entry-list", attr: { id: uid } });
-		const shown = () => !(this.entriesFolded.get(key) ?? this.entriesStartFolded(a));
+		// the list starts folded only where the activity's line says `entries:folded`; the reader's own choice, once made, wins for as long as the pane is open
+		const shown = () => !(this.entriesFolded.get(key) ?? a.entriesFolded);
 		const setFold = () => {
 			const open = shown();
 			fold.setAttr("aria-expanded", open ? "true" : "false");
@@ -1359,11 +1360,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		setFold();
 		showEntries();
 		this.onShow(`activity:${a.scope}/${a.id}:entries`, showEntries);
-	}
-
-	/** Does an activity's list of kept entries start folded? Only where its line says `entries:folded`; the reader's own choice, once made, wins for as long as the pane is open. */
-	private entriesStartFolded(a: Activity): boolean {
-		return a.entriesFolded;
 	}
 
 	/** An activity's kept entries, newest first, each with its date and its answers in words from the file's own lists. */

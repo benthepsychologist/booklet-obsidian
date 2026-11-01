@@ -12,6 +12,7 @@
  * the pane changes width.
  */
 import type { Question } from "./core";
+import { frameObserver } from "./frame-observer";
 import { nodeOf, pressed, type Label, type QuestionHost, type Target } from "./questions";
 
 /** Draws a matrix's items and anchors into `box` (below its words). */
@@ -82,17 +83,7 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 		if (box.classList.contains("booklet-question")) box.toggleClass("booklet-mx-stacked", stacked);
 	};
 	if (typeof ResizeObserver !== "function") return;
-	// measured on the next frame, not inside the observer: a class that changes the box's size from inside its own observer makes
-	// Chromium report "ResizeObserver loop completed with undelivered notifications" as an uncaught error (Obsidian 1.8)
-	let queued = false;
-	const watch = new ResizeObserver(() => {
-		if (queued) return;
-		queued = true;
-		box.win.requestAnimationFrame(() => {
-			queued = false;
-			place();
-		});
-	});
+	const watch = frameObserver(box.win, place);
 	watch.observe(wrap);
 	watch.observe(probe);
 	// an item the keyboard moves into under the held stem is scrolled clear of it, as far as the screen has room

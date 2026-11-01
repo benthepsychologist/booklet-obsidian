@@ -19,10 +19,12 @@ export interface Unread {
 	newer: boolean;
 }
 
-/** A line as the notice shows it: leading and trailing white space off, and cut at `max` characters with an ellipsis. */
+/** A line as the notice shows it: leading and trailing white space off, and cut at `max` characters (code points) with an ellipsis. */
 export function shortLine(s: string, max = 80): string {
 	const t = s.trim().replace(/\s+/g, " ");
-	return t.length > max ? t.slice(0, max - 1).trimEnd() + "…" : t;
+	if (t.length <= max) return t;
+	const chars = Array.from(t);
+	return chars.length > max ? chars.slice(0, max - 1).join("").trimEnd() + "…" : t;
 }
 
 /** The number of single-character edits (insert, delete, change) from one word to another. */

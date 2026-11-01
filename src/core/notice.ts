@@ -56,6 +56,9 @@ export function openingNotice(book: Pick<Booklet, "marker" | "unread">, plugin: 
 	// mistake on a known name (see `looksLikeMistake`); an earlier marker alone, or a mistyped setting, is for the note's author to fix
 	const some = book.unread.some((u) => u.newer);
 	if (against === "later") paragraphs.push(`A newer version of the plugin may read this note. ${HOW_TO_UPDATE}`);
-	else if (some) paragraphs.push(`${book.unread.every((u) => u.newer) ? "A newer version of the plugin may read" : "A newer version of the plugin may read some of"} ${n === 1 ? "this" : "these"}. ${HOW_TO_UPDATE}`);
+	else if (some) {
+		const lead = book.unread.every((u) => u.newer) ? "A newer version of the plugin may read" : "A newer version of the plugin may read some of";
+		paragraphs.push(`${lead} ${n === 1 ? "this" : "these"}. ${HOW_TO_UPDATE}`);
+	}
 	return { paragraphs, entries, entriesAfter, count: (off ? 1 : 0) + n };
 }

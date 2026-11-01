@@ -156,7 +156,9 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void 
 		for (const r of g.rows) {
 			const tr = body.createEl("tr");
 			for (const k of cols) {
-				const td = tr.createEl("td", { cls: `${numeric.has(k) ? "booklet-q-num" : ""}${short.has(k) ? " booklet-q-short" : ""}`.trim() });
+				const td = tr.createEl("td");
+				td.toggleClass("booklet-q-num", numeric.has(k));
+				td.toggleClass("booklet-q-short", short.has(k));
 				if (k === roles.badge) {
 					const tone = toneOf(r, roles);
 					pills(td, badgesOf(r, roles), tone);

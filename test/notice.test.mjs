@@ -237,3 +237,13 @@ test("no note of the corpus or the test vault holds anything this view does not 
 		if (b.marker === "0.17") assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
 	}
 });
+
+test("a line shown in the notice is cut on a character boundary: an emoji at the cut is whole or gone, never half", () => {
+	const lone = /[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+	const cut = core.shortLine(`${"a".repeat(78)}😀 and more words after it`);
+	assert.equal(cut, `${"a".repeat(78)}😀…`);
+	assert.ok(!lone.test(cut), "no half of a pair");
+	assert.equal(core.shortLine(`${"a".repeat(79)}😀 and more`), `${"a".repeat(79)}…`);
+	assert.equal(core.shortLine("short  line "), "short line");
+	assert.equal(core.shortLine("😀".repeat(80)), "😀".repeat(80), "eighty characters of two units each are not cut");
+});

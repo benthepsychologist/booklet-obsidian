@@ -1248,7 +1248,7 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 		o[kv[0].toLowerCase()] = kv[1];
 		if (!where.has(kv[0].toLowerCase())) where.set(kv[0].toLowerCase(), line + n); // `line` counts from 1 and is the fence's: the first body line is index `line`
 	}
-	for (const k of Object.keys(o)) if (!QUERY_KEYS.includes(k)) unread(where.get(k) ?? line - 1, `a query has no setting "${k}", so it was ignored`, !looksLikeMistake(k, known));
+	for (const [k, n] of where) if (!QUERY_KEYS.includes(k)) unread(n, `a query has no setting "${k}", so it was ignored`, !looksLikeMistake(k, known));
 	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
 	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
 	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);
