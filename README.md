@@ -70,7 +70,7 @@ Each of these is left in the note exactly as written; where the view draws somet
 
 A setting a line's kind does not take (`mx:5` for `max:5`, `open` on a `scale`) is listed among the note's problems and ignored, as the format says; `each:` and `earlier:`, which the plugin draws, are not.
 
-Also not done yet: editing a kept entry (deleting one is done), data sections, themes, and languages other than English for the view's own words. A link to a block (`#^id`) does nothing.
+Also not done yet: editing a kept entry (deleting one is done), data sections, themes, and languages other than English for the view's own words. A link to a block of the same note (`#^id`) does nothing.
 
 A note that Obsidian opens before its metadata cache holds its front matter (one created and opened in one go, or re-indexed after a sync) shows as plain Markdown until *Open as booklet* is pressed: the plugin knows a note is a booklet only from that cache, and it does not switch a pane on every change of it, since that would flip an ordinary note while someone types a `booklet:` key into it. This is how 0.6.0 behaved, and it is unchanged.
 
@@ -82,6 +82,37 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 - **An answer of the wrong shape is kept as written** (SPEC section 8). An answer whose shape is not its question's kind, such as pairs under a plain `multi`, a list under a `scale` or a number under a `text`, typed by hand or written by another renderer, is never rewritten: its question is drawn read-only with a notice saying what the note holds, no press or Finalize changes it, and a kept entry shows it as written. It can be changed in Markdown. What each kind keeps is under *Choices made* below.
 - **A field you are in is never overwritten.** This holds for a widget's fields for words of your own too. When the note changes while you are typing in the view, or have a field selected (words typed in its Markdown pane, a change from Sync or from another plugin), the field keeps what you typed, the caret and the selection. It shows what the note holds once you leave it, and if the change was to the same question, what you typed is written over it, as the newer change. If the change was to the note's text, the view is drawn again once you leave the field and no press is under way. Words typed in *Add your own* and not added yet are kept too, and added when you leave the field.
 - **Words typed and not added yet survive closing and reloading.** Before Obsidian quits or its window closes, the view writes what was typed and adds the words typed in *Add your own* and a widget's fields, as leaving the field would. A reload (*Reload app without saving*, or Obsidian reloading itself) gives a plugin no time to write, so those words are also kept on the device as they are typed, in the vault's own local storage (never in the note, and never sent anywhere), and added when the note is next drawn; then they are taken off the device. Until then they are only on that device.
+
+## Compared with Reading view
+
+**What the plugin does and does not do.** It sends nothing anywhere: it makes no network requests of its own and has no analytics and no accounts. A note drawn in the view can do what any Obsidian note can (links, embeds, images, blocks drawn by community plugins), and the plugin adds no limit or filter on what a note shows.
+
+**What the view draws itself, instead of Obsidian, and why.** Only these:
+
+- Footnote marks: numbered buttons that open a source under the paragraph. Obsidian renders the note one piece at a time, so its own footnotes cannot be numbered across the screen; the view numbers the marks by first use and shows a mark with no note as `[?id]`.
+- Heading links and links to a module: the view moves between its own screens, so it opens the place itself.
+- Questions and the controls: the view writes the answers into the note's records.
+- Task checkboxes in prose: switched off, so a press never edits the design part of the note.
+
+**What works as in Reading view:**
+
+- Embeds of other notes (`![[Other note]]`, and of one heading of it).
+- Mermaid diagrams, after Obsidian's one-time Allow for the vault.
+- Maths, tables, code blocks and callouts.
+- Images, written inline or as definition lines (`![Alt][name]`): a name or a path resolves by Obsidian's link rules (a bare `pic.png` finds `attachments/pic.png`), and a name shared by two files gives the file Reading view gives.
+- Links to a note, `[[Other note]]`, with or without `#Heading` or `#^block`: a click opens the note, Ctrl or Cmd in a new pane, and the pointer over one shows the hover preview, as the reader's Page preview settings say.
+- Selecting and copying text.
+
+**Other community plugins.** Dataview (inline queries, `TABLE`, `LIST`), Tasks (query blocks), Admonition (`ad-` blocks, folds) and Meta Bind (inline fields, toggles, buttons that write to the note's front matter) were tried, and their blocks draw in the view as they do in Reading view. Tasks' enriched task lists written in prose stay plain checkboxes: the view draws pieces of the note, not the file, so a plugin that asks for the note's line numbers gets none. A Tasks checkbox inside a Tasks query result stays live, as in any note, and edits the line it belongs to, which can be in the booklet's design part. Other plugins were not tried.
+
+**Known limits:**
+
+- `#tags` in prose are plain text, not tag links.
+- Find in page (Ctrl or Cmd+F) is not available in the view; use the Markdown view (the command *Toggle between booklet view and Markdown*).
+- Export to PDF and printing are not offered for the view.
+- An embedded note has no icon that opens it.
+- After pressing Allow for Mermaid, the diagram appears when the note is drawn again, for example when it is opened again.
+- An image whose file is missing is a broken image with its alt text, where Reading view says the file could not be found.
 
 ## Try it by hand
 

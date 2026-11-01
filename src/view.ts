@@ -261,6 +261,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.registerDomEvent(this.contentEl, "pointerdown", (evt) => this.pressBegan(evt.target), { capture: true });
 		// a link in the note's own words (SPEC section 3): a heading link opens the place its words name, a link to a module opens it
 		this.registerDomEvent(this.contentEl, "click", (evt) => this.followLink(evt));
+		// a link to a note in the note's own words is Obsidian's: its hover preview is asked for as Reading view asks for it
+		this.registerDomEvent(this.contentEl, "mouseover", (evt) => this.hoverLink(evt));
 		// a change to the file that a Markdown pane of the note takes into its editor after this view was handed it (see setViewData)
 		this.registerEvent(
 			this.app.workspace.on("editor-change", (_editor, info) => {
@@ -479,7 +481,24 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.go(place, { heading: hit.heading, step: true });
 	}
 
-	/** Inside the note: a heading link opens the place its words name; a link to a module the booklet holds opens it. Anything else is Obsidian's. */
+	/** The words of a link to a note, for Obsidian to open: null for an address with a scheme, a link within this note (`#...`) and a link to a module (the view's own). */
+	private noteLinkText(a: HTMLElement): string | null {
+		if (!a.classList.contains("internal-link")) return null;
+		const href = a.getAttribute("data-href") ?? a.getAttribute("href") ?? "";
+		if (!href || href.startsWith("#") || /^[a-z][a-z0-9+.-]*:/i.test(href) || moduleLinkName(href) !== null) return null;
+		return href;
+	}
+
+	/** The hover preview of a link to a note, as Reading view asks for it (its "preview" source, so the reader's Page preview settings apply). */
+	private hoverLink(evt: MouseEvent): void {
+		const t = evt.target as Node | null;
+		const a = t && t.instanceOf(HTMLElement) ? t.closest("a") : null;
+		const linktext = a ? this.noteLinkText(a) : null;
+		if (!a || linktext === null || !this.file) return;
+		this.app.workspace.trigger("hover-link", { event: evt, source: "preview", hoverParent: this, targetEl: a, linktext, sourcePath: this.file.path });
+	}
+
+	/** Inside the note: a heading link opens the place its words name; a link to a module the booklet holds opens it; a link to a note is opened as Obsidian opens it. Anything else is Obsidian's. */
 	private followLink(evt: MouseEvent): void {
 		const t = evt.target as Node | null;
 		const a = t && t.instanceOf(HTMLElement) ? t.closest("a") : null;
@@ -494,7 +513,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			return;
 		}
 		const name = /^[a-z][a-z0-9+.-]*:/i.test(href) ? null : moduleLinkName(href);
-		if (name === null) return;
+		if (name === null) {
+			// a link a part of the view has already taken (a query row's) is not opened twice
+			const linktext = evt.defaultPrevented ? null : this.noteLinkText(a);
+			if (linktext === null) return;
+			evt.preventDefault();
+			void this.app.workspace.openLinkText(linktext, this.file.path, Keymap.isModEvent(evt));
+			return;
+		}
 		// a link to a whole module is the view's, never Obsidian's: opening it there would make an empty note of that name
 		evt.preventDefault();
 		evt.stopPropagation();
