@@ -65,7 +65,7 @@ export function placesOf(text) {
 
 /** The DOM of one place, hashed: the view's ids are numbered as drawn, so they are taken out. */
 export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.md") {
-	const p = pane(text, { path, state: { file: path, version: 1, screen, ...(tab ? { tab } : {}), part } });
+	const p = pane(text, { path, state: { file: path, version: 2, screen, ...(tab ? { tab } : {}), part } });
 	await p.settled();
 	const html = p.el.innerHTML.replace(/booklet-\d+/g, "booklet-N");
 	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line has no page key)

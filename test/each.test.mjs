@@ -536,7 +536,7 @@ test("each in the view: a question of any kind asked for each pick is drawn, and
 	for (const id of ["lost", "self", "kind", "chain", "far"]) assert.match(problems, new RegExp(`"${id}" is to be asked for each pick`));
 	for (const id of ["lost", "self", "kind", "chain"]) assert.ok(view.contentEl.querySelector(`[data-booklet-q="${id}"].booklet-kind-multi:not(.booklet-each)`), `${id} is drawn as a plain multi`);
 	// "far" is in the other activity: its own screen
-	await view.setState({ version: 1, screen: "activity:/other" }, {});
+	await view.setState({ version: 2, screen: "activity:/other" }, {});
 	assert.ok(view.contentEl.querySelector('[data-booklet-q="far"].booklet-kind-multi:not(.booklet-each)'), "far is drawn as a plain multi");
 	v.close();
 });

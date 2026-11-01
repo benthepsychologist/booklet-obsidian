@@ -358,10 +358,10 @@ test("[pin] callouts: a reader's fold or open of any callout that holds a questi
 	await press(p, group().querySelector(".booklet-group-title"));
 	assert.ok(!tip().classList.contains("is-collapsed") && group().classList.contains("is-collapsed"), "opened and folded");
 	// the screen is left and drawn again: what the reader chose is what comes back
-	await p.view.setState({ version: 1, screen: "home" }, {});
+	await p.view.setState({ version: 2, screen: "home" }, {});
 	await p.settled();
 	assert.equal(p.q("t"), null, "the activity is not on screen");
-	await p.view.setState({ version: 1, screen: "activity:/a" }, {});
+	await p.view.setState({ version: 2, screen: "activity:/a" }, {});
 	await p.settled();
 	assert.ok(!tip().classList.contains("is-collapsed"), "the tip stays open through a drawing");
 	assert.ok(group().classList.contains("is-collapsed"), "the group stays folded through a drawing");
@@ -459,7 +459,7 @@ test("focus: a step move the pane refuses does not leave the view ready to take 
 	assert.equal(p.view.focusScreen, false, "the refused move cleared it");
 	p.leaf.setViewState = real;
 	// the pane then draws another screen on its own (Obsidian's Back, say): focus is left where it was
-	await p.view.setState({ version: 1, screen: "home" }, {});
+	await p.view.setState({ version: 2, screen: "home" }, {});
 	await p.settled();
 	assert.equal(w.document.activeElement, input, "focus was not taken");
 	await p.card(p.cards()[0]);

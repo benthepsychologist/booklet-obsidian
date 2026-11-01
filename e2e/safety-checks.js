@@ -526,7 +526,7 @@ The garden is quiet today.
     await withApp("c40-popout", async (o, vault) => {
       const K = kit(env, EVERY), file = path.join(vault, EVERY);
       await K.open(o, EVERY);
-      await o.evaluate(async () => { const l = app.workspace.openPopoutLeaf(); window.__pop = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 1, screen: "activity:/kinds", part: 0 }, active: true }); });
+      await o.evaluate(async () => { const l = app.workspace.openPopoutLeaf(); window.__pop = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 2, screen: "activity:/kinds", part: 0 }, active: true }); });
       let pop = null;
       for (let n = 0; n < 40 && !pop; n++) { for (const p of o.page.context().pages()) if (p !== o.page && await p.evaluate(() => document.querySelectorAll(".booklet-page").length).catch(() => 0)) pop = p; if (!pop) await sleep(250); }
       c.ok(!!pop, "a booklet note opened in a pop-out window draws there (a second window with a booklet page)");
@@ -555,7 +555,7 @@ The garden is quiet today.
     await withApp("c40-panes", async (o, vault) => {
       const K = kit(env, EVERY), file = path.join(vault, EVERY);
       await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
-      await o.evaluate(async () => { const l = app.workspace.getLeaf("split", "vertical"); window.__b = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 1, screen: "activity:/kinds", part: 0 }, active: true }); });
+      await o.evaluate(async () => { const l = app.workspace.getLeaf("split", "vertical"); window.__b = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 2, screen: "activity:/kinds", part: 0 }, active: true }); });
       await o.page.waitForFunction(sel => document.querySelectorAll(sel + " .booklet-page[data-booklet-screen='activity:/kinds']").length === 2, BOOK, { timeout: 8000 });
       // the second pane's tab group is stacked, with a second tab in it
       const stacked = await o.evaluate(async () => {
@@ -721,7 +721,7 @@ ${items.join(",\n")}
       // each screen, the way a reader gets to it
       const screenTime = async (screen, ready) => {
         const t = Date.now();
-        await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
+        await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen, part: 0 }, active: true }); }, screen);
         await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "'] " + ready, { timeout: 30000 });
         await quiet(o);
         return Date.now() - t;

@@ -175,7 +175,7 @@ export function openView(text, { path = "Note.booklet.md", disk = { text, writes
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
 	// the screen the pane is on (a saved place), when a test works on one activity's screen
-	if (screen) void view.setState({ version: 1, screen }, {});
+	if (screen) void view.setState({ version: 2, screen }, {});
 	view.setViewData(text, true);
 	return {
 		view,

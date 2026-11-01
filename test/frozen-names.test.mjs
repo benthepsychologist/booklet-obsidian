@@ -85,12 +85,13 @@ test("the README lists the names that stay put", () => {
 	assert.ok(at >= 0, "the README has a section 'What stays put'");
 	const section = readme.slice(at, readme.indexOf("\n## ", at + 5) < 0 ? undefined : readme.indexOf("\n## ", at + 5));
 	for (const name of ["`toggle-view`", "`booklet`", "New commands may be added", "never what is written to a note", "not an API"]) assert.ok(section.includes(name), `the section names ${name}`);
-	// every custom property the stylesheet defines is listed there
+	// the two custom properties promised are the ones listed, and the stylesheet defines both; the others are internal and not named
 	const css = readFileSync(join(ROOT, "styles.css"), "utf8");
-	const defined = [...new Set([...css.matchAll(/^\s*(--booklet[a-z0-9-]*)\s*:/gm)].map((x) => x[1]))].sort();
-	assert.ok(defined.length > 0);
-	for (const p of defined) assert.ok(section.includes("`" + p + "`"), `the section lists ${p}`);
-	for (const p of section.matchAll(/`(--booklet[a-z0-9-]*)`/g)) assert.ok(defined.includes(p[1]), `${p[1]} is listed but the stylesheet does not define it`);
+	const defined = new Set([...css.matchAll(/^\s*(--booklet[a-z0-9-]*)\s*:/gm)].map((x) => x[1]));
+	const listed = [...new Set([...section.matchAll(/`(--booklet-[a-z0-9]+(?:-[a-z0-9]+)*)`/g)].map((x) => x[1]))].sort();
+	assert.deepEqual(listed, ["--booklet-ch-bar", "--booklet-mx-text"]);
+	for (const p of listed) assert.ok(defined.has(p), `${p} is listed but the stylesheet does not define it`);
+	assert.ok(section.includes("other `--booklet-*` properties are internal"), "the section says the others are internal");
 });
 
 /* ---- a saved pane is read tolerantly ---- */
@@ -108,33 +109,33 @@ const BAD = [
 	["a list", [1, "activity:/a"], "home"],
 	["an empty object", {}, "home"],
 	["a function", () => 1, "home"],
-	["no screen", { version: 1, part: 0 }, "home"],
-	["a screen that is a number", { version: 1, screen: 7, part: 0 }, "home"],
-	["a screen that is null", { version: 1, screen: null }, "home"],
-	["an empty screen", { version: 1, screen: "", part: 0 }, "home"],
-	["a screen of an object", { version: 1, screen: { id: "a" } }, "home"],
+	["no screen", { version: 2, part: 0 }, "home"],
+	["a screen that is a number", { version: 2, screen: 7, part: 0 }, "home"],
+	["a screen that is null", { version: 2, screen: null }, "home"],
+	["an empty screen", { version: 2, screen: "", part: 0 }, "home"],
+	["a screen of an object", { version: 2, screen: { id: "a" } }, "home"],
 	["no version", { screen: "activity:/a", part: 0 }, "home"],
 	["a version in text", { version: "1", screen: "activity:/a", part: 0 }, "home"],
 	["a version from the future", { version: 3, screen: "activity:/a", part: 0 }, "home"],
 	["version zero", { version: 0, screen: "activity:/a", part: 0 }, "home"],
 	["a version of null", { version: null, screen: "activity:/a" }, "home"],
-	["an activity the note no longer has", { version: 1, screen: "activity:/gone", part: 2 }, "home"],
+	["an activity the note no longer has", { version: 2, screen: "activity:/gone", part: 2 }, "home"],
 	["a module the note no longer has", { version: 2, screen: "module:gone", page: "p1", part: 0 }, "home"],
-	["a part in text", { version: 1, screen: "activity:/a", part: "3" }, "activity:/a"],
-	["a part past the end", { version: 1, screen: "activity:/a", part: 9999 }, "activity:/a"],
-	["a negative part", { version: 1, screen: "activity:/a", part: -5 }, "activity:/a"],
-	["a part that is not whole", { version: 1, screen: "activity:/a", part: 1.5 }, "activity:/a"],
-	["a part that is not a number", { version: 1, screen: "activity:/a", part: NaN }, "activity:/a"],
-	["an infinite part", { version: 1, screen: "activity:/a", part: Infinity }, "activity:/a"],
-	["a part of null", { version: 1, screen: "activity:/a", part: null }, "activity:/a"],
+	["a part in text", { version: 2, screen: "activity:/a", part: "3" }, "activity:/a"],
+	["a part past the end", { version: 2, screen: "activity:/a", part: 9999 }, "activity:/a"],
+	["a negative part", { version: 2, screen: "activity:/a", part: -5 }, "activity:/a"],
+	["a part that is not whole", { version: 2, screen: "activity:/a", part: 1.5 }, "activity:/a"],
+	["a part that is not a number", { version: 2, screen: "activity:/a", part: NaN }, "activity:/a"],
+	["an infinite part", { version: 2, screen: "activity:/a", part: Infinity }, "activity:/a"],
+	["a part of null", { version: 2, screen: "activity:/a", part: null }, "activity:/a"],
 	["a tab that is an object and a page that is a list", { version: 2, screen: "activity:/a", tab: {}, page: [], part: 0 }, "activity:/a"],
-	["a tab the note no longer has", { version: 1, screen: "activity:/a", tab: "gone", part: 1 }, "activity:/a"],
+	["a tab the note no longer has", { version: 2, screen: "activity:/a", tab: "gone", part: 1 }, "activity:/a"],
 	["a page the note no longer has", { version: 2, screen: "activity:/a", tab: "t1", page: "gone", part: 0 }, "activity:/a"],
 	["a page that is a number", { version: 2, screen: "activity:/a", page: 12, part: 0 }, "activity:/a"],
-	["a version 1 place that names a page", { version: 1, screen: "activity:/a", page: "p2", part: 0 }, "activity:/a"],
+	["a version 1 place", { version: 1, screen: "activity:/a", tab: "t1", part: 2 }, "home"],
 	["fields no release wrote, beside a good place", { version: 2, screen: "activity:/a", tab: "t1", page: "p1", part: 1, scroll: 4, future: { x: [1] }, "": 0 }, "activity:/a"],
 	["fields of another view, no place", { type: "markdown", mode: "source", file: "Two.booklet.md" }, "home"],
-	["a file that is not a path, beside a good place", { file: 12, version: 1, screen: "activity:/a", part: 0 }, "activity:/a"],
+	["a file that is not a path, beside a good place", { file: 12, version: 2, screen: "activity:/a", part: 0 }, "activity:/a"],
 ];
 
 for (const [name, state, screen] of BAD) {
@@ -149,21 +150,26 @@ for (const [name, state, screen] of BAD) {
 		assert.ok(saved && typeof saved === "object" && !Array.isArray(saved));
 		assert.equal(typeof saved.file, "string");
 		assert.ok(!("future" in saved) && !("scroll" in saved), "a field no release wrote is not carried forward");
-		if (saved.screen !== undefined) assert.ok([1, 2].includes(saved.version) && typeof saved.screen === "string" && Number.isInteger(saved.part) && saved.part >= 0, JSON.stringify(saved));
+		if (saved.screen !== undefined) assert.ok(saved.version === 2 && typeof saved.screen === "string" && Number.isInteger(saved.part) && saved.part >= 0, JSON.stringify(saved));
 		p.close();
 	});
 }
 
-test("a saved pane of an older shape opens where it was: version 1 counts every part of the tab", async () => {
-	// the 0.6.0 shape: no page key, and `part` counts the parts of the whole tab (First has two parts, Second one)
+test("a saved pane of an older shape opens the home screen; one with no page key counts every part of the tab", async () => {
+	// a place of version 1 (releases 0.6.0 and 0.7.0) is not read: the pane opens as a note with no saved place does
+	const old = pane(TWO, { path: "Two.booklet.md", state: { version: 1, screen: "activity:/a", tab: "t1", part: 2 } });
+	await old.settled();
+	assert.equal(old.screen, "home");
+	old.close();
+	// version 2 with no page key: `part` counts the parts of the whole tab (First has two parts, Second one)
 	for (const [part, want] of [[0, "First"], [1, "First"], [2, "Second"]]) {
-		const p = pane(TWO, { path: "Two.booklet.md", state: { version: 1, screen: "activity:/a", tab: "t1", part } });
+		const p = pane(TWO, { path: "Two.booklet.md", state: { version: 2, screen: "activity:/a", tab: "t1", part } });
 		await p.settled();
 		assert.equal(p.screen, "activity:/a");
 		assert.deepEqual(p.pageTitles(), [want], `part ${part}`);
 		p.close();
 	}
-	// a place a later release saves is read as that release does: version 2 names the page
+	// with a page key, `part` is within that page
 	const q = pane(TWO, { path: "Two.booklet.md", state: { version: 2, screen: "activity:/a", tab: "t1", page: "p2", part: 0 } });
 	await q.settled();
 	assert.deepEqual(q.pageTitles(), ["Second"]);
@@ -171,10 +177,10 @@ test("a saved pane of an older shape opens where it was: version 1 counts every 
 });
 
 test("a bad state handed to a pane that already shows a note changes nothing and adds no step to Back and Forward", async () => {
-	const p = pane(TWO, { path: "Two.booklet.md", state: { version: 1, screen: "activity:/a", tab: "t1", part: 2 } });
+	const p = pane(TWO, { path: "Two.booklet.md", state: { version: 2, screen: "activity:/a", tab: "t1", part: 2 } });
 	await p.settled();
 	const result = {};
-	for (const bad of [null, "x", 7, [], { version: 1, screen: 7 }, { version: 3, screen: "home" }]) {
+	for (const bad of [null, "x", 7, [], { version: 2, screen: 7 }, { version: 3, screen: "home" }]) {
 		await p.view.setState(bad, result);
 		await sleep(1);
 		assert.equal(p.screen, "activity:/a", `a ${JSON.stringify(bad)} left the pane where it was`);

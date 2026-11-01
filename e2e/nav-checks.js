@@ -279,7 +279,7 @@ A spade, a fork and a trowel are enough.
       await click(o, ".booklet-cardrow", "The basics");
       s = await state(o);
       c.ok(s.screen === "module:basics" && s.back === 1, `into a module is a step: ${s.screen}, history ${s.back}`);
-      c.ok(s.vs && s.vs.version === 1 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
+      c.ok(s.vs && s.vs.version === 2 && s.vs.screen === "module:basics" && s.vs.part === 0, "the view state is { version, screen, tab, part }: " + JSON.stringify(s.vs));
       await click(o, ".booklet-tabbtn", "Read first");
       s = await state(o);
       c.ok(s.tab === "Read first" && s.back === 1, `another tab is no step: ${s.tab}, history ${s.back}`);
@@ -342,7 +342,7 @@ A spade, a fork and a trowel are enough.
       try {
         await o2.page.waitForSelector(BOOK + " .booklet-page", { timeout: 15000 }); await quiet(o2);
         const r = await state(o2);
-        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 1, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
+        c.ok(r.screen === wanted.screen && r.tab === wanted.tab && r.vs.version === 2, `after closing Obsidian and starting it again the pane is in the same place: ${r.screen}, ${r.tab} (was ${wanted.screen}, ${wanted.tab})`);
         await shot(o2, "nav-after-restart-light");
         // the one-module booklet opens on its module screen
         await ready(o2, WEEKLY);
@@ -729,10 +729,10 @@ A spade, a fork and a trowel are enough.
       await click(o, ".booklet-pager button", "Back");
       pg = await page();
       c.ok(pg.title[0] === "Sun", `Back from a top page goes to the top page before it: ${pg.title}`);
-      // an old (version 1) place, flat part counted over every part of the tab, still opens where it was
-      await setPlace(o, { version: 1, screen: KEY, page: null, part: 4 });
+      // a place with no page key: its part counts every part of the tab
+      await setPlace(o, { version: 2, screen: KEY, page: null, part: 4 });
       pg = await page();
-      c.ok(pg.title[0] === "Loam", `a version 1 place opens by its flat part: ${pg.title}`);
+      c.ok(pg.title[0] === "Loam", `a place with no page key opens by its flat part: ${pg.title}`);
       c.ok(sha(path.join(vault, NOTE)) === before, "the SHA-256 of the note is the same after every move: nothing about the place is written into it");
       for (const scheme of ["light", "dark"]) {
         await o.setScheme(scheme); await sleep(300);
@@ -801,7 +801,7 @@ A spade, a fork and a trowel are enough.
       put(vault, NOTE, text);
       await ready(o, NOTE);
       const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { tabs: q(".booklet-tabbtn"), on: q(".booklet-tabbtn.is-active")[0], title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: q(".booklet-pager-at")[0] || "", finalize: root.querySelectorAll(".booklet-finalize").length, menu: q(".booklet-pagelist a"), questions: root.querySelectorAll("[data-booklet-q]").length, problems: q(".booklet-problems li") }; });
-      const goTo = st => setPlace(o, { version: 1, screen: KEY, ...st });
+      const goTo = st => setPlace(o, { version: 2, screen: KEY, ...st });
       await goTo({ tab: "wiki", part: 0 });
       let pg = await page(), s = await state(o);
       const b0 = s.back;

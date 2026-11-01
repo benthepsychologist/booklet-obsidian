@@ -234,7 +234,7 @@ test("the view's state is { version, screen, tab, part } beside the file, and a 
 	await p.card("2.Boxes and cylinders");
 	await p.tab("Cylinders");
 	const saved = norm(p.view.getState());
-	assert.deepEqual(saved, { file: "Note.booklet.md", version: 1, screen: "activity:basics/shapes", tab: "cylinders", part: 0 });
+	assert.deepEqual(saved, { file: "Note.booklet.md", version: 2, screen: "activity:basics/shapes", tab: "cylinders", part: 0 });
 	p.close();
 
 	const q = pane(SKETCH, { state: saved });
@@ -249,7 +249,7 @@ test("the view's state is { version, screen, tab, part } beside the file, and a 
 	await odd.settled();
 	assert.equal(odd.screen, "home");
 	odd.close();
-	const gone = pane(SKETCH, { state: { file: "Note.booklet.md", version: 1, screen: "activity:basics/vanished", part: 0 } });
+	const gone = pane(SKETCH, { state: { file: "Note.booklet.md", version: 2, screen: "activity:basics/vanished", part: 0 } });
 	await gone.settled();
 	assert.equal(gone.screen, "home");
 	gone.close();

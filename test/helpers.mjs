@@ -32,8 +32,8 @@ export const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.m
 export const WIKI = readFileSync(join(ROOT, "test", "page-notes", "Check-in with a wiki.booklet.md"), "utf8");
 /** The screen of its one activity. */
 export const WIKI_SCREEN = "activity:calm/check-in";
-/** A version 1 saved place of that screen (release 0.6.0 and 0.7.0 wrote these). */
-export const wikiAt = (tab, part) => ({ version: 1, screen: WIKI_SCREEN, tab, part });
+/** A saved place of that screen with no page key: its part counts every part of the tab. */
+export const wikiAt = (tab, part) => ({ version: 2, screen: WIKI_SCREEN, tab, part });
 
 /** A note read, then its navigation model built. */
 export const build = (text) => {

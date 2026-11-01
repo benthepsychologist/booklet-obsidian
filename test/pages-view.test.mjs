@@ -11,7 +11,7 @@ import { WIKI, core, sha } from "./helpers.mjs";
 import { pane, sleep } from "./pane.mjs";
 import { placesOf } from "./legacy-structure.mjs";
 
-const state = (screen, tab, part) => ({ version: 1, screen, ...(tab ? { tab } : {}), part });
+const state = (screen, tab, part) => ({ version: 2, screen, ...(tab ? { tab } : {}), part });
 
 test("every place of a note with page lines draws, and nothing is written to the note", async () => {
 	const places = placesOf(WIKI);

@@ -160,12 +160,12 @@ test("a shared list's options are drawn, and its answer is a position in the men
 	await v.settled();
 	assert.deepEqual(v.draft().where, [3, 1]);
 	// the openings are on the screens of their own: the booklet's on home, the module's on its screen
-	await v.view.setState({ version: 1, screen: "home" }, {});
+	await v.view.setState({ version: 2, screen: "home" }, {});
 	let text = v.view.contentEl.textContent;
 	assert.ok(text.includes("A made-up check-in for testing the Booklet plugin."), "the booklet's opening");
 	assert.ok(!text.includes("# Check-in"), "the heading that repeats the title is drawn once, as the title");
 	assert.equal(v.view.contentEl.querySelector(".booklet-screentitle").textContent, "Check-in");
-	await v.view.setState({ version: 1, screen: "module:day-check" }, {});
+	await v.view.setState({ version: 2, screen: "module:day-check" }, {});
 	text = v.view.contentEl.textContent;
 	assert.ok(text.includes("Five short questions about the day"), "the module's opening");
 	assert.ok(!/Not yet supported: the opening/.test(text));

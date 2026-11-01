@@ -48,7 +48,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
-	void view.setState(state ?? (screen ? { version: 1, screen } : {}), {});
+	void view.setState(state ?? (screen ? { version: 2, screen } : {}), {});
 	if (!drawLater) view.setViewData(text, true);
 	const el = view.contentEl;
 	const all = (sel) => [...el.querySelectorAll(sel)];

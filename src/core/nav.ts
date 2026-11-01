@@ -14,14 +14,8 @@ import { holdsSomething } from "./shape";
 
 export const HOME = "home";
 
-/**
- * The version written with a saved place that names a page: a later release can tell a place that came from this one (view state).
- * Version 1 (releases 0.6.0 and 0.7.0) had no page key; 2 (page trees) adds it. A place with no page key is still written as version 1,
- * so a note with no named page on show saves exactly what 0.6.0 did and an older device restores it. Places of either version are read
- * (placeFrom).
- */
+/** The version written with a saved place: a later release can tell a place that came from this one (view state). A place of any other version is not read (placeFrom). */
 export const PLACE_VERSION = 2;
-const PLACE_VERSION_1 = 1;
 
 /**
  * Where the reader is: the screen (`home`, `module:<id>` or `activity:<module id>/<activity id>`, the module id empty
@@ -56,29 +50,26 @@ export function isStep(from: Place | null, to: Place): boolean {
 
 /**
  * A place as the view saves it: `{ version, screen, tab, page, part }`, `tab` left out when there is none and `page` left out unless a
- * named page is on show (the page's id; `part` is then within that page, and the version is 2). With no page key, or with no `nav` to
- * find the page in, the version is 1 and `part` counts every part of the tab, exactly as release 0.6.0 saved it: a 0.16 note saves
- * what it always did.
+ * named page is on show (the page's id; `part` is then within that page). With no page key, or with no `nav` to find the page in,
+ * `part` counts every part of the tab.
  */
 export function placeState(p: Place, nav?: NavModel): { version: number; screen: string; tab?: string; page?: string; part: number } {
 	const base = { screen: p.screen, ...(p.tab ? { tab: p.tab } : {}) };
 	const a = nav && p.screen.startsWith("activity:") ? nav.byKey.get(p.screen.slice(9)) : undefined;
 	const tab = a ? tabShown(a, p.tab) : null;
 	const at = tab ? pageAtPart(tab, p.part) : null;
-	if (at?.page.named) return { version: PLACE_VERSION, ...base, page: at.page.id, part: at.part };
-	return { version: PLACE_VERSION_1, ...base, part: p.part };
+	return { version: PLACE_VERSION, ...base, ...(at?.page.named ? { page: at.page.id, part: at.part } : { part: p.part }) };
 }
 
 /**
- * A place read back from a saved view state: null when it is not one this or release 0.6.0 wrote (another version, or not a place). A
- * version 1 place has no page key and its `part` counts every part of the tab, as 0.6.0 read it; one saved by a device on 0.6.0 or 0.7.0
- * therefore opens where it was.
+ * A place read back from a saved view state: null when it is not one this release wrote (another version, or not a place), and the
+ * pane then opens the start screen.
  */
 export function placeFrom(state: unknown): Place | null {
 	if (!state || typeof state !== "object") return null;
 	const s = state as Record<string, unknown>;
 	const version = s["version"];
-	if ((version !== PLACE_VERSION_1 && version !== PLACE_VERSION) || typeof s["screen"] !== "string" || !s["screen"]) return null;
+	if (version !== PLACE_VERSION || typeof s["screen"] !== "string" || !s["screen"]) return null;
 	const part = s["part"];
 	const tab = s["tab"];
 	const page = s["page"];
@@ -86,7 +77,7 @@ export function placeFrom(state: unknown): Place | null {
 		screen: s["screen"],
 		tab: typeof tab === "string" && tab ? tab : null,
 		part: typeof part === "number" && Number.isInteger(part) && part >= 0 ? part : 0,
-		...(version === PLACE_VERSION && typeof page === "string" && page ? { page } : {}),
+		...(typeof page === "string" && page ? { page } : {}),
 	};
 }
 
@@ -729,7 +720,7 @@ export function resolvePlace(nav: NavModel, p: Place | null): Place {
 	const bar = barTabs(a);
 	const tab = bar.length ? (bar.find((t) => t.id === p.tab)?.id ?? (bar[0] as ActTab).id) : null;
 	const shown = tabShown(a, tab) as ActTab;
-	// a place that names a page (version 2) counts its part within that page; a page the note no longer has opens the tab's first page
+	// a place that names a page counts its part within that page; a page the note no longer has opens the tab's first page
 	if (p.page !== undefined) {
 		const pg = shown.tree.find((x) => x.named && x.id === p.page);
 		return { screen: p.screen, tab, part: pg ? pg.at + Math.min(Math.max(0, p.part), pg.parts.length - 1) : 0 };

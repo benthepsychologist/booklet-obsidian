@@ -454,8 +454,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.moving = true;
 		this.stepWanted = true;
-		const state: Record<string, unknown> = { ...this.getState(), ...placeState(p, this.nav) };
+		const placed = placeState(p, this.nav);
+		const state: Record<string, unknown> = { ...this.getState(), ...placed };
 		if (!p.tab) delete state["tab"];
+		// the place being left may have named a page; this one names none
+		if (!placed.page) delete state["page"];
 		void this.leaf
 			.setViewState({ type: VIEW_TYPE, state, active: true })
 			.catch(() => {

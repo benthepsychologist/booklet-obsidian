@@ -399,7 +399,7 @@ module.exports = function accessChecks(env) {
             await o.setScheme(scheme); await sleep(250); await frames(o);
             for (const [label, note, screen] of screens) {
               if (now !== note) { await (note === NOTE ? open : skKit.open)(o, note); now = note; }
-              await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
+              await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen, part: 0 }, active: true }); }, screen);
               await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 8000 });
               await quiet(o); await sleep(500);
               const f = await fit(o);

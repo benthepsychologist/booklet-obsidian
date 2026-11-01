@@ -1339,7 +1339,7 @@
     "drawn": "home",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -1351,7 +1351,7 @@
     "drawn": "module:day-check",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:day-check",
      "part": 0
     }
@@ -1363,7 +1363,7 @@
     "drawn": "activity:day-check/today",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:day-check/today",
      "part": 0
     }
@@ -1375,7 +1375,7 @@
     "drawn": "activity:day-check/week",
     "saved": {
      "file": "Check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:day-check/week",
      "part": 0
     }
@@ -1869,7 +1869,7 @@
     "drawn": "home",
     "saved": {
      "file": "Daily tracker.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -1881,7 +1881,7 @@
     "drawn": "activity:/evening-log",
     "saved": {
      "file": "Daily tracker.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/evening-log",
      "part": 0
     }
@@ -2225,7 +2225,7 @@
     "drawn": "home",
     "saved": {
      "file": "Evening check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -2237,7 +2237,7 @@
     "drawn": "activity:/evening",
     "saved": {
      "file": "Evening check-in.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/evening",
      "part": 0
     }
@@ -3499,7 +3499,7 @@
     "drawn": "home",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -3511,7 +3511,7 @@
     "drawn": "activity:/kinds",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/kinds",
      "part": 0
     }
@@ -3523,7 +3523,7 @@
     "drawn": "activity:/shared",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/shared",
      "part": 0
     }
@@ -3535,7 +3535,7 @@
     "drawn": "activity:/not-yet",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/not-yet",
      "part": 0
     }
@@ -3547,7 +3547,7 @@
     "drawn": "activity:/not-yet",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/not-yet",
      "part": 1
     }
@@ -3559,7 +3559,7 @@
     "drawn": "activity:/tally",
     "saved": {
      "file": "Every kind.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/tally",
      "part": 0
     }
@@ -4204,7 +4204,7 @@
     "drawn": "home",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -4216,7 +4216,7 @@
     "drawn": "module:walks",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:walks",
      "part": 0
     }
@@ -4228,7 +4228,7 @@
     "drawn": "activity:/warm-up",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/warm-up",
      "part": 0
     }
@@ -4240,7 +4240,7 @@
     "drawn": "activity:walks/walk-log",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:walks/walk-log",
      "part": 0
     }
@@ -4252,7 +4252,7 @@
     "drawn": "activity:walks/walk-review",
     "saved": {
      "file": "Kept records.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:walks/walk-review",
      "part": 0
     }
@@ -5396,7 +5396,7 @@
     "drawn": "home",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -5408,7 +5408,7 @@
     "drawn": "module:basics",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:basics",
      "tab": "practice",
      "part": 0
@@ -5421,7 +5421,7 @@
     "drawn": "module:basics",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:basics",
      "tab": "read",
      "part": 0
@@ -5434,7 +5434,7 @@
     "drawn": "module:journal",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "module:journal",
      "part": 0
     }
@@ -5446,7 +5446,7 @@
     "drawn": "activity:/warm-up",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/warm-up",
      "part": 0
     }
@@ -5458,7 +5458,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 0
     }
@@ -5470,7 +5470,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 1
     }
@@ -5482,7 +5482,7 @@
     "drawn": "activity:basics/lines",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/lines",
      "part": 2
     }
@@ -5494,7 +5494,7 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "boxes",
      "part": 0
@@ -5507,7 +5507,7 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "boxes",
      "part": 1
@@ -5520,7 +5520,7 @@
     "drawn": "activity:basics/shapes",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/shapes",
      "tab": "cylinders",
      "part": 0
@@ -5533,7 +5533,7 @@
     "drawn": "activity:basics/light",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:basics/light",
      "part": 0
     }
@@ -5571,7 +5571,7 @@
     "drawn": "activity:journal/today",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/today",
      "part": 0
     }
@@ -5583,7 +5583,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "hands",
      "part": 0
@@ -5596,7 +5596,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "cups",
      "part": 0
@@ -5609,7 +5609,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "trees",
      "part": 0
@@ -5622,7 +5622,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "faces",
      "part": 0
@@ -5635,7 +5635,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "shoes",
      "part": 0
@@ -5648,7 +5648,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "chairs",
      "part": 0
@@ -5661,7 +5661,7 @@
     "drawn": "activity:journal/studies",
     "saved": {
      "file": "Learning to sketch.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:journal/studies",
      "tab": "clouds",
      "part": 0
@@ -6834,7 +6834,7 @@
     "drawn": "home",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -6846,7 +6846,7 @@
     "drawn": "activity:/sources",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/sources",
      "part": 0
     }
@@ -6858,7 +6858,7 @@
     "drawn": "activity:/rows",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/rows",
      "part": 0
     }
@@ -6870,7 +6870,7 @@
     "drawn": "activity:/lesson",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/lesson",
      "part": 0
     }
@@ -6882,7 +6882,7 @@
     "drawn": "activity:/plain",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/plain",
      "part": 0
     }
@@ -6894,7 +6894,7 @@
     "drawn": "activity:/around",
     "saved": {
      "file": "Reading and steps.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/around",
      "part": 0
     }
@@ -7817,7 +7817,7 @@
     "drawn": "home",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -7829,7 +7829,7 @@
     "drawn": "activity:/marked",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/marked",
      "part": 0
     }
@@ -7841,7 +7841,7 @@
     "drawn": "activity:/grid-quiz",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/grid-quiz",
      "part": 0
     }
@@ -7853,7 +7853,7 @@
     "drawn": "activity:/each-quiz",
     "saved": {
      "file": "Study quiz.booklet.md",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/each-quiz",
      "part": 0
     }
@@ -8093,7 +8093,7 @@
     "drawn": "home",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -8105,7 +8105,7 @@
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "first",
      "part": 0
@@ -8118,7 +8118,7 @@
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "first",
      "part": 1
@@ -8131,7 +8131,7 @@
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "second-one",
      "part": 0
@@ -8144,7 +8144,7 @@
     "drawn": "activity:/t",
     "saved": {
      "file": "tabs-and-breaks (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/t",
      "tab": "third",
      "part": 0
@@ -8416,7 +8416,7 @@
     "drawn": "home",
     "saved": {
      "file": "odd-lines (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "home",
      "part": 0
     }
@@ -8428,7 +8428,7 @@
     "drawn": "activity:/o",
     "saved": {
      "file": "odd-lines (made up here)",
-     "version": 1,
+     "version": 2,
      "screen": "activity:/o",
      "part": 0
     }

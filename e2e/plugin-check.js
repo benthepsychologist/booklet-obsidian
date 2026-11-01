@@ -426,7 +426,7 @@ async function check5() {
 const START = { [EVERY]: "/kinds", [KEPT]: "/warm-up", [CHECKIN]: "day-check/today" };
 // the booklet view shows the screen of that activity (by the pane's own state, as Back and Forward do), and waits for it to be drawn
 async function goTo(o, key) {
-  await o.evaluate(async key => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen: "activity:" + key, part: 0 }, active: true }); }, key);
+  await o.evaluate(async key => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen: "activity:" + key, part: 0 }, active: true }); }, key);
   await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='activity:" + key + "']", { timeout: 8000 });
   await sleep(900);   // rendered markdown is async
 }

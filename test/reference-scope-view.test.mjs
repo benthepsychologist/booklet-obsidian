@@ -187,7 +187,7 @@ test("a scope's definitions are worked out once while a screen is drawn", async 
    set: (b) => { if (b) b.references = new Proxy(b.references, { get: (t, k) => { if (count.has(k)) passes++; const v = Reflect.get(t, k, t); return typeof v === "function" ? v.bind(t) : v; } }); book = b; },
   });
   seen.length = 0;
-  await p.view.setState({ version: 1, screen: "activity:two/b" }, {});
+  await p.view.setState({ version: 2, screen: "activity:two/b" }, {});
   await p.settled();
   // the booklet's title and module two's crumb, title and words: four fragments, two scopes
   assert.equal(seen.filter((md) => md.includes("[pic]: ")).length, 4);

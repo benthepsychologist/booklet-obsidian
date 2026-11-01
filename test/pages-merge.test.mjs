@@ -68,7 +68,7 @@ function store(one) {
 	if (one) m.set("booklet-steps:Note.booklet.md", JSON.stringify("one"));
 	return { loadLocalStorage: (k) => (m.has(k) ? JSON.parse(m.get(k)) : null), saveLocalStorage: (k, d) => (d === null ? m.delete(k) : m.set(k, JSON.stringify(d))), m };
 }
-const open = (part) => pane(LESSON, { state: { version: 1, screen: "activity:/a", part }, appMore: store(true) });
+const open = (part) => pane(LESSON, { state: { version: 2, screen: "activity:/a", part }, appMore: store(true) });
 const progress = (p) => (p.el.querySelector(".booklet-steps-progress")?.textContent ?? "").trim();
 const counter = (p) => p.pager().at;
 
@@ -111,7 +111,7 @@ test("one at a time: Back moves a step first; Back to the part before opens on i
 });
 
 test("without steps nothing about moving through the pages changes: Back on a later part goes to the part before", async () => {
-	const p = pane(LESSON, { state: { version: 1, screen: "activity:/a", part: 1 }, appMore: store(false) });
+	const p = pane(LESSON, { state: { version: 2, screen: "activity:/a", part: 1 }, appMore: store(false) });
 	await p.settled();
 	assert.equal(progress(p), "");
 	await p.pageBack();

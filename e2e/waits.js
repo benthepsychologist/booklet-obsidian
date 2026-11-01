@@ -48,7 +48,7 @@ const kit = (env, note) => {
   const shot = (o, name) => o.screenshot(path.join(SHOTS, name + ".png"));
   const sha = f => crypto.createHash("sha256").update(fs.readFileSync(f)).digest("hex");
   const goTo = async (o, screen) => {
-    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 1, screen, part: 0 }, active: true }); }, screen);
+    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen, part: 0 }, active: true }); }, screen);
     await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='" + screen + "']", { timeout: 8000 });
     await quiet(o);
   };

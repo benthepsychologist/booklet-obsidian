@@ -139,7 +139,7 @@ test("600 pages with two links each, and 1,200 activities each linking to the ne
 test("a page turn in the view on 600 cross-linked pages takes well under the bound", async () => {
 	let text = `${head()}> [!activity|a] A\n\nStart.\n`;
 	for (let i = 0; i < 600; i++) text += `\n> [!page|p${i}] Page ${i}\n\nSee [[#Page ${i + 1}]] and [[#Page ${i + 2}]].\n`;
-	const p = pane(text, { state: { version: 1, screen: "activity:/a", part: 300 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", part: 300 } });
 	await p.settled();
 	const t0 = performance.now();
 	await p.pageNext();
@@ -296,13 +296,13 @@ test("exactly one aria-current=page on a screen with a menu: the menu's; the tra
 	}
 	// with no menu (a tab of one named page) the trail keeps its mark: still one
 	const one = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n`;
-	const q = pane(one, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const q = pane(one, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await q.settled();
 	assert.equal(menu(q), null);
 	assert.equal(q.all("[aria-current='page']").length, 1);
 	q.close();
 	// a tab with no page line is drawn as in 0.6.0
-	const old = pane(`${head("0.16")}> [!activity|a] A\n\nWords.\n`, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const old = pane(`${head("0.16")}> [!activity|a] A\n\nWords.\n`, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await old.settled();
 	assert.equal(old.all("[aria-current='page']").length, 1);
 	old.close();
@@ -315,7 +315,7 @@ test("a page group's label keeps the page's own name with the count; a tab of no
 	assert.equal(p.el.querySelector(".booklet-pagebody").getAttribute("aria-label"), "The two axes, 1 of 2");
 	p.close();
 	const text = `${head("0.16")}> [!activity|a] A\n\nOne.\n\n***\n\nTwo.\n\n***\n\nThree.\n`;
-	const q = pane(text, { state: { version: 1, screen: "activity:/a", part: 1 } });
+	const q = pane(text, { state: { version: 2, screen: "activity:/a", part: 1 } });
 	await q.settled();
 	assert.equal(q.el.querySelector(".booklet-pagebody").getAttribute("aria-label"), "Page 2 of 3");
 	q.close();
@@ -351,7 +351,7 @@ test("the title search needs every word: a title with one of two words is not a 
 
 test("the menu is not drawn for a tab of one page", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n`;
-	const p = pane(text, { state: { version: 1, screen: "activity:/a", part: 0 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", part: 0 } });
 	await p.settled();
 	assert.equal(menu(p), null);
 	assert.equal(p.all(".booklet-pagetitle").length, 1, "its title is still drawn");
@@ -374,7 +374,7 @@ test("the menu's open state is kept by the toggle event, and dropped when a diff
 	p.close();
 });
 
-test("moving off a named page leaves no page in the saved place: it reads as version 1 and nothing more", async () => {
+test("moving off a named page leaves no page in the saved place: it has no page key and nothing more", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Only\n\nWords.\n\n> [!activity|b] B\n\nPlain words.\n`;
 	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "p", part: 0 } });
 	await p.settled();
@@ -384,7 +384,7 @@ test("moving off a named page leaves no page in the saved place: it reads as ver
 	assert.equal(p.screen, "activity:/b");
 	const s = p.view.getState();
 	assert.equal(s.page, undefined);
-	assert.equal(s.version, 1);
+	assert.equal(s.version, 2);
 	assert.equal(sha(p.disk.text), sha(text));
 	p.close();
 });
