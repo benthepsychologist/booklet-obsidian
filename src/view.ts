@@ -210,7 +210,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * when it comes back into use on a later day (see onload).
 	 */
 	private drawnAt = new Date();
-	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note (design 4.1) ---- */
+	/* ---- where the reader is: the view's state, which Obsidian saves with the pane and never the note ---- */
 	private nav: NavModel | null = null;
 	private place: Place | null = null;
 	/** A place handed over by setState before the note was drawn (a restored pane, Back and Forward). */
@@ -303,7 +303,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/**
 	 * Is anything typed, added or written still on its way? Obsidian turns a reload into a quit when a quit hook has
-	 * work (1.5.8 closes the window once the work is done), so the plugin offers a task only when there is some.
+	 * work, and closes the window once that work is done, so the plugin offers a task only when there is some.
 	 */
 	hasUnsaved(): boolean {
 		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key));
@@ -372,7 +372,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		super.setEphemeralState(state);
 		const o = state && typeof state === "object" ? (state as Record<string, unknown>) : {};
 		// A link from another note, `[[Note.booklet#Words]]`: Obsidian opens the note in the pane and hands the view the `#Words`
-		// part as `subpath` (Obsidian's code, not its API). A block link (`#^id`) does nothing here (design 4.6).
+		// part as `subpath` (Obsidian's code, not its API). A block link (`#^id`) does nothing here.
 		const sub = o["subpath"];
 		if (typeof sub === "string" && sub.startsWith("#") && !sub.startsWith("#^") && sub.length > 1) {
 			this.followSubpath(sub.slice(1));
@@ -386,8 +386,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * A link from outside belongs to no module, so the whole file is searched and the first match in file order opens (design
-	 * decision 9, call c). Typed words are written first, as before every other move. A note not drawn yet takes the place when it is.
+	 * A link from outside belongs to no module, so the whole file is searched and the first match in file order opens.
+	 * Typed words are written first, as before every other move. A note not drawn yet takes the place when it is.
 	 */
 	private followSubpath(words: string): void {
 		if (!this.nav) {
@@ -396,8 +396,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		const hit = findHeading(this.nav, words, null);
 		if (!hit) return;
-		// Obsidian hands this over while it is still opening the note in the pane, and drops a second move asked of the pane then
-		// (design 4.2), so the place is taken here, not through the pane: Obsidian's own opening is the step the reader's Back undoes.
+		// Obsidian hands this over while it is still opening the note in the pane, and drops a second move asked of the pane then,
+		// so the place is taken here, not through the pane: Obsidian's own opening is the step the reader's Back undoes.
 		const place = resolvePlace(this.nav, this.keepTabFor(hit, this.place));
 		this.flushAll();
 		if (samePlace(this.place, place)) {
@@ -425,7 +425,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * A move (design 3.4). A tab is chosen in place; another screen or another part goes through the pane (`setViewState`), so
+	 * A move. A tab is chosen in place; another screen or another part goes through the pane (`setViewState`), so
 	 * that Obsidian records the step. Obsidian drops a second move asked for while one is under way, which is right for a
 	 * double press on Next (one page turns) and wrong for a tab chosen during a turn: that one waits for the turn to land
 	 * and is made then, so the last move the reader asked for is the one that lands.
@@ -587,7 +587,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (clear || !this.book) {
 			this.text = data;
 			this.data = data;
-			// a note newly loaded into the view opens where the pane last was in it, else where the booklet opens (design 4.4)
+			// a note newly loaded into the view opens where the pane last was in it, else where the booklet opens
 			if (clear) {
 				this.place = null;
 				this.drawnPlace = null;
@@ -911,8 +911,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	/**
-	 * Words held for a field on another screen than the one drawn are added too: 0.5.0 drew every activity at once, so a reload added
-	 * every held word, and a reload that shortly follows a move reopens on the screen before it. Each owning activity's questions are
+	 * Words held for a field on another screen than the one drawn are added too: only the fields of the screen drawn exist, and a reload
+	 * that shortly follows a move reopens on the screen before it. Each owning activity's questions are
 	 * drawn once, off the page (nothing of Markdown, nothing kept of what they register), so that the words are added by the very
 	 * closure the field's own commit runs: the same write, the same bytes. The drawing then keeps only the fields on the screen.
 	 */
@@ -1208,7 +1208,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/**
 	 * Is the activity's finish (Finalize, its notes and its kept entries) drawn under the page on show? Only where the tab on show
-	 * holds a question of the activity, or the opening above every tab does (design decision 8, call H): a reading tab, or a
+	 * holds a question of the activity, or the opening above every tab does: a reading tab, or a
 	 * tab of queries, has nothing to finalize. Applies to 0.16 files too.
 	 */
 	private showsFinish(na: NavAct, tab: ActTab): boolean {

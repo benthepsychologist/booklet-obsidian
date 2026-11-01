@@ -34,8 +34,8 @@ export interface QueryUi {
 
 /**
  * Words with nothing in them Markdown reads: letters and digits with single spaces between, starting with a letter (so not a list
- * mark or a number). Obsidian's renderer returns exactly these words, so they are set as text: a table of three thousand kept days
- * with a choice and a scale among its columns was spending most of its time rendering the same few option words thousands of times.
+ * mark or a number). Obsidian's renderer returns exactly these words, so they are set as text: a table of thousands of kept days
+ * with a choice and a scale among its columns would otherwise render the same few option words thousands of times.
  */
 const PLAIN_WORDS = /^\p{L}[\p{L}\p{N}]*(?: [\p{L}\p{N}]+)*$/u;
 

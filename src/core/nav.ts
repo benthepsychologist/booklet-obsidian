@@ -26,7 +26,7 @@ const PLACE_VERSION_1 = 1;
 /**
  * Where the reader is: the screen (`home`, `module:<id>` or `activity:<module id>/<activity id>`, the module id empty
  * for a bare activity), the tab on show (a tab's id, null where the screen has no tab bar), and the part of the tab on
- * show, counted from 0 (a stretch between page breaks: SPEC's "page", the pages round's working word). With a tree of named pages, `part`
+ * show, counted from 0 (a stretch between page breaks: SPEC's "page"). With a tree of named pages, `part`
  * counts every part of the tab in reading order (the tab's `pages`); a place read from a saved view state may instead carry `page`, the
  * id of a named page, and then `part` counts within that page (resolvePlace turns it into the first kind; a drawn place never has `page`).
  */
@@ -45,7 +45,7 @@ export const homePlace = (): Place => ({ screen: HOME, tab: null, part: 0 });
 export const samePlace = (a: Place | null, b: Place | null): boolean => !!a && !!b && a.screen === b.screen && a.tab === b.tab && a.part === b.part;
 
 /**
- * Is a move from one place to the other a step in Obsidian's Back and Forward (design 3.4)? Another screen is, and so is
+ * Is a move from one place to the other a step in Obsidian's Back and Forward? Another screen is, and so is
  * another part of the same tab; choosing a tab never is, even when the tab opens on another part than the one left.
  * Both places are resolved ones (resolvePlace).
  */
@@ -236,7 +236,7 @@ function idFromName(name: string, n: number, prefix: string): string {
 /** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
 export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
 
-/** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing (the pages round, 2.5). */
+/** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing */
 export const pageIdOf = (title: string, n: number): string => idFromName(title, n, "page");
 
 /** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
@@ -396,7 +396,7 @@ function readsOf(markdown: string): number {
 
 /* ---- page trees (SPEC 0.17 section 3) ---- */
 
-/** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page (the pages round, 2.3). */
+/** Does a run of segments hold anything but blank lines, comments and page breaks? Only then are the words before a tab's first page line a page. */
 function holdsWords(segs: readonly Segment[]): boolean {
 	return segs.some((s) => s.type !== "prose" || pagesOf([{ ...s, markdown: s.markdown.replace(COMMENT, "") }]).some((pg) => pg.length));
 }
@@ -408,7 +408,7 @@ function pageBlurb(parts: readonly Segment[][]): string {
 }
 
 /**
- * The tree of one tab's pages (the pages round's shape (b)). The words before the first page line are the first page, named `first`;
+ * The tree of one tab's pages. The words before the first page line are the first page, named `first`;
  * with none, the first named page is the first. Pages with no `parent:` stand side by side after it in the file's order; `parent:`
  * names a page of the same tab by its id and puts the page under it. A parent that is not a page of the tab (another tab's, or none),
  * a page that is its own ancestor and a page under itself stand at the top, said in `problems`; of two pages with one id the second is
@@ -653,7 +653,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const tabs: ActTab[] = raw.length
 			? raw.map((r, n) => tabOf(ids[n] as string, r.title, r.segs, { title: r.title }, problems))
 			: [tabOf("", "", opening, { title: t.title }, problems)];
-		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line (the pages round, 2.7)
+		// the card's blurb: the first paragraph under the activity's line, and that may stand under its first page line
 		const first = a.segments.find((s) => s.type !== "page");
 		const reads = a.segments.reduce((n, s) => n + (s.type === "prose" ? readsOf(s.markdown) : 0), 0) + foldedGroups(a.segments);
 		const na: NavAct = {
@@ -811,16 +811,16 @@ export interface Pager {
 	/** The part on show within its page, counted from 0, and how many parts the page has. */
 	at: number;
 	of: number;
-	/** Does the tab hold a page line? Then the counter reads "2 of 3" (pages round, call D (b)); else "Page 2 of 3" as 0.6.0 did. */
+	/** Does the tab hold a page line? Then the counter reads "2 of 3"; else "Page 2 of 3". */
 	pageLines: boolean;
 	/** The page on show. */
 	page: TreePage;
 }
 
 /**
- * Back and Next (design/pages/proposal.md section 3). Back on a later part goes to the part before; on a page's first part it goes up
- * to the page above, else to the top page before it (on its first part), and from the tab's first page it leaves the activity as
- * 0.6.0 did. Next on a part before the last goes to the next part; on a page's last part it goes to the next page in reading order,
+ * Back and Next. Back on a later part goes to the part before; on a page's first part it goes up
+ * to the page above, else to the top page before it (on its first part), and from the tab's first page it leaves the activity.
+ * Next on a part before the last goes to the next part; on a page's last part it goes to the next page in reading order,
  * and from the tab's last page to the next activity. Back and Next never go to another tab. `place` is a resolved one.
  */
 export function pagerOf(na: NavAct, tab: ActTab, place: Place): Pager {
@@ -1063,7 +1063,7 @@ function proseHeadings(markdown: string): string[] {
 	return out;
 }
 
-/* ---- the tree's own surfaces: the menu's search, and "Mentioned on" (page trees; design/pages/proposal.md section 3, decision 6 calls F and K) ---- */
+/* ---- the tree's own surfaces: the menu's search, and "Mentioned on" ---- */
 
 /** The words of a page as plain text, for the search: its prose and the prompts of its questions. */
 function pageWords(p: TreePage): string {

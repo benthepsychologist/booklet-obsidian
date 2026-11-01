@@ -1,9 +1,8 @@
 /*
  * Small edits to a record's JSON text, made where the change is and nowhere else. A record block holds
  * other answers and other entries the reader did not change, and those come back exactly as written:
- * no respacing, no re-ordering, no rounding (SPEC section 8; Ben: "in general we don't want it
- * normalizing or standardizing"). So a change is made to the one member or the one item it is about,
- * in the layout the block already uses. Plain TypeScript: nothing here imports Obsidian.
+ * no respacing, no re-ordering, no rounding, no normalizing or standardizing (SPEC section 8). So a change is made to the one member
+ * or the one item it is about, in the layout the block already uses. Plain TypeScript: nothing here imports Obsidian.
  */
 
 export interface JsonSpan {

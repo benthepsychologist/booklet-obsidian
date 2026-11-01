@@ -39,7 +39,7 @@
 	margin-top: var(--size-4-4);
 }
 
-/* a named page's title, at the head of each of its parts (page trees: ahead of the format); a heading a move lands on */
+/* a named page's title, at the head of each of its parts; a heading a move lands on */
 .booklet-pagetitle {
 	font-size: var(--h3-size);
 	font-weight: var(--h3-weight);
@@ -1767,7 +1767,7 @@
 	padding: 0 var(--size-2-3);
 }
 
-/* the menu of a tab's tree and its search; "Mentioned on" (page trees: ahead of the format) */
+/* the menu of a tab's tree and its search; "Mentioned on" */
 .booklet-pagemenu {
 	margin: 0 0 var(--size-4-4);
 	border: var(--border-width) solid var(--background-modifier-border);

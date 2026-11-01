@@ -1,7 +1,6 @@
 /*
- * The surfaces of a tab of pages that the tree adds (page trees; design/pages/proposal.md section 3, decision 6 calls F and K): the menu
- * of the tab's tree with its search ("Pages in this tab"), and the "Mentioned on" list. Drawn with Obsidian's own parts (a disclosure,
- * its search box, links); the plugin's CSS only lays them out. The view decides what a press does (`go`); this file only draws.
+ * The surfaces of a tab of pages that the tree adds: the menu of the tab's tree with its search ("Pages in this tab"), and the
+ * "Mentioned on" list. Drawn with Obsidian's own parts (a disclosure, its search box, links); the plugin's CSS only lays them out. The view decides what a press does (`go`); this file only draws.
  * Nothing here is ever written to the note: the menu's open state and its search words are the pane's, in memory.
  */
 import { searchPages, searchWords, type ActTab, type Mention, type Place, type TreePage } from "./core";

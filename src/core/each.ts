@@ -100,7 +100,7 @@ export function shownPairs(src: Question, record: Record<string, unknown> | unde
 }
 
 /**
- * Whether a draft or an entry holds any answer, as the proposal's rule for a pick taken back has it: a question asked
+ * Whether a draft or an entry holds any answer. A question asked
  * for each pick counts only for the pairs whose pick its source holds in the same record, so a draft whose only
  * answers are pairs for picks taken back counts as empty. An answer of the wrong shape counts as an answer.
  */

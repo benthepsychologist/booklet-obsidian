@@ -23,7 +23,7 @@ import { shapeIssue } from "./shape";
 import { normWords, senseWord, type Regions } from "./widgets";
 import { todaysEntry, type DayRule } from "./write";
 
-/** How many earlier words a question offers at each place when its line does not say (Ben: "keep the limit of 12"). */
+/** How many earlier words a question offers at each place when its line does not say. */
 export const EARLIER_DEFAULT = 12;
 
 /** How many earlier words a question offers at each place: its `earlier:<n>`; else 12, and none for a lines question. */

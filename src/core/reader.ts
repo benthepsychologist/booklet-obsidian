@@ -624,8 +624,7 @@ function readEach(uses: readonly EachUse[], problems: string[]): void {
 
 /**
  * In an activity with tab lines, what comes before the first one is the activity's opening, drawn above every tab, so it cannot be a
- * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in (page trees; the
- * pages round, 2.6).
+ * page of any one tab: a page line there is said and ignored, and what follows it is drawn as the opening it is in.
  */
 function dropOpeningPages(act: Activity, problems: string[]): void {
 	const firstTab = act.segments.findIndex((s) => s.type === "tab");
@@ -1001,7 +1000,7 @@ export function parseBooklet(text: string): Booklet {
 					problems.push(`${where}: the page id "${id}" is not letters, digits and dashes, so the page's id is made from its title.`);
 					id = null;
 				}
-				// a page is never folded: the marker means nothing on a page line (page trees; the pages round, 2.1)
+				// a page is never folded: the marker means nothing on a page line
 				if (m[3]) problems.push(`${where}: a page is never folded, so the \`${m[3]}\` after its bracket was ignored.`);
 				const k = bodyEnd(lines, i);
 				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
