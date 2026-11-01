@@ -30,25 +30,33 @@ test("words typed without a pause are written every 700 ms, so a hard stop loses
 		typeInto(t, "k".repeat(n));
 		typedAt.push(Date.now());
 		await sleep(120);
-		// at any moment, what the note holds is everything typed more than 700 ms (and a little for the write) ago
-		const age = Date.now() - 1000;
+		// at any moment, what the note holds is everything typed more than 700 ms (and some time for the write) ago
+		const age = Date.now() - 1300;
 		const mustHold = typedAt.filter((x) => x <= age).length;
 		const held = (v.answers().thoughts ?? "").length;
-		assert.ok(held >= mustHold, `after ${Date.now() - start} ms the note holds ${held} of the ${typedAt.length} characters; the ${mustHold} typed over a second ago must be there`);
+		assert.ok(held >= mustHold, `after ${Date.now() - start} ms the note holds ${held} of the ${typedAt.length} characters; the ${mustHold} typed over 1.3 s ago must be there`);
 	}
 	assert.ok(v.disk.writes >= 3, `${v.disk.writes} writes in 3 s of typing`);
 	v.close();
 });
 
-test("a pause of 700 ms from the first key still writes once, and the reader's later keys start a new wait", async () => {
+test("a key typed while the wait runs does not move its end, and the first key after the write starts a new wait", async () => {
 	const v = open();
 	const t = v.field();
 	t.focus();
-	typeInto(t, "first");
+	typeInto(t, "a");
 	assert.equal(v.disk.writes, 0, "nothing is written before the wait is up");
-	await until(() => v.answers().thoughts === "first", "the first words written");
-	typeInto(t, "first second");
-	await until(() => v.answers().thoughts === "first second", "the next words written");
+	await sleep(300);
+	typeInto(t, "ab");
+	await sleep(500);
+	// 800 ms from the first key: the wait that began at it has ended, though a key came at 300 ms
+	assert.equal(v.disk.writes, 1, "one write at 700 ms from the first key");
+	assert.equal(v.answers().thoughts, "ab");
+	typeInto(t, "abc");
+	await sleep(400);
+	assert.equal(v.disk.writes, 1, "the key after the write began a new wait of its own, not yet up");
+	await until(() => v.answers().thoughts === "abc", "the next words written");
+	assert.equal(v.disk.writes, 2);
 	v.close();
 });
 
