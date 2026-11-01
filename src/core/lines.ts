@@ -144,18 +144,26 @@ export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
  * ignored. `where` begins the problem ("Line 12"). A kind outside KIND_SETTINGS gives nothing here.
  */
 export function settingProblems(kind: string, w: Words, where: string): string[] {
+	return ignoredSettings(kind, w).map((s) => `${where}: ${s.why}, so it was ignored.`);
+}
+
+/**
+ * The same, with each ignored setting as its name (no colon) and the clause that says why ("a text line takes no `hidden` setting"), so
+ * that the notice can list it beside the line it stands on. Each is taken off the line.
+ */
+export function ignoredSettings(kind: string, w: Words): { name: string; why: string }[] {
 	const allowed = Object.prototype.hasOwnProperty.call(KIND_SETTINGS, kind) ? KIND_SETTINGS[kind] : undefined;
 	if (!allowed) return [];
-	const out: string[] = [];
+	const out: { name: string; why: string }[] = [];
 	const a = /^[aeiou]/.test(kind) ? "an" : "a";
 	for (const key of Object.keys(w.set)) {
 		if (allowed.includes(key + ":")) continue;
-		out.push(`${where}: ${a} ${kind} line takes no \`${key}:\` setting, so it was ignored.`);
+		out.push({ name: key, why: `${a} ${kind} line takes no \`${key}:\` setting` });
 		delete w.set[key];
 	}
 	for (const f of [...w.flags]) {
 		if (allowed.includes(f)) continue;
-		out.push(`${where}: ${a} ${kind} line takes no \`${f}\` setting, so it was ignored.`);
+		out.push({ name: f, why: `${a} ${kind} line takes no \`${f}\` setting` });
 		w.flags.delete(f);
 	}
 	return out;

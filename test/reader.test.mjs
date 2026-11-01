@@ -5,39 +5,42 @@ import { core, corpusDirs, corpusFiles, norm, read } from "./helpers.mjs";
 
 const fm = (marker) => `---\n${marker}\nid: test/r\ntitle: R\nlang: en\n---\n`;
 
-test("the marker: none, or not 0.x, is refused; another 0.x opens with the notice first; unquoted is read as text", () => {
+test("the marker: none, or not 0.x, is refused; 0.17 says nothing; another 0.x opens as it is with the notice; unquoted is read as text", () => {
 	const body = "\n> [!activity|a] A\n\n> [!text|t] T\n";
 	assert.equal(core.parseBooklet(`---\ntitle: R\n---\n${body}`).ok, false);
 	assert.equal(core.parseBooklet(body).ok, false);
-	for (const m of ['booklet: "1.0"', "booklet: 2", "booklet: words", 'booklet: "0.16.1"'])
+	for (const m of ['booklet: "1.0"', "booklet: 2", "booklet: words", 'booklet: "0.17.1"'])
 		assert.equal(core.parseBooklet(fm(m) + body).ok, false, m);
-	assert.equal(core.FORMAT_VERSION, "0.16");
-	const old = core.parseBooklet(fm('booklet: "0.9"') + body);
-	assert.equal(old.ok, true);
-	assert.match(old.problems[0], /^This file says booklet: 0\.9\. This view reads format 0\.16/);
-	// a note of the format before this one opens as it is, with the notice first among its problems (SPEC section 2)
-	for (const m of ['booklet: "0.15"', "booklet: 0.15", "booklet: '0.15'"]) {
+	assert.equal(core.FORMAT_VERSION, "0.17");
+	// the current format opens with no notice, however the marker is written
+	for (const m of ['booklet: "0.17"', "booklet: 0.17", "booklet: '0.17'"]) {
+		const now = core.parseBooklet(fm(m) + body);
+		assert.equal(now.ok, true, m);
+		assert.deepEqual(now.problems, [], m);
+		assert.deepEqual(now.unread, [], m);
+		assert.equal(core.openingNotice(now, "0.11.0"), null, `${m}: no notice`);
+	}
+	// an earlier 0.x opens as it is, and the notice is the spec's sentence (SPEC section 2), first
+	for (const m of ['booklet: "0.16"', "booklet: 0.16", "booklet: '0.16'", 'booklet: "0.15"', 'booklet: "0.9"']) {
 		const prev = core.parseBooklet(fm(m) + body);
+		const v = m.replace(/\D*(0\.\d+)\D*/, "$1");
 		assert.equal(prev.ok, true, m);
-		assert.equal(prev.problems[0], "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw.", m);
+		assert.equal(core.openingNotice(prev, "0.11.0")?.paragraphs[0], `This file says booklet: ${v}. This view reads format 0.17 and has opened it as it is; some of it may not draw.`, m);
+		assert.equal(core.openingNotice(prev, "0.11.0")?.paragraphs.some((x) => /newer/.test(x)), false, `${m}: an earlier marker is not newer`);
 		assert.equal(prev.activities[0].segments.filter((s) => s.type === "question").length, 1, `${m}: its question is read`);
 	}
-	// a later 0.x opens the same way
-	assert.match(core.parseBooklet(fm('booklet: "0.18"') + body).problems[0], /^This file says booklet: 0\.18\. This view reads format 0\.16 and has opened it as it is/);
-	// 0.17 is read for its page lines, so the marker alone says nothing; the note comes when the file holds a kind or a setting this view does not read
-	assert.deepEqual(core.parseBooklet(fm('booklet: "0.17"') + body).problems, []);
-	const odd = core.parseBooklet(fm('booklet: "0.17"') + body + "\n> [!bars|b] Bars\n");
-	assert.match(odd.problems[0], /^This file says booklet: 0\.17\. This view reads format 0\.16 and the page lines of 0\.17, and has opened the rest as it is/);
-	assert.ok(odd.problems.some((p) => /"bars" is not a kind this format defines/.test(p)), "the line itself is listed");
-	const setting = core.parseBooklet(fm('booklet: "0.17"') + body.replace("[!text|t]", "[!text|t shiny:1]"));
-	assert.match(setting.problems[0] ?? "", /^This file says booklet: 0\.17\./);
-	assert.equal(core.parseBooklet(fm("booklet: 0.16") + body).problems.length, 0);
-	assert.equal(core.parseBooklet(fm("booklet: '0.16'") + body).problems.length, 0);
+	// a later 0.x opens the same way, and says the format is newer
+	const later = core.openingNotice(core.parseBooklet(fm('booklet: "0.18"') + body), "0.11.0");
+	assert.equal(later?.paragraphs[0], "This file says booklet: 0.18. This view reads format 0.17 and has opened it as it is; some of it may not draw.");
+	assert.match(later?.paragraphs[1] ?? "", /newer than the format this view reads/);
 	assert.equal(core.parseBooklet(fm('booklet: "0.10"') + body).ok, true, "0.10 is a 0.x version, not 0.1");
+	assert.equal(core.markerAgainstFormat("0.10"), "earlier", "0.10 is earlier than 0.17, and 0.9 earlier than 0.10");
+	assert.equal(core.markerAgainstFormat("0.100"), "later", "0.100 is later than 0.17");
+	assert.equal(core.markerAgainstFormat("1.0"), null);
 });
 
 test("activities, modules and scopes; question kinds with their options, replies and anchors", () => {
-	const text = `${fm('booklet: "0.16"')}
+	const text = `${fm('booklet: "0.17"')}
 > [!activity|bare] Bare one
 > A status line, drawn nowhere else
 
@@ -92,7 +95,7 @@ Opening prose of M, not drawn.
 });
 
 test("the common kinds are questions; every other kind is recorded, with its title, as not yet supported; reading callouts stay prose", () => {
-	const text = `${fm('booklet: "0.16"')}
+	const text = `${fm('booklet: "0.17"')}
 > [!activity|a] A
 
 > [!multi|m open] Pick any
@@ -153,20 +156,20 @@ from: a
 	assert.ok(!un.includes("widget") && !un.includes("menu-list"), un.join(", "));
 	assert.ok(segs.some((s) => s.type === "prose" && s.markdown.startsWith("> [!tip] A tip")));
 	assert.ok(segs.some((s) => s.type === "tab" && s.title === "A tab"));
-	assert.ok(b.problems.some((p) => /"mystery" is not a kind/.test(p)));
+	assert.ok(b.unread.some((u) => /"mystery" is not a kind/.test(u.why)), "the unknown kind is listed with its line");
 	assert.ok(!segs.some((s) => s.type === "prose" && /- \[ \] One/.test(s.markdown)), "a multi's options are its own, not prose");
 	assert.deepEqual([...core.COMMON_KINDS], ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix"]);
 });
 
 test("repeat and daily: daily needs repeat; a repeating activity with no id is said", () => {
-	const head = fm('booklet: "0.16"');
+	const head = fm('booklet: "0.17"');
 	const b = core.parseBooklet(`${head}\n> [!activity|log repeat daily] Log\n\n> [!text|q] Q\n\n> [!activity|other daily] Other\n\n> [!text|r] R\n`);
 	assert.deepEqual(b.activities.map((a) => [a.id, a.repeat, a.daily]), [["log", true, true], ["other", false, false]]);
 	assert.ok(b.problems.some((p) => /`daily` needs `repeat`/.test(p)), b.problems.join("; "));
 });
 
 test("a question inside a group is a question of its activity, between the group's opening and closing; the group's own lines are not drawn as prose", () => {
-	const b = core.parseBooklet(`${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!group] A group\n> > [!text|inside] Inside\n\n> [!text|outside] Outside\n`);
+	const b = core.parseBooklet(`${fm('booklet: "0.17"')}\n> [!activity|a] A\n\n> [!group] A group\n> > [!text|inside] Inside\n\n> [!text|outside] Outside\n`);
 	const segs = b.activities[0].segments;
 	assert.deepEqual(segs.filter((s) => s.type === "question").map((q) => q.id), ["inside", "outside"]);
 	assert.deepEqual(norm(segs.map((s) => s.type)), ["callout", "question", "callout-end", "question"]);
@@ -175,7 +178,7 @@ test("a question inside a group is a question of its activity, between the group
 });
 
 test("refused: a module opened and not closed, closed and not opened, overlapping; an id used twice in a module", () => {
-	const head = fm('booklet: "0.16"');
+	const head = fm('booklet: "0.17"');
 	assert.equal(core.parseBooklet(`${head}\n> [!module|m] M\n\n> [!activity|a] A\n`).ok, false);
 	assert.equal(core.parseBooklet(`${head}\n> [!activity|a] A\n\n> [!module|m end] End\n`).ok, false);
 	assert.equal(core.parseBooklet(`${head}\n> [!module|m] M\n\n> [!module|n] N\n\n> [!module|n end] E\n\n> [!module|m end] E\n`).ok, false);
@@ -186,7 +189,7 @@ test("refused: a module opened and not closed, closed and not opened, overlappin
 });
 
 test("records: blocks for one scope merge in file order, the later wins; a records line names its module", () => {
-	const text = `${fm('booklet: "0.16"')}
+	const text = `${fm('booklet: "0.17"')}
 > [!activity|a] A
 
 > [!module|m] M
@@ -232,14 +235,14 @@ test("the reader never throws on the examples, the kit starters or the test vaul
 });
 
 test("designText leaves out exactly the records region", () => {
-	const t = `${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!text|q] Q\n`;
+	const t = `${fm('booklet: "0.17"')}\n> [!activity|a] A\n\n> [!text|q] Q\n`;
 	const w = core.setAnswer(t, "", "q", "x");
 	assert.equal(core.designText(w), t + "\n");
 	assert.equal(core.designText(core.setAnswer(w, "", "q", "y")), core.designText(w));
 });
 
 test("the design key ignores the records region and the blank line a new region brings, so a first answer draws nothing again", () => {
-	const t = `${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!text|q] Q\n`;
+	const t = `${fm('booklet: "0.17"')}\n> [!activity|a] A\n\n> [!text|q] Q\n`;
 	for (const body of [t, t.replace(/\n$/, ""), `${t}\n\n  \n`]) {
 		const w = core.setAnswer(body, "", "q", "x");
 		assert.notEqual(w, body);
@@ -252,7 +255,7 @@ test("the design key ignores the records region and the blank line a new region 
 const WIDGET = (engine, extra = "") => `\`\`\`booklet widget\n{ "engine": "${engine}"${extra} }\n\`\`\``;
 
 test("widgets: a widget line embeds its block, found in its own module first, then among the shared ones, never in another module's", () => {
-	const text = `${fm('booklet: "0.16"')}
+	const text = `${fm('booklet: "0.17"')}
 > [!activity|bare] Bare
 
 > [!widget|sees-shared] Sees the shared one
@@ -320,7 +323,7 @@ ${WIDGET("grid-select")}
 });
 
 test("widgets: a block that is not JSON, or not an object, is said and read as missing", () => {
-	const text = `${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!widget|w] W\n> ![[#^bad]]\n\n\`\`\`booklet widget\n{ not json\n\`\`\`\n^bad\n\n> [!widget|v] V\n> ![[#^list]]\n\n\`\`\`booklet widget\n[1, 2]\n\`\`\`\n^list\n`;
+	const text = `${fm('booklet: "0.17"')}\n> [!activity|a] A\n\n> [!widget|w] W\n> ![[#^bad]]\n\n\`\`\`booklet widget\n{ not json\n\`\`\`\n^bad\n\n> [!widget|v] V\n> ![[#^list]]\n\n\`\`\`booklet widget\n[1, 2]\n\`\`\`\n^list\n`;
 	const b = core.parseBooklet(text);
 	assert.ok(b.ok);
 	assert.deepEqual(b.activities[0].segments.filter((s) => s.type === "question").map((s) => s.widget), [null, null]);
@@ -329,7 +332,7 @@ test("widgets: a block that is not JSON, or not an object, is said and read as m
 });
 
 test("shared menus: own options win; a menu is found in its own module, then among the shared; a missing one is said and not drawn", () => {
-	const text = `${fm('booklet: "0.16"')}
+	const text = `${fm('booklet: "0.17"')}
 > [!menu|colours]
 - Red
 - [ ] Blue
@@ -393,14 +396,14 @@ test("shared menus: own options win; a menu is found in its own module, then amo
 	assert.ok(b.problems.some((p) => /"nowhere" takes its options from the menu "sizes", which the activities outside every module cannot see/.test(p)), b.problems.join("; "));
 	assert.ok(b.problems.some((p) => /"cannot" takes its options from the menu "sizes", which the module "n" cannot see/.test(p)), b.problems.join("; "));
 	// an id used twice among the shared menus is refused; a module's menu may share a shared one's id
-	assert.equal(core.parseBooklet(`${fm('booklet: "0.16"')}\n> [!menu|x]\n- A\n\n> [!activity|a] A\n\n> [!data] Data\n\n> [!menu|x]\n- B\n`).ok, false);
+	assert.equal(core.parseBooklet(`${fm('booklet: "0.17"')}\n> [!menu|x]\n- A\n\n> [!activity|a] A\n\n> [!data] Data\n\n> [!menu|x]\n- B\n`).ok, false);
 	// a menu outside every fence is not in the bare activities' id scope
-	assert.equal(core.parseBooklet(`${fm('booklet: "0.16"')}\n> [!menu|a]\n- A\n\n> [!activity|a] A\n`).ok, true);
+	assert.equal(core.parseBooklet(`${fm('booklet: "0.17"')}\n> [!menu|a]\n- A\n\n> [!activity|a] A\n`).ok, true);
 });
 
 test("openings: the booklet's before the first module or activity line, a module's before its first activity; a repeated title drawn once", () => {
 	const text = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/o
 title: The *Booklet*
 ---
@@ -452,13 +455,13 @@ Text between modules, drawn nowhere.
 	]);
 	assert.ok(!JSON.stringify(b).includes("drawn nowhere"));
 	// a file with no module and no activity line is one activity: it has no opening
-	assert.deepEqual(core.parseBooklet(`${fm('booklet: "0.16"')}\nJust prose.\n`).openings, []);
+	assert.deepEqual(core.parseBooklet(`${fm('booklet: "0.17"')}\nJust prose.\n`).openings, []);
 	// a heading that is not the title stays
-	assert.equal(core.parseBooklet(`${fm('booklet: "0.16"')}\n# Another heading\n\nWords.\n\n> [!activity|a] A\n`).openings[0].markdown, "# Another heading\n\nWords.");
+	assert.equal(core.parseBooklet(`${fm('booklet: "0.17"')}\n# Another heading\n\nWords.\n\n> [!activity|a] A\n`).openings[0].markdown, "# Another heading\n\nWords.");
 });
 
 test("a data section names its module; one this file does not open is said, and its blocks are shared", () => {
-	const text = `${fm('booklet: "0.16"')}\n> [!activity|a] A\n\n> [!widget|w] W\n> ![[#^g]]\n\n> [!data|nobody] Data\n\n${WIDGET("grid-select")}\n^g\n`;
+	const text = `${fm('booklet: "0.17"')}\n> [!activity|a] A\n\n> [!widget|w] W\n> ![[#^g]]\n\n> [!data|nobody] Data\n\n${WIDGET("grid-select")}\n^g\n`;
 	const b = core.parseBooklet(text);
 	assert.ok(b.problems.some((p) => /data section for the module "nobody"/.test(p)), b.problems.join("; "));
 	assert.equal(b.activities[0].segments.find((s) => s.id === "w").widget.module, null);

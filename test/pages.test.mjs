@@ -68,7 +68,7 @@ test("a first word that holds a colon is a setting and the line has no written i
 	assert.equal(core.calloutWords("row", "end").id, null, "a kind that takes no id");
 	const book = core.parseBooklet(note("", "> [!activity|parent:x] No id\n"));
 	assert.ok(book.problems.includes("Line 6: an activity line has no id, so it cannot keep entries here."), book.problems.join(" | "));
-	assert.ok(book.problems.includes("Line 6: an activity line takes no `parent:` setting, so it was ignored."), book.problems.join(" | "));
+	assert.deepEqual(book.unread.map((u) => `Line ${u.line}: ${u.why}`), ["Line 6: an activity line takes no `parent:` setting"]);
 });
 
 test("a page takes parent: and icon: only: hidden, status:, tab: and repeat are said and ignored", () => {
@@ -76,9 +76,9 @@ test("a page takes parent: and icon: only: hidden, status:, tab: and repeat are 
 	const [p] = segs(t).filter((s) => s.type === "page");
 	assert.equal(p.parent, "q");
 	assert.equal(p.icon, "waves");
-	const said = core.parseBooklet(t).problems.filter((x) => /page line takes no/.test(x));
-	assert.equal(said.length, 4, said.join("\n"));
-	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.includes(w)), `${w} is said`);
+	const said = core.parseBooklet(t).unread.filter((x) => /page line takes no/.test(x.why));
+	assert.equal(said.length, 4, said.map((x) => x.why).join("\n"));
+	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.why.includes(w)), `${w} is said`);
 });
 
 test("a fold marker on a page line is ignored with a note in the problems", () => {
@@ -311,6 +311,6 @@ test("a wiki written with parent: on activities is no tree any more: the setting
 	const { nav } = build(t);
 	const m = nav.mods[0];
 	assert.deepEqual(norm(m.acts.map((x) => x.act.id)), ["tides", "spring", "pages"]);
-	assert.deepEqual(norm(problems(t)), ["Line 12: an activity line takes no `parent:` setting, so it was ignored."]);
+	assert.deepEqual(norm(build(t).book.unread.map((u) => `Line ${u.line}: ${u.why}`)), ["Line 12: an activity line takes no `parent:` setting"]);
 	assert.deepEqual(outline(nav.byKey.get("m/pages").tabs[0]), ["p1", "  p2"]);
 });

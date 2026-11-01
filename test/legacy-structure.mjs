@@ -11,6 +11,11 @@
  * button's element taken out of the drawing, both hash exactly as they did in 0.8.0, and every other place in the file is the same hash.
  * The button was made again once after the cold review: each Delete, its question, Yes and No are named by hidden words, which are inside the same element, so the same two places hash differently again and only they. The golden file of the latest such commit is the 0.9.0 reference from then on.
  *
+ * Plugin 0.11.0 made the file again from its own code, and only because the format's marker moved to 0.17 (the notes in the test vault were
+ * re-marked, and the marker is in the model) and the notice moved out of `problems` into its own list (`unread`, notice.ts). Before that, the
+ * 0.8.0 reading and the 0.11.0 reading were compared on the same notes, with `problems`, `unread` and the problems list in the drawing left out
+ * of both: the models and the hash of every place were identical. The made-up notes below stay marked 0.16, as the notes they stand for were.
+ *
  * To make the 0.8.0 file again, build that commit's tests (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs
  * copied in) and run
  *   node test/legacy-structure.mjs > legacy-golden.json

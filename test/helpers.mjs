@@ -101,7 +101,7 @@ export function assertOutsideUnchanged(orig, next, what = "") {
 
 /**
  * The errors the reference linter is expected to report on a test-vault note, by its file name, and no others. The
- * format 0.16 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
+ * format 0.17 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
  * cells, which the 0.15 linter reported, are format 0.16's. Every check that lints a note expects exactly these
  * (e2e/plugin-check.js keeps the same list).
  */
@@ -163,7 +163,7 @@ export function corpusFiles() {
 export const read = (f) => readFileSync(f, "utf8");
 
 // the set-up the 0.9.0 test files share: a note's front matter, a query fence, the day the views are drawn on, a plan's rows
-export const fm = `---\nbooklet: "0.16"\ntitle: Garden\n---\n`;
+export const fm = `---\nbooklet: "0.17"\ntitle: Garden\n---\n`;
 export const fence = (body) => "```booklet query\n" + body + "\n```";
 export const DRAWN = new Date("2026-10-28T12:00:00Z");
 export const rowsOf = (p) => p.groups.flatMap((g) => g.rows);

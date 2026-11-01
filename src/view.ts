@@ -57,6 +57,7 @@ import {
 	samePlace,
 	setAnswer,
 	setPair,
+	openingNotice,
 	shapeIssue,
 	setDraftAnswer,
 	shownDraft,
@@ -100,6 +101,8 @@ export const VIEW_TYPE = "booklet";
 /** What the view needs from the plugin. */
 export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
+	/** The plugin's own manifest: the notice at the top of a note says which version of the plugin is reading it. */
+	manifest: { version: string };
 }
 
 /** How long a text field waits after the last key before its answer is written. */
@@ -835,13 +838,25 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const nav = buildNav(book, this.text);
 		this.nav = nav;
 		const problems = [...book.problems, ...nav.problems]; // the reader's, then the pages' trees'
-		if (problems.length) {
-			const n = problems.length;
+		// the notice comes first: the note's marker, the plugin and its format, and each part of the note this view does not read (notice.ts)
+		const notice = openingNotice(book, this.host.manifest?.version ?? "");
+		const n = problems.length + (notice?.count ?? 0);
+		if (n) {
 			const said = n === 1 ? "1 thing in this note could not be read" : `${n} things in this note could not be read`;
 			if (opened) new Notice(`Booklet: ${said}. They are listed at the top of the view.`);
 			const details = page.createEl("details", { cls: "booklet-problems" });
 			details.createEl("summary", { text: said });
 			const list = details.createEl("ul");
+			if (notice) {
+				const box = list.createEl("li", { cls: "booklet-notice" });
+				notice.paragraphs.forEach((words, k) => {
+					box.createEl("p", { text: words });
+					if (k === notice.entriesAfter) {
+						const parts = box.createEl("ul");
+						for (const e of notice.entries) parts.createEl("li", { text: e });
+					}
+				});
+			}
 			for (const p of problems) list.createEl("li", { text: p });
 		}
 
@@ -1221,7 +1236,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
 					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
-					: `Not yet supported: the kind "${s.kind}".`;
+					: s.block
+						? `Not yet supported: the block "${s.kind}".`
+						: `Not yet supported: the kind "${s.kind}".`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
 			} else drawQuestion(this, into, t, s, a.repeat && !a.id);
 		}

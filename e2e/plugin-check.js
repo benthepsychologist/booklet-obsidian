@@ -35,7 +35,7 @@ opt.obsidian = opt.obsidian || process.env.OBSIDIAN; opt.vault = opt.vault || pr
 if (!opt.obsidian || !opt.vault || !opt.out) { console.error("need --obsidian, --vault (the repository's test-vault) and --out"); process.exit(2); }
 const LINT = opt.lint || process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 // check 10 reads the console over every check that ran, so it runs last whatever order is asked for
-const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 10]).sort((a, b) => (a === 10) - (b === 10));
+const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -95,7 +95,7 @@ const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
 // The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
-// with the format 0.16 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
+// with the format 0.17 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
 // test/helpers.mjs keeps the same list.
 const EXPECTED_LINT = {};
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
@@ -1613,12 +1613,12 @@ async function check14() {
     const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
     fs.writeFileSync(file, orig);
     const OLDER = "Older marker.booklet.md";
-    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.16"', 'booklet: "0.15"'));
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.17"', 'booklet: "0.15"'));
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
-    // a note marked with the format before this one: opened as it is, the notice first among its problems
+    // a note marked with an earlier format: opened as it is, the notice first among its problems
     await openNote(o, OLDER, "/kinds");
-    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems li")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
-    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems .booklet-notice > p")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
+    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.17 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
     await openNote(o, EVERY);
     const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
     const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();
@@ -1931,6 +1931,8 @@ async function check10() {
   c.ok(!only.includes(31) || ["c31-desktop", "c31-phone"].every(x => sessions.includes(x)), "and the sort and filter check's two: " + sessions.join(", "));
   c.ok(!only.includes(33) || ["c33-desktop", "c33-phone"].every(x => sessions.includes(x)), "and the pictures check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(34) || ["c34-desktop", "c34-phone"].every(x => sessions.includes(x)), "and the links and selection check's two: " + sessions.join(", "));
+  c.ok(!only.includes(46) || ["c46-desktop", "c46-phone"].every(x => sessions.includes(x)), "and the notice check's two (a desktop's width, a phone's): " + sessions.join(", "));
+  c.ok(!only.includes(47) || sessions.includes("c47"), "and the names check's: " + sessions.join(", "));
   c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
@@ -1946,7 +1948,8 @@ async function check10() {
   const dashboards = require("./dashboard-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const pictures = require("./pictures-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const noteLinks = require("./note-link-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
-  const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
+  const notice = require("./notice-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
+  const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, ...notice, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   for (const n of only) {
     const t0 = Date.now();
     let c;

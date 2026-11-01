@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, build, core, norm } from "./helpers.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Learning to sketch\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.17"\ntitle: Learning to sketch\n${extra}---\n`;
 const act = (nav, key) => nav.byKey.get(key);
 
 /* ---- where a booklet opens (SPEC section 2, `start`) ---- */
@@ -147,7 +147,7 @@ test("a module's tabs: lines in its opening; an activity joins one with tab:, el
 
 test("a module's notice: the callout, or the front matter's license, copyright and source when the file's one module has none", () => {
 	const body = "\n> [!module|m] M\n\n> [!activity|a] A\n\n> [!activity|b] B\n\n> [!module|m end] E\n";
-	const fm = `---\nbooklet: "0.16"\ntitle: T\nlicense: Free to copy\ncopyright: Example Press\nsource: https://example.org/m\nversion: 3\n---\n`;
+	const fm = `---\nbooklet: "0.17"\ntitle: T\nlicense: Free to copy\ncopyright: Example Press\nsource: https://example.org/m\nversion: 3\n---\n`;
 	assert.deepEqual(norm(build(fm + body).nav.mods[0].notice), [["license", "Free to copy"], ["copyright", "Example Press"], ["source", "https://example.org/m"]]);
 	const withCallout = fm + body.replace("> [!activity|a] A", "> [!notice]\n> license: Callout wins\n> version: 1.2\n\n> [!activity|a] A");
 	assert.deepEqual(norm(build(withCallout).nav.mods[0].notice), [["license", "Callout wins"], ["version", "1.2"]]);
@@ -197,11 +197,11 @@ test("Next goes through a module's activities in the file's order; a bare activi
 	while ((a = core.nextOf(a))) walked.push(a.act.id);
 	assert.deepEqual(norm(walked), order);
 	assert.deepEqual(norm(nav.mods[0].acts.map((x) => x.number)), [1, 2, 3, 4, 5]);
-	assert.deepEqual(norm(book.problems.filter((p) => /parent/.test(p))), [
-		"Line 10: an activity line takes no `parent:` setting, so it was ignored.",
-		"Line 12: an activity line takes no `parent:` setting, so it was ignored.",
-		"Line 14: an activity line takes no `parent:` setting, so it was ignored.",
-		"Line 16: an activity line takes no `parent:` setting, so it was ignored.",
+	assert.deepEqual(norm(book.unread.filter((u) => /parent/.test(u.why)).map((u) => `Line ${u.line}: ${u.why}`)), [
+		"Line 10: an activity line takes no `parent:` setting",
+		"Line 12: an activity line takes no `parent:` setting",
+		"Line 14: an activity line takes no `parent:` setting",
+		"Line 16: an activity line takes no `parent:` setting",
 	]);
 	// bare activities, among themselves: all of them are cards on home
 	const bare = `${head()}\n> [!activity|x] X\n\n> [!activity|y parent:x] Y\n\n> [!activity|z] Z\n`;

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { core, norm, sha } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const BASE = `---\nbooklet: "0.16"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
+const BASE = `---\nbooklet: "0.17"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
 
 /** The note with `n` made-up kept entries for the activity `id` (its one question `q`). */
 function withEntries(text, id, q, n) {
@@ -209,7 +209,7 @@ test("entries:folded is read from the activity's own line; a value other than fo
 	assert.deepEqual(lineProblems(bad), ["Line 6: `entries:shut` is not a setting an activity line takes (only `entries:folded`, which starts the kept-entries list folded), so it was ignored."]);
 	// on a question line the mark is a setting the kind does not take, as any other
 	const onQuestion = MARKED.replace("> [!text|what] What", "> [!text|what entries:folded] What");
-	assert.deepEqual(lineProblems(onQuestion), ["Line 8: a text line takes no `entries:` setting, so it was ignored."]);
+	assert.deepEqual(core.parseBooklet(onQuestion).unread.map((u) => `Line ${u.line}: ${u.why}`), ["Line 8: a text line takes no `entries:` setting"]);
 	const p = pane(withEntries(bad, "log", "what", 2), { screen: "activity:/log" });
 	await p.settled();
 	assert.ok(isOpen(p));

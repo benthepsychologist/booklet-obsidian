@@ -46,7 +46,7 @@ const questions = (p) => `> [!text|${p}text] A text
 > [!text|${p}fine] One answered as it should be
 `;
 const DESIGN = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/shapes
 title: Shapes
 lang: en

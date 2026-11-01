@@ -4,9 +4,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
@@ -508,6 +508,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -1386,9 +1387,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
@@ -1563,6 +1564,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -1891,9 +1893,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
@@ -2026,6 +2028,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -2246,9 +2249,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
@@ -2773,6 +2776,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [
      {
@@ -3567,9 +3571,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
@@ -3782,6 +3786,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -4254,14 +4259,1424 @@
    }
   }
  },
+ "Learning to sketch.booklet.md": {
+  "model": {
+   "book": {
+    "ok": true,
+    "refusal": null,
+    "marker": "0.17",
+    "frontMatter": {
+     "booklet": "0.17",
+     "id": "nav-proto/sketching",
+     "title": "Learning to sketch",
+     "lang": "en"
+    },
+    "title": "Learning to sketch",
+    "bodyStart": 6,
+    "modules": [
+     {
+      "id": "basics",
+      "title": "The basics",
+      "line": 22,
+      "endLine": 101
+     },
+     {
+      "id": "journal",
+      "title": "A sketch a day",
+      "line": 103,
+      "endLine": 149
+     }
+    ],
+    "activities": [
+     {
+      "id": "warm-up",
+      "title": "Warm up",
+      "scope": "",
+      "line": 13,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "Loosen your hand with a page of circles and long lines.",
+        "line": 16
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "warm-done",
+        "title": "Did you fill the page?",
+        "help": "",
+        "line": 19,
+        "options": [
+         {
+          "text": "Yes",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "Not yet",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "lines",
+      "title": "Lines that hold",
+      "scope": "basics",
+      "line": 40,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "A line drawn fast comes out straighter than a line drawn slowly.\n\nPut two dots on the page and join them in one stroke.\n\n***\n\n## Hold the pencil loosely\n\nHold it further from the tip than you would to write. Let the elbow move, not the wrist.",
+        "line": 43
+       },
+       {
+        "type": "question",
+        "kind": "scale",
+        "id": "steady",
+        "title": "How steady were your lines?",
+        "help": "",
+        "line": 54,
+        "options": [],
+        "anchors": [
+         {
+          "n": 1,
+          "text": "Wobbly"
+         },
+         {
+          "n": 2,
+          "text": "Mostly straight"
+         },
+         {
+          "n": 3,
+          "text": "Straight"
+         }
+        ],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "prose",
+        "markdown": "***\n\n## Ten in a row\n\nDraw ten lines between ten pairs of dots. If a line wobbles, see [[#Hold the pencil loosely]] again.",
+        "line": 59
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "lines-note",
+        "title": "What changed between the first line and the tenth?",
+        "help": "",
+        "line": 66,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "shapes",
+      "title": "Boxes and cylinders",
+      "scope": "basics",
+      "line": 67,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "Most things are a box or a cylinder underneath.",
+        "line": 69
+       },
+       {
+        "type": "tab",
+        "title": "Boxes",
+        "line": 72
+       },
+       {
+        "type": "prose",
+        "markdown": "Draw a box from three lines that meet at a corner.",
+        "line": 73
+       },
+       {
+        "type": "question",
+        "kind": "choice",
+        "id": "box-ok",
+        "title": "Does it look solid?",
+        "help": "",
+        "line": 76,
+        "options": [
+         {
+          "text": "Yes",
+          "correct": false,
+          "reply": []
+         },
+         {
+          "text": "Not yet",
+          "correct": false,
+          "reply": []
+         }
+        ],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "prose",
+        "markdown": "***\n\nNow draw the same box seen from below, as if it sat on a high shelf.",
+        "line": 79
+       },
+       {
+        "type": "tab",
+        "title": "Cylinders",
+        "line": 84
+       },
+       {
+        "type": "prose",
+        "markdown": "A cylinder is two ellipses joined by two lines.",
+        "line": 85
+       },
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "cyl-note",
+        "title": "Where did the ellipse go wrong, if it did?",
+        "help": "",
+        "line": 88,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "light",
+      "title": "Where the light falls",
+      "scope": "basics",
+      "line": 89,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "One light, one object, and the shapes the light makes on it.",
+        "line": 91
+       },
+       {
+        "type": "page",
+        "id": "shadow",
+        "title": "Cast shadows",
+        "parent": null,
+        "icon": "moon",
+        "line": 94
+       },
+       {
+        "type": "prose",
+        "markdown": "The shadow falls away from the light, on the ground.",
+        "line": 95
+       },
+       {
+        "type": "page",
+        "id": "reflected",
+        "title": "Reflected light",
+        "parent": "shadow",
+        "icon": null,
+        "line": 98
+       },
+       {
+        "type": "prose",
+        "markdown": "Light bounces back up from the table into the shadow side.",
+        "line": 99
+       }
+      ]
+     },
+     {
+      "id": "today",
+      "title": "Today's sketch",
+      "scope": "journal",
+      "line": 107,
+      "repeat": true,
+      "daily": true,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "question",
+        "kind": "text",
+        "id": "subject",
+        "title": "What did you draw?",
+        "help": "",
+        "line": 110,
+        "options": [],
+        "anchors": [],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       },
+       {
+        "type": "question",
+        "kind": "scale",
+        "id": "enjoyed",
+        "title": "How did it go?",
+        "help": "",
+        "line": 112,
+        "options": [],
+        "anchors": [
+         {
+          "n": 1,
+          "text": "Hard going"
+         },
+         {
+          "n": 2,
+          "text": "All right"
+         },
+         {
+          "n": 3,
+          "text": "Good"
+         }
+        ],
+        "items": [],
+        "long": false,
+        "open": false,
+        "min": null,
+        "max": null,
+        "step": null,
+        "menu": null,
+        "embed": null,
+        "widget": null,
+        "readonly": false,
+        "describe": false,
+        "each": null,
+        "earlier": null
+       }
+      ]
+     },
+     {
+      "id": "studies",
+      "title": "🌳 Seven studies",
+      "scope": "journal",
+      "line": 117,
+      "repeat": false,
+      "daily": false,
+      "hidden": false,
+      "segments": [
+       {
+        "type": "prose",
+        "markdown": "One study for each day of a week, each on a tab of its own.",
+        "line": 119
+       },
+       {
+        "type": "tab",
+        "title": "Hands",
+        "line": 122
+       },
+       {
+        "type": "prose",
+        "markdown": "Your own hand, open, then closed.",
+        "line": 123
+       },
+       {
+        "type": "tab",
+        "title": "Cups",
+        "line": 126
+       },
+       {
+        "type": "prose",
+        "markdown": "A cup from above and from the side.",
+        "line": 127
+       },
+       {
+        "type": "tab",
+        "title": "Trees",
+        "line": 130
+       },
+       {
+        "type": "prose",
+        "markdown": "One tree, only its outline.",
+        "line": 131
+       },
+       {
+        "type": "tab",
+        "title": "Faces",
+        "line": 134
+       },
+       {
+        "type": "prose",
+        "markdown": "A face in five lines.",
+        "line": 135
+       },
+       {
+        "type": "tab",
+        "title": "Shoes",
+        "line": 138
+       },
+       {
+        "type": "prose",
+        "markdown": "A shoe, as boxes first.",
+        "line": 139
+       },
+       {
+        "type": "tab",
+        "title": "Chairs",
+        "line": 142
+       },
+       {
+        "type": "prose",
+        "markdown": "A chair, as a box with legs.",
+        "line": 143
+       },
+       {
+        "type": "tab",
+        "title": "Clouds",
+        "line": 146
+       },
+       {
+        "type": "prose",
+        "markdown": "A cloud, in soft shading only.",
+        "line": 147
+       }
+      ]
+     }
+    ],
+    "problems": [],
+    "unread": [],
+    "openings": [
+     {
+      "module": null,
+      "title": "Learning to sketch",
+      "markdown": "A made-up booklet for trying out how a booklet moves in Obsidian. Nothing in it is about a real person.\n\nStart with the warm-up, then take the parts in any order.",
+      "line": 8
+     },
+     {
+      "module": "basics",
+      "title": "The basics",
+      "markdown": "Lines, boxes and light, one at a time, at your own pace.\n\n\n\nDo these with a pencil and cheap paper.\n\n\nShort readings to come back to.",
+      "line": 25
+     },
+     {
+      "module": "journal",
+      "title": "A sketch a day",
+      "markdown": "One small sketch a day, kept with its date.",
+      "line": 106
+     }
+    ],
+    "widgets": [],
+    "menus": [],
+    "notes": [],
+    "records": {
+     "regions": [],
+     "recordsLines": [],
+     "blocks": [],
+     "answers": {},
+     "drafts": {},
+     "entries": {},
+     "problems": []
+    }
+   },
+   "nav": {
+    "title": "Learning to sketch",
+    "startHome": false,
+    "mods": [
+     {
+      "id": "",
+      "bare": true,
+      "title": "",
+      "written": "",
+      "emoji": null,
+      "icon": null,
+      "opening": "",
+      "blurb": "",
+      "tabs": [],
+      "notice": [],
+      "acts": [
+       "/warm-up"
+      ],
+      "line": -1
+     },
+     {
+      "id": "basics",
+      "bare": false,
+      "title": "The basics",
+      "written": "The basics",
+      "emoji": null,
+      "icon": "shapes",
+      "opening": "Lines, boxes and light, one at a time, at your own pace.",
+      "blurb": "Lines, boxes and light, one at a time, at your own pace.",
+      "tabs": [
+       {
+        "id": "practice",
+        "title": "Practice",
+        "md": "Do these with a pencil and cheap paper."
+       },
+       {
+        "id": "read",
+        "title": "Read first",
+        "md": "Short readings to come back to."
+       }
+      ],
+      "notice": [
+       [
+        "license",
+        "Made up for testing; free to copy."
+       ],
+       [
+        "copyright",
+        "Example Press, 2026"
+       ],
+       [
+        "source",
+        "https://example.org/sketching"
+       ],
+       [
+        "version",
+        "0.3"
+       ]
+      ],
+      "acts": [
+       "basics/lines",
+       "basics/shapes",
+       "basics/light"
+      ],
+      "line": 22
+     },
+     {
+      "id": "journal",
+      "bare": false,
+      "title": "A sketch a day",
+      "written": "A sketch a day",
+      "emoji": null,
+      "icon": "notebook-pen",
+      "opening": "One small sketch a day, kept with its date.",
+      "blurb": "One small sketch a day, kept with its date.",
+      "tabs": [],
+      "notice": [],
+      "acts": [
+       "journal/today",
+       "journal/studies"
+      ],
+      "line": 103
+     }
+    ],
+    "acts": [
+     {
+      "key": "/warm-up",
+      "mod": "",
+      "title": "Warm up",
+      "emoji": null,
+      "icon": "pencil",
+      "blurb": "Loosen your hand with a page of circles and long lines.",
+      "statusMd": "Two minutes, before anything else",
+      "statusOff": false,
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Loosen your hand with a page of circles and long lines.",
+           "line": 16
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "warm-done",
+           "title": "Did you fill the page?",
+           "help": "",
+           "line": 19,
+           "options": [
+            {
+             "text": "Yes",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "Not yet",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 1,
+      "line": 13
+     },
+     {
+      "key": "basics/lines",
+      "mod": "basics",
+      "title": "Lines that hold",
+      "emoji": null,
+      "icon": "ruler",
+      "blurb": "A line drawn fast comes out straighter than a line drawn slowly.",
+      "statusMd": "3 pages · about 10 minutes",
+      "statusOff": false,
+      "modTab": "practice",
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A line drawn fast comes out straighter than a line drawn slowly.\n\nPut two dots on the page and join them in one stroke.",
+           "line": 43
+          }
+         ],
+         [
+          {
+           "type": "prose",
+           "markdown": "## Hold the pencil loosely\n\nHold it further from the tip than you would to write. Let the elbow move, not the wrist.",
+           "line": 48
+          },
+          {
+           "type": "question",
+           "kind": "scale",
+           "id": "steady",
+           "title": "How steady were your lines?",
+           "help": "",
+           "line": 54,
+           "options": [],
+           "anchors": [
+            {
+             "n": 1,
+             "text": "Wobbly"
+            },
+            {
+             "n": 2,
+             "text": "Mostly straight"
+            },
+            {
+             "n": 3,
+             "text": "Straight"
+            }
+           ],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ],
+         [
+          {
+           "type": "prose",
+           "markdown": "## Ten in a row\n\nDraw ten lines between ten pairs of dots. If a line wobbles, see [[#Hold the pencil loosely]] again.",
+           "line": 60
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "lines-note",
+           "title": "What changed between the first line and the tenth?",
+           "help": "",
+           "line": 66,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 1,
+      "line": 40
+     },
+     {
+      "key": "basics/shapes",
+      "mod": "basics",
+      "title": "Boxes and cylinders",
+      "emoji": null,
+      "icon": "box",
+      "blurb": "Most things are a box or a cylinder underneath.",
+      "statusMd": null,
+      "statusOff": false,
+      "modTab": "practice",
+      "opening": [
+       {
+        "type": "prose",
+        "markdown": "Most things are a box or a cylinder underneath.",
+        "line": 69
+       }
+      ],
+      "tabs": [
+       {
+        "id": "boxes",
+        "title": "Boxes",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Draw a box from three lines that meet at a corner.",
+           "line": 73
+          },
+          {
+           "type": "question",
+           "kind": "choice",
+           "id": "box-ok",
+           "title": "Does it look solid?",
+           "help": "",
+           "line": 76,
+           "options": [
+            {
+             "text": "Yes",
+             "correct": false,
+             "reply": []
+            },
+            {
+             "text": "Not yet",
+             "correct": false,
+             "reply": []
+            }
+           ],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ],
+         [
+          {
+           "type": "prose",
+           "markdown": "Now draw the same box seen from below, as if it sat on a high shelf.",
+           "line": 80
+          }
+         ]
+        ]
+       },
+       {
+        "id": "cylinders",
+        "title": "Cylinders",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A cylinder is two ellipses joined by two lines.",
+           "line": 85
+          },
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "cyl-note",
+           "title": "Where did the ellipse go wrong, if it did?",
+           "help": "",
+           "line": 88,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": true,
+      "reads": 0,
+      "number": 2,
+      "line": 67
+     },
+     {
+      "key": "basics/light",
+      "mod": "basics",
+      "title": "Where the light falls",
+      "emoji": null,
+      "icon": "sun",
+      "blurb": "One light, one object, and the shapes the light makes on it.",
+      "statusMd": null,
+      "statusOff": true,
+      "modTab": "read",
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "One light, one object, and the shapes the light makes on it.",
+           "line": 91
+          }
+         ],
+         [
+          {
+           "type": "prose",
+           "markdown": "The shadow falls away from the light, on the ground.",
+           "line": 95
+          }
+         ],
+         [
+          {
+           "type": "prose",
+           "markdown": "Light bounces back up from the table into the shadow side.",
+           "line": 99
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 3,
+      "line": 89
+     },
+     {
+      "key": "journal/today",
+      "mod": "journal",
+      "title": "Today's sketch",
+      "emoji": null,
+      "icon": "calendar",
+      "blurb": "",
+      "statusMd": null,
+      "statusOff": false,
+      "modTab": null,
+      "opening": [],
+      "tabs": [
+       {
+        "id": "",
+        "title": "",
+        "pages": [
+         [
+          {
+           "type": "question",
+           "kind": "text",
+           "id": "subject",
+           "title": "What did you draw?",
+           "help": "",
+           "line": 110,
+           "options": [],
+           "anchors": [],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          },
+          {
+           "type": "question",
+           "kind": "scale",
+           "id": "enjoyed",
+           "title": "How did it go?",
+           "help": "",
+           "line": 112,
+           "options": [],
+           "anchors": [
+            {
+             "n": 1,
+             "text": "Hard going"
+            },
+            {
+             "n": 2,
+             "text": "All right"
+            },
+            {
+             "n": 3,
+             "text": "Good"
+            }
+           ],
+           "items": [],
+           "long": false,
+           "open": false,
+           "min": null,
+           "max": null,
+           "step": null,
+           "menu": null,
+           "embed": null,
+           "widget": null,
+           "readonly": false,
+           "describe": false,
+           "each": null,
+           "earlier": null
+          }
+         ]
+        ]
+       }
+      ],
+      "named": false,
+      "reads": 0,
+      "number": 1,
+      "line": 107
+     },
+     {
+      "key": "journal/studies",
+      "mod": "journal",
+      "title": "Seven studies",
+      "emoji": "🌳",
+      "icon": null,
+      "blurb": "One study for each day of a week, each on a tab of its own.",
+      "statusMd": null,
+      "statusOff": false,
+      "modTab": null,
+      "opening": [
+       {
+        "type": "prose",
+        "markdown": "One study for each day of a week, each on a tab of its own.",
+        "line": 119
+       }
+      ],
+      "tabs": [
+       {
+        "id": "hands",
+        "title": "Hands",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "Your own hand, open, then closed.",
+           "line": 123
+          }
+         ]
+        ]
+       },
+       {
+        "id": "cups",
+        "title": "Cups",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A cup from above and from the side.",
+           "line": 127
+          }
+         ]
+        ]
+       },
+       {
+        "id": "trees",
+        "title": "Trees",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "One tree, only its outline.",
+           "line": 131
+          }
+         ]
+        ]
+       },
+       {
+        "id": "faces",
+        "title": "Faces",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A face in five lines.",
+           "line": 135
+          }
+         ]
+        ]
+       },
+       {
+        "id": "shoes",
+        "title": "Shoes",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A shoe, as boxes first.",
+           "line": 139
+          }
+         ]
+        ]
+       },
+       {
+        "id": "chairs",
+        "title": "Chairs",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A chair, as a box with legs.",
+           "line": 143
+          }
+         ]
+        ]
+       },
+       {
+        "id": "clouds",
+        "title": "Clouds",
+        "pages": [
+         [
+          {
+           "type": "prose",
+           "markdown": "A cloud, in soft shading only.",
+           "line": 147
+          }
+         ]
+        ]
+       }
+      ],
+      "named": true,
+      "reads": 0,
+      "number": 2,
+      "line": 117
+     }
+    ],
+    "cards": [
+     {
+      "kind": "activity",
+      "act": "/warm-up",
+      "line": 13
+     },
+     {
+      "kind": "module",
+      "mod": "basics",
+      "line": 22
+     },
+     {
+      "kind": "module",
+      "mod": "journal",
+      "line": 103
+     }
+    ]
+   },
+   "start": {
+    "screen": "home",
+    "tab": null,
+    "part": 0
+   }
+  },
+  "places": {
+   "home||0": {
+    "sha": "f498d4708a64c8993e042c10d9f83e0b2283997b89ebb0df99d2abfa6e611043",
+    "writes": 0,
+    "same": true,
+    "drawn": "home",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "home",
+     "part": 0
+    }
+   },
+   "module:basics|practice|0": {
+    "sha": "8ed7e3ea78b0f617ebdcd7140935ea0b26358a46904d7ab8ee3c24271cefa033",
+    "writes": 0,
+    "same": true,
+    "drawn": "module:basics",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:basics",
+     "tab": "practice",
+     "part": 0
+    }
+   },
+   "module:basics|read|0": {
+    "sha": "f94cc4815db5db17282298829ef164e18d7f4d7fb3c26683d0d7e3a7fc5bfae5",
+    "writes": 0,
+    "same": true,
+    "drawn": "module:basics",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:basics",
+     "tab": "read",
+     "part": 0
+    }
+   },
+   "module:journal||0": {
+    "sha": "25261a17d02364e5c2810e487b39de7db52db30c77486ccc77e394109ec489a9",
+    "writes": 0,
+    "same": true,
+    "drawn": "module:journal",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "module:journal",
+     "part": 0
+    }
+   },
+   "activity:/warm-up||0": {
+    "sha": "db3bc52c68f8572d1cb51d08f3bf2295883307b35758a23cd9333fc7ed0d4a2a",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:/warm-up",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:/warm-up",
+     "part": 0
+    }
+   },
+   "activity:basics/lines||0": {
+    "sha": "d5424862daf66b93146c206bb2a6d16d4c4f68d085d820e6dd47f955670e4101",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 0
+    }
+   },
+   "activity:basics/lines||1": {
+    "sha": "a935b9a27d95fbb9b05e00b98d5fc3475e8d29c3593a357b0faf8f3637b2e65c",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 1
+    }
+   },
+   "activity:basics/lines||2": {
+    "sha": "af54d17efec5f2357f58cb02861d3db2204a2dde7b464839fd01e03a7044d60c",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/lines",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/lines",
+     "part": 2
+    }
+   },
+   "activity:basics/shapes|boxes|0": {
+    "sha": "5de34308fe3e2abe18f3bc101880a9f3a62c84af2b9116484bc41154bbf3ae79",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "boxes",
+     "part": 0
+    }
+   },
+   "activity:basics/shapes|boxes|1": {
+    "sha": "936a8ea09d4789f4930953d05d55a83a1781afbb2ae949a53a3f3f0a573e4ef2",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "boxes",
+     "part": 1
+    }
+   },
+   "activity:basics/shapes|cylinders|0": {
+    "sha": "2e8399b029c891e6866e2209ac8d0bd199d866ea1db873f2ad227ff247aaac11",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/shapes",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/shapes",
+     "tab": "cylinders",
+     "part": 0
+    }
+   },
+   "activity:basics/light||0": {
+    "sha": "50f216045bbaa9274b2b47816428e3c88f33aa696e1f45fb677f990e0ceed65b",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/light",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:basics/light",
+     "part": 0
+    }
+   },
+   "activity:basics/light||1": {
+    "sha": "90ecbeec7453ab2a2f404b324b96c7cdb0c29494ff2633c5133bd1560fba7961",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/light",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 2,
+     "screen": "activity:basics/light",
+     "page": "shadow",
+     "part": 0
+    }
+   },
+   "activity:basics/light||2": {
+    "sha": "9718ff9c5a427d4060dbc72ec4a6984d61f71494d0e9dd10a199ae4c056d6a20",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:basics/light",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 2,
+     "screen": "activity:basics/light",
+     "page": "reflected",
+     "part": 0
+    }
+   },
+   "activity:journal/today||0": {
+    "sha": "b657cbcc1f3ec8464492419f5fcff9784b87fa051c9c9aa767181ed6c728f95c",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/today",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/today",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|hands|0": {
+    "sha": "6c6e474952555d014182db67fc4ac730379e4c5a047c8d1069e4968c7798fb0e",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "hands",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|cups|0": {
+    "sha": "878df5b5d409500f700a5d7864f32d9d4e22437964083bd0dff52d291e8c884a",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "cups",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|trees|0": {
+    "sha": "8c369baaddf8d561b0ebebe2c5e4f84662d1dff50eff1c61678027a55fa6495a",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "trees",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|faces|0": {
+    "sha": "ce0abdcdbf9d24dc0ecab969a8584e912d5db748f1c6cb0816079042c284df8b",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "faces",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|shoes|0": {
+    "sha": "5c5af6787547fbd6fc3839ba1ffa491d9b9f58127bf5637bd54039a6b4899693",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "shoes",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|chairs|0": {
+    "sha": "0b04904ad0b44a001a2dbc83a8e5a3a240eb124bc44ed519d072ce8e80bfafd9",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "chairs",
+     "part": 0
+    }
+   },
+   "activity:journal/studies|clouds|0": {
+    "sha": "893cf3329ebf0a814baf03bd8039fa798c66ac228001e71381da85293c9c56ce",
+    "writes": 0,
+    "same": true,
+    "drawn": "activity:journal/studies",
+    "saved": {
+     "file": "Learning to sketch.booklet.md",
+     "version": 1,
+     "screen": "activity:journal/studies",
+     "tab": "clouds",
+     "part": 0
+    }
+   }
+  }
+ },
  "Reading and steps.booklet.md": {
   "model": {
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
@@ -4752,6 +6167,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -5490,9 +6906,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
@@ -5890,6 +7306,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -6528,6 +7945,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -6669,7 +8087,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "b9e870067414b61cd5645ad8ef8c98720b7fd2a1dea20357e085ca5ae871a994",
+    "sha": "b51f9aad0cdb46253fd0290dcdb2a398b5724df0730d6cd1eeb3dfa2226ad127",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -6681,7 +8099,7 @@
     }
    },
    "activity:/t|first|0": {
-    "sha": "fb017b70eaf86b41289fbecc76a8531b73d4d6b0321e795b971d42a79bed7386",
+    "sha": "9d0f1a8c46b3c49c8ad48b63db2f699590b4e3de7eaee3ab48a59ffec5cc1f21",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6694,7 +8112,7 @@
     }
    },
    "activity:/t|first|1": {
-    "sha": "2085a30122016277c5b3d81a258440b32a3dce7afcc416ac91d239c5dddb790d",
+    "sha": "9aa2ff92d85268c5af5d37e880f54f4a53895e97452659dec6cfb74fa3ca4add",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6707,7 +8125,7 @@
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "f7d73d63f616dcae732e000f54c69f1c6e75e669b643faf1bf67dafd996576f7",
+    "sha": "5e46c1c2ae45536ea22716892efd513c11c9489f1a02f3f09ccfdc3cf9ddfc95",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6720,7 +8138,7 @@
     }
    },
    "activity:/t|third|0": {
-    "sha": "40b543235740b93c4258c61322421bec079bcf91f1683711fe8716f7eab021eb",
+    "sha": "cf97f970ec1df37022de9fb5a7e0feec331d14f71fb16c2ed8aae2e0929e7c64",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -6832,8 +8250,15 @@
      }
     ],
     "problems": [
-     "Line 12: a tab line cannot go inside a callout, so it was ignored.",
-     "Line 27: \"invented\" is not a kind this format defines."
+     "Line 12: a tab line cannot go inside a callout, so it was ignored."
+    ],
+    "unread": [
+     {
+      "line": 27,
+      "text": "> [!invented|what] Not a kind",
+      "why": "\"invented\" is not a kind this view reads, so it is drawn as \"not yet supported\"",
+      "newer": true
+     }
     ],
     "openings": [],
     "widgets": [],
@@ -6985,7 +8410,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "63fe6e5dffadfe98fccfbbdb4be6c13334a39a661b89dd004d9815a7f0562a5f",
+    "sha": "68a30ffea275ba30287f941d83a0fbf9e7ec8653d8027f992ff79cfcc363abdd",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -6997,7 +8422,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "1482695d4dcf11ca2d29f647452631ac90df1660e3a4299de9d911cd7b47c72e",
+    "sha": "f597de801e9d167f1b7345a60b3859cd8bcd120abe19d9c6cab1bcae7c9c2815",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

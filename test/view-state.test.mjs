@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const fm = `---\nbooklet: "0.16"\ntitle: T\n---\n`;
+const fm = `---\nbooklet: "0.17"\ntitle: T\n---\n`;
 const rows = [
 	{ n: "b", v: 10, g: "x" },
 	{ n: "a", v: 2, g: "y" },

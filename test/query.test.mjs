@@ -10,7 +10,7 @@ import { CHECKIN, core, keepDays, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const fm = (extra = "") => `---\nbooklet: "0.16"\ntitle: Tracker\n${extra}---\n`;
+const fm = (extra = "") => `---\nbooklet: "0.17"\ntitle: Tracker\n${extra}---\n`;
 const fence = (body) => "```booklet query\n" + body + "\n```";
 
 const TRACKER = `> [!activity|evening repeat] Evening
@@ -85,7 +85,7 @@ test("a query block is read with its keys; a key a query does not have, `limit: 
 	assert.equal(segs.length, 1);
 	const q = segs[0].query;
 	assert.deepEqual([q.from, q.as, q.limit, q.days, q.summary, q.empty], ["evening", "list", null, null, false, "None yet."]);
-	assert.ok(b.problems.some((p) => /has no setting "colour", so it was ignored/.test(p)), b.problems.join("\n"));
+	assert.ok(b.unread.some((u) => /has no setting "colour", so it was ignored/.test(u.why)), JSON.stringify(b.unread));
 	assert.ok(b.problems.some((p) => /`limit: week` is not a positive whole number or a number of days/.test(p)), b.problems.join("\n"));
 	assert.ok(b.problems.some((p) => /`summary: yes` is not `on`, so it was ignored/.test(p)), b.problems.join("\n"));
 });

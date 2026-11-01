@@ -16,8 +16,12 @@ const A = "today";
 
 /* ---- the setting, and the settings a kind does not take ---- */
 
-const head = (body) => `---\nbooklet: "0.16"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
-const problemsOf = (body) => core.parseBooklet(head(body)).problems;
+const head = (body) => `---\nbooklet: "0.17"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
+/** What the note says it could not read: the problems, then each setting a kind does not take as the notice lists it (with its line). */
+const problemsOf = (body) => {
+	const b = core.parseBooklet(head(body));
+	return [...b.problems, ...b.unread.map((u) => `Line ${u.line}: ${u.why}, so it was ignored.`)];
+};
 const questionOf = (body, id) => {
 	for (const a of core.parseBooklet(head(body)).activities) for (const s of a.segments) if (s.type === "question" && s.id === id) return s;
 	return null;
@@ -154,7 +158,7 @@ test("settings: on every booklet file of the corpus and the test vault, the plug
 		const text = read(file);
 		const book = core.parseBooklet(text);
 		const said = (re, s) => [...s.matchAll(re)].map((m) => `${m[1]} ${m[2]} ${m[3].replace(/:$/, "").toLowerCase()}`);
-		const mine = book.problems.flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
+		const mine = [...book.problems, ...book.unread.map((u) => `Line ${u.line}: ${u.why}, so it was ignored.`)].flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
 		const r = lint(text, file.split("/").pop());
 		const theirs = said(/line (\d+): an? (\S+) line takes no `([^`]+)`/g, r.out);
 		assert.deepEqual(mine.sort(), theirs.sort(), file);

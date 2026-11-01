@@ -45,7 +45,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 			}
 		},
 	};
-	const view = new BookletView(leaf, { setMode: async () => {} });
+	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
 	void view.setState(state ?? (screen ? { version: 1, screen } : {}), {});

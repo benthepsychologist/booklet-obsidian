@@ -286,7 +286,7 @@ test("matrix: shape (core) is a list of whole anchor numbers from 0 and null; ho
 
 test("matrix: Finalize keeps the list, a kept entry shows each item with its anchor's words, and a query's cards list them", () => {
 	const text = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/matrix
 title: Matrix
 lang: en
@@ -321,7 +321,7 @@ from: log
 /* ---- a query's summary of a matrix ---- */
 
 const SUMMARY_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/matrix-summary
 title: Matrix summary
 lang: en
@@ -483,7 +483,7 @@ test("each: shape (core) is a list of pairs whose answer is the kind's shape, or
 
 test("each: a lines copy and a widget copy are drawn, answer and keep their blank lines out of the entry", async () => {
 	const text = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/each-lines
 title: Each lines
 lang: en
@@ -586,7 +586,7 @@ test("a reader's work is never cleared by marking or by Check: the picks stay af
 /* ---- words held on the device for a copy's Add your own field ---- */
 
 const OPEN_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 id: test/held
 title: Held
 lang: en

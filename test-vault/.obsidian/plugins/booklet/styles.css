@@ -642,6 +642,15 @@
 	cursor: var(--cursor);
 }
 
+/* the notice that opens the list: a few sentences and the parts of the note that are not read */
+.booklet-problems .booklet-notice p {
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-problems .booklet-notice > ul {
+	margin: 0 0 var(--size-4-2);
+}
+
 .booklet-refusal {
 	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-l);
