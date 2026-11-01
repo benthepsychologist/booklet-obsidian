@@ -182,3 +182,29 @@ export function bodyEnd(lines: readonly string[], i: number): number {
 }
 
 export const isBlank = (s: string | undefined): boolean => !s || !s.trim();
+
+/** An id made from a name, as SPEC section 3 makes a tab's: accents dropped, lowercase, other runs one dash, at most 60 characters; a name that leaves nothing is `<prefix>-<n>`. */
+export function idFromName(name: string, n: number, prefix: string): string {
+	const id = name
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.slice(0, 60)
+		.replace(/-+$/g, "");
+	return id || `${prefix}-${n}`;
+}
+
+/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
+export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
+
+/** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
+export function uniqueIds(ids: string[]): string[] {
+	const seen = new Map<string, number>();
+	return ids.map((id) => {
+		const n = (seen.get(id) ?? 0) + 1;
+		seen.set(id, n);
+		return n === 1 ? id : `${id}-${n}`;
+	});
+}

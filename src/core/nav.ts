@@ -5,7 +5,7 @@
  * the rules for where a booklet opens, what is next, where a heading link leads, and how a saved place is read back.
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
-import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, isBlank, splitLines } from "./lines";
+import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
 import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Segment } from "./reader";
 import { holdsSomething } from "./shape";
@@ -220,34 +220,8 @@ const QUESTION_LINE_KINDS = new Set<string>([...COMMON_KINDS, "widget"]);
 /** The kinds a module's opening cannot hold: a question or a menu line there belongs to nothing (the reader reports it). */
 const NOT_IN_AN_OPENING = new Set<string>([...QUESTION_LINE_KINDS, "menu", "row", "manifest", "records"]);
 
-/** An id made from a name, as SPEC section 3 makes a tab's: accents dropped, lowercase, other runs one dash, at most 60 characters; a name that leaves nothing is `<prefix>-<n>`. */
-function idFromName(name: string, n: number, prefix: string): string {
-	const id = name
-		.normalize("NFD")
-		.replace(/[̀-ͯ]/g, "")
-		.toLowerCase()
-		.replace(/[^a-z0-9]+/g, "-")
-		.replace(/^-+|-+$/g, "")
-		.slice(0, 60)
-		.replace(/-+$/g, "");
-	return id || `${prefix}-${n}`;
-}
-
-/** A tab's id: the one written after the bar, else its name as SPEC section 3 makes an id of it (`n` is its place, for a name that leaves nothing). */
-export const tabIdOf = (name: string, n: number): string => idFromName(name, n, "tab");
-
 /** A page's id, when the page line writes none: its title made into an id as a tab's name is, `page-<n>` for a title that leaves nothing */
 export const pageIdOf = (title: string, n: number): string => idFromName(title, n, "page");
-
-/** Tab ids made unique as SPEC says: the second of two with one id is numbered (`plan-2`). */
-function uniqueIds(ids: string[]): string[] {
-	const seen = new Map<string, number>();
-	return ids.map((id) => {
-		const n = (seen.get(id) ?? 0) + 1;
-		seen.set(id, n);
-		return n === 1 ? id : `${id}-${n}`;
-	});
-}
 
 function splitEmoji(title: string): { title: string; emoji: string | null } {
 	const m = LEAD_EMOJI.exec(title.trim());

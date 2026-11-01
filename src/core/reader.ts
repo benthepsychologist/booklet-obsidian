@@ -20,7 +20,11 @@ import {
 	ignoredSettings,
 	isBlank,
 	splitLines,
+	tabIdOf,
+	uniqueIds,
+	type Words,
 } from "./lines";
+import { BOOKLET_ICONS } from "../booklet-icons";
 import { looksLikeMistake, shortLine, type Unread } from "./unread";
 import { readDataRows, type DataRows } from "./data";
 import { referenceSource, type ReferenceDefinition } from "./references";
@@ -646,10 +650,14 @@ export function parseBooklet(text: string): Booklet {
 	let lines = splitLines(text).map((l) => l.text);
 	const fm = frontMatterOf(lines);
 	const frontMatter: Record<string, string> = Object.create(null) as Record<string, string>;
-	for (const l of fm.head ?? []) {
+	/** The index in the file's lines of the front matter's `start:` line, or -1. */
+	let startAt = -1;
+	(fm.head ?? []).forEach((l, n) => {
 		const kv = kvLine(l);
-		if (kv) frontMatter[kv[0]] = kv[1];
-	}
+		if (!kv) return;
+		frontMatter[kv[0]] = kv[1];
+		if (kv[0] === "start") startAt = n + 1;
+	});
 	const problems: string[] = [];
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
@@ -681,6 +689,15 @@ export function parseBooklet(text: string): Booklet {
 	const noteUnread = (i: number, why: string, newer: boolean, text = fileLines[i] ?? "") => {
 		if (!unread.some((u) => u.line === i + 1 && u.why === why)) unread.push({ line: i + 1, text: shortLine(text), why, newer });
 	};
+	// a setting with a fixed set of values: any other value is reported and ignored (SPEC sections 2 and 3)
+	if (startAt >= 0 && (frontMatter["start"] ?? "").trim() !== "home") noteUnread(startAt, "`start:` takes only the value `home`, so it was ignored", false);
+	/** An `icon:` outside Booklet's set draws no picture. A name close to one in the set is a mistake; the set may grow, so another may be a later one. */
+	const noteIcon = (i: number, w: Words) => {
+		const icon = w.set["icon"];
+		if (icon && !BOOKLET_ICONS.has(icon)) noteUnread(i, `\`icon:${icon}\` names no icon in Booklet's set, so it was ignored`, !looksLikeMistake(icon, BOOKLET_ICONS));
+	};
+	/** The ids of the tabs in the open module's opening, as written or made from the name; an activity's `tab:` names one of them (once made unique). */
+	let modTabs: string[] = [];
 
 	let mod: Module | null = null;
 	let act: Activity | null = null;
@@ -903,6 +920,7 @@ export function parseBooklet(text: string): Booklet {
 					else if (w.id !== mod.id) refusals.push(`${at(i)}: the module "${mod.id}" is closed by a line naming "${w.id ?? ""}".`);
 					else mod.endLine = i;
 					mod = null;
+					modTabs = [];
 				} else {
 					if (mod) refusals.push(`${at(i)}: a module opens inside the module "${mod.id}", which is not closed.`);
 					const id = w.id ?? "";
@@ -910,6 +928,8 @@ export function parseBooklet(text: string): Booklet {
 					if (modules.some((x) => x.id === id && id)) refusals.push(`${at(i)}: the module id "${id}" is used twice in this file.`);
 					mod = { id, title: title || id, line: i, endLine: null };
 					modules.push(mod);
+					modTabs = [];
+					noteIcon(i, w);
 				}
 				i = bodyEnd(lines, i) - 1;
 				continue;
@@ -926,6 +946,11 @@ export function parseBooklet(text: string): Booklet {
 				if (w.flags.has("daily") && !repeat) problems.push(`${at(i)}: \`daily\` needs \`repeat\`, so it was ignored.`);
 				// `entries:` takes the one value `folded`; any other is reported and ignored (SPEC section 3, "Kept entries, folded")
 				const entries = w.set["entries"];
+				const status = w.set["status"];
+				if (status !== undefined && status.toLowerCase() !== "off") noteUnread(i, `\`status:\` takes only the value \`off\`, so \`status:${status}\` was ignored`, false);
+				const tab = w.set["tab"];
+				if (tab !== undefined && !uniqueIds(modTabs).includes(tab)) noteUnread(i, `\`tab:${tab}\` names no tab of its module, so it was ignored`, false);
+				noteIcon(i, w);
 				if (entries !== undefined && entries !== "folded") problems.push(`${at(i)}: \`entries:${entries}\` is not a setting an activity line takes (only \`entries:folded\`, which starts the kept-entries list folded), so it was ignored.`);
 				act = {
 					id: w.id ?? "",
@@ -987,6 +1012,7 @@ export function parseBooklet(text: string): Booklet {
 				flush();
 				closeRow("when the tab line came", i);
 				if (act) act.segments.push({ type: "tab", title: title || w.id || "Tab", line: i + 1 });
+				else if (mod) modTabs.push(w.id ?? tabIdOf(title || "Tab", modTabs.length + 1));
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a tab line's `>` lines are the tab's first prose
 				i = k - 1;
@@ -1005,7 +1031,10 @@ export function parseBooklet(text: string): Booklet {
 				const k = bodyEnd(lines, i);
 				if (!act) problems.push(`${where}: a page line belongs in an activity, so it was ignored.`);
 				else if (rowOpen) problems.push(`${where}: a page line inside a row, which cannot hold one, so it was ignored.`);
-				else act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+				else {
+					act.segments.push({ type: "page", id, title, parent: w.set["parent"] || null, icon: w.set["icon"] || null, line: i + 1 });
+					noteIcon(i, w);
+				}
 				pushText(lines.slice(i + 1, k).map(stripQuote), i + 1); // a page line's `>` lines are the page's first prose
 				i = k - 1;
 				continue;

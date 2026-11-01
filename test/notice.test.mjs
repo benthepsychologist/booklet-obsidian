@@ -114,6 +114,34 @@ test("a query key this view does not read: the line of the key itself", () => {
 	assert.ok(bad.problems.some((p) => /`limit: week` is not a positive whole number/.test(p)));
 });
 
+test("a value the format does not allow for start, icon, status and tab: listed once at its line, and the allowed values list nothing", () => {
+	const why = (text) => core.parseBooklet(text).unread.map((u) => [u.line, u.text, u.why, u.newer]);
+	// `start:` takes `home` only
+	const started = (value) => `---\nbooklet: "0.17"\nid: made/up\ntitle: Made up\nlang: en\nstart: ${value}\n---\n\n${BASE}`;
+	assert.deepEqual(why(started("later")), [[6, "start: later", "`start:` takes only the value `home`, so it was ignored", false]]);
+	assert.deepEqual(why(started("home")), []);
+	// `icon:` on a module, an activity and a page: a name outside the set is listed; a near miss is a mistake, any other might be a later name
+	const iconNote = note("> [!module|m icon:nowhere] M\n\n> [!activity|a icon:compas] A\n\n> [!page|p icon:compass] Fine\n\n> [!page|q icon:qqqqqqq] Odd\n\n> [!module|m end]\n");
+	assert.deepEqual(why(iconNote), [
+		[8, "> [!module|m icon:nowhere] M", "`icon:nowhere` names no icon in Booklet's set, so it was ignored", true],
+		[10, "> [!activity|a icon:compas] A", "`icon:compas` names no icon in Booklet's set, so it was ignored", false],
+		[14, "> [!page|q icon:qqqqqqq] Odd", "`icon:qqqqqqq` names no icon in Booklet's set, so it was ignored", true],
+	]);
+	assert.deepEqual(why(note("> [!activity|a icon:compass] A\n")), []);
+	// `status:` takes `off` only, written in either case
+	assert.deepEqual(why(note("> [!activity|a status:on] A\n")), [[8, "> [!activity|a status:on] A", "`status:` takes only the value `off`, so `status:on` was ignored", false]]);
+	assert.deepEqual(why(note("> [!activity|a status:off] A\n\n> [!activity|b status:OFF] B\n")), []);
+	// `tab:` names a tab of the activity's module, as written or as made from the tab's name
+	const tabs = (a) => note(`> [!module|m] M\n\n> [!tab] Plan the week\n\n> [!tab|doing] Do it\n\n> [!activity|a ${a}] A\n\n> [!activity|b tab:plan-the-week] B\n\n> [!activity|c tab:doing] C\n\n> [!module|m end]\n`);
+	assert.deepEqual(why(tabs("tab:nowhere")), [[14, "> [!activity|a tab:nowhere] A", "`tab:nowhere` names no tab of its module, so it was ignored", false]]);
+	assert.deepEqual(why(tabs("")), []);
+	// a module with no tabs, and an activity outside every module, have no tab to name
+	assert.equal(why(note("> [!module|m] M\n\n> [!activity|a tab:x] A\n\n> [!module|m end]\n")).length, 1);
+	assert.equal(why(note("> [!activity|a tab:x] A\n")).length, 1);
+	// the notice lists the entry once, at its line
+	assert.deepEqual(noticeOf(note("> [!activity|a status:on] A\n"))?.entries, ["Line 8: > [!activity|a status:on] A (`status:` takes only the value `off`, so `status:on` was ignored)"]);
+});
+
 test("a block this view does not define: its line, drawn as not yet supported where it stands, kept as written", () => {
 	const t = note(`${BASE}\n\`\`\`booklet bookmarks\n{ "pages": [1, 2] }\n\`\`\`\n`);
 	const b = core.parseBooklet(t);
