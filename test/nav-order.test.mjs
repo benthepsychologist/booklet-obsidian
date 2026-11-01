@@ -1,6 +1,5 @@
 /*
- * A heading link that several places could answer opens the first one in the file's order (design decision 9, call c; the prototype
- * took reading order, the design changed it). Every note here is made up.
+ * A heading link that several places could answer opens the first one in the file's order. Every note here is made up.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

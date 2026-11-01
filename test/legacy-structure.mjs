@@ -2,24 +2,13 @@
  * What a note with no page line is, as a plain structure, and how it draws: the reading (parseBooklet), the navigation model (buildNav), and
  * the DOM of every place the view can show (home, each module screen and tab, each activity's screen, tab and part), hashed.
  *
- * The dashboards release (0.9.0) must leave every note with no chart, no data source and no removal exactly as it was: test/legacy.test.mjs
- * compares this structure with test/legacy-golden.json, which was made from the code of release 0.8.0 (e692029) before 0.9.0 changed
- * anything (it came out byte for byte the same as the file made from 0.7.0's code, bb9283e, so 0.8.0 did leave these notes as they were).
+ * test/legacy.test.mjs compares this structure with test/legacy-golden.json, which is made from the current code by this file. A change that
+ * is meant to alter how these notes read or draw makes the file again, and the diff of the golden file names the notes and places that changed.
+ * The made-up notes below are marked 0.16, as the notes they stand for are.
  *
- * One difference is allowed and was made once, in its own commit: the Delete button (with its question, Yes and No) that 0.9.0 puts on each
- * card of the Kept entries list under Finalize. It changed two places only, "Daily tracker" evening-log and "Kept records" walk-log; with the
- * button's element taken out of the drawing, both hash exactly as they did in 0.8.0, and every other place in the file is the same hash.
- * The button was made again once after the cold review: each Delete, its question, Yes and No are named by hidden words, which are inside the same element, so the same two places hash differently again and only they. The golden file of the latest such commit is the 0.9.0 reference from then on.
- *
- * Plugin 0.11.0 made the file again from its own code, and only because the format's marker moved to 0.17 (the notes in the test vault were
- * re-marked, and the marker is in the model) and the notice moved out of `problems` into its own list (`unread`, notice.ts). Before that, the
- * 0.8.0 reading and the 0.11.0 reading were compared on the same notes, with `problems`, `unread` and the problems list in the drawing left out
- * of both: the models and the hash of every place were identical. The made-up notes below stay marked 0.16, as the notes they stand for were.
- *
- * To make the 0.8.0 file again, build that commit's tests (`node test/build-for-tests.mjs` in a checkout of it, with this file and fixed-date.mjs
- * copied in) and run
- *   node test/legacy-structure.mjs > legacy-golden.json
- * This file uses only what release 0.7.0 had (parseBooklet, buildNav, barTabs, the pane helper), so it runs on any code since.
+ * To make the golden file again, build the tests and run, from the repository's root,
+ *   node test/build-for-tests.mjs
+ *   node test/legacy-structure.mjs > test/legacy-golden.json
  */
 import "./fixed-date.mjs";
 import { createHash } from "node:crypto";
@@ -35,10 +24,10 @@ export const EXTRA = {
 };
 
 const sha = (s) => createHash("sha256").update(s).digest("hex");
-/** As plain data; a query's source names its activity by key (the activity itself holds the query). `entriesFolded` (0.17) is left out: it is false on every note here. */
+/** As plain data; a query's source names its activity by key (the activity itself holds the query). `entriesFolded` is left out: it is false on every note here. */
 const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "entriesFolded" ? undefined : k === "act" && x && typeof x === "object" && "segments" in x ? `${x.scope}/${x.id}` : x)));
 
-/** The reading and the model of a note, with only what release 0.7.0 had in them. */
+/** The reading and the model of a note. */
 export function modelOf(text) {
 	const book = core.parseBooklet(text);
 	const nav = core.buildNav(book, text);
@@ -79,7 +68,7 @@ export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.
 	const p = pane(text, { path, state: { file: path, version: 1, screen, ...(tab ? { tab } : {}), part } });
 	await p.settled();
 	const html = p.el.innerHTML.replace(/booklet-\d+/g, "booklet-N");
-	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line is what 0.7.0 saved)
+	// what the view would save for this place, as the pane keeps it (the saved place of a note with no page line has no page key)
 	const state = { writes: p.disk.writes, same: p.disk.text === text, drawn: p.screen, saved: JSON.parse(JSON.stringify(p.view.getState())) };
 	p.close();
 	return { sha: sha(html), ...state };

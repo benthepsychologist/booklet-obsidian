@@ -1,6 +1,6 @@
 /*
- * A reader's own words offered again (src/core/earlier.ts, drawn by src/questions.ts and src/engines.ts), as the
- * approved earlier-answers design for format 0.16 has it: the `earlier:<n>` setting and its bad values, the settings a
+ * A reader's own words offered again (src/core/earlier.ts, drawn by src/questions.ts and src/engines.ts), as format 0.16
+ * has it: the `earlier:<n>` setting and its bad values, the settings a
  * kind does not take (now reported, as SPEC section 4 says), and for each place that offers words (own options, a body
  * widget's places, a lines question) where the words come from, how many, in what order and how they are matched; the
  * source rule's edge cases (today's entry in a daily activity, pairs whose pick was taken back, a stale word id); and

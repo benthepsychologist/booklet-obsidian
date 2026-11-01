@@ -1,4 +1,4 @@
-// Check 25 of plugin-check.js: the 0.7.0 stage B of the plugin, in the real app. Every note is made up (test-vault "Reading and steps").
+// Check 25 of plugin-check.js: questions inside groups and tips, steps, rows, sources and the reading kinds, in the real app. Every note is made up (test-vault "Reading and steps").
 //   a question inside a group and inside a tip, a folded group, steps (one group at a time, none of them a step in Obsidian's
 //   Back and Forward), a row's cells side by side (stacked on a phone), footnotes as numbered marks with a source under the
 //   paragraph, and the format's own reading kinds (diff, law, opinion) in their own colour, picture and border.
@@ -37,7 +37,7 @@ module.exports = function readingChecks(env) {
   }, [BOOK, kind]);
 
   async function check25() {
-    const c = new Check(25, "stage B: a question in a group and in a tip, a folded group, steps (no step in Back and Forward), rows side by side, sources, and diff/law/opinion, in the real app; desktop and phone, light and dark");
+    const c = new Check(25, "a question in a group and in a tip, a folded group, steps (no step in Back and Forward), rows side by side, sources, and diff/law/opinion, in the real app; desktop and phone, light and dark");
     await withApp("c25", async (o, vault) => {
       const file = path.join(vault, READ);
       await open(o, READ);

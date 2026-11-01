@@ -1,7 +1,7 @@
 /*
- * Plugin 0.7.0, stage C: the small leftovers of 0.6.0 and what pins them. A long table's numeric-column check made once for each
- * column; the tabs' panels and focus after a move for a keyboard reader; names for a screen reader without Markdown marks; a `- - -`
- * line under text read as a break; a press's default stopped; a closing code fence's rules. Every note is made up.
+ * Small cases: a long table's numeric-column check made once for each column; the tabs' panels and focus after a move for a keyboard
+ * reader; names for a screen reader without Markdown marks; a `- - -` line under text read as a break; a press's default stopped; a closing
+ * code fence's rules. Every note is made up.
  */
 import { click, words } from "./dom.mjs";
 import test from "node:test";

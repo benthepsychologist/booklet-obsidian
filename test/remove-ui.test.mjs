@@ -147,7 +147,7 @@ test("a draft the reader has begun is not cleared by a deletion: the note's draf
 	v.close();
 });
 
-/* ---- what the cold review of the first draft found ---- */
+/* ---- Delete after an answer, a stale pane, a failed write, and the names of the buttons ---- */
 
 const nameOf = (v, el) => el.getAttribute("aria-labelledby").split(" ").map((id) => words(v.view.contentEl.querySelector("#" + id))).join(" ");
 

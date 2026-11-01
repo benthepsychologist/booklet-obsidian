@@ -7,9 +7,7 @@
 import { openView, typeInto } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { CHECKIN, ROOT } from "./helpers.mjs";
+import { CHECKIN } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
@@ -44,7 +42,49 @@ test("text typed in a field and not yet written is unsaved", async () => {
 	v.close();
 });
 
-test("main.ts gives the quit hook a task only for a view with something unsaved", () => {
-	const src = readFileSync(join(ROOT, "src", "main.ts"), "utf8");
-	assert.match(src, /v instanceof BookletView && v\.hasUnsaved\(\)\) tasks\.add\(/);
+/** The plugin loaded over an app that records the callback given to workspace.on("quit"), with these leaves open as booklet leaves. */
+async function quitHook(leaves) {
+	const { BookletPlugin } = await import("./.build/view.mjs");
+	const on = {};
+	const app = {
+		workspace: {
+			on: (name, fn) => ((on[name] = fn), {}),
+			getLeavesOfType: (type) => (type === "booklet" ? leaves : []),
+			onLayoutReady() {},
+		},
+		metadataCache: { on: () => ({}) },
+		vault: { on: () => ({}) },
+	};
+	await new BookletPlugin(app, {}).onload();
+	return on.quit;
+}
+/** What Obsidian hands the hook: an object that takes the tasks it is to wait for before it quits. */
+const tasksList = () => {
+	const added = [];
+	return { added, add: (fn) => void added.push(fn) };
+};
+
+test("the quit hook offers Obsidian no task for a booklet view with nothing unsaved", async () => {
+	const v = open();
+	await v.settled();
+	const quit = await quitHook([{ view: v.view }, { view: {} }]);
+	const tasks = tasksList();
+	quit(tasks);
+	assert.equal(tasks.added.length, 0);
+	v.close();
+});
+
+test("the quit hook offers one task for a view with words typed, and it writes them before it resolves", async () => {
+	const v = open();
+	await v.settled();
+	typeInto(v.view.contentEl.querySelector('[data-booklet-q="thoughts"] input'), "A made-up thought");
+	const quit = await quitHook([{ view: v.view }, { view: {} }]);
+	const tasks = tasksList();
+	quit(tasks);
+	assert.equal(tasks.added.length, 1);
+	assert.equal(v.disk.writes, 0);
+	await tasks.added[0]();
+	assert.match(v.disk.text, /A made-up thought/);
+	assert.equal(v.view.hasUnsaved(), false);
+	v.close();
 });

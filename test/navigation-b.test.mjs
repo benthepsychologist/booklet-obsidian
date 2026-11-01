@@ -1,5 +1,5 @@
 /*
- * Stage B of the navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
+ * Navigation: a link from another note (Obsidian hands the view its `#Words` part as `subpath`), the finish
  * drawn only where the tab on show holds a question, the set of icon names, and the scroll that waits for the draw to finish.
  * Every note is made up.
  */
@@ -101,7 +101,7 @@ test("a link to a heading in the opening of a tabbed activity leaves the tab and
 	p.close();
 });
 
-/* ---- the finish rule (call H) ---- */
+/* ---- the finish rule ---- */
 
 const FINISH = `---\nbooklet: "0.17"\ntitle: Finish\n---\n\n> [!activity|log repeat daily] Log\n\n> [!tab] Read\n\nSome words to read.\n\n> [!tab] Answer\n\n> [!text|what] What happened?\n\n> [!activity|plain repeat] Plain\n\nOnly words.\n\n> [!activity|asked repeat] Asked\n\n> [!text|above] Asked above every tab\n\n> [!tab] One\n\nWords.\n\n> [!tab] Two\n\nMore words.\n`;
 
@@ -145,11 +145,11 @@ test("the finish stays under every page of a tab that holds a question, wherever
 
 /* ---- the set of icon names ---- */
 
-test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", () => {
+test("Booklet's icon names are 161, each a plain lucide name, the set the format's art folder holds", (t) => {
 	assert.equal(BOOKLET_ICONS.size, 161);
 	for (const n of BOOKLET_ICONS) assert.match(n, /^[a-z0-9]+(-[a-z0-9]+)*$/, n);
 	const dir = join(BOOKLET, "art", "icons");
-	if (!existsSync(dir)) return console.log("skipped: no art/icons folder at " + dir);
+	if (!existsSync(dir)) return t.skip("no art/icons folder at " + dir);
 	const files = readdirSync(dir).filter((f) => f.endsWith(".svg")).map((f) => f.replace(/\.svg$/, ""));
 	assert.deepEqual([...BOOKLET_ICONS].sort(), files.sort());
 });

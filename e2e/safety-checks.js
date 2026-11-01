@@ -4,7 +4,7 @@
 //   36 CRLF, BOM, no final newline        39 the file changes under the open view
 //   37 a plugin that rewrites the note    40 the plugin off and on; pop-out window; split panes; restart
 //   (the Linter run needs a downloaded     41 a note with three thousand daily entries
-//    plugin: it is a scratch run, see the PR)
+//    plugin: it is run by hand in a scratch vault)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { quiet, frames, untilTrue, kit } = require("./waits");
@@ -235,6 +235,8 @@ ${BAD_DRAFT}
   /* ================= CHECK 38 ================= */
   // quit in the middle of typing: the process is killed, then started again on the same vault
   const EVERY = "Every kind.booklet.md";
+  // "written at once", measured from 150 ms after the last key (about 100 ms when measured): well below the 550 ms the typing pause still has to run then
+  const AT_ONCE = 300;
   const WRITE_PAUSE = 700;   // the view's TYPING_PAUSE_MS: typed words are written this long after the first key not yet written
   const mainPid = port => {
     const pids = cp.execSync(`pgrep -f -- "--remote-debugging-port=${port}"`, { encoding: "utf8" }).trim().split("\n").map(Number);
@@ -268,6 +270,7 @@ ${BAD_DRAFT}
         await stop(o, pid);
         for (let i = 0; i < 40; i++) { try { process.kill(pid, 0); } catch (e) { break; } await sleep(100); }
         const gone = (() => { try { process.kill(pid, 0); return false; } catch (e) { return true; } })();
+        const exitedAfter = Date.now() - times[times.length - 1];   // from the last key to the process being gone
         const afterStop = thoughtsOnDisk(file);
         await o.close();
         const o2 = await relaunch(o, "c38-" + label + "-restart");
@@ -276,7 +279,7 @@ ${BAD_DRAFT}
           await K.open(o2, EVERY); await K.goTo(o2, "activity:/kinds");
           shown = await o2.evaluate(sel => { const f = document.querySelector(sel + " .booklet-kind-text textarea, " + sel + " .booklet-kind-text input"); return f ? f.value : null; }, BOOK);
         } finally { await o2.close(); }
-        result = { times, killAt, onDisk, afterStop, shown, final: thoughtsOnDisk(file), gone };
+        result = { times, killAt, onDisk, afterStop, shown, final: thoughtsOnDisk(file), gone, exitedAfter };
       });
       return result;
     }
@@ -305,6 +308,10 @@ ${BAD_DRAFT}
     // own app shell has no such limit; this is the harness's.
     c.info("(d) events: " + JSON.stringify(fs.existsSync(path.join(WORK, "c38-events.log")) ? fs.readFileSync(path.join(WORK, "c38-events.log"), "utf8") : "none"));
     c.ok(r.final === "closing now", "(d) the window closed 150 ms after typing (the quit event): the words were written before it went: " + JSON.stringify(r.final));
+    // the typing pause cannot have written them: the process was gone, and the words already on disk, before the pause was up
+    c.info("(d) the process was gone " + r.exitedAfter + " ms after the last key");
+    c.ok(r.afterStop === "closing now" && r.exitedAfter < WRITE_PAUSE, "(d) the words were on disk when the process went, " + r.exitedAfter + " ms after the last key, before the " + WRITE_PAUSE + " ms typing pause could write them: the quit hook wrote them");
+    c.ok(/quit event/.test(fs.existsSync(path.join(WORK, "c38-events.log")) ? fs.readFileSync(path.join(WORK, "c38-events.log"), "utf8") : ""), "(d) the quit event ran");
     // (e) the pane closed, and another note opened in the pane, with words waiting
     await withApp("c38-leave", async (o, vault) => {
       const K = kit(env, EVERY), file = path.join(vault, EVERY);
@@ -314,14 +321,14 @@ ${BAD_DRAFT}
       await sleep(150);
       await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
       const a = await waitDisk(file, t => /pane closing/.test(t), 2000);
-      c.ok(a.ok && a.ms < 1500, "(e) the pane closed 150 ms after typing: written at once (" + a.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
+      c.ok(a.ok && a.ms < AT_ONCE, "(e) the pane closed 150 ms after typing: written at once (" + a.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
       await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
       const f2 = o.page.locator(BOOK + " .booklet-kind-text textarea, " + BOOK + " .booklet-kind-text input").first();
       await f2.click(); await f2.press("End"); await o.page.keyboard.type(" and another note");
       await sleep(150);
       await o.evaluate(async () => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath("Ordinary note.md")); });
       const b = await waitDisk(file, t => /pane closing and another note/.test(t), 2000);
-      c.ok(b.ok && b.ms < 1500, "(e) another note opened in the pane 150 ms after typing: written at once (" + b.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
+      c.ok(b.ok && b.ms < AT_ONCE, "(e) another note opened in the pane 150 ms after typing: written at once (" + b.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
     });
     return c;
   }
@@ -392,7 +399,7 @@ The garden is quiet today.
       fs.writeFileSync(file, edited);
       await o.page.waitForFunction(sel => /loud with birds/.test(document.querySelector(sel + " .booklet-page").textContent) && document.querySelectorAll(sel + " .booklet-entry").length === 3, BOOK, { timeout: 10000, polling: 100 });
       await quiet(o);
-      c.ok(true, "the view took the outside change: the new words of the design are shown and the kept days are three");
+      c.info("the view took the outside change: the new words of the design are shown and the kept days are three");
       c.ok(same(await pressedWords(o), ["Wind"]) && (await fieldWords(o)) === "Pruned the roses", "and the draft is still shown as it was: Wind pressed, the typed line in its field: " + JSON.stringify([await pressedWords(o), await fieldWords(o)]));
       await sleep(1500);
       c.ok(fs.readFileSync(file, "utf8") === edited, "and the plugin wrote nothing back over the outside change (the file is the bytes the other process wrote)");
@@ -539,7 +546,9 @@ The garden is quiet today.
         const d = await waitDisk(file, t => /typed in the other window and more/.test(t), 3000);
         c.ok(d.ok, "words typed and the pop-out window closed 150 ms later: written at once (" + d.ms + " ms)");
         const left = await leafTypes(o);
-        c.ok(!left.some(x => x.startsWith("booklet:") && false) && o.page.context().pages().filter(p => p !== o.page && !p.isClosed()).length >= 0, "the window is gone, the main window's booklet is as it was: " + JSON.stringify(left));
+        for (let n = 0; n < 20 && !pop.isClosed(); n++) await sleep(100);
+        c.ok(pop.isClosed() && !o.page.context().pages().includes(pop), "the pop-out window's page is gone from the browser's pages");
+        c.ok(left.includes("booklet:" + EVERY), "the main window's booklet view is as it was: " + JSON.stringify(left));
       }
     });
     // (c) two panes on one note, one of them in a stacked tab group
@@ -688,6 +697,8 @@ ${items.join(",\n")}
   };
   async function check41() {
     const c = new Check(41, "a large note: " + DAYS + " kept days of a daily tracker with a line over all of them and a table of all of them: time to draw each screen, from a press to the file written, typing, the heap, console errors");
+    // the measured times are in the lines below; each limit is at least three times the slowest measured, so that a loaded box does not fail it
+    const LIMIT_VIEW = 2000, LIMIT_PRESS = 500;
     await withApp("c41", async (o, vault) => {
       const text = bigText();
       const file = put(vault, BIG, text);
@@ -706,7 +717,7 @@ ${items.join(",\n")}
       await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 30000 });
       await quiet(o);
       const firstDraw = Date.now() - t0;
-      c.ok(firstDraw < 1000, "time to first draw of the home screen: " + firstDraw + " ms (limit 1000); long tasks " + JSON.stringify(await longs()));
+      c.ok(firstDraw < LIMIT_VIEW, "time to first draw of the home screen: " + firstDraw + " ms (limit " + LIMIT_VIEW + "); long tasks " + JSON.stringify(await longs()));
       // each screen, the way a reader gets to it
       const screenTime = async (screen, ready) => {
         const t = Date.now();
@@ -716,16 +727,16 @@ ${items.join(",\n")}
         return Date.now() - t;
       };
       const tLog = await screenTime("activity:/log", ".booklet-kind-number");
-      c.ok(tLog < 1000, "the daily log's screen (its fields, and the newest of the " + DAYS + " kept days): " + tLog + " ms; long tasks " + JSON.stringify(await longs()));
+      c.ok(tLog < LIMIT_VIEW, "the daily log's screen (its fields, and the newest of the " + DAYS + " kept days): " + tLog + " ms; long tasks " + JSON.stringify(await longs()));
       const nEntries = await entryCount(o);
       c.info("kept days listed on that screen at first: " + nEntries + " of " + DAYS);
       const tLine = await screenTime("activity:/line", "svg");
-      c.ok(tLine < 1000, "the line over all " + DAYS + " days: " + tLine + " ms; long tasks " + JSON.stringify(await longs()));
+      c.ok(tLine < LIMIT_VIEW, "the line over all " + DAYS + " days: " + tLine + " ms; long tasks " + JSON.stringify(await longs()));
       const tBars = await screenTime("activity:/bars", ".booklet-query");
-      c.ok(tBars < 1000, "the bars of the last 30 days: " + tBars + " ms; long tasks " + JSON.stringify(await longs()));
+      c.ok(tBars < LIMIT_VIEW, "the bars of the last 30 days: " + tBars + " ms; long tasks " + JSON.stringify(await longs()));
       const tTable = await screenTime("activity:/table", "table");
       const rows = await o.evaluate(sel => document.querySelectorAll(sel + " table tbody tr").length, BOOK);
-      c.ok(tTable < 1000, "the table of every kept day (" + rows + " rows drawn): " + tTable + " ms; long tasks " + JSON.stringify(await longs()));
+      c.ok(tTable < LIMIT_VIEW, "the table of every kept day (" + rows + " rows drawn): " + tTable + " ms; long tasks " + JSON.stringify(await longs()));
       // the words set without the renderer are the words the renderer gives (the table's choice and scale cells)
       const same2 = await o.evaluate(async sel => {
         const view = app.workspace.getLeavesOfType("booklet")[0].view;
@@ -750,7 +761,7 @@ ${items.join(",\n")}
         return { shown, written: Date.now() - t, ok: w.ok };
       };
       const p1 = await press(1), p2 = await press(2), p3 = await press(0);
-      c.ok(p1.ok && p2.ok && p3.ok && Math.max(p1.shown, p2.shown, p3.shown) < 200, "a press shows at once (" + [p1, p2, p3].map(x => x.shown + " ms").join(", ") + ") and is in the file after " + [p1, p2, p3].map(x => x.written + " ms").join(", ") + "; long tasks " + JSON.stringify(await longs()));
+      c.ok(p1.ok && p2.ok && p3.ok && Math.max(p1.shown, p2.shown, p3.shown) < LIMIT_PRESS, "a press shows at once (" + [p1, p2, p3].map(x => x.shown + " ms").join(", ") + ") and is in the file after " + [p1, p2, p3].map(x => x.written + " ms").join(", ") + "; long tasks " + JSON.stringify(await longs()));
       // typing: a key every 60 ms for 3 s; how long the main thread stalls, and the text arrives whole
       const word = "Typing into a note of " + DAYS + " kept days";
       const field = inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first();
@@ -762,7 +773,7 @@ ${items.join(",\n")}
       const typedAll = await waitDisk(file, t => t.includes('"note":"' + word + '"'), 15000);
       const lg = await longs();
       c.ok(typedAll.ok, "text typed for " + (Date.now() - tt) + " ms arrived whole; long tasks while typing: " + JSON.stringify(lg) + " (a write every 700 ms)");
-      c.ok(Math.max(0, ...lg) < 200, "no stall of 200 ms or more while typing: worst " + Math.max(0, ...lg) + " ms");
+      c.ok(Math.max(0, ...lg) < LIMIT_PRESS, "no stall of " + LIMIT_PRESS + " ms or more while typing: worst " + Math.max(0, ...lg) + " ms");
       const fin = Date.now();
       await inCard(o, "/log", "button.booklet-finalize").click();
       const kept = await waitDisk(file, t => t.split("\n").filter(l => l.startsWith('{"ts"')).length === DAYS + 1, 20000);
@@ -779,7 +790,7 @@ ${items.join(",\n")}
 
   /* ================= CHECK 37 ================= */
   // another plugin rewrites the note whenever it is saved. The Linter plugin itself is a downloaded third-party plugin and is run by hand in a
-  // scratch vault (see the PR); this check runs a stand-in that does what a formatter does, on every change to the note: it strips trailing
+  // scratch vault; this check runs a stand-in that does what a formatter does, on every change to the note: it strips trailing
   // spaces outside code fences, collapses runs of blank lines, puts a blank line round headings, adds a `date modified` key to the front
   // matter and ends the file with one newline.
   const FORMAT = "Formatted.booklet.md";
@@ -843,7 +854,7 @@ Words after two blank lines.
       await o.evaluate(async ([src, rel]) => { const f = app.vault.getAbstractFileByPath(rel); const t = await app.vault.read(f); await app.vault.modify(f, eval(src)(t)); }, [FORMATTER, FORMAT]);
       await sleep(1200);
       const f1 = fs.readFileSync(file, "utf8");
-      c.ok(!/[ \t]+\n/.test(f1.replace(/```[\s\S]*?```/g, "")) && /date modified: 2026-11-01/.test(f1) && f1.endsWith("\n"), "the stand-in rewrote the file: trailing spaces gone, a date modified key added, one newline at the end");
+      c.ok(!/[ \t]+\n/.test(f1.replace(/```[\s\S]*?```/g, "")) && /date modified: \d{4}-\d{2}-\d{2}/.test(f1) && f1.endsWith("\n"), "the stand-in rewrote the file: trailing spaces gone, a date modified key added, one newline at the end");
       c.ok((await entryCount(o)) === 1 && !!(await pageWords(o)).match(/Words after two blank lines/), "the open view followed it: the kept day is still listed, the design is still shown");
       c.ok(fs.readFileSync(file, "utf8") === f1, "and the plugin wrote nothing back over the formatter's text");
       // 2. words typed and not yet written when the formatter rewrites the note

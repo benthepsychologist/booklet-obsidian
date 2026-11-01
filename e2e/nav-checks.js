@@ -1,6 +1,6 @@
 // Checks 16 to 23, 27 and 28 of plugin-check.js: the 0.6.0 navigation, in the real app (27 and 28: page trees). Every note is made up.
 //   16 the three screens and the moves (cards, trail, pager, tabs, pages, a page tree, heading links, a restart, nothing written)
-//   17 to 21 design section 4.9, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
+//   17 to 21, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
 //   27 and 28 page trees (format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
@@ -130,7 +130,7 @@ Two p1
 Two p2
 `;
 
-  // a made-up wiki of 13 pages in three levels, one activity with no tab line (the pages round's worked example 5.2, with made-up words)
+  // a made-up wiki of 13 pages in three levels, one activity with no tab line (made-up words)
   const GARDEN_NOTE = `---
 booklet: "0.17"
 title: A small garden
@@ -200,7 +200,7 @@ A spade, a fork and a trowel are enough.
 
 > [!module|garden end]
 `;
-  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself (the fix round after the review)
+  // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself
   const DEEP_NOTE = (() => {
     let t = `---\nbooklet: "0.17"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
     for (let n = 1; n <= 14; n++) {
@@ -365,7 +365,7 @@ A spade, a fork and a trowel are enough.
     return c;
   }
 
-  /* ================= CHECK 17 to 19 (design 4.9) ================= */
+  /* ================= CHECK 17 to 19 ================= */
   async function check17() {
     const c = new Check(17, "Back is free: Back then Forward returns to the same place, and the step list does not grow");
     await withApp("c17", async o => {
@@ -794,7 +794,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 28 ================= */
   async function check28() {
-    const c = new Check(28, "the check-in as one activity with a wiki tab (the pages round's worked example 5.1, made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
+    const c = new Check(28, "the check-in as one activity with a wiki tab (made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
     await withApp("c28", async (o, vault) => {
       const NOTE = "Check-in with a wiki.booklet.md", KEY = "activity:calm/check-in";
       const text = fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", NOTE), "utf8");

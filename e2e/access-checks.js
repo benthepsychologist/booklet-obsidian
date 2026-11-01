@@ -134,8 +134,9 @@ module.exports = function accessChecks(env) {
       const back1 = once(back);
       const same = back1.length === order.length && back1.every((n, i) => n === order[order.length - 1 - i]);
       c.ok(same, `Shift+Tab goes back through the same ${back1.length} controls, last to first (forward ${order.length})`);
-      // the way in again: the first Tab of the view lands on the first control, whatever the scroll
-      c.ok(true, "walked in " + fwd.stops.length + " presses");
+      // the way in: the first stop in the view is the page's first control in the tab order
+      c.ok(inside.length > 0 && reach.length > 0 && inside[0].n === reach[0].n, `the first stop in the view is the page's first control: ${inside[0] && inside[0].tag} "${inside[0] && inside[0].name}" (control ${inside[0] && inside[0].n}, the first is ${reach[0] && reach[0].n})`);
+      c.info("walked in " + fwd.stops.length + " presses");
     });
     return c;
   }
@@ -330,7 +331,11 @@ module.exports = function accessChecks(env) {
           else c.info(`[${screen} ${mode}] ${mine.length} of the plugin's elements carry Obsidian's own fade: ${mine.slice(0, 4).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ") || "none"}`);
           c.ok(m.outer.every(x => x !== "smooth"), `[${screen} ${mode}] the page and the pane scroll without smoothing: ${m.outer.join(", ")}`);
           if (mode === "reduce") c.ok(theirs.length === 0, `[${screen} ${mode}] and, under reduced motion, nothing else in the view moves either: ${theirs.slice(0, 6).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ") || "none"}`);
-          else c.info(`[${screen} ${mode}] ${theirs.length} of Obsidian's own elements in the view have a transition: ${theirs.slice(0, 4).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ")}`);
+          else {
+            c.info(`[${screen} ${mode}] ${theirs.length} of Obsidian's own elements in the view have a transition: ${theirs.slice(0, 4).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ")}`);
+            // the detector is shown to work: with no request for less motion it finds the motion that is there
+            c.ok(mine.length + theirs.length > 0, `[${screen} ${mode}] the detector finds motion when the system does not ask for less (${mine.length} of the plugin's, ${theirs.length} of Obsidian's)`);
+          }
         }
       }
       await o.page.emulateMedia({ reducedMotion: null });

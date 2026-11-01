@@ -165,9 +165,11 @@ test("entries:folded: the reader's own choice wins while the pane is open, throu
 	await p.settled();
 	await press(p, fold(p));
 	assert.ok(isOpen(p));
-	// a redraw from a change made elsewhere: the reader had opened it, so it stays open
-	p.view.setViewData(p.disk.text + "", false);
+	// a redraw from a change made elsewhere (a fourth entry kept): the reader had opened it, so it stays open
+	const fourth = core.setDraftAnswer(p.disk.text, "", "log", "what", "Words 4");
+	p.view.setViewData(core.finalizeDraft(fourth, "", "log", { ts: "2026-09-04T09:00:00Z" }).text, false);
 	await p.settled();
+	assert.equal(p.all(".booklet-entry").length, 4, "the note's new text was drawn");
 	assert.ok(isOpen(p), "a redraw does not fold it again");
 	await p.trailTo("Two logs");
 	await p.card("3.Plain");

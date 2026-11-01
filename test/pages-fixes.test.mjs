@@ -1,7 +1,7 @@
 /*
- * Page trees, the fix round after the cold review (plugin 0.8.0): the documented 0.16 reading of a page line in a comment, a `<pre>` or a `$$`
- * block; what "Mentioned on" counts; Enter in an empty search box; a linear link lookup; ids that stay unique; the 0.17 note's rule; the
- * menu's focus, headings and labels; a very deep chain; and the gaps the review found in the earlier tests. Every note is made up.
+ * Page trees, further cases: how a 0.16 note's page line in a comment, a `<pre>` or a `$$` block is read; what "Mentioned on" counts; Enter in an
+ * empty search box; a linear link lookup; ids that stay unique; the rule for a 0.17 note; the menu's focus, headings and labels; a very deep
+ * chain; and cases the other page tests leave out. Every note is made up.
  */
 import "./fixed-date.mjs";
 import test from "node:test";
@@ -329,7 +329,7 @@ test("a deep tree scrolls inside its menu: the list has an overflow rule", () =>
 	assert.match(css, /\.booklet-treelabel \{[^}]*margin-top:\s*var\(--size-4-/);
 });
 
-/* ---- the gaps the review found ---- */
+/* ---- more cases ---- */
 
 test("Back from \"3 of 3\" goes to part 2, and from \"2 of 3\" to part 1", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|p] Long\n\nOne.\n\n***\n\nTwo.\n\n***\n\nThree.\n`;
@@ -389,7 +389,7 @@ test("moving off a named page leaves no page in the saved place: it reads as ver
 	p.close();
 });
 
-/* ---- lines the mutation run showed no test could break (the 0.8.0 trim) ---- */
+/* ---- links after blocks, the search, and titles that start with an emoji ---- */
 
 test("\"Mentioned on\" counts a link after a closed <pre>, $$ or comment block, after a fence, and after an indented block, wherever the text starts", () => {
 	const blocks = ["<pre>\n[[#Hidden]]\n</pre>", "$$\n[[#Hidden]]\n$$", "<!--\n[[#Hidden]]\n-->", "```\n[[#Hidden]]\n```", "Text.\n\n    [[#Hidden]]"];
