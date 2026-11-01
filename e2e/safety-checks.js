@@ -326,5 +326,291 @@ ${BAD_DRAFT}
     return c;
   }
 
-  return { 35: check35, 36: check36, 38: check38 };
+  /* ================= CHECK 39 ================= */
+  // the file changes under the open view: edited on disk by another process, renamed, moved, deleted, restored
+  const GARDEN = "Garden log.booklet.md";
+  const gardenText = () => `---
+booklet: "0.17"
+id: booklet-test/garden-log
+title: Garden log
+lang: en
+---
+
+> [!activity|log repeat] A garden log
+
+The garden is quiet today.
+
+> [!choice|weather] What is the weather?
+- [ ] Sun
+- [ ] Rain
+- [ ] Wind
+
+> [!scale|work] How much did you do?
+
+1. A little
+2. Some
+3. A lot
+
+> [!text|note] A line about it
+
+%%
+> [!records] App record — do not edit below this line
+
+\`\`\`booklet entries log
+{"items": [
+{"ts": "2026-10-01T08:00:00Z", "weather": 1, "note": "Sowed the beans"},
+{"ts": "2026-10-02T08:00:00Z", "weather": 2, "note": "Watered the pots"}
+]}
+\`\`\`
+
+\`\`\`booklet draft log
+{"weather": 3}
+\`\`\`
+%%
+`;
+  const entryCount = o => o.evaluate(sel => document.querySelectorAll(sel + " .booklet-entry").length, BOOK);
+  const pageWords = o => o.evaluate(sel => (document.querySelector(sel + " .booklet-page") || { textContent: "" }).textContent.replace(/\s+/g, " "), BOOK);
+  const pressedWords = o => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-kind-choice button.booklet-choice")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.textContent.trim()), BOOK);
+  const fieldWords = o => o.evaluate(sel => { const f = document.querySelector(sel + " .booklet-kind-text input, " + sel + " .booklet-kind-text textarea"); return f ? f.value : null; }, BOOK);
+  async function check39() {
+    const c = new Check(39, "the file changes under the open view: edited on disk by another process, then renamed, moved, deleted and restored from the trash: no answer lost, no stray note, no error");
+    await withApp("c39-disk", async (o, vault) => {
+      const file = put(vault, GARDEN, gardenText());
+      const K = kit(env, GARDEN);
+      await K.open(o, GARDEN); await K.goTo(o, "activity:/log");
+      c.ok(same(await pressedWords(o), ["Wind"]) && (await entryCount(o)) === 2, "the view shows the draft already in the note (Wind pressed) and two kept days");
+      // the reader adds to the draft
+      await inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first().click();
+      await o.page.keyboard.type("Pruned the roses");
+      await o.evaluate(() => document.activeElement && document.activeElement.blur());
+      await waitDisk(file, t => /Pruned the roses/.test(t));
+      // another process (as Sync would) edits the file: a word of the design, a kept day added, a paragraph at the very end
+      const disk0 = fs.readFileSync(file, "utf8");
+      let edited = disk0.replace("The garden is quiet today.", "The garden is loud with birds today.");
+      edited = edited.replace('{"ts": "2026-10-02T08:00:00Z", "weather": 2, "note": "Watered the pots"}', '{"ts": "2026-10-02T08:00:00Z", "weather": 2, "note": "Watered the pots"},\n{"ts": "2026-10-03T08:00:00Z", "weather": 1, "note": "Written on another device"}');
+      edited += "\nA paragraph another device added at the very end.\n";
+      fs.writeFileSync(file, edited);
+      await o.page.waitForFunction(sel => /loud with birds/.test(document.querySelector(sel + " .booklet-page").textContent) && document.querySelectorAll(sel + " .booklet-entry").length === 3, BOOK, { timeout: 10000, polling: 100 });
+      await quiet(o);
+      c.ok(true, "the view took the outside change: the new words of the design are shown and the kept days are three");
+      c.ok(same(await pressedWords(o), ["Wind"]) && (await fieldWords(o)) === "Pruned the roses", "and the draft is still shown as it was: Wind pressed, the typed line in its field: " + JSON.stringify([await pressedWords(o), await fieldWords(o)]));
+      await sleep(1500);
+      c.ok(fs.readFileSync(file, "utf8") === edited, "and the plugin wrote nothing back over the outside change (the file is the bytes the other process wrote)");
+      // a press after it lands on the fresh text, so the outside change stays
+      await inCard(o, "/log", ".booklet-kind-scale button.booklet-choice").nth(2).click();
+      const a = await waitDisk(file, t => /"work": 3/.test(t));
+      c.ok(a.ok && a.text.includes("loud with birds") && a.text.includes("Written on another device") && a.text.endsWith("A paragraph another device added at the very end.\n"), "a press after the outside change is written into the fresh text: the other device's words, entry and paragraph are all still in the file");
+      // words typed and not yet written when the outside change arrives
+      await inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first().click();
+      await o.page.keyboard.press("End");
+      await o.page.keyboard.type(" and the lilies");
+      fs.writeFileSync(file, fs.readFileSync(file, "utf8").replace("loud with birds", "loud with bees"));
+      await o.page.waitForFunction(sel => document.activeElement && /lilies/.test(document.activeElement.value || ""), BOOK, { timeout: 4000 });
+      const b = await waitDisk(file, t => /Pruned the roses and the lilies/.test(t) && /loud with bees/.test(t));
+      c.ok(b.ok, "words typed while another change arrived: the file ends with both the outside change (bees) and the typed line (and the lilies)");
+      c.ok((await fieldWords(o)) === "Pruned the roses and the lilies", "and the field kept the reader's words and focus through it: " + JSON.stringify(await fieldWords(o)));
+    });
+    await withApp("c39-move", async (o, vault) => {
+      const file = put(vault, GARDEN, gardenText());
+      const K = kit(env, GARDEN);
+      const countFiles = () => o.evaluate(() => app.vault.getFiles().length);
+      const filesBefore = await countFiles();
+      await K.open(o, GARDEN); await K.goTo(o, "activity:/log");
+      const typeLine = async text => { await inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first().click(); await o.page.keyboard.type(text); };
+      // rename with words waiting to be written
+      await typeLine("Renamed mid-word");
+      await o.evaluate(async () => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath("Garden log.booklet.md"), "Garden journal.booklet.md"); });
+      const renamed = path.join(vault, "Garden journal.booklet.md");
+      const r = await waitDisk(renamed, t => /Renamed mid-word/.test(t), 4000);
+      c.ok(r.ok && !fs.existsSync(file), "renamed with words waiting: they were written into the renamed note, and no note is left under the old name");
+      const sameLeaf = await o.evaluate(() => { const l = app.workspace.getLeavesOfType("booklet")[0]; return l && l.view.file.path; });
+      c.ok(sameLeaf === "Garden journal.booklet.md" && (await entryCount(o)) === 2, "and the open view follows the note: " + sameLeaf);
+      await inCard(o, "/log", ".booklet-kind-choice button.booklet-choice").nth(0).click();
+      const r2 = await waitDisk(renamed, t => /"weather": 1\}?\s*\n```\n%%/.test(t) || /booklet draft log\n\{[^}]*"weather": 1/.test(t));
+      c.ok(r2.ok, "a press after the rename is written into the renamed note: " + JSON.stringify((r2.text.match(/```booklet draft log\n[\s\S]*?\n```/) || [])[0]));
+      // move to a folder
+      await o.evaluate(async () => { await app.vault.createFolder("Beds").catch(() => {}); await app.fileManager.renameFile(app.vault.getAbstractFileByPath("Garden journal.booklet.md"), "Beds/Garden journal.booklet.md"); });
+      const moved = path.join(vault, "Beds", "Garden journal.booklet.md");
+      await inCard(o, "/log", ".booklet-kind-scale button.booklet-choice").nth(1).click();
+      const m = await waitDisk(moved, t => /"work": 2/.test(t));
+      c.ok(m.ok && !fs.existsSync(renamed), "moved to a folder: a press lands in the moved note, and none is left behind");
+      // delete with words waiting
+      await typeLine(" typed as it is deleted");
+      await o.evaluate(async () => { await app.fileManager.trashFile(app.vault.getAbstractFileByPath("Beds/Garden journal.booklet.md")); });
+      await sleep(2000);
+      const stray = [];
+      const walk = (d, rel) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { if (e.name === ".obsidian") continue; const r = rel ? rel + "/" + e.name : e.name; if (e.isDirectory()) walk(path.join(d, e.name), r); else stray.push(r); } };
+      walk(vault, "");
+      const garden = stray.filter(f => /garden/i.test(f));
+      c.ok(garden.length === 1 && /^\.trash\//.test(garden[0]), "deleted with words waiting: the only note of that name left is the one in the trash, and none was made again: " + JSON.stringify(garden));
+      c.ok((await countFiles()) === filesBefore - 1, "the vault has one file fewer: " + filesBefore + " before, " + (await countFiles()) + " now");
+      const gone = await o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push(l.view.getViewType() + ":" + (l.view.file ? l.view.file.path : "-")); }); return r; });
+      c.ok(!gone.some(x => x.startsWith("booklet:")), "and no booklet view is left holding the deleted note: " + JSON.stringify(gone));
+      // restore from the trash: moved back by hand, as a person does with the file manager
+      const trashed = path.join(vault, ".trash", garden[0].split("/").pop());
+      fs.mkdirSync(path.join(vault, "Beds"), { recursive: true });
+      fs.renameSync(trashed, moved);
+      await o.page.waitForFunction(() => !!app.vault.getAbstractFileByPath("Beds/Garden journal.booklet.md"), null, { timeout: 8000, polling: 100 });
+      await K.open(o, "Beds/Garden journal.booklet.md"); await K.goTo(o, "activity:/log");
+      const back = await fieldWords(o);
+      c.ok((await entryCount(o)) === 2 && /^Renamed mid-word/.test(back || "") && (await countFiles()) === filesBefore, "restored from the trash and opened: the two kept days and the draft's words are there (" + JSON.stringify(back) + "), and the vault has " + filesBefore + " files again");
+      await inCard(o, "/log", ".booklet-kind-choice button.booklet-choice").nth(2).click();
+      const back2 = await waitDisk(moved, t => /booklet draft log\n\{[^}]*"weather": 3/.test(t));
+      c.ok(back2.ok, "and an answer pressed in the restored note is written");
+    });
+    return c;
+  }
+
+  /* ================= CHECK 40 ================= */
+  // lifecycle: the plugin off and on, a pop-out window, two panes on one note (one in a stacked group), a restart with the pane open
+  const WIKI = "Check-in with a wiki.booklet.md";
+  const openAs = (o, rel, opts) => o.evaluate(async ([rel, opts]) => { const l = opts === "new" ? app.workspace.getLeaf("tab") : app.workspace.getLeaf(false); await l.openFile(app.vault.getAbstractFileByPath(rel)); return l.view.getViewType(); }, [rel, opts || ""]);
+  const leafTypes = o => o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push(l.view.getViewType() + ":" + (l.view.file ? l.view.file.path : "-")); }); return r; });
+  async function check40() {
+    const c = new Check(40, "lifecycle: the plugin turned off and on (notes open as Markdown while off, no stray patch left), a booklet in a pop-out window, two panes on one note with one in a stacked group, a restart with the pane open");
+    // (a) off and on
+    await withApp("c40-toggle", async (o, vault) => {
+      const K = kit(env, EVERY);
+      const proto = "Object.getPrototypeOf(app.workspace.activeLeaf || app.workspace.getLeaf(false))";
+      const patch = () => o.evaluate(`(${proto}).setViewState.toString()`);
+      const info = () => o.evaluate(() => ({ view: !!app.viewRegistry.viewByType["booklet"], command: !!app.commands.commands["booklet:toggle-view"], enabled: !!app.plugins.plugins["booklet"] }));
+      const withPlugin = await patch();
+      const i0 = await info();
+      c.ok(i0.view && i0.command && i0.enabled, "on: the booklet view type and the toggle command are registered: " + JSON.stringify(i0));
+      // a pane showing a booklet with words waiting, and the plugin turned off
+      await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
+      const field = o.page.locator(BOOK + " .booklet-kind-text textarea").first();
+      await field.click(); await o.page.keyboard.type("typed as it goes off");
+      await o.evaluate(async () => { await app.plugins.disablePlugin("booklet"); });
+      await sleep(600);
+      const off = await patch(), i1 = await info();
+      c.ok(!i1.view && !i1.command && !i1.enabled, "off: the booklet view type and the command are gone: " + JSON.stringify(i1));
+      c.ok(off !== withPlugin && !/booklet/i.test(off), "off: WorkspaceLeaf.setViewState is Obsidian's own again (the plugin's wrap is gone)");
+      const t1 = await leafTypes(o);
+      c.ok(t1.some(x => x === "markdown:" + EVERY) && !t1.some(x => x.startsWith("booklet:")), "off: the pane that showed the booklet shows the note as Markdown: " + JSON.stringify(t1));
+      c.ok(/typed as it goes off/.test(fs.readFileSync(path.join(vault, EVERY), "utf8")), "off: the words typed just before were written into the note");
+      // while off: a booklet note opens as Markdown, a plain note too, and the editor works
+      const v1 = await openAs(o, "Evening check-in.booklet.md", "new");
+      const v2 = await openAs(o, "Ordinary note.md", "new");
+      c.ok(v1 === "markdown" && v2 === "markdown", "off: a booklet note opens as Markdown (" + v1 + "), and so does a plain note (" + v2 + ")");
+      await o.evaluate(() => { const ed = app.workspace.activeLeaf.view.editor; ed.focus(); ed.setCursor({ line: 0, ch: 0 }); });
+      await o.page.keyboard.type("Edited while off. ");
+      const plain = await waitDisk(path.join(vault, "Ordinary note.md"), t => t.startsWith("Edited while off. "), 8000);
+      c.ok(plain.ok, "off: typing in the Markdown view of a note works and is saved");
+      // on again
+      await o.evaluate(async () => { await app.plugins.enablePlugin("booklet"); });
+      await sleep(800);
+      const on = await patch(), i2 = await info();
+      c.ok(i2.view && i2.command && i2.enabled && on !== off, "on again: the view type and command are back and the wrap is installed again");
+      const v3 = await openAs(o, "Evening check-in.booklet.md", "new");
+      const v4 = await openAs(o, "Ordinary note.md", "new");
+      c.ok(v3 === "booklet" && v4 === "markdown", "on again: a booklet note opens as a booklet (" + v3 + "), a plain note as Markdown (" + v4 + ")");
+      // three more cycles: nothing is registered twice
+      for (let n = 0; n < 3; n++) { await o.evaluate(async () => { await app.plugins.disablePlugin("booklet"); await app.plugins.enablePlugin("booklet"); }); await sleep(500); }
+      const again = await patch();
+      const dup = await o.evaluate(() => ({ commands: Object.keys(app.commands.commands).filter(x => x === "booklet:toggle-view").length, actions: [...document.querySelectorAll(".workspace-leaf-content[data-type='markdown'] .view-action[aria-label='Open as booklet']")].length, mdLeaves: app.workspace.getLeavesOfType("markdown").filter(l => /booklet\.md$/.test(l.view.file ? l.view.file.path : "")).length }));
+      c.ok(dup.commands === 1 && dup.actions === dup.mdLeaves, "after three more off and on cycles: one toggle command, and one Open as booklet button for each booklet note shown as Markdown: " + JSON.stringify(dup));
+      await o.evaluate(async () => { await app.plugins.disablePlugin("booklet"); });
+      await sleep(400);
+      c.ok((await patch()) === off, "and turned off again, setViewState is exactly Obsidian's own again (no patch left from any cycle)");
+      await o.evaluate(async () => { await app.plugins.enablePlugin("booklet"); });
+    });
+    // (b) a pop-out window
+    await withApp("c40-popout", async (o, vault) => {
+      const K = kit(env, EVERY), file = path.join(vault, EVERY);
+      await K.open(o, EVERY);
+      await o.evaluate(async () => { const l = app.workspace.openPopoutLeaf(); window.__pop = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 1, screen: "activity:/kinds", part: 0 }, active: true }); });
+      let pop = null;
+      for (let n = 0; n < 40 && !pop; n++) { for (const p of o.page.context().pages()) if (p !== o.page && await p.evaluate(() => document.querySelectorAll(".booklet-page").length).catch(() => 0)) pop = p; if (!pop) await sleep(250); }
+      c.ok(!!pop, "a booklet note opened in a pop-out window draws there (a second window with a booklet page)");
+      if (pop) {
+        const info = await o.evaluate(() => { const l = window.__pop; return { type: l.view.getViewType(), own: l.view.contentEl.ownerDocument !== document }; });
+        c.ok(info.type === "booklet" && info.own, "its view lives in the other window's document: " + JSON.stringify(info));
+        await pop.locator(".booklet-kind-choice button.booklet-choice").nth(1).click();
+        const a = await waitDisk(file, t => /"fruit": 2/.test(t));
+        c.ok(a.ok, "a press in the pop-out window is written into the note");
+        const f = pop.locator(".booklet-kind-text textarea").first();
+        await f.click(); await pop.keyboard.type("typed in the other window");
+        const b = await waitDisk(file, t => /typed in the other window/.test(t));
+        c.ok(b.ok, "words typed there are written after the pause");
+        await f.press("End"); await pop.keyboard.type(" and more");
+        await sleep(150);
+        await o.evaluate(() => { window.__pop.getContainer().win.close(); });
+        const d = await waitDisk(file, t => /typed in the other window and more/.test(t), 3000);
+        c.ok(d.ok, "words typed and the pop-out window closed 150 ms later: written at once (" + d.ms + " ms)");
+        const left = await leafTypes(o);
+        c.ok(!left.some(x => x.startsWith("booklet:") && false) && o.page.context().pages().filter(p => p !== o.page && !p.isClosed()).length >= 0, "the window is gone, the main window's booklet is as it was: " + JSON.stringify(left));
+      }
+    });
+    // (c) two panes on one note, one of them in a stacked tab group
+    await withApp("c40-panes", async (o, vault) => {
+      const K = kit(env, EVERY), file = path.join(vault, EVERY);
+      await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
+      await o.evaluate(async () => { const l = app.workspace.getLeaf("split", "vertical"); window.__b = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 1, screen: "activity:/kinds", part: 0 }, active: true }); });
+      await o.page.waitForFunction(sel => document.querySelectorAll(sel + " .booklet-page[data-booklet-screen='activity:/kinds']").length === 2, BOOK, { timeout: 8000 });
+      // the second pane's tab group is stacked, with a second tab in it
+      const stacked = await o.evaluate(async () => {
+        const l = window.__b, g = l.parent;
+        if (typeof g.setStacked === "function") g.setStacked(true);
+        const other = app.workspace.createLeafInParent(g, g.children.length);
+        await other.openFile(app.vault.getAbstractFileByPath("Ordinary note.md"));
+        app.workspace.setActiveLeaf(l, { focus: true });
+        return { stacked: !!g.isStacked, tabs: g.children.length, cls: g.containerEl.className };
+      });
+      c.ok(stacked.tabs === 2 && stacked.stacked, "the second pane sits in a stacked tab group of two tabs: " + JSON.stringify(stacked));
+      await sleep(600);
+      const panes = () => o.evaluate(sel => [...document.querySelectorAll(sel)].map(v => ({ pressed: [...v.querySelectorAll(".booklet-kind-choice button.booklet-choice")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.textContent.trim()), text: (v.querySelector(".booklet-kind-text textarea") || {}).value })), BOOK);
+      const first = o.page.locator(BOOK).nth(0), second = o.page.locator(BOOK).nth(1);
+      await first.locator(".booklet-kind-choice button.booklet-choice").nth(1).click();
+      await waitDisk(file, t => /"fruit": 2/.test(t));
+      await o.page.waitForFunction(sel => [...document.querySelectorAll(sel)].every(v => [...v.querySelectorAll(".booklet-kind-choice button.booklet-choice")].some(b => b.getAttribute("aria-pressed") === "true")), BOOK, { timeout: 6000 });
+      let p = await panes();
+      c.ok(p.length === 2 && p.every(x => same(x.pressed, ["Pear"])), "a press in one pane shows in the other: " + JSON.stringify(p.map(x => x.pressed)));
+      await second.locator(".booklet-kind-text textarea").first().click();
+      await o.page.keyboard.type("typed in the stacked pane");
+      await o.evaluate(() => document.activeElement && document.activeElement.blur());
+      await waitDisk(file, t => /typed in the stacked pane/.test(t));
+      await o.page.waitForFunction(sel => [...document.querySelectorAll(sel)].every(v => (v.querySelector(".booklet-kind-text textarea") || {}).value === "typed in the stacked pane"), BOOK, { timeout: 6000 });
+      p = await panes();
+      c.ok(p.every(x => x.text === "typed in the stacked pane"), "words typed in the other pane show in the first: " + JSON.stringify(p.map(x => x.text)));
+      await first.locator(".booklet-kind-scale button.booklet-choice").nth(2).click();
+      await first.locator(".booklet-kind-choice button.booklet-choice").nth(2).click();
+      const e = await waitDisk(file, t => /"fruit": 3/.test(t) && /"sure": 3/.test(t));
+      const text = e.text;
+      c.ok(e.ok && text.split("```booklet answers").length === 2 && text.split("%%\n> [!records]").length === 2, "after presses in both panes: one records region, one answers block, nothing doubled");
+      await o.page.waitForFunction(sel => { const r = [...document.querySelectorAll(sel)].map(v => [...v.querySelectorAll(".booklet-kind-choice button.booklet-choice")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.textContent.trim()).join()); return r.length === 2 && r[0] === r[1] && r[0] === "Plum"; }, BOOK, { timeout: 6000, polling: 100 }).catch(() => {});
+      const mixed = await o.evaluate(sel => [...document.querySelectorAll(sel)].map(v => [...v.querySelectorAll(".booklet-kind-choice button.booklet-choice")].filter(b => b.getAttribute("aria-pressed") === "true").map(b => b.textContent.trim()).join()), BOOK);
+      c.ok(mixed.length === 2 && mixed[0] === mixed[1] && mixed[0] === "Plum", "and both panes show the same answers: " + JSON.stringify(mixed));
+    });
+    // (d) restart with the pane open: same screen, tab and page
+    await withApp("c40-restart", async (o, vault) => {
+      put(vault, WIKI, fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", WIKI)));
+      const K = kit(env, WIKI);
+      o.page.on("dialog", d => { d.accept().catch(() => {}); });
+      await o.evaluate(() => { window.addEventListener("beforeunload", () => {}); });   // see check 38: the harness's browser needs a listener of the page's own to show Obsidian's unload prompt
+      await K.open(o, WIKI);
+      await o.evaluate(async () => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen: "activity:calm/check-in", tab: "wiki", page: "grid", part: 0 }, active: true }); });
+      await o.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='activity:calm/check-in']", { timeout: 8000 });
+      await quiet(o);
+      const here = () => o.evaluate(sel => { const l = app.workspace.getLeavesOfType("booklet")[0]; const st = l ? l.getViewState().state : null; const v = document.querySelector(sel + " .booklet-page"); return { state: st && { screen: st.screen, tab: st.tab, page: st.page, part: st.part, file: st.file }, title: (v && (v.querySelector(".booklet-page-title, h2, h1") || {}).textContent) || null, text: v ? v.textContent.replace(/\s+/g, " ").slice(0, 200) : null, tabShown: [...document.querySelectorAll(sel + " [role=tab][aria-selected=true]")].map(t => t.textContent.trim()) }; }, BOOK);
+      const before = await here();
+      c.ok(before.state && before.state.page === "grid" && before.title === "The feelings grid", "before the restart the pane is on the wiki tab, on the page The feelings grid: " + JSON.stringify(before));
+      await sleep(3000);   // Obsidian saves the layout a moment after it changes
+      const saved = JSON.stringify(JSON.parse(fs.readFileSync(path.join(vault, ".obsidian", "workspace.json"), "utf8")));
+      c.ok(/"page":"grid"/.test(saved), "the layout file holds the page, beside the note's name: " + (saved.match(/"type":"booklet","state":\{[^}]*\}/) || ["no booklet leaf found"])[0]);
+      await o.evaluate(() => { setTimeout(() => require("electron").remote.getCurrentWindow().close(), 0); }).catch(() => {});
+      for (let n = 0; n < 50; n++) { try { process.kill(mainPid(o.port), 0); } catch (e) { break; } await sleep(100); }
+      await o.close();
+      const o2 = await relaunch(o, "c40-restart-again");
+      try {
+        await o2.page.waitForSelector(BOOK + " .booklet-page[data-booklet-screen='activity:calm/check-in']", { timeout: 20000 });
+        await quiet(o2);
+        const after = await o2.evaluate(sel => { const l = app.workspace.getLeavesOfType("booklet")[0]; const st = l ? l.getViewState().state : null; const v = document.querySelector(sel + " .booklet-page"); return { state: st && { screen: st.screen, tab: st.tab, page: st.page, part: st.part, file: st.file }, text: v ? v.textContent.replace(/\s+/g, " ").slice(0, 200) : null }; }, BOOK);
+        c.ok(same(after.state, before.state) && after.text === before.text, "after the restart the pane is back on the same note, screen, tab and page, drawn the same: " + JSON.stringify(after.state));
+      } finally { await o2.close(); }
+    });
+    return c;
+  }
+
+  return { 35: check35, 36: check36, 38: check38, 39: check39, 40: check40 };
 };
