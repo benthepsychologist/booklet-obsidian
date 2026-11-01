@@ -18,15 +18,24 @@ const only = (text) => {
 
 /* ---- a page line inside a callout body ---- */
 
-test("a page line inside a group's body is the group's text, not a page: no page is made, nothing is said, the words stay in the group", () => {
+test("a page line inside a group is ignored and said (SPEC 0.17 section 3: a group cannot hold one): no page is made, and the group keeps its other words", () => {
 	const text = note(`> [!group] Steps\n> Words.\n>\n> > [!page|x] Not a page\n> > Words of it.\n>\n> More words.\n\nAfter the group.`);
 	const book = core.parseBooklet(text);
-	assert.deepEqual(book.problems, []);
+	assert.deepEqual(book.problems, ["Line 10: a page line cannot go inside a group, so it was ignored."]);
 	assert.deepEqual(norm(book.activities[0].segments.map((s) => (s.type === "callout" ? `callout:${s.kind}` : s.type))), ["callout:group", "prose", "callout-end", "prose"]);
 	const group = book.activities[0].segments[1];
-	assert.match(group.markdown, /\[!page\|x\] Not a page/, "the line is in the group's words");
+	assert.doesNotMatch(group.markdown, /Not a page/, "the line is not drawn");
+	assert.match(group.markdown, /Words\.[\s\S]*More words\./, "the group's other words stay");
 	const { na } = only(text);
 	assert.deepEqual(na.tabs[0].tree.map((p) => p.named), [false], "one unnamed page, no page made by the line");
+});
+
+test("a page line inside another callout's body, one that holds a question, is that body's text, not a page, and nothing is said (SPEC 0.17 section 3)", () => {
+	const text = note(`> [!tip] Tip\n>\n> > [!choice|c] One?\n> - [ ] Yes\n> - [ ] No\n>\n> > [!page|x] Not a page\n> > Words of it.\n\nAfter.`);
+	const book = core.parseBooklet(text);
+	assert.deepEqual(book.problems, []);
+	const tip = book.activities[0].segments.filter((s) => s.type === "prose").map((s) => s.markdown).join("\n");
+	assert.match(tip, /\[!page\|x\] Not a page/, "the line is in the callout's words");
 });
 
 test("the same inside a tip that holds a question; and the page line after the group still starts a page", () => {

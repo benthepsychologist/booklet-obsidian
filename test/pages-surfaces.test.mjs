@@ -220,12 +220,17 @@ test("under the last part of a page come the pages under it as cards, numbered, 
 	first.close();
 });
 
-test("a tab with an activity-level card list still shows its own: pages under a page do not replace the activities under an activity", async () => {
+test("an activity with a parent: on its line has no activity under it: only its pages' cards are drawn, and the other activity is a card of the module", async () => {
 	const text = `---\nbooklet: "0.17"\ntitle: Both\n---\n\n> [!module|m] M\n\n> [!activity|top] Top\n\n> [!page|a] A\n\nWords.\n\n> [!page|b parent:a] B\n\nWords.\n\n> [!activity|kid parent:top] Kid\n\nWords.\n\n> [!module|m end]\n`;
 	const p = pane(text, { state: { version: 1, screen: "activity:m/top", part: 0 } });
 	await p.settled();
-	assert.deepEqual(p.all(".booklet-meta").map(p.words), ["Pages under this one", "Under this one"]);
+	assert.deepEqual(p.all(".booklet-meta").map(p.words), ["Pages under this one"], "the first page has the page under it, and no activity is under this one");
+	assert.equal(p.el.textContent.includes("Under this one"), false);
 	p.close();
+	const m = pane(text, { screen: "module:m" });
+	await m.settled();
+	assert.deepEqual(m.cards(), ["1.Top", "2.Kid"], "both are top cards of the module");
+	m.close();
 });
 
 test("\"Mentioned on\" lists the pages that link to the page on show, each a link to the page that holds the link; it is shown under the cards, and writes nothing", async () => {

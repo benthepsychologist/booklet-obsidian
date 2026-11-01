@@ -51,9 +51,8 @@ test("the sampler: one card for each module and each bare activity, in file orde
 	assert.deepEqual(norm(basics.tabs.map((t) => t.id)), ["practice", "read"]);
 	assert.equal(basics.icon, "shapes");
 	assert.equal(basics.blurb, "Lines, boxes and light, one at a time, at your own pace.");
-	// its reading order: a parent, then its children, then the next sibling
-	assert.deepEqual(norm(basics.order.map((a) => `${a.number}.${a.act.id}`)), ["1.lines", "2.shapes", "3.light", "4.shadow", "5.reflected"]);
-	assert.deepEqual(norm(basics.top.map((a) => a.act.id)), ["lines", "shapes", "light"]);
+	// its reading order is the file's: an activity's pages are its own, not activities of the module
+	assert.deepEqual(norm(basics.acts.map((a) => `${a.number}.${a.act.id}`)), ["1.lines", "2.shapes", "3.light"]);
 });
 
 test("a card's parts: the picture is the line's icon, else a leading emoji; the blurb is the first paragraph; the status is the file's lines or the worked-out words; status:off hides it", () => {
@@ -66,11 +65,10 @@ test("a card's parts: the picture is the line's icon, else a leading emoji; the 
 	assert.deepEqual(norm(core.activityStatus(act(nav, "basics/shapes"), book)), { text: "2 questions · Not started", md: false });
 	// nothing to count: nothing
 	assert.deepEqual(norm(core.activityStatus(act(nav, "basics/light"), book)), { text: "", md: false });
-	assert.deepEqual(norm(core.activityStatus(act(nav, "basics/reflected"), book)), { text: "", md: false });
 	const studies = act(nav, "journal/studies");
 	assert.equal(studies.emoji, "🌳");
 	assert.equal(studies.title, "Seven studies");
-	assert.equal(act(nav, "basics/reflected").statusOff, true);
+	assert.equal(act(nav, "basics/light").statusOff, true);
 	assert.equal(core.moduleStatus(nav.mods.find((m) => m.id === "basics"), book), "Not started");
 	assert.equal(core.moduleMeta(nav.mods.find((m) => m.id === "journal"), book), "2 activities");
 });
@@ -137,9 +135,7 @@ test("a module's tabs: lines in its opening; an activity joins one with tab:, el
 	assert.equal(m.opening, "Lines, boxes and light, one at a time, at your own pace.");
 	assert.match(m.tabs[0].md, /^Do these with a pencil/);
 	assert.equal(act(nav, "basics/light").modTab, "read");
-	// the child sits in the tab of its top ancestor when it names none: the first
-	assert.equal(act(nav, "basics/shadow").modTab, "practice");
-	// the module's screen for the reader coming from an activity: on that activity's tab, or its top ancestor's
+	// the module's screen for the reader coming from an activity: on that activity's tab
 	assert.equal(core.modulePlaceFor(act(nav, "basics/light")).tab, "read");
 	assert.equal(core.modulePlaceFor(act(nav, "basics/lines")).tab, "practice");
 	assert.deepEqual(norm(m.notice.map((n) => n[0])), ["license", "copyright", "source", "version"]);
@@ -189,32 +185,37 @@ test("pages: each tab has its own pages; the opening before the first tab is not
 	assert.deepEqual(norm(act(nav, "basics/lines").tabs[0].pages.map(q)), [[], ["steady"], ["lines-note"]]);
 });
 
-/* ---- parent: and the order Next follows ---- */
+/* ---- the order Next follows; parent: is no setting of an activity ---- */
 
-test("parent: places an activity under another; Next goes to the first child, then the next sibling, then back up; a bare activity may use it", () => {
-	const text = `${head()}\n> [!module|w] Wiki\n\n> [!activity|a] A\n\n> [!activity|a1 parent:a] A1\n\n> [!activity|a1x parent:a1] A1x\n\n> [!activity|a2 parent:a] A2\n\n> [!activity|b] B\n\n> [!module|w end] E\n`;
-	const { nav } = build(text);
-	const order = nav.mods[0].order.map((a) => a.act.id);
-	assert.deepEqual(norm(order), ["a", "a1", "a1x", "a2", "b"]);
+test("Next goes through a module's activities in the file's order; a bare activity's too; parent: on an activity line changes nothing", () => {
+	const text = `${head()}\n> [!module|w] Wiki\n\n> [!activity|a] A\n\n> [!activity|a1 parent:a] A1\n\n> [!activity|a1x parent:a1] A1x\n\n> [!activity|a2 parent:a] A2\n\n> [!activity|b parent:ghost] B\n\n> [!module|w end] E\n`;
+	const { nav, book } = build(text);
+	const order = nav.mods[0].acts.map((a) => a.act.id);
+	assert.deepEqual(norm(order), ["a", "a1", "a1x", "a2", "b"], "every activity is on its own, in the file's order");
 	let a = act(nav, "w/a");
 	const walked = [a.act.id];
 	while ((a = core.nextOf(a))) walked.push(a.act.id);
 	assert.deepEqual(norm(walked), order);
-	assert.deepEqual(norm(nav.mods[0].top.map((x) => x.act.id)), ["a", "b"]);
-	assert.equal(act(nav, "w/a1x").parent.act.id, "a1");
-	// bare activities, among themselves
+	assert.deepEqual(norm(nav.mods[0].acts.map((x) => x.number)), [1, 2, 3, 4, 5]);
+	assert.deepEqual(norm(book.problems.filter((p) => /parent/.test(p))), [
+		"Line 10: an activity line takes no `parent:` setting, so it was ignored.",
+		"Line 12: an activity line takes no `parent:` setting, so it was ignored.",
+		"Line 14: an activity line takes no `parent:` setting, so it was ignored.",
+		"Line 16: an activity line takes no `parent:` setting, so it was ignored.",
+	]);
+	// bare activities, among themselves: all of them are cards on home
 	const bare = `${head()}\n> [!activity|x] X\n\n> [!activity|y parent:x] Y\n\n> [!activity|z] Z\n`;
 	const b = build(bare).nav;
-	assert.deepEqual(norm(b.cards.map((c) => c.act.act.id)), ["x", "z"], "only the top ones are cards on home");
+	assert.deepEqual(norm(b.cards.map((c) => c.act.act.id)), ["x", "y", "z"]);
 	assert.equal(core.nextOf(act(b, "/x")).act.id, "y");
-	assert.equal(core.nextOf(act(b, "/y")).act.id, "z", "Next between bare activities, in reading order");
+	assert.equal(core.nextOf(act(b, "/y")).act.id, "z");
 	assert.equal(core.nextOf(act(b, "/z")), null);
 });
 
-test("parent: a missing parent leaves the activity at the top; one that is its own ancestor is drawn at the top; a hidden parent is passed over", () => {
-	const text = `${head()}\n> [!module|m] M\n\n> [!activity|a parent:ghost] A\n\n> [!activity|b parent:c] B\n\n> [!activity|c parent:b] C\n\n> [!activity|h hidden] H\n\n> [!activity|k parent:h] K\n\n> [!activity|me parent:me] Me\n\n> [!module|m end] E\n`;
+test("a hidden activity is not offered, and a parent: naming it or itself is ignored like any other", () => {
+	const text = `${head()}\n> [!module|m] M\n\n> [!activity|h hidden] H\n\n> [!activity|k parent:h] K\n\n> [!activity|me parent:me] Me\n\n> [!module|m end] E\n`;
 	const { nav } = build(text);
-	assert.deepEqual(norm(nav.mods[0].top.map((a) => a.act.id)), ["a", "b", "c", "k", "me"]);
+	assert.deepEqual(norm(nav.mods[0].acts.map((a) => a.act.id)), ["k", "me"]);
 	assert.equal(act(nav, "m/h"), undefined, "a hidden activity is not offered");
 });
 
@@ -227,8 +228,10 @@ test("a heading link opens the first place in file order whose heading or title 
 	assert.deepEqual(hit("Ten in a row"), { place: { screen: "activity:basics/lines", tab: null, part: 2 }, heading: "Ten in a row", keepTab: false });
 	// by its slug, the other way a link is written
 	assert.equal(hit("hold-the-pencil-loosely").place.part, 1);
+	// a page's title opens its page (here the second part of its tab, the first being the activity's own words)
+	assert.deepEqual(hit("Cast shadows").place, { screen: "activity:basics/light", tab: null, part: 1 });
 	// an activity's title opens the activity on its first tab and part
-	assert.deepEqual(hit("Cast shadows").place, { screen: "activity:basics/shadow", tab: null, part: 0 });
+	assert.deepEqual(hit("Where the light falls").place, { screen: "activity:basics/light", tab: null, part: 0 });
 	// a tab's name opens that tab (a bar's tab: its id); a module's tab opens the module's screen on it
 	assert.deepEqual(hit("Cylinders").place, { screen: "activity:basics/shapes", tab: "cylinders", part: 0 });
 	assert.deepEqual(hit("Read first").place, { screen: "module:basics", tab: "read", part: 0 });

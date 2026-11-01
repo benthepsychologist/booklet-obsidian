@@ -81,7 +81,11 @@ function openDoc(text: string, scope: string): Doc {
 	const book = parseBooklet(text);
 	const mod = scope ? book.modules.find((m) => m.id === scope) : undefined;
 	if (scope && !mod) throw new RecordsWriteError(`This note has no module "${scope}".`);
-	if (endsInsideFence(L.map((l) => l.text), book.bodyStart))
+	// a fence that never closes swallows what is written after it; but one opened after the records region's closing `%%` (design written there
+	// stays where it is: SPEC section 8) changes nothing about where the records are, so it is no reason to refuse
+	const open = unclosedFence(L.map((l) => l.text), book.bodyStart);
+	const lastRegion = book.records.regions[book.records.regions.length - 1];
+	if (open !== null && !(lastRegion && lastRegion.closed && open > lastRegion.end))
 		throw new RecordsWriteError("This note ends inside a code fence that is never closed, so an answer cannot be written after it. Close the fence in Markdown first.");
 	return { text, L, book, mod };
 }
@@ -93,16 +97,16 @@ function activityIn(d: Doc, scope: string, activityId: string): Activity {
 	return a;
 }
 
-/** True when a fence opened after `from` never closes, so anything written after it would be inside it. */
-function endsInsideFence(lines: readonly string[], from: number): boolean {
+/** The line of a fence opened after `from` that never closes, so that anything written after it would be inside it; null when every fence closes. */
+function unclosedFence(lines: readonly string[], from: number): number | null {
 	for (let i = from; i < lines.length; i++) {
 		const f = FENCE_OPEN.exec(lines[i] ?? "");
 		if (!f || !f[1]) continue;
 		const k = fenceEnd(lines, i, f[1]);
-		if (k >= lines.length) return true;
+		if (k >= lines.length) return i;
 		i = k;
 	}
-	return false;
+	return null;
 }
 
 /** The question with this id in a scope (ids are unique within a module, across kinds), or null. */

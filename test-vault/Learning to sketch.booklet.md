@@ -1,5 +1,5 @@
 ---
-booklet: "0.16"
+booklet: "0.17"
 id: nav-proto/sketching
 title: Learning to sketch
 lang: en
@@ -87,15 +87,15 @@ A cylinder is two ellipses joined by two lines.
 
 > [!text|cyl-note] Where did the ellipse go wrong, if it did?
 
-> [!activity|light icon:sun tab:read] Where the light falls
+> [!activity|light icon:sun tab:read status:off] Where the light falls
 
 One light, one object, and the shapes the light makes on it.
 
-> [!activity|shadow parent:light] Cast shadows
+> [!page|shadow icon:moon] Cast shadows
 
 The shadow falls away from the light, on the ground.
 
-> [!activity|reflected parent:light status:off] Reflected light
+> [!page|reflected parent:shadow] Reflected light
 
 Light bounces back up from the table into the shadow side.
 

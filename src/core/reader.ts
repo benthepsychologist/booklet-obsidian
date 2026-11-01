@@ -171,7 +171,7 @@ export interface TabHeading {
 }
 
 /**
- * A named page (page trees, ahead of the format: format 0.17, not yet in SPEC): `> [!page|id parent:x icon:name] Title` starts a page of
+ * A named page (SPEC 0.17 section 3, "Pages: a tree inside a tab"): `> [!page|id parent:x icon:name] Title` starts a page of
  * the tab it stands in, which runs to the next page, tab, activity or module line. The tree it makes is built by core/nav.ts.
  */
 export interface PageHeading {
@@ -295,6 +295,8 @@ export interface Activity {
 	repeat: boolean;
 	/** `repeat daily`: one kept entry per day; completing again replaces today's. */
 	daily: boolean;
+	/** `entries:folded`: the list of kept entries starts folded (SPEC section 3, "Kept entries, folded"); the reader may open it, and nothing is stored. */
+	entriesFolded: boolean;
 	hidden: boolean;
 	segments: Segment[];
 }
@@ -531,6 +533,21 @@ const plainWords = (md: string): string =>
 		.replace(/\\(.)/g, "$1")
 		.trim()
 		.toLowerCase();
+
+/** Does the body hold a module line or an activity line, outside fences and the records region? */
+function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[]): boolean {
+	for (let i = from; i < lines.length; i++) {
+		if (inRegion[i]) continue;
+		const f = FENCE_OPEN.exec(lines[i] ?? "");
+		if (f && f[1]) {
+			i = fenceEnd(lines, i, f[1]);
+			continue;
+		}
+		const kind = CALLOUT_LINE.exec(lines[i] ?? "")?.[1]?.toLowerCase();
+		if (kind === "activity" || kind === "module") return true;
+	}
+	return false;
+}
 
 /** An opening's lines as Markdown: the blank lines around it off, and a leading heading that repeats `title` off too. */
 export function openingMarkdown(ls: readonly string[], title: string): string {
@@ -769,7 +786,15 @@ export function parseBooklet(text: string): Booklet {
 	/** The footnote ids by scope are said once each (a repeat is ignored: the first wins, booklet.html registries). */
 	const noteScope = (): string | null => (section === "content" ? (mod ? mod.id : "") : dataMod ? dataMod.id : null);
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
-	const open: { lines: string[]; resume: number }[] = [];
+	const open: { lines: string[]; resume: number; kind: string }[] = [];
+
+	// a file with no activity line and no module line is one activity, named by the front matter title (SPEC section 3): its prose, its tab
+	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries
+	if (!hasStructureLine(lines, fm.bodyStart, inRegion) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
+		started = true;
+		act = { id: "", title: frontMatter["title"] || "Activity", scope: "", line: -1, repeat: false, daily: false, entriesFolded: false, hidden: false, segments: [] };
+		activities.push(act);
+	}
 
 	for (let i = fm.bodyStart; ; i++) {
 		if (i >= lines.length) {
@@ -839,12 +864,12 @@ export function parseBooklet(text: string): Booklet {
 				delete w.set["earlier"];
 			}
 			if (open.length && (STRUCTURE_KINDS.has(kind) || kind === "page")) {
-				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line there is that
-				// body's text, not a page: a page is a part of a tab, and a callout is a part of a page (the body is read with one `>`
-				// less, so a `> > [!page]` there looks like a page line)
+				// a line that makes structure cannot go inside a callout's body: ignored, with its own lines. A page line in a group is the same
+				// (SPEC section 3: a group cannot hold one); in another callout it is that body's text, not a page: a page is a part of a tab,
+				// and a callout is a part of a page (the body is read with one `>` less, so a `> > [!page]` there looks like a page line)
 				const k = bodyEnd(lines, i);
-				if (kind === "page") pushText(lines.slice(i, k), i);
-				else problems.push(`${at(i)}: a ${kind} line cannot go inside a callout, so it was ignored.`);
+				if (kind === "page" && open[open.length - 1]?.kind !== "group") pushText(lines.slice(i, k), i);
+				else problems.push(`${at(i)}: a ${kind} line cannot go inside ${kind === "page" ? "a group" : "a callout"}, so it was ignored.`);
 				i = k - 1;
 				continue;
 			}
@@ -880,6 +905,9 @@ export function parseBooklet(text: string): Booklet {
 				claimId(w.id, i);
 				const repeat = w.flags.has("repeat");
 				if (w.flags.has("daily") && !repeat) problems.push(`${at(i)}: \`daily\` needs \`repeat\`, so it was ignored.`);
+				// `entries:` takes the one value `folded`; any other is reported and ignored (SPEC section 3, "Kept entries, folded")
+				const entries = w.set["entries"];
+				if (entries !== undefined && entries !== "folded") problems.push(`${at(i)}: \`entries:${entries}\` is not a setting an activity line takes (only \`entries:folded\`, which starts the kept-entries list folded), so it was ignored.`);
 				act = {
 					id: w.id ?? "",
 					title: title || w.id || "Activity",
@@ -887,6 +915,7 @@ export function parseBooklet(text: string): Booklet {
 					line: i,
 					repeat,
 					daily: repeat && w.flags.has("daily"),
+					entriesFolded: entries === "folded",
 					hidden: w.flags.has("hidden"),
 					segments: [],
 				};
@@ -1057,7 +1086,7 @@ export function parseBooklet(text: string): Booklet {
 					flush();
 					act.segments.push({ type: "callout", kind, title, fold: (m[3] ?? "") as "" | "-" | "+", line: i + 1 });
 					// its body is read with one `>` less, from here to its end, as the activity's own text is
-					open.push({ lines, resume: k });
+					open.push({ lines, resume: k, kind });
 					lines = lines.slice(0, k);
 					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
 					continue;
@@ -1127,7 +1156,7 @@ export function parseBooklet(text: string): Booklet {
 	problems.push(...records.problems);
 	for (const r of regions.slice(1)) problems.push(`Line ${r.start + 1}: a second records section; its records are read as if they sat in the first.`);
 	const afterRegion = regions[0] && regions[0].closed ? lines.slice(regions[0].end + 1).some((l, n) => !inRegion[regions[0]!.end + 1 + n] && l.trim()) : false;
-	if (afterRegion) problems.push("There is text after the records section; the reference renderer would move it above the records when it saves.");
+	if (afterRegion) problems.push("There is text after the records section. It is read as design and stays where it is, after the records, when an answer is saved.");
 	const wrong = wrongShapes(activities, records);
 	if (wrong)
 		problems.push(

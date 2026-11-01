@@ -86,9 +86,9 @@ export interface Words {
 }
 
 /**
- * `id words key:value` after the bar, as the renderer's calloutWords reads it. A page line is read by the pages round's rule (page trees,
- * ahead of the format): a first word that holds `:` is a setting and the line has no written id, so `> [!page|parent:map] Title` keeps its
- * parent. Every other kind reads its first word as the id, as 0.16 does.
+ * `id words key:value` after the bar, as the renderer's calloutWords reads it (SPEC section 4): on every kind that takes an id the first
+ * word is the id, except that a first word that holds `:` is a setting and the line has no written id, so `> [!page|parent:map] Title`
+ * keeps its parent. Every later word is a setting, and a kind that takes no id has settings only.
  */
 export function calloutWords(kind: string, s: string | undefined): Words {
 	const out: Words = { id: null, flags: new Set(), set: Object.create(null) as Record<string, string> };
@@ -99,7 +99,7 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 		.filter(Boolean)
 		.forEach((w, n) => {
 			const kv = /^([A-Za-z][A-Za-z0-9-]*):(.*)$/.exec(w);
-			if (n === 0 && !noId && !(kind === "page" && w.includes(":"))) out.id = w;
+			if (n === 0 && !noId && !w.includes(":")) out.id = w;
 			else if (kv && kv[1] !== undefined) out.set[kv[1].toLowerCase()] = kv[2] ?? "";
 			else out.flags.add(w.toLowerCase());
 		});
@@ -108,12 +108,12 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 
 /**
  * What each kind of booklet line takes after its id: a flag is a bare word, `key:` a setting written key:value.
- * This is SPEC section 4's table for format 0.16: `each:` on every question kind, and `earlier:` on a choice, a
+ * This is SPEC section 4's table for format 0.17: `each:` on every question kind, and `earlier:` on a choice, a
  * multi, a lines and a widget. A kind outside the table is an unknown kind, said on its own.
  */
 export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
 	module: ["end", "icon:"],
-	activity: ["repeat", "daily", "hidden", "icon:", "parent:", "status:", "tab:"],
+	activity: ["repeat", "daily", "hidden", "icon:", "status:", "tab:", "entries:"],
 	row: ["end"],
 	text: ["long", "each:"],
 	lines: ["each:", "earlier:"],

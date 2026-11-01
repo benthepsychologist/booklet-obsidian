@@ -24,7 +24,11 @@ test("a link from another note opens the screen, tab and page that hold the word
 		return p;
 	};
 	let p = await to("Cast shadows");
-	assert.equal(p.screen, "activity:basics/shadow", "an activity's title, which is no Markdown heading");
+	assert.equal(p.screen, "activity:basics/light", "a page's title, which is no Markdown heading");
+	assert.deepEqual(p.pageTitles(), ["Cast shadows"], "the page is shown");
+	p.close();
+	p = await to("Where the light falls");
+	assert.equal(p.screen, "activity:basics/light", "an activity's title, which is no Markdown heading");
 	p.close();
 	p = await to("Ten in a row");
 	assert.equal(p.screen, "activity:basics/lines");
@@ -68,7 +72,7 @@ test("a link from another note moves the pane without a step of its own (Obsidia
 	assert.equal(p.hist.back.length, steps);
 	p.view.setEphemeralState({ subpath: "#Cast shadows" });
 	await p.settled();
-	assert.equal(p.screen, "activity:basics/shadow");
+	assert.equal(p.screen, "activity:basics/light");
 	assert.equal(p.hist.back.length, steps, "Obsidian's own opening of the note is the step; the view adds none, which it could not (a move asked of the pane during an opening is dropped)");
 	assert.equal(p.flight.calls, 0, "no move was asked of the pane");
 	p.close();
