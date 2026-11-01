@@ -453,8 +453,9 @@
 	gap: var(--size-4-2);
 }
 
-/* on a narrow box (a phone at a large zoom) the cells stack, one to a row, so a cell's own controls have the room they need */
-@container (max-width: 24rem) {
+/* a cell's words and controls need about 6em; the edge labels and gaps take about 3em of the grid, so a grid narrower than 15em
+   (a phone's width at 200% zoom) stacks its cells, one to a row, and a wider one keeps two columns */
+@container (width < 15em) {
 	.booklet-cells {
 		grid-template-columns: minmax(0, 1fr);
 	}
