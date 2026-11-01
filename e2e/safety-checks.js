@@ -414,8 +414,8 @@ The garden is quiet today.
       const file = put(vault, GARDEN, gardenText());
       const K = kit(env, GARDEN);
       const countFiles = () => o.evaluate(() => app.vault.getFiles().length);
-      const filesBefore = await countFiles();
       await K.open(o, GARDEN); await K.goTo(o, "activity:/log");
+      const filesBefore = await countFiles();   // counted once the note is in the vault's index
       const typeLine = async text => { await inCard(o, "/log", ".booklet-kind-text input, .booklet-kind-text textarea").first().click(); await o.page.keyboard.type(text); };
       // rename with words waiting to be written
       await typeLine("Renamed mid-word");
@@ -777,5 +777,117 @@ ${items.join(",\n")}
     return c;
   }
 
-  return { 35: check35, 36: check36, 38: check38, 39: check39, 40: check40, 41: check41 };
+  /* ================= CHECK 37 ================= */
+  // another plugin rewrites the note whenever it is saved. The Linter plugin itself is a downloaded third-party plugin and is run by hand in a
+  // scratch vault (see the PR); this check runs a stand-in that does what a formatter does, on every change to the note: it strips trailing
+  // spaces outside code fences, collapses runs of blank lines, puts a blank line round headings, adds a `date modified` key to the front
+  // matter and ends the file with one newline.
+  const FORMAT = "Formatted.booklet.md";
+  const formattedText = () => `---
+title: Formatted
+booklet: "0.17"
+id: booklet-test/formatted
+lang: en
+---
+
+> [!activity|day repeat] A day   
+
+## A heading in the prose
+Words with trailing spaces here.   
+	
+
+Words after two blank lines.
+
+
+
+> [!choice|feel] How do you feel?
+- [ ] Calm  
+- [ ] Tense
+- [ ] Tired
+
+> [!text|why] Why?
+
+%%
+> [!records] App record — do not edit below this line
+
+\`\`\`booklet entries day
+{"items": [
+{"ts": "2026-10-01T08:00:00Z", "feel": 1, "why": "Kept before"}
+]}
+\`\`\`
+%%`;
+  // the stand-in, as source text for the page (it runs there): returns the formatted text
+  const FORMATTER = `((t, stamp = "2026-11-01") => {
+    const lines = t.replace(/\\r\\n/g, "\\n").split("\\n"); let fence = false; const out = [];
+    for (const l of lines) { const mark = /^ {0,3}(\`\`\`|~~~)/.test(l); if (mark) fence = !fence; out.push(fence || mark ? l : l.replace(/[ \\t]+$/, "")); }
+    const spaced = [];
+    let fenceB = false;
+    for (let i = 0; i < out.length; i++) {
+      const l = out[i], mark = /^ {0,3}(\`\`\`|~~~)/.test(l); if (mark) fenceB = !fenceB;
+      if (!fenceB && !mark && l === "" && spaced[spaced.length - 1] === "") continue;   // runs of blank lines
+      if (!fenceB && /^#{1,6} /.test(l)) { if (spaced.length && spaced[spaced.length - 1] !== "") spaced.push(""); spaced.push(l); if (out[i + 1] !== undefined && out[i + 1] !== "") spaced.push(""); continue; }
+      spaced.push(l);
+    }
+    let s = spaced.join("\\n");
+    s = /^date modified:/m.test(s.split("\\n---")[0]) ? s.replace(/^date modified:.*$/m, "date modified: " + stamp) : s.replace(/\\n---\\n/, "\\ndate modified: " + stamp + "\\n---\\n");
+    return s.replace(/\\n*$/, "\\n");
+  })`;
+  async function check37() {
+    const c = new Check(37, "another plugin rewrites the note whenever it is saved (a stand-in formatter: trailing spaces, blank lines, headings, front matter, final newline): answers given, answers being typed and answers pressed after it all survive; only the records region is ever written by the plugin");
+    await withApp("c37", async (o, vault) => {
+      const file = put(vault, FORMAT, formattedText());
+      const K = kit(env, FORMAT);
+      await K.open(o, FORMAT); await K.goTo(o, "activity:/day");
+      const fmt = text => o.evaluate(([src, t]) => eval(src)(t), [FORMATTER, text]);
+      // 1. the formatter runs once over the note as it is: the kept day, the view, the design
+      await o.evaluate(async ([src, rel]) => { const f = app.vault.getAbstractFileByPath(rel); const t = await app.vault.read(f); await app.vault.modify(f, eval(src)(t)); }, [FORMATTER, FORMAT]);
+      await sleep(1200);
+      const f1 = fs.readFileSync(file, "utf8");
+      c.ok(!/[ \t]+\n/.test(f1.replace(/```[\s\S]*?```/g, "")) && /date modified: 2026-11-01/.test(f1) && f1.endsWith("\n"), "the stand-in rewrote the file: trailing spaces gone, a date modified key added, one newline at the end");
+      c.ok((await entryCount(o)) === 1 && !!(await pageWords(o)).match(/Words after two blank lines/), "the open view followed it: the kept day is still listed, the design is still shown");
+      c.ok(fs.readFileSync(file, "utf8") === f1, "and the plugin wrote nothing back over the formatter's text");
+      // 2. words typed and not yet written when the formatter rewrites the note
+      await inCard(o, "/day", ".booklet-kind-text input, .booklet-kind-text textarea").first().click();
+      await o.page.keyboard.type("typed while it formats");
+      await o.evaluate(async ([src, rel]) => { const f = app.vault.getAbstractFileByPath(rel); const t = await app.vault.read(f); await app.vault.modify(f, eval(src)(t).replace("Words after two blank lines.", "Words after two blank lines, changed.")); }, [FORMATTER, FORMAT]);
+      await sleep(300);
+      c.ok((await fieldWords(o)) === "typed while it formats", "words being typed when the note was rewritten are still in their field: " + JSON.stringify(await fieldWords(o)));
+      const w2 = await waitDisk(file, t => /"why":"typed while it formats"/.test(t) && /changed\./.test(t));
+      c.ok(w2.ok, "and are written after the pause into the rewritten note (the formatter's change and the typed words are both in the file)");
+      await o.evaluate(() => document.activeElement && document.activeElement.blur());
+      // 3. a press after it: only the records region changes
+      const before = fs.readFileSync(file, "utf8");
+      await inCard(o, "/day", ".booklet-kind-choice button.booklet-choice").nth(1).click();
+      const w3 = await waitDisk(file, t => /"feel":\s*2/.test(t));
+      const regionAt = t => t.indexOf("%%\n> [!records]");
+      c.ok(w3.ok && w3.text.slice(0, regionAt(before)) === before.slice(0, regionAt(before)), "a press after the rewrite changes only the records region: the design above it is the formatter's bytes");
+      // 4. a formatter that rewrites after every save: three presses and some typing, each answer in the end
+      await o.evaluate(([src, rel]) => {
+        window.__fmtRuns = 0; window.__mine = null;
+        const f = app.vault.getAbstractFileByPath(rel);
+        // a formatter with a "date modified" rule: the note is rewritten after each save of the plugin's (and not after its own rewrite)
+        window.__ref = app.vault.on("modify", async file => { if (file !== f) return; const t = await app.vault.read(f); if (t === window.__mine) return; const n = eval(src)(t, "run-" + (++window.__fmtRuns)); window.__mine = n; await app.vault.modify(f, n); });
+      }, [FORMATTER, FORMAT]);
+      const answerBlock = t => (t.match(/```booklet draft day\n([^\n]*)\n```/) || [])[1];
+      await inCard(o, "/day", ".booklet-kind-choice button.booklet-choice").nth(0).click();
+      await sleep(400);
+      await inCard(o, "/day", ".booklet-kind-choice button.booklet-choice").nth(2).click();
+      await sleep(400);
+      await inCard(o, "/day", ".booklet-kind-text input, .booklet-kind-text textarea").first().click();
+      await o.page.keyboard.press("End");
+      await o.page.keyboard.type(" and again");
+      await o.evaluate(() => document.activeElement && document.activeElement.blur());
+      const w4 = await waitDisk(file, t => { const b = answerBlock(t); return b && /"feel":\s*3/.test(b) && /and again/.test(b); }, 12000);
+      await sleep(1500);
+      const runs = await o.evaluate(() => { app.vault.offref(window.__ref); return window.__fmtRuns; });
+      c.ok(w4.ok, "with the formatter rewriting after every save, the last press and the typed words reached the note: " + JSON.stringify(answerBlock(fs.readFileSync(file, "utf8"))));
+      c.ok(runs >= 3 && runs < 20 && /date modified: run-\d+/.test(fs.readFileSync(file, "utf8")), "and it settled: the formatter rewrote the note " + runs + " times in all, once for each save of the plugin's, not in a loop");
+      const last = fs.readFileSync(file, "utf8");
+      c.ok((await pressedWords(o)).join() === "Tired", "the view shows the last press: " + JSON.stringify(await pressedWords(o)));
+      c.ok(JSON.parse(((last.match(/```booklet entries day\n([\s\S]*?)\n```/) || [])[1] || "{}")).items.length === 1, "the kept day is still the one kept day");
+    });
+    return c;
+  }
+
+  return { 35: check35, 36: check36, 37: check37, 38: check38, 39: check39, 40: check40, 41: check41 };
 };
