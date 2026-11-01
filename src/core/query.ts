@@ -437,7 +437,7 @@ function summariseAll(q: Question, label: WordPart[], values: readonly unknown[]
 }
 
 /** One item's anchor numbers over a matrix's answers (an item not answered is `null`, which counts for nothing). */
-const itemValues = (values: readonly unknown[], i: number): unknown[] => values.map((v) => (Array.isArray(v) ? v[i] : undefined));
+const itemValues = (values: readonly unknown[], i: number): unknown[] => values.map((v) => (Array.isArray(v) ? (v as unknown[])[i] : undefined));
 
 /** A question's answers over the records, summarised as its kind is (one row). `values` are the answers in their kind's shape. */
 function summarise(q: Question, label: WordPart[], values: readonly unknown[], locale: string): Row {
@@ -656,7 +656,7 @@ function pickRows(a: Activity, x: Question, ents: readonly Record<string, unknow
 				const cells = Object.create(null) as Record<string, Cell>;
 				cells["label"] = partsCell([pickWords(src, p)]);
 				cells["value"] = c;
-				rows.push(a.repeat && e["ts"] !== undefined ? { cells, ts: String(e["ts"]) } : { cells });
+				rows.push(a.repeat && e["ts"] !== undefined ? { cells, ts: `${e["ts"] as string}` } : { cells });
 				break;
 			}
 		}

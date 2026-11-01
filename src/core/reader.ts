@@ -1031,7 +1031,7 @@ export function parseBooklet(text: string): Booklet {
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
 					const q: Question = {
 						type: "question",
-						kind: kind as QuestionKind,
+						kind: kind,
 						id: w.id,
 						title,
 						// a widget line's embed is not its help (booklet.html helpOf)
@@ -1122,7 +1122,10 @@ export function parseBooklet(text: string): Booklet {
 			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
 			const words = [(def[2] ?? "").trim()];
 			let j = i + 1;
-			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) words.push((lines[j] ?? "").trim()), j++;
+			while (j < lines.length && !inRegion[j] && /^[ \t]+\S/.test(lines[j] ?? "")) {
+				words.push((lines[j] ?? "").trim());
+				j++;
+			}
 			const text = words.filter(Boolean).join(" ");
 			notes.push({ id: def[1], scope: noteScope(), text, line: i + 1, source: sourceOfNote(text) });
 			i = j - 1;
@@ -1250,7 +1253,7 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
 	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
 	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);
-	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k]! : null);
+	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k] : null);
 	const roles: Partial<Record<Role, string>> = {};
 	for (const r of ROLE_NAMES) {
 		const v = text(r);

@@ -131,6 +131,12 @@ These names are kept, so that a hotkey, a saved workspace or a style snippet wri
 - After pressing Allow for Mermaid, the diagram appears when the note is drawn again, for example when it is opened again.
 - An image whose file is missing is a broken image with its alt text, where Reading view says the file could not be found.
 
+## Which Obsidian
+
+Booklet needs Obsidian 1.8.10 or later (`minAppVersion`), the oldest version the real-Obsidian suite (`e2e/plugin-check.js`) passes on completely. It also passes on the newest release at the time of writing (1.14.5). Earlier releases were run and fail: on 1.5.8 and 1.7.7 an image written as a definition line (`![Alt][name]`) is not given an address Obsidian can load (and 17 of Booklet's icon names draw nothing on 1.5.8), and on 1.8.3 and 1.8.7 the check that edits a note in a Markdown pane found an ordered list lower in the note renumbered by Obsidian's editor (a matrix's `0.` `1.` `2.` became `4.` `5.` `6.`). Releases 1.8.4 and 1.8.9 were not run.
+
+It is not desktop-only: it has been used on an iPhone (0.1.0 to 0.3.0) and every build is checked under Obsidian's own mobile emulation and at a phone's width. **Android has not been tried.**
+
 ## Try it by hand
 
 1. Copy the `test-vault` folder of this repository somewhere of your own, and open that folder as a vault in Obsidian (*Open another vault*, then *Open folder as vault*).

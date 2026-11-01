@@ -238,19 +238,25 @@ test("matrix: laid out as a grid or as separate questions by the room it has, th
 	try {
 		const v = open("grid-quiz");
 		const q = v.q("topics");
-		const fit = () => seen.forEach((cb) => cb());
-		fit();
+		// the plugin measures on the next frame, not inside the observer (Chromium reports a loop error otherwise)
+		const fit = async () => {
+			seen.forEach((cb) => cb());
+			await new Promise((r) => w.requestAnimationFrame(() => r()));
+		};
+		await fit();
 		assert.ok(!q.classList.contains("booklet-mx-stacked"), "700 px holds a 400 px grid");
 		[...q.querySelectorAll(".booklet-mxitem")][1].querySelectorAll("button")[1].click();
 		await v.settled();
 		widths.wrap = 300;
-		fit();
+		seen.forEach((cb) => cb());
+		assert.ok(!q.classList.contains("booklet-mx-stacked"), "not laid out inside the observer's own call");
+		await fit();
 		assert.ok(q.classList.contains("booklet-mx-stacked"), "300 px does not: each item is a question of its own, the matrix's words its stem");
 		assert.ok(q.querySelector(".booklet-mxwrap").classList.contains("booklet-mx-stacked"));
 		const stacked = [...q.querySelectorAll(".booklet-mxitem")][1].querySelectorAll("button")[1];
 		assert.equal(stacked.getAttribute("aria-pressed"), "true", "the answer is the same list under the same key");
 		widths.wrap = 700;
-		fit();
+		await fit();
 		assert.ok(!q.classList.contains("booklet-mx-stacked"));
 		assert.deepEqual(v.answers().topics, [null, 1, null], "nothing lost by the pane changing width");
 		v.close();

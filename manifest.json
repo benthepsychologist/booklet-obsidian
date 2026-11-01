@@ -1,8 +1,8 @@
 {
 	"id": "booklet",
 	"name": "Booklet",
-	"version": "0.10.0",
-	"minAppVersion": "1.5.7",
+	"version": "0.11.0",
+	"minAppVersion": "1.8.10",
 	"description": "Opens a Booklet note in a view of its own, and writes the answers given there into the note's records section.",
 	"author": "Ben Armstrong",
 	"isDesktopOnly": false

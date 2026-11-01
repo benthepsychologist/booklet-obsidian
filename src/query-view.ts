@@ -98,9 +98,12 @@ function pills(into: HTMLElement, list: readonly string[], tone: string | null):
 	for (const b of list) box.createSpan({ cls: `booklet-q-pill${tone ? ` booklet-tone-${tone}` : ""}`, text: b });
 }
 
+/** The most characters a table cell may hold and still be kept on one line (a date and its time is 27). */
+const SHORT_CELL = 32;
+
 function groupHead(into: HTMLElement, g: Group): void {
 	if (g.name === null) return;
-	const h = into.createDiv({ cls: "booklet-q-group", attr: { role: "heading", "aria-level": "4" } });
+	const h = into.createDiv({ cls: "booklet-q-group", attr: { role: "heading", "aria-level": "2" } });
 	h.appendText(g.name || "–");
 	h.createSpan({ cls: "booklet-q-count", text: QUERY_WORDS.rows(g.rows.length) });
 }
@@ -109,7 +112,7 @@ function groupHead(into: HTMLElement, g: Group): void {
 
 /** The columns that hold a number in every cell they have, and at least one cell. */
 export function numericColumns(rows: readonly Row[], cols: readonly string[]): Set<string> {
-	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k]!.num !== undefined)));
+	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k].num !== undefined)));
 }
 
 function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void {
@@ -117,6 +120,9 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void 
 	const all = p.groups.flatMap((g) => g.rows);
 	// a column of numbers is set to the right (worked out once for each column, not for each cell)
 	const numeric = numericColumns(all, cols);
+	// a column whose every cell is a few words (a date, a name, a number) keeps each cell on one line: a table wider than its card scrolls
+	// across, and a date broken into five lines by that squeeze is harder to read than one that scrolls
+	const short = new Set(cols.filter((k) => all.every((r) => !r.cells[k]?.list && (r.cells[k]?.text ?? "").length <= SHORT_CELL)));
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
 	const head = t.createEl("thead").createEl("tr");
@@ -150,7 +156,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void 
 		for (const r of g.rows) {
 			const tr = body.createEl("tr");
 			for (const k of cols) {
-				const td = tr.createEl("td", { cls: numeric.has(k) ? "booklet-q-num" : "" });
+				const td = tr.createEl("td", { cls: `${numeric.has(k) ? "booklet-q-num" : ""}${short.has(k) ? " booklet-q-short" : ""}`.trim() });
 				if (k === roles.badge) {
 					const tone = toneOf(r, roles);
 					pills(td, badgesOf(r, roles), tone);

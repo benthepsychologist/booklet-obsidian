@@ -45,7 +45,7 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 		}
 		case "scale": {
 			const a = q.anchors.find((x) => x.n === v);
-			return { parts: [a ? { md: a.text } : { text: String(v) }] };
+			return { parts: [a ? { md: a.text } : { text: `${v as string | number}` }] };
 		}
 		case "lines": {
 			const items = (Array.isArray(v) ? v : [v]).filter(filled).map((x) => x.trim());
@@ -60,7 +60,7 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 			return filled(v) ? { parts: [{ text: v.trim() }] } : null;
 		case "number":
 		case "date":
-			return v === "" ? null : { parts: [{ text: String(v) }] };
+			return v === "" ? null : { parts: [{ text: `${v as string | number}` }] };
 		case "widget": {
 			if (!q.widget || !Array.isArray(v) || !v.length) return null;
 			const data = q.widget.data;

@@ -161,7 +161,10 @@ test("a tiny bar beside a huge one is still drawn at least as wide as a sliver (
 	v.close();
 });
 
-test("a line is drawn again, to the new width, when its box changes width, and not before it changes by 4 px", () => {
+// the plugin redraws on the next frame, not inside the observer (Chromium reports a loop error otherwise)
+const frame = () => new Promise((r) => w.requestAnimationFrame(() => r()));
+
+test("a line is drawn again, to the new width, when its box changes width, and not before it changes by 4 px", async () => {
 	const RO = w.ResizeObserver;
 	const seen = [];
 	w.ResizeObserver = globalThis.ResizeObserver = class {
@@ -179,11 +182,14 @@ test("a line is drawn again, to the new width, when its box changes width, and n
 		assert.equal(first.getAttribute("viewBox").split(" ")[2], "640", "no width yet: the default");
 		Object.defineProperty(plot, "clientWidth", { value: 500, configurable: true });
 		seen.forEach((cb) => cb());
+		assert.equal(plot.querySelector("svg"), first, "not drawn inside the observer's own call");
+		await frame();
 		const second = plot.querySelector("svg");
 		assert.notEqual(second, first, "drawn again");
 		assert.equal(second.getAttribute("viewBox").split(" ")[2], "500");
 		Object.defineProperty(plot, "clientWidth", { value: 502, configurable: true });
 		seen.forEach((cb) => cb());
+		await frame();
 		assert.equal(plot.querySelector("svg"), second, "2 px is not a change");
 		v.close();
 	} finally {

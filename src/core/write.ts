@@ -334,7 +334,7 @@ export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity
 		const was = seeded[k];
 		if (q?.each && Array.isArray(v) && Array.isArray(was) && !shapeIssue(q, v) && !shapeIssue(q, was)) {
 			const mine = new Set(pairsOf(v).map((x) => pickKey(x.pick)));
-			seeded[k] = [...v, ...was.filter((x) => !(isPair(x) && mine.has(pickKey(x.pick))))];
+			seeded[k] = [...(v as unknown[]), ...(was as unknown[]).filter((x) => !(isPair(x) && mine.has(pickKey(x.pick))))];
 		} else seeded[k] = v;
 	}
 	return { values: seeded, seededFrom: today };
@@ -452,11 +452,11 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 		// a lines question's lines typed and left blank are not kept (nor those of a pick's pair, under `each:`); every
 		// other answer is kept as written, one of the wrong shape among them (shape.ts)
 		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === k);
-		const bare = (a: unknown) => (Array.isArray(a) ? a.filter((x) => holdsSomething(x)) : a);
+		const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
 		entry[k] =
 			q && q.kind === "lines" && !shapeIssue(q, v) && Array.isArray(v)
 				? q.each
-					? v.map((p) => (isPair(p) ? { ...p, a: bare(p.a) } : p))
+					? (v as unknown[]).map((p) => (isPair(p) ? { ...p, a: bare(p.a) } : p))
 					: bare(v)
 				: v;
 	}

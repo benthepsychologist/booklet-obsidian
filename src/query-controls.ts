@@ -163,7 +163,7 @@ function drawControls(into: HTMLElement, p: Extract<QueryPlan, { kind: "rows" }>
 		}
 	});
 	sel?.addEventListener("change", () => {
-		st.key = sel!.value || null;
+		st.key = sel.value || null;
 		if (st.key === null) st.dir = 1;
 		changed();
 	});

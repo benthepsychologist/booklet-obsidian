@@ -109,3 +109,22 @@ press in the booklet pane right after typing in that pane lands in its editor be
 booklet view (check 11 found the view taking that text and losing the press); on an external change Obsidian hands the
 text to the booklet view before the Markdown pane takes it into its editor (then `editor-change` fires); `page.setViewportSize`
 works over CDP, and under mobile emulation Obsidian then sets `is-phone` at 390 px.
+
+## Checks 42 to 45: reaching the view without a mouse, with less motion, and zoomed (`access-checks.js`)
+They use one made-up note, `test/page-notes/Keyboard walk.booklet.md` (an activity with one question of every kind, a folded group, and a
+repeating activity with twelve kept days, a table, bars and a line), copied into each check's own copy of the vault. Every key is a real key press.
+42. the walk: from the pane's tab, Tab goes into the view and through every control of the activity page in the page's own order, each stop with a
+    visible focus ring (an outline or a shadow), focus always in sight, no keyboard trap (Tab leaves the view again), and Shift+Tab goes back through the same controls.
+43. operating by keys: Space and Enter answer a choice, a multi, a scale, a menu question and a matrix; typing answers text, lines, a number (with ArrowUp) and a date; the
+    answers are on disk; Enter on a folded group opens and shuts it; Finalize by Enter keeps an entry; the kept entries' fold opens and shuts; Delete asks, focus lands on
+    the safe answer, Escape takes the question back to Delete and writes nothing, Yes deletes; a table's head sorts by Enter and turns round by Space and keeps focus; the
+    filter opens by Enter, narrows the rows as words are typed, and Escape clears them; focus is never left on the page.
+44. reduced motion (`page.emulateMedia({ reducedMotion })`): with the system asking for less motion nothing in the view has a transition, an animation or smooth scrolling.
+45. 200% zoom (`webFrame.setZoomFactor(2)`, as Obsidian's own zoom does it): on the activity page, the kept days, the opening and a module screen, light and dark, at a
+    desktop's width and a phone's, no sideways scroll, no control outside the view, no two controls overlapping, no text cut off. At a phone's width 200% leaves 195 CSS pixels.
+The accessibility checker (axe-core) is not part of these checks: it was run by hand, in a scratch folder, over every kind of screen.
+
+## Running an older Obsidian
+The Linux tarballs of every release are on github.com/obsidianmd/obsidian-releases. Two things differ for an old one:
+- An old installer fetches the newest app code on its first start and runs that instead. `drive.js` writes `updateDisabled: true` into the scratch config's `obsidian.json` so the version asked for is the version run.
+- Obsidian 1.5.x is Electron 28, which does not answer `Browser.setDownloadBehavior`, and the Playwright that `.tools` installs asks for it, so `connectOverCDP` fails. A Playwright 1.41 (`PLAYWRIGHT=<its node_modules>/playwright-core`) connects.

@@ -82,14 +82,24 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 		if (box.classList.contains("booklet-question")) box.toggleClass("booklet-mx-stacked", stacked);
 	};
 	if (typeof ResizeObserver !== "function") return;
-	const watch = new ResizeObserver(place);
+	// measured on the next frame, not inside the observer: a class that changes the box's size from inside its own observer makes
+	// Chromium report "ResizeObserver loop completed with undelivered notifications" as an uncaught error (Obsidian 1.8)
+	let queued = false;
+	const watch = new ResizeObserver(() => {
+		if (queued) return;
+		queued = true;
+		box.win.requestAnimationFrame(() => {
+			queued = false;
+			place();
+		});
+	});
 	watch.observe(wrap);
 	watch.observe(probe);
 	// an item the keyboard moves into under the held stem is scrolled clear of it, as far as the screen has room
 	// (SPEC section 5); only the keyboard's focus: a press is never moved
 	wrap.addEventListener("focusin", (evt) => {
-		const target = evt.target;
-		if (!(target instanceof HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
+		const target = evt.target as Node | null;
+		if (!target?.instanceOf(HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
 		const stem = box.querySelector<HTMLElement>(":scope > .booklet-prompt");
 		const item = target.closest<HTMLElement>(".booklet-mxitem");
 		const scroller = box.closest<HTMLElement>(".view-content");
