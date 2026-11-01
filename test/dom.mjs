@@ -76,6 +76,13 @@ w.Node.prototype.createSvg = function (tag, o, cb) {
 w.Node.prototype.instanceOf = function (T) {
 	return this instanceof T;
 };
+// the window a node is in (Obsidian's `node.win`)
+Object.defineProperty(w.Node.prototype, "win", {
+	configurable: true,
+	get() {
+		return this.ownerDocument?.defaultView ?? w;
+	},
+});
 
 for (const k of ["window", "document", "Node", "HTMLElement", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "Event", "KeyboardEvent", "FocusEvent"])
 	globalThis[k] = k === "window" ? w : w[k];

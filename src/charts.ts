@@ -176,10 +176,18 @@ function line(into: HTMLElement, c: Chart): void {
 	};
 	draw(plot.clientWidth);
 	if (typeof ResizeObserver === "function") {
+		// redrawn on the next frame, not inside the observer: a redraw that changes the plot's size from inside its own observer makes
+		// Chromium report "ResizeObserver loop completed with undelivered notifications" as an uncaught error (Obsidian 1.8)
+		let queued = false;
 		const watch = new ResizeObserver(() => {
-			if (!plot.isConnected) return watch.disconnect();
-			const w = plot.clientWidth;
-			if (w > 0 && Math.abs(w - drawnW) >= 4) draw(w);
+			if (queued) return;
+			queued = true;
+			plot.win.requestAnimationFrame(() => {
+				queued = false;
+				if (!plot.isConnected) return watch.disconnect();
+				const w = plot.clientWidth;
+				if (w > 0 && Math.abs(w - drawnW) >= 4) draw(w);
+			});
 		});
 		watch.observe(plot);
 	}
