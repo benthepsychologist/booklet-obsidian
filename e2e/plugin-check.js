@@ -2,30 +2,10 @@
 //   PLAYWRIGHT=<node_modules path> node plugin-check.js --obsidian <obsidian binary> --vault <test-vault> --out <dir> [--only 1,3] [--lint <lint-booklet.py>]
 // It NEVER touches --vault: every check works on its own fresh copy of the vault and its own scratch config folder, both
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
-// Checks: 1 opens and toggles; 2 draws natively (screenshots); 3 answers reach the records on disk; 4 an open Markdown
-// editor survives interleaved typing; 5 the text field keeps focus across a write; 6 every common kind, a shared list
-// and a widget are answered and cleared, checked on disk, and the first answer to a note with no records does not
-// redraw the view, and a change made on disk while a field is being edited leaves that field and what was typed in it
-// alone; 7 drafts, Finalize and kept entries, for `repeat` and `repeat daily` (finishing twice in a day replaces that
-// day's entry), and a draft survives a reload of the view; 8 the same with the note also open in a Markdown pane
-// (nothing lost or doubled, the buffer equals the disk), and a change made in that pane while a field is being edited;
-// 9 layout: a text box's border in the dark theme, room at the view's foot, the grid's cell names on their colours,
-// touch sizes (the tracker, and the check-in note with a place open, also in a window a phone's width), and the
-// tracker's and check-in note's screenshots in light, dark and mobile emulation; 11 the check-in note's widgets and shared list: drawn, answered and
-// cleared on disk with words of the reader's own, a widget's own field kept while the note changes, its words added
-// when it is left (by a press, in booklet.html's order, a click elsewhere, another note, Finalize, closing the pane), a
-// press on the very item or place word the words name held as booklet.html holds it, finished and kept,
-// in one pane and with a Markdown pane; 12 the question asked for each feeling picked (each:): answered, a feeling
-// taken back and picked again, a copy's field kept while copies come and go around it, Finalize, a wrong-shape answer
-// left alone, in one pane and with a Markdown pane; 13 the reader's earlier words offered again (earlier:, format 0.16):
-// under every body place and under the thoughts, in a group named Earlier words, a tap storing
-// what typing would, today's entry not a source, own options from the pairs whose pick is held, in one pane and with a
-// Markdown pane, then touch sizes and screenshots at a phone's width; 14 Add your own adds the words typed when it is
-// left (format 0.16), on a choice and a multi, and a note marked 0.15 opens with its notice; 15 the check-in note's weekly
-// roll-up (format 0.16 queries: a span of days and a summary) drawn from made-up entries, an older entry and the draft not
-// counted, nothing written, an entry kept showing at once, then screenshots at a desktop's and a phone's width, light and
-// dark; 16 to 23 (nav-checks.js, the 0.6.0 navigation): 16 the three screens and the moves, 17 Back is free, 18 no step for a
-// tab, 19 no move is lost, 20 outside links, 21 icons (all 161), 22 the finish and the kept-entries fold, 23 the phone; 29 to 32 (0.9.0, dashboards; dashboard-checks.js): charts, data blocks and the kept days in every view, the reader's sort and filter, deleting a kept entry; 27 and 28 (0.8.0, page trees, ahead of format 0.17; nav-checks.js): a made-up wiki of 13 pages in three levels, and the check-in as one activity with a wiki tab; 33 (0.10.0, pictures from image definition lines; pictures-checks.js) and 34 (0.10.0, links to other notes and selecting words; note-link-checks.js), each on a desktop's width and in Obsidian's phone mode; 10 (run last) no error or warning from the plugin in Obsidian's console, over every check that ran.
+// Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
+// leftovers-checks.js; 29 to 32 in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
+// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js. README.md in this folder says what each one checks.
+// Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
 
@@ -1937,7 +1917,8 @@ async function check10() {
   c.ok(!only.includes(46) || ["c46-desktop", "c46-phone"].every(x => sessions.includes(x)), "and the notice check's two (a desktop's width, a phone's): " + sessions.join(", "));
   c.ok(!only.includes(47) || sessions.includes("c47"), "and the names check's: " + sessions.join(", "));
   c.ok(!only.includes(35) || sessions.includes("c35"), "and the damaged records check's: " + sessions.join(", "));
-  for (const [n, names] of [[42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
+  const labels38 = ["half", "after", "continuous", "quit"].flatMap(l => ["c38-" + l, "c38-" + l + "-restart"]);
+  for (const [n, names] of [[36, ["c36-view", "c36-md"]], [37, ["c37"]], [38, [...labels38, "c38-leave"]], [39, ["c39-disk", "c39-move"]], [40, ["c40-toggle", "c40-popout", "c40-panes", "c40-restart", "c40-restart-again"]], [41, ["c41"]], [42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
   c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
