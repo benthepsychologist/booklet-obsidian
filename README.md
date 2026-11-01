@@ -142,6 +142,16 @@ Booklet needs Obsidian 1.8.10 or later (`minAppVersion`). Of the releases the re
 
 It is not desktop-only: it has been used on an iPhone (0.1.0 to 0.3.0) and every build is checked under Obsidian's own mobile emulation and at a phone's width. **Android has not been tried.**
 
+## Other plugins that rewrite notes
+
+Booklet was run in a real Obsidian 1.14.5 beside the Linter plugin 1.35.0 (a formatter that rewrites a note on save or on a command). With Linter's default settings, in which every rule is off, nothing in a note changed. With all of its 67 rules on, five test notes were rewritten; no `booklet` fence and no records line was lost, and Booklet still read every note. Leave these rules off for notes Booklet opens:
+
+- **`ordered-list-style`** renumbers a list, and a scale's anchors are a list whose numbers are the stored answers (`0.` `1.` `2.`). After it ran, the scale's anchors began at `1.`, and an answer of `2` showed against a different label than the one pressed. The note still passed the linter. This rule can change what a stored answer means.
+- **`yaml-title`**, **`file-name-heading`** and **`capitalize-headings`** rewrite the note's `title:`, add a heading and re-case headings, so the name Booklet shows changes.
+- **`empty-line-around-blockquotes`** and **`remove-space-around-characters`** change the records line (a blank line before it, spaces round its dash). Booklet reads the result.
+
+This was run on made-up notes and on Linter 1.35.0 only; no other formatter or Linter version was run.
+
 ## Try it by hand
 
 1. Copy the `test-vault` folder of this repository somewhere of your own, and open that folder as a vault in Obsidian (*Open another vault*, then *Open folder as vault*).
