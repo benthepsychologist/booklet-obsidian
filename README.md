@@ -2,7 +2,7 @@
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.17"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 0.10.0. It reads format 0.17 (`SPEC.md` in the Booklet repository). A note marked `"0.17"` opens with nothing said of its marker. A note marked with any other 0.x version, earlier or later, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.17 and has opened it as it is; some of it may not draw." The notice is described under *What it does not draw yet*. It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
+Version 0.11.0. It reads format 0.17 (`SPEC.md` in the Booklet repository). A note marked `"0.17"` opens with nothing said of its marker. A note marked with any other 0.x version, earlier or later, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.17 and has opened it as it is; some of it may not draw." The notice is described under *What it does not draw yet*. It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
@@ -85,13 +85,18 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 - **An answer of the wrong shape is kept as written** (SPEC section 8). An answer whose shape is not its question's kind, such as pairs under a plain `multi`, a list under a `scale` or a number under a `text`, typed by hand or written by another renderer, is never rewritten: its question is drawn read-only with a notice saying what the note holds, no press or Finalize changes it, and a kept entry shows it as written. It can be changed in Markdown. What each kind keeps is under *Choices made* below.
 - **A field you are in is never overwritten.** This holds for a widget's fields for words of your own too. When the note changes while you are typing in the view, or have a field selected (words typed in its Markdown pane, a change from Sync or from another plugin), the field keeps what you typed, the caret and the selection. It shows what the note holds once you leave it, and if the change was to the same question, what you typed is written over it, as the newer change. If the change was to the note's text, the view is drawn again once you leave the field and no press is under way. Words typed in *Add your own* and not added yet are kept too, and added when you leave the field.
 - **Words typed and not added yet survive closing and reloading.** Before Obsidian quits or its window closes, the view writes what was typed and adds the words typed in *Add your own* and a widget's fields, as leaving the field would. A reload (*Reload app without saving*, or Obsidian reloading itself) gives a plugin no time to write, so those words are also kept on the device as they are typed, in the vault's own local storage (never in the note, and never sent anywhere), and added when the note is next drawn; then they are taken off the device. Until then they are only on that device.
+- **Typed words reach the note within 0.7 seconds.** Words typed in a text field are written 0.7 seconds after the first key not yet written, however long the typing goes on. Closing the pane, opening another note in it, closing the window and quitting write at once. A crash or a forced stop loses at most the last 0.7 seconds; so does the *Reload app* command.
+- **Line endings and the byte-order mark.** With only the Booklet view open, a note's line endings (LF or CRLF), its byte-order mark and its final newline are kept. If the note is also open in a Markdown pane, answers go through that pane's editor, and Obsidian's editor saves the note with LF endings and without a byte-order mark, as it does for any note it edits.
+- **A record it cannot read is kept and never written into.** A record that is not valid JSON, has no list of entries, or is unclosed is listed at the top of the view with its line and is kept exactly as written. A record written twice is read as one list, later values winning, and both copies stay in the file.
+- **The note can change under the view.** When the note changes on disk while it is open (Sync, another editor, another plugin), the view follows and keeps what is being typed. Renaming or moving the note keeps the view on it; deleting it closes the view; turning the plugin off leaves the note openable as Markdown.
+- **A large note stays quick.** A daily tracker of 3,000 kept days (414 KB) opens its home screen in about 0.1 seconds and draws a table of all the days in about half a second; a press is in the note in about 0.1 seconds.
 
 ## What stays put
 
 These names are kept, so that a hotkey, a saved workspace or a style snippet written today goes on working. This is the plugin's promise from 1.0.0; until then the format and the plugin are young, and anything else can change.
 
 - **The plugin's id is `booklet`.** It names the folder `.obsidian/plugins/booklet/` and is the prefix of the command ids.
-- **The command id is `toggle-view`** ("Toggle between booklet view and Markdown"; Obsidian shows its full id as `booklet:toggle-view`). A hotkey bound to it keeps working. New commands may be added; none is renamed or removed.
+- **The command id is `toggle-view`** ("Toggle between the note view and Markdown"; Obsidian shows its full id as `booklet:toggle-view`). A hotkey bound to it keeps working. New commands may be added; none is renamed or removed.
 - **The view type is `booklet`.** Obsidian's saved layout holds it, so a workspace with a booklet open restores it.
 - **The saved pane is read tolerantly.** Obsidian saves, with the pane, the note's path and the place the reader was at: `{ version, screen, tab, page, part }` (`version` 1 is a place from before page trees, where `part` counts every part of a tab; `version` 2 names the page). A field this release does not know is ignored; a missing or mistyped field, a state from another release, or a state that is not an object at all (nothing, `null`, a string, a number, a list) opens the home screen, or the nearest place the note has. It is never an error and never loses the note. The place is saved by Obsidian and never written to a note.
 - **A setting, when one is added, changes how the view looks and never what is written to a note.** The plugin has no settings yet.
@@ -124,7 +129,7 @@ These names are kept, so that a hotkey, a saved workspace or a style snippet wri
 **Known limits:**
 
 - `#tags` in prose are plain text, not tag links.
-- Find in page (Ctrl or Cmd+F) is not available in the view; use the Markdown view (the command *Toggle between booklet view and Markdown*).
+- Find in page (Ctrl or Cmd+F) is not available in the view; use the Markdown view (the command *Toggle between the note view and Markdown*).
 - Export to PDF is not offered for the view; printing was not tried.
 - An embedded note has no icon that opens it.
 - A definition whose address is on the line after `[name]:`, or one indented four spaces under a list item, is not taken out of the prose; it works only for the piece of prose it stands in. Write it on one line, not indented.
@@ -142,7 +147,7 @@ It is not desktop-only: it has been used on an iPhone (0.1.0 to 0.3.0) and every
 1. Copy the `test-vault` folder of this repository somewhere of your own, and open that folder as a vault in Obsidian (*Open another vault*, then *Open folder as vault*).
 2. Obsidian asks whether you trust the author of the vault: choose *Trust author and enable plugins*, or turn on community plugins in *Settings → Community plugins*. Booklet is already in the vault's plugin folder and switched on.
 3. If the vault also has the earlier "Booklet (spike)" plugin, turn that one off first: both open booklet notes, and only one should.
-4. Open `Check-in` (the two widgets and a shared list), `Daily tracker`, `Every kind`, `Kept records` or `Evening check-in`. All their content is made up. The header button switches views (*Show Markdown* on the booklet view, *Open as booklet* on the Markdown view), and so does the command *Booklet: Toggle between booklet view and Markdown*.
+4. Open `Check-in` (the two widgets and a shared list), `Daily tracker`, `Every kind`, `Kept records` or `Evening check-in`. All their content is made up. The header button switches views (*Show Markdown* on the booklet view, *Open as booklet* on the Markdown view), and so does the command *Booklet: Toggle between the note view and Markdown*.
 
 The folder `test/page-notes/Pictures demo` is a made-up note with its small picture files, for trying pictures, links to notes and text selection (0.10.0): copy the whole folder into a vault that has the plugin and open `Pictures demo.booklet.md`.
 

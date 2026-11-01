@@ -50,7 +50,7 @@ plugins" on the restricted-mode prompt (fallback `app.plugins.setEnable(true)`),
   if no modal is open and the editor has focus (`app.workspace.activeEditor.editor.focus()`).
 
 ## Run the plugin check (`plugin-check.js`)
-Drives the "Booklet" plugin in the real Obsidian and checks thirty-four things, each on its own fresh Obsidian launch (checks 11, 12, 15, 33 and 34 on two, check 13 on three),
+Drives the "Booklet" plugin in the real Obsidian and checks forty-seven things, each on its own fresh Obsidian launch (checks 11, 12, 15, 33 and 34 on two, check 13 on three),
 its own fresh copy of the vault and its own scratch config folder (all under `<out>/work-<time>/`; `--vault` itself is
 never written to):
 1. a booklet note opens as the `booklet` view (file-explorer click and `getLeaf().openFile`), toggles to `markdown` and back (header actions and the command), and `Ordinary note.md` stays `markdown`;
