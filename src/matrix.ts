@@ -12,7 +12,7 @@
  * the pane changes width.
  */
 import type { Question } from "./core";
-import { pressed, type Label, type QuestionHost, type Target } from "./questions";
+import { nodeOf, pressed, type Label, type QuestionHost, type Target } from "./questions";
 
 /** Draws a matrix's items and anchors into `box` (below its words). */
 export function drawMatrix(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
@@ -98,7 +98,7 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 	// an item the keyboard moves into under the held stem is scrolled clear of it, as far as the screen has room
 	// (SPEC section 5); only the keyboard's focus: a press is never moved
 	wrap.addEventListener("focusin", (evt) => {
-		const target = evt.target as Node | null;
+		const target = nodeOf(evt.target);
 		if (!target?.instanceOf(HTMLElement) || !wrap.classList.contains("booklet-mx-stacked")) return;
 		const stem = box.querySelector<HTMLElement>(":scope > .booklet-prompt");
 		const item = target.closest<HTMLElement>(".booklet-mxitem");
