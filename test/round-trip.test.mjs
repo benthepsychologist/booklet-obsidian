@@ -116,20 +116,26 @@ for (const [name, opts] of Object.entries(VARIANTS)) {
 		const origBytes = bytes(orig);
 		let text = orig;
 		const days = ["2026-10-01T08:00:00Z", "2026-10-02T08:00:00Z", "2026-10-03T08:00:00Z"];
+		const entryLines = (t) => t.split(eol).filter((l) => l.startsWith('{"ts"'));
+		// the comma that joins an entry to the next one is the only byte an earlier line gains
+		const bare = (l) => l.replace(/,$/, "");
+		let before = [];
 		for (const [n, ts] of days.entries()) {
 			text = core.setDraftAnswer(text, "", "log", "line", `Day ${n + 1} 🌙 ${"日本語"[n]}`);
 			assertOneEnding(text, eol, `${name}, draft ${n + 1}`);
 			text = core.finalizeDraft(text, "", "log", { ts }).text;
 			assertOneEnding(text, eol, `${name}, entry ${n + 1}`);
 			assert.ok(bytes(text).subarray(0, origBytes.length).equals(origBytes), `${name}: keeping entry ${n + 1} changed a byte of the design`);
+			const lines = entryLines(text);
+			assert.equal(lines.length, n + 1);
+			// the earlier entries' lines are the bytes they were before this one was added
+			before.forEach((l, i) => assert.ok(bytes(bare(lines[i])).equals(bytes(bare(l))), `${name}: keeping entry ${n + 1} changed the line of entry ${i + 1}`));
+			assert.ok(lines[n].includes(`Day ${n + 1}`));
+			before = lines;
 		}
 		const kept = core.parseBooklet(text).records.entries[""].log.map((e) => e.line);
 		assert.equal(kept.length, 3);
 		assert.ok(kept[2].startsWith("Day 3"));
-		// the earlier entries' lines are the bytes they were when the third was added
-		const second = text.split(eol).filter((l) => l.startsWith('{"ts"'));
-		assert.equal(second.length, 3);
-		assert.equal(second.filter((l) => l.includes("Day 1") || l.includes("Day 2")).length, 2);
 	});
 }
 
