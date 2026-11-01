@@ -12,7 +12,11 @@ const quiet = o => o.evaluate(async () => {
     await new Promise(r => setTimeout(r, n ? 2 : 0));
     const w = v.writes;
     await w;
-    if (v.writes === w && !v.moving && !v.afterMove && !v.rendering) return;
+    if (v.writes === w && !v.moving && !v.afterMove && !v.rendering) {
+      // the layout observers (a matrix's grid or stacked, a chart's width) work on the frame after a change: two frames let them finish
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+      return;
+    }
   }
   throw new Error("the booklet view did not settle: moving " + v.moving + ", rendering " + v.rendering);
 });

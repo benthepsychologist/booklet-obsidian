@@ -117,7 +117,7 @@ module.exports = function accessChecks(env) {
       c.ok(jumps.length === 0, `the stops come in the page's own order (no jump back, none twice); out of order: ${jumps.join(", ") || "none"}`);
       c.info("the stops: " + order.join(","));
       // the date field's last stop is the browser's own picker button, drawn inside the field with its own ring: a control passes if any stop of it shows one
-      const ringed = new Set(inside.filter(s => s.outline || s.shadow || s.focusVisible).map(s => s.n));
+      const ringed = new Set(inside.filter(s => s.outline || s.shadow).map(s => s.n));
       const noRing = inside.filter(s => !ringed.has(s.n));
       c.ok(noRing.length === 0, `every stop shows a focus ring (an outline or a shadow): ${noRing.map(s => `${s.tag}.${s.cls} "${s.name}" sig ${s.sig} fv ${s.focusVisible} sh ${s.shadow} ol ${s.outline}`).join(" | ") || "all " + inside.length}`);
       const offscreen = inside.filter(s => !s.onScreen);

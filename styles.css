@@ -2093,6 +2093,13 @@
 	outline: none;
 }
 
+/* a link, a heading that works as a button (a folded group's) and a disclosure draw a ring when a key reaches them: Obsidian draws none on these.
+   :where() keeps this at the lowest weight, so a control with a ring of its own (a card, a chart) keeps it. */
+:where(.booklet-view) :where(a, [role="button"], [role="link"], summary):focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: 2px;
+}
+
 /* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
 @media (prefers-reduced-motion: reduce) {
 	.booklet-view,
