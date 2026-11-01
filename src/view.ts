@@ -1247,7 +1247,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				box.setAttr("data-booklet-unsupported", s.kind);
 				this.md(s.title || s.kind, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 				const said = (COMMON_KINDS as readonly string[]).includes(s.kind)
-					? `This ${s.kind} question has no id, so it cannot hold an answer. Give it an id in Markdown.`
+					? `This ${s.kind} question has no ID, so it cannot hold an answer. Give it an ID in Markdown.`
 					: s.block
 						? `Not yet supported: the block "${s.kind}".`
 						: `Not yet supported: the kind "${s.kind}".`;
