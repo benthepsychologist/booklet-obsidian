@@ -34,6 +34,9 @@ const frames = o => o.evaluate(() => new Promise(r => requestAnimationFrame(() =
 const mobile = async (o, on) => {
   await o.evaluate(on => app.emulateMobile(on), on);
   await o.page.waitForFunction(on => !!(window.app && app.workspace && app.workspace.layoutReady) && document.body.classList.contains("is-mobile") === on, on, { timeout: 30000, polling: 100 });
+  // the layout is ready before the restored booklet panes are loaded (a pane can wait, deferred, until it is shown): load them
+  await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet")) if (l.isDeferred) await l.loadIfDeferred(); });
+  await o.page.waitForFunction(() => app.workspace.getLeavesOfType("booklet").every(l => !l.isDeferred && l.view.getViewType() === "booklet"), null, { timeout: 15000, polling: 50 });
 };
 // a state the node side can read (a file on disk), polled until it holds or the time is up
 const untilTrue = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await fn()) return true; await new Promise(r => setTimeout(r, 100)); } return false; };
@@ -52,10 +55,18 @@ const kit = (env, note) => {
   const open = async (o, rel) => {
     await o.page.waitForFunction(r => { const f = app.vault.getAbstractFileByPath(r), fm = f && app.metadataCache.getFileCache(f) && app.metadataCache.getFileCache(f).frontmatter; return !!(fm && fm.booklet); }, rel, { timeout: 30000, polling: 100 });
     const openIt = () => o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel)); }, rel);
+    const drawnPage = async ms => {
+      if (!(await waitActiveType(o, "booklet", ms))) throw new Error("the pane did not become a booklet view");
+      await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: ms });
+    };
     await openIt();
-    /* A pane that did not become a booklet view in time gets the note once more (as plugin-check.js's openNote does). */
-    try { await waitActiveType(o, "booklet", 10000); await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 10000 }); }
-    catch (e) { await openIt(); await waitActiveType(o, "booklet", 20000); await o.page.waitForSelector(BOOK + " .booklet-page", { timeout: 20000 }); }
+    /* A pane that did not become a booklet view in time: the panes showing the note are closed and the note is opened into a new one. */
+    try { await drawnPage(10000); }
+    catch (e) {
+      await o.evaluate(rel => { app.workspace.iterateAllLeaves(l => { const st = l.getViewState(); if (st.type === "booklet" || (st.state && st.state.file === rel)) l.detach(); }); }, rel);
+      await openIt();
+      await drawnPage(20000);
+    }
     await quiet(o);
   };
   const answers = vault => {
