@@ -14,7 +14,6 @@ Version 0.10.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). The 
 - **Links**: `[[#Heading]]` and `[words](#slug)` inside a note open the first place in that module whose heading, activity title, tab name, question or callout title reads those words, as a step in Back and Forward (Ctrl or Cmd opens a new pane); words nothing holds are plain text. A link to a module (`[[week-2.booklet]]`) opens it if the booklet holds it and otherwise reads "not in this booklet", and never creates a note. A link from another note, `[[Check-in.booklet#Today]]`, opens the screen, tab and page that hold the words, looking through the whole file for the first match.
 - **Openings**: the booklet's opening text (under the booklet's title on home) and each module's (under the module's title), rendered by Obsidian. A heading that repeats the title is not drawn twice.
 - **Activities**: an activity's prose (rendered by Obsidian, so links, images, callouts, hints and solutions look as they do in Reading view), and its questions. Finalize, its note and the kept entries of an activity that repeats are drawn under a page only on a tab that holds a question (or when the opening above every tab does).
-- **Pictures**: an image in the note's prose draws as Obsidian draws it. The format's reference form, `![alt][name]` with its address in the data section, works because each piece of prose is given the definitions available to its module before it is drawn. The plugin adds no limit or filter of its own.
 - **The eight common question kinds**, stored the way the format and its reference renderer store them:
 
   | Kind | How it is answered | What is stored |
@@ -76,7 +75,7 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 
 ## What it writes, and what it never does
 
-- **It has no telemetry or account.** The plugin uses only Obsidian’s API; it has no settings and uses no Node or Electron API. Obsidian may load remote images or other content linked by the note, as it normally does.
+- **It makes no network requests of its own, and has no telemetry or account.** It has no settings and uses only Obsidian's API, no Node or Electron API. Obsidian may load remote images or other content linked by the note, as it normally does.
 - **It changes only what you changed.** An answer, a draft or an entry is written into the records region, and inside it only into the one block that holds it, and inside that block only the one answer or entry. Every other byte of the note, every other record block, and every answer or entry you did not touch stay exactly as they were written: no respacing, no re-sorting, no trimming. A note with no records gets a records region added after its text, separated from it by one blank line.
 - If the note is also open as Markdown, the change goes into that editor, so nothing typed there is lost; otherwise it is written with Obsidian's `Vault.process`. While the note is open as Markdown, the view reads the note from that editor too, which holds the newest text: the file as last saved can be older, and taking it would take back an answer just given.
 - **An answer of the wrong shape is kept as written** (SPEC section 8). An answer whose shape is not its question's kind, such as pairs under a plain `multi`, a list under a `scale` or a number under a `text`, typed by hand or written by another renderer, is never rewritten: its question is drawn read-only with a notice saying what the note holds, no press or Finalize changes it, and a kept entry shows it as written. It can be changed in Markdown. What each kind keeps is under *Choices made* below.
@@ -85,12 +84,13 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 
 ## Compared with Reading view
 
-**What the plugin does and does not do.** It sends nothing anywhere: it makes no network requests of its own and has no analytics and no accounts. A note drawn in the view can do what any Obsidian note can (links, embeds, images, blocks drawn by community plugins), and the plugin adds no limit or filter on what a note shows.
+**What the plugin does and does not do.** A note drawn in the view can do what any Obsidian note can (links, embeds, images, blocks drawn by community plugins). The plugin sets no limit on what a note may show and filters nothing out, except where the list below says it changes something.
 
-**What the view draws itself, instead of Obsidian, and why.** Only these:
+**What the view draws or changes itself, instead of Obsidian, and why:**
 
 - Footnote marks: numbered buttons that open a source under the paragraph. Obsidian renders the note one piece at a time, so its own footnotes cannot be numbered across the screen; the view numbers the marks by first use and shows a mark with no note as `[?id]`.
-- Heading links and links to a module: the view moves between its own screens, so it opens the place itself.
+- Heading links and links to a module: the view moves between its own screens, so it opens the place itself. A heading link whose words no place holds is drawn as plain text, and a link to a module the booklet does not hold as a "not in this booklet" chip.
+- Definition lines (`[name]: address`): they are taken out of the prose and given to the module they stand in, or to the data section they stand under, so they are never drawn as text. A line inside a code block or a comment is not a definition and stays as written.
 - Questions and the controls: the view writes the answers into the note's records.
 - Task checkboxes in prose: switched off, so a press never edits the design part of the note.
 
@@ -99,7 +99,7 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 - Embeds of other notes (`![[Other note]]`, and of one heading of it).
 - Mermaid diagrams, after Obsidian's one-time Allow for the vault.
 - Maths, tables, code blocks and callouts.
-- Images, written inline or as definition lines (`![Alt][name]`): a name or a path resolves by Obsidian's link rules (a bare `pic.png` finds `attachments/pic.png`), and a name shared by two files gives the file Reading view gives.
+- Images, written inline or as definition lines (`![Alt][name]`, the definition in the module or in a data section): a name or a path written as Obsidian reads it resolves by Obsidian's link rules (a bare `pic.png` finds `attachments/pic.png`, and a name shared by two files gives the file Reading view gives), tested from a note in the vault root. Each piece of prose is drawn with the definitions of its own module first, then those of the module's data section, then the shared data section's; never another module's.
 - Links to a note, `[[Other note]]`, with or without `#Heading` or `#^block`: a click opens the note, Ctrl or Cmd in a new pane, and the pointer over one shows the hover preview, as the reader's Page preview settings say.
 - Selecting and copying text.
 
@@ -109,8 +109,9 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 
 - `#tags` in prose are plain text, not tag links.
 - Find in page (Ctrl or Cmd+F) is not available in the view; use the Markdown view (the command *Toggle between booklet view and Markdown*).
-- Export to PDF and printing are not offered for the view.
+- Export to PDF is not offered for the view; printing was not tried.
 - An embedded note has no icon that opens it.
+- A definition whose address is on the line after `[name]:`, or one indented four spaces under a list item, is not taken out of the prose; it works only for the piece of prose it stands in. Write it on one line, not indented.
 - After pressing Allow for Mermaid, the diagram appears when the note is drawn again, for example when it is opened again.
 - An image whose file is missing is a broken image with its alt text, where Reading view says the file could not be found.
 
