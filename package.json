@@ -19,8 +19,6 @@
 		"typescript": "5.9.3"
 	},
 	"dependencies": {
-		"@quartz-community/remark-obsidian": "^2.1.0",
-		"monkey-around": "3.0.0",
-		"unified": "^11.0.5"
+		"monkey-around": "3.0.0"
 	}
 }
