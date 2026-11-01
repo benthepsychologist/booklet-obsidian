@@ -122,6 +122,8 @@ A note that Obsidian opens before its metadata cache holds its front matter (one
 3. If the vault also has the earlier "Booklet (spike)" plugin, turn that one off first: both open booklet notes, and only one should.
 4. Open `Check-in` (the two widgets and a shared list), `Daily tracker`, `Every kind`, `Kept records` or `Evening check-in`. All their content is made up. The header button switches views (*Show Markdown* on the booklet view, *Open as booklet* on the Markdown view), and so does the command *Booklet: Toggle between booklet view and Markdown*.
 
+The folder `test/page-notes/Pictures demo` is a made-up note with its small picture files, for trying pictures, links to notes and text selection (0.10.0): copy the whole folder into a vault that has the plugin and open `Pictures demo.booklet.md`.
+
 To use it in a vault of your own, install it with BRAT (below), or copy `main.js`, `manifest.json` and `styles.css` from `test-vault/.obsidian/plugins/booklet/` into `<your vault>/.obsidian/plugins/booklet/`, then turn it on under *Community plugins*.
 
 ## Install a test build with BRAT
