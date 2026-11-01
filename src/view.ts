@@ -102,7 +102,11 @@ export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
 }
 
-/** How long a text field waits after the last key before its answer is written. */
+/**
+ * How long typed words wait, counted from the first key not yet written, before the answer is written. Later keys do not move
+ * it, so a reader who never stops typing still has their words written every TYPING_PAUSE_MS, and a hard stop (a crash, a kill,
+ * a power cut) loses no more than that.
+ */
 const TYPING_PAUSE_MS = 700;
 /** After a press ends with no click (a touch that scrolled, say), how long a drawing that waits is held back still. */
 const PRESS_END_MS = 300;
@@ -772,8 +776,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const key = pendingKey(t, q, pick);
 		const p = this.pending.get(key) ?? { t, q, pick, value, timer: null };
 		p.value = value;
-		if (p.timer !== null) window.clearTimeout(p.timer);
-		p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
+		if (p.timer === null) p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
 		this.pending.set(key, p);
 	}
 

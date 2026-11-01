@@ -232,5 +232,99 @@ ${BAD_DRAFT}
     return c;
   }
 
-  return { 35: check35, 36: check36 };
+  /* ================= CHECK 38 ================= */
+  // quit in the middle of typing: the process is killed, then started again on the same vault
+  const EVERY = "Every kind.booklet.md";
+  const WRITE_PAUSE = 700;   // the view's TYPING_PAUSE_MS: typed words are written this long after the first key not yet written
+  const mainPid = port => {
+    const pids = cp.execSync(`pgrep -f -- "--remote-debugging-port=${port}"`, { encoding: "utf8" }).trim().split("\n").map(Number);
+    return pids.find(p => !/--type=/.test(fs.readFileSync(`/proc/${p}/cmdline`, "utf8").replace(/\0/g, " ")));
+  };
+  const thoughtsOnDisk = file => { const m = fs.readFileSync(file, "utf8").match(/"thoughts": "((?:[^"\\]|\\.)*)"/); return m ? m[1] : ""; };
+  // starts an Obsidian on the vault of a check's session again (the first was killed), with its console watched like the others
+  async function relaunch(o, name) {
+    const o2 = await launch({ obsidian: path.resolve(opt.obsidian), vault: o.vault, configDir: o.configDir });
+    env.sessions.push(name);
+    o2.page.on("console", m => { if (m.type() === "error" || m.type() === "warning") env.consoleReport.push({ where: name, kind: "console." + m.type(), text: m.text().slice(0, 400), url: (m.location() || {}).url || "" }); });
+    o2.page.on("pageerror", e => env.consoleReport.push({ where: name, kind: "pageerror", text: String((e && (e.stack || e.message)) || e).slice(0, 600), url: "" }));
+    return o2;
+  }
+  async function check38() {
+    const c = new Check(38, "quit in the middle of typing: the process killed at half the write delay, just after it, and during typing without a pause (what survives is all but the last " + WRITE_PAUSE + " ms); a normal quit, a closed pane and another note opened write at once");
+    // the typing: `chars` typed one by one, `gap` ms apart, returns when each was typed; `stop` is what ends the session `ms` later
+    async function session(label, typing, stop) {
+      let result = null;
+      await withApp("c38-" + label, async (o, vault) => {
+        const K = kit(env, EVERY), file = path.join(vault, EVERY);
+        o.page.on("dialog", d => { d.accept().catch(() => {}); });   // Obsidian's unload prompt, as the window's close sets it off
+        await K.open(o, EVERY);
+        await K.goTo(o, "activity:/kinds");
+        const field = o.page.locator(BOOK + " .booklet-kind-text textarea, " + BOOK + " .booklet-kind-text input").first();
+        await field.click();
+        const t0 = Date.now(), times = await typing(o, field);
+        const pid = mainPid(o.port);
+        const killAt = Date.now() - t0;
+        const onDisk = thoughtsOnDisk(file);
+        await stop(o, pid);
+        for (let i = 0; i < 40; i++) { try { process.kill(pid, 0); } catch (e) { break; } await sleep(100); }
+        const gone = (() => { try { process.kill(pid, 0); return false; } catch (e) { return true; } })();
+        const afterStop = thoughtsOnDisk(file);
+        await o.close();
+        const o2 = await relaunch(o, "c38-" + label + "-restart");
+        let shown = null;
+        try {
+          await K.open(o2, EVERY); await K.goTo(o2, "activity:/kinds");
+          shown = await o2.evaluate(sel => { const f = document.querySelector(sel + " .booklet-kind-text textarea, " + sel + " .booklet-kind-text input"); return f ? f.value : null; }, BOOK);
+        } finally { await o2.close(); }
+        result = { times, killAt, onDisk, afterStop, shown, final: thoughtsOnDisk(file), gone };
+      });
+      return result;
+    }
+    const typeEach = (text, gap) => async (o, field) => { const times = []; for (const ch of text) { await o.page.keyboard.type(ch); times.push(Date.now()); if (gap) await sleep(gap); } return times; };
+    const kill = async (o, pid) => { process.kill(-pid, "SIGKILL"); };
+    // (a) half the delay
+    let r = await session("half", async (o, f) => { const t = await typeEach("abcdef", 0)(o, f); await sleep(WRITE_PAUSE / 2); return t; }, kill);
+    c.ok(r.gone, "(a) the process was killed (SIGKILL to its process group)");
+    c.ok(r.afterStop === "" && r.final === "", "(a) killed " + WRITE_PAUSE / 2 + " ms after typing six characters: nothing of them was on disk (lost, within the delay): " + JSON.stringify(r.final));
+    // (b) just after the delay
+    r = await session("after", async (o, f) => { const t = await typeEach("abcdef", 0)(o, f); await sleep(WRITE_PAUSE + 400); return t; }, kill);
+    c.ok(r.final === "abcdef", "(b) killed " + (WRITE_PAUSE + 400) + " ms after typing: all six characters survive: " + JSON.stringify(r.final));
+    c.ok(r.shown === "abcdef", "(b) and the restarted Obsidian shows them in the field: " + JSON.stringify(r.shown));
+    // (c) typing without a pause, killed at once: everything typed more than the delay (and a margin for the write) before the kill survives
+    const text = "The quick brown fox jumps over the lazy dog, again and again and again.";
+    r = await session("continuous", typeEach(text, 90), kill);
+    const survived = r.final.length;
+    const oldEnough = r.times.filter(t => t <= r.times[r.times.length - 1] - (WRITE_PAUSE + 400)).length;
+    c.ok(text.startsWith(r.final) && survived >= oldEnough, "(c) " + text.length + " characters typed in " + (r.times[r.times.length - 1] - r.times[0]) + " ms without a pause, killed straight after: " + survived + " survive, and at least the " + oldEnough + " typed more than " + (WRITE_PAUSE + 400) + " ms earlier did: " + JSON.stringify(r.final.slice(-20)));
+    // (d) a normal close of the window: Obsidian's quit event runs the plugin's flush before the window goes
+    r = await session("quit", async (o, f) => { const t = await typeEach("closing now", 0)(o, f); await sleep(150); return t; }, async (o, pid) => {
+      await o.evaluate(log => { const fsx = require("fs"), t0 = Date.now(), w = m => fsx.appendFileSync(log, (Date.now() - t0) + " " + m + "\n"); app.workspace.on("quit", () => w("quit event")); window.addEventListener("beforeunload", () => w("beforeunload")); setTimeout(() => require("electron").remote.getCurrentWindow().close(), 0); }, path.join(WORK, "c38-events.log")).catch(() => {});
+    });
+    // The page needs a beforeunload listener of its own for the harness's browser to show Obsidian's unload prompt (which the session accepts):
+    // without one, Chromium blocks the prompt ("no user gesture") and the window goes before the quit event's tasks are awaited. Obsidian's
+    // own app shell has no such limit; this is the harness's.
+    c.info("(d) events: " + JSON.stringify(fs.existsSync(path.join(WORK, "c38-events.log")) ? fs.readFileSync(path.join(WORK, "c38-events.log"), "utf8") : "none"));
+    c.ok(r.final === "closing now", "(d) the window closed 150 ms after typing (the quit event): the words were written before it went: " + JSON.stringify(r.final));
+    // (e) the pane closed, and another note opened in the pane, with words waiting
+    await withApp("c38-leave", async (o, vault) => {
+      const K = kit(env, EVERY), file = path.join(vault, EVERY);
+      await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
+      const field = o.page.locator(BOOK + " .booklet-kind-text textarea, " + BOOK + " .booklet-kind-text input").first();
+      await field.click(); await o.page.keyboard.type("pane closing");
+      await sleep(150);
+      await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+      const a = await waitDisk(file, t => /pane closing/.test(t), 2000);
+      c.ok(a.ok && a.ms < 1500, "(e) the pane closed 150 ms after typing: written at once (" + a.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
+      await K.open(o, EVERY); await K.goTo(o, "activity:/kinds");
+      const f2 = o.page.locator(BOOK + " .booklet-kind-text textarea, " + BOOK + " .booklet-kind-text input").first();
+      await f2.click(); await f2.press("End"); await o.page.keyboard.type(" and another note");
+      await sleep(150);
+      await o.evaluate(async () => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath("Ordinary note.md")); });
+      const b = await waitDisk(file, t => /pane closing and another note/.test(t), 2000);
+      c.ok(b.ok && b.ms < 1500, "(e) another note opened in the pane 150 ms after typing: written at once (" + b.ms + " ms): " + JSON.stringify(thoughtsOnDisk(file)));
+    });
+    return c;
+  }
+
+  return { 35: check35, 36: check36, 38: check38 };
 };
