@@ -50,7 +50,8 @@ export function modelOf(text) {
 		tabs: a.tabs.map((t) => ({ id: t.id, title: t.title, pages: t.pages })), named: a.named, reads: a.reads, number: a.number, line: a.line,
 	}));
 	const cards = nav.cards.map((c) => (c.kind === "module" ? { kind: "module", mod: c.mod.id, line: c.line } : { kind: "activity", act: c.act.key, line: c.line }));
-	const { records, ...rest } = book;
+	// References are 0.10 metadata; the remaining reading and navigation must match 0.8.
+	const { records, references, ...rest } = book;
 	return plain({ book: { ...rest, records }, nav: { title: nav.title, startHome: nav.startHome, mods, acts, cards }, start: core.startPlace(nav) });
 }
 

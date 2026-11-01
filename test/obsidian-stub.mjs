@@ -62,8 +62,8 @@ export class TextFileView extends Component {
 	setEphemeralState() {}
 }
 
-/** What the view asks of a click: a plain click opens in the pane. */
-export const Keymap = { isModEvent: () => false };
+/** What the view asks of a click: a plain click opens in the pane, Ctrl or Cmd in a new one. */
+export const Keymap = { isModEvent: (evt) => (evt && (evt.ctrlKey || evt.metaKey) ? "tab" : false) };
 
 /** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file. */
 export const MarkdownView = (globalThis.__bookletStubMarkdownView ??= class MarkdownView {});

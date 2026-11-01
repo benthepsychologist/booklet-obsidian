@@ -2,7 +2,7 @@
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.16"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 0.9.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). The page line is read at every 0.x marker (a `"0.16"` note that holds one draws its tree). A note marked `"0.17"` says nothing of its marker unless it holds something this view does not read: a kind of line that is none of the format's nor Obsidian's own callouts (with or without words after its bar), or a setting another kind of line does not take (a page line's own refused setting is said on its line and is not counted); a note marked with another 0.x version, such as `"0.15"`, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
+Version 0.10.0. It reads format 0.16 (`SPEC.md` in the Booklet repository). The page line is read at every 0.x marker (a `"0.16"` note that holds one draws its tree). A note marked `"0.17"` says nothing of its marker unless it holds something this view does not read: a kind of line that is none of the format's nor Obsidian's own callouts (with or without words after its bar), or a setting another kind of line does not take (a page line's own refused setting is said on its line and is not counted); a note marked with another 0.x version, such as `"0.15"`, opens as it is, with a notice first among its problems: "This file says booklet: 0.15. This view reads format 0.16 and has opened it as it is; some of it may not draw." It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
@@ -69,18 +69,51 @@ Each of these is left in the note exactly as written; where the view draws somet
 
 A setting a line's kind does not take (`mx:5` for `max:5`, `open` on a `scale`) is listed among the note's problems and ignored, as the format says; `each:` and `earlier:`, which the plugin draws, are not.
 
-Also not done yet: editing a kept entry (deleting one is done), data sections, themes, and languages other than English for the view's own words. A link to a block (`#^id`) does nothing.
+Also not done yet: editing a kept entry (deleting one is done), data sections, themes, and languages other than English for the view's own words. A link to a block of the same note (`#^id`) does nothing.
 
 A note that Obsidian opens before its metadata cache holds its front matter (one created and opened in one go, or re-indexed after a sync) shows as plain Markdown until *Open as booklet* is pressed: the plugin knows a note is a booklet only from that cache, and it does not switch a pane on every change of it, since that would flip an ordinary note while someone types a `booklet:` key into it. This is how 0.6.0 behaved, and it is unchanged.
 
 ## What it writes, and what it never does
 
-- **It sends nothing anywhere and reads nothing from the network.** It has no settings, no telemetry and no account. It uses no Node or Electron API, only Obsidian's.
+- **It makes no network requests of its own, and has no telemetry or account.** It has no settings and uses only Obsidian's API, no Node or Electron API. Obsidian may load remote images or other content linked by the note, as it normally does.
 - **It changes only what you changed.** An answer, a draft or an entry is written into the records region, and inside it only into the one block that holds it, and inside that block only the one answer or entry. Every other byte of the note, every other record block, and every answer or entry you did not touch stay exactly as they were written: no respacing, no re-sorting, no trimming. A note with no records gets a records region added after its text, separated from it by one blank line.
 - If the note is also open as Markdown, the change goes into that editor, so nothing typed there is lost; otherwise it is written with Obsidian's `Vault.process`. While the note is open as Markdown, the view reads the note from that editor too, which holds the newest text: the file as last saved can be older, and taking it would take back an answer just given.
 - **An answer of the wrong shape is kept as written** (SPEC section 8). An answer whose shape is not its question's kind, such as pairs under a plain `multi`, a list under a `scale` or a number under a `text`, typed by hand or written by another renderer, is never rewritten: its question is drawn read-only with a notice saying what the note holds, no press or Finalize changes it, and a kept entry shows it as written. It can be changed in Markdown. What each kind keeps is under *Choices made* below.
 - **A field you are in is never overwritten.** This holds for a widget's fields for words of your own too. When the note changes while you are typing in the view, or have a field selected (words typed in its Markdown pane, a change from Sync or from another plugin), the field keeps what you typed, the caret and the selection. It shows what the note holds once you leave it, and if the change was to the same question, what you typed is written over it, as the newer change. If the change was to the note's text, the view is drawn again once you leave the field and no press is under way. Words typed in *Add your own* and not added yet are kept too, and added when you leave the field.
 - **Words typed and not added yet survive closing and reloading.** Before Obsidian quits or its window closes, the view writes what was typed and adds the words typed in *Add your own* and a widget's fields, as leaving the field would. A reload (*Reload app without saving*, or Obsidian reloading itself) gives a plugin no time to write, so those words are also kept on the device as they are typed, in the vault's own local storage (never in the note, and never sent anywhere), and added when the note is next drawn; then they are taken off the device. Until then they are only on that device.
+
+## Compared with Reading view
+
+**What the plugin does and does not do.** A note drawn in the view can do what any Obsidian note can (links, embeds, images, blocks drawn by community plugins). The plugin sets no limit on what a note may show and filters nothing out, except where the list below says it changes something.
+
+**What the view draws or changes itself, instead of Obsidian, and why:**
+
+- Footnote marks: numbered buttons that open a source under the paragraph. Obsidian renders the note one piece at a time, so its own footnotes cannot be numbered across the screen; the view numbers the marks by first use and shows a mark with no note as `[?id]`.
+- Heading links and links to a module: the view moves between its own screens, so it opens the place itself. A heading link whose words no place holds is drawn as plain text, and a link to a module the booklet does not hold as a "not in this booklet" chip.
+- Definition lines (`[name]: address`): they are taken out of the prose and given to the module they stand in, or to the data section they stand under, so they are never drawn as text. A line inside a code block or a comment is not a definition and stays as written.
+- Questions and the controls: the view writes the answers into the note's records.
+- Task checkboxes in prose: switched off, so a press never edits the design part of the note.
+
+**What works as in Reading view:**
+
+- Embeds of other notes (`![[Other note]]`, and of one heading of it).
+- Mermaid diagrams, after Obsidian's one-time Allow for the vault.
+- Maths, tables, code blocks and callouts.
+- Images, written inline or as definition lines (`![Alt][name]`, the definition in the module or in a data section): a name or a path written as Obsidian reads it resolves by Obsidian's link rules (a bare `pic.png` finds `attachments/pic.png`, and a name shared by two files gives the file Reading view gives), tested from a note in the vault root. Each piece of prose is drawn with the definitions of its own module first, then those of the module's data section, then the shared data section's; never another module's.
+- Links to a note, `[[Other note]]`, with or without `#Heading` or `#^block`: a click opens the note, Ctrl or Cmd in a new pane, and the pointer over one shows the hover preview, as the reader's Page preview settings say.
+- Selecting and copying text.
+
+**Other community plugins.** Dataview (inline queries, `TABLE`, `LIST`), Tasks (query blocks), Admonition (`ad-` blocks, folds) and Meta Bind (inline fields, toggles, buttons that write to the note's front matter) were tried, and their blocks draw in the view as they do in Reading view. Tasks' enriched task lists written in prose stay plain checkboxes: the view draws pieces of the note, not the file, so a plugin that asks for the note's line numbers gets none. A Tasks checkbox inside a Tasks query result stays live, as in any note, and edits the line it belongs to, which can be in the booklet's design part. Other plugins were not tried.
+
+**Known limits:**
+
+- `#tags` in prose are plain text, not tag links.
+- Find in page (Ctrl or Cmd+F) is not available in the view; use the Markdown view (the command *Toggle between booklet view and Markdown*).
+- Export to PDF is not offered for the view; printing was not tried.
+- An embedded note has no icon that opens it.
+- A definition whose address is on the line after `[name]:`, or one indented four spaces under a list item, is not taken out of the prose; it works only for the piece of prose it stands in. Write it on one line, not indented.
+- After pressing Allow for Mermaid, the diagram appears when the note is drawn again, for example when it is opened again.
+- An image whose file is missing is a broken image with its alt text, where Reading view says the file could not be found.
 
 ## Try it by hand
 

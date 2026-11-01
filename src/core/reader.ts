@@ -21,6 +21,7 @@ import {
 	splitLines,
 } from "./lines";
 import { readDataRows, type DataRows } from "./data";
+import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
 
@@ -323,6 +324,7 @@ export interface Booklet {
 	menus: MenuBlock[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
+	references: ReferenceDefinition[];
 	records: RecordsRead;
 }
 
@@ -638,6 +640,8 @@ export function parseBooklet(text: string): Booklet {
 	const activities: Activity[] = [];
 	const idsByScope = new Map<string, Set<string>>();
 	const notes: Note[] = [];
+	const references: ReferenceDefinition[] = [];
+	const referenceTokens = referenceSource(text);
 	const widgets: WidgetBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const dataBlocks: DataBlock[] = [];
@@ -651,6 +655,8 @@ export function parseBooklet(text: string): Booklet {
 	let section: "content" | "data" = "content";
 	/** The module a data section's blocks belong to (`> [!data|module-id]`), or null for the plain data section. */
 	let dataMod: Module | null = null;
+	/** The data section names a module this file does not open: its image definitions belong to no one. */
+	let dataGhost = false;
 	/** A module or an activity line has been met: text outside every activity is no longer the booklet's opening. */
 	let started = false;
 	let buf: string[] = [];
@@ -728,6 +734,27 @@ export function parseBooklet(text: string): Booklet {
 		if (!buf.length) bufAt = i;
 		buf.push(...ls);
 	};
+	/** The scope an image definition here is given to: a module, the bare activities (""), the booklet's opening (null), or undefined for none. */
+	const definitionScope = (): string | null | undefined => {
+		if (section === "data") return dataGhost ? undefined : dataMod ? dataMod.id : null;
+		return mod ? mod.id : act ? "" : started ? undefined : null;
+	};
+	const addDefinition = (text: string): void => {
+		const module = definitionScope();
+		if (module !== undefined) references.push({ text, module, section });
+	};
+	/** Collect definitions inside a Markdown-only callout without exposing its other content twice. */
+	const calloutText = (start: number, end: number): string[] => {
+		const kept: string[] = [];
+		for (let n = start; n < end; n++) {
+			const ref = referenceTokens.definitions.get(n);
+			if (!ref) { kept.push(lines[n] ?? ""); continue; }
+			addDefinition(ref.text.replace(/\n(?:>[ \t]?)+/g, "\n"));
+			for (let j = n; j <= ref.end; j++) kept.push((lines[j] ?? "").match(/^(?:>[ \t]?)+/)?.[0] ?? "");
+			n = ref.end;
+		}
+		return kept;
+	};
 	/** A row is open: its `> [!row]` line was read and its `> [!row|end]` line has not been. */
 	let rowOpen = false;
 	const closeRow = (why: string, i: number) => {
@@ -761,6 +788,8 @@ export function parseBooklet(text: string): Booklet {
 			continue;
 		}
 		const ln = lines[i] ?? "";
+		const ref = referenceTokens.definitions.get(i);
+		if (ref) { addDefinition(open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text); i = ref.end; continue; }
 		const f = FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
@@ -872,6 +901,7 @@ export function parseBooklet(text: string): Booklet {
 				// the module id on a data line says whose its blocks are, until the next data, module or activity line;
 				// a module this file does not open is said, and its blocks are read as shared (booklet.html onData)
 				dataMod = w.id ? (modules.find((x) => x.id === w.id) ?? null) : null;
+				dataGhost = !!w.id && !dataMod;
 				if (w.id && !dataMod) problems.push(`${at(i)}: a data section for the module "${w.id}", which this file does not open; its blocks are read as shared.`);
 				i = bodyEnd(lines, i) - 1;
 				continue;
@@ -1032,11 +1062,11 @@ export function parseBooklet(text: string): Booklet {
 					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
 					continue;
 				}
-				pushText(lines.slice(i, k), i);
+				pushText(calloutText(i, k), i);
 				i = k - 1;
 				continue;
 			}
-			pushText(lines.slice(i, k), i);
+			pushText(calloutText(i, k), i);
 			i = k - 1;
 			continue;
 		}
@@ -1121,6 +1151,7 @@ export function parseBooklet(text: string): Booklet {
 		widgets,
 		menus,
 		notes,
+		references,
 		records,
 	};
 }
