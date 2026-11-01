@@ -1020,12 +1020,12 @@ export function parseBooklet(text: string): Booklet {
 					continue;
 				}
 				if (QUESTION_KINDS.has(kind)) claimId(w.id, i);
+				if (!KNOWN_KINDS.has(kind)) noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as "not yet supported"`, true);
 				if (!act) {
 					if (QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a question before the first activity belongs to no activity, so it is not drawn.`);
 					i = k - 1;
 					continue;
 				}
-				if (!KNOWN_KINDS.has(kind)) noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as "not yet supported"`, true);
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);

@@ -71,6 +71,10 @@ test("a kind of line this view does not read: its line, its words, and how to up
 	// a line of an unknown kind with no words after its bar is drawn as the callout it looks like
 	const bare = noticeOf(note(`${BASE}\n> [!lesson] The lesson\n`));
 	assert.deepEqual(bare?.entries, [`Line 12: > [!lesson] The lesson ("lesson" is not a kind this view reads, so it is drawn as an ordinary callout)`]);
+	// the same before the first activity, listed once, with the activity line that follows it not listed
+	const first = noticeOf(note("> [!lesson|l1] Intro\n\n> [!activity|a] A\n\n> [!text|t] T\n"));
+	assert.deepEqual(first?.entries, [`Line 8: > [!lesson|l1] Intro ("lesson" is not a kind this view reads, so it is drawn as "not yet supported")`]);
+	assert.equal(first?.count, 1);
 	// Obsidian's own callouts and the format's own kinds are read
 	assert.equal(noticeOf(note(`${BASE}\n> [!tip] A tip\n\n> [!warning] A warning\n\n> [!hint]- A hint\n> Words.\n`)), null);
 });
