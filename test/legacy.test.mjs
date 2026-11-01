@@ -2,7 +2,7 @@
  * A note with no page line is exactly what it was in release 0.8.0 (dashboards, 0.9.0): the same reading, the same navigation model, and
  * the same drawing in every place the view can show, with nothing written to the note. The golden file (legacy-golden.json) was made
  * from the code of 0.8.0 (e692029) by test/legacy-structure.mjs, which says how to make it again and what the one allowed difference is
- * (the Delete button on a kept entry's card, in two places). It covers every 0.16 note in the test
+ * (the Delete button on a kept entry's card, in two places). It covers every note with no page line in the test
  * vault, and made-up ones for what the vault lacks: a wiki written with `parent:` on activities, in a module and bare.
  */
 import "./fixed-date.mjs";
@@ -15,7 +15,7 @@ const golden = JSON.parse(readFileSync(new URL("./legacy-golden.json", import.me
 const notes = { ...vaultNotes(), ...Object.fromEntries(Object.entries(EXTRA).map(([k, v]) => [`${k} (made up here)`, v])) };
 
 for (const [name, want] of Object.entries(golden)) {
-	test(`0.16 note unchanged: ${name}: the same reading and model, the same drawing in every place, and nothing written`, async () => {
+	test(`note unchanged: ${name}: the same reading and model, the same drawing in every place, and nothing written`, async () => {
 		const text = notes[name];
 		assert.ok(text !== undefined, `${name} is in the golden file but is not a note any more`);
 		assert.deepEqual(modelOf(text), want.model, `${name}: its reading or navigation model changed`);
@@ -33,6 +33,6 @@ for (const [name, want] of Object.entries(golden)) {
 	});
 }
 
-test("every note in the test vault that has no page line is in the golden file (a new 0.16 note must be added to it)", () => {
+test("every note in the test vault that has no page line is in the golden file (a new note with no page line must be added to it)", () => {
 	for (const [name, text] of Object.entries(vaultNotes())) if (!/^>[ \t]?\[!page/m.test(text)) assert.ok(golden[name], `${name} has no page line and is not in legacy-golden.json`);
 });

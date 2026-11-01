@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { WIKI, build, core, norm } from "./helpers.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.16"\ntitle: Harbour\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.17"\ntitle: Harbour\n${extra}---\n`;
 const ACT = "> [!activity|notes] Harbour notes\n";
 const note = (body, act = ACT) => `${head()}\n${act}\n${body}`;
 const tabOf = (text, n = 0, key = "/notes") => build(text).nav.byKey.get(key).tabs[n];
@@ -67,9 +67,9 @@ test("a page takes parent: and icon: only: hidden, status:, tab: and repeat are 
 	const [p] = segs(t).filter((s) => s.type === "page");
 	assert.equal(p.parent, "q");
 	assert.equal(p.icon, "waves");
-	const said = core.parseBooklet(t).problems.filter((x) => /page line takes no/.test(x));
-	assert.equal(said.length, 4, said.join("\n"));
-	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.includes(w)), `${w} is said`);
+	const said = core.parseBooklet(t).unread.filter((x) => /page line takes no/.test(x.why));
+	assert.equal(said.length, 4, said.map((x) => x.why).join("\n"));
+	for (const w of ["hidden", "status:", "tab:", "repeat"]) assert.ok(said.some((x) => x.why.includes(w)), `${w} is said`);
 });
 
 test("a fold marker on a page line is ignored with a note in the problems", () => {

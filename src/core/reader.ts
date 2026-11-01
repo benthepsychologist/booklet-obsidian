@@ -13,13 +13,15 @@ import {
 	FENCE_OPEN,
 	ID_PATTERN,
 	bodyEnd,
+	KIND_SETTINGS,
 	calloutWords,
 	earlierValue,
 	fenceEnd,
+	ignoredSettings,
 	isBlank,
-	settingProblems,
 	splitLines,
 } from "./lines";
+import { looksLikeMistake, shortLine, type Unread } from "./unread";
 import { readDataRows, type DataRows } from "./data";
 import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
@@ -41,9 +43,8 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 	return THEMATIC_BREAK.test(line) && !(textAbove && /^ {0,3}-+[ \t]*$/.test(line));
 }
 
-export const FORMAT_VERSION = "0.16";
-/** The marker of the next format, whose page lines this view reads ahead of SPEC (page trees; design/pages/proposal.md). */
-export const NEXT_FORMAT = "0.17";
+/** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
+export const FORMAT_VERSION = "0.17";
 
 export interface Option {
 	text: string;
@@ -194,6 +195,8 @@ export interface Unsupported {
 	id: string | null;
 	title: string;
 	line: number;
+	/** A block (a fenced `booklet` block of a type this view does not define), not a line of a kind it does not draw. */
+	block?: boolean;
 }
 
 /* ---- queries (SPEC section 6, "Queries: showing kept entries and data" and "A span of days, and summaries") ---- */
@@ -316,8 +319,13 @@ export interface Booklet {
 	bodyStart: number;
 	modules: Module[];
 	activities: Activity[];
-	/** What could not be read, first among them a note about another 0.x marker. */
+	/** What could not be read, apart from `unread`. The note about another 0.x marker is made from `marker` (notice.ts). */
 	problems: string[];
+	/**
+	 * The kinds of line, settings, query keys and blocks this view does not read, one entry for each place, in file order. They stay in the
+	 * file as written; the notice at the top of the view lists them (notice.ts).
+	 */
+	unread: Unread[];
 	/** The booklet's opening and each module's, in file order. */
 	openings: Opening[];
 	widgets: WidgetBlock[];
@@ -408,6 +416,13 @@ const OBSIDIAN_CALLOUTS = new Set([
 	"note", "abstract", "summary", "tldr", "info", "todo", "tip", "hint", "important", "success", "check", "done", "question", "help", "faq",
 	"warning", "caution", "attention", "failure", "fail", "missing", "danger", "error", "bug", "example", "quote", "cite",
 ]);
+
+/** Every setting name the format has on any kind of line, and every key a query has, without the colon: what a mistyped one is held against. */
+function knownSettings(): ReadonlySet<string> {
+	knownNames ??= new Set([...Object.values(KIND_SETTINGS).flat().map((x) => x.replace(/:$/, "")), ...QUERY_KEYS]);
+	return knownNames;
+}
+let knownNames: Set<string> | null = null;
 
 /** The kinds of line that make structure: none can go inside a callout's body (SPEC section 6, "A group holds blocks"). */
 const STRUCTURE_KINDS = new Set(["module", "activity", "tab", "row", "data", "records"]);
@@ -623,16 +638,9 @@ export function parseBooklet(text: string): Booklet {
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
 	const ver = versionOf(marker);
-	let pagesMarker = false;
-	let unread = 0;
 	if (!marker) refusals.push("This note has no booklet: marker in its front matter, so it is not a booklet.");
 	else if (!ver || ver[0] !== 0) refusals.push(`This note says booklet: ${marker}, which is not a 0.x version, so it is not a booklet for format ${FORMAT_VERSION}.`);
-	else if (marker === NEXT_FORMAT)
-		// page trees are ahead of the format: this view draws what 0.17's page lines say, so it says nothing of the marker unless the file
-		// then holds a line or a setting this view does not read (counted in `unread`, and said at the end)
-		pagesMarker = true;
-	else if (marker !== FORMAT_VERSION)
-		problems.push(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and has opened it as it is; some of it may not draw.`);
+	// any other 0.x marker, earlier or later, opens as it is; the notice made from the marker says so (notice.ts)
 
 	const regions = findRegions(lines, fm.bodyStart);
 	const inRegion = regionMask(lines.length, regions);
@@ -649,6 +657,14 @@ export function parseBooklet(text: string): Booklet {
 	const eachUses: EachUse[] = [];
 	const openingLines = new Map<string | null, { lines: string[]; line: number }>();
 	const at = (i: number) => `Line ${i + 1}`;
+	/** The file's own lines: the notice shows a line as written, not with a callout's `>` taken off. */
+	const fileLines = lines;
+	const unread: Unread[] = [];
+	const known = knownSettings();
+	/** Records that line `i` holds something this view does not read. `newer`: could a later version of the plugin read it? */
+	const noteUnread = (i: number, why: string, newer: boolean, text = fileLines[i] ?? "") => {
+		if (!unread.some((u) => u.line === i + 1 && u.why === why)) unread.push({ line: i + 1, text: shortLine(text), why, newer });
+	};
 
 	let mod: Module | null = null;
 	let act: Activity | null = null;
@@ -804,12 +820,17 @@ export function parseBooklet(text: string): Booklet {
 				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
 				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
 				if (what === "data" && hasId) readData(i, k, (lines[n] ?? "").trim().slice(1));
+				if (what !== "widget" && what !== "data" && what !== "query") {
+					// a block this view does not define: shown where it stands in an activity as not yet supported, and kept as written
+					noteUnread(i, `${what ? `"booklet ${what}"` : "a booklet block with no type"} is not a block this view reads, so it is drawn as "not yet supported"`, true);
+					if (act && section === "content") act.segments.push({ type: "unsupported", kind: what ? `booklet ${what}` : "booklet", id: null, title: "", line: i + 1, block: true });
+				}
 				if (what === "query") {
 					// a query is read where it stands in an activity's prose, and drawn there (booklet.html FENCE_KIND.query)
 					if (section === "data") problems.push(`${at(i)}: a query belongs in an activity's prose, not in the data section, so it was ignored.`);
 					else if (!act) problems.push(`${at(i)}: a query belongs in an activity's prose, so it was refused.`);
 					else {
-						const query = readQuery(lines.slice(i + 1, Math.min(k, lines.length)), i + 1, problems);
+						const query = readQuery(lines.slice(i + 1, Math.min(k, lines.length)), i + 1, problems, noteUnread);
 						if (query) act.segments.push({ type: "query", line: i + 1, query, source: null });
 					}
 				}
@@ -825,13 +846,12 @@ export function parseBooklet(text: string): Booklet {
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
-			const sp = settingProblems(kind, w, at(i));
-			// a setting a page line does not take is the author's to fix, not a sign of a newer format: said, and not counted as unread
-			if (kind !== "page") unread += sp.length;
-			problems.push(...sp);
+			// a setting the line's kind does not take is ignored and listed in the notice; whether a newer plugin might read it depends on the name
+			for (const sp of ignoredSettings(kind, w)) noteUnread(i, sp.why, !looksLikeMistake(sp.name, known));
 			// a line of a kind that is none of the format's nor Obsidian's, with no words after the bar, is drawn as the callout it looks like:
 			// a newer format may mean more by it
-			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind)) unread++;
+			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind))
+				noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as an ordinary callout`, true);
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
@@ -976,10 +996,7 @@ export function parseBooklet(text: string): Booklet {
 					i = k - 1;
 					continue;
 				}
-				if (!KNOWN_KINDS.has(kind)) {
-					unread++;
-					problems.push(`${at(i)}: "${kind}" is not a kind this format defines.`);
-				}
+				if (!KNOWN_KINDS.has(kind)) noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as "not yet supported"`, true);
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
@@ -1135,7 +1152,6 @@ export function parseBooklet(text: string): Booklet {
 				? "One answer is not in the shape its question keeps, so it is kept as written: shown read-only with a notice, and left out of what views show."
 				: `${wrong} answers are not in the shape their questions keep, so they are kept as written: shown read-only with a notice, and left out of what views show.`,
 		);
-	if (pagesMarker && unread) problems.unshift(`This file says booklet: ${marker}. This view reads format ${FORMAT_VERSION} and the page lines of ${marker}, and has opened the rest as it is: the lines listed below, and anything else new in ${marker}, may not draw.`);
 	const refusal = refusals[0] ?? null;
 	return {
 		ok: !refusal,
@@ -1147,6 +1163,7 @@ export function parseBooklet(text: string): Booklet {
 		modules,
 		activities,
 		problems: [...refusals.slice(1), ...problems],
+		unread: unread.sort((a, b) => a.line - b.line),
 		openings,
 		widgets,
 		menus,
@@ -1183,10 +1200,13 @@ const LIMIT_RE = /^([1-9]\d*)([ \t]+days?)?$/;
  * does not have, a `limit:` that is neither a positive whole number nor a number of days (`7 days`), and a `summary:`
  * that is not `on` are ignored and reported.
  */
-function readQuery(body: readonly string[], line: number, problems: string[]): Query | null {
+function readQuery(body: readonly string[], line: number, problems: string[], unread: (i: number, why: string, newer: boolean) => void): Query | null {
 	const at = `Line ${line}`;
 	const o = Object.create(null) as Record<string, string>;
-	for (const raw of body) {
+	/** The line (counting from 0) of each key written, for the notice. */
+	const where = new Map<string, number>();
+	const known = knownSettings();
+	for (const [n, raw] of body.entries()) {
 		const ln = raw.trim();
 		if (!ln) continue;
 		const kv = kvLine(ln);
@@ -1195,8 +1215,9 @@ function readQuery(body: readonly string[], line: number, problems: string[]): Q
 			return null;
 		}
 		o[kv[0].toLowerCase()] = kv[1];
+		if (!where.has(kv[0].toLowerCase())) where.set(kv[0].toLowerCase(), line + n); // `line` counts from 1 and is the fence's: the first body line is index `line`
 	}
-	for (const k of Object.keys(o)) if (!QUERY_KEYS.includes(k)) problems.push(`${at}: a query has no setting "${k}", so it was ignored.`);
+	for (const k of Object.keys(o)) if (!QUERY_KEYS.includes(k)) unread(where.get(k) ?? line - 1, `a query has no setting "${k}", so it was ignored`, !looksLikeMistake(k, known));
 	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
 	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
 	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);

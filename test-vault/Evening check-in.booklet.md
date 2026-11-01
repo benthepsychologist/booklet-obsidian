@@ -1,5 +1,5 @@
 ---
-booklet: "0.16"
+booklet: "0.17"
 id: booklet-test/evening-check-in
 title: Evening check-in
 lang: en

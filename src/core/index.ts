@@ -4,6 +4,8 @@ export * from "./references";
 export * from "./json-edit";
 export * from "./records";
 export * from "./reader";
+export * from "./unread";
+export * from "./notice";
 export * from "./data";
 export * from "./shape";
 export * from "./write";

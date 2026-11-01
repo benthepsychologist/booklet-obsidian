@@ -4,9 +4,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
@@ -508,6 +508,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -1400,9 +1401,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
@@ -1577,6 +1578,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -1914,9 +1916,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
@@ -2049,6 +2051,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -2278,9 +2281,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
@@ -2805,6 +2808,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [
      {
@@ -3623,9 +3627,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
@@ -3838,6 +3842,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -4338,9 +4343,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "nav-proto/sketching",
      "title": "Learning to sketch",
      "lang": "en"
@@ -4796,6 +4801,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -5854,9 +5860,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
@@ -6347,6 +6353,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -7114,9 +7121,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.16",
+    "marker": "0.17",
     "frontMatter": {
-     "booklet": "0.16",
+     "booklet": "0.17",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
@@ -7514,6 +7521,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": null,
@@ -8173,6 +8181,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [
      {
       "module": "harbour",
@@ -8392,7 +8401,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "e380378c24889767ff5e29b20ce69b9d3f33962ee470de00c3a9c691be929e8f",
+    "sha": "8a8f96519d071873157a3e5208ddc06e898bd763118ed84cb1023737e41bb6ac",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8404,7 +8413,7 @@
     }
    },
    "module:harbour||0": {
-    "sha": "ec1bf08820aa71bde94f73c57dfdb38f5e7789661aaf8ef30086c85c642d6fcf",
+    "sha": "759d1d7838ce3978f8c722aa736e2f9a9ba08090d6008f7845edda874d277a9e",
     "writes": 0,
     "same": true,
     "drawn": "module:harbour",
@@ -8416,7 +8425,7 @@
     }
    },
    "activity:harbour/tides||0": {
-    "sha": "11eb712e46d007200fa0784cad884724b991830ea187057ad9376a9d8777897c",
+    "sha": "002d69a859b6175b22c5a23f5a1c4621f2f51024baaecb04232d17cba8d85983",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/tides",
@@ -8428,7 +8437,7 @@
     }
    },
    "activity:harbour/spring||0": {
-    "sha": "35fed3de955e2c57978c1eb8ce232c22c0cced9562f1e6e4a243e30f7f047f2c",
+    "sha": "46a09a7fa29b34d36dd5ca83eafe65b461bd0f3610ca2cd440f41fe8e0236843",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/spring",
@@ -8440,7 +8449,7 @@
     }
    },
    "activity:harbour/spring||1": {
-    "sha": "2b109e7f91806668fb9f3b4b0be7002d000b7303ddf32ef2b56ca155e212ccdd",
+    "sha": "dbab04b71b4ee1845f805008f3543f5debc338644f7619489fcd25aa3946efbe",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/spring",
@@ -8452,7 +8461,7 @@
     }
    },
    "activity:harbour/neap||0": {
-    "sha": "94ee04cb1202dec800453af054506389cfba5c143a1d7fdd1fef925f26ac0ed6",
+    "sha": "f6b9a4fa1cd7d5faf9ba5d05fab38f8b559e8bf453afe44f492aace2fa61eebf",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/neap",
@@ -8464,7 +8473,7 @@
     }
    },
    "activity:harbour/moon||0": {
-    "sha": "3bcc011928202379d7fb34b786ff68b8135d027ffd18ce36ffc1b6c673527a61",
+    "sha": "b304475875092692bfcc49e214649d9f2c6322dc2e47bd2230027e2585979175",
     "writes": 0,
     "same": true,
     "drawn": "activity:harbour/moon",
@@ -8541,6 +8550,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -8714,7 +8724,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "6de3335467d2d3ef59bebf5c710708928efd39d9eee7db9f7d82f9884ec2198d",
+    "sha": "4cd3106004ff8636c7f793710088af3db72dd78ba55b886a447d774aa8bcadac",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8726,7 +8736,7 @@
     }
    },
    "activity:/a||0": {
-    "sha": "d6c80d18c68f826777ccd70702241d48e74a8d62979a426e62864d8df3690073",
+    "sha": "8121a96031fe51c9549b468097e05027bbb89fb2cef29b540575ec2c4c503c82",
     "writes": 0,
     "same": true,
     "drawn": "activity:/a",
@@ -8738,7 +8748,7 @@
     }
    },
    "activity:/b||0": {
-    "sha": "71233f2db01e9f9e6ade9379da53b1315972c5e1d9f4f1f12b5adabc1b4d5b41",
+    "sha": "ca0c9b662de994123091fb05d0f2c6b25d84a1ef7023e701ba5dda5c7bac03c9",
     "writes": 0,
     "same": true,
     "drawn": "activity:/b",
@@ -8750,7 +8760,7 @@
     }
    },
    "activity:/c||0": {
-    "sha": "211f4673347356ddaa02f60341d1f4167e29e0862937090ea5fd29690bafff0c",
+    "sha": "64c88bb33d43a303e258f0a96565cc861bc14d3ad5b206e522174ff7ac1a7d09",
     "writes": 0,
     "same": true,
     "drawn": "activity:/c",
@@ -8848,6 +8858,7 @@
      }
     ],
     "problems": [],
+    "unread": [],
     "openings": [],
     "widgets": [],
     "menus": [],
@@ -8998,7 +9009,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "b9e870067414b61cd5645ad8ef8c98720b7fd2a1dea20357e085ca5ae871a994",
+    "sha": "b51f9aad0cdb46253fd0290dcdb2a398b5724df0730d6cd1eeb3dfa2226ad127",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -9010,7 +9021,7 @@
     }
    },
    "activity:/t|first|0": {
-    "sha": "fb017b70eaf86b41289fbecc76a8531b73d4d6b0321e795b971d42a79bed7386",
+    "sha": "9d0f1a8c46b3c49c8ad48b63db2f699590b4e3de7eaee3ab48a59ffec5cc1f21",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -9023,7 +9034,7 @@
     }
    },
    "activity:/t|first|1": {
-    "sha": "2085a30122016277c5b3d81a258440b32a3dce7afcc416ac91d239c5dddb790d",
+    "sha": "9aa2ff92d85268c5af5d37e880f54f4a53895e97452659dec6cfb74fa3ca4add",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -9036,7 +9047,7 @@
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "f7d73d63f616dcae732e000f54c69f1c6e75e669b643faf1bf67dafd996576f7",
+    "sha": "5e46c1c2ae45536ea22716892efd513c11c9489f1a02f3f09ccfdc3cf9ddfc95",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -9049,7 +9060,7 @@
     }
    },
    "activity:/t|third|0": {
-    "sha": "40b543235740b93c4258c61322421bec079bcf91f1683711fe8716f7eab021eb",
+    "sha": "cf97f970ec1df37022de9fb5a7e0feec331d14f71fb16c2ed8aae2e0929e7c64",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -9161,8 +9172,15 @@
      }
     ],
     "problems": [
-     "Line 12: a tab line cannot go inside a callout, so it was ignored.",
-     "Line 27: \"invented\" is not a kind this format defines."
+     "Line 12: a tab line cannot go inside a callout, so it was ignored."
+    ],
+    "unread": [
+     {
+      "line": 27,
+      "text": "> [!invented|what] Not a kind",
+      "why": "\"invented\" is not a kind this view reads, so it is drawn as \"not yet supported\"",
+      "newer": true
+     }
     ],
     "openings": [],
     "widgets": [],
@@ -9323,7 +9341,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "63fe6e5dffadfe98fccfbbdb4be6c13334a39a661b89dd004d9815a7f0562a5f",
+    "sha": "68a30ffea275ba30287f941d83a0fbf9e7ec8653d8027f992ff79cfcc363abdd",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -9335,7 +9353,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "1482695d4dcf11ca2d29f647452631ac90df1660e3a4299de9d911cd7b47c72e",
+    "sha": "f597de801e9d167f1b7345a60b3859cd8bcd120abe19d9c6cab1bcae7c9c2815",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

@@ -164,7 +164,7 @@ export async function quiet(view, ms = 0) {
 export function openView(text, { path = "Note.booklet.md", disk = { text, writes: 0 }, app = testApp(disk), screen = null } = {}) {
 	// the pane: a move through it comes back as the view's own setState, as Obsidian does it
 	const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
-	const view = new BookletView(leaf, { setMode: async () => {} });
+	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
 	// the screen the pane is on (a saved place), when a test works on one activity's screen

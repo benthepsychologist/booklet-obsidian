@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { core, norm, sha } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const BASE = `---\nbooklet: "0.16"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
+const BASE = `---\nbooklet: "0.17"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
 
 /** The note with `n` made-up kept entries for the activity `id` (its one question `q`). */
 function withEntries(text, id, q, n) {

@@ -189,27 +189,29 @@ test("a saved place for the third of g, g, g-2 reopens the third page, not the s
 	p.close();
 });
 
-/* ---- S5: the 0.17 note ---- */
+/* ---- S5: what a 0.17 note holds that this view does not read ---- */
 
-const note17 = (body, marker = "0.17") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`).problems;
-const MAY_NOT_DRAW = /may not draw/;
+const read17 = (body, marker = "0.17") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`);
+const note17 = (body, marker = "0.17") => read17(body, marker).problems;
 
-test("a 0.17 file with a wordless unknown kind gets the note; Obsidian's own callouts and a plain file do not", () => {
-	const lesson = note17("> [!lesson] Title\n> body\n");
-	assert.match(lesson[0] ?? "", /This file says booklet: 0.17\. This view reads format 0\.16 and the page lines of 0\.17/);
-	assert.match(lesson[0], MAY_NOT_DRAW);
-	assert.deepEqual(note17("> [!note] Title\n> body\n\n> [!warning] Careful\n\n> [!TIP] Tip\n"), [], "an Obsidian callout is a callout");
-	assert.deepEqual(note17("Plain words.\n"), []);
-	assert.match(note17("> [!lesson|x] Title\n")[0], MAY_NOT_DRAW, "with an id, as before");
+test("a 0.17 file with a wordless unknown kind lists it in the notice; Obsidian's own callouts and a plain file do not", () => {
+	const lesson = read17("> [!lesson] Title\n> body\n");
+	assert.equal(lesson.unread.length, 1);
+	assert.equal(lesson.unread[0].line, 8, "the line in the file, counting the front matter");
+	assert.equal(lesson.unread[0].text, "> [!lesson] Title");
+	assert.match(lesson.unread[0].why, /"lesson" is not a kind this view reads/);
+	assert.deepEqual(note17("> [!lesson] Title\n"), [], "it is in the notice, not among the other problems");
+	assert.deepEqual(read17("> [!note] Title\n> body\n\n> [!warning] Careful\n\n> [!TIP] Tip\n").unread, [], "an Obsidian callout is a callout");
+	assert.deepEqual(read17("Plain words.\n").unread, []);
+	assert.equal(read17("> [!lesson|x] Title\n").unread.length, 1, "with an id, as before");
 });
 
-test("a page line with a setting it does not take says so on its own line and is not the view's failing: no \"may not draw\"", () => {
-	const said = note17("> [!page|x hidden] T\n\nWords.\n");
-	assert.deepEqual(said, ["Line 8: a page line takes no `hidden` setting, so it was ignored."]);
-	const key = note17("> [!page|x shiny:1] T\n\nWords.\n");
-	assert.deepEqual(key, ["Line 8: a page line takes no `shiny:` setting, so it was ignored."]);
-	// another kind's refused setting still counts as unread in a 0.17 file
-	assert.match(note17("> [!text|q shiny:1] Q\n")[0], MAY_NOT_DRAW);
+test("a page line with a setting it does not take is listed in the notice as the author's mistake: no update is suggested for it", () => {
+	const hidden = read17("> [!page|x hidden] T\n\nWords.\n");
+	assert.deepEqual(hidden.unread.map((u) => [u.line, u.text, u.why, u.newer]), [[8, "> [!page|x hidden] T", "a page line takes no `hidden` setting", false]]);
+	const key = read17("> [!page|x shiny:1] T\n\nWords.\n");
+	assert.deepEqual(key.unread.map((u) => [u.line, u.why, u.newer]), [[8, "a page line takes no `shiny:` setting", true]], "a name nobody has might be a newer plugin's");
+	assert.equal(read17("> [!text|q shiny:1] Q\n").unread.length, 1);
 });
 
 test("every 0.x marker reads page lines: a 0.16 note with a page line draws its tree and says nothing of it", () => {
