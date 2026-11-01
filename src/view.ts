@@ -864,7 +864,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!nav.mods.some((m) => m.acts.length))
 			page.createEl("p", {
 				cls: "booklet-muted",
-				text: book.activities.length || book.modules.length ? "This booklet has no activity to draw." : "This note has no activity line. Drawing a note with none as one activity is not yet supported.",
+				text: book.activities.length || book.modules.length ? "This booklet has no activity to draw." : "This note has nothing to draw.",
 			});
 		else if (place.screen === HOME) this.drawHome(page, nav, book);
 		else if (place.screen.startsWith("module:")) {
@@ -1024,7 +1024,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.cite = this.citeScope(book, m.id, [m.opening, ...m.tabs.map((x) => x.md)]);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
-		let tops = m.top;
+		let tops = m.acts;
 		const bar = m.tabs.length > 1;
 		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? (m.tabs[0] as ModTab)) : (m.tabs[0] ?? null);
 		// what a tab holds (its prose and its cards) is the tab's panel
@@ -1038,7 +1038,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
 			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
 			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
-			if (bar) tops = m.top.filter((x) => x.modTab === tab.id);
+			if (bar) tops = m.acts.filter((x) => x.modTab === tab.id);
 		}
 		const rows = (): CardRow[] => tops.map((x) => this.actRow(x, x.number));
 		drawCards(this, panel, rows());
@@ -1054,9 +1054,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const single = !m.bare && m.acts.length === 1;
 		const crumbs: Crumb[] = [{ md: this.bookTitle(nav), to: homePlace(), scope: null }];
 		if (hasScreen(m)) crumbs.push({ md: m.title || m.id, to: modulePlaceFor(na) });
-		const ups: NavAct[] = [];
-		for (let p = na.parent; p; p = p.parent) ups.unshift(p);
-		for (const p of ups) crumbs.push({ md: p.title, to: activityPlace(p) });
 		const mt = single ? moduleTitle(nav, m) : null;
 		// the pages above the one on show (page trees): the trail then goes on past the activity, through the tab (when the activity has
 		// a tab bar) and the pages above, to the page itself; on a top page it ends at the activity, as it did
@@ -1143,14 +1140,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			}
 			drawMentions(this, card, mentionsOf(nav, na, tab, pager.page));
 		}
-		if (na.children.length) {
-			card.createDiv({ cls: "booklet-meta", text: "Under this one" });
-			drawCards(
-				this,
-				card,
-				na.children.map((c, i) => this.actRow(c, m.bare ? i + 1 : c.number)),
-			);
-		}
 		if (this.showsFinish(na, tab)) this.drawFinish(card, a);
 
 		// the pager: Back, the counter, Next (SPEC section 3, pages); one step at a time, Back and Next move a step first, then a part, then a page
@@ -1175,8 +1164,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 						return { words: `Up: ${st.page.title}`, md: true, to: st.to, press: arrive(st.to, false) };
 					case "next-page":
 						return { words: `Next: ${st.page.title}`, md: true, to: st.to, press: arrive(st.to, false) };
-					case "up-activity":
-						return { words: `Up: ${st.act.title}`, md: true, to: st.to };
 					case "next-activity":
 						return { words: m.bare ? `Next: ${st.act.title}` : `Next: ${st.act.number}. ${st.act.title}`, md: true, to: st.to };
 					case "overview":
@@ -1345,12 +1332,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.onShow(`activity:${a.scope}/${a.id}:entries`, showEntries);
 	}
 
-	/**
-	 * Does an activity's list of kept entries start folded? Always open for now, as it was drawn before it could fold. Whether an
-	 * activity starts folded is a mark in the file that the format does not have yet: it is read here once the format names it.
-	 */
-	private entriesStartFolded(_a: Activity): boolean {
-		return false;
+	/** Does an activity's list of kept entries start folded? Only where its line says `entries:folded`; the reader's own choice, once made, wins for as long as the pane is open. */
+	private entriesStartFolded(a: Activity): boolean {
+		return a.entriesFolded;
 	}
 
 	/** An activity's kept entries, newest first, each with its date and its answers in words from the file's own lists. */

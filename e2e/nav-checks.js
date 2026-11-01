@@ -1,9 +1,9 @@
 // Checks 16 to 23, 27 and 28 of plugin-check.js: the 0.6.0 navigation, in the real app (27 and 28: page trees). Every note is made up.
-//   16 the three screens and the moves (cards, trail, pager, tabs, pages, parent:, heading links, a restart, nothing written)
+//   16 the three screens and the moves (cards, trail, pager, tabs, pages, a page tree, heading links, a restart, nothing written)
 //   17 to 21 design section 4.9, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
-//   27 and 28 page trees (ahead of format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
+//   27 and 28 page trees (format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { kit } = require("./waits");
@@ -84,7 +84,7 @@ Some words to read.
 > [!text|what] What happened?
 `;
   const LONG_NOTE = `---
-booklet: "0.16"
+booklet: "0.17"
 title: A booklet with a rather long title that cannot fit on one line of a phone
 ---
 
@@ -98,7 +98,7 @@ One.
 
 Two.
 
-> [!activity|second parent:first] The second activity, whose title also runs on and on
+> [!activity|second] The second activity, whose title also runs on and on
 
 Three.
 
@@ -267,7 +267,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 16 ================= */
   async function check16() {
-    const c = new Check(16, "the three screens and the moves: home, a module, an activity; cards, trail, pager, tabs, pages, parent:, links, a restart, nothing written into a note");
+    const c = new Check(16, "the three screens and the moves: home, a module, an activity; cards, trail, pager, tabs, pages, a page tree, links, a restart, nothing written into a note");
     await withApp("c16", async (o, vault) => {
       put(vault, WEEKLY, WEEKLY_NOTE);
       const before = { sk: sha(path.join(vault, SKETCH)), wk: sha(path.join(vault, WEEKLY)), ck: sha(path.join(vault, CHECKIN)) };
@@ -298,13 +298,16 @@ A spade, a fork and a trowel are enough.
       c.ok(/Page 2 of 2/.test(s.at), "each tab keeps the page last seen while the pane is open: Boxes is on " + s.at);
       await click(o, ".booklet-pager button", "Next");
       s = await state(o);
-      c.ok(s.screen === "activity:basics/light" && s.back === 4 && s.pager.join("|") === "Back to the overview|Next: 4. Cast shadows", `Next on the last page goes to the next activity, labelled with its number: ${s.screen}, ${s.pager.join(" | ")}`);
-      c.ok(JSON.stringify(s.cards) === JSON.stringify(["4.Cast shadows", "5.Reflected light"]), "parent: drawn plainly, the children as cards under the parent: " + s.cards.join(" | "));
-      await click(o, ".booklet-cardrow", "Cast shadows");
+      c.ok(s.screen === "activity:basics/light" && s.back === 4 && s.pager.join("|") === "Back to the overview|Next: Cast shadows", `Next on the last page goes to the next activity, whose own words are its first page, and Next names the page after it: ${s.screen}, ${s.pager.join(" | ")}`);
+      c.ok(s.cards.length === 0, "an activity's first page, made of its own words, has no pages under it: " + s.cards.join(" | "));
+      await click(o, ".booklet-pager button", "Next: Cast shadows");
       s = await state(o);
-      c.ok(s.trail.join("|") === "Learning to sketch|The basics|Where the light falls|Cast shadows" && s.pager[0] === "Up: Where the light falls", `the trail names the ancestors and the pager's left button leads up: ${s.trail.join(" / ")}; ${s.pager[0]}`);
+      c.ok(JSON.stringify(s.cards) === JSON.stringify(["1.Reflected light"]) && s.back === 5, `a page with a page under it draws that one as a card: ${s.cards.join(" | ")}, history ${s.back}`);
+      await click(o, ".booklet-cardrow", "Reflected light");
+      s = await state(o);
+      c.ok(s.trail.join("|") === "Learning to sketch|The basics|Where the light falls|Cast shadows|Reflected light" && s.pager[0] === "Up: Cast shadows", `the trail names the pages above and the pager's left button leads up: ${s.trail.join(" / ")}; ${s.pager[0]}`);
       await shot(o, "nav-child-light");
-      await click(o, ".booklet-pager button", "Up: Where the light falls");
+      await click(o, ".booklet-pager button", "Up: Cast shadows");
       await click(o, ".booklet-trail-link", "The basics");
       s = await state(o);
       c.ok(s.screen === "module:basics" && s.tab === "Read first", `up by the trail: the module's screen on the tab that holds the activity: ${s.screen}, ${s.tab}`);
@@ -454,7 +457,7 @@ A spade, a fork and a trowel are enough.
         return state(o);
       };
       let s = await link("Cast shadows");
-      c.ok(s.screen === "activity:basics/shadow" && s.file === SKETCH, "[[Learning to sketch.booklet#Cast shadows]], an activity's title (no Markdown heading): " + s.screen);
+      c.ok(s.screen === "activity:basics/light" && s.file === SKETCH, "[[Learning to sketch.booklet#Cast shadows]], a page's title (no Markdown heading): " + s.screen);
       await shot(o, "nav-link-activity-light");
       s = await link("Ten in a row");
       c.ok(s.screen === "activity:basics/lines" && /Page 3 of 3/.test(s.at), "a heading on a later page opens that page: " + s.screen + ", " + s.at);
@@ -466,7 +469,7 @@ A spade, a fork and a trowel are enough.
       c.ok(s.screen === "activity:/log" && s.tab === "Answer", "the tab that holds the question: " + s.screen + ", " + s.tab);
       await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Cast shadows", "Links.md"); }));
       s = await state(o);
-      c.ok(s.screen === "activity:basics/shadow", "a second link while a booklet is in the pane moves it: " + s.screen);
+      c.ok(s.screen === "activity:basics/light", "a second link while a booklet is in the pane moves it: " + s.screen);
       await drawing(o, () => o.evaluate(async () => { await app.workspace.openLinkText("Learning to sketch.booklet#Ten in a row", "Links.md"); }));
       s = await state(o);
       c.ok(s.screen === "activity:basics/lines" && /Page 3 of 3/.test(s.at), "the same booklet already open in the pane, a second link to a later page: " + s.screen + ", " + s.at);
@@ -637,7 +640,7 @@ A spade, a fork and a trowel are enough.
           c.ok(a === "Cups" && b === "Clouds" && d === "Hands" && e === "Hands", `the tab bar takes ArrowRight (${a}), End (${b}), Home (${d}) and ArrowLeft on the first (${e})`);
         }
         await ready(o, "Long titles.booklet.md");
-        await click(o, ".booklet-cardrow", "The first activity"); await click(o, ".booklet-cardrow", "The second activity");
+        await click(o, ".booklet-cardrow", "The second activity");
         m = await metrics();
         c.ok(m.sideways <= 0 && m.trailRows >= 2, `[${scheme}] a long trail wraps onto ${m.trailRows} rows, no sideways scroll (${m.sideways})`);
         c.ok(m.sideways <= 0 && m.pager >= 44 && m.pagerRows >= 2, `[${scheme}] both pager labels long: buttons ${Math.round(m.pager)} px, no sideways scroll, wrapped onto ${m.pagerRows} rows`);
@@ -659,7 +662,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 27 ================= */
   async function check27() {
-    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, ahead of format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
+    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
     await withApp("c27", async (o, vault) => {
       const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden", DEEP = "Deep.booklet.md", DEEPKEY = "activity:/deep";
       put(vault, NOTE, GARDEN_NOTE);

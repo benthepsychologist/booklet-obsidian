@@ -163,29 +163,31 @@ test("the link lookup answers as it always did: the first place in file order, t
 
 /* ---- S4: ids stay unique ---- */
 
-test("page ids written g, g, g-2 are g, g-2, g-3, the same on every reading; a parent: of a shared id is the first page that wrote it", () => {
+test("page ids written g, g, g-2 are g, g-3, g-2 (the first to write an id keeps it, the third keeps the id it wrote), the same on every reading; a parent: of a shared id is the first page that wrote it", () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|g] First\n\nOne.\n\n> [!page|g] Second\n\nTwo.\n\n> [!page|g-2] Third\n\nThree.\n\n> [!page|kid parent:g] Kid\n\nFour.\n\n> [!page|kid3 parent:g-2] Kid of the third\n\nFive.\n`;
 	const read = () => only(build(text).nav).tabs[0].tree.map((p) => [p.id, p.title, p.parent?.title ?? null]);
 	assert.deepEqual(read(), [
 		["g", "First", null],
 		["kid", "Kid", "First"],
-		["g-2", "Second", null],
-		["g-3", "Third", null],
+		["g-3", "Second", null],
+		["g-2", "Third", null],
 		["kid3", "Kid of the third", "Third"],
 	]);
 	assert.deepEqual(read(), read(), "stable");
 	const said = build(text).nav.problems;
-	assert.equal(said.length, 2);
-	assert.match(said[0], /the page id "g" is used twice in this tab, so this page is "g-2"/);
-	assert.match(said[1], /the page id "g-2" is used twice in this tab, so this page is "g-3"/);
+	assert.equal(said.length, 1, "only the page that lost its id is said");
+	assert.match(said[0], /the page id "g" is used twice in this tab, so this page is "g-3"/);
+	// the same pages the other way round: the first to write g-2 keeps it, and the second g takes the next free number
+	const rev = `${head()}> [!activity|a] A\n\n> [!page|g-2] A1\n\n> [!page|g] A2\n\n> [!page|g] A3\n\n> [!page|g] A4\n`;
+	assert.deepEqual(only(build(rev).nav).tabs[0].tree.map((p) => [p.id, p.title]), [["g-2", "A1"], ["g", "A2"], ["g-3", "A3"], ["g-4", "A4"]]);
 });
 
-test("a saved place for the third of g, g, g-2 reopens the third page, not the second", async () => {
+test("a saved place for the third of g, g, g-2 reopens the third page (which kept g-2), not the second", async () => {
 	const text = `${head()}> [!activity|a] A\n\n> [!page|g] First\n\nOne.\n\n> [!page|g] Second\n\nTwo.\n\n> [!page|g-2] Third\n\nThree.\n`;
-	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "g-3", part: 0 } });
+	const p = pane(text, { state: { version: 2, screen: "activity:/a", page: "g-2", part: 0 } });
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["Third"]);
-	assert.deepEqual(p.view.getState().page, "g-3");
+	assert.deepEqual(p.view.getState().page, "g-2");
 	p.close();
 });
 

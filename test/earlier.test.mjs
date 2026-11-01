@@ -66,12 +66,12 @@ test("earlier: read on a choice, a multi, a lines and a widget line: digits only
 	assert.deepEqual(problemsOf(t), ["Line 10: a text line takes no `earlier:` setting, so it was ignored."]);
 });
 
-test("settings a kind does not take are reported and ignored (SPEC section 4); no setting of the 0.16 table is reported", () => {
-	// every setting the 0.16 table gives each kind
+test("settings a kind does not take are reported and ignored (SPEC section 4); no setting of the 0.17 table is reported", () => {
+	// every setting the 0.17 table gives each kind
 	const good = [
 		"> [!module|m icon:book] A module",
 		"",
-		"> [!activity|log repeat daily hidden icon:pencil parent:other status:off tab:t1] A log",
+		"> [!activity|log repeat daily hidden icon:pencil status:off tab:t1 entries:folded] A log",
 		"",
 		"> [!multi|src open menu:made-up each:none-such earlier:3] Source",
 		"- [ ] One",
@@ -111,7 +111,7 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 	const bad = [
 		"> [!module|m colour:red] A module",
 		"",
-		"> [!activity|log repeat weekly] A log",
+		"> [!activity|log repeat weekly parent:other] A log",
 		"",
 		"> [!text|a lng mx:5] Text",
 		"",
@@ -129,6 +129,7 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 		problemsOf(bad).filter((x) => /takes no/.test(x)),
 		[
 			"Line 8: a module line takes no `colour:` setting, so it was ignored.",
+			"Line 10: an activity line takes no `parent:` setting, so it was ignored.",
 			"Line 10: an activity line takes no `weekly` setting, so it was ignored.",
 			"Line 12: a text line takes no `mx:` setting, so it was ignored.",
 			"Line 12: a text line takes no `lng` setting, so it was ignored.",

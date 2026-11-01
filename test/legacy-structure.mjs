@@ -23,17 +23,15 @@ import { join } from "node:path";
 import { core, ROOT } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-/** Made-up 0.16 notes the vault lacks: a wiki written with `parent:` on activities (module and bare), tabs with page breaks, and odd lines. */
+/** Made-up 0.16 notes the vault lacks: tabs with page breaks, and odd lines. */
 export const EXTRA = {
-	"wiki-in-a-module": `---\nbooklet: "0.16"\ntitle: Harbour notes\n---\n\n> [!module|harbour icon:anchor] Harbour notes\n\nA small wiki.\n\n> [!activity|tides icon:waves] Tides\n\nHow the water moves. See [[#Spring tides]].\n\n> [!activity|spring parent:tides] Spring tides\n\nThe widest range.\n\n***\n\nTwice a month.\n\n> [!activity|neap parent:tides] Neap tides\n\nThe narrowest range.\n\n> [!activity|moon] The moon\n\nIt pulls.\n\n> [!module|harbour end]\n`,
-	"bare-wiki": `---\nbooklet: "0.16"\ntitle: Bare\n---\n\n> [!activity|a] A\n\nOne.\n\n> [!activity|b parent:a] B\n\nTwo.\n\n> [!activity|c parent:zzz] C\n\nThree, with a parent that is not there.\n`,
 	"tabs-and-breaks": `---\nbooklet: "0.16"\ntitle: Tabs\n---\n\n> [!activity|t repeat] Tabs\n\nAbove every tab.\n\n> [!tab|first] First\n\nOne.\n\n---\n\nTwo.\n\n> [!tab] Second one\n\n> [!text|note] A note\n\n***\n\n> [!tab|third] Third\n\nJust words, and a heading link to [[#Second one]].\n`,
 	"odd-lines": `---\nbooklet: "0.16"\ntitle: Odd\n---\n\n> [!activity|o] Odd\n\n> [!hint]- A hint\n> Small.\n\n> [!group]\n> > [!tab] Nested, so text\n\n> [!choice|c] Pick\n\n- [ ] One\n- [ ] Two\n\n> [!row]\n\n## Cell\n\nWords.\n\n> [!row|end]\n\n> [!invented|what] Not a kind\n`,
 };
 
 const sha = (s) => createHash("sha256").update(s).digest("hex");
-/** As plain data; a query's source names its activity by key (the activity itself holds the query). */
-const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "act" && x && typeof x === "object" && "segments" in x ? `${x.scope}/${x.id}` : x)));
+/** As plain data; a query's source names its activity by key (the activity itself holds the query). `entriesFolded` (0.17) is left out: it is false on every note here. */
+const plain = (v) => JSON.parse(JSON.stringify(v, (k, x) => (k === "entriesFolded" ? undefined : k === "act" && x && typeof x === "object" && "segments" in x ? `${x.scope}/${x.id}` : x)));
 
 /** The reading and the model of a note, with only what release 0.7.0 had in them. */
 export function modelOf(text) {
@@ -42,11 +40,11 @@ export function modelOf(text) {
 	const key = (a) => (a ? a.key : null);
 	const mods = nav.mods.map((m) => ({
 		id: m.id, bare: m.bare, title: m.title, written: m.written, emoji: m.emoji, icon: m.icon, opening: m.opening, blurb: m.blurb, tabs: m.tabs, notice: m.notice,
-		acts: m.acts.map(key), top: m.top.map(key), order: m.order.map(key), line: m.line,
+		acts: m.acts.map(key), line: m.line,
 	}));
 	const acts = [...nav.byKey.values()].map((a) => ({
-		key: a.key, mod: a.mod.id, title: a.title, emoji: a.emoji, icon: a.icon, blurb: a.blurb, statusMd: a.statusMd, statusOff: a.statusOff, parentId: a.parentId,
-		parent: key(a.parent), children: a.children.map(key), modTab: a.modTab, opening: a.opening,
+		key: a.key, mod: a.mod.id, title: a.title, emoji: a.emoji, icon: a.icon, blurb: a.blurb, statusMd: a.statusMd, statusOff: a.statusOff,
+		modTab: a.modTab, opening: a.opening,
 		tabs: a.tabs.map((t) => ({ id: t.id, title: t.title, pages: t.pages })), named: a.named, reads: a.reads, number: a.number, line: a.line,
 	}));
 	const cards = nav.cards.map((c) => (c.kind === "module" ? { kind: "module", mod: c.mod.id, line: c.line } : { kind: "activity", act: c.act.key, line: c.line }));
