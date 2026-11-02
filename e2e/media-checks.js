@@ -10,7 +10,7 @@
 //   54 accessibility of the new controls (keyboard walk, axe when it is installed, reduced motion, 200% zoom)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
-const { quiet, frames } = require("./waits");
+const { quiet, frames, mobile } = require("./waits");
 
 module.exports = function mediaChecks(env) {
   const { Check, BOOK, sleep } = env;
@@ -754,5 +754,222 @@ ${q52("q5", "Question five")}> [!module|m2 end] End of module two
     return c;
   }
 
-  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53 };
+  /* ================= CHECK 54 ================= */
+  // The new controls (a slot's Play, the Allow list button and the card, a listen box's Done and its player, Continue) under the suite's
+  // accessibility checks (access-checks.js, checks 42 to 45): a keyboard walk with real keys, the accessibility checker (axe-core, when
+  // it is installed beside playwright-core), reduced motion, and 200% zoom, on a desktop window and at a phone's width.
+  const NOTE54 = "Access.booklet.md";
+  const note54 = ctx => front("access", "Access") + `> [!activity|a1] Listening and watching
+
+Allowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-2s.wav")})
+
+Blocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})
+
+> [!listen|l1] Listen to the tone
+> ![[tone-10s.wav]]
+
+> [!choice|q1] A question?
+- [ ] Yes
+- [ ] No
+
+> [!activity|a2] Second activity
+
+> [!choice|q2] Another question?
+- [ ] Yes
+- [ ] No
+`;
+  const AXE = [process.env.AXE_CORE, path.join(path.dirname(process.env.PLAYWRIGHT || ""), "axe-core", "axe.min.js")].filter(Boolean).find(p => { try { return fs.statSync(p).isFile(); } catch (e) { return false; } });
+  // the controls inside `root` a key can reach, and the one holding focus now (as access-checks.js lists them)
+  const reachIn = (o, rootSel) => o.evaluate(rootSel => {
+    const root = document.querySelector(rootSel);
+    const shown = e => { const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false; for (let p = e; p && p !== root; p = p.parentElement) { const cs = getComputedStyle(p); if (cs.display === "none" || cs.visibility === "hidden") return false; } return true; };
+    const name = e => (e.getAttribute("aria-label") || (e.getAttribute("aria-labelledby") ? e.getAttribute("aria-labelledby").split(" ").map(i => (document.getElementById(i) || {}).textContent || "").join(" ") : "") || (e.labels && e.labels[0] && e.labels[0].textContent) || e.textContent || e.getAttribute("title") || "").trim().replace(/\s+/g, " ").slice(0, 60);
+    window.__kw54 = new Map();
+    return [...root.querySelectorAll("button, input, textarea, select, summary, a[href], audio[controls], video[controls], [tabindex]")].filter(e => !e.disabled && e.type !== "hidden" && shown(e)).map((e, n) => { window.__kw54.set(e, n); return { n, tag: e.tagName.toLowerCase(), cls: (e.getAttribute("class") || "").split(" ")[0], name: name(e), tab: e.tabIndex >= 0, pressed: e.getAttribute("aria-pressed") }; });
+  }, rootSel);
+  const hereIn = (o, rootSel) => o.evaluate(rootSel => {
+    const root = document.querySelector(rootSel), e = document.activeElement;
+    if (!e || e === document.body) return { none: true };
+    const c = getComputedStyle(e), r = e.getBoundingClientRect();
+    return { inside: root.contains(e), n: window.__kw54 && window.__kw54.has(e) ? window.__kw54.get(e) : -1, tag: e.tagName.toLowerCase(), cls: (e.getAttribute("class") || "").split(" ")[0], name: (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40),
+      ring: (c.outlineStyle !== "none" && parseFloat(c.outlineWidth) > 0 && !/rgba\(\d+, \d+, \d+, 0\)/.test(c.outlineColor)) || c.boxShadow !== "none", onScreen: r.width > 0 && r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth };
+  }, rootSel);
+  // what moves: a transition or an animation with a length, or smooth scrolling (as check 44 finds it)
+  const motionIn = (o, rootSel) => o.evaluate(rootSel => {
+    const root = document.querySelector(rootSel), out = [];
+    const secs = v => v.split(",").map(x => parseFloat(x) * (/ms$/.test(x.trim()) ? 0.001 : 1));
+    const walk = e => { const c = getComputedStyle(e); const props = c.transitionProperty.split(",").map(x => x.trim());
+      const t = secs(c.transitionDuration).some((d, i) => d > 0 && props[i % props.length] !== "none"), a = c.animationName !== "none" && secs(c.animationDuration).some(d => d > 0), sm = c.scrollBehavior === "smooth";
+      if (t || a || sm) out.push({ cls: (e.getAttribute("class") || "").slice(0, 50), tag: e.tagName.toLowerCase(), mine: /(^|\s)booklet-/.test(e.getAttribute("class") || ""), prop: c.transitionProperty.slice(0, 30), dur: c.transitionDuration.slice(0, 16) }); for (const k of e.children) walk(k); };
+    walk(root);
+    return { moving: out, reduced: matchMedia("(prefers-reduced-motion: reduce)").matches };
+  }, rootSel);
+  // nothing overlaps, nothing is cut off, nothing scrolls sideways (as check 45), inside `rootSel`
+  const fitIn = (o, rootSel) => o.evaluate(rootSel => {
+    const view = document.querySelector(rootSel), vr = view.getBoundingClientRect();
+    const shown = e => { const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return false; for (let p = e; p && p !== view; p = p.parentElement) { const c = getComputedStyle(p); if (c.display === "none" || c.visibility === "hidden") return false; } return true; };
+    const nm = e => e.tagName.toLowerCase() + "." + (e.getAttribute("class") || "").split(" ")[0] + " \"" + (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 28) + "\"";
+    const ctl = [...view.querySelectorAll("button, input, textarea, select, summary, a[href], audio[controls], video[controls]")].filter(e => !e.disabled && shown(e));
+    const scroller = e => { for (let p = e.parentElement; p && p !== view; p = p.parentElement) { const c = getComputedStyle(p); if (/(auto|scroll)/.test(c.overflowX) && p.scrollWidth > p.clientWidth) return true; } return false; };
+    const outside = ctl.filter(e => { const r = e.getBoundingClientRect(); return !scroller(e) && (r.left < vr.left - 1 || r.right > vr.right + 1 || r.left < -1 || r.right > innerWidth + 1); }).map(nm);
+    const overlaps = [];
+    for (let i = 0; i < ctl.length; i++) for (let j = i + 1; j < ctl.length; j++) { const a = ctl[i], b = ctl[j]; if (a.contains(b) || b.contains(a)) continue; const r = a.getBoundingClientRect(), s = b.getBoundingClientRect(); const w = Math.min(r.right, s.right) - Math.max(r.left, s.left), h = Math.min(r.bottom, s.bottom) - Math.max(r.top, s.top); if (w > 3 && h > 3) overlaps.push(nm(a) + " x " + nm(b)); }
+    const cut = [];
+    for (const e of view.querySelectorAll("*")) { if (!shown(e) || e.closest("svg, audio, video, .booklet-sr")) continue; const c = getComputedStyle(e); const clips = c.overflowX !== "visible" || c.overflowY !== "visible";
+      if (e.scrollWidth > e.clientWidth + 1 && clips && !/(auto|scroll)/.test(c.overflowX) && e.clientWidth > 0) cut.push("x " + nm(e)); else if (c.textOverflow === "ellipsis" && e.scrollWidth > e.clientWidth + 1) cut.push("... " + nm(e)); else if (e.scrollHeight > e.clientHeight + 1 && /(hidden|clip)/.test(c.overflowY) && e.clientHeight > 0) cut.push("y " + nm(e)); }
+    const edge = vr.right, wide = [...view.querySelectorAll("*")].filter(e => shown(e) && !scroller(e) && !e.closest(".booklet-sr, audio, video") && e.getBoundingClientRect().right > edge + 1).map(e => nm(e) + " +" + Math.round(e.getBoundingClientRect().right - edge)).slice(0, 4);
+    return { sideways: view.scrollWidth - view.clientWidth, controls: ctl.length, outside, overlaps, cut, wide, inner: innerWidth };
+  }, rootSel);
+  const setZoom54 = async (o, f) => {
+    await o.evaluate(f => require("electron").webFrame.setZoomFactor(f), f);
+    await o.page.waitForFunction(f => Math.abs(require("electron").webFrame.getZoomFactor() - f) < 0.01, f, { timeout: 5000, polling: 50 });
+    await frames(o); await sleep(250); await frames(o);
+  };
+  async function check54() {
+    const c = new Check(54, "0.12.0 accessibility of the new controls (a slot's Play, the Allow list button and card, a listen box's Done and player, Continue): real-key walk, every control named and ringed, no trap, axe-core when installed, reduced motion, 200% zoom, a phone's width");
+    const PAGE = BOOK + " .view-content", CARD = ".booklet-allow-card", PAGE_SEL = BOOK + " .booklet-page";
+    const data = ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org")], noteAllows: {} });
+    for (const where of ["desktop", "phone"]) {
+      await withMedia("c54-" + where, { note: NOTE54, data, files: ctx => ({ [NOTE54]: note54(ctx) }) }, async (o, ctx) => {
+        const tag = s => `[${where}] ${s}`;
+        const shot = async name => { try { await ctx.K.shot(o, `a11y-${where}-${name}`); } catch (e) { /* a picture is a help, not a check */ } };
+        if (where === "phone") { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
+        // axe-core over `sel`; a failure of colour contrast on Obsidian's own accent button (.mod-cta: white on the theme's purple, the pager's Next and Continue) is told, not counted
+        const axeOn = async sel => {
+          const all = await o.page.evaluate(async sel => { const r = await window.axe.run(document.querySelector(sel), { preload: false, runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"] } }); return r.violations.flatMap(v => v.nodes.map(n => ({ id: v.id, impact: v.impact, target: n.target.join(" "), why: (n.failureSummary || "").replace(/\s+/g, " ").slice(0, 150) }))); }, sel);
+          const accent = all.filter(v => v.id === "color-contrast" && /\.mod-cta/.test(v.target));
+          if (accent.length) c.info(tag(`axe-core: ${accent.length} colour-contrast failure(s) on the accent button (Obsidian's .mod-cta, not the plugin's colours): ${accent.map(v => v.why).join(" | ")}`));
+          return all.filter(v => !accent.includes(v));
+        };
+        const openCard = async () => { await o.page.locator(BOOK + " .booklet-media-play", { hasText: "blocked clip" }).first().click({ timeout: 5000 }); return poll(() => o.evaluate(() => !!document.querySelector(".booklet-allow-card")), 4000); };
+        const closeCard = async () => { await o.page.locator(CARD + " button", { hasText: /^Not now$/ }).click({ timeout: 5000 }); await poll(() => o.evaluate(() => !document.querySelector(".booklet-allow")), 3000); };
+        await ctx.K.open(o, NOTE54);
+        await quiet(o);
+
+        // ---- the home screen: Continue ----
+        let ctl = await reachIn(o, PAGE);
+        const cont = ctl.find(x => /^Continue/.test(x.name));
+        c.ok(!!cont && cont.tab, tag(`the opening has a Continue button in the tab order, named by its words: ${JSON.stringify(cont && cont.name)}`));
+        await o.evaluate(sel => document.querySelector(sel + " .booklet-continue-button").focus(), BOOK);
+        let h = await hereIn(o, PAGE);
+        c.ok(h.inside && h.ring && h.onScreen, tag(`focused, it shows a ring and is on screen: ${JSON.stringify(h)}`));
+        if (where === "desktop") { await fitIn(o, PAGE).then(f => c.ok(f.sideways <= 0 && f.outside.length === 0 && f.overlaps.length === 0 && f.cut.length === 0, tag(`the opening at 100%: sideways ${f.sideways}, outside ${f.outside.length}, overlaps ${f.overlaps.length}, cut ${f.cut.length}`))); }
+        // ---- the activity page: a walk with Tab ----
+        await ctx.K.goTo(o, "activity:/a1");
+        await quiet(o);
+        ctl = await reachIn(o, PAGE);
+        const reach = ctl.filter(x => x.tab);
+        const kinds = k => reach.filter(x => x.cls === k);
+        c.ok(kinds("booklet-media-play").length === 2 && kinds("booklet-listen-tick").length === 1 && kinds("booklet-allow-btn").length >= 1, tag(`the page has the new controls in the tab order: ${JSON.stringify(reach.filter(x => /booklet-(media-play|listen-tick|allow-btn)/.test(x.cls)).map(x => x.cls.replace("booklet-", "") + ": " + x.name))}`));
+        c.ok(reach.filter(x => x.tag !== "audio").every(x => x.name), tag(`every button, link and field a key can reach has a name (${reach.length}); without: ${reach.filter(x => x.tag !== "audio" && !x.name).map(x => x.tag + "." + x.cls).join(", ") || "none"}`));
+        c.info(tag(`${reach.filter(x => x.tag === "audio").length} native audio players (Obsidian's own controls, drawn by the browser) carry no name: ${reach.filter(x => x.tag === "audio").map(x => JSON.stringify(x.name)).join(", ")}`));
+        c.info(tag("the controls: " + reach.map(x => `${x.n}:${x.tag}.${x.cls} "${x.name}"`).join(" | ")));
+        await o.evaluate(() => { const h = document.querySelector(".workspace-tab-header.is-active"); if (h) h.focus(); });
+        await sleep(80);
+        const reach2 = (await reachIn(o, PAGE)).filter(x => x.tab);
+        const stops = []; let entered = false, left = false;
+        for (let i = 0; i < 80 && !left; i++) {
+          await o.page.keyboard.press("Tab"); await sleep(40);
+          const s = await hereIn(o, PAGE);
+          if (s.none) continue;
+          if (s.inside) { entered = true; stops.push(s); } else if (entered) left = true;
+        }
+        const seen = new Set(stops.map(s => s.n));
+        c.ok(entered && left, tag(`Tab enters the view and leaves it again (${stops.length} stops): no keyboard trap`));
+        c.ok(reach2.filter(x => x.tag !== "audio").every(x => seen.has(x.n)), tag(`every control in the tab order was a stop; missed: ${reach2.filter(x => x.tag !== "audio" && !seen.has(x.n)).map(x => x.tag + " " + x.name).join(" | ") || "none"}`));
+        c.ok(stops.filter(s => s.tag !== "audio").every(s => s.ring), tag(`every stop shows a focus ring (a native audio player draws its own); without: ${stops.filter(s => s.tag !== "audio" && !s.ring).map(s => s.tag + "." + s.cls + " " + s.name).join(" | ") || "none"}`));
+        c.ok(stops.every(s => s.onScreen), tag("focus is always in sight"));
+        const order = stops.map(s => s.n).filter(n => n >= 0).filter((n, i, a) => i === 0 || n !== a[i - 1]);
+        c.ok(order.every((n, i) => !i || n > order[i - 1]), tag(`the stops come in the page's own order: ${order.join(",")}`));
+
+        // ---- real keys on the new controls ----
+        const file = ctx.file(NOTE54), orig = fs.readFileSync(file, "utf8");
+        const tick = BOOK + " .booklet-listen-tick";
+        await o.evaluate(t => document.querySelector(t).focus(), tick);
+        await o.page.keyboard.press("Space");
+        c.ok(await poll(() => o.evaluate(t => document.querySelector(t).getAttribute("aria-pressed") === "true", tick), 4000), tag("Space on Done presses it (aria-pressed true)"));
+        await o.page.keyboard.press("Enter");
+        c.ok(await poll(() => o.evaluate(t => document.querySelector(t).getAttribute("aria-pressed") === "false", tick), 4000), tag("Enter on it lets it go again"));
+        c.ok(await poll(() => fs.readFileSync(file, "utf8").startsWith(orig.replace(/\s+$/, "")), 2000), tag("and the note above its records is as it was"));
+        const play = BOOK + " .booklet-media-play";
+        await o.evaluate(([p]) => [...document.querySelectorAll(p)].find(b => /allowed clip/.test(b.textContent)).focus(), [play]);
+        await o.page.keyboard.press("Enter");
+        const started = await poll(() => o.evaluate(sel => { const s = document.querySelector(sel + " .booklet-media-slot audio"); return s ? { paused: s.paused, t: s.currentTime, focusIn: !!(document.activeElement && document.activeElement.closest(".booklet-media-slot")) } : null; }, BOOK), 5000);
+        c.ok(started && started.focusIn, tag(`Enter on the allowed clip's Play starts it and focus stays in its slot: ${JSON.stringify(started)}`));
+        await o.evaluate(sel => { for (const a of document.querySelectorAll(sel + " audio")) a.pause(); }, BOOK);
+
+        // ---- the card ----
+        c.ok(await openCard(), tag("a press on the blocked clip's Play opens the card"));
+        h = await hereIn(o, CARD);
+        c.ok(h.inside && /Not now/.test(h.name), tag(`focus is in the card, on Not now: ${JSON.stringify(h)}`));
+        const cardFocus = await reachIn(o, CARD);
+        c.ok(cardFocus.every(x => x.name), tag(`every control of the card has a name (${cardFocus.length}): ${cardFocus.map(x => x.tag + " " + x.name).join(" | ")}`));
+        const cardDom = await o.evaluate(() => { const k = document.querySelector(".booklet-allow-card"); return { role: k.getAttribute("role"), modal: k.getAttribute("aria-modal"), label: !!document.getElementById(k.getAttribute("aria-labelledby") || "x") }; });
+        c.ok(cardDom.role === "dialog" && cardDom.modal === "true" && cardDom.label, tag(`it is a dialog, modal, named by its title: ${JSON.stringify(cardDom)}`));
+        const ring = [];
+        for (let i = 0; i < cardFocus.length * 2 + 2; i++) { await o.page.keyboard.press("Tab"); await sleep(40); ring.push(await hereIn(o, CARD)); }
+        c.ok(ring.every(s => s.inside && s.ring), tag(`Tab goes round the card ${ring.length} times and never leaves it, each stop with a ring`));
+        await shot("card");
+        if (AXE) {
+          await o.page.evaluate(p => { window.axe = require(p); }, AXE);
+          for (const scheme of ["light", "dark"]) {
+            await o.setScheme(scheme); await sleep(300); await frames(o);
+            const v = await axeOn(CARD);
+            c.ok(v.length === 0, tag(`axe-core on the card (${scheme}): ${v.length} violations${v.length ? " " + JSON.stringify(v) : ""}`));
+          }
+        } else c.info(tag("axe-core is not installed beside playwright-core: the accessibility checker was not run (set AXE_CORE to its axe.min.js)"));
+        if (where === "desktop") { await o.page.emulateMedia({ reducedMotion: "reduce" }); await sleep(150); const m = await motionIn(o, CARD); c.ok(m.reduced && m.moving.length === 0, tag(`reduced motion: nothing in the card moves: ${m.moving.map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ") || "none"}`)); await o.page.emulateMedia({ reducedMotion: null }); }
+        for (const z of [1, 2]) {
+          await setZoom54(o, z);
+          const f = await fitIn(o, CARD);
+          c.ok(f.sideways <= 0 && f.outside.length === 0 && f.overlaps.length === 0 && f.cut.length === 0, tag(`the card at ${z * 100}% (${f.inner} CSS pixels wide, ${f.controls} controls): sideways ${f.sideways} (${f.wide.join(" | ") || "nothing pokes out"}); outside ${f.outside.join(" | ") || "none"}; overlaps ${f.overlaps.join(" | ") || "none"}; cut ${f.cut.join(" | ") || "none"}`));
+          if (z === 2) await shot("card-200");
+        }
+        await setZoom54(o, 1);
+        await o.page.keyboard.press("Escape");
+        c.ok(await poll(() => o.evaluate(() => !document.querySelector(".booklet-allow")), 3000), tag("Escape closes the card"));
+        c.ok(await o.evaluate(sel => { const a = document.activeElement; return !!(a && a.closest(sel)); }, BOOK), tag("and focus is back in the view"));
+
+        // ---- the page itself: axe, reduced motion, zoom ----
+        if (AXE) for (const scheme of ["light", "dark"]) {
+          await o.setScheme(scheme); await sleep(300); await frames(o);
+          const v = await axeOn(PAGE_SEL);
+          c.ok(v.length === 0, tag(`axe-core on the activity page (${scheme}): ${v.length} violations${v.length ? " " + JSON.stringify(v) : ""}`));
+          await ctx.K.goTo(o, "home"); await quiet(o);
+          const v2 = await axeOn(PAGE_SEL);
+          c.ok(v2.length === 0, tag(`axe-core on the opening, with Continue (${scheme}): ${v2.length} violations${v2.length ? " " + JSON.stringify(v2) : ""}`));
+          await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+        }
+        await o.setScheme("light");
+        if (where === "desktop") {
+          await o.page.emulateMedia({ reducedMotion: "reduce" }); await sleep(150);
+          const m = await motionIn(o, PAGE);
+          c.ok(m.reduced && m.moving.filter(x => x.mine).length === 0, tag(`reduced motion: none of the plugin's elements on the page moves: ${m.moving.filter(x => x.mine).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ") || "none"}`));
+          c.info(tag(`and ${m.moving.filter(x => !x.mine).length} of Obsidian's own elements in the view move: ${m.moving.filter(x => !x.mine).slice(0, 4).map(x => x.tag + "." + x.cls + " " + x.prop + " " + x.dur).join(" | ") || "none"}`));
+          await o.page.emulateMedia({ reducedMotion: null });
+        }
+        for (const [label, screen] of [["activity page", "activity:/a1"], ["opening", "home"]]) for (const z of [1, 2]) for (const scheme of ["light", "dark"]) {
+          await setZoom54(o, z); await o.setScheme(scheme); await sleep(200);
+          await ctx.K.goTo(o, screen); await quiet(o); await sleep(300);
+          const f = await fitIn(o, PAGE);
+          c.ok(f.sideways <= 0 && f.outside.length === 0 && f.overlaps.length === 0 && f.cut.length === 0, tag(`${label} at ${z * 100}% ${scheme} (${f.inner} CSS pixels wide, ${f.controls} controls): sideways ${f.sideways} (${f.wide.join(" | ") || "nothing pokes out"}); outside ${f.outside.join(" | ") || "none"}; overlaps ${f.overlaps.join(" | ") || "none"}; cut ${f.cut.join(" | ") || "none"}`));
+          if (z === 2 && scheme === "light") await shot(`${label.replace(" ", "-")}-200`);
+        }
+        await setZoom54(o, 1); await o.setScheme("light");
+        // ---- Continue by key: last, because the press removes the button that held focus ----
+        await ctx.K.goTo(o, "home"); await quiet(o);
+        await o.evaluate(sel => document.querySelector(sel + " .booklet-continue-button").focus(), BOOK);
+        await o.page.keyboard.press("Enter");
+        await poll(() => o.evaluate(sel => { const a = document.activeElement; return a && a.closest(sel) && a.classList.contains("booklet-prompt"); }, BOOK), 4000);
+        h = await hereIn(o, PAGE);
+        c.ok(h.inside && h.cls === "booklet-prompt", tag(`Enter on Continue opens the page and puts focus on its prompt: ${JSON.stringify(h)}`));
+
+        if (where === "phone") await mobile(o, false);
+        c.ok(bytes(file).toString("utf8").startsWith(orig.replace(/\s+$/, "")), tag("the note above its records is as it was at the end"));
+      });
+    }
+    return c;
+  }
+
+  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53, 54: check54 };
 };
