@@ -5,7 +5,7 @@
  * (allow-card.ts) and this page edit the same list, so whatever one writes the other shows.
  */
 import { Notice, PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
-import { SUGGESTED_HOSTS, alsoCovers, normaliseEntry, type Allows, type EntryResult } from "./core";
+import { SUGGESTED_HOSTS, alsoCovers, hostList, normaliseEntry, type Allows, type EntryResult } from "./core";
 
 /** The shape of the plugin's data.json: the names are kept (README, "What stays put"). */
 export interface MediaData {
@@ -186,7 +186,7 @@ export class BookletSettingTab extends PluginSettingTab {
 		for (const entry of list) {
 			const covers = alsoCovers(entry);
 			const row = new Setting(containerEl).setName(entry);
-			if (covers.length) row.setDesc(`Also covers ${covers.join(" and ")}, which its player uses.`);
+			if (covers.length) row.setDesc(`Also covers ${hostList(covers)}, which its player uses.`);
 			row.addButton((b) => {
 				b.setButtonText("Remove").onClick(() => this.allows.removeVault(entry));
 				b.buttonEl.setAttribute("aria-label", `Remove ${entry}`);

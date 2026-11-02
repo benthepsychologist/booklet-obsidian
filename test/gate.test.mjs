@@ -68,7 +68,9 @@ test("an address that is not media is a link naming its host, not an embed; a kn
 	assert.equal(g.slots[1].type, "service");
 	assert.equal(g.slots[1].name, "YouTube");
 	assert.equal(g.slots[1].allowed, true);
-	assert.equal(g.slots[1].embedUrl, "https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1&rel=0");
+	assert.equal(g.slots[1].native, "https://www.youtube.com/watch?v=abcDEF12345");
+	assert.equal(g.slots[1].embedUrl, null);
+	assert.deepEqual(g.slots[1].shown, ["youtube.com", "releases.obsidian.md"]);
 	assert.equal(g.slots[1].entry, "youtube.com");
 	assert.equal(g.slots[1].alt, "Tube");
 	const no = gateMedia("![Tube](https://youtu.be/abcDEF12345)", ctx());

@@ -5,12 +5,12 @@
  * itself, not in the note's drawing, so that it stays up while the note behind it is drawn again after a change. Every choice says
  * what it costs; the default is Not now.
  */
-import { alsoCovers } from "./core";
+import { alsoCovers, hostList } from "./core";
 import type { MediaAllows } from "./settings";
 
 export type CardRequest =
-	/** A press on media from a site not allowed. `host` is the host that will be asked for it, `entry` the site that would be allowed. `once` plays that one piece and keeps nothing. */
-	| { kind: "media"; host: string; entry: string; once: (evt: Event) => void }
+	/** A press on media from a site not allowed. `host` is what will be asked for it (a host, or a service with its hosts), `entry` the site that would be allowed. `once` plays that one piece and keeps nothing. `again` is told, with the press, when the site is allowed for this note or this vault, before the list changes: the slot is started when the booklet is drawn again. */
+	| { kind: "media"; host: string; entry: string; once: (evt: Event) => void; again: (evt: Event) => void }
 	/** The booklet names these sites (as entries) and the reader has not allowed them. */
 	| { kind: "declared"; hosts: string[] };
 
@@ -78,7 +78,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	const cost = (host: string): string => `${host} will see when you play and from where.`;
 	const covers = (entry: string): string => {
 		const more = alsoCovers(entry);
-		return more.length ? `Allowing ${entry} also covers ${more.join(" and ")}, which its player uses.` : "";
+		return more.length ? `Allowing ${entry} also covers ${hostList(more)}, which its player uses.` : "";
 	};
 	const button = (into: HTMLElement, text: string, label: string | null, cb: (evt: MouseEvent) => void): HTMLElement => {
 		const b = into.createEl("button", { text, cls: "booklet-allow-btn-choice", attr: label ? { "aria-label": label, type: "button" } : { type: "button" } });
@@ -102,7 +102,10 @@ export function openAllowCard(o: CardOptions): AllowCard {
 			const did = `booklet-allow-choice-${uid}-${n}`;
 			button(row, text, null, (evt) => {
 				if (n === 0) req.once(evt);
-				else (n === 1 ? noteAdd : vaultAdd)(req.entry);
+				else {
+					req.again(evt);
+					(n === 1 ? noteAdd : vaultAdd)(req.entry);
+				}
 				answered = true;
 				close(n !== 0);
 			}).setAttribute("aria-describedby", did);

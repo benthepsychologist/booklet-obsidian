@@ -13,7 +13,7 @@ import { inertLines, inertSpans } from "./blocks";
 import { entryFor, isAllowed, type Allows } from "./allow";
 import { hostOf, mediaClass } from "./media";
 import { referenceSource } from "./references";
-import { serviceAllowed, serviceOf } from "./services";
+import { isYoutubeAddress, serviceAllowed, serviceOf, type Service } from "./services";
 
 /** Private-use characters round the number of a slot in rewritten text (U+E000 and U+E001 stand for footnote marks, blocks.ts). */
 export const SLOT_OPEN = "";
@@ -31,12 +31,12 @@ export interface GateContext {
 
 /**
  * What a token stands for. `media`: a remote file with an audio or video extension, a Play slot (`allowed`) or one that asks first.
- * `service`: a page of a service the plugin plays, the same. `refused`: media at an address that can never be allowed (not https).
+ * `service`: a page of a service the plugin plays, the same (`embedUrl`: its own framed player; `native`: the address Obsidian is handed to draw the player itself, YouTube's). `refused`: media at an address that can never be allowed (not https).
  * `link`: a frame, a raw media tag, or an address that is not media, drawn as a link naming its host and never loaded.
  */
 export type MediaSlot =
 	| { type: "media"; media: "audio" | "video"; addr: string; alt: string; host: string; entry: string; allowed: boolean }
-	| { type: "service"; media: "audio" | "video"; name: string; addr: string; embedUrl: string; allow: string; alt: string; host: string; entry: string; allowed: boolean }
+	| { type: "service"; media: "audio" | "video"; name: string; addr: string; embedUrl: string | null; native: string | null; shown: string[]; allow: string; alt: string; host: string; entry: string; allowed: boolean }
 	| { type: "refused"; media: "audio" | "video"; addr: string; alt: string; host: string }
 	| { type: "link"; addr: string; alt: string; host: string; why: "frame" | "address" };
 
@@ -199,6 +199,11 @@ function absolute(dest: string, where: "https" | "http" | "proto"): string | nul
 	}
 }
 
+/** The slot of a service's page: its player, and what the press will ask. */
+function serviceSlot(svc: Service, addr: string, alt: string, host: string, allowed: boolean): MediaSlot {
+	return { type: "service", media: svc.kind, name: svc.name, addr, embedUrl: svc.embedUrl, native: svc.native, shown: svc.shown, allow: svc.allow, alt: alt || svc.name, host, entry: svc.hosts[0] ?? host, allowed };
+}
+
 class Gate {
 	readonly inline: boolean;
 	constructor(
@@ -214,29 +219,20 @@ class Gate {
 		const where = whereIs(dest);
 		const cls = mediaClass(dest);
 		if (where === "local") return this.inline && (cls === "audio" || cls === "video") ? escapeMd(alt || nameOf(dest)) : null;
-		if (cls === "image") return null;
 		const addr = absolute(dest, where);
+		// Obsidian draws a YouTube address as a frame whatever the rest of it says (even a picture's ending): it is never left to Obsidian
+		const tube = !!addr && isYoutubeAddress(addr);
+		if (cls === "image" && !tube) return null;
 		const host = addr ? hostOf(addr) : null;
 		if (!addr || !host) return null;
 		if (this.inline) return escapeMd(alt || (cls ? nameOf(dest) : host));
 		const { allows, notePath } = this.ctx;
-		const media = cls === "audio" || cls === "video" ? cls : null;
+		const media = !tube && (cls === "audio" || cls === "video") ? cls : null;
 		if (where !== "https") return media ? { type: "refused", media, addr, alt, host } : { type: "link", addr, alt, host, why: "address" };
 		if (media) return { type: "media", media, addr, alt, host, entry: entryFor(addr) ?? host, allowed: isAllowed(addr, allows, notePath) };
 		const svc = serviceOf(addr);
 		if (!svc) return { type: "link", addr, alt, host, why: "address" };
-		return {
-			type: "service",
-			media: svc.kind,
-			name: svc.name,
-			addr,
-			embedUrl: svc.embedUrl,
-			allow: svc.allow,
-			alt: alt || svc.name,
-			host,
-			entry: svc.hosts[0] ?? host,
-			allowed: serviceAllowed(svc, addr, allows, notePath),
-		};
+		return serviceSlot(svc, addr, alt, host, serviceAllowed(svc, addr, allows, notePath));
 	}
 
 	/** A link, autolink or bare address that stands alone and leads to an allowed service: its player's slot; null leaves the link as it is. */
@@ -246,7 +242,7 @@ class Gate {
 		const svc = addr ? serviceOf(addr) : null;
 		const host = addr ? hostOf(addr) : null;
 		if (!addr || !svc || !host || !serviceAllowed(svc, addr, this.ctx.allows, this.ctx.notePath)) return null;
-		return { type: "service", media: svc.kind, name: svc.name, addr, embedUrl: svc.embedUrl, allow: svc.allow, alt: altText(textRaw) || svc.name, host, entry: svc.hosts[0] ?? host, allowed: true };
+		return serviceSlot(svc, addr, altText(textRaw), host, true);
 	}
 
 	/** A raw tag with a remote address: a link naming its host (nothing is loaded), or in a title the host alone. */

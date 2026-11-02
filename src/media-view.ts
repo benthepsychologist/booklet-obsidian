@@ -13,8 +13,12 @@ type Playable = Extract<MediaSlot, { type: "media" | "service" }>;
 export interface MediaDeps {
 	/** Is this event a press the reader made? Only a trusted event is: a script cannot start a request by clicking a button. */
 	isPress(evt: Event): boolean;
-	/** The media is not allowed yet: ask. `once` plays this piece only (given the press that chose it); `opener` is the button to give focus back to. */
-	ask(req: { slot: Playable; opener: HTMLElement; once: (evt: Event) => void }): void;
+	/** The media is not allowed yet: ask. `once` plays this piece only (given the press that chose it); `again` is told, with the press that chose it, when the choice is to allow the site for this note or this vault (the same slot then starts when the view is drawn again, see `PressedSlot`); `opener` is the button to give focus back to. */
+	ask(req: { slot: Playable; opener: HTMLElement; once: (evt: Event) => void; again: (evt: Event) => void }): void;
+	/** The reader allowed the site for the slot `opener` is in (a press of hers): remember that slot, to start it when the view is drawn again. */
+	carry(opener: HTMLElement, slot: Playable): void;
+	/** Draws Markdown with Obsidian's own renderer into `into`, for a service Obsidian draws itself. Called only in the handler of a press. */
+	render(markdown: string, into: HTMLElement, owner: Component): Promise<void> | void;
 	/** Should a player be left playing when its drawing goes (a page turn)? Asked of each native player as the drawing is torn down; a player kept is the keeper's to stop. */
 	keepAlive?: (player: HTMLMediaElement, slot: Playable) => boolean;
 }
@@ -24,6 +28,9 @@ export const isTrustedPress = (evt: Event): boolean => evt.isTrusted;
 
 const TOKEN = new RegExp(`${SLOT_OPEN}(\\d+)${SLOT_CLOSE}`, "g");
 const FAILED = "This could not be played. The file may be missing, the format may not be supported here, or you may be offline.";
+const PRESS_AGAIN = "Press Play to start";
+/** How long a press stays good to carry over a redraw: a browser's user activation lasts a few seconds. */
+const CARRY_MS = 5000;
 let uid = 0;
 
 /** An address as `new URL` writes it, for a link or a `src`. */
@@ -51,8 +58,8 @@ export function createPlayer(doc: Document, slot: Playable): HTMLAudioElement | 
 	return el;
 }
 
-/** The framed player of a service: a sandboxed frame on the service's own embed address, with only what that player needs. */
-function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }>): HTMLIFrameElement {
+/** The framed player of a service the plugin frames itself (not YouTube's, which Obsidian draws): a sandboxed frame on the service's own embed address, with only what that player needs. */
+function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }>, embedUrl: string): HTMLIFrameElement {
 	const f = doc.createElement("iframe");
 	f.className = `booklet-media-frame is-${slot.media}`;
 	f.setAttribute("data-booklet-player", "frame");
@@ -61,7 +68,7 @@ function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }
 	f.setAttribute("allow", slot.allow);
 	if (slot.media === "video") f.setAttribute("allowfullscreen", "");
 	f.title = slot.alt ? `${slot.name}: ${slot.alt}` : slot.name;
-	f.src = hrefOf(slot.embedUrl);
+	f.src = hrefOf(embedUrl);
 	return f;
 }
 
@@ -69,13 +76,42 @@ function externalLink(into: HTMLElement, addr: string, text: string): HTMLElemen
 	return into.createEl("a", { cls: "external-link", text, attr: { href: hrefOf(addr), target: "_blank", rel: "noopener noreferrer" } });
 }
 
-/** The host a slot's file or player is asked for it: the frame's own for a service. */
+/** What a press on a slot asks, as the reader is told: the file's host, or the service with the hosts of its player ("YouTube (youtube.com, releases.obsidian.md)"). */
 export function playerHost(slot: Playable): string {
-	if (slot.type === "media") return slot.host;
-	try {
-		return new URL(slot.embedUrl).host;
-	} catch {
-		return slot.host;
+	return slot.type === "media" ? slot.host : `${slot.name} (${slot.shown.join(", ")})`;
+}
+
+/** What a drawn slot lets the view do from outside: which address it is for, whether it may start, and starting it. */
+const starters = new WeakMap<HTMLElement, { addr: string; allowed: boolean; start: (resumed: boolean) => void }>();
+
+/**
+ * The slot a reader pressed, carried over the redraw that allowing its site brings. She answers the card with "this note" or "this vault";
+ * the list changes, the view is drawn again, and the slots are new. This remembers which one was pressed (the nth of the view, and its
+ * address), and when the drawing is finished starts that one and no other, within a few seconds of the choice while her press still counts
+ * as the browser's user activation. A slot that is not allowed yet in the drawing (one begun before the list changed) is waited past.
+ */
+export class PressedSlot {
+	private want: { at: number; addr: string; until: number } | null = null;
+
+	/** The slot `opener` is in was pressed and its site allowed. */
+	keep(root: HTMLElement, opener: HTMLElement, slot: Playable): void {
+		const at = Array.from(root.querySelectorAll(".booklet-media-slot")).findIndex((x) => x.contains(opener));
+		this.want = at < 0 ? null : { at, addr: slot.addr, until: Date.now() + CARRY_MS };
+	}
+
+	/** The view is drawn: starts the slot kept, once, if it is there and allowed. */
+	resume(root: HTMLElement): void {
+		const want = this.want;
+		if (!want) return;
+		const box = root.querySelectorAll<HTMLElement>(".booklet-media-slot")[want.at];
+		const found = box ? starters.get(box) : undefined;
+		if (Date.now() > want.until || !found || found.addr !== want.addr) {
+			this.want = null;
+			return;
+		}
+		if (!found.allowed) return;
+		this.want = null;
+		found.start(true);
 	}
 }
 
@@ -88,19 +124,52 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 	const hostId = `booklet-media-host-${++uid}`;
 	const label = slot.media === "audio" ? "Play audio" : "Play video";
 	const play = row.createEl("button", { cls: "booklet-media-play", text: slot.alt ? `${label}: ${slot.alt}` : label, attr: { type: "button", "aria-describedby": hostId } });
-	const from = slot.type === "service" ? `from ${slot.name} (${playerHost(slot)})` : `from ${slot.host}`;
+	const from = `from ${playerHost(slot)}`;
 	row.createSpan({ cls: "booklet-media-host", text: slot.allowed ? from : `${from}, not allowed yet`, attr: { id: hostId } });
 	externalLink(row, slot.addr, "Open in browser");
 	const live = box.createDiv({ cls: "booklet-media-live", attr: { "aria-live": "polite" } });
 
 	let started = false;
-	const start = (): void => {
+	/** `resumed`: begun after a redraw, not in the press itself, so a browser may refuse `play()`. */
+	const start = (resumed = false): void => {
 		if (started) return;
 		started = true;
 		const host = playerHost(slot);
 		live.setText(`Loading ${slot.media} from ${host}`);
 		if (slot.type === "service") {
-			const frame = createFrame(doc, slot);
+			const native = slot.native;
+			if (native) {
+				// Obsidian draws the player itself from the address in image syntax, where a frame of ours may say "unavailable"
+				const holder = box.createDiv({ cls: "booklet-media-native" });
+				box.insertBefore(holder, row);
+				play.remove();
+				const stop = (): void => {
+					for (const f of Array.from(holder.querySelectorAll("iframe"))) f.src = "about:blank";
+					holder.remove();
+				};
+				owner.register(stop);
+				const drawn = (): void => {
+					const frame = holder.querySelector("iframe");
+					if (!frame) return;
+					frame.title = slot.alt && slot.alt !== slot.name ? `${slot.name}: ${slot.alt}` : slot.name;
+					frame.focus();
+				};
+				const failed = (): void => {
+					stop();
+					live.setText(FAILED);
+					started = false;
+					row.insertBefore(play, row.firstChild);
+					play.focus();
+				};
+				try {
+					Promise.resolve(deps.render(`![](${native})`, holder, owner)).then(drawn, failed);
+				} catch {
+					failed();
+				}
+				return;
+			}
+			if (!slot.embedUrl) return;
+			const frame = createFrame(doc, slot, slot.embedUrl);
 			box.insertBefore(frame, row);
 			play.remove();
 			frame.focus();
@@ -112,17 +181,19 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 		}
 		const player = createPlayer(doc, slot);
 		let stopped = false;
-		const onError = (): void => {
+		/** The player goes and Play comes back, with `said` under it. */
+		const giveBack = (said: string): void => {
 			if (stopped) return;
 			stopped = true;
 			player.pause();
 			player.removeAttribute("src");
 			player.remove();
-			live.setText(FAILED);
+			live.setText(said);
 			started = false;
 			row.insertBefore(play, row.firstChild);
 			play.focus();
 		};
+		const onError = (): void => giveBack(FAILED);
 		player.addEventListener("error", onError);
 		const loaded = (): void => {
 			if (live.textContent?.startsWith("Loading")) live.setText("");
@@ -131,9 +202,10 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 		player.addEventListener("loadedmetadata", loaded);
 		box.insertBefore(player, row);
 		play.remove();
-		// the press is still on the stack: a phone allows play() only inside it
+		// the press is still on the stack: a phone allows play() only inside it. After a redraw it is the choice on the card that is
+		// recent, and a browser that wants a press of its own for it says so; then Play is back for her to press
 		const p = player.play() as Promise<void> | undefined;
-		if (p && typeof p.catch === "function") p.catch(() => {});
+		if (p && typeof p.catch === "function") p.catch((e: unknown) => (resumed && (e as { name?: string } | null)?.name === "NotAllowedError" ? giveBack(PRESS_AGAIN) : undefined));
 		player.focus();
 		owner.register(() => {
 			if (stopped || deps.keepAlive?.(player, slot)) return;
@@ -144,6 +216,7 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 			player.load();
 		});
 	};
+	starters.set(box, { addr: slot.addr, allowed: slot.allowed, start });
 
 	play.addEventListener("click", (evt) => {
 		if (!deps.isPress(evt)) return;
@@ -154,6 +227,9 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 				opener: play,
 				once: (e) => {
 					if (deps.isPress(e)) start();
+				},
+				again: (e) => {
+					if (deps.isPress(e)) deps.carry(play, slot);
 				},
 			});
 	});

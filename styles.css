@@ -2181,6 +2181,11 @@
 	height: 152px;
 }
 
+/* the frame Obsidian draws itself for a YouTube address (media-view.ts) */
+.booklet-media-native iframe {
+	max-width: 100%;
+}
+
 .booklet-media-live:empty {
 	display: none;
 }
