@@ -98,7 +98,7 @@ export const typeInto = (el, value) => {
 export const press = (el, key) => el.dispatchEvent(new w.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true }));
 
 // the view's bundle, once the globals above are in place
-const { BookletView } = await import("./.build/view.mjs");
+const { BookletView, MediaAllows } = await import("./.build/view.mjs");
 
 /**
  * An app as the view tests stub it: a vault whose process() writes the note to `disk.text` and counts the writes in
@@ -168,10 +168,10 @@ export async function quiet(view, ms = 0) {
  * vault holds it, and `app` the app the view is in (testApp(disk) unless a test brings its own). Each test file adds
  * its own finders to what this returns.
  */
-export function openView(text, { path = "Note.booklet.md", disk = { text, writes: 0 }, app = testApp(disk), screen = null } = {}) {
+export function openView(text, { path = "Note.booklet.md", disk = { text, writes: 0 }, app = testApp(disk), screen = null, media = new MediaAllows(null, () => {}) } = {}) {
 	// the pane: a move through it comes back as the view's own setState, as Obsidian does it
 	const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
-	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
+	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" }, media });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
 	// the screen the pane is on (a saved place), when a test works on one activity's screen

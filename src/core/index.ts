@@ -18,3 +18,7 @@ export * from "./chart";
 export * from "./view-state";
 export * from "./nav";
 export * from "./blocks";
+export * from "./media";
+export * from "./allow";
+export * from "./services";
+export * from "./gate";

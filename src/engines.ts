@@ -52,7 +52,7 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
 		prompt.addClass("markdown-rendered");
 		host.md(q.title, prompt);
 	} else prompt.setText(C["h"] || q.id);
-	if (q.help) host.md(q.help, box.createDiv({ cls: "booklet-help markdown-rendered" }));
+	if (q.help) host.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered" }));
 	else if (C["p"]) box.createDiv({ cls: "booklet-help", text: C["p"] });
 	for (const k of ["stance", "invite"]) if (C[k]) box.createEl("p", { cls: "booklet-muted", text: C[k] });
 	if (!data) {

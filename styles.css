@@ -2122,3 +2122,117 @@
 		scroll-behavior: auto !important;
 	}
 }
+
+/* ---- media: slots, players, the host after a link, the Allow list button and the allow card ---- */
+
+.booklet-toolbar {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-media-slot {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-media-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-media-play {
+	/* the words wrap at a large zoom, and the button grows with them */
+	white-space: normal;
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	text-align: start;
+}
+
+.booklet-media-host,
+.booklet-link-host {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+}
+
+.booklet-media-slot audio,
+.booklet-media-slot video {
+	width: 100%;
+	max-width: 100%;
+}
+
+.booklet-media-frame {
+	width: 100%;
+	border: 0;
+}
+
+.booklet-media-frame.is-video {
+	aspect-ratio: 16 / 9;
+}
+
+.booklet-media-frame.is-audio {
+	height: 152px;
+}
+
+.booklet-media-live:empty {
+	display: none;
+}
+
+.booklet-allow-card {
+	max-height: 85vh;
+	overflow-y: auto;
+}
+
+.booklet-allow-btn-choice {
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+}
+
+.booklet-allow-choice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-allow-said,
+.booklet-allow-covers,
+.booklet-allow-hint {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+}
+
+.booklet-allow-covers {
+	margin-inline-start: var(--size-4-6);
+}
+
+.booklet-allow-list {
+	list-style: none;
+	margin: 0 0 var(--size-4-3);
+	padding: 0;
+}
+
+.booklet-allow-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 44px;
+}
+
+.booklet-allow-add input[type="text"] {
+	width: 100%;
+	min-height: max(44px, var(--input-height));
+}
+
+.booklet-allow-error {
+	color: var(--text-error);
+	min-height: 1.5em;
+}
