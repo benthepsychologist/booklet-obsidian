@@ -96,7 +96,7 @@ import {
 } from "./core";
 import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
-import { drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, playerHost, type MediaDeps } from "./media-view";
+import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, playerHost, type MediaDeps } from "./media-view";
 import { Listens, locate } from "./listen-view";
 import type { ViewListen } from "./listen-writer";
 import type { LiftFrom, NowPlaying } from "./now-playing";
@@ -269,6 +269,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private card: AllowCard | null = null;
 	/** What takes focus once the drawing that a change to the allow list asks for is finished (the card's button, drawn again). */
 	private refocus: (() => HTMLElement | null) | null = null;
+	/** The slot she pressed, carried over the redraw that allowing its site brings (media-view.ts). */
+	private readonly pressed = new PressedSlot();
 	/** Follows the drawn `listen` questions' media: their positions, pauses and ends (listen-view.ts). */
 	readonly listens: Listens;
 	/** The heading the next drawing scrolls to is a prompt Continue led to: focus goes to it (it takes a tabindex of -1). */
@@ -806,11 +808,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			isPress: isTrustedPress,
 			keepAlive: (player) => !!this.host.nowPlaying?.holds(player),
 			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource()) ?? null,
-			ask: ({ slot, opener, once }) => {
+			carry: (opener, slot) => this.pressed.keep(this.contentEl, opener, slot),
+			render: (markdown, into, owner) => MarkdownRenderer.render(this.app, markdown, into, this.file ? this.file.path : "", owner),
+			ask: ({ slot, opener, once, again }) => {
 				// the slot is drawn again after an allow (the list changed): the nth slot takes the focus back
 				const slots = Array.from(this.contentEl.querySelectorAll(".booklet-media-slot"));
 				const at = slots.findIndex((x) => x.contains(opener));
-				this.openCard({ kind: "media", host: playerHost(slot), entry: slot.entry, once }, opener, () => (at >= 0 ? (this.contentEl.querySelectorAll(".booklet-media-slot")[at]?.querySelector<HTMLElement>("button, iframe, audio, video") ?? null) : null));
+				this.openCard({ kind: "media", host: playerHost(slot), entry: slot.entry, once, again }, opener, () => (at >= 0 ? (this.contentEl.querySelectorAll(".booklet-media-slot")[at]?.querySelector<HTMLElement>("button, iframe, audio, video") ?? null) : null));
 			},
 		};
 	}
@@ -1122,6 +1126,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Every piece of Markdown in the drawing is rendered: a heading a link led to is scrolled into view, a scroll position kept is restored. */
 	private drawn(): void {
+		// the slot she pressed before allowing its site starts now that it is drawn allowed, before focus is put back
+		this.pressed.resume(this.contentEl);
 		const back = this.refocus;
 		this.refocus = null;
 		back?.()?.focus();

@@ -68,7 +68,9 @@ test("an address that is not media is a link naming its host, not an embed; a kn
 	assert.equal(g.slots[1].type, "service");
 	assert.equal(g.slots[1].name, "YouTube");
 	assert.equal(g.slots[1].allowed, true);
-	assert.equal(g.slots[1].embedUrl, "https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1&rel=0");
+	assert.equal(g.slots[1].native, "https://www.youtube.com/watch?v=abcDEF12345");
+	assert.equal(g.slots[1].embedUrl, null);
+	assert.deepEqual(g.slots[1].shown, ["youtube.com", "releases.obsidian.md"]);
 	assert.equal(g.slots[1].entry, "youtube.com");
 	assert.equal(g.slots[1].alt, "Tube");
 	const no = gateMedia("![Tube](https://youtu.be/abcDEF12345)", ctx());
@@ -277,6 +279,140 @@ test("in a block, no remote media address is left in the text for Obsidian to fe
 				assert.ok(!/example\.|youtu/.test(body), `${wrap(f)} left an address: ${body}`);
 				assert.ok(g.slots.length >= 1, wrap(f));
 			}
+		}
+	}
+});
+
+/* ---- what Obsidian 1.14.5 fetches at render, measured (lane B2, spike leaks.js): every one of these loaded before a press without the fixes below ---- */
+
+const A = "media.example.org/tone.wav";
+/** Forms of one remote audio address that a browser reads as remote, each of which Obsidian drew and requested at render. */
+const DISGUISED = [
+	["a character reference in a tag", `<audio src="&#104;ttps://${A}" controls></audio>`],
+	["a hex reference", `<audio src="&#x68;ttps://${A}"></audio>`],
+	["a number with no semicolon", `<audio src="&#104ttps://${A}"></audio>`],
+	["an upper-case reference", `<audio src="&#72;TTPS://${A}"></audio>`],
+	["named references", `<audio src="https&colon;&sol;&sol;${A}"></audio>`],
+	["a line break inside the address", `<audio src="ht\ntps://${A}"></audio>`],
+	["a tab inside the address", `<audio src="ht\ttps://${A}"></audio>`],
+	["one slash", `<audio src="https:/${A}"></audio>`],
+	["no slash", `<audio src="https:${A}"></audio>`],
+	["backslashes", `<audio src="https:\\\\${A}"></audio>`],
+	["an upper-case scheme", `<AUDIO SRC="HTTPS://${A}"></AUDIO>`],
+	["a video", `<video src="&#104;ttps://media.example.org/clip.webm"></video>`],
+	["a source inside", `<audio><source src="&#104;ttps://${A}"></audio>`],
+	["a frame", `<iframe src="&#104;ttps://media.example.org/frame.html"></iframe>`],
+	["an embed in Markdown, a reference", `![x](&#104;ttps://${A})`],
+	["an embed in Markdown, a hex reference", `![x](&#x68;ttps://${A})`],
+	["an embed in Markdown, named references", `![x](https&colon;&sol;&sol;${A})`],
+	["an embed in Markdown, one slash", `![x](https:/${A})`],
+	["an embed in Markdown, no slash", `![x](https:${A})`],
+	["an embed in Markdown, three slashes", `![x](https:///${A})`],
+	["an embed in Markdown, escaped slashes", `![x](https:\\/\\/${A})`],
+	["a reference definition with a reference", `![x][r]\n\n[r]: &#104;ttps://${A}`],
+	["a reference definition with one slash", `![x][r]\n\n[r]: https:/${A}`],
+	["a first source that is local", `<audio controls><source src="nothing.xyz" type="audio/xyz"><source src="https://${A}"></audio>`],
+	["a first source that is a reference", `<audio controls><source src="&#109;edia.xyz" type="audio/xyz"><source src="&#104;ttps://${A}"></audio>`],
+	["a raw picture tag that is audio", `<img src="https://${A}">`],
+	["a raw picture tag that is audio, a reference", `<img src="&#104;ttps://${A}">`],
+	["a raw image tag that is audio", `<image src="https://${A}">`],
+];
+
+test("an address is read as a browser reads it: references, line breaks and a scheme with one slash or none are all remote", () => {
+	for (const [what, md] of DISGUISED) {
+		// (a definition is its own line: it is not wrapped)
+		for (const wrap of md.includes("\n[r]:") ? [(x) => x] : [(x) => x, (x) => `> ${x}`, (x) => `- ${x}`, (x) => `Before ${x} after`]) {
+			const g = gateMedia(wrap(md), ctx("block", OPEN));
+			assert.ok(g.slots.length >= 1, `${what}: ${wrap(md)}`);
+			// a definition nothing uses any more is not drawn
+			assert.ok(!/example\.|&#|&colon|:\/|https?:/i.test(g.text.replace(/^\[r\]:.*$/gm, "")), `${what} left something for Obsidian: ${g.text}`);
+		}
+		const inline = gateMedia(md, ctx("inline", OPEN));
+		assert.deepEqual(inline.slots, [], what);
+		assert.ok(!/:\/|https?:|&#|&colon|<\s*(?:audio|video|source|iframe|img|image|track|embed|object)\b/i.test(inline.text.replace(/^\[r\]:.*$/gm, "")), `${what} in a title left something for Obsidian: ${inline.text}`);
+	}
+});
+
+test("the address in a slot is the one the browser would have loaded", () => {
+	const at = (md) => gateMedia(md, ctx("block", OPEN)).slots[0]?.addr;
+	const want = "https://media.example.org/tone.wav";
+	for (const md of [`<audio src="&#104;ttps://${A}"></audio>`, `<audio src="ht\ntps://${A}"></audio>`, `<audio src="https:/${A}"></audio>`, `<audio src="https:${A}"></audio>`, `![x](https:/${A})`, `![x](https:${A})`, `![x](https:///${A})`, `![x](&#x68;ttps://${A})`, `![x](https\\:\\/\\/${A})`])
+		assert.equal(at(md), want, md);
+	// a reference is read once: written twice it is only an address that is not one
+	assert.equal(gateMedia(`<audio src="&amp;#104;ttps://${A}"></audio>`, ctx()).slots.length, 0);
+	assert.equal(gateMedia(`![x](%68ttps://${A})`, ctx()).slots.length, 0);
+	// an unknown named reference is left as it is
+	assert.equal(gateMedia(`<audio src="&constructor;https://${A}"></audio>`, ctx()).slots.length, 0);
+});
+
+test("a tag with a source of its own plays from it; one without plays from the first of its sources that is remote", () => {
+	const two = gateMedia(`<audio controls><source src="a.xyz"><source src="https://${A}"><source src="https://other.example.net/b.mp3"></audio>`, ctx());
+	assert.equal(two.slots.length, 1);
+	assert.equal(two.slots[0].addr, "https://media.example.org/tone.wav");
+	// a browser ignores the sources inside a tag whose own address is local; the gate still takes a remote `source` as a tag of its own (harmless: nothing was going to load)
+	assert.equal(gateMedia(`<audio src="local.wav" controls><source src="https://${A}"></audio>`, ctx()).slots.length, 1);
+	// all local: left to Obsidian
+	const local = '<audio controls><source src="a.mp3"><source src="b.ogg"></audio>';
+	assert.equal(gateMedia(local, ctx()).text, local);
+});
+
+test("an address Obsidian turns into a frame of its own is never left to it, whatever its ending", () => {
+	for (const u of [
+		"https://youtu.be/abcDEF12345.png",
+		"https://www.youtube.com/watch?v=abcDEF12345.jpg",
+		"http://www.youtube.com/watch?v=abcDEF12345.gif",
+		"https://m.youtube.com/watch?v=abcDEF12345",
+		"https://www.youtube.com/playlist?list=PLabc",
+		"https://youtu.be/short",
+		"https://twitter.com/someone/status/1234567890",
+		"https://x.com/someone/status/1234567890.png",
+		"https://mobile.twitter.com/someone/status/1234567890",
+	]) {
+		for (const allows of [NONE, { vault: ["youtube.com", "twitter.com", "x.com", "youtu.be"], notes: {} }]) {
+			const g = gateMedia(`![a](${u}) and <img src="${u}">`, ctx("block", allows));
+			assert.equal(g.slots.length, 2, u);
+			assert.ok(!/youtu|twitter|x\.com/.test(g.text), `${u} left for Obsidian: ${g.text}`);
+			const inline = gateMedia(`![a](${u}) and <img src="${u}">`, ctx("inline", allows));
+			assert.ok(!/:\/|<img/.test(inline.text), `${u} in a title: ${inline.text}`);
+			assert.deepEqual(inline.slots, [], u);
+		}
+	}
+	// a picture of another site stays a picture
+	const pic = "![p](https://img.example.org/p.png) <img src=\"https://img.example.org/q.png\"> ![v](https://notyoutube.com/x.png) ![w](https://box.com/a/1.png)";
+	assert.equal(gateMedia(pic, ctx()).text, pic);
+});
+
+test("a raw picture tag is gated only when what it loads is audio, video or a frame of Obsidian's: pictures stay Obsidian's", () => {
+	for (const same of ['<img src="https://img.example.org/p.png">', '<img src="https://img.example.org/p">', '<img srcset="https://img.example.org/p.png 1x">', '<img src="local.png">', '<img src="media/a.mp3">', '<video src="local.mp4" poster="https://img.example.org/p.png"></video>', '<div style="background:url(https://img.example.org/p.png)">x</div>'])
+		assert.equal(gateMedia(same, ctx()).text, same, same);
+	const g = gateMedia('<img src="https://media.example.org/a.mp3" alt="A song">', ctx("block", OPEN));
+	assert.equal(g.slots[0].type, "media");
+	assert.equal(g.slots[0].alt, "A song");
+});
+
+test("forms Obsidian does not fetch are left alone or gated harmlessly: a remote wiki embed, a link, frames it strips", () => {
+	// `![[https://...]]` draws an empty embed span and requests nothing (spike S1, and B2 again): left to Obsidian in a block, words in a title
+	const wiki = "![[https://media.example.org/a.mp3]]";
+	assert.equal(gateMedia(wiki, ctx()).text, wiki);
+	assert.equal(gateMedia(wiki, ctx("inline")).text, "a.mp3");
+	// a plain link and an autolink are links in Obsidian
+	const links = "[a](https://media.example.org/a.mp3) and <https://media.example.org/b.mp3> and https://media.example.org/c.mp3";
+	assert.equal(gateMedia(links, ctx()).text, links);
+	// `<embed>` and `<object>` are stripped by Obsidian; the gate makes them links all the same
+	const g = gateMedia('<embed src="https://media.example.org/a.mp3"> <object data="https://media.example.org/b.mp3"></object>', ctx());
+	assert.deepEqual(g.slots.map((s) => [s.type, s.why]), [["link", "frame"], ["link", "frame"]]);
+	// a frame with a `srcdoc` loads nothing of its own: Obsidian drops the attribute (spike B2)
+	const doc = '<iframe srcdoc="x"></iframe>';
+	assert.equal(gateMedia(doc, ctx()).text, doc);
+});
+
+test("everywhere a piece of the note's Markdown is drawn, the same gate applies: help, prose and openings are block; titles, options, anchors, matrix items and labels are inline", () => {
+	// view.ts md() is the one place Markdown reaches Obsidian, and takes the mode with it: the forms above hold in both
+	const forms = [`![x](https://${A})`, `<audio src="&#104;ttps://${A}"></audio>`, `<video src="https:/media.example.org/c.webm"></video>`, `<img src="https://${A}">`, `![t](https://twitter.com/a/status/12)`, `<audio><source src="n.xyz"><source src="https://${A}"></audio>`];
+	for (const f of forms) {
+		for (const mode of ["block", "inline"]) {
+			const g = gateMedia(`Some ${f} words\n\n| ${f} | b |\n\n> [!note] ${f}\n> ${f}`, ctx(mode, OPEN));
+			assert.ok(!/example\.org\/|twitter|:\/\/|&#/i.test(g.text), `${mode}: ${f} left something: ${g.text}`);
 		}
 	}
 });

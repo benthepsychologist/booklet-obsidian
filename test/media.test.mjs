@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, SUGGESTED_HOSTS } = core;
+const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, hostList, isEmbedAddress, SUGGESTED_HOSTS } = core;
 
 test("mediaClass: the extension of the path decides, in any case, before a query or a fragment", () => {
 	for (const e of ["mp3", "m4a", "ogg", "opus", "wav", "flac"]) assert.equal(mediaClass(`media/x.${e}`), "audio", e);
@@ -45,17 +45,21 @@ test("serviceOf: the pages of the services the plugin knows, with a player built
 	const yt = serviceOf("https://www.youtube.com/watch?v=abcDEF12345&t=30");
 	assert.equal(yt.name, "YouTube");
 	assert.equal(yt.kind, "video");
-	assert.equal(yt.embedUrl, "https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1&rel=0");
+	assert.equal(yt.native, "https://www.youtube.com/watch?v=abcDEF12345", "the address Obsidian is handed on the press, built from the id alone");
+	assert.equal(yt.embedUrl, null, "the plugin makes no frame of its own for YouTube");
 	assert.deepEqual(yt.hosts, ["youtube.com", "youtu.be", "youtube-nocookie.com"]);
-	assert.match(yt.allow, /fullscreen/);
-	for (const u of ["https://youtu.be/abcDEF12345", "https://youtube.com/shorts/abcDEF12345", "https://m.youtube.com/watch?v=abcDEF12345", "https://www.youtube.com/embed/abcDEF12345", "https://music.youtube.com/watch?v=abcDEF12345"])
-		assert.equal(serviceOf(u)?.embedUrl, yt.embedUrl, u);
+	assert.deepEqual(yt.also, ["releases.obsidian.md"], "Obsidian's own frame is covered, and allows nothing alone");
+	assert.deepEqual(yt.shown, ["youtube.com", "releases.obsidian.md"]);
+	for (const u of ["https://youtu.be/abcDEF12345", "https://youtube.com/shorts/abcDEF12345", "https://m.youtube.com/watch?v=abcDEF12345", "https://www.youtube.com/embed/abcDEF12345", "https://music.youtube.com/watch?v=abcDEF12345", "https://www.youtube-nocookie.com/embed/abcDEF12345", "https://youtu.be/abcDEF12345?t=30", "https://www.youtube.com/watch?v=abcDEF12345&list=PLx"])
+		assert.equal(serviceOf(u)?.native, yt.native, u);
 	for (const u of ["https://www.youtube.com/watch?v=short", "https://www.youtube.com/watch?v=abcDEF12345/../x", "https://www.youtube.com/", "https://www.youtube.com/channel/abcDEF12345", "https://youtu.be/", "http://youtu.be/abcDEF12345", "https://evilyoutube.com/watch?v=abcDEF12345", "https://youtube.com.evil.example/watch?v=abcDEF12345", "https://u:p@youtu.be/abcDEF12345"])
 		assert.equal(serviceOf(u), null, u);
 
 	const vm = serviceOf("https://vimeo.com/123456789");
 	assert.equal(vm.name, "Vimeo");
 	assert.equal(vm.embedUrl, "https://player.vimeo.com/video/123456789?autoplay=1");
+	assert.equal(vm.native, null, "Vimeo keeps the plugin's own frame");
+	assert.deepEqual(vm.shown, ["player.vimeo.com"]);
 	assert.equal(serviceOf("https://player.vimeo.com/video/123456789").embedUrl, vm.embedUrl);
 	assert.equal(serviceOf("https://vimeo.com/123456789/abcdef012345").embedUrl, "https://player.vimeo.com/video/123456789?autoplay=1&h=abcdef012345");
 	assert.equal(serviceOf("https://vimeo.com/channels/staffpicks/123456789").embedUrl, vm.embedUrl);
@@ -89,9 +93,23 @@ test("serviceAllowed: the link's own host, or any host of the service, on the li
 	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "N.md"), true);
 	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "Other.md"), false, "another note's list is not this note's");
 	assert.equal(serviceAllowed(svc, link, { vault: ["example.org"], notes: {} }, "N.md"), false);
-	assert.deepEqual(alsoCovers("youtube.com"), ["youtu.be", "youtube-nocookie.com"]);
+	assert.deepEqual(alsoCovers("youtube.com"), ["youtu.be", "youtube-nocookie.com", "releases.obsidian.md"]);
+	assert.deepEqual(alsoCovers("youtu.be"), ["youtube.com", "youtube-nocookie.com", "releases.obsidian.md"]);
+	assert.deepEqual(alsoCovers("releases.obsidian.md"), [], "Obsidian's frame host is not an entry that stands for YouTube");
+	assert.equal(serviceAllowed(svc, link, { vault: ["releases.obsidian.md"], notes: {} }, "N.md"), false, "and allows no YouTube");
+	assert.equal(hostList([]), "");
+	assert.equal(hostList(["a"]), "a");
+	assert.equal(hostList(["a", "b"]), "a and b");
+	assert.equal(hostList(["a", "b", "c"]), "a, b and c");
 	assert.deepEqual(alsoCovers("vimeo.com"), []);
 	assert.deepEqual(alsoCovers("media.example.org"), []);
 	assert.deepEqual(SUGGESTED_HOSTS, ["youtube.com", "vimeo.com", "spotify.com", "soundcloud.com"]);
 	for (const h of SUGGESTED_HOSTS) assert.equal(core.normaliseEntry(h).entry, h, `${h} is an entry as it stands`);
+});
+
+test("isEmbedAddress: the hosts Obsidian turns into a frame of its own when an image has their address, whatever the rest says", () => {
+	for (const u of ["https://youtu.be/abcDEF12345", "http://youtu.be/abcDEF12345", "https://www.youtube.com/watch?v=abcDEF12345", "https://m.youtube.com/anything", "https://music.youtube.com/", "https://youtube.com/embed/abcDEF12345.png", "https://youtu.be/abcDEF12345.png", "https://www.youtube-nocookie.com/embed/abcDEF12345", "https://twitter.com/someone/status/1234567890", "https://x.com/someone/status/1234567890.png", "https://mobile.twitter.com/a/status/1", "https://www.x.com/a/status/1"])
+		assert.equal(isEmbedAddress(u), true, u);
+	for (const u of ["https://evilyoutube.com/x", "https://youtube.com.evil.example/x", "https://media.example.org/youtube.com", "ftp://youtu.be/x", "not an address", "https://fakeyoutu.be/x", "https://box.com/a", "https://nox.com/a", "https://x.com.evil.example/a", "https://vimeo.com/123456789"])
+		assert.equal(isEmbedAddress(u), false, u);
 });

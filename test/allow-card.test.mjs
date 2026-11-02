@@ -40,7 +40,7 @@ test("the card from the button: a title, the two lists, the blank, 'https is ass
 	for (const ul of card().querySelectorAll("ul")) assert.ok(ul.getAttribute("aria-labelledby"), "each list is named by its heading");
 	assert.match(words(card()), /https is assumed/);
 	assert.match(words(card()), /https:\/\/\*\.youtube\.com\/\*/);
-	assert.match(words(card()), /Allowing youtube\.com also covers youtu\.be and youtube-nocookie\.com, which its player uses\./);
+	assert.match(words(card()), /Allowing youtube\.com also covers youtu\.be, youtube-nocookie\.com and releases\.obsidian\.md, which its player uses\./);
 	assert.deepEqual(buttons(), ["Add for every note", "Add for this note", "Close"]);
 	assert.equal(card().querySelector("label[for]").getAttribute("for"), card().querySelector('input[type="text"]').id, "the blank has a label");
 	c.close();
@@ -158,7 +158,7 @@ test("a checkbox unticked takes the site off at once, and ticked again puts it b
 
 test("a press on media from a site not allowed: the cost, three scopes with their costs, and Not now with the focus", () => {
 	const { media } = lists();
-	const c = open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("not chosen") } });
+	const c = open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("not chosen"), again: () => assert.fail("not chosen") } });
 	assert.equal(words(card().querySelector("h2")), "Allow media from media.example.org?");
 	assert.match(words(card().querySelector(".booklet-allow-request")), /^media\.example\.org will see when you play and from where\./);
 	assert.deepEqual(buttons().slice(0, 4), ["Allow once", "Allow for this note", "Allow for this vault", "Not now"]);
@@ -179,8 +179,9 @@ test("a press on media from a site not allowed: the cost, three scopes with thei
 
 test("a service names the hosts its player also uses", () => {
 	const { media } = lists();
-	open(media, { request: { kind: "media", host: "www.youtube-nocookie.com", entry: "youtube.com", once: () => {} } });
-	assert.match(words(card().querySelector(".booklet-allow-request")), /^www\.youtube-nocookie\.com will see when you play and from where\.\s*Allowing youtube\.com also covers youtu\.be and youtube-nocookie\.com, which its player uses\./);
+	open(media, { request: { kind: "media", host: "YouTube (youtube.com, releases.obsidian.md)", entry: "youtube.com", once: () => {}, again: () => {} } });
+	assert.equal(words(card().querySelector("h2")), "Allow media from YouTube (youtube.com, releases.obsidian.md)?");
+	assert.match(words(card().querySelector(".booklet-allow-request")), /^YouTube \(youtube\.com, releases\.obsidian\.md\) will see when you play and from where\.\s*Allowing youtube\.com also covers youtu\.be, youtube-nocookie\.com and releases\.obsidian\.md, which its player uses\./);
 	esc();
 });
 
@@ -188,7 +189,7 @@ test("Allow once calls for that piece with the press and keeps nothing: not in m
 	const { media, saved } = lists();
 	const got = [];
 	const told = [];
-	open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: (evt) => got.push(evt.type) }, returnFocus: () => assert.fail("the player takes the focus"), onClose: (s) => told.push(s) });
+	open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: (evt) => got.push(evt.type), again: () => assert.fail("again") }, returnFocus: () => assert.fail("the player takes the focus"), onClose: (s) => told.push(s) });
 	click(byText("Allow once"));
 	assert.deepEqual(got, ["click"]);
 	assert.equal(card(), null);
@@ -202,21 +203,25 @@ test("Allow once calls for that piece with the press and keeps nothing: not in m
 test("Allow for this note and for this vault keep the site and close the card; the data file says which", async () => {
 	const note = lists();
 	let back = 0;
-	open(note.media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("once") }, returnFocus: () => (back++, null) });
+	const told = [];
+	open(note.media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("once"), again: (evt) => told.push([evt.type, core.isAllowed("https://media.example.org/a.mp3", note.media.allows(), PATH)]) }, returnFocus: () => (back++, null) });
 	click(byText("Allow for this note"));
+	assert.deepEqual(told, [["click", false]], "the slot is told with the press, before the list changes");
 	assert.equal(card(), null);
 	await note.media.saved();
 	assert.deepEqual(note.saved.at(-1), { allowedMediaHosts: [], noteAllows: { [PATH]: ["media.example.org"] } });
 	assert.equal(back, 1);
 
 	const vault = lists();
-	const told = [];
-	open(vault.media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("once") }, onClose: (s) => told.push(s) });
+	const closed = [];
+	let again = 0;
+	open(vault.media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => assert.fail("once"), again: () => again++ }, onClose: (s) => closed.push(s) });
 	click(byText("Allow for this vault"));
 	assert.equal(card(), null);
 	await vault.media.saved();
 	assert.deepEqual(vault.saved.at(-1), { allowedMediaHosts: ["media.example.org"], noteAllows: {} });
-	assert.deepEqual(told, [{ changed: true, answered: true, left: [] }]);
+	assert.deepEqual(closed, [{ changed: true, answered: true, left: [] }]);
+	assert.equal(again, 1);
 });
 
 test("a request for the sites a booklet names: each site with its own two buttons, and Not now", () => {
@@ -249,7 +254,7 @@ test("one card at a time in a window: a second request replaces the first", () =
 	const { media } = lists();
 	const a = [];
 	open(media, { onClose: (s) => a.push(s) });
-	open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => {} } });
+	open(media, { request: { kind: "media", host: "media.example.org", entry: "media.example.org", once: () => {}, again: () => {} } });
 	assert.equal(doc.querySelectorAll(".booklet-allow-card").length, 1);
 	assert.equal(a.length, 1);
 	assert.equal(words(card().querySelector("h2")), "Allow media from media.example.org?");
@@ -407,7 +412,7 @@ test("Add suggested services is a one-time action that puts the suggestions on t
 	await s.media.saved();
 	assert.equal(s.saved.length, n);
 	assert.equal(Notice.said.at(-1), "The suggested services are already on the list.");
-	assert.match(words(s.el), /Also covers youtu\.be and youtube-nocookie\.com, which its player uses\./);
+	assert.match(words(s.el), /Also covers youtu\.be, youtube-nocookie\.com and releases\.obsidian\.md, which its player uses\./);
 	s.done();
 });
 
