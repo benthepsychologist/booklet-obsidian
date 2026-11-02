@@ -4,7 +4,7 @@
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
 // leftovers-checks.js; 29 to 32 in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
-// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 (0.12.0, audio and video) in media-checks.js. README.md in
+// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 and 56 to 59 (0.12.0, audio and video) in media-checks.js. README.md in
 // this folder says what each one checks.
 // Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
@@ -20,8 +20,8 @@ const LINT = opt.lint || process.env.BOOKLET_LINTER || path.join(process.env.BOO
 const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
 // checks 35 to 41 (0.11.0, data safety; safety-checks.js) and 42 to 45 (access-checks.js) join the default list, just before check 10
 if (!opt.only) only.splice(only.length - 1, 0, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
-// checks 48 to 54 and 56 (0.12.0, media-checks.js) and 55 (mobile-checks.js) need the local https server and Obsidian's host-resolver flags, which their own launcher (media-lib.js) sets
-if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54, 55, 56);
+// checks 48 to 54 and 56 to 59 (0.12.0, media-checks.js) and 55 (mobile-checks.js) need the local https server and Obsidian's host-resolver flags, which their own launcher (media-lib.js) sets
+if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59);
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1921,7 +1921,7 @@ async function check10() {
   c.ok(!only.includes(47) || sessions.includes("c47"), "and the names check's: " + sessions.join(", "));
   c.ok(!only.includes(35) || sessions.includes("c35"), "and the damaged records check's: " + sessions.join(", "));
   const labels38 = ["half", "after", "continuous", "quit"].flatMap(l => ["c38-" + l, "c38-" + l + "-restart"]);
-  for (const [n, names] of [[36, ["c36-view", "c36-md"]], [37, ["c37"]], [38, [...labels38, "c38-leave"]], [39, ["c39-disk", "c39-move"]], [40, ["c40-toggle", "c40-popout", "c40-panes", "c40-restart", "c40-restart-again"]], [41, ["c41"]], [42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]], [48, ["c48"]], [49, ["c49"]], [50, ["c50-open", "c50-scopes"]], [51, ["c51", "c51-restart", "c51-restart-again"]], [52, ["c52"]], [53, ["c53"]], [54, ["c54-desktop", "c54-phone"]], [56, ["c56", "c56-hosted", "c56-service", "c56-disable", "c56-kill", "c56-kill-restart", "c56-kill-restart-again"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
+  for (const [n, names] of [[36, ["c36-view", "c36-md"]], [37, ["c37"]], [38, [...labels38, "c38-leave"]], [39, ["c39-disk", "c39-move"]], [40, ["c40-toggle", "c40-popout", "c40-panes", "c40-restart", "c40-restart-again"]], [41, ["c41"]], [42, ["c42"]], [43, ["c43"]], [44, ["c44"]], [45, ["c45-desktop", "c45-phone"]], [48, ["c48"]], [49, ["c49"]], [50, ["c50-open", "c50-scopes"]], [51, ["c51", "c51-restart", "c51-restart-again"]], [52, ["c52"]], [53, ["c53"]], [54, ["c54-desktop", "c54-phone"]], [57, ["c57"]], [58, ["c58", "c58-stale", "c58-settings"]], [59, ["c59"]], [56, ["c56", "c56-hosted", "c56-service", "c56-disable", "c56-kill", "c56-kill-restart", "c56-kill-restart-again"]]]) c.ok(!only.includes(n) || names.every(x => sessions.includes(x)), `and check ${n}'s (${names.join(", ")})`);
   c.ok(!only.includes(32) || ["c32-one-pane", "c32-markdown-pane", "c32-phone", "c32-typed-draft"].every(x => sessions.includes(x)), "and the deleting check's four (one pane, with a Markdown pane, a phone's width, a draft typed first): " + sessions.join(", "));
   c.info("stdout/stderr lines with error in them: " + consoleReport.filter(r => /^stdout/.test(r.kind)).length + " (listed under INFO below)");
   return c;
