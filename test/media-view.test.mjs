@@ -323,6 +323,41 @@ test("frames, raw media tags and addresses that are not media are links naming t
 	g.remove();
 });
 
+test("a press reads the allow list as it stands: a site she removed since the slot was drawn asks first", () => {
+	calls.length = 0;
+	let live = true;
+	const d = draw("![Ep](https://media.example.org/e.mp3)", OPEN, { allowed: () => live });
+	assert.equal(d.el.querySelector(".booklet-media-slot").getAttribute("data-state"), "ready", "drawn allowed");
+	live = false;
+	click(d.el.querySelector("button.booklet-media-play"));
+	assert.equal(d.asked.length, 1, "removed a moment ago: the card asks");
+	assert.equal(d.el.querySelectorAll("audio").length, 0);
+	assert.deepEqual(calls, [], "and nothing was requested");
+	live = true;
+	click(d.el.querySelector("button.booklet-media-play"));
+	assert.equal(d.el.querySelectorAll("audio").length, 1, "allowed again: it plays");
+	d.remove();
+	// a slot drawn blocked whose site was allowed since plays at once too
+	const e = draw("![Ep](https://media.example.org/e.mp3)", NONE, { allowed: () => true });
+	click(e.el.querySelector("button.booklet-media-play"));
+	assert.equal(e.asked.length, 0);
+	assert.equal(e.el.querySelectorAll("audio").length, 1);
+	e.remove();
+});
+
+test("a share on another machine is named and never made a link", () => {
+	const d = draw("![Song](file://evil.example/share/a.mp3)\n\n<audio src=\"file://evil.example/share/b.mp3\"></audio>", OPEN);
+	const slots = Array.from(d.el.querySelectorAll(".booklet-media-slot"));
+	assert.equal(slots.length, 2);
+	assert.equal(slots[0].getAttribute("data-state"), "refused");
+	assert.match(words(slots[0]), /Song from evil\.example\. This address does not use https, so it cannot be played here\./);
+	assert.equal(slots[1].getAttribute("data-state"), "frame");
+	assert.equal(words(slots[1]), "evil.example from evil.example");
+	assert.equal(d.el.querySelectorAll("a").length, 0, "no link to follow");
+	assert.deepEqual(remoteSrc(d.el), []);
+	d.remove();
+});
+
 test("a slot with words around it stays in its paragraph; a token with no slot draws nothing", () => {
 	const d = draw("Hear ![Ep](https://media.example.org/e.mp3) now.", OPEN);
 	const p = d.el.querySelector("p");

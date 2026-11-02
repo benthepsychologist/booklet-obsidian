@@ -5,31 +5,24 @@
  * Plain TypeScript: nothing here imports Obsidian.
  */
 import { entryCovers, isAllowed, type Allows } from "./allow";
+import { parseUrl } from "./media";
 
-export interface Service {
+interface ServiceBase {
 	name: string;
 	kind: "audio" | "video";
-	/** The address the plugin's own framed player loads; null for a service Obsidian embeds itself (`native`). */
-	embedUrl: string | null;
-	/** The address handed to Obsidian as `![](address)` on the press, when Obsidian draws the service's player itself (YouTube); else null. Built from the id alone. */
-	native: string | null;
-	/** Every host the service's links and player belong to; allowing any of them allows the service. */
+	/** Every host the service's links belong to (a link on any of them is the service's); the first is the entry the allow card offers. */
 	hosts: string[];
-	/** Hosts the player also uses that allowing the service covers (Obsidian's own frame for YouTube); they allow nothing on their own. */
-	also: string[];
-	/** The hosts the reader is told a press will ask. */
+	/** Every host the player loads from, which the reader is told a press will ask (for YouTube, Obsidian's own frame as well); the service is allowed when the list covers them all (`serviceAllowed`). */
 	shown: string[];
 	/** What the framed player may use (its `allow` attribute): no more than it needs. */
 	allow: string;
 }
 
-function parse(url: string): URL | null {
-	try {
-		return new URL(url.trim());
-	} catch {
-		return null;
-	}
-}
+/**
+ * A service is played one of two ways. `native`: the address handed to Obsidian as `![](address)` on the press, when Obsidian draws
+ * the service's player itself (YouTube), built from the id alone. `embedUrl`: the address the plugin's own framed player loads.
+ */
+export type Service = ServiceBase & ({ native: string; embedUrl: null } | { native: null; embedUrl: string });
 
 const YT_ID = /^[A-Za-z0-9_-]{11}$/;
 const YT_HOST = /^(?:(?:www|m|music)\.)?youtube\.com$|^(?:www\.)?youtube-nocookie\.com$/;
@@ -59,7 +52,7 @@ function youtube(u: URL): Service | null {
 	} else return null;
 	if (!YT_ID.test(id)) return null;
 	// Obsidian draws YouTube itself where a raw embed of ours may say "unavailable" in the app: on the press the plugin hands it this address
-	return { name: "YouTube", kind: "video", embedUrl: null, native: `https://www.youtube.com/watch?v=${id}`, hosts: YOUTUBE_HOSTS, also: OBSIDIAN_FRAME_HOSTS, shown: ["youtube.com", ...OBSIDIAN_FRAME_HOSTS], allow: "" };
+	return { name: "YouTube", kind: "video", embedUrl: null, native: `https://www.youtube.com/watch?v=${id}`, hosts: YOUTUBE_HOSTS, shown: ["youtube.com", ...OBSIDIAN_FRAME_HOSTS], allow: "" };
 }
 
 function vimeo(u: URL): Service | null {
@@ -70,7 +63,7 @@ function vimeo(u: URL): Service | null {
 	const hash = u.hostname === "player.vimeo.com" ? u.searchParams.get("h") : m[2];
 	const h = hash && /^[0-9a-f]{6,}$/.test(hash) ? `&h=${hash}` : "";
 	const embedUrl = `https://player.vimeo.com/video/${m[1]}?autoplay=1${h}`;
-	return { name: "Vimeo", kind: "video", embedUrl, native: null, hosts: VIMEO_HOSTS, also: [], shown: [hostOfUrl(embedUrl)], allow: "autoplay; picture-in-picture; fullscreen" };
+	return { name: "Vimeo", kind: "video", embedUrl, native: null, hosts: VIMEO_HOSTS, shown: [hostOfUrl(embedUrl)], allow: "autoplay; picture-in-picture; fullscreen" };
 }
 
 function spotify(u: URL): Service | null {
@@ -78,7 +71,7 @@ function spotify(u: URL): Service | null {
 	const m = /^\/(?:intl-[a-z]{2,3}\/)?(episode|track|show|album|playlist)\/([^/]+)\/?$/.exec(u.pathname);
 	if (!m || !SPOTIFY_ID.test(m[2] ?? "")) return null;
 	const embedUrl = `https://open.spotify.com/embed/${m[1]}/${m[2]}`;
-	return { name: "Spotify", kind: "audio", embedUrl, native: null, hosts: SPOTIFY_HOSTS, also: [], shown: [hostOfUrl(embedUrl)], allow: "encrypted-media; fullscreen; picture-in-picture" };
+	return { name: "Spotify", kind: "audio", embedUrl, native: null, hosts: SPOTIFY_HOSTS, shown: [hostOfUrl(embedUrl)], allow: "encrypted-media; fullscreen; picture-in-picture" };
 }
 
 function soundcloud(u: URL): Service | null {
@@ -87,22 +80,27 @@ function soundcloud(u: URL): Service | null {
 	if (!m || SOUNDCLOUD_RESERVED.has((m[1] ?? "").toLowerCase())) return null;
 	const path = `${m[1]}/${m[2] ? "sets/" : ""}${m[3]}`;
 	const embedUrl = `https://w.soundcloud.com/player/?url=${encodeURIComponent(`https://soundcloud.com/${path}`)}&auto_play=true`;
-	return { name: "SoundCloud", kind: "audio", embedUrl, native: null, hosts: SOUNDCLOUD_HOSTS, also: [], shown: [hostOfUrl(embedUrl)], allow: "autoplay" };
+	return { name: "SoundCloud", kind: "audio", embedUrl, native: null, hosts: SOUNDCLOUD_HOSTS, shown: [hostOfUrl(embedUrl)], allow: "autoplay" };
 }
 
 /** The service an `https:` address is a page of (a video, an episode), with its player's address; null for any other address. */
 export function serviceOf(url: string): Service | null {
-	const u = parse(url);
+	const u = parseUrl(url);
 	if (!u || u.protocol !== "https:" || u.username || u.password) return null;
 	return youtube(u) ?? vimeo(u) ?? spotify(u) ?? soundcloud(u);
 }
 
+/** Hosts a player loads from that an entry for the service covers (Obsidian's own frame for YouTube): they allow nothing on their own. */
+const ALSO_HOSTS: ReadonlySet<string> = new Set(OBSIDIAN_FRAME_HOSTS);
+
 /**
- * Is a service's player allowed: the link's own host is on the reader's list, or any host of the service is. So allowing
- * `youtube.com` also allows `youtu.be` links and the player's `youtube-nocookie.com`.
+ * Is a service's player allowed: every host it loads from (`shown`) is on the reader's list, so that a press asks nothing more. The
+ * link's own host does not decide it (`www.vimeo.com` on the list does not cover `player.vimeo.com`, where the player is, and
+ * `www.youtube.com` does not cover `youtube.com`). The one host that is not asked for on its own is Obsidian's frame for YouTube
+ * (`FAMILIES`): an entry that covers YouTube covers it, and the allow card says so (`alsoCovers`).
  */
-export function serviceAllowed(service: Service, link: string, allows: Allows, notePath: string): boolean {
-	return isAllowed(link, allows, notePath) || service.hosts.some((h) => isAllowed(`https://${h}/`, allows, notePath));
+export function serviceAllowed(service: { shown: readonly string[] }, allows: Allows, notePath: string): boolean {
+	return service.shown.filter((h) => !ALSO_HOSTS.has(h)).every((h) => isAllowed(`https://${h}/`, allows, notePath));
 }
 
 /** A service's hosts, and the hosts its player also uses. */
@@ -130,7 +128,7 @@ export function hostList(hosts: readonly string[]): string {
  * address says, even a picture's ending)? Such a frame is requested at render, so the address is never left to Obsidian (gate.ts).
  */
 export function isEmbedAddress(url: string): boolean {
-	const u = parse(url);
+	const u = parseUrl(url);
 	if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) return false;
 	return YT_HOST.test(u.hostname) || /^(?:www\.|m\.)?youtu\.be$/.test(u.hostname) || /^(?:(?:www|mobile)\.)?(?:twitter|x)\.com$/.test(u.hostname);
 }

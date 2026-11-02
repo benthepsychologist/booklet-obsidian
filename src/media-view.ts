@@ -13,6 +13,8 @@ type Playable = Extract<MediaSlot, { type: "media" | "service" }>;
 export interface MediaDeps {
 	/** Is this event a press the reader made? Only a trusted event is: a script cannot start a request by clicking a button. */
 	isPress(evt: Event): boolean;
+	/** Is this slot's media allowed by the list as it stands now? A slot is drawn with what the list said then, and she may have removed the site since; when this is not given the slot's own `allowed` stands. */
+	allowed?: (slot: Playable) => boolean;
 	/** The media is not allowed yet: ask. `once` plays this piece only (given the press that chose it); `again` is told, with the press that chose it, when the choice is to allow the site for this note or this vault (the same slot then starts when the view is drawn again, see `PressedSlot`); `opener` is the button to give focus back to. */
 	ask(req: { slot: Playable; opener: HTMLElement; once: (evt: Event) => void; again: (evt: Event) => void }): void;
 	/** The reader allowed the site for the slot `opener` is in (a press of hers): remember that slot, to start it when the view is drawn again. */
@@ -76,6 +78,9 @@ function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }
 function externalLink(into: HTMLElement, addr: string, text: string): HTMLElement {
 	return into.createEl("a", { cls: "external-link", text, attr: { href: hrefOf(addr), target: "_blank", rel: "noopener noreferrer" } });
 }
+
+/** Does a browser open this address as a page? A share on another machine (`file:`) is named in the page and never made a link: following it would ask that machine. */
+const isWeb = (addr: string): boolean => /^https?:/i.test(addr);
 
 /** What a press on a slot asks, as the reader is told: the file's host, or the service with the hosts of its player ("YouTube (youtube.com, releases.obsidian.md)"). */
 export function playerHost(slot: Playable): string {
@@ -145,8 +150,8 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 		const host = playerHost(slot);
 		live.setText(`Loading ${slot.media} from ${host}`);
 		if (slot.type === "service") {
-			const native = slot.native;
-			if (native) {
+			if (slot.native !== null) {
+				const native = slot.native;
 				// Obsidian draws the player itself from the address in image syntax, where a frame of ours may say "unavailable"
 				const holder = box.createDiv({ cls: "booklet-media-native" });
 				box.insertBefore(holder, row);
@@ -176,7 +181,6 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 				}
 				return;
 			}
-			if (!slot.embedUrl) return;
 			const frame = createFrame(doc, slot, slot.embedUrl);
 			box.insertBefore(frame, row);
 			play.remove();
@@ -228,7 +232,7 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 
 	play.addEventListener("click", (evt) => {
 		if (!deps.isPress(evt)) return;
-		if (slot.allowed) start();
+		if (deps.allowed ? deps.allowed(slot) : slot.allowed) start();
 		else
 			deps.ask({
 				slot,
@@ -252,12 +256,13 @@ function otherSlot(doc: Document, slot: Exclude<MediaSlot, { type: "media" | "se
 		box.setAttribute("data-state", "refused");
 		box.createSpan({ cls: "booklet-media-words", text: slot.alt || (slot.media === "audio" ? "Audio" : "Video") });
 		box.createSpan({ cls: "booklet-media-host", text: ` from ${slot.host}. This address does not use https, so it cannot be played here. ` });
-		externalLink(box, slot.addr, "Open in browser");
+		if (isWeb(slot.addr)) externalLink(box, slot.addr, "Open in browser");
 		return box;
 	}
 	// a frame, a raw media tag, an address that is not media: a link naming its host, never loaded
 	box.setAttribute("data-state", slot.why);
-	externalLink(box, slot.addr, slot.alt || slot.host);
+	if (isWeb(slot.addr)) externalLink(box, slot.addr, slot.alt || slot.host);
+	else box.createSpan({ cls: "booklet-media-words", text: slot.alt || slot.host });
 	box.createSpan({ cls: "booklet-media-host", text: ` from ${slot.host}` });
 	return box;
 }

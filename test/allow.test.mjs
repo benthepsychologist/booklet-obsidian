@@ -55,7 +55,7 @@ test("normaliseEntry: what is not a site says why, in words", () => {
 
 test("isAllowed: the host and its subdomains, https only, read as new URL reads them", () => {
 	const a = allow(["youtube.com"]);
-	for (const u of ["https://youtube.com/watch", "https://www.youtube.com/x.mp3", "https://a.b.youtube.com/", "https://YouTube.COM/", "https://youtube.com:443/x"]) assert.equal(isAllowed(u, a, "N.md"), true, u);
+	for (const u of ["https://youtube.com/watch", "https://www.youtube.com/x.mp3", "https://a.b.youtube.com/", "https://YouTube.COM/", "https://youtube.com:443/x", "https://youtube.com./x", "https://www.youtube.com./x.mp3", "https://youtube.com.:443/x"]) assert.equal(isAllowed(u, a, "N.md"), true, u);
 	for (const u of [
 		"https://evilyoutube.com/x.mp3",
 		"https://youtube.com.evil.example/x.mp3",
@@ -67,7 +67,8 @@ test("isAllowed: the host and its subdomains, https only, read as new URL reads 
 		"https://youtube.com:8443/x.mp3",
 		"https://user:pw@youtube.com/x.mp3",
 		"https://youtube.com@evil.example/x.mp3",
-		"https://youtube.com.:443/x",
+		"https://youtube.com..evil.example/x",
+		"https://evilyoutube.com./x",
 		"ftp://youtube.com/x",
 		"data:audio/wav;base64,AAAA",
 		"media/x.mp3",
@@ -109,4 +110,18 @@ test("entryFor and entryCovers", () => {
 	assert.equal(entryCovers("youtube.com", "www.youtube.com"), true);
 	assert.equal(entryCovers("www.youtube.com", "youtube.com"), false);
 	assert.equal(entryCovers("youtube.com", "youtu.be"), false);
+});
+
+test("a dot ending a host name names the same host: in an entry, in an address, and before a port", () => {
+	assert.deepEqual(normaliseEntry("media.example.org.:8443"), { ok: true, entry: "media.example.org:8443" });
+	assert.equal(normaliseEntry("media.example.org..").ok, false, "two dots are no host name");
+	assert.equal(entryFor("https://cdn.example.com./a.mp3"), "cdn.example.com");
+	assert.equal(entryFor("https://cdn.example.com.:8443/a.mp3"), "cdn.example.com:8443");
+	const a = allow(["cdn.example.com", "media.example.org:8443"]);
+	for (const u of ["https://cdn.example.com./a.mp3", "https://x.cdn.example.com./a.mp3", "https://CDN.example.com.:443/a.mp3", "https://media.example.org.:8443/a.mp3"]) assert.equal(isAllowed(u, a, "N.md"), true, u);
+	for (const u of ["https://cdn.example.com.evil.example./a.mp3", "https://media.example.org.:9443/a.mp3", "https://evilcdn.example.com./a.mp3"]) assert.equal(isAllowed(u, a, "N.md"), false, u);
+	assert.equal(entryCovers("cdn.example.com", "cdn.example.com."), true);
+	assert.equal(entryCovers("cdn.example.com", "x.cdn.example.com."), true);
+	assert.equal(entryCovers("127.0.0.1", "127.0.0.1."), true, "a number with a dot is still that machine");
+	assert.equal(entryCovers("127.0.0.1", "x.127.0.0.1."), false);
 });
