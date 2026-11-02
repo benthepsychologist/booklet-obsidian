@@ -111,12 +111,18 @@ test("ticking Done writes at once, keeps every other key and byte, and unticking
 	await v.settled();
 	assert.deepEqual(v.answer(), { pos: 40, extra: "kept", done: true });
 	assert.equal(v.tick().getAttribute("aria-pressed"), "true");
+	// the pressed state is not colour alone: a check mark the eye sees and a screen reader does not read, and the name stays "Done"
+	assert.ok(v.tick().classList.contains("is-selected"));
+	assert.equal(v.tick().querySelector(".booklet-listen-check")?.getAttribute("aria-hidden"), "true");
+	assert.equal(words(v.tick()).replace(/\s/g, ""), "\u2713Done");
 	assertOutsideUnchanged(orig, v.disk.text, "ticked");
 	assert.equal(words(v.box().querySelector('[aria-live="polite"]')), "Marked done");
 	click(v.tick());
 	await v.settled();
 	assert.deepEqual(v.answer(), { pos: 40, extra: "kept", done: false }, "the key stays where it stands; pos is a place kept, so the answer remains");
 	assert.equal(v.tick().getAttribute("aria-pressed"), "false");
+	assert.equal(v.tick().querySelector(".booklet-listen-check"), null, "no mark when it is not pressed");
+	assert.equal(words(v.tick()), "Done");
 	v.close();
 
 	// never ticked or played: ticked and unticked leaves nothing behind

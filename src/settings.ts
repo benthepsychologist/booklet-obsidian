@@ -7,12 +7,6 @@
 import { Notice, PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
 import { SUGGESTED_HOSTS, alsoCovers, hostList, normaliseEntry, type Allows, type EntryResult } from "./core";
 
-/** The shape of the plugin's data.json: the names are kept (README, "What stays put"). */
-export interface MediaData {
-	allowedMediaHosts: string[];
-	noteAllows: Record<string, string[]>;
-}
-
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
 /** Entries read from saved data: the ones that are entries, once each, in the order they were saved. */
@@ -30,8 +24,8 @@ function entriesOf(raw: unknown): string[] {
 export class MediaAllows {
 	private vault: string[];
 	private notes: Record<string, string[]> = Object.create(null) as Record<string, string[]>;
-	/** Whatever else the data file holds is written back as it was. */
-	private extra: Record<string, unknown> = {};
+	/** Whatever else the data file holds is written back as it was. No prototype, so that a key called `__proto__` is a key like any other and is kept. */
+	private extra: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 	private listeners = new Set<() => void>();
 	private saving: Promise<void> = Promise.resolve();
 	private snapshot: Allows | null = null;
@@ -96,11 +90,6 @@ export class MediaAllows {
 		}
 	}
 
-	/** Waits until every change so far is saved. */
-	saved(): Promise<void> {
-		return this.saving;
-	}
-
 	/** Adds a site to the vault's list. `text` is what the reader typed. A site already there is not added twice. */
 	addVault(text: string): EntryResult {
 		const n = normaliseEntry(text);
@@ -139,6 +128,14 @@ export class MediaAllows {
 		this.changed();
 	}
 
+	/** A note deleted in Obsidian (or a folder with notes in it): the sites allowed for it are forgotten, so a list does not outlive its note and a new note at that path does not start with it. */
+	forgetNote(path: string): void {
+		const gone = Object.keys(this.notes).filter((k) => k === path || k.startsWith(`${path}/`));
+		if (!gone.length) return;
+		for (const k of gone) delete this.notes[k];
+		this.changed();
+	}
+
 	/** A note renamed or moved inside Obsidian: its list goes with it. One moved outside Obsidian is a note with no list: it asks again. */
 	moveNote(from: string, to: string): void {
 		if (from === to || !own(this.notes, from)) return;
@@ -174,41 +171,71 @@ export class BookletSettingTab extends PluginSettingTab {
 	override display(): void {
 		const { containerEl } = this;
 		this.off?.();
-		this.off = this.allows.onChange(() => this.display());
 		containerEl.empty();
 		containerEl.addClass("booklet-settings");
-		new Setting(containerEl).setName("Media from other sites").setHeading();
+		new Setting(containerEl).setName("Allow list for media").setHeading();
 		new Setting(containerEl).setDesc(
-			"Audio and video hosted on these sites can load once you press Play. https is assumed, and a site covers its subdomains: youtube.com stands for https://*.youtube.com/*. A note can never allow a site for you. This list is for every note in this vault; the Allow list button at the top of a note also lets you allow a site for that note alone.",
+			"Audio and video hosted on these sites can load once you press Play. Sites are written by their name, like youtube.com; https is assumed, and a site covers its subdomains. A note can never allow a site for you. This list is for every note in this vault; the Allow list button at the top of a note also lets you allow a site for that note alone.",
 		);
 
-		const list = this.allows.vaultList();
-		if (!list.length) new Setting(containerEl).setDesc("No site is allowed yet.");
-		for (const entry of list) {
-			const covers = alsoCovers(entry);
-			const row = new Setting(containerEl).setName(entry);
-			if (covers.length) row.setDesc(`Also covers ${hostList(covers)}, which its player uses.`);
-			row.addButton((b) => {
-				b.setButtonText("Remove").onClick(() => this.allows.removeVault(entry));
-				b.buttonEl.setAttribute("aria-label", `Remove ${entry}`);
-			});
-		}
+		// only the list is drawn again after a change, so the box below it, the focus and the words said to a screen reader stay where they are
+		const listEl = containerEl.createDiv();
+		const draw = (): void => {
+			listEl.empty();
+			const list = this.allows.vaultList();
+			if (!list.length) new Setting(listEl).setDesc("No site is allowed yet.");
+			for (const entry of list) {
+				const covers = alsoCovers(entry);
+				const row = new Setting(listEl).setName(entry);
+				if (covers.length) row.setDesc(`Also covers ${hostList(covers)}, which its player uses.`);
+				row.addButton((b) => {
+					b.setButtonText("Remove").onClick(() => {
+						const at = this.allows.vaultList().indexOf(entry);
+						this.allows.removeVault(entry);
+						// the button that had the focus is gone: it goes to the next one, else the one before, else the box
+						const left = listEl.querySelectorAll<HTMLElement>("button");
+						(left[Math.min(at, left.length - 1)] ?? input).focus();
+						say(`Removed ${entry}`);
+					});
+					b.buttonEl.setAttribute("aria-label", `Remove ${entry}`);
+				});
+			}
+		};
 
 		const error = containerEl.createDiv({ cls: "setting-item-description booklet-allow-error", attr: { role: "alert" } });
+		// what a change did, said to a screen reader without moving focus
+		const live = containerEl.createDiv({ cls: "booklet-sr", attr: { role: "status", "aria-live": "polite" } });
+		const say = (text: string): void => live.setText(text);
 		let typed = "";
+		let input!: HTMLInputElement;
+		let field!: { setValue(v: string): unknown };
 		const add = () => {
+			const n = normaliseEntry(typed);
+			// a site already on the list is said so, not added a second time and not passed over in silence
+			const had = n.ok && this.allows.vaultList().includes(n.entry);
 			const r = this.allows.addVault(typed);
-			if (!r.ok) error.setText(r.why);
+			if (!r.ok) {
+				error.setText(r.why);
+				return;
+			}
+			error.setText("");
+			typed = "";
+			field.setValue("");
+			input.focus();
+			say(had ? `${r.entry} is already on the list` : `Added ${r.entry}`);
 		};
 		new Setting(containerEl)
 			.setName("Add a site")
-			.setDesc("The site and its ending, like youtube.com.")
+			.setDesc("The site's name, like youtube.com. Enter adds it.")
 			.addText((t) => {
+				field = t;
+				input = t.inputEl;
 				t.setPlaceholder("youtube.com").onChange((v) => {
 					typed = v;
 					error.setText("");
 				});
-				t.inputEl.setAttribute("aria-label", "Site to allow");
+				// the visible name is "Add a site": the accessible name says the same words
+				t.inputEl.setAttribute("aria-label", "Add a site");
 				t.inputEl.addEventListener("keydown", (evt) => {
 					if (evt.key === "Enter") add();
 				});
@@ -221,9 +248,14 @@ export class BookletSettingTab extends PluginSettingTab {
 			.addButton((b) =>
 				b.setButtonText("Add suggested services").onClick(() => {
 					const n = this.allows.addSuggested();
-					new Notice(n ? `Added ${n} suggested ${n === 1 ? "site" : "sites"}.` : "The suggested services are already on the list.");
+					const said = n ? `Added ${n} suggested ${n === 1 ? "site" : "sites"}.` : "The suggested services are already on the list.";
+					new Notice(said);
+					say(said);
 				}),
 			);
+
+		draw();
+		this.off = this.allows.onChange(draw);
 	}
 
 	override hide(): void {

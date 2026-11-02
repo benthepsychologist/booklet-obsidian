@@ -2,7 +2,7 @@
  * Booklet: a booklet note opens in its own view, drawn with Obsidian's own components, and
  * answers are written into the note's records section and nowhere else. No Node or Electron API.
  */
-import { FileView, MarkdownView, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
+import { FileView, MarkdownView, Notice, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
 import { moveHeld } from "./held-store";
 import { BookletSettingTab, MediaAllows } from "./settings";
 import { moveDevice } from "./listen-store";
@@ -20,7 +20,14 @@ export default class BookletPlugin extends Plugin {
 	nowPlaying!: NowPlaying;
 
 	override async onload(): Promise<void> {
-		this.media = new MediaAllows(await this.loadData(), (data) => this.saveData(data));
+		// a data.json that cannot be read must not stop the plugin loading (the booklets would open as plain Markdown, with no word why): it starts with empty lists, says so, and leaves the file alone until she changes a list
+		let saved: unknown = null;
+		try {
+			saved = await this.loadData();
+		} catch {
+			new Notice("Booklet could not read its saved settings and started with none.");
+		}
+		this.media = new MediaAllows(saved, (data) => this.saveData(data));
 		this.nowPlaying = new NowPlaying({
 			app: this.app,
 			writer: new ListenWriter({
@@ -83,6 +90,8 @@ export default class BookletPlugin extends Plugin {
 				if (this.nowPlaying.unsaved()) tasks.add(() => this.nowPlaying.flush());
 			}),
 		);
+		// a note deleted in Obsidian takes the sites allowed for it with it
+		this.registerEvent(this.app.vault.on("delete", (file) => this.media.forgetNote(file.path)));
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				moveHeld(this.app, oldPath, file.path);

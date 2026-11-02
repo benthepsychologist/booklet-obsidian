@@ -1,6 +1,6 @@
 /*
  * The `listen` question drawn and followed (SPEC section 5, "Listen"): the prompt, the media where the author wrote it, a "Done" box the
- * reader can tick, and where she left off. The media is Obsidian's own element (or lane B's slot and player); this file never plays
+ * reader can tick, and where she left off. The media is Obsidian's own element (or the plugin's own slot and player, media-view.ts); this file never plays
  * it, never pauses it, and never seeks it while it plays. What it does is follow it:
  *
  *   - one set of capture listeners on the view (view.ts onload) hands every media event to `Listens.onMedia`, which finds the box
@@ -251,6 +251,14 @@ export class Listens {
 	}
 }
 
+/** The Done box pressed or not: the shared pressed state (colour, aria-pressed), and a check mark in front of the word, so that the state is not colour alone. The mark is for the eye; the name stays "Done". */
+function tickMark(tick: HTMLElement, on: boolean): void {
+	pressed(tick, on);
+	tick.empty();
+	if (on) tick.createSpan({ cls: "booklet-listen-check", text: "\u2713", attr: { "aria-hidden": "true" } });
+	tick.createSpan({ text: "Done" });
+}
+
 /**
  * Draws one `listen` into `card`: its prompt, its media where the author wrote it (the embed, or the link of a video service, as the
  * note has it), the rest of the `>` lines as help, and a row with the "Done" box and where the reader left off. A `listen` in a repeating
@@ -276,7 +284,7 @@ export function drawListen(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	const row = box.createDiv({ cls: "booklet-listen-row" });
 	const tickId = host.uid();
 	// named by the prompt and its own word: "Episode 1: Foundations Done", pressed or not
-	const tick = row.createEl("button", { cls: "booklet-listen-tick", text: "Done", attr: { id: tickId, type: "button", "aria-labelledby": `${promptId} ${tickId}` } });
+	const tick = row.createEl("button", { cls: "booklet-listen-tick", attr: { id: tickId, type: "button", "aria-labelledby": `${promptId} ${tickId}` } });
 	if (helpId) tick.setAttr("aria-describedby", helpId);
 	tick.disabled = locked;
 	const where = row.createSpan({ cls: "booklet-muted booklet-listen-where" });
@@ -286,7 +294,7 @@ export function drawListen(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	let st: ListenState | null = null;
 	const show = () => {
 		const v = host.answerOf(t, q);
-		pressed(tick, answeredOf(q, v));
+		tickMark(tick, answeredOf(q, v));
 		const at = st ? host.listens.view(st, v) : { pos: posIn(v), playing: false };
 		where.setText(!at.playing && at.pos > 0 ? `Left off at ${clock(at.pos)}` : "");
 	};

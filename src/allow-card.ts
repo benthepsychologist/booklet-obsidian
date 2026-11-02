@@ -1,11 +1,12 @@
 /*
- * The allow card (plan-v2): one dialog that lists the sites the reader has allowed, for every note in the vault and for this note,
+ * The allow card (plan-v2): one dialog that lists the sites the reader has allowed, for this vault and for this note,
  * with a box to untick each, and a blank to write one in. It opens from the Allow list button at the top of a booklet, on its own when
  * a booklet names sites the reader has not allowed, and when a press on media from a site not allowed asks. It sits in the window
  * itself, not in the note's drawing, so that it stays up while the note behind it is drawn again after a change. Every choice says
- * what it costs; the default is Not now.
+ * what it costs; the default is Not now. The names are the same everywhere: "Allow once", "Allow for this note", "Allow for this vault", and
+ * the list is the "Allow list".
  */
-import { alsoCovers, hostList } from "./core";
+import { alsoCovers, hostList, normaliseEntry } from "./core";
 import type { MediaAllows } from "./settings";
 
 export type CardRequest =
@@ -42,12 +43,20 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	const backdrop = root.createDiv({ cls: "modal-bg" });
 	const card = root.createDiv({ cls: "modal booklet-allow-card", attr: { role: "dialog", "aria-modal": "true", "aria-labelledby": `booklet-allow-title-${uid}` } });
 	const req = o.request;
+	// a service arrives as "YouTube (youtube.com, releases.obsidian.md)": its name is the title, the hosts are said in the line below
+	const asked = req?.kind === "media" ? /^(.+) \((.+)\)$/.exec(req.host) : null;
+	const askedName = asked ? (asked[1] ?? "") : req?.kind === "media" ? req.host : "";
+	const askedHosts = asked ? (asked[2] ?? "").split(", ") : [];
 	const title = card.createEl("h2", {
 		cls: "modal-title",
-		text: !req ? "Allowed media sites" : req.kind === "media" ? `Allow media from ${req.host}?` : "This booklet plays media from other sites",
+		text: !req ? "Allow list" : req.kind === "media" ? `Allow media from ${askedName}?` : "This booklet plays media from other sites",
 		attr: { id: `booklet-allow-title-${uid}`, tabindex: "-1" },
 	});
 	const body = card.createDiv({ cls: "modal-content" });
+
+	// what a change did, said to a screen reader without moving focus: a row that goes away, a site added
+	const live = card.createDiv({ cls: "booklet-sr", attr: { role: "status", "aria-live": "polite" } });
+	const say = (text: string): void => live.setText(text);
 
 	let changed = false;
 	let answered = false;
@@ -91,7 +100,8 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	let notNow: HTMLElement | null = null;
 	if (req?.kind === "media") {
 		const box = body.createDiv({ cls: "booklet-allow-request" });
-		box.createEl("p", { text: cost(req.host) });
+		if (askedHosts.length) box.createEl("p", { text: `Plays from ${hostList(askedHosts)}.` });
+		box.createEl("p", { text: cost(askedName) });
 		const more = covers(req.entry);
 		if (more) box.createEl("p", { cls: "booklet-allow-covers", text: more });
 		const choices: [string, string][] = [
@@ -121,19 +131,25 @@ export function openAllowCard(o: CardOptions): AllowCard {
 			const row = box.createDiv({ cls: "booklet-allow-choice booklet-allow-declared" });
 			row.createEl("strong", { text: host });
 			row.createEl("span", { cls: "booklet-allow-said", text: cost(host) });
-			const done = () => {
+			// the buttons say their own words and the site after them, so the name holds what is shown ("Allow for this note: media.example.org")
+			const done = (scope: string) => {
 				answered = true;
+				// the row goes, and with it the button that had the focus: it moves to the next row's first button, else to Not now
+				let next: Element | null = row.nextElementSibling;
+				while (next && !next.classList.contains("booklet-allow-declared")) next = next.nextElementSibling;
 				row.remove();
 				left.delete(host);
-				if (!left.size) close();
+				if (!left.size) return close();
+				(next?.querySelector<HTMLElement>("button") ?? notNow)?.focus();
+				say(`${host} allowed for this ${scope}`);
 			};
-			button(row, "Allow for this note", `Allow ${host} for this note`, () => {
+			button(row, "Allow for this note", `Allow for this note: ${host}`, () => {
 				noteAdd(host);
-				done();
+				done("note");
 			});
-			button(row, "Allow for this vault", `Allow ${host} for this vault`, () => {
+			button(row, "Allow for this vault", `Allow for this vault: ${host}`, () => {
 				vaultAdd(host);
-				done();
+				done("vault");
 			});
 		}
 		notNow = button(box.createDiv({ cls: "booklet-allow-choice" }), "Not now", null, () => close());
@@ -166,7 +182,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 				});
 			}
 		};
-		section("vault", "Allowed for every note in this vault", shown.vault, (e) => o.allows.vaultList().includes(e), (e) => o.allows.addVault(e), (e) => o.allows.removeVault(e));
+		section("vault", "Allowed for this vault", shown.vault, (e) => o.allows.vaultList().includes(e), (e) => o.allows.addVault(e), (e) => o.allows.removeVault(e));
 		section("note", "Allowed for this note", shown.note, (e) => o.allows.noteList(o.notePath).includes(e), (e) => o.allows.addNote(o.notePath, e), (e) => o.allows.removeNote(o.notePath, e));
 	};
 	draw();
@@ -176,9 +192,12 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	const inputId = `booklet-allow-input-${uid}`;
 	blank.createEl("label", { text: "Add a site", attr: { for: inputId } });
 	const input = blank.createEl("input", { attr: { id: inputId, type: "text", placeholder: "youtube.com", autocapitalize: "off", autocorrect: "off", spellcheck: "false", inputmode: "url", "aria-describedby": `booklet-allow-hint-${uid}` } });
-	blank.createEl("p", { cls: "booklet-allow-hint", text: "https is assumed. Type the site and its ending, like youtube.com. It covers the site and its subdomains: https://*.youtube.com/*.", attr: { id: `booklet-allow-hint-${uid}` } });
+	blank.createEl("p", { cls: "booklet-allow-hint", text: "Add a site by its name, for example youtube.com. https is assumed: only secure addresses are covered, and the site's subdomains with them. Enter adds it for this note.", attr: { id: `booklet-allow-hint-${uid}` } });
 	const error = blank.createEl("p", { cls: "booklet-allow-error", attr: { role: "alert" } });
 	const put = (scope: "vault" | "note") => {
+		const typed = normaliseEntry(input.value);
+		// a site already on that list is said so, not added a second time and not passed over in silence
+		const had = typed.ok && (scope === "vault" ? o.allows.vaultList() : o.allows.noteList(o.notePath)).includes(typed.entry);
 		const r = scope === "vault" ? vaultAdd(input.value) : noteAdd(input.value);
 		if (!r.ok) {
 			error.setText(r.why);
@@ -190,9 +209,10 @@ export function openAllowCard(o: CardOptions): AllowCard {
 		(scope === "vault" ? shown.vault : shown.note).add(r.entry);
 		draw();
 		input.focus();
+		say(had ? `${r.entry} is already on the list for this ${scope}` : `Added ${r.entry} for this ${scope}`);
 	};
 	const row = blank.createDiv({ cls: "booklet-allow-choice" });
-	button(row, "Add for every note", null, () => put("vault"));
+	button(row, "Add for this vault", null, () => put("vault"));
 	button(row, "Add for this note", null, () => put("note"));
 	input.addEventListener("keydown", (evt) => {
 		// Enter adds for this note, the narrower of the two

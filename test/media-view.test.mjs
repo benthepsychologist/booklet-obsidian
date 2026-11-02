@@ -724,10 +724,10 @@ test("view: a booklet that names sites the reader has not allowed opens the card
 	o = await open("Names two.booklet.md");
 	card = w.document.querySelector(".booklet-allow-card");
 	assert.ok(card);
-	click(card.querySelector('button[aria-label="Allow media.example.org for this vault"]'));
+	click(card.querySelector('button[aria-label="Allow for this vault: media.example.org"]'));
 	assert.deepEqual(media.vaultList(), ["already.example.org", "media.example.org"]);
 	assert.equal(card.querySelector(".booklet-allow-declared strong").textContent, "other.example.net:8443", "the one dealt with is gone from the card");
-	click(card.querySelector('button[aria-label="Allow other.example.net:8443 for this note"]'));
+	click(card.querySelector('button[aria-label="Allow for this note: other.example.net:8443"]'));
 	assert.equal(w.document.querySelector(".booklet-allow-card"), null, "every site dealt with: the card closes");
 	assert.deepEqual(media.noteList("Names two.booklet.md"), ["other.example.net:8443"]);
 	assert.equal(media.noteList("Names.booklet.md").length, 0);

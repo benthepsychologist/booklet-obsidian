@@ -2334,6 +2334,15 @@
 	min-width: 44px;
 }
 
+.booklet-listen-tick.is-selected {
+	/* pressed is told by a check mark and weight as well as by Obsidian's call-to-action colour */
+	font-weight: var(--font-bold, 600);
+}
+
+.booklet-listen-check {
+	margin-inline-end: var(--size-4-1);
+}
+
 .booklet-listen-where:empty {
 	display: none;
 }
@@ -2357,9 +2366,15 @@
 	line-height: var(--line-height-tight);
 }
 
-/* a prompt that Continue led to takes focus so a keyboard or screen reader reader starts there; it is not a control, so it shows no ring */
-.booklet-prompt:focus {
+/* a prompt that Continue led to takes focus so a keyboard or screen reader reader starts there; it is not a control, so a press of the mouse shows no ring, but a key does */
+.booklet-prompt:focus:not(:focus-visible) {
 	outline: none;
+}
+
+/* after a key press led here, a ring shows where focus went (the same ring as a link's) */
+.booklet-prompt:focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: 2px;
 }
 
 /*
