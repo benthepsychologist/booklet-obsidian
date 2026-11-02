@@ -275,6 +275,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	readonly listens: Listens;
 	/** The heading the next drawing scrolls to is a prompt Continue led to: focus goes to it (it takes a tabindex of -1). */
 	private headingFocus = false;
+	/**
+	 * Pieces of Markdown whose drawing does not wait for Obsidian to settle a local media embed. Obsidian's render of `![[x.wav]]`
+	 * resolves only some 5 s after the player is in the page (measured, 1.14.5, with `preload="none"` on it), and a drawing that
+	 * waited for that would put its focus, scroll and refocus off by as long. A piece with no slot and no mark to draw is counted
+	 * finished as soon as its media element exists (the observer in onload); its words are polished then and again when it resolves.
+	 */
+	private readonly early = new WeakMap<HTMLElement, () => void>();
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -340,6 +347,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 							nameLocalMedia(n as Element);
 							// media of one the bar holds is the bar's, however late Obsidian made it
 							this.host.nowPlaying?.restore(n as Element, () => this.nowSource());
+							this.mediaThere(n as Element);
 						}
 			});
 			watch.observe(this.contentEl, { childList: true, subtree: true });
@@ -763,21 +771,41 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.rendering++;
 		const cite = marks ? this.cite : null;
 		const drawing = this.drawing;
+		// what is done to a piece of Markdown that is drawn, whether its media embed has settled or not (each step is safe to repeat)
+		const polish = (): void => {
+			if (media === "block") drawLinkHosts(el);
+			keepLocalPreload(el);
+			nameLocalMedia(el);
+			// a task box in the file's prose is drawn, not operated: a press here must never edit the design
+			for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
+			this.fixLinks(el);
+		};
+		let counted = true;
+		const finish = (): void => {
+			if (!counted) return;
+			counted = false;
+			this.early.delete(el);
+			if (gen === this.gen && --this.rendering === 0) this.drawn();
+		};
+		if (!ids.length && !gated.slots.length)
+			this.early.set(el, () => {
+				polish();
+				finish();
+			});
 		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", drawing)
 			.then(() => {
 				if (ids.length) drawMarks(this, el, ids, cite, this.source);
-				if (media === "block") drawLinkHosts(el);
 				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(), drawing);
-				keepLocalPreload(el);
-				nameLocalMedia(el);
 				this.host.nowPlaying?.restore(el, () => this.nowSource());
-				// a task box in the file's prose is drawn, not operated: a press here must never edit the design
-				for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
-				this.fixLinks(el);
+				polish();
 			})
-			.finally(() => {
-				if (gen === this.gen && --this.rendering === 0) this.drawn();
-			});
+			.finally(finish);
+	}
+
+	/** Media has appeared in `added`: the pieces of Markdown it is in no longer hold the drawing back (see `early`). */
+	private mediaThere(added: Element): void {
+		const found = added.matches("audio, video") ? [added] : Array.from(added.querySelectorAll("audio, video"));
+		for (const m of found) for (let p = m.parentElement; p && p !== this.contentEl; p = p.parentElement) this.early.get(p)?.();
 	}
 
 	/** Block Markdown from the file that is not prose with footnote marks: a question's help. Media in it is a slot (see `md`). */

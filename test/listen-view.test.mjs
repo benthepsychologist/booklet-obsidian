@@ -442,3 +442,27 @@ test("a listen counts as answered only when it is done: a card's status says don
 	assert.match(words(row("The course")), /1 of 3 answered/, "e2 is done; e1's position is no answer; q1 is a question");
 	p.close();
 });
+
+test("a drawing does not wait for Obsidian to settle a local media embed: the player in the page is enough (focus and scroll come then, not some 5 s later)", async () => {
+	const was = globalThis.__bookletStubRender;
+	// the renderer of an embed that puts its player in the page and settles only much later (here: never)
+	globalThis.__bookletStubRender = (markdown, el) => {
+		if (/\.mp3/.test(markdown)) {
+			el.createEl("audio", { attr: { src: "app://id/media/ep1.mp3" } });
+			return new Promise(() => {});
+		}
+		el.appendText(markdown);
+		return undefined;
+	};
+	try {
+		const e = env(COURSE);
+		const v = openView(COURSE, { app: e.app, disk: e.disk, screen: "activity:/course" });
+		await until(() => v.view.rendering === 0, "the drawing to finish while the embed's render is still pending");
+		assert.equal(v.view.contentEl.querySelectorAll("audio").length, 1);
+		assert.equal(v.view.contentEl.querySelector("audio").getAttribute("aria-label"), "Episode 1: Foundations", "Obsidian's player is named by the prompt");
+		assert.equal(v.view.contentEl.querySelector("audio").getAttribute("preload"), "none");
+		v.close();
+	} finally {
+		globalThis.__bookletStubRender = was;
+	}
+});

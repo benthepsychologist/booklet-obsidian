@@ -208,8 +208,8 @@ A parent path: ![](../tone-2s.wav)
         const wiki = dom.audio.find(a => /tone-2s/.test(a.src)), path = dom.audio.find(a => /media\/tone-5s/.test(a.src));
         c.ok(!!wiki && !!path, `[${where}] ![[tone-2s.wav]] and ![](media/tone-5s.wav) are players: ${!!wiki}, ${!!path}`);
         const ref = dom.audio.find(a => /tone-10s/.test(a.src));
-        // what the code does with a local reference embed (the lane brief: record it). The gate leaves a local address to Obsidian, and Obsidian draws ![alt][id] as an <img>
-        c.info(`[${where}] ![alt words][loc] with a local definition (media/tone-10s.wav) is drawn as ${ref ? "an audio element" : dom.imgs.length ? "an <img> whose src is the audio file: a broken picture, not a player (plan-v2 point 10 says it plays)" : "neither: " + dom.text}`);
+        // a local reference embed is rewritten by the gate into the inline form, which Obsidian plays (Obsidian draws ![alt][id] of a file as a broken <img>)
+        c.ok(!!ref && dom.imgs.length === 0 && dom.audio.length === 4, `[${where}] ![alt words][loc] with a local definition (media/tone-10s.wav) is a player like the other forms, and no broken <img> is left: ${ref ? "an audio element" : "no audio"}, ${dom.imgs.length} images, ${dom.audio.length} players`);
         // each plays: the real element's clock moves, it is never paused by the view, and it ends or is stopped by us
         const results = await o.evaluate(async sel => {
           const out = [];
@@ -222,7 +222,7 @@ A parent path: ![](../tone-2s.wav)
           }
           return out;
         }, BOOK);
-        c.ok(results.length >= 3 && results.every(r => typeof r === "object" && r.error === null && r.t > 0.4 && r.duration > 1.5), `[${where}] every player plays: ${JSON.stringify(results.map(r => typeof r === "string" ? r : "tone-" + ((/tone-(\d+)s/.exec(r.src) || [])[1]) + " t=" + r.t + " of " + r.duration))}`);
+        c.ok(results.length === 4 && results.every(r => typeof r === "object" && r.error === null && r.t > 0.4 && r.duration > 1.5), `[${where}] every player plays: ${JSON.stringify(results.map(r => typeof r === "string" ? r : "tone-" + ((/tone-(\d+)s/.exec(r.src) || [])[1]) + " t=" + r.t + " of " + r.duration))}`);
       }
       c.ok(ctx.hits(null, "start").length === 0, `nothing was asked of the server for any of it: ${ctx.hits(null, "start").length} requests`);
     });
@@ -331,32 +331,42 @@ A parent path: ![](../tone-2s.wav)
       c.ok(once, `Allow once plays the piece: ${JSON.stringify(ctx.hits("media.example.org", "m1").map(e => e.method + " " + e.url + " " + e.status))}`);
       c.ok(ctx.data() === dataWas && bytes(ctx.file(NOTE50)).equals(noteBytes), "and keeps nothing: data.json is as it was (does not exist) and the note's bytes are unchanged");
       c.info(`the slot after Allow once: ${await slotState(o, "once one")}`);
+      // the tone is two seconds long: a note closed while it plays is kept playing by the now-playing bar (lane P), so the note is left once it has ended
+      c.ok(await poll(() => o.evaluate(() => ![...document.querySelectorAll("audio")].some(a => !a.paused)), 6000, 100), "the two-second tone has ended before the note is closed (a note closed while media plays leaves it playing in the bar)");
       await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
       await ctx.K.open(o, NOTE50);
       c.ok((await slotState(o, "once one")) === "blocked", `drawn again, the piece asks again: once was kept nowhere (state ${await slotState(o, "once one")})`);
-      // this note
+      // this note: the piece she pressed starts by itself once the card is answered (the choice carries her press over the redraw)
       await play50(o, "note one").click(); await poll(() => cardOf(o), 3000);
+      ctx.server.mark("m2");
       await cardBtn(o, /^Allow for this note$/).click();
       await closed(o);
       const wrote1 = await poll(() => { const d = dataOf(ctx); return d && d.noteAllows && d.noteAllows[NOTE50]; }, 5000);
       c.ok(same(dataOf(ctx), { allowedMediaHosts: [], noteAllows: { [NOTE50]: [H("note.example.org")] } }), `Allow for this note: data.json is exactly ${JSON.stringify(dataOf(ctx))}`);
       c.ok(bytes(ctx.file(NOTE50)).equals(noteBytes), "and nothing is written into the note (its bytes are unchanged)");
-      await quiet(o);
-      c.ok((await slotState(o, "note one")) === "ready", `the slot is ready now (${await slotState(o, "note one")}); a press plays it with no card`);
-      ctx.server.mark("m2");
+      const carried = await poll(() => ctx.hits("note.example.org", "m2").length > 0, 5000);
+      c.ok(carried && !(await cardOf(o)), `and the piece she pressed starts with no second press and no card: ${JSON.stringify(ctx.hits("note.example.org", "m2").map(e => e.method + " " + e.url))}`);
+      await poll(() => o.evaluate(() => ![...document.querySelectorAll("audio")].some(a => !a.paused)), 6000, 100);
+      await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+      await ctx.K.open(o, NOTE50);
+      c.ok((await slotState(o, "note one")) === "ready", `drawn again, the slot is ready (${await slotState(o, "note one")}); a press plays it with no card`);
       await play50(o, "note one").click(); await sleep(1200);
-      c.ok(ctx.hits("note.example.org", "m2").length > 0 && !(await cardOf(o)), `and it requests the file with no card: ${JSON.stringify(ctx.hits("note.example.org", "m2").map(e => e.method + " " + e.url))}`);
+      const played = await o.evaluate(() => { const a = [...document.querySelectorAll("audio")].find(x => /note\.example\.org/.test(x.src)); return a ? { t: a.currentTime, paused: a.paused, ended: a.ended } : null; });
+      c.ok(!!played && (played.t > 0.3 || played.ended) && !(await cardOf(o)), `and it plays with no card (the file may come from the browser's cache, so the server log is not read): ${JSON.stringify(played)}`);
+      await poll(() => o.evaluate(() => ![...document.querySelectorAll("audio")].some(a => !a.paused)), 6000, 100);
       await ctx.K.open(o, OTHER50);
       c.ok((await slotState(o, "note one")) === "blocked", `another note holding the same address still asks (this note's scope is this note's): ${await slotState(o, "note one")}`);
       // this vault, from that other note: a host the first note declared nowhere
       await play50(o, "vault one").click(); await poll(() => cardOf(o), 3000);
+      ctx.server.mark("m4");
       await cardBtn(o, /^Allow for this vault$/).click();
       await closed(o);
       await poll(() => { const d = dataOf(ctx); return d && d.allowedMediaHosts && d.allowedMediaHosts.length; }, 5000);
       c.ok(same(dataOf(ctx), { allowedMediaHosts: [H("vault.example.org")], noteAllows: { [NOTE50]: [H("note.example.org")] } }), `Allow for this vault: data.json is exactly ${JSON.stringify(dataOf(ctx))}`);
       c.ok(bytes(ctx.file(OTHER50)).equals(otherBytes), "the other note's bytes are unchanged");
+      c.ok(await poll(() => ctx.hits("vault.example.org", "m4").length > 0, 5000), `the piece she pressed starts by itself, as it did for this note: ${JSON.stringify(ctx.hits("vault.example.org", "m4").map(e => e.method + " " + e.url))}`);
+      await poll(() => o.evaluate(() => ![...document.querySelectorAll("audio")].some(a => !a.paused)), 6000, 100);
       await quiet(o);
-      c.ok((await slotState(o, "vault one")) === "ready", `its slot is ready (${await slotState(o, "vault one")})`);
       await ctx.K.open(o, NOTE50);
       c.ok((await slotState(o, "vault one")) === "ready", `and in the first note, which never declared the host, the same host is ready: ${await slotState(o, "vault one")}`);
       // the Allow list button, the lists, a box
@@ -387,7 +397,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(await poll(() => { const d = dataOf(ctx); return d && d.allowedMediaHosts.includes("youtube.com"); }, 3000), `the write-in takes https://YouTube.com/ and keeps youtube.com (which stands for https://*.youtube.com/*): ${JSON.stringify(dataOf(ctx))}`);
       await sleep(600);
       k = await cardOf(o);
-      c.ok(k && k.vault.some(x => x.host === "youtube.com" && /also covers youtu\.be and youtube-nocookie\.com, which its player uses/.test(x.more)), `the list says what the site also covers: ${k && JSON.stringify(k.vault.find(x => x.host === "youtube.com"))}`);
+      c.ok(k && k.vault.some(x => x.host === "youtube.com" && /also covers youtu\.be, youtube-nocookie\.com and releases\.obsidian\.md, which its player uses/.test(x.more)), `the list says what the site also covers: ${k && JSON.stringify(k.vault.find(x => x.host === "youtube.com"))}`);
       c.ok((await slotState(o, "yt sub")) === "ready", `the subdomain link (m.youtube.com) is allowed by youtube.com: ${await slotState(o, "yt sub")}`);
       c.ok((await slotState(o, "evil one")) === "blocked", `and youtube.com.example.net is not (a look-alike is not a subdomain): ${await slotState(o, "evil one")}`);
       await blank.fill("note.example.net"); await blank.press("Enter");
@@ -446,6 +456,18 @@ A parent path: ![](../tone-2s.wav)
       await o.page.keyboard.press("Escape"); await closed(o);
       const fin = dataOf(ctx);
       c.ok(Object.keys(fin).sort().join() === "allowedMediaHosts,noteAllows" && bytes(ctx.file(NOTE50)).equals(noteBytes) && bytes(ctx.file(OTHER50)).equals(otherBytes), `through all of it: data.json has the two keys allowedMediaHosts and noteAllows and nothing else, and both notes' bytes are as they were`);
+    });
+    // a framed service player (Vimeo here, on the vault list): the frame's rights are in `allow` alone, and the console says nothing about it
+    const FRAME50 = "Frame.booklet.md";
+    await withMedia("c50-frame", { note: FRAME50, data: { allowedMediaHosts: ["vimeo.com"], noteAllows: {} }, files: () => ({ [FRAME50]: front("frame", "Frame") + "> [!activity|a] Frame\n\n![the film](https://vimeo.com/123456789)\n\n> [!text|q] A question?\n" }) }, async (o, ctx) => {
+      const said = [];
+      o.page.on("console", m => { if (m.type() === "warning" || m.type() === "error") said.push(m.text().slice(0, 200)); });
+      await ctx.K.open(o, FRAME50);
+      await play50(o, "the film").click({ timeout: 5000 });
+      const frame = await poll(() => o.evaluate(sel => { const f = document.querySelector(sel + " iframe[data-booklet-player]"); return f ? { allow: f.getAttribute("allow"), full: f.hasAttribute("allowfullscreen") } : null; }, BOOK), 5000);
+      await sleep(1500);
+      c.ok(!!frame && /\bfullscreen\b/.test(frame.allow) && frame.full === false, `a press on an allowed Vimeo link makes its frame: fullscreen is in allow and there is no allowfullscreen attribute: ${JSON.stringify(frame)}`);
+      c.ok(!said.some(t => /Allow attribute/.test(t)), `and the console has no "Allow attribute will take precedence" warning: ${JSON.stringify(said)}`);
     });
     return c;
   }
@@ -654,6 +676,38 @@ ${q52("q5", "Question five")}> [!module|m2 end] End of module two
       const got = answersByModule(fs.readFileSync(ctx.file(NOTE52), "utf8"));
       c.ok(same(Object.keys(got.m1 || {}), ["q1", "q3", "q4"]) && same(Object.keys(got.m2 || {}), ["q5"]), `the records hold exactly what she answered, question two nowhere: ${JSON.stringify(got)}`);
     });
+    // a `listen` that holds media is a target too: its media renders after the page is drawn, and focus is still on its prompt (bare activities, no module)
+    const LISTEN52 = "Listening course.booklet.md";
+    await withMedia("c52-listen", { note: LISTEN52, files: () => ({ [LISTEN52]: front("listening", "Listening course") + `> [!activity|a1] First activity
+
+> [!listen|l1] Listen to the tone
+> ![[tone-10s.wav]]
+
+> [!activity|a2] Second activity
+
+> [!choice|q2] Question two
+- [ ] Yes
+- [ ] No
+` }) }, async (o, ctx) => {
+      const state = () => o.evaluate(sel => {
+        const page = document.querySelector(sel + " .booklet-page"), b = page && page.querySelector(".booklet-continue-button"), a = document.activeElement;
+        return { screen: page && page.getAttribute("data-booklet-screen"), label: b ? b.textContent : null, audio: page ? page.querySelectorAll(".booklet-listen-media audio").length : 0,
+          focus: a && a.closest(sel) ? { text: a.textContent.trim().slice(0, 40), cls: a.className.toString().slice(0, 40), tab: a.tabIndex } : null };
+      }, BOOK);
+      await ctx.K.open(o, LISTEN52);
+      let v = await state();
+      c.ok(v.screen === "home" && v.label === "Continue: Listen to the tone", `a booklet of bare activities whose first target is a listen with media: the overview offers ${JSON.stringify(v.label)} (screen ${v.screen})`);
+      const t0 = Date.now();
+      await o.page.locator(BOOK + " .booklet-continue-button").click({ timeout: 5000 });
+      // Obsidian settles the embed's render about 5 s after the player is in the page; the drawing must not wait for that (focus, scroll)
+      v = null;
+      const landed = await poll(async () => { v = await state(); return v.screen !== "home" && v.audio === 1 && v.focus && v.focus.tab === -1 ? v : null; }, 3000, 50);
+      const took = Date.now() - t0;
+      c.ok(!!landed && landed.focus.text === "Listen to the tone", `Continue opened the listen's page, Obsidian's player is drawn in it and focus is on its prompt (a tabindex of -1) within 3 s, not when Obsidian settles the embed some 5 s later: ${JSON.stringify(landed || v)} after ${took} ms`);
+      await sleep(6500);
+      v = await state();
+      c.ok(v.screen !== "home" && v.audio === 1 && !!v.focus && v.focus.text === "Listen to the tone" && v.focus.tab === -1, `and focus is still on the prompt after Obsidian has settled the embed: ${JSON.stringify(v.focus)}`);
+    });
     return c;
   }
 
@@ -861,8 +915,8 @@ Blocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav"
         const reach = ctl.filter(x => x.tab);
         const kinds = k => reach.filter(x => x.cls === k);
         c.ok(kinds("booklet-media-play").length === 2 && kinds("booklet-listen-tick").length === 1 && kinds("booklet-allow-btn").length >= 1, tag(`the page has the new controls in the tab order: ${JSON.stringify(reach.filter(x => /booklet-(media-play|listen-tick|allow-btn)/.test(x.cls)).map(x => x.cls.replace("booklet-", "") + ": " + x.name))}`));
-        c.ok(reach.filter(x => x.tag !== "audio").every(x => x.name), tag(`every button, link and field a key can reach has a name (${reach.length}); without: ${reach.filter(x => x.tag !== "audio" && !x.name).map(x => x.tag + "." + x.cls).join(", ") || "none"}`));
-        c.info(tag(`${reach.filter(x => x.tag === "audio").length} native audio players (Obsidian's own controls, drawn by the browser) carry no name: ${reach.filter(x => x.tag === "audio").map(x => JSON.stringify(x.name)).join(", ")}`));
+        c.ok(reach.every(x => x.name), tag(`every button, link, field and player a key can reach has a name (${reach.length}); without: ${reach.filter(x => !x.name).map(x => x.tag + "." + x.cls).join(", ") || "none"}`));
+        { const aud = reach.filter(x => x.tag === "audio"); c.ok(aud.length === 1 && aud[0].name === "Listen to the tone", tag(`the native audio player in the listen box (Obsidian's own controls) is named by the prompt: ${JSON.stringify(aud.map(x => x.name))}`)); }
         c.info(tag("the controls: " + reach.map(x => `${x.n}:${x.tag}.${x.cls} "${x.name}"`).join(" | ")));
         await o.evaluate(() => { const h = document.querySelector(".workspace-tab-header.is-active"); if (h) h.focus(); });
         await sleep(80);
