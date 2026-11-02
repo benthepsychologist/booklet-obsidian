@@ -5,7 +5,7 @@
  * entry the reader did not change stays as written too (SPEC section 8). A new block is written in the
  * reference renderer's shape (booklet.html fileText); an existing one keeps its own layout.
  */
-import { appendItem, removeItem, removeMember, replaceItem, setMember } from "./json-edit";
+import { appendItem, removeItem, removeMember, replaceItem, scanJson, setMember } from "./json-edit";
 import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines, type Line } from "./lines";
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, entryPlaces, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
@@ -17,9 +17,10 @@ import { holdsSomething, isPair, shapeIssue } from "./shape";
  * words, a multi's list of those, a scale's anchor number, a number, a text's string, a date's
  * `YYYY-MM-DD`, a lines question's list of strings; a widget's, what its engine records (SPEC section 7):
  * a grid-select's list of item ids and `x|cell|word` strings, an svg-regions' list of
- * `{ "id": region, "s": [words] }`.
+ * `{ "id": region, "s": [words] }`; a listen's, a plain object, `{ "pos": seconds, "done": true or false }` with any other key it
+ * holds kept (listen.ts makes it).
  */
-export type AnswerValue = number | string | unknown[];
+export type AnswerValue = number | string | unknown[] | Record<string, unknown>;
 
 export class RecordsWriteError extends Error {}
 
@@ -33,6 +34,7 @@ export const draftJson = (o: Record<string, unknown>): string => JSON.stringify(
 /** The reference renderer's shape for a new entries block: one entry to a line. */
 export const entriesJson = (items: readonly Record<string, unknown>[]): string => `{"items": [\n${items.map((e) => JSON.stringify(e)).join(",\n")}\n]}`;
 
+const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -63,8 +65,28 @@ function plainJson(v: unknown): boolean {
 function checkValue(value: AnswerValue | undefined): void {
 	if (value === undefined) return;
 	const one = (v: unknown) => typeof v === "string" || (typeof v === "number" && Number.isFinite(v));
-	if (Array.isArray(value) ? value.every(plainJson) : one(value)) return;
-	throw new RecordsWriteError("An answer is a number, a string, or a list of JSON values.");
+	if (typeof value === "object" ? plainJson(value) : one(value)) return;
+	throw new RecordsWriteError("An answer is a number, a string, a list of JSON values, or an object of JSON values.");
+}
+
+/**
+ * Sets an answer that is an object, in the place the block already keeps an object for it: only the members that differ are written, each
+ * where it stands, and a member the new value no longer has is taken out, so the keys the object holds that the reader did not change
+ * (SPEC section 8: other keys are kept), their order and their spacing are the bytes they were. Null when the block holds no
+ * object under that key, and the member is then set whole.
+ */
+function setObjectAnswer(code: string, key: string, value: Record<string, unknown>, layout: (o: Record<string, unknown>) => string): string | null {
+	const top = scanJson(code);
+	const m = top && top.kind === "object" ? [...top.members].reverse().find((x) => x.key === key) : undefined;
+	if (!m || m.value.kind !== "object") return null;
+	let inner = code.slice(m.value.start, m.value.end);
+	const have = JSON.parse(inner) as Record<string, unknown>;
+	for (const k of Object.keys(have)) if (!own(value, k)) inner = removeMember(inner, k) ?? inner;
+	for (const [k, v] of Object.entries(value)) {
+		if (own(have, k) && same(have[k], v)) continue;
+		inner = setMember(inner, k, v, layout) ?? inner;
+	}
+	return code.slice(0, m.value.start) + inner + code.slice(m.value.end);
 }
 
 /* ---- the file, read once for an edit ---- */
@@ -279,7 +301,7 @@ export function setAnswer(text: string, scope: string, questionId: string, value
 	if (own(merged, questionId) && same(merged![questionId], value)) return text;
 	const last = blocks[blocks.length - 1];
 	if (last) {
-		const code = setMember(last.code, questionId, value, answersJson);
+		const code = (isPlainObject(value) ? setObjectAnswer(last.code, questionId, value, JSON.stringify) : null) ?? setMember(last.code, questionId, value, answersJson);
 		return code === null || code === last.code ? text : applyOps(d, [{ b: last, code }]);
 	}
 	const fresh = Object.create(null) as Record<string, unknown>;

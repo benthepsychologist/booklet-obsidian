@@ -108,8 +108,8 @@ export function calloutWords(kind: string, s: string | undefined): Words {
 
 /**
  * What each kind of booklet line takes after its id: a flag is a bare word, `key:` a setting written key:value.
- * This is SPEC section 4's table for format 0.17: `each:` on every question kind, and `earlier:` on a choice, a
- * multi, a lines and a widget. A kind outside the table is an unknown kind, said on its own.
+ * This is SPEC section 4's table for format 0.18: `each:` on every question kind but a listen, `earlier:` on a choice, a
+ * multi, a lines and a widget, and `left:` on a listen. A kind outside the table is an unknown kind, said on its own.
  */
 export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
 	module: ["end", "icon:"],
@@ -137,6 +137,7 @@ export const KIND_SETTINGS: Readonly<Record<string, readonly string[]>> = {
 	multi: ["open", "menu:", "each:", "earlier:"],
 	number: ["min:", "max:", "step:", "each:"],
 	widget: ["readonly", "describe", "each:", "earlier:"],
+	listen: ["left:"],
 };
 
 /**

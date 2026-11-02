@@ -17,6 +17,7 @@ import {
 	calloutWords,
 	earlierValue,
 	fenceEnd,
+	fencedLines,
 	ignoredSettings,
 	isBlank,
 	splitLines,
@@ -30,6 +31,7 @@ import { readDataRows, type DataRows } from "./data";
 import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
+import { LISTEN_LEFT, leftValue, listenBody } from "./listen";
 
 /** A block or a menu by its id, as a module sees it: in its own module first, then a shared one (`module` null), never another module's. */
 function inScope<T extends { id: string; module: string | null }>(list: readonly T[], id: string, module: string | null): T | undefined {
@@ -48,7 +50,7 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 }
 
 /** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
-export const FORMAT_VERSION = "0.17";
+export const FORMAT_VERSION = "0.18";
 
 export interface Option {
 	text: string;
@@ -64,8 +66,8 @@ export interface Anchor {
 	text: string;
 }
 
-/** The question kinds this plugin draws and answers besides a widget: the seven common ones, and a matrix (SPEC section 5). */
-export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix"] as const;
+/** The question kinds this plugin draws and answers besides a widget: the seven common ones, a matrix and a listen (SPEC section 5). */
+export const COMMON_KINDS = ["choice", "multi", "scale", "text", "lines", "number", "date", "matrix", "listen"] as const;
 /** The question kinds this plugin draws and answers: the common ones, and a widget (SPEC section 7). */
 export type QuestionKind = (typeof COMMON_KINDS)[number] | "widget";
 
@@ -160,6 +162,13 @@ export interface Question {
 	 * body widget's places, none for a lines question.
 	 */
 	earlier: number | null;
+	/**
+	 * A listen's media (SPEC section 5, "Listen"): the one embed, or else the one link, under its line, as written in the note, ready for
+	 * the Markdown renderer. Null when there is neither, and for every other kind. It is not in `help`.
+	 */
+	media: string | null;
+	/** A listen's `left:` in whole seconds (a pause within this long of the end counts as finished): 120 when the line sets none or sets another value (reported). Every kind has it; only a listen uses it. */
+	left: number;
 }
 
 export interface Prose {
@@ -321,6 +330,8 @@ export interface Booklet {
 	refusal: string | null;
 	marker: string;
 	frontMatter: Record<string, string>;
+	/** The origins `media-from` declares, normalised (`https://media.example.org`), in the order written, none twice. A declaration is never a permission (SPEC section 2). */
+	mediaFrom: string[];
 	title: string;
 	bodyStart: number;
 	modules: Module[];
@@ -383,6 +394,72 @@ export function markerOf(head: readonly string[] | null): string {
 	return "";
 }
 
+/** A front matter value with its quotes off (a YAML string in double or single quotes), as kvLine reads a whole value. */
+function unquote(v: string): string {
+	const t = v.trim();
+	if (/^".*"$/.test(t)) {
+		try {
+			const parsed: unknown = JSON.parse(t);
+			return typeof parsed === "string" ? parsed : t.slice(1, -1);
+		} catch {
+			return t.slice(1, -1);
+		}
+	}
+	return /^'.*'$/.test(t) ? t.slice(1, -1).replace(/''/g, "'") : t;
+}
+
+/**
+ * One `media-from` value as an origin (SPEC section 2): `https:`, a host, a port if it is not the usual one, and nothing after it. A
+ * trailing slash is taken off. Anything else (`http:`, a user name, a path, a query, a fragment, a wildcard, a space) is null. The origin
+ * returned is the browser's own spelling of it (the host in lower case, a name in punycode), which is how the allow list compares.
+ */
+function originOfValue(v: string): string | null {
+	if (!/^https:\/\/(?:\[[0-9a-f:.]+\]|[^/?#@*\s:[\]]+)(?::[0-9]{1,5})?\/?$/i.test(v)) return null;
+	try {
+		const u = new URL(v);
+		return u.protocol === "https:" && u.hostname && !u.username && !u.password ? u.origin : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * What the front matter's `media-from` declares (SPEC section 2): one origin, several separated by commas, or a YAML list of them
+ * (`head` is the lines between the `---` lines; the first is line 2 of the file). Nothing here allows anything: a declaration is only what
+ * a reader may ask about when the booklet opens. A value that is not an origin is in `bad`, with the line it stands on (counting from 1)
+ * and the value as written, and is left out; the other origins still count. An empty value declares nothing and is not bad.
+ */
+export function mediaFromOf(head: readonly string[] | null): { origins: string[]; bad: { line: number; text: string }[] } {
+	const origins: string[] = [];
+	const bad: { line: number; text: string }[] = [];
+	const take = (value: string, line: number) => {
+		const text = unquote(value);
+		if (!text) return;
+		const o = originOfValue(text);
+		if (o === null) bad.push({ line, text });
+		else if (!origins.includes(o)) origins.push(o);
+	};
+	const lines = head ?? [];
+	for (const [n, l] of lines.entries()) {
+		const m = /^media-from:[ \t]*(.*?)[ \t]*$/.exec(l);
+		if (!m) continue;
+		const value = m[1] ?? "";
+		if (value && !value.startsWith("#")) {
+			// one value, or several in it separated by commas (a quoted value is read whole, then split)
+			for (const part of unquote(value.replace(/[ \t]+#.*$/, "")).split(",")) take(part, n + 2);
+		} else {
+			// a YAML list: the lines under the key that start with a dash, up to the first line that does not (blank lines and comments between are skipped)
+			for (let j = n + 1; j < lines.length; j++) {
+				const item = /^[ \t]*-(?:[ \t]+(.*?))?[ \t]*$/.exec(lines[j] ?? "");
+				if (item) take((item[1] ?? "").replace(/[ \t]+#.*$/, ""), j + 2);
+				else if ((lines[j] ?? "").trim() && !(lines[j] ?? "").trim().startsWith("#")) break;
+			}
+		}
+		break; // a key written twice: the first is read
+	}
+	return { origins, bad };
+}
+
 /** [major, minor] for a marker like "0.16", else null. 0.10 is later than 0.9. */
 export function versionOf(v: string): [number, number] | null {
 	const m = /^(\d+)\.(\d+)$/.exec(v.trim());
@@ -410,11 +487,11 @@ export const designKey = (text: string): string => designText(text).replace(/\s+
 
 /* ---- the design ---- */
 
-const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "scale", "number", "date", "matrix"]);
+const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "scale", "number", "date", "matrix", "listen"]);
 /** Every kind the format defines (SPEC section 4's table). */
 const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
-	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget",
+	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget", "listen",
 ]);
 
 /** The callout kinds Obsidian itself draws (and its aliases): a line of one of these is an ordinary callout, never a kind of a newer format. */
@@ -661,6 +738,7 @@ export function parseBooklet(text: string): Booklet {
 	const problems: string[] = [];
 	const refusals: string[] = [];
 	const marker = markerOf(fm.head);
+	const media = mediaFromOf(fm.head);
 	const ver = versionOf(marker);
 	if (!marker) refusals.push("This note has no booklet: marker in its front matter, so it is not a booklet.");
 	else if (!ver || ver[0] !== 0) refusals.push(`This note says booklet: ${marker}, which is not a 0.x version, so it is not a booklet for format ${FORMAT_VERSION}.`);
@@ -691,6 +769,8 @@ export function parseBooklet(text: string): Booklet {
 	};
 	// a setting with a fixed set of values: any other value is reported and ignored (SPEC sections 2 and 3)
 	if (startAt >= 0 && (frontMatter["start"] ?? "").trim() !== "home") noteUnread(startAt, "`start:` takes only the value `home`, so it was ignored", false);
+	// `media-from` declares origins and nothing else; a value that is not an origin is a mistake in the file, so a newer plugin would read it no better (SPEC section 2)
+	for (const b of media.bad) noteUnread(b.line - 1, `\`media-from\` holds "${b.text}", which is not an origin (https:, a host and a port if it is not the usual one, nothing after it), so it was ignored`, false);
 	/** An `icon:` outside Booklet's set draws no picture. A name close to one in the set is a mistake; the set may grow, so another may be a later one. */
 	const noteIcon = (i: number, w: Words) => {
 		const icon = w.set["icon"];
@@ -893,6 +973,13 @@ export function parseBooklet(text: string): Booklet {
 			// a newer format may mean more by it
 			if (!hasWords && !KNOWN_KINDS.has(kind) && kind !== "page" && !OBSIDIAN_CALLOUTS.has(kind))
 				noteUnread(i, `"${kind}" is not a kind this view reads, so it is drawn as an ordinary callout`, true);
+			// a listen's `left:` is a whole number of seconds in digits only; any other value is ignored and said, and the default holds (SPEC section 4)
+			let left = LISTEN_LEFT;
+			if (kind === "listen" && w.set["left"] !== undefined) {
+				const v = leftValue(w.set["left"]);
+				if (v === null) noteUnread(i, `\`left:\` takes a whole number of seconds written in digits only, so \`left:${w.set["left"]}\` was ignored and ${LISTEN_LEFT} is used`, false);
+				else left = v;
+			}
 			const earlier = w.set["earlier"];
 			if (earlier !== undefined && earlierValue(earlier) === null) {
 				// a whole number in digits only; anything else is ignored and said, and the question keeps its default
@@ -1056,6 +1143,8 @@ export function parseBooklet(text: string): Booklet {
 				}
 				if ((isCommon(kind) || kind === "widget") && w.id) {
 					const body = lines.slice(i + 1, bodyEnd(lines, i)).map(stripQuote);
+					// a listen's `>` lines hold its media (the one embed, or else the one link) and, besides, its help
+					const heard = kind === "listen" ? listenBody(body) : null;
 					const num = (x: string | undefined) => (x !== undefined && x.trim() !== "" && Number.isFinite(Number(x)) ? Number(x) : null);
 					const q: Question = {
 						type: "question",
@@ -1063,7 +1152,7 @@ export function parseBooklet(text: string): Booklet {
 						id: w.id,
 						title,
 						// a widget line's embed is not its help (booklet.html helpOf)
-						help: (kind === "widget" ? body.filter((l) => !/^\s*!\[\[/.test(l)) : body).join("\n").trim(),
+						help: heard ? heard.help : (kind === "widget" ? body.filter((l) => !/^\s*!\[\[/.test(l)) : body).join("\n").trim(),
 						line: i + 1,
 						options: [],
 						anchors: [],
@@ -1080,7 +1169,15 @@ export function parseBooklet(text: string): Booklet {
 						describe: kind === "widget" && w.flags.has("describe"),
 						each: null,
 						earlier: w.set["earlier"] !== undefined ? earlierValue(w.set["earlier"]) : null,
+						media: heard ? heard.media : null,
+						left,
 					};
+					if (heard) {
+						// what the view cannot play or track is kept as written and said (SPEC section 5: one question, one piece of media, answered once)
+						if (act.repeat) noteUnread(i, "a `listen` is answered once and cannot be in a `repeat` activity, so it is kept as written and drawn without a tick", false);
+						if (heard.embeds > 1) noteUnread(i, `a \`listen\` holds ${heard.embeds} embeds, and only the first is the media that is played and tracked`, false);
+						if (!heard.media) noteUnread(i, "a `listen` holds no embed and no link, so there is nothing to play, and the tick is all it has", false);
+					}
 					if (w.set["each"] !== undefined) eachUses.push({ q, act, source: w.set["each"].trim(), line: i + 1 });
 					const after = bodyEnd(lines, i);
 					let drawn = true;
@@ -1167,6 +1264,7 @@ export function parseBooklet(text: string): Booklet {
 	closeRow("at the end of the file", lines.length);
 	endActivity();
 	if (mod) refusals.push(`The module "${mod.id}" is opened and never closed.`);
+	problems.push(...rawMediaTags(lines, fm.bodyStart, inRegion));
 
 	// a question that names a shared menu takes its options from it: from its own module's menus first, then
 	// from the shared ones, never from another module's (SPEC section 4; booklet.html resolveMenus)
@@ -1218,6 +1316,7 @@ export function parseBooklet(text: string): Booklet {
 		refusal,
 		marker,
 		frontMatter,
+		mediaFrom: media.origins,
 		title: frontMatter["title"] ?? "",
 		bodyStart: fm.bodyStart,
 		modules,
@@ -1231,6 +1330,44 @@ export function parseBooklet(text: string): Booklet {
 		references,
 		records,
 	};
+}
+
+/** A raw tag that frames another page or plays media (SPEC section 6, "Not part of the format"). `<source>` and `<track>` only sit inside one of these. */
+const RAW_TAG = /<(iframe|frame|object|embed|audio|video)(?=[\s/>])/gi;
+
+/**
+ * Each raw `<iframe>`, `<frame>`, `<object>`, `<embed>`, `<audio>` or `<video>` tag in the note's design, with its line: this view draws one
+ * as a link and nothing loads, and says so among the note's problems. Code (a fenced block, a code span), HTML comments and the records
+ * are left alone; one tag name is said once for a line.
+ */
+function rawMediaTags(lines: readonly string[], from: number, inRegion: readonly boolean[]): string[] {
+	const fenced = fencedLines(lines);
+	const out: string[] = [];
+	let comment = false;
+	for (let i = from; i < lines.length; i++) {
+		if (inRegion[i] || fenced[i]) continue;
+		let l = lines[i] ?? "";
+		// HTML comments, which may run over lines, and then code spans: what is left is the text a tag would be read in
+		let kept = "";
+		while (l) {
+			const at = comment ? l.indexOf("-->") : l.indexOf("<!--");
+			if (at < 0) {
+				if (!comment) kept += l;
+				break;
+			}
+			if (!comment) kept += l.slice(0, at);
+			l = l.slice(at + (comment ? 3 : 4));
+			comment = !comment;
+		}
+		const seen = new Set<string>();
+		for (const m of kept.replace(/(`+)[^`]*?\1/g, "").matchAll(RAW_TAG)) {
+			const tag = (m[1] ?? "").toLowerCase();
+			if (seen.has(tag)) continue;
+			seen.add(tag);
+			out.push(`Line ${i + 1}: a raw \`<${tag}>\` tag is drawn as a link in this view; nothing loads.`);
+		}
+	}
+	return out;
 }
 
 /** The questions of an activity this view draws, in its order. */

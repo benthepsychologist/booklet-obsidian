@@ -7,8 +7,9 @@
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
-import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Segment } from "./reader";
-import { holdsSomething } from "./shape";
+import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Question, type Segment } from "./reader";
+import { answeredOf, shapeIssue } from "./shape";
+import { ENGINES, engineOf } from "./widgets";
 
 /* ---- places ---- */
 
@@ -827,6 +828,105 @@ export function moduleLinkName(target: string): string | null {
 	}
 }
 
+/* ---- Continue (SPEC section 12): the first thing left to do after her place ---- */
+
+/** One part of a tab, in the booklet's reading order (a place's `part` counts these, `ActTab.pages`). */
+export interface ReadingPart {
+	act: NavAct;
+	tab: ActTab;
+	/** The part's number within its tab, from 0 (a place's `part`). */
+	part: number;
+	/** What is on it. */
+	segs: readonly Segment[];
+	/** An activity with tab lines draws what comes before its first tab above every tab; reading it comes first, so it is the first part's. Empty everywhere else. */
+	lead: readonly Segment[];
+}
+
+const readingOrders = new WeakMap<NavModel, ReadingPart[]>();
+
+/**
+ * Every part of every offered activity, in the order the booklet reads: activities in the file's order (not the cards', which put the
+ * bare activities first), each one's tabs in order and each tab's parts in order. A `hidden` activity is not offered, so it is not here.
+ */
+export function readingOrder(nav: NavModel): ReadingPart[] {
+	let out = readingOrders.get(nav);
+	if (!out) {
+		out = [];
+		for (const na of allActs(nav).sort((a, b) => a.line - b.line))
+			na.tabs.forEach((tab, t) => tab.pages.forEach((segs, part) => (out as ReadingPart[]).push({ act: na, tab, part, segs, lead: t === 0 && part === 0 ? na.opening : [] })));
+		readingOrders.set(nav, out);
+	}
+	return out;
+}
+
+/** The place of a part of the reading order. */
+const placeOfPart = (r: ReadingPart): Place => ({ screen: actScreen(r.act), tab: barTabs(r.act).length ? r.tab.id : null, part: r.part });
+
+/**
+ * Where a place is in the reading order, counting parts from 0: the number the device keeps as the furthest page she has reached
+ * (`continueTarget`'s `furthest`). Null for home and a module's screen, which are no page, and for a place the booklet does not have.
+ * A number counts parts, so adding or taking out a page before it moves it; the device's copy is a hint (Continue never goes back for one).
+ */
+export function pageIndexOf(nav: NavModel, place: Place): number | null {
+	const na = place.screen.startsWith("activity:") ? nav.byKey.get(place.screen.slice(9)) : undefined;
+	if (!na) return null;
+	const tab = tabShown(na, place.tab);
+	const at = readingOrder(nav).findIndex((r) => r.act === na && r.tab === tab && r.part === Math.min(Math.max(0, place.part), (tab?.pages.length ?? 1) - 1));
+	return at < 0 ? null : at;
+}
+
+/** Where Continue leads, and the words to scroll to once there. */
+export interface ContinueTarget {
+	/** The part that holds it, as `go` takes it. */
+	place: Place;
+	/** The prompt, for `go(place, { step: true, heading })`. */
+	heading: string;
+	question: Question;
+	act: NavAct;
+}
+
+/** Can the reader answer this question here? A widget this plugin does not draw, or one shown read-only, cannot be, and an answer of the wrong shape is kept as written. */
+function answerable(q: Question, held: unknown): boolean {
+	if (q.kind === "widget" && (!q.widget || q.readonly || !(ENGINES as readonly string[]).includes(engineOf(q.widget.data)))) return false;
+	return !shapeIssue(q, held);
+}
+
+/**
+ * Continue (SPEC section 12): the first `listen` not done, or the first question not answered, that comes after her place. Her place is
+ * `place.furthest`, the furthest page she has reached on this device (`pageIndexOf`), and then what is on that page is still to do; with
+ * none, it is the last `listen` done or question answered in the booklet's order (a repeat activity's records are not looked at), and then
+ * only what comes after that one is. Nothing before her place is offered, so a question she passed over is never offered again and Continue
+ * never holds her back; null when nothing is left. A `hidden` or `repeat` activity is skipped, as is a question she cannot answer here
+ * (an unread widget, an answer of the wrong shape), which would hold her at it for good.
+ */
+export function continueTarget(nav: NavModel, book: Booklet, place: { furthest: number | null }): ContinueTarget | null {
+	const items: { q: Question; part: ReadingPart; at: number }[] = [];
+	readingOrder(nav).forEach((part, at) => {
+		for (const s of [...part.lead, ...part.segs]) if (s.type === "question" && s.id) items.push({ q: s, part, at });
+	});
+	const held = (i: { q: Question; part: ReadingPart }): unknown => book.records.answers[i.part.act.act.scope]?.[i.q.id];
+	const offered = (i: { part: ReadingPart }) => !i.part.act.act.repeat;
+	let from: number;
+	if (place.furthest !== null && place.furthest >= 0) {
+		const furthest = place.furthest;
+		from = items.findIndex((i) => i.at >= furthest);
+		if (from < 0) return null;
+	} else {
+		let last = -1;
+		items.forEach((i, n) => {
+			if (offered(i) && answeredOf(i.q, held(i))) last = n;
+		});
+		from = last + 1;
+	}
+	for (const i of items.slice(from)) {
+		if (!offered(i)) continue;
+		const v = held(i);
+		if (!answerable(i.q, v) || answeredOf(i.q, v)) continue;
+		return { place: placeOfPart(i.part), heading: i.q.title || i.q.id, question: i.q, act: i.part.act };
+	}
+	return null;
+}
+
 /* ---- the words a card and a status line say (the reference renderer's, SPEC: a default is the same everywhere) ---- */
 
 /** A card's title for a module: its words, else for a module of one activity the booklet's title, else the id. */
@@ -843,6 +943,8 @@ interface Progress {
 	kept: number;
 	total: number;
 	answered: number;
+	/** Every question counted is a listen: the status says "done" and not "answered" (SPEC section 5, "Listen": counting). */
+	listens: boolean;
 	tracked: boolean;
 	started: boolean;
 }
@@ -853,8 +955,9 @@ function progressOf(na: NavAct, book: Booklet): Progress {
 	const kept = repeats ? (book.records.entries[a.scope]?.[a.id]?.length ?? 0) : 0;
 	const qs = repeats ? [] : a.segments.filter(isQuestionLike);
 	const ans = book.records.answers[a.scope] ?? {};
-	const answered = qs.filter((q) => "id" in q && q.id && holdsSomething(ans[q.id])).length;
-	return { repeats, kept, total: qs.length, answered, tracked: repeats || qs.length > 0, started: repeats ? kept > 0 : answered > 0 };
+	const answered = qs.filter((q) => q.type === "question" && q.id && answeredOf(q, ans[q.id])).length;
+	const listens = qs.length > 0 && qs.every((q) => q.type === "question" && q.kind === "listen");
+	return { repeats, kept, total: qs.length, answered, listens, tracked: repeats || qs.length > 0, started: repeats ? kept > 0 : answered > 0 };
 }
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
@@ -863,7 +966,7 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
 export function workedOutStatus(na: NavAct, book: Booklet): string {
 	const p = progressOf(na, book);
 	const qn = na.act.segments.filter(isQuestionLike).length;
-	const state = p.repeats ? (p.kept ? `${p.kept} kept` : "Not started") : !p.total ? "" : p.answered === 0 ? "Not started" : p.answered >= p.total ? "Done" : `${p.answered} of ${p.total} answered`;
+	const state = p.repeats ? (p.kept ? `${p.kept} kept` : "Not started") : !p.total ? "" : p.answered === 0 ? "Not started" : p.answered >= p.total ? "Done" : `${p.answered} of ${p.total} ${p.listens ? "done" : "answered"}`;
 	const partial = !p.repeats && p.total > 0 && p.answered > 0 && p.answered < p.total;
 	return [na.reads ? plural(na.reads, "read", "reads") : "", qn && !partial ? plural(qn, "question", "questions") : "", state].filter(Boolean).join(" · ");
 }

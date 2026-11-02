@@ -107,6 +107,9 @@ function valueFor(q, act) {
 			return DATE;
 		case "matrix":
 			return q.items.length && q.anchors.length ? q.items.map((_, i) => q.anchors[i % q.anchors.length].n) : undefined;
+		case "listen":
+			// answered once, in `answers`: a listen in a repeat activity is kept as written and has no tick (core/reader.ts)
+			return act.repeat ? undefined : { pos: 754, done: true };
 	}
 	return undefined;
 }
@@ -119,6 +122,7 @@ function otherValueFor(q) {
 	if (q.kind === "lines") return ["Only one line now"];
 	if (q.kind === "scale" && q.anchors.length) return q.anchors[0].n;
 	if (q.kind === "matrix") return q.items.map((_, i) => (i ? null : q.anchors[0].n));
+	if (q.kind === "listen") return { done: true };
 	if (q.kind === "choice" && q.options.length) return 1;
 	if (q.kind === "widget") return core.engineOf(q.widget.data) === "grid-select" ? ["x|cell|changed later"] : [{ id: "somewhere", s: ["changed later"] }];
 	return ["Something else of my own"];
@@ -227,7 +231,7 @@ for (const file of corpusFiles()) {
 			}
 		}
 		const kinds = new Set(set.map((s) => s.q.kind));
-		const common = new Set(book.activities.flatMap((a) => a.segments.filter((s) => s.type === "question" && answerable(s)).map((s) => s.kind)));
+		const common = new Set(book.activities.flatMap((a) => a.segments.filter((s) => s.type === "question" && answerable(s) && !(a.repeat && s.kind === "listen")).map((s) => s.kind)));
 		for (const k of common) assert.ok(kinds.has(k), `the ${k} questions were answered`);
 		if (!set.length) {
 			// a file with no question this plugin draws (a status page of queries): an answer for an id the
