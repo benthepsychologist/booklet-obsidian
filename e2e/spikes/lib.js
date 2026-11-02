@@ -47,15 +47,28 @@ function makeVault(dir, files, { plugin, helper = false, tones = true, copyFrom 
  * extra: more Chromium flags (e.g. "--autoplay-policy=no-user-gesture-required"); hosts: map of host -> "127.0.0.1" (host-resolver-rules).
  * Returns { ob, page, server, vault, out, stop() }.
  */
-async function start(o, { vault, mediaDir, plugin = false, helper = false, extra = [], hosts = {}, name = "run" } = {}) {
+async function start(o, { vault, mediaDir, plugin = false, helper = false, extra = [], ignoreCerts = true, hosts = {}, name = "run" } = {}) {
 	const logFile = path.join(o.out, name + "-requests.jsonl"); fs.rmSync(logFile, { force: true });
 	// `vault` may be a function of the server's port, for notes that name https://127.0.0.1:<port>/...; the server then serves mediaDir (else the vault)
 	const server = await startServer({ dir: mediaDir || (typeof vault === "string" ? vault : undefined), logFile });
 	if (typeof vault === "function") { vault = vault(server.port); if (!mediaDir) server.setDir(vault); }
 	const rules = Object.keys(hosts).map(h => `MAP ${h} 127.0.0.1:${server.port}`).join(", ");
-	const flags = ["--ignore-certificate-errors", ...(rules ? ["--host-resolver-rules=" + rules] : []), ...extra];
-	const ob = await launch({ obsidian: o.obsidian, vault, configDir: path.join(o.out, "cfg-" + name), args: flags, enablePlugins: plugin || helper, timeout: 90000 });
+	const flags = [...(ignoreCerts ? ["--ignore-certificate-errors"] : []), ...(rules ? ["--host-resolver-rules=" + rules] : []), ...extra];
+	const ob = await launch({ obsidian: o.obsidian, vault, configDir: path.join(o.out, "cfg-" + name + "-" + Date.now()), args: flags, enablePlugins: plugin || helper, timeout: 90000 });
 	const page = ob.page;
+	// If this script dies early the app and its virtual display must not be left running. The reaper kills ONLY the pids this run started:
+	// the Obsidian whose command line carries our debugging port (and its process group), and the Xvfb on the display drive.js made. No pattern kills.
+	const mine = () => {
+		const found = { app: [], xvfb: [] };
+		for (const d of fs.readdirSync("/proc")) if (/^\d+$/.test(d)) {
+			let c; try { c = fs.readFileSync("/proc/" + d + "/cmdline", "utf8").split("\0"); } catch (e) { continue; }
+			if (c.includes("--remote-debugging-port=" + ob.port) && !c.some(x => x.startsWith("--type="))) found.app.push(+d);
+			if (!process.env.DISPLAY && /(^|\/)Xvfb$/.test(c[0] || "") && c[1] === ob.display && !["91", "92", "93"].includes(ob.display.slice(1))) found.xvfb.push(+d);
+		}
+		return found;
+	};
+	const reap = () => { const f = mine(); for (const p of f.app) { try { process.kill(-p, "SIGKILL"); } catch (e) { /* gone */ } } for (const p of f.xvfb) { try { process.kill(p, "SIGKILL"); } catch (e) { /* gone */ } } };
+	process.on("exit", reap); for (const sig of ["SIGINT", "SIGTERM", "SIGHUP", "SIGPIPE"]) process.on(sig, () => process.exit(1));
 	// the harness can see a plugin as enabled while Obsidian is still loading it: wait for each, and load by call if it never appears
 	if (plugin || helper) await page.evaluate(async ids => {
 		for (const id of ids) { for (let i = 0; i < 30 && !app.plugins.plugins[id]; i++) await new Promise(r => setTimeout(r, 100)); if (!app.plugins.plugins[id]) await app.plugins.loadPlugin(id); }
@@ -128,4 +141,7 @@ async function generateMedia(page, dir, seconds = 4) {
 	return made;
 }
 
-module.exports = { generateMedia, silentMp3, args, makeVault, start, openNote, watchAdded, sleep, wav, writeTones, fs, path };
+/** A minimal booklet note (format 0.17, which the 0.11.0 plugin reads) whose activity prose is `body`. */
+const bookletNote = (id, body) => `---\nbooklet: "0.17"\nid: spike/${id}\ntitle: Spike ${id}\nlang: en\n---\n\n> [!activity|a] Spike activity\n\n${body}\n\n> [!text|q] A question?\n`;
+
+module.exports = { bookletNote, generateMedia, silentMp3, args, makeVault, start, openNote, watchAdded, sleep, wav, writeTones, fs, path };
