@@ -14,7 +14,8 @@
  *                                     { id, method, args } across every Setting made (`Setting.reset()` empties it); `setting.calls`
  *                                     is the same for one. addText, addTextArea, addButton, addToggle, addDropdown and
  *                                     addSlider call their callback with a component that records too, and a test drives it:
- *                                     `component.change(value)` runs the onChange handler, `component.click()` the onClick handler.
+ *                                     `component.change(value)` runs the onChange handler, `component.click()` the onClick handler;
+ *                                     an input event on `component.inputEl` and a click on `component.buttonEl` run them too.
  *                                     `setting.components` holds them, in order. The words (setName, setDesc) are also drawn into
  *                                     the setting's element, `setting.settingEl`, so a test can read the page as text.
  *   MarkdownRenderer.render           draws the markdown as its plain words, unless `useMediaRender()` has been called: then
@@ -128,6 +129,7 @@ class StubComponent {
 		this.disabled = false;
 		this.calls = [];
 		this.inputEl = document.createElement(kind === "textarea" ? "textarea" : kind === "dropdown" ? "select" : "input");
+		if (kind === "text") this.inputEl.setAttribute("type", "text");
 		this.buttonEl = document.createElement("button");
 		this._log = log;
 	}
@@ -176,12 +178,15 @@ class StubComponent {
 		this.options = { ...(this.options ?? {}), ...o };
 		return this._note("addOptions", [o]);
 	}
+	/** The handler also hears the element itself, as in Obsidian: typing in the box (an input event) or pressing the button (a click). */
 	onChange(fn) {
 		this._onChange = fn;
+		this.inputEl.addEventListener("input", () => fn(this.inputEl.value));
 		return this._note("onChange", []);
 	}
 	onClick(fn) {
 		this._onClick = fn;
+		this.buttonEl.addEventListener("click", () => fn());
 		return this._note("onClick", []);
 	}
 	/** A test changes the value as the reader would: the value is set, then the handler runs (its promise is returned). */
@@ -383,90 +388,4 @@ export function getIcon(name) {
 	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 	svg.setAttribute("data-icon", name);
 	return svg;
-}
-
-/*
- * The settings page (src/settings.ts): a stand-in for Plugin's data store and for PluginSettingTab, Setting and the two components
- * a Setting hands out (a button, a text box). They draw what Obsidian's draw, in the same classes, and do only what the page asks of them.
- */
-Plugin.prototype.loadData = async function () {
-	return globalThis.__bookletStubData ?? null;
-};
-Plugin.prototype.saveData = async function (data) {
-	globalThis.__bookletStubSaved = (globalThis.__bookletStubSaved ?? []).concat([JSON.parse(JSON.stringify(data))]);
-};
-Plugin.prototype.addSettingTab = function (tab) {
-	(globalThis.__bookletStubTabs ??= []).push(tab);
-};
-
-export class PluginSettingTab {
-	constructor(app, plugin) {
-		this.app = app;
-		this.plugin = plugin;
-		this.containerEl = document.createElement("div");
-	}
-	display() {}
-	hide() {}
-}
-
-class ButtonComponent {
-	constructor(el) {
-		this.buttonEl = el.createEl("button");
-	}
-	setButtonText(t) {
-		this.buttonEl.setText(t);
-		return this;
-	}
-	onClick(cb) {
-		this.buttonEl.addEventListener("click", cb);
-		return this;
-	}
-}
-
-class TextComponent {
-	constructor(el) {
-		this.inputEl = el.createEl("input", { type: "text" });
-	}
-	setPlaceholder(t) {
-		this.inputEl.setAttribute("placeholder", t);
-		return this;
-	}
-	setValue(v) {
-		this.inputEl.value = v;
-		return this;
-	}
-	onChange(cb) {
-		this.inputEl.addEventListener("input", () => cb(this.inputEl.value));
-		return this;
-	}
-}
-
-export class Setting {
-	constructor(el) {
-		this.settingEl = el.createDiv({ cls: "setting-item" });
-		const info = this.settingEl.createDiv({ cls: "setting-item-info" });
-		this.nameEl = info.createDiv({ cls: "setting-item-name" });
-		this.descEl = info.createDiv({ cls: "setting-item-description" });
-		this.controlEl = this.settingEl.createDiv({ cls: "setting-item-control" });
-	}
-	setName(t) {
-		this.nameEl.setText(t);
-		return this;
-	}
-	setDesc(t) {
-		this.descEl.setText(t);
-		return this;
-	}
-	setHeading() {
-		this.settingEl.addClass("setting-item-heading");
-		return this;
-	}
-	addButton(cb) {
-		cb(new ButtonComponent(this.controlEl));
-		return this;
-	}
-	addText(cb) {
-		cb(new TextComponent(this.controlEl));
-		return this;
-	}
 }

@@ -337,9 +337,6 @@ test("the note's list follows a rename made in Obsidian; a move made outside it 
 
 test("the plugin loads the data, adds the settings tab, follows a rename, and draws the open booklets again after a change", async () => {
 	const { BookletPlugin } = await import("./.build/view.mjs");
-	globalThis.__bookletStubData = { allowedMediaHosts: ["youtube.com"], noteAllows: { "Old.booklet.md": ["media.example.org"] } };
-	globalThis.__bookletStubSaved = [];
-	globalThis.__bookletStubTabs = [];
 	const on = {};
 	const redrawn = [];
 	const BV = (await import("./.build/view.mjs")).BookletView;
@@ -353,21 +350,21 @@ test("the plugin loads the data, adds the settings tab, follows a rename, and dr
 		saveLocalStorage() {},
 	};
 	const plugin = new BookletPlugin(app, {});
+	plugin.savedData = { allowedMediaHosts: ["youtube.com"], noteAllows: { "Old.booklet.md": ["media.example.org"] } };
 	await plugin.onload();
-	assert.equal(globalThis.__bookletStubTabs.length, 1, "one settings tab");
+	assert.equal(plugin.settingTabs.length, 1, "one settings tab");
 	assert.deepEqual(plugin.media.vaultList(), ["youtube.com"]);
 	on["vault:rename"]({ path: "New.booklet.md" }, "Old.booklet.md");
 	assert.deepEqual(plugin.media.noteList("New.booklet.md"), ["media.example.org"]);
 	assert.deepEqual(plugin.media.noteList("Old.booklet.md"), []);
 	assert.equal(redrawn.length, 1, "the open booklets are drawn again");
 	await plugin.media.saved();
-	assert.deepEqual(globalThis.__bookletStubSaved.at(-1), { allowedMediaHosts: ["youtube.com"], noteAllows: { "New.booklet.md": ["media.example.org"] } });
+	assert.deepEqual(plugin.savedData, { allowedMediaHosts: ["youtube.com"], noteAllows: { "New.booklet.md": ["media.example.org"] } });
 	plugin.media.addVault("vimeo.com");
 	assert.equal(redrawn.length, 2);
 	plugin.unload();
 	plugin.media.addVault("spotify.com");
 	assert.equal(redrawn.length, 2, "unloaded: nothing hears the change");
-	delete globalThis.__bookletStubData;
 });
 
 /* ---- the settings page ---- */
