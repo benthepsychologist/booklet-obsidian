@@ -91,7 +91,13 @@ export default class BookletPlugin extends Plugin {
 			}),
 		);
 		// a note deleted in Obsidian takes the sites allowed for it with it
-		this.registerEvent(this.app.vault.on("delete", (file) => this.media.forgetNote(file.path)));
+		this.registerEvent(
+			this.app.vault.on("delete", (file) => {
+				this.media.forgetNote(file.path);
+				// what plays from it in the bar stops, and its places on this device go
+				this.nowPlaying.deleted(file.path);
+			}),
+		);
 		this.registerEvent(
 			this.app.vault.on("rename", (file, oldPath) => {
 				moveHeld(this.app, oldPath, file.path);
@@ -99,6 +105,7 @@ export default class BookletPlugin extends Plugin {
 				this.media.moveNote(oldPath, file.path);
 				// the positions kept for a `listen` and the furthest page reached go with the note too (listen-store.ts)
 				moveDevice(this.app, oldPath, file.path);
+				this.nowPlaying.rename(oldPath, file.path);
 			}),
 		);
 
