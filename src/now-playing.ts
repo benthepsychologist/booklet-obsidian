@@ -345,6 +345,8 @@ export class NowPlaying {
 	/** "Back to the page": the page is showing, so the element returns to it (or the placeholder is shown, if it plays); else the note is opened at the page. */
 	private back(e: Entry): void {
 		if (e.here?.isConnected) {
+			// the page is in the window but in a tab behind the one she is in: its tab is brought forward (main.ts showPage), then the element goes back as below
+			if (e.path && !this.shown(e.here)) this.deps.showPage(e.path, e.from.state);
 			if (this.playing(e)) {
 				e.here.scrollIntoView?.({ block: "nearest" });
 				e.here.focus();
@@ -357,6 +359,13 @@ export class NowPlaying {
 			return;
 		}
 		if (e.path) this.deps.showPage(e.path, e.from.state);
+	}
+
+	/** Is the element on screen: none of its ancestors is `display: none` (Obsidian hides the tabs behind the active one that way). */
+	private shown(el: HTMLElement): boolean {
+		const win = el.ownerDocument.defaultView;
+		for (let p: HTMLElement | null = el; p; p = p.parentElement) if (win?.getComputedStyle(p).display === "none") return false;
+		return true;
 	}
 
 	/** "Close": paused, her place written, and the row gone; the element returns to the page if the page is showing. */

@@ -410,6 +410,30 @@ test("a paused element Back put in the page, then the page closed and Obsidian e
 	}
 });
 
+test("Back to the page when the page is in a tab behind the active one: the note's tab is asked for first, then the element returns", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("play");
+	m.fire("pause");
+	// Obsidian hides the tabs behind the active one with display: none
+	v.view.containerEl.style.display = "none";
+	click(items()[0].querySelector(".booklet-nowplaying-back"));
+	assert.equal(r.shown.length, 1, "the page's tab is asked for");
+	assert.equal(r.shown[0][0], PATH);
+	assert.ok(v.box().contains(m), "and a paused element goes back into the page");
+	m.fire("play");
+	click(items()[0].querySelector(".booklet-nowplaying-back"));
+	assert.equal(r.shown.length, 2, "playing, it asks again and stays in the bar");
+	assert.ok(items()[0].contains(m));
+	v.view.containerEl.style.display = "";
+	click(items()[0].querySelector(".booklet-nowplaying-back"));
+	assert.equal(r.shown.length, 2, "the page showing: nothing to open");
+	await v.close();
+	tidy(r);
+});
+
 test("the end writes once, takes pos out, and lets the element go", async () => {
 	const r = rig(core.setAnswer(COURSE, "", "e1", { pos: 300 }));
 	const v = r.open();
