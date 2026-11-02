@@ -67,6 +67,7 @@ function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (sho
 		uid: () => host.uid(),
 		wrongOf: (t) => host.wrongOf(t, q),
 		redrawSoon: () => host.redrawSoon(),
+		listens: host.listens,
 	};
 }
 

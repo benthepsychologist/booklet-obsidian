@@ -41,6 +41,9 @@ function openOn(env, path) {
 	};
 }
 
+/** How many notes have held words on the device (it also keeps the furthest page reached, listen-store.ts). */
+const heldNotes = (store) => [...store.keys()].filter((k) => k.startsWith("booklet-held:")).length;
+
 const draftOf = (text) => norm(core.parseBooklet(text).records.drafts["day-check"]?.today ?? {});
 
 /* ---- gap 2 ---- */
@@ -59,7 +62,7 @@ test("gap 2: words typed in Add your own and not added survive a reload: kept on
 	const two = openOn(env, "Check-in.booklet.md");
 	await two.settled();
 	assert.deepEqual(draftOf(env.disk.text).where, ["The library"], "added when the note is drawn again, as leaving the field adds it");
-	assert.equal(env.store.size, 0, "and taken off the device once added");
+	assert.equal(heldNotes(env.store), 0, "and taken off the device once added");
 	two.close();
 });
 
@@ -87,7 +90,7 @@ test("gap 2: before the app quits, saveTyped writes what was typed and adds the 
 	const d = draftOf(env.disk.text);
 	// a lines question's draft holds the next, empty line as the field shows it (Finalize leaves blank lines out)
 	assert.deepEqual([d.where, d.thoughts[0]], [["A café"], "A made-up thought"]);
-	assert.equal(env.store.size, 0);
+	assert.equal(heldNotes(env.store), 0);
 	v.close();
 });
 
@@ -101,7 +104,7 @@ test("gap 2: words for a field the note no longer has stay on the device, and no
 	const two = openOn(env, "Check-in.booklet.md");
 	await two.settled();
 	assert.equal(env.disk.text, before, "nothing written");
-	assert.equal(env.store.size, 1, "the words are still kept");
+	assert.equal(heldNotes(env.store), 1, "the words are still kept");
 	two.close();
 });
 

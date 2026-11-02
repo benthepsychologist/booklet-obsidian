@@ -2251,3 +2251,59 @@
 		animation: none !important;
 	}
 }
+
+/* ---- 0.12.0: the listen question and Continue (src/listen-view.ts, view.ts drawContinue) ---- */
+
+/* the media sits where the author wrote it, under the prompt; Obsidian's own player is drawn at the width of the page */
+.booklet-listen-media audio,
+.booklet-listen-media video {
+	display: block;
+	max-width: 100%;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-listen-media audio {
+	width: 100%;
+}
+
+/* the "Done" box and where the reader left off, on one line that wraps at a large zoom */
+.booklet-listen-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-listen-tick {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+}
+
+.booklet-listen-where:empty {
+	display: none;
+}
+
+/* Continue: one button above the cards, named for where it leads; its words wrap rather than run off a narrow pane */
+.booklet-continue:empty {
+	display: none;
+}
+
+.booklet-continue {
+	margin: var(--size-4-3) 0;
+}
+
+.booklet-continue-button {
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	max-width: 100%;
+	padding: var(--size-4-2) var(--size-4-4);
+	white-space: normal;
+	text-align: start;
+	line-height: var(--line-height-tight);
+}
+
+/* a prompt that Continue led to takes focus so a keyboard or screen reader reader starts there; it is not a control, so it shows no ring */
+.booklet-prompt:focus {
+	outline: none;
+}

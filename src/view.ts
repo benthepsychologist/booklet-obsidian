@@ -28,8 +28,11 @@ import {
 	entryFor,
 	isAllowed,
 	hasScreen,
+	answeredOf,
+	continueTarget,
 	holdsSomething,
 	noteNumbers,
+	pageIndexOf,
 	tokenise,
 	questionsIn,
 	stepsOf,
@@ -70,6 +73,7 @@ import {
 	type GateMode,
 	type AnswerValue,
 	type Booklet,
+	type ContinueTarget,
 	type DayRule,
 	type Entry,
 	type AnswerWords,
@@ -93,6 +97,9 @@ import {
 import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, playerHost, type MediaDeps } from "./media-view";
+import { Listens } from "./listen-view";
+import { keepFurthest, loadFurthest } from "./listen-store";
+import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { mountQuery } from "./query-controls";
@@ -258,6 +265,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private card: AllowCard | null = null;
 	/** What takes focus once the drawing that a change to the allow list asks for is finished (the card's button, drawn again). */
 	private refocus: (() => HTMLElement | null) | null = null;
+	/** Follows the drawn `listen` questions' media: their positions, pauses and ends (listen-view.ts). */
+	readonly listens: Listens;
+	/** The heading the next drawing scrolls to is a prompt Continue led to: focus goes to it (it takes a tabindex of -1). */
+	private headingFocus = false;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -268,6 +279,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// and when the view closes. This view never writes the whole file, so both are switched off here and
 		// in save() below: every write goes through the core on the note's fresh text (see write()).
 		this.requestSave = () => {};
+		this.listens = new Listens({
+			app: () => this.app,
+			path: () => (this.file ? this.file.path : null),
+			held: (t, q) => this.heldAnswer(t, q),
+			wrong: (t, q) => !!this.wrongOf(t, q),
+			write: (t, q, value, written) => this.commit(t, q, value, written),
+			idle: () => this.settleSoon(0),
+		});
 	}
 
 	override onload(): void {
@@ -282,6 +301,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.settleSoon(0);
 		});
 		this.registerDomEvent(this.contentEl, "pointerdown", (evt) => this.pressBegan(evt.target), { capture: true });
+		// the media of a `listen`: its events do not bubble, so one set of capture listeners sees the element however and whenever it was made
+		for (const type of MEDIA_EVENTS) this.registerDomEvent(this.contentEl, type, (evt) => this.listens.onMedia(evt), { capture: true });
 		// a link in the note's own words (SPEC section 3): a heading link opens the place its words name, a link to a module opens it
 		this.registerDomEvent(this.contentEl, "click", (evt) => this.followLink(evt));
 		// a link to a note in the note's own words is Obsidian's: its hover preview is asked for as Reading view asks for it
@@ -331,7 +352,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * work, and closes the window once that work is done, so the plugin offers a task only when there is some.
 	 */
 	hasUnsaved(): boolean {
-		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key));
+		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key)) || this.listens.unsaved();
 	}
 
 	/**
@@ -455,7 +476,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * double press on Next (one page turns) and wrong for a tab chosen during a turn: that one waits for the turn to land
 	 * and is made then, so the last move the reader asked for is the one that lands.
 	 */
-	go(to: Place, opts: { heading?: string | null; step?: boolean; focusTab?: boolean } = {}): void {
+	go(to: Place, opts: { heading?: string | null; step?: boolean; focusTab?: boolean; focus?: boolean } = {}): void {
 		if (!this.file || !this.nav) return;
 		const p = resolvePlace(this.nav, to);
 		const step = !!opts.step || isStep(this.place, p);
@@ -466,10 +487,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.flushAll();
 		if (opts.focusTab) this.focusTab = true;
 		if (samePlace(this.place, p)) {
-			if (opts.heading) this.scrollToHeading(opts.heading);
+			if (opts.heading) this.scrollToHeading(opts.heading, opts.focus);
 			return;
 		}
 		this.headingTo = opts.heading ?? null;
+		// `focus`: the heading is a prompt Continue led to, and focus goes to it once the screen is drawn
+		this.headingFocus = !!opts.focus && !!opts.heading;
 		if (!opts.focusTab && !opts.heading) this.focusScreen = true;
 		if (!step) {
 			this.setPlace(p);
@@ -489,6 +512,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			.catch(() => {
 				// the move did not happen, so no draw is coming to take the focus
 				this.focusScreen = false;
+				this.headingFocus = false;
 			})
 			.finally(() => {
 				this.moving = false;
@@ -503,6 +527,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private flushAll(): void {
 		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(null);
+		// a position that plays or is noted and not written is read from its element now, before the drawing takes the element away
+		this.listens.flush();
 	}
 
 	/** The place a heading hit opens: a heading in the opening of an activity with tabs is drawn above every tab, so the tab and part on show stay. */
@@ -659,6 +685,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.following = false;
 		this.widgets.clear();
 		this.ownFields.clear();
+		this.listens.reset();
 		this.showAll.clear();
 		this.entriesFolded.clear();
 		this.nav = null;
@@ -923,6 +950,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// added below, as leaving the field would have added them (held-store.ts)
 		const restored = opened && this.file ? Object.entries(loadHeld(this.app, this.file.path)).filter(([k]) => !this.held.has(k)) : [];
 		for (const [k, w] of restored) this.held.set(k, w);
+		// a position still on its way into the note is written before the drawing, and the element that holds it, goes
+		this.listens.flush();
+		this.listens.reset();
 		const book = parseBooklet(this.text);
 		this.book = book;
 		this.widgets.clear();
@@ -987,6 +1017,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.headingTo = outside.heading;
 		}
 		this.setPlace(place);
+		// the furthest page reached on this device: Continue starts after it (listen-store.ts)
+		const reached = this.file ? pageIndexOf(nav, place) : null;
+		if (this.file && reached !== null) keepFurthest(this.app, this.file.path, reached);
 		const shown = this.drawnPlace;
 		this.drawnPlace = place;
 		const moved = !shown || !samePlace(shown, place);
@@ -1011,6 +1044,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.commitHeldOffscreen(nav, restored.map(([k]) => k));
 		for (const [k] of restored) this.ownFields.get(k)?.commit();
+		// a position the device kept for a `listen` and the note does not hold (the app was killed while it played) is added, as held words are
+		if (opened) this.listens.resume(nav);
 		if (this.rendering === 0) this.drawn();
 		if (opened) this.askDeclared();
 	}
@@ -1058,11 +1093,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.refocus = null;
 		back?.()?.focus();
 		const heading = this.headingTo;
+		const focus = this.headingFocus;
 		this.headingTo = null;
+		this.headingFocus = false;
 		if (heading) {
 			this.scrollKept = null;
 			this.scrollWanted = null;
-			this.scrollToHeading(heading);
+			this.scrollToHeading(heading, focus);
 			return;
 		}
 		const y = this.scrollWanted ?? this.scrollKept;
@@ -1071,12 +1108,17 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (y !== null) this.contentEl.scrollTop = y;
 	}
 
-	private scrollToHeading(words: string): void {
+	/** Scrolls to the heading or prompt with these words; `focus`: and puts focus on it (Continue: a keyboard or screen reader reader starts at the prompt). */
+	private scrollToHeading(words: string, focus = false): void {
 		const want = plainText(words).toLowerCase();
 		const found = Array.from(this.contentEl.querySelectorAll("h1, h2, h3, h4, h5, h6, .booklet-prompt, .callout-title-inner")).find((h) => plainText(h.textContent ?? "").toLowerCase() === want);
 		// a heading inside a folded callout: open the callout first
 		for (let p: Element | null = found?.parentElement ?? null; p && p !== this.contentEl; p = p.parentElement) if (p.classList.contains("is-collapsed")) p.classList.remove("is-collapsed");
 		if (found && typeof found.scrollIntoView === "function") found.scrollIntoView({ block: "start" });
+		if (found && focus && found.instanceOf(HTMLElement)) {
+			found.setAttr("tabindex", "-1");
+			found.focus({ preventScroll: true });
+		}
 	}
 
 	/* ---- the screens ---- */
@@ -1144,8 +1186,38 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.md(inlineMd(this.bookTitle(nav)), t);
 		const o = book.openings.find((x) => x.module === null);
 		if (o) this.opening(page, o.markdown);
+		this.drawContinue(page);
 		drawCards(this, page, this.homeRows(nav, book));
 		this.watchCards(() => this.homeRows(nav, this.book as Booklet));
+	}
+
+	/**
+	 * Continue (SPEC section 12): a button on the home screen and a module's, named for where it leads ("Continue: Episode 3"), that opens the
+	 * first `listen` not done or question not answered after the reader's place, and puts focus on its prompt. There is none when nothing is
+	 * left. Her place is the furthest page reached on this device, else what the note's records say (core/nav.ts continueTarget).
+	 */
+	private drawContinue(into: HTMLElement): void {
+		const holder = into.createDiv({ cls: "booklet-continue" });
+		let target: ContinueTarget | null = null;
+		let sig: string | null = null;
+		const show = () => {
+			const nav = this.nav;
+			const book = this.book;
+			target = nav && book ? continueTarget(nav, book, { furthest: this.file ? loadFurthest(this.app, this.file.path) : null }) : null;
+			const now = target ? `Continue: ${plainText(target.heading)}` : "";
+			if (now === sig) return;
+			sig = now;
+			holder.empty();
+			if (!target) return;
+			const button = holder.createEl("button", { cls: "mod-cta booklet-continue-button", text: now, attr: { type: "button" } });
+			button.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				const to = target;
+				if (to) this.go(to.place, { step: true, heading: to.heading, focus: true });
+			});
+		};
+		show();
+		this.onShow("screen-continue", show);
 	}
 
 	private drawModuleScreen(page: HTMLElement, nav: NavModel, book: Booklet, m: NavMod, place: Place): void {
@@ -1159,6 +1231,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.cite = this.citeScope(book, m.id, [m.opening, ...m.tabs.map((x) => x.md)]);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
+		this.drawContinue(page);
 		let tops = m.acts;
 		const bar = m.tabs.length > 1;
 		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? m.tabs[0]!) : (m.tabs[0] ?? null);
@@ -1343,7 +1416,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			else if (s.type === "callout-box") {
 				const key = `${a.scope}/${a.id}#${s.start.line}`;
 				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
-				const held = questionsIn(s.children).some((q) => holdsSomething(this.heldAnswer(t, q)));
+				const held = questionsIn(s.children).some((q) => answeredOf(q, this.heldAnswer(t, q)));
 				const open = this.calloutOpen.get(key) ?? (s === step || s.start.fold !== "-" || held);
 				const body = drawCallout(this, into, s, open, (now) => this.calloutOpen.set(key, now));
 				this.drawNodes(body, a, s.children);
@@ -1387,11 +1460,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawStepsOf(body: HTMLElement, a: Activity, lead: readonly Block[], steps: readonly Step[], key: string): SteppingView {
 		const t: Target = { scope: a.scope, activity: a };
 		this.drawNodes(body, a, lead);
-		const said = (i: number) => questionsIn(steps[i]?.nodes ?? []).some((q) => holdsSomething(this.heldAnswer(t, q)));
+		const said = (i: number) => questionsIn(steps[i]?.nodes ?? []).some((q) => answeredOf(q, this.heldAnswer(t, q)));
 		// a step is done when each of its questions holds an answer; one with no question, once a step after it holds one
 		const done = (i: number): boolean => {
 			const qs = questionsIn(steps[i]?.nodes ?? []);
-			return qs.length ? qs.every((q) => holdsSomething(this.heldAnswer(t, q))) : steps.some((_s, j) => j > i && said(j));
+			return qs.length ? qs.every((q) => answeredOf(q, this.heldAnswer(t, q))) : steps.some((_s, j) => j > i && said(j));
 		};
 		const first = steps.findIndex((_s, i) => !done(i));
 		const clamp = (n: number) => Math.max(0, Math.min(steps.length - 1, n));
@@ -1697,7 +1770,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Is the reader in the middle of an answer (a field of this view has focus, or holds typing not yet written) or of a press (until its click)? */
 	private busy(): boolean {
-		if (this.pressing || this.pressTail || this.pending.size) return true;
+		if (this.pressing || this.pressTail || this.pending.size || this.listens.playing()) return true;
 		const el = this.contentEl.ownerDocument.activeElement;
 		return !!el && this.contentEl.contains(el) && (el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement));
 	}
@@ -1745,7 +1818,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/* ---- answering ---- */
 
 	/** Shows an answer at once, then writes it: into the activity's draft when it repeats, else into the answers. */
-	private commit(t: Target, q: Question, value: AnswerValue | undefined): void {
+	private commit(t: Target, q: Question, value: AnswerValue | undefined, written?: () => void): void {
 		const file = this.file;
 		if (!file) return;
 		// an answer of the wrong shape is kept as written: nothing typed or pressed replaces it (the writer refuses too)
@@ -1772,7 +1845,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		const rule = this.dayRule();
 		const a = t.activity;
-		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.");
+		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.", written);
 	}
 
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */

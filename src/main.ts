@@ -5,6 +5,7 @@
 import { FileView, MarkdownView, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
 import { moveHeld } from "./held-store";
 import { BookletSettingTab, MediaAllows } from "./settings";
+import { moveDevice } from "./listen-store";
 import { BookletView, VIEW_TYPE } from "./view";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
@@ -70,6 +71,8 @@ export default class BookletPlugin extends Plugin {
 				moveHeld(this.app, oldPath, file.path);
 				// a note renamed or moved in Obsidian keeps the sites allowed for it; one moved outside Obsidian asks again
 				this.media.moveNote(oldPath, file.path);
+				// the positions kept for a `listen` and the furthest page reached go with the note too (listen-store.ts)
+				moveDevice(this.app, oldPath, file.path);
 			}),
 		);
 
