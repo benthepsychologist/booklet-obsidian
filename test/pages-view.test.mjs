@@ -55,7 +55,7 @@ test("the quiz tab has two named pages and nothing before them: it opens on the 
 });
 
 test("what the tree could not read is listed with the reader's own problems; a note with none lists none", async () => {
-	const bad = `---\nbooklet: "0.17"\ntitle: Odd\n---\n\n> [!activity|a] A\n\n> [!page|p1 parent:nowhere] P1\n\nWords.\n\n> [!page|p2 parent:p2] P2\n\nWords.\n`;
+	const bad = `---\nbooklet: "0.18"\ntitle: Odd\n---\n\n> [!activity|a] A\n\n> [!page|p1 parent:nowhere] P1\n\nWords.\n\n> [!page|p2 parent:p2] P2\n\nWords.\n`;
 	const p = pane(bad);
 	await p.settled();
 	const said = p.all(".booklet-problems li").map(p.words);
@@ -65,7 +65,7 @@ test("what the tree could not read is listed with the reader's own problems; a n
 	]);
 	assert.equal(p.all(".booklet-problems summary").map(p.words)[0], "2 things in this note could not be read");
 	p.close();
-	const fine = pane(`---\nbooklet: "0.17"\ntitle: Fine\n---\n\n> [!activity|a] A\n\n> [!page|p1] P1\n\nWords.\n\n> [!page|p2 parent:p1] P2\n\nWords.\n`);
+	const fine = pane(`---\nbooklet: "0.18"\ntitle: Fine\n---\n\n> [!activity|a] A\n\n> [!page|p1] P1\n\nWords.\n\n> [!page|p2 parent:p1] P2\n\nWords.\n`);
 	await fine.settled();
 	assert.equal(fine.all(".booklet-problems").length, 0);
 	fine.close();

@@ -1,5 +1,5 @@
 ---
-booklet: "0.17"
+booklet: "0.18"
 id: nav-proto/sketching
 title: Learning to sketch
 lang: en

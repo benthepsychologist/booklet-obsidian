@@ -17,7 +17,7 @@ function bigNote() {
 	const items = [];
 	for (let i = 0; i < DAYS; i++) items.push(JSON.stringify({ ts: `${day(i)}T08:00:00Z`, sleep: 5 + ((i * 7) % 9), mood: 1 + ((i * 5) % 4), note: `Day ${i + 1}` }));
 	return `---
-booklet: "0.17"
+booklet: "0.18"
 id: test/big
 title: Big
 lang: en

@@ -4,13 +4,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Check-in",
     "bodyStart": 6,
     "modules": [
@@ -182,7 +183,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -290,7 +293,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -369,7 +374,9 @@
         "readonly": false,
         "describe": false,
         "each": "feelings",
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -413,7 +420,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -436,7 +445,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": 12
+        "earlier": 12,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -970,7 +981,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1078,7 +1091,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1157,7 +1172,9 @@
            "readonly": false,
            "describe": false,
            "each": "feelings",
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1201,7 +1218,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1224,7 +1243,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": 12
+           "earlier": 12,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -1387,13 +1408,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Daily tracker",
     "bodyStart": 6,
     "modules": [],
@@ -1449,7 +1471,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -1489,7 +1513,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -1512,7 +1538,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -1535,7 +1563,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -1558,7 +1588,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      }
@@ -1726,7 +1758,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1766,7 +1800,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1789,7 +1825,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1812,7 +1850,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -1835,7 +1875,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -1893,13 +1935,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Evening check-in",
     "bodyStart": 6,
     "modules": [],
@@ -1955,7 +1998,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -1999,7 +2044,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2022,7 +2069,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      }
@@ -2124,7 +2173,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -2168,7 +2219,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -2191,7 +2244,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -2249,13 +2304,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Every kind",
     "bodyStart": 6,
     "modules": [],
@@ -2313,7 +2369,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2352,7 +2410,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2388,7 +2448,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2411,7 +2473,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2434,7 +2498,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2457,7 +2523,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2480,7 +2548,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -2535,7 +2605,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -2613,7 +2685,9 @@
         "readonly": false,
         "describe": true,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -2668,7 +2742,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout",
@@ -2698,7 +2774,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -2750,7 +2828,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "query",
@@ -2945,7 +3025,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -2984,7 +3066,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3020,7 +3104,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3043,7 +3129,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3066,7 +3154,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3089,7 +3179,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3112,7 +3204,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -3182,7 +3276,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -3260,7 +3356,9 @@
            "readonly": false,
            "describe": true,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -3324,7 +3422,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout",
@@ -3354,7 +3454,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -3430,7 +3532,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "query",
@@ -3571,13 +3675,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Kept records",
     "bodyStart": 6,
     "modules": [
@@ -3640,7 +3745,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -3663,7 +3770,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -3710,7 +3819,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -3733,7 +3844,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -3780,7 +3893,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      }
@@ -3995,7 +4110,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -4018,7 +4135,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -4080,7 +4199,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -4103,7 +4224,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -4165,7 +4288,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -4264,13 +4389,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "nav-proto/sketching",
      "title": "Learning to sketch",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Learning to sketch",
     "bodyStart": 6,
     "modules": [
@@ -4334,7 +4460,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -4386,7 +4514,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "prose",
@@ -4414,7 +4544,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -4474,7 +4606,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "prose",
@@ -4512,7 +4646,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -4588,7 +4724,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -4624,7 +4762,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -4889,7 +5029,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -4963,7 +5105,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ],
          [
@@ -4993,7 +5137,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -5064,7 +5210,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ],
          [
@@ -5107,7 +5255,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -5201,7 +5351,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -5237,7 +5389,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -5674,13 +5828,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Reading and steps",
     "bodyStart": 6,
     "modules": [],
@@ -5743,7 +5898,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -5790,7 +5947,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "row",
@@ -5859,7 +6018,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -5910,7 +6071,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -5933,7 +6096,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -5986,7 +6151,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -6035,7 +6202,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -6105,7 +6274,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -6148,7 +6319,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "callout-end"
@@ -6302,7 +6475,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6364,7 +6539,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "row",
@@ -6448,7 +6625,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6499,7 +6678,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -6522,7 +6703,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6575,7 +6758,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6639,7 +6824,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6724,7 +6911,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6767,7 +6956,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "callout-end"
@@ -6906,13 +7097,14 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.17",
+    "marker": "0.18",
     "frontMatter": {
-     "booklet": "0.17",
+     "booklet": "0.18",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
     },
+    "mediaFrom": [],
     "title": "Study quiz",
     "bodyStart": 6,
     "modules": [],
@@ -6974,7 +7166,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7027,7 +7221,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7063,7 +7259,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -7114,7 +7312,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      },
@@ -7164,7 +7364,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7202,7 +7404,9 @@
         "readonly": false,
         "describe": false,
         "each": "crops",
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7238,7 +7442,9 @@
         "readonly": false,
         "describe": false,
         "each": "crops",
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7261,7 +7467,9 @@
         "readonly": false,
         "describe": false,
         "each": "crops",
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "question",
@@ -7300,7 +7508,9 @@
         "readonly": false,
         "describe": false,
         "each": "crops",
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        }
       ]
      }
@@ -7417,7 +7627,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7470,7 +7682,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7506,7 +7720,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -7572,7 +7788,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -7637,7 +7855,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7675,7 +7895,9 @@
            "readonly": false,
            "describe": false,
            "each": "crops",
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7711,7 +7933,9 @@
            "readonly": false,
            "describe": false,
            "each": "crops",
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7734,7 +7958,9 @@
            "readonly": false,
            "describe": false,
            "each": "crops",
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "question",
@@ -7773,7 +7999,9 @@
            "readonly": false,
            "describe": false,
            "each": "crops",
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -7870,6 +8098,7 @@
      "booklet": "0.16",
      "title": "Tabs"
     },
+    "mediaFrom": [],
     "title": "Tabs",
     "bodyStart": 4,
     "modules": [],
@@ -7924,7 +8153,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "prose",
@@ -8046,7 +8277,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           }
          ]
         ]
@@ -8087,7 +8320,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "b51f9aad0cdb46253fd0290dcdb2a398b5724df0730d6cd1eeb3dfa2226ad127",
+    "sha": "807add21f2d79e47cc5cb02097ea99290ce5a857538df35790e84b4fafdb0dc4",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8099,7 +8332,7 @@
     }
    },
    "activity:/t|first|0": {
-    "sha": "9d0f1a8c46b3c49c8ad48b63db2f699590b4e3de7eaee3ab48a59ffec5cc1f21",
+    "sha": "e4d27657e0d24b44a53b332d423de0eea0e5e0556b18c75acbd99900a52864b4",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8112,7 +8345,7 @@
     }
    },
    "activity:/t|first|1": {
-    "sha": "9aa2ff92d85268c5af5d37e880f54f4a53895e97452659dec6cfb74fa3ca4add",
+    "sha": "126da0e9bf34042ae4a20b5b8573240d841c8af031809bd85432c3ed07aa6576",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8125,7 +8358,7 @@
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "5e46c1c2ae45536ea22716892efd513c11c9489f1a02f3f09ccfdc3cf9ddfc95",
+    "sha": "a967ac8e6ef5094dcb47c03c5b05bca20e0b292d93f8946180926b15d9363fd5",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8138,7 +8371,7 @@
     }
    },
    "activity:/t|third|0": {
-    "sha": "cf97f970ec1df37022de9fb5a7e0feec331d14f71fb16c2ed8aae2e0929e7c64",
+    "sha": "edb0847bf2264b2a1da7bf7a8f067c7e572b47ff66d474754c8b131c46a81891",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8162,6 +8395,7 @@
      "booklet": "0.16",
      "title": "Odd"
     },
+    "mediaFrom": [],
     "title": "Odd",
     "bodyStart": 4,
     "modules": [],
@@ -8222,7 +8456,9 @@
         "readonly": false,
         "describe": false,
         "each": null,
-        "earlier": null
+        "earlier": null,
+        "media": null,
+        "left": 120
        },
        {
         "type": "row",
@@ -8360,7 +8596,9 @@
            "readonly": false,
            "describe": false,
            "each": null,
-           "earlier": null
+           "earlier": null,
+           "media": null,
+           "left": 120
           },
           {
            "type": "row",
@@ -8410,7 +8648,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "68a30ffea275ba30287f941d83a0fbf9e7ec8653d8027f992ff79cfcc363abdd",
+    "sha": "15e8832f3e0fba90abc30a3c120bfc41413309dfce3fdf2bf74755b741865054",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8422,7 +8660,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "f597de801e9d167f1b7345a60b3859cd8bcd120abe19d9c6cab1bcae7c9c2815",
+    "sha": "91147bf8d86aacce539963918ae1b7907a7a5bd583726a28f33ba6ed245b3ca8",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

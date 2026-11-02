@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {core} from './helpers.mjs';
 const text = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Example
 ---
 
@@ -48,14 +48,14 @@ test('definitions reflect changed source and retain multi-line titles',()=>{
  assert.ok(!core.referenceContext(core.parseBooklet(text).references,'one').includes('one image.png'));
 });
 test('bare activity definitions are isolated from named modules; shared definitions remain visible',()=>{
- const source=`---\nbooklet: "0.17"\n---\n\n> [!activity|bare] Bare\n\n![bare][pic]\n\n[pic]: bare.png\n\n> [!module|named] Named\n\n> [!activity|a] A\n\n![named][pic]\n\n[pic]: named.png\n\n> [!module|named end]\n\n> [!data] Shared\n\n[shared]: shared.png\n`;
+ const source=`---\nbooklet: "0.18"\n---\n\n> [!activity|bare] Bare\n\n![bare][pic]\n\n[pic]: bare.png\n\n> [!module|named] Named\n\n> [!activity|a] A\n\n![named][pic]\n\n[pic]: named.png\n\n> [!module|named end]\n\n> [!data] Shared\n\n[shared]: shared.png\n`;
  const book=core.parseBooklet(source);
  assert.equal(core.referenceContext(book.references,''),'[pic]: bare.png\n[shared]: shared.png');
  assert.equal(core.referenceContext(book.references,'named'),'[pic]: named.png\n[shared]: shared.png');
  assert.equal(core.referenceContext(book.references,null),'[shared]: shared.png');
 });
 
-const head = '---\nbooklet: "0.17"\ntitle: Example\n---\n\n';
+const head = '---\nbooklet: "0.18"\ntitle: Example\n---\n\n';
 const closeOne = '> [!module|one end]\n\n> [!data] Data\n\n[pic]: shared.png\n';
 /** A note with one module and one activity whose prose is `body`, then a shared data section. */
 const inOne = (body) => head + `> [!module|one] One\n\n> [!activity|a] A\n\nOutside ![x][pic]\n\n${body}\n\n` + closeOne;

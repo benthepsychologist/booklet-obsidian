@@ -10,7 +10,7 @@ import { CHECKIN, core, keepDays, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const fm = (extra = "") => `---\nbooklet: "0.17"\ntitle: Tracker\n${extra}---\n`;
+const fm = (extra = "") => `---\nbooklet: "0.18"\ntitle: Tracker\n${extra}---\n`;
 const fence = (body) => "```booklet query\n" + body + "\n```";
 
 const TRACKER = `> [!activity|evening repeat] Evening

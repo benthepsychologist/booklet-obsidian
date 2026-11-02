@@ -141,7 +141,7 @@ test("gap 3 in the view: \"Calm, settled\" typed in the cell's field and added i
 /* ---- gap 7 ---- */
 
 const DAY_ACT = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Days
 ---
 

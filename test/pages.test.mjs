@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { WIKI, build, core, norm } from "./helpers.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.17"\ntitle: Harbour\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.18"\ntitle: Harbour\n${extra}---\n`;
 const ACT = "> [!activity|notes] Harbour notes\n";
 const note = (body, act = ACT) => `${head()}\n${act}\n${body}`;
 const tabOf = (text, n = 0, key = "/notes") => build(text).nav.byKey.get(key).tabs[n];
