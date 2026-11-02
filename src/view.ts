@@ -782,12 +782,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		button.addEventListener("click", () => this.openCard(undefined, button));
 	}
 
-	/**
-	 * The origins the note's `media-from` names, as written. A declaration allows nothing: it only lets the card ask up front.
-	 * TODO(integration): lane A's `mediaFromOf(frontMatterOf(splitLines(this.text)).head).origins` replaces this body.
-	 */
+	/** The origins the note's `media-from` names. A declaration allows nothing: it only lets the card ask up front. */
 	private declaredOrigins(): string[] {
-		return [];
+		return this.book?.mediaFrom ?? [];
 	}
 
 	/** On opening a note: the card, when the note names sites the reader has not allowed (for this vault or this note) and has not put off. */
