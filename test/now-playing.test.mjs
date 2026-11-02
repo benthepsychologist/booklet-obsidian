@@ -345,6 +345,71 @@ test("Back to the page: paused with the page showing it returns; playing it show
 	tidy(r);
 });
 
+test("Back to the page with the note open in a hidden tab: its tab is revealed and made the active one", async () => {
+	const { BookletPlugin } = await import("./.build/view.mjs");
+	const { FileView } = await import("./obsidian-stub.mjs");
+	const calls = [];
+	// main.ts reads `leaf.view instanceof FileView` and `leaf.view.file`
+	const view = (path) => Object.assign(new (class extends FileView {})(), { file: { path } });
+	const mine = { view: view(PATH), setViewState: async (vs, opts) => calls.push(["setViewState", vs.state.file, !!opts?.focus]) };
+	const other = { view: view("Other.md"), setViewState: async () => assert.fail("another note's tab is left alone") };
+	const app = {
+		workspace: {
+			on: () => ({}),
+			onLayoutReady() {},
+			getLeavesOfType: () => [],
+			iterateAllLeaves: (cb) => [other, mine].forEach(cb),
+			getLeaf: () => assert.fail("the note is open already: no new tab"),
+			revealLeaf: async (l) => calls.push(["revealLeaf", l === mine]),
+			setActiveLeaf: (l, o) => calls.push(["setActiveLeaf", l === mine, !!o?.focus]),
+		},
+		metadataCache: { on: () => ({}) },
+		vault: { on: () => ({}) },
+		loadLocalStorage: () => null,
+		saveLocalStorage() {},
+	};
+	const plugin = new BookletPlugin(app, {});
+	await plugin.onload();
+	await plugin.showPage(PATH, { screen: "activity:/course" });
+	assert.deepEqual(calls.map((c) => c[0]), ["setViewState", "revealLeaf", "setActiveLeaf"], "it is revealed, then made active");
+	assert.deepEqual(calls[2], ["setActiveLeaf", true, true], "the note's own leaf, with focus");
+	plugin.unload();
+});
+
+test("a paused element Back put in the page, then the page closed and Obsidian emptied its src: the next drawing of that media is not handed the dead element", async () => {
+	const restore = useMediaRender();
+	try {
+		const r = rig();
+		const v = r.open();
+		await v.settled();
+		const rendered = v.box().querySelector("audio");
+		const m = fakeMedia({ duration: 600, src: "media/ep1.mp3?1700000000000" });
+		rendered.replaceWith(m);
+		m.fire("loadedmetadata");
+		m.fire("play");
+		m.fire("pause");
+		click(items()[0].querySelector(".booklet-nowplaying-back"));
+		assert.ok(v.box().contains(m), "Back put the paused element in the page");
+		await v.close();
+		// Obsidian's teardown of the closed page
+		m.removeAttribute("src");
+		assert.equal(m.isConnected, false);
+		const again = r.open();
+		await again.settled();
+		const fresh = again.box().querySelector("audio");
+		assert.ok(fresh, "the page has a player");
+		assert.notEqual(fresh, m, "not the dead element");
+		assert.ok(fresh.getAttribute("src"), "and it has a source");
+		assert.equal(r.np.holds(m), false);
+		// pressing Play on the fresh element lifts it as a first press does
+		fresh.dispatchEvent(new w.Event("play", { bubbles: false }));
+		await again.close();
+		tidy(r);
+	} finally {
+		restore();
+	}
+});
+
 test("the end writes once, takes pos out, and lets the element go", async () => {
 	const r = rig(core.setAnswer(COURSE, "", "e1", { pos: 300 }));
 	const v = r.open();

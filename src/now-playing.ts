@@ -289,6 +289,11 @@ export class NowPlaying {
 		}
 		// paused and left behind by a page that is gone
 		if (e.el.isConnected) return null;
+		// Obsidian empties the `src` of the media of a page it tears down: that element can play nothing, so it is not handed to a new page
+		if (!e.el.getAttribute("src")) {
+			this.forget(e);
+			return null;
+		}
 		e.from = from;
 		return e.el;
 	}

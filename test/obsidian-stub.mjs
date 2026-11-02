@@ -271,7 +271,8 @@ export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 });
 
 /** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
-export class FileView extends Component {}
+/** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file (main.ts tests `instanceof FileView`). */
+export const FileView = (globalThis.__bookletStubFileView ??= class FileView extends Component {});
 export class TFile {}
 export class WorkspaceLeaf {
 	async setViewState() {}

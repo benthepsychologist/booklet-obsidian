@@ -134,6 +134,8 @@ export default class BookletPlugin extends Plugin {
 		setLeafMode(leaf, path, "booklet");
 		await leaf.setViewState({ type: VIEW_TYPE, state: { ...state, file: path }, active: true }, { focus: true });
 		await this.app.workspace.revealLeaf(leaf);
+		// revealing a tab that is hidden behind the active one does not make it the active one: the note must be what she sees
+		this.app.workspace.setActiveLeaf(leaf, { focus: true });
 	}
 
 	private refreshMarkdownActions(): void {
