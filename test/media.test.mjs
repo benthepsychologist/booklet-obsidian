@@ -1,0 +1,97 @@
+/*
+ * Media by the extension of an address, an address's origin and host, and the services the plugin plays (src/core/media.ts,
+ * services.ts). Made-up addresses only: example.org, example.net and the like.
+ */
+import test from "node:test";
+import assert from "node:assert/strict";
+import { core } from "./helpers.mjs";
+
+const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, SUGGESTED_HOSTS } = core;
+
+test("mediaClass: the extension of the path decides, in any case, before a query or a fragment", () => {
+	for (const e of ["mp3", "m4a", "ogg", "opus", "wav", "flac"]) assert.equal(mediaClass(`media/x.${e}`), "audio", e);
+	for (const e of ["mp4", "webm", "mov", "mkv", "ogv", "3gp"]) assert.equal(mediaClass(`media/x.${e}`), "video", e);
+	for (const e of ["png", "jpg", "jpeg", "gif", "svg", "webp", "avif", "bmp"]) assert.equal(mediaClass(`x.${e}`), "image", e);
+	assert.equal(mediaClass("https://media.example.org/a/B.MP3"), "audio");
+	assert.equal(mediaClass("https://media.example.org/a.m4a?token=1#t=20"), "audio");
+	assert.equal(mediaClass("https://media.example.org/watch?v=a.mp4"), null, "an extension in the query is not the path's");
+	assert.equal(mediaClass("https://media.example.org/a.mp3/"), null, "a path that ends in a slash has no extension");
+	assert.equal(mediaClass("https://example.mp3"), null, "a host is not a path");
+	assert.equal(mediaClass("https://example.mp3/page"), null);
+	assert.equal(mediaClass("//cdn.example.net/x.wav"), "audio");
+	assert.equal(mediaClass("notes.txt"), null);
+	assert.equal(mediaClass("x"), null);
+	assert.equal(mediaClass(""), null);
+});
+
+test("originOf and hostOf: new URL's reading, https for an origin, a port only when it is not the default", () => {
+	assert.equal(originOf("https://Media.Example.org/a.mp3"), "https://media.example.org");
+	assert.equal(originOf("https://media.example.org:443/a"), "https://media.example.org");
+	assert.equal(originOf("https://media.example.org:8443/a"), "https://media.example.org:8443");
+	assert.equal(originOf("http://media.example.org/a"), null);
+	assert.equal(originOf("//media.example.org/a"), null);
+	assert.equal(originOf("data:audio/wav;base64,AAAA"), null);
+	assert.equal(originOf("https://user:pw@media.example.org/a"), null, "user-info is never an origin");
+	assert.equal(originOf("not an address"), null);
+	assert.equal(originOf("https://xn--bcher-kva.example/a"), "https://xn--bcher-kva.example");
+	assert.equal(originOf("https://bücher.example/a"), "https://xn--bcher-kva.example", "punycode is shown plainly");
+	assert.equal(hostOf("https://media.example.org/a"), "media.example.org");
+	assert.equal(hostOf("http://media.example.org:8080/a"), "media.example.org:8080");
+	assert.equal(hostOf("ftp://media.example.org/a"), null);
+	assert.equal(hostOf("relative/path.mp3"), null);
+});
+
+test("serviceOf: the pages of the services the plugin knows, with a player built from the id alone; anything else is not one", () => {
+	const yt = serviceOf("https://www.youtube.com/watch?v=abcDEF12345&t=30");
+	assert.equal(yt.name, "YouTube");
+	assert.equal(yt.kind, "video");
+	assert.equal(yt.embedUrl, "https://www.youtube-nocookie.com/embed/abcDEF12345?autoplay=1&rel=0");
+	assert.deepEqual(yt.hosts, ["youtube.com", "youtu.be", "youtube-nocookie.com"]);
+	assert.match(yt.allow, /fullscreen/);
+	for (const u of ["https://youtu.be/abcDEF12345", "https://youtube.com/shorts/abcDEF12345", "https://m.youtube.com/watch?v=abcDEF12345", "https://www.youtube.com/embed/abcDEF12345", "https://music.youtube.com/watch?v=abcDEF12345"])
+		assert.equal(serviceOf(u)?.embedUrl, yt.embedUrl, u);
+	for (const u of ["https://www.youtube.com/watch?v=short", "https://www.youtube.com/watch?v=abcDEF12345/../x", "https://www.youtube.com/", "https://www.youtube.com/channel/abcDEF12345", "https://youtu.be/", "http://youtu.be/abcDEF12345", "https://evilyoutube.com/watch?v=abcDEF12345", "https://youtube.com.evil.example/watch?v=abcDEF12345", "https://u:p@youtu.be/abcDEF12345"])
+		assert.equal(serviceOf(u), null, u);
+
+	const vm = serviceOf("https://vimeo.com/123456789");
+	assert.equal(vm.name, "Vimeo");
+	assert.equal(vm.embedUrl, "https://player.vimeo.com/video/123456789?autoplay=1");
+	assert.equal(serviceOf("https://player.vimeo.com/video/123456789").embedUrl, vm.embedUrl);
+	assert.equal(serviceOf("https://vimeo.com/123456789/abcdef012345").embedUrl, "https://player.vimeo.com/video/123456789?autoplay=1&h=abcdef012345");
+	assert.equal(serviceOf("https://vimeo.com/channels/staffpicks/123456789").embedUrl, vm.embedUrl);
+	assert.equal(serviceOf("https://vimeo.com/about"), null);
+
+	const sp = serviceOf("https://open.spotify.com/episode/0123456789abcdefABCDEF");
+	assert.equal(sp.name, "Spotify");
+	assert.equal(sp.kind, "audio");
+	assert.equal(sp.embedUrl, "https://open.spotify.com/embed/episode/0123456789abcdefABCDEF");
+	assert.equal(serviceOf("https://open.spotify.com/intl-fr/episode/0123456789abcdefABCDEF").embedUrl, sp.embedUrl);
+	assert.equal(serviceOf("https://open.spotify.com/episode/short"), null);
+
+	const sc = serviceOf("https://soundcloud.com/some-artist/some-track");
+	assert.equal(sc.name, "SoundCloud");
+	assert.equal(sc.kind, "audio");
+	assert.equal(sc.embedUrl, "https://w.soundcloud.com/player/?url=https%3A%2F%2Fsoundcloud.com%2Fsome-artist%2Fsome-track&auto_play=true");
+	assert.match(serviceOf("https://soundcloud.com/some-artist/sets/an-album").embedUrl, /some-artist%2Fsets%2Fan-album/);
+	assert.equal(serviceOf("https://soundcloud.com/discover/featured"), null, "a page of the site that is not a track");
+
+	assert.equal(serviceOf("https://media.example.org/a.mp3"), null);
+	assert.equal(serviceOf("not an address"), null);
+});
+
+test("serviceAllowed: the link's own host, or any host of the service, on the list; alsoCovers names what an entry adds", () => {
+	const link = "https://youtu.be/abcDEF12345";
+	const svc = serviceOf(link);
+	const none = { vault: [], notes: {} };
+	assert.equal(serviceAllowed(svc, link, none, "N.md"), false);
+	assert.equal(serviceAllowed(svc, link, { vault: ["youtube.com"], notes: {} }, "N.md"), true, "youtube.com allows the youtu.be link and the player");
+	assert.equal(serviceAllowed(svc, link, { vault: ["youtube-nocookie.com"], notes: {} }, "N.md"), true);
+	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "N.md"), true);
+	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "Other.md"), false, "another note's list is not this note's");
+	assert.equal(serviceAllowed(svc, link, { vault: ["example.org"], notes: {} }, "N.md"), false);
+	assert.deepEqual(alsoCovers("youtube.com"), ["youtu.be", "youtube-nocookie.com"]);
+	assert.deepEqual(alsoCovers("vimeo.com"), []);
+	assert.deepEqual(alsoCovers("media.example.org"), []);
+	assert.deepEqual(SUGGESTED_HOSTS, ["youtube.com", "vimeo.com", "spotify.com", "soundcloud.com"]);
+	for (const h of SUGGESTED_HOSTS) assert.equal(core.normaliseEntry(h).entry, h, `${h} is an entry as it stands`);
+});

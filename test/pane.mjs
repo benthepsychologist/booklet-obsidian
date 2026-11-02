@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 
 process.env.TZ = "UTC";
 
-export const { BookletView } = await import("./.build/view.mjs");
+export const { BookletView, MediaAllows } = await import("./.build/view.mjs");
 export { sleep };
 
 /**
@@ -45,7 +45,7 @@ export function pane(text, { path = "Note.booklet.md", screen, delay = 0, state 
 			}
 		},
 	};
-	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
+	const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" }, media: new MediaAllows(null, () => {}) });
 	view.file = { path, basename: path.replace(/\.md$/, "") };
 	view.load();
 	void view.setState(state ?? (screen ? { version: 2, screen } : {}), {});

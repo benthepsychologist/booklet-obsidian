@@ -34,6 +34,10 @@ async function loadPlugin() {
 		}
 		registerEvent() {}
 		register() {}
+		async loadData() {
+			return null;
+		}
+		async saveData() {}
 		addSettingTab(t) {
 			seen.settingTabs.push(t);
 		}
@@ -76,7 +80,7 @@ test("the plugin's id, its command id and its view type are the ones the README 
 		"the view types",
 	);
 	assert.ok(seen.commands.every((c) => typeof c.name === "string" && c.name), "every command has a name");
-	assert.deepEqual(seen.settingTabs, [], "the plugin has no settings tab yet; when it gets one, a setting changes how the view looks and never what is written to a note");
+	assert.equal(seen.settingTabs.length, 1, "the plugin has one settings tab (the sites media may load from); a setting changes how the view looks or which sites media loads from, and never what is written to a note");
 });
 
 test("the README lists the names that stay put", () => {

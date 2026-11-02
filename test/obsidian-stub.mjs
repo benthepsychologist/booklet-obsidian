@@ -384,3 +384,89 @@ export function getIcon(name) {
 	svg.setAttribute("data-icon", name);
 	return svg;
 }
+
+/*
+ * The settings page (src/settings.ts): a stand-in for Plugin's data store and for PluginSettingTab, Setting and the two components
+ * a Setting hands out (a button, a text box). They draw what Obsidian's draw, in the same classes, and do only what the page asks of them.
+ */
+Plugin.prototype.loadData = async function () {
+	return globalThis.__bookletStubData ?? null;
+};
+Plugin.prototype.saveData = async function (data) {
+	globalThis.__bookletStubSaved = (globalThis.__bookletStubSaved ?? []).concat([JSON.parse(JSON.stringify(data))]);
+};
+Plugin.prototype.addSettingTab = function (tab) {
+	(globalThis.__bookletStubTabs ??= []).push(tab);
+};
+
+export class PluginSettingTab {
+	constructor(app, plugin) {
+		this.app = app;
+		this.plugin = plugin;
+		this.containerEl = document.createElement("div");
+	}
+	display() {}
+	hide() {}
+}
+
+class ButtonComponent {
+	constructor(el) {
+		this.buttonEl = el.createEl("button");
+	}
+	setButtonText(t) {
+		this.buttonEl.setText(t);
+		return this;
+	}
+	onClick(cb) {
+		this.buttonEl.addEventListener("click", cb);
+		return this;
+	}
+}
+
+class TextComponent {
+	constructor(el) {
+		this.inputEl = el.createEl("input", { type: "text" });
+	}
+	setPlaceholder(t) {
+		this.inputEl.setAttribute("placeholder", t);
+		return this;
+	}
+	setValue(v) {
+		this.inputEl.value = v;
+		return this;
+	}
+	onChange(cb) {
+		this.inputEl.addEventListener("input", () => cb(this.inputEl.value));
+		return this;
+	}
+}
+
+export class Setting {
+	constructor(el) {
+		this.settingEl = el.createDiv({ cls: "setting-item" });
+		const info = this.settingEl.createDiv({ cls: "setting-item-info" });
+		this.nameEl = info.createDiv({ cls: "setting-item-name" });
+		this.descEl = info.createDiv({ cls: "setting-item-description" });
+		this.controlEl = this.settingEl.createDiv({ cls: "setting-item-control" });
+	}
+	setName(t) {
+		this.nameEl.setText(t);
+		return this;
+	}
+	setDesc(t) {
+		this.descEl.setText(t);
+		return this;
+	}
+	setHeading() {
+		this.settingEl.addClass("setting-item-heading");
+		return this;
+	}
+	addButton(cb) {
+		cb(new ButtonComponent(this.controlEl));
+		return this;
+	}
+	addText(cb) {
+		cb(new TextComponent(this.controlEl));
+		return this;
+	}
+}

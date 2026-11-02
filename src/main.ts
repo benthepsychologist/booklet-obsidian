@@ -4,14 +4,25 @@
  */
 import { FileView, MarkdownView, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
 import { moveHeld } from "./held-store";
+import { BookletSettingTab, MediaAllows } from "./settings";
 import { BookletView, VIEW_TYPE } from "./view";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
 export default class BookletPlugin extends Plugin {
 	/** The "Open as booklet" button added to Markdown views of booklet notes. */
 	private markdownActions = new Map<MarkdownView, HTMLElement>();
+	/** The sites the reader has allowed media from (settings.ts), loaded from the plugin's data before any view is made. */
+	media = new MediaAllows(null, () => {});
 
 	override async onload(): Promise<void> {
+		this.media = new MediaAllows(await this.loadData(), (data) => this.saveData(data));
+		this.addSettingTab(new BookletSettingTab(this.app, this, this.media));
+		// the allow list changed (the card, the settings page, a rename): every open booklet is drawn again with it
+		this.register(
+			this.media.onChange(() => {
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) if (leaf.view instanceof BookletView) leaf.view.redrawSoon();
+			}),
+		);
 		this.registerView(VIEW_TYPE, (leaf) => new BookletView(leaf, this));
 		installViewSwitch(this, VIEW_TYPE);
 
@@ -54,7 +65,13 @@ export default class BookletPlugin extends Plugin {
 				}
 			}),
 		);
-		this.registerEvent(this.app.vault.on("rename", (file, oldPath) => moveHeld(this.app, oldPath, file.path)));
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				moveHeld(this.app, oldPath, file.path);
+				// a note renamed or moved in Obsidian keeps the sites allowed for it; one moved outside Obsidian asks again
+				this.media.moveNote(oldPath, file.path);
+			}),
+		);
 
 		const refresh = () => this.refreshMarkdownActions();
 		this.registerEvent(this.app.workspace.on("layout-change", refresh));

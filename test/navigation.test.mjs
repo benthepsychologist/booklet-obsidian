@@ -8,7 +8,7 @@ import { click, quiet } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, core, norm, sha } from "./helpers.mjs";
-import { BookletView, pane } from "./pane.mjs";
+import { BookletView, MediaAllows, pane } from "./pane.mjs";
 
 /* ---- the three screens ---- */
 
@@ -262,7 +262,7 @@ test("the place is kept when a pane toggles to Markdown and back: the leaf remem
 	const leaf = p.leaf;
 	p.view.unload();
 	// the same leaf shows the note again, with no state handed over
-	const view2 = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" } });
+	const view2 = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" }, media: new MediaAllows(null, () => {}) });
 	view2.file = { path: "Note.booklet.md", basename: "Note.booklet" };
 	view2.load();
 	view2.setViewData(SKETCH, true);

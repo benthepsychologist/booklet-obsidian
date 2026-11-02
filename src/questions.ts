@@ -29,6 +29,8 @@ export interface Target {
 export interface QuestionHost {
 	/** Draws inline Markdown from the file (a prompt, an option, an anchor) with Obsidian's own renderer. */
 	md(markdown: string, el: HTMLElement): void;
+	/** Block Markdown from the file (a question's help): media in it is drawn as a slot with a Play button, where `md` leaves only its alt text. */
+	mdBlock(markdown: string, el: HTMLElement): void;
 	/** The answer the question shows now. */
 	answerOf(t: Target, q: Question): unknown;
 	/**
@@ -142,7 +144,7 @@ function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Questio
 	let helpId: string | null = null;
 	if (q.help) {
 		helpId = host.uid();
-		host.md(q.help, box.createDiv({ cls: "booklet-help markdown-rendered", attr: { id: helpId } }));
+		host.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered", attr: { id: helpId } }));
 	}
 	const key = keyOf(t, q);
 	if (q.each) drawEach(host, box, t, q, key, promptId, (h, into, k, labelledBy) => drawBody(h, into, t, q, k, labeller(labelledBy, helpId), locked));
