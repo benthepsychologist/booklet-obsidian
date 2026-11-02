@@ -2122,3 +2122,351 @@
 		scroll-behavior: auto !important;
 	}
 }
+
+/* ---- media: slots, players, the host after a link, the Allow list button and the allow card ---- */
+
+.booklet-toolbar {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-media-slot {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-media-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-media-play {
+	/* the words wrap at a large zoom, and the button grows with them */
+	white-space: normal;
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	text-align: start;
+}
+
+/* a link is a touch target too: the whole line is the hit area, and its words wrap at a large text size */
+.is-mobile .booklet-media-slot a.external-link {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	/* Obsidian draws its small arrow at the top right of the link's box; the box is taller now, so the arrow follows the words */
+	background-position: right center;
+}
+
+.booklet-media-host,
+.booklet-link-host {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+	/* a service names its hosts ("YouTube (youtube.com, releases.obsidian.md)"): at a large text size they wrap, not run past the slot */
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.booklet-media-slot audio,
+.booklet-media-slot video {
+	width: 100%;
+	max-width: 100%;
+}
+
+.booklet-media-frame {
+	width: 100%;
+	border: 0;
+}
+
+.booklet-media-frame.is-video {
+	aspect-ratio: 16 / 9;
+}
+
+.booklet-media-frame.is-audio {
+	height: 152px;
+}
+
+/* the frame Obsidian draws itself for a YouTube address (media-view.ts) */
+.booklet-media-native iframe {
+	max-width: 100%;
+}
+
+.booklet-media-live:empty {
+	display: none;
+}
+
+.booklet-allow-card {
+	max-height: 85vh;
+	overflow-y: auto;
+}
+
+.booklet-allow-btn-choice {
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+	/* the words wrap at a large text size, and the button grows with them */
+	height: auto;
+	white-space: normal;
+}
+
+/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": the card's title is words the reader needs (a site's name), so it wraps */
+.booklet-allow .booklet-allow-card .modal-title {
+	max-width: none;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+.booklet-allow-choice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-allow-said,
+.booklet-allow-covers,
+.booklet-allow-hint {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+}
+
+.booklet-allow-covers {
+	margin-inline-start: var(--size-4-6);
+}
+
+.booklet-allow-list {
+	list-style: none;
+	margin: 0 0 var(--size-4-3);
+	padding: 0;
+}
+
+.booklet-allow-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 44px;
+}
+
+/* a site's name has no break in it: at a large text size it wraps inside the card, not past it */
+.booklet-allow-row > span,
+.booklet-allow-said,
+.booklet-allow-covers,
+.booklet-allow-hint {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+/* the settings page: the same, and Obsidian's ellipsis on a name or a description is dropped, as the words matter */
+.booklet-settings .setting-item-name,
+.booklet-settings .setting-item-description {
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+}
+
+/* a button's words wrap at a large text size, and the button grows with them */
+.booklet-settings .setting-item-control button {
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	white-space: normal;
+}
+
+.booklet-allow-add input[type="text"] {
+	width: 100%;
+	min-height: max(44px, var(--input-height));
+}
+
+.booklet-allow-error {
+	color: var(--text-error);
+	min-height: 1.5em;
+}
+
+.booklet-view .booklet-allow-btn {
+	min-height: max(44px, var(--input-height));
+	height: auto;
+	white-space: normal;
+}
+
+/* the card sits in the window, outside the view, so the view's rule for less motion does not reach it */
+@media (prefers-reduced-motion: reduce) {
+	.booklet-allow,
+	.booklet-allow *,
+	.booklet-allow *::before,
+	.booklet-allow *::after {
+		transition: none !important;
+		animation: none !important;
+	}
+}
+
+/* ---- 0.12.0: the listen question and Continue (src/listen-view.ts, view.ts drawContinue) ---- */
+
+/* the media sits where the author wrote it, under the prompt; Obsidian's own player is drawn at the width of the page */
+.booklet-listen-media audio,
+.booklet-listen-media video {
+	display: block;
+	max-width: 100%;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-listen-media audio {
+	width: 100%;
+}
+
+/* the "Done" box and where the reader left off, on one line that wraps at a large zoom */
+.booklet-listen-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-listen-tick {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+}
+
+.booklet-listen-tick.is-selected {
+	/* pressed is told by a check mark and weight as well as by Obsidian's call-to-action colour */
+	font-weight: var(--font-bold, 600);
+}
+
+.booklet-listen-check {
+	margin-inline-end: var(--size-4-1);
+}
+
+.booklet-listen-where:empty {
+	display: none;
+}
+
+/* Continue: one button above the cards, named for where it leads; its words wrap rather than run off a narrow pane */
+.booklet-continue:empty {
+	display: none;
+}
+
+.booklet-continue {
+	margin: var(--size-4-3) 0;
+}
+
+.booklet-continue-button {
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	max-width: 100%;
+	padding: var(--size-4-2) var(--size-4-4);
+	white-space: normal;
+	text-align: start;
+	line-height: var(--line-height-tight);
+}
+
+/* a prompt that Continue led to takes focus so a keyboard or screen reader reader starts there; it is not a control, so a press of the mouse shows no ring, but a key does */
+.booklet-prompt:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* after a key press led here, a ring shows where focus went (the same ring as a link's) */
+.booklet-prompt:focus-visible {
+	outline: 2px solid var(--background-modifier-border-focus);
+	outline-offset: 2px;
+}
+
+/*
+ * Now playing (src/now-playing.ts): the bar a playing audio or video is lifted into so that it plays on through a page move and a close. It is a
+ * child of the window's body, fixed at the bottom, above the status bar and below Obsidian's modals, menus and notices. Nothing in it is animated.
+ */
+.booklet-nowplaying {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: var(--layer-popover, 30);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+	/* clear of a phone's bottom safe area: Obsidian's own variable reads env(safe-area-inset-bottom) and is also set when it emulates a phone */
+	padding-bottom: calc(var(--size-4-2) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+	background: var(--background-secondary);
+	border-top: 1px solid var(--background-modifier-border);
+	/* at a large text size the bar never takes more than this much of the window: what is taller scrolls inside it */
+	max-height: 45vh;
+	overflow-y: auto;
+}
+
+/* on a phone the bar stands above Obsidian's own bottom bar (its back, search, new tab, tabs and menu buttons), not over it; the safe area is that bar's */
+.is-phone:not(.is-hidden-nav) .booklet-nowplaying {
+	bottom: var(--navbar-height, 0px);
+	padding-bottom: var(--size-4-2);
+}
+
+.is-phone.is-floating-nav:not(.is-hidden-nav) .booklet-nowplaying {
+	bottom: calc(var(--navbar-height, 0px) + var(--navbar-bottom-offset, 0px));
+}
+
+/* the page keeps its last lines above the bar. The bar's height grows with the text (it is 152px at the normal size and 266px at 200% on a phone, and it stops at 45vh), so the room is in em */
+.booklet-has-nowplaying .booklet-view {
+	padding-bottom: calc(10em + var(--size-4-4));
+}
+
+.booklet-nowplaying-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-nowplaying-label {
+	flex: 1 1 12em;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-nowplaying audio,
+.booklet-nowplaying video {
+	flex: 2 1 16em;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.booklet-nowplaying video {
+	max-height: 30vh;
+}
+
+.booklet-nowplaying button {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+	/* the bar's own colour is the button's, so a button is drawn against it */
+	background: var(--background-primary);
+}
+
+/* Obsidian draws every audio at 42px; on a phone the controls get the room the browser gives them by default (54px), so their buttons are not squeezed */
+.is-mobile .booklet-nowplaying audio,
+.is-mobile .booklet-listen-media audio {
+	height: 54px;
+}
+
+.booklet-nowplaying button:focus-visible,
+.booklet-nowplaying audio:focus-visible,
+.booklet-nowplaying video:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* what stands in the page where the player was lifted from; it is read, not operated */
+.booklet-nowplaying-here {
+	display: block;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-nowplaying-here:focus {
+	outline: none;
+}
