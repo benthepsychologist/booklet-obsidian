@@ -1942,6 +1942,7 @@ async function check10() {
   Object.assign(fns, require("./safety-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
   Object.assign(fns, require("./access-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType }));
   Object.assign(fns, require("./media-checks")({ Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
+  Object.assign(fns, require("./mobile-checks")({ Check, SHOTS, opt, WORK, SRC_VAULT }));
   for (const n of only) {
     const t0 = Date.now();
     let c;
