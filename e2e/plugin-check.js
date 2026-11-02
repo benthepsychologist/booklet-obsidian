@@ -4,7 +4,8 @@
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
 // leftovers-checks.js; 29 to 32 in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
-// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js. README.md in this folder says what each one checks.
+// safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 (0.12.0, audio and video) in media-checks.js. README.md in
+// this folder says what each one checks.
 // Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
@@ -19,6 +20,8 @@ const LINT = opt.lint || process.env.BOOKLET_LINTER || path.join(process.env.BOO
 const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
 // checks 35 to 41 (0.11.0, data safety; safety-checks.js) and 42 to 45 (access-checks.js) join the default list, just before check 10
 if (!opt.only) only.splice(only.length - 1, 0, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
+// checks 48 to 54 (0.12.0, media-checks.js) need the local https server and Obsidian's host-resolver flags, which their own launcher (media-lib.js) sets
+if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54);
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
@@ -1938,6 +1941,7 @@ async function check10() {
   const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, ...notice, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   Object.assign(fns, require("./safety-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
   Object.assign(fns, require("./access-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType }));
+  Object.assign(fns, require("./media-checks")({ Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
   for (const n of only) {
     const t0 = Date.now();
     let c;
