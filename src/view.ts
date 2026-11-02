@@ -866,8 +866,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			returnFocus: () => (opener && opener.isConnected ? opener : again()),
 			onClose: ({ changed, left }) => {
 				this.card = null;
-				// a change draws the note again, and the focus goes back to the same place in the new drawing
-				this.refocus = changed ? again : null;
+				// a change draws the note again, and the focus goes back to the same place in the new drawing; when the note was already drawn again
+				// while the card was open there is nothing left to wait for, and a later, unrelated drawing must not take the focus
+				this.refocus = changed && this.stale ? again : null;
 				// the sites of the booklet that the reader left unanswered are not asked about again until the app is started again
 				if (this.file) for (const h of left) putOff.add(`${this.file.path}\n${h}`);
 			},
