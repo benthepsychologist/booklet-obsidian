@@ -1,6 +1,6 @@
 // Short WAV tones for the real-Obsidian checks. Pure Node: 16-bit mono PCM, 8 kHz (small and plays everywhere).
 //   const { wav, writeTones } = require("./tones");
-//   node tones.js <folder>      -> writes tone-2s.wav, tone-5s.wav, tone-10s.wav and tone-60s.wav
+//   node tones.js <folder>      -> writes tone-2s.wav, tone-5s.wav, tone-10s.wav, tone-60s.wav and tone-180s.wav
 const fs = require("fs"), path = require("path");
 
 /** A WAV file (Buffer) of `seconds` seconds of a sine at `freq` Hz. */
@@ -20,7 +20,7 @@ function wav(seconds, freq = 440, rate = 8000) {
 /** Writes the standard set into `dir`; returns the file names. */
 function writeTones(dir) {
 	fs.mkdirSync(dir, { recursive: true });
-	const set = { "tone-2s.wav": [2, 330], "tone-5s.wav": [5, 440], "tone-10s.wav": [10, 550], "tone-60s.wav": [60, 660] };
+	const set = { "tone-2s.wav": [2, 330], "tone-5s.wav": [5, 440], "tone-10s.wav": [10, 550], "tone-60s.wav": [60, 660], "tone-180s.wav": [180, 770] };
 	for (const [name, [s, f]] of Object.entries(set)) fs.writeFileSync(path.join(dir, name), wav(s, f));
 	return Object.keys(set);
 }

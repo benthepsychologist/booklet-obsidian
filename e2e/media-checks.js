@@ -492,8 +492,8 @@ A parent path: ![](../tone-2s.wav)
 > [!listen|e2 left:4] Ten seconds, within four of the end counts
 > ![[tone-10s.wav]]
 
-> [!listen|e3] Sixty seconds
-> ![[tone-60s.wav]]
+> [!listen|e3] Three minutes
+> ![[tone-180s.wav]]
 
 > [!listen|e4] Hosted, ten seconds
 > ![hosted](${ctx.url("vault.example.org", "tone-10s.wav")})
@@ -541,7 +541,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(Number.isInteger(ans().e2 && ans().e2.pos) && ans().e2.pos === Math.floor(t3), `pos is whole seconds: ${ans().e2 && ans().e2.pos} for ${t3.toFixed(2)}`);
       c.ok(await poll(async () => { const s = await store(); return !s || !s["/e2"]; }, 3000), `and the device's copy is taken out once the note holds it: ${JSON.stringify(await store())}`);
 
-      // 4. an early pause on the sixty-second tone
+      // 4. an early pause on the three-minute tone
       await el("e3", a => a.play());
       await poll(async () => (await state("e3")).t >= 2.3, 6000, 100);
       const t4 = (await state("e3")).t;
@@ -583,6 +583,8 @@ A parent path: ![](../tone-2s.wav)
       // 8. the kill. The browser keeps a changed local-storage value some seconds after the change, and the first launch on a new profile has
       // not kept any (measured: nothing survived a kill 3, 9 or 29 s into playing on it), so the app is killed once to make the profile
       // one that has lived, and the kill that is checked is the second.
+      await o.evaluate(() => app.saveLocalStorage("booklet-warm", 1));
+      await sleep(8000);   // the browser commits a changed value some seconds after the change: the kill must come after that for the profile to count as lived in
       await ctx.kill(o);
       const o2 = await ctx.relaunch("c51-restart");
       let o3 = null;
@@ -590,18 +592,39 @@ A parent path: ![](../tone-2s.wav)
         await ctx.K.open(o2, NOTE51);
         const baseNow = ans().e3, baseJson = JSON.stringify(baseNow);
         await o2.evaluate(([sel]) => document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`).play(), [BOOK]);
-        await sleep(9500);
-        const probe = await o2.evaluate(([sel]) => ({ t: (document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`) || [...document.querySelectorAll(".booklet-nowplaying-item")].filter(i => /Sixty/.test(i.textContent)).map(i => i.querySelector("audio"))[0]).currentTime, kept: (app.loadLocalStorage("booklet-listen:Listen.booklet.md") || {})["/e3"] }), [BOOK]);
+        // The browser commits a changed local-storage value to disk some seconds after the first change of a batch, and it rate-limits the commits
+        // of a process: the first batch of a launch (the app's own start-up writes) is kept about five seconds after the launch, and the next
+        // commit comes about a minute later (measured: 55 s after the play began, on a launch that had played for about 15 s before). The plugin
+        // keeps the position each second; what survives a SIGKILL is only what the browser had committed. So the episode (a three-minute tone,
+        // longer than the wait) plays until the log on disk holds a position of this episode, two more seconds pass (the device store is then
+        // ahead of the disk), and then the app is killed: the check proves that the next start adds exactly what was on disk to the note.
+        // leveldb puts a length byte and an encoding byte between a key and its value, so the log is read as bytes and the value is looked for after the key
+        const diskPos = () => {
+          let last = null;
+          const dir = path.join(ctx.configDir, "obsidian", "Local Storage", "leveldb");
+          let names = []; try { names = fs.readdirSync(dir).filter(n => /\.(log|ldb)$/.test(n)).sort(); } catch (e) { return null; }
+          for (const n of names) {
+            let txt = ""; try { txt = fs.readFileSync(path.join(dir, n)).toString("latin1"); } catch (e) { continue; }
+            for (const m of txt.matchAll(/booklet-listen:Listen\.booklet\.md[^{]{0,4}\{[^}]*"\/e3":\{"pos":(\d+)/g)) last = +m[1];
+          }
+          return last;
+        };
+        const committed = await poll(() => { const d = diskPos(); return d !== null && d > baseNow.pos ? d : null; }, 150000, 500);
+        await sleep(2000);
+        const probe = await o2.evaluate(([sel]) => ({ t: (document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`) || [...document.querySelectorAll(".booklet-nowplaying-item")].filter(i => /Three/.test(i.textContent)).map(i => i.querySelector("audio"))[0]).currentTime, kept: (app.loadLocalStorage("booklet-listen:Listen.booklet.md") || {})["/e3"] }), [BOOK]);
+        const onDisk = diskPos();
+        c.info(`the browser had committed position ${onDisk} to disk (first seen ${committed}) when the app was killed`);
         c.info(`killed mid-episode: the clock reads ${probe.t.toFixed(2)} s, the device store holds ${JSON.stringify(probe.kept)}, the note holds ${baseJson}`);
         await ctx.kill(o2);
         c.ok(JSON.stringify(ans().e3) === baseJson, `the process was killed (SIGKILL) while the episode played, and the note still holds what it held: nothing was written while it played: ${JSON.stringify(ans().e3)}`);
         o3 = await ctx.relaunch("c51-restart-again");
+        c.info(`after the relaunch the device store holds ${JSON.stringify(await o3.evaluate(() => app.loadLocalStorage("booklet-listen:Listen.booklet.md")))}`);
         await ctx.K.open(o3, NOTE51);
         const back = await poll(() => { const v = ans().e3; return v && v.pos !== baseNow.pos ? v : null; }, 8000, 100);
-        c.ok(!!back && back.done === false && back.pos > baseNow.pos && back.pos <= probe.kept.pos && back.pos >= probe.kept.pos - 6, `the next start adds the position the device kept to the note: it held pos ${baseNow.pos}, the device last wrote ${probe.kept && probe.kept.pos}, now it holds ${JSON.stringify(back)} (the browser had kept a value ${back ? probe.kept.pos - back.pos : "?"} s old)`);
+        c.ok(!!back && back.done === false && back.pos > baseNow.pos && back.pos === onDisk && onDisk <= probe.kept.pos, `the next start adds the position the device kept to the note: it held pos ${baseNow.pos}, the device last wrote ${probe.kept && probe.kept.pos} and the browser had committed ${onDisk}, now it holds ${JSON.stringify(back)} (the browser had kept a value ${back && probe.kept ? probe.kept.pos - back.pos : "?"} s old)`);
         await sleep(500);
         const w = await o3.evaluate(([sel]) => document.querySelector(`${sel} [data-booklet-listen='/e3'] .booklet-listen-where`).textContent, [BOOK]);
-        c.ok(back && w === `Left off at 0:${String(back.pos).padStart(2, "0")}`, `and the box says where she left off: ${JSON.stringify(w)}`);
+        c.ok(back && w === `Left off at ${Math.floor(back.pos / 60)}:${String(back.pos % 60).padStart(2, "0")}`, `and the box says where she left off: ${JSON.stringify(w)}`);
         c.ok(await poll(() => o3.evaluate(() => { const st = app.loadLocalStorage("booklet-listen:Listen.booklet.md"); return !st || !st["/e3"]; }), 3000), "and the device's copy is taken out");
         // the other end of it: the note was changed by another device since the session began, so the note wins and the device's copy goes
         await o3.evaluate(() => app.saveLocalStorage("booklet-listen:Listen.booklet.md", { "/e3": { pos: 30, base: 1 } }));
@@ -824,7 +847,7 @@ ${q52("q5", "Question five")}> [!module|m2 end] End of module two
   const NOTE54 = "Access.booklet.md";
   const note54 = ctx => front("access", "Access") + `> [!activity|a1] Listening and watching
 
-Allowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-2s.wav")})
+Allowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})
 
 Blocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})
 
@@ -957,8 +980,20 @@ Blocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav"
         const play = BOOK + " .booklet-media-play";
         await o.evaluate(([p]) => [...document.querySelectorAll(p)].find(b => /allowed clip/.test(b.textContent)).focus(), [play]);
         await o.page.keyboard.press("Enter");
-        const started = await poll(() => o.evaluate(sel => { const s = document.querySelector(sel + " .booklet-media-slot audio"); return s ? { paused: s.paused, t: s.currentTime, focusIn: !!(document.activeElement && document.activeElement.closest(".booklet-media-slot")) } : null; }, BOOK), 5000);
-        c.ok(started && started.focusIn, tag(`Enter on the allowed clip's Play starts it and focus stays in its slot: ${JSON.stringify(started)}`));
+        // 0.12.0: the pressed player is lifted into the Now playing bar inside its own play event, so keyboard focus follows it there. It is on the
+        // playing audio or the bar's controls, never on the page's body (a keyboard or screen-reader user would be left nowhere), and Tab goes on
+        // through the bar in its own order: the player's controls, Back to the page, Close.
+        const started = await poll(() => o.evaluate(() => { const a = document.querySelector(".booklet-nowplaying audio"); if (!a || a.paused || a.currentTime < 0.2) return null; const f = document.activeElement; return { t: +a.currentTime.toFixed(2), focus: f ? f.tagName.toLowerCase() + "." + (f.getAttribute("class") || "").split(" ")[0] : null, inBar: !!(f && f.closest(".booklet-nowplaying")), body: f === document.body }; }), 6000);
+        c.ok(started && started.inBar && !started.body, tag(`Enter on the allowed clip's Play starts it, it is lifted into the Now playing bar and focus is on it or the bar's controls, not on the body: ${JSON.stringify(started)}`));
+        const bar = [];
+        for (let i = 0; i < 8; i++) { await o.page.keyboard.press("Tab"); await sleep(40); bar.push(await o.evaluate(() => { const f = document.activeElement; return f ? (f.closest(".booklet-nowplaying") ? (f.getAttribute("class") || f.tagName.toLowerCase()).split(" ")[0] : "outside") : "none"; })); if (bar.at(-1) === "outside" || bar.at(-1) === "none") break; }
+        const iBack = bar.indexOf("booklet-nowplaying-back"), iClose = bar.indexOf("booklet-nowplaying-close");
+        c.ok(iBack >= 0 && iClose > iBack, tag(`Tab goes on through the bar in order, the player's controls, then Back to the page, then Close: ${JSON.stringify(bar)}`));
+        await o.evaluate(() => document.querySelector(".booklet-nowplaying-close").focus());
+        await o.page.keyboard.press("Enter");
+        await sleep(600);
+        const closedBar = await o.evaluate(sel => { const f = document.activeElement; return { bar: !!document.querySelector(".booklet-nowplaying"), body: f === document.body, inView: !!(f && f.closest(sel)) }; }, BOOK);
+        c.ok(!closedBar.bar && !closedBar.body, tag(`Enter on Close ends it and focus is not dropped to the body: ${JSON.stringify(closedBar)}`));
         await o.evaluate(sel => { for (const a of document.querySelectorAll(sel + " audio")) a.pause(); }, BOOK);
 
         // ---- the card ----
@@ -1272,7 +1307,7 @@ ${extra}> [!choice|q1] A question?
         c.ok(!!back && back.done !== true && probe.kept && back.pos <= probe.kept.pos && back.pos >= probe.kept.pos - 6, `(k) the next start adds the position the device kept to the note: ${JSON.stringify(back)} (device last held ${probe.kept && probe.kept.pos})`);
         await sleep(500);
         const w = await o3.evaluate(sel => (document.querySelector(sel + " [data-booklet-listen='/l1'] .booklet-listen-where") || {}).textContent, BOOK);
-        c.ok(back && w === `Left off at 0:${String(back.pos).padStart(2, "0")}`, `(k) and the box says where she left off: ${JSON.stringify(w)}`);
+        c.ok(back && w === `Left off at ${Math.floor(back.pos / 60)}:${String(back.pos % 60).padStart(2, "0")}`, `(k) and the box says where she left off: ${JSON.stringify(w)}`);
         noteBytes(ctx, orig, "(k)", c);
         // the quit hook, as the app runs it: the tasks the plugin adds on "quit" are awaited (emulated by calling the event; the app is not quit)
         await o3.evaluate(sel => { const a = document.querySelector(sel + " [data-booklet-listen='/l1'] audio"); window.__a56 = a; window.__p56 = []; return a.play(); }, BOOK);
