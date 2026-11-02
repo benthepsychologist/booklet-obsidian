@@ -6,6 +6,8 @@
  *   test/.build/view.mjs   src/view.ts and the plugin class of src/main.ts (BookletPlugin), with "obsidian" standing for
  *                          the few parts of its API they use (test/obsidian-stub.mjs), run over a jsdom document by
  *                          test/view.test.mjs
+ *   test/.build/media.mjs  the media slots and players, the allow card and the settings page from src/, the same way, for the media,
+ *                          allow-card and settings tests
  *   test/.build/screens.mjs  drawPicture and Booklet's icon set from src/, the same way, for test/picture.test.mjs
  *                            and numericColumns, drawMarks and the held store, for the leftovers and review tests
  */
@@ -23,7 +25,7 @@ await esbuild.build({
 });
 await esbuild.build({ ...pluginOptions(true), outfile: "test/.build/main.js", logLevel: "warning" });
 await esbuild.build({
-	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main"; export { MediaAllows } from "./src/settings";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",
@@ -40,5 +42,15 @@ await esbuild.build({
 	target: "es2021",
 	alias: { obsidian: "./test/obsidian-stub.mjs" },
 	outfile: "test/.build/screens.mjs",
+	logLevel: "warning",
+});
+await esbuild.build({
+	stdin: { contents: 'export { createPlayer, drawMedia, drawLinkHosts, keepLocalPreload, nameLocalMedia, playerHost, isTrustedPress, PressedSlot } from "./src/media-view"; export { openAllowCard } from "./src/allow-card"; export { BookletSettingTab, MediaAllows } from "./src/settings";', resolveDir: ".", loader: "ts" },
+	bundle: true,
+	format: "esm",
+	platform: "neutral",
+	target: "es2021",
+	alias: { obsidian: "./test/obsidian-stub.mjs" },
+	outfile: "test/.build/media.mjs",
 	logLevel: "warning",
 });

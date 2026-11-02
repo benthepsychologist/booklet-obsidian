@@ -34,6 +34,10 @@ async function loadPlugin() {
 		}
 		registerEvent() {}
 		register() {}
+		async loadData() {
+			return null;
+		}
+		async saveData() {}
 		addSettingTab(t) {
 			seen.settingTabs.push(t);
 		}
@@ -76,7 +80,7 @@ test("the plugin's id, its command id and its view type are the ones the README 
 		"the view types",
 	);
 	assert.ok(seen.commands.every((c) => typeof c.name === "string" && c.name), "every command has a name");
-	assert.deepEqual(seen.settingTabs, [], "the plugin has no settings tab yet; when it gets one, a setting changes how the view looks and never what is written to a note");
+	assert.equal(seen.settingTabs.length, 1, "the plugin has one settings tab (the sites media may load from); a setting changes how the view looks or which sites media loads from, and never what is written to a note");
 });
 
 test("the README lists the names that stay put", () => {
@@ -96,7 +100,7 @@ test("the README lists the names that stay put", () => {
 
 /* ---- a saved pane is read tolerantly ---- */
 
-const TWO = `---\nbooklet: "0.17"\ntitle: Two\n---\n\n> [!activity|a] A\n\n> [!tab|t1] One\n\n> [!page|p1] First\n\nWords.\n\n***\n\nMore.\n\n> [!page|p2] Second\n\nOther words.\n\n> [!tab|t2] Two\n\nTwo words.\n\n> [!activity|b] B\n\nB words.\n`;
+const TWO = `---\nbooklet: "0.18"\ntitle: Two\n---\n\n> [!activity|a] A\n\n> [!tab|t1] One\n\n> [!page|p1] First\n\nWords.\n\n***\n\nMore.\n\n> [!page|p2] Second\n\nOther words.\n\n> [!tab|t2] Two\n\nTwo words.\n\n> [!activity|b] B\n\nB words.\n`;
 
 /** [name, saved state, the screen the pane opens on]: a state this release did not write opens the home screen (the note has two activities). */
 const BAD = [

@@ -13,7 +13,7 @@ module.exports = function leftoversChecks(env) {
 
   const noteText = () => {
     const rows = Array.from({ length: 240 }, (_, i) => `{"ts": "2026-0${1 + Math.floor(i / 28)}-${String((i % 28) + 1).padStart(2, "0")}T09:00:00Z", "steps": ${1000 + i * 7}, "note": "Made-up entry ${i + 1}"}`).join(",\n");
-    return `---\nbooklet: "0.17"\ntitle: Leftovers\n---\n\n> [!module|mod] **Bold** and *slanted* module\n\n> [!tab|a] First tab\n\nWords under the first tab.\n\n> [!tab|b] Second tab\n\nWords under the second tab.\n\n`
+    return `---\nbooklet: "0.18"\ntitle: Leftovers\n---\n\n> [!module|mod] **Bold** and *slanted* module\n\n> [!tab|a] First tab\n\nWords under the first tab.\n\n> [!tab|b] Second tab\n\nWords under the second tab.\n\n`
       + `> [!activity|walk tab:a] A **walk** [with a link](https://example.org)\n\nA line of text\n- - -\nAfter the break.\n\n> [!activity|talk tab:b] Talk it over\n\nWords for talking.\n\n> [!module|mod end] End\n\n`
       + `> [!activity|multi] Two tabs\n\n> [!tab|one] One\n\nPage one text.\n\n***\n\nPage two text.\n\n> [!tab|two] Two\n\nOther tab text.\n\n> [!activity|log repeat] Log\n\n> [!number|steps] How many steps?\n\n> [!text|note] A note\n\n\`\`\`booklet query\nfrom: log\nas: table\nfields: steps, note\nlimit: 500\n\`\`\`\n\n`
       + `%%\n> [!records] App record — do not edit below this line\n\n\`\`\`booklet entries log\n{"items": [\n${rows}\n]}\n\`\`\`\n%%\n`;

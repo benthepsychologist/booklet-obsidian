@@ -11,7 +11,7 @@ import { WIKI, build, core, sha, wikiAt } from "./helpers.mjs";
 import { window as w, click, press, typeInto } from "./dom.mjs";
 import { pane, sleep } from "./pane.mjs";
 
-const head = (marker = "0.17") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
+const head = (marker = "0.18") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
 const only = (nav) => [...nav.byKey.values()][0];
 
@@ -193,8 +193,8 @@ test("a saved place for the third of g, g, g-2 reopens the third page (which kep
 
 /* ---- S5: what a 0.17 note holds that this view does not read ---- */
 
-const read17 = (body, marker = "0.17") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`);
-const note17 = (body, marker = "0.17") => read17(body, marker).problems;
+const read17 = (body, marker = "0.18") => core.parseBooklet(`${head(marker)}> [!activity|a] A\n\n${body}`);
+const note17 = (body, marker = "0.18") => read17(body, marker).problems;
 
 test("a 0.17 file with a wordless unknown kind lists it in the notice; Obsidian's own callouts and a plain file do not", () => {
 	const lesson = read17("> [!lesson] Title\n> body\n");

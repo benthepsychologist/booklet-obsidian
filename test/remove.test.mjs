@@ -26,7 +26,7 @@ const lintOk = (text) => {
 	assert.equal(r.status, 0, r.out);
 };
 
-const FM = '---\nbooklet: "0.17"\nid: test/remove\ntitle: Remove\nlang: en\n---\n';
+const FM = '---\nbooklet: "0.18"\nid: test/remove\ntitle: Remove\nlang: en\n---\n';
 const ACT = `${FM}
 > [!activity|log repeat] A log
 

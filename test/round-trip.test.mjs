@@ -7,7 +7,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, norm } from "./helpers.mjs";
+import { assertOutsideUnchanged, core, norm } from "./helpers.mjs";
 
 const HEADER = core.RECORDS_HEADER;
 
@@ -15,7 +15,7 @@ const HEADER = core.RECORDS_HEADER;
 function note({ eol = "\n", bom = false, finalNewline = true, words = "" } = {}) {
 	const lines = [
 		"---",
-		'booklet: "0.17"',
+		'booklet: "0.18"',
 		"id: test/round-trip",
 		`title: Round trip ${words}`.trimEnd(),
 		"lang: en",
@@ -204,4 +204,111 @@ test("CRLF: a block written into a note with CRLF endings, in every part, has CR
 	assert.ok(isCRLF(text), JSON.stringify(text.slice(text.indexOf("%%"))));
 	// a multi-line text answer is one JSON string with an escaped newline, never a raw one
 	assert.ok(text.includes("\\n"));
+});
+
+/* ---- a listen (format 0.18) ---- */
+
+/**
+ * A made-up course note: a `media-from` YAML list in the front matter, an activity of listens (a remote embed, a local one, a link) each
+ * with a transcript callout after it, and a text question. `eol` is every line ending in it.
+ */
+function course({ eol = "\n", records = "" } = {}) {
+	const lines = [
+		"---",
+		'booklet: "0.18"',
+		"id: test/course",
+		"title: A made-up course",
+		"lang: en",
+		"media-from:",
+		"  - https://media.example.org",
+		"  - https://cdn.example.net:8443",
+		"---",
+		"",
+		"> [!activity|course] The course",
+		"",
+		"> [!listen|e1] Episode 1: Foundations",
+		"> ![Episode 1](https://media.example.org/u01/e1.m4a)",
+		"",
+		"> [!note]- Transcript",
+		"> Made-up words said in the episode, with “quotes” and 日本語.",
+		"",
+		"> [!listen|e2 left:60] Episode 2",
+		"> ![[ep2.mp3]]",
+		"",
+		"> [!note]- Transcript",
+		"> More made-up words.",
+		"",
+		"> [!listen|v1] Lecture video",
+		"> [Watch the lecture](https://video.example.org/watch/overview)",
+		"",
+		"> [!text|t] Thoughts",
+		"",
+	];
+	return lines.join(eol) + records;
+}
+
+const LISTEN_STEPS = [
+	["e1", "pause", { pos: 754.6, duration: 1800 }],
+	["e1", "pause", { pos: 1700, duration: 1800 }],
+	["e2", "tick", {}],
+	["v1", "tick", {}],
+	["e1", "end", {}],
+	["e2", "untick", {}],
+	["e1", "untick", {}],
+];
+
+for (const [name, eol] of [["LF", "\n"], ["CRLF", "\r\n"]]) {
+	test(`${name}: a course with a listen, a media-from list and transcripts: pause, end, tick and untick change the answer and nothing before the region`, () => {
+		const orig = course({ eol });
+		const origBytes = bytes(orig);
+		const back = core.parseBooklet(orig);
+		assert.deepEqual(back.mediaFrom, ["https://media.example.org", "https://cdn.example.net:8443"]);
+		assert.deepEqual(back.problems, []);
+		assert.deepEqual(back.unread, []);
+		// a transcript is an ordinary folded callout after the embed: prose to the reader, drawn by Obsidian, and kept as written
+		assert.equal(back.activities[0].segments.filter((s) => s.type === "prose" && s.markdown.startsWith("> [!note]- Transcript")).length, 2);
+		let text = orig;
+		const want = {};
+		for (const [id, ev, at] of LISTEN_STEPS) {
+			const next = core.listenNext(want[id], ev, at, id === "e2" ? 60 : 120);
+			if (next === null) continue;
+			text = core.setAnswer(text, "", id, next);
+			if (core.holdsSomething(next)) want[id] = next;
+			else delete want[id];
+			assert.ok(bytes(text).subarray(0, origBytes.length).equals(origBytes), `${name}: ${id} ${ev} changed a byte of the design`);
+			assert.deepEqual(norm(core.parseBooklet(text).records.answers[""] ?? {}), want, `${id} ${ev}`);
+			assertOneEnding(text, eol, `${name}, ${id} ${ev}`);
+		}
+		// e1 ended then unticked left { done: false }, which holds nothing; e2 ticked then unticked likewise; v1 is ticked
+		assert.deepEqual(norm(core.parseBooklet(text).records.answers[""]), { v1: { done: true } });
+		const kinds = new Set(core.parseBooklet(text).activities[0].segments.filter((s) => s.type === "question").map((s) => s.kind));
+		assert.deepEqual([...kinds], ["listen", "text"]);
+	});
+}
+
+test("a note that already holds listen answers: a listen answered, one unanswered, one with a pos and unknown keys; only the changed answer's bytes change", () => {
+	const records =
+		'%%\n' + core.RECORDS_HEADER + '\n\n```booklet answers\n{"e1": {"pos": 754, "done": false, "seen-on": "a made-up device", "tags": ["x",  "y"]},\n "v1":{"done":true},  "t": "words"}\n```\n%%\n';
+	const orig = course({ records: "\n" + records });
+	const book = core.parseBooklet(orig);
+	assert.deepEqual(book.problems, []);
+	assert.deepEqual(norm(book.records.answers[""]), { e1: { pos: 754, done: false, "seen-on": "a made-up device", tags: ["x", "y"] }, v1: { done: true }, t: "words" });
+	// e2 is unanswered: a first pause writes it after the others, which keep their bytes
+	const first = core.setAnswer(orig, "", "e2", core.listenNext(undefined, "pause", { pos: 30, duration: 600 }, 60));
+	const at = first.indexOf("```booklet answers");
+	assert.ok(first.slice(0, at) === orig.slice(0, at), "everything before the block is as it was");
+	assert.ok(first.includes('{"e1": {"pos": 754, "done": false, "seen-on": "a made-up device", "tags": ["x",  "y"]},'), "the first answer keeps its bytes");
+	assert.ok(first.includes(' "v1":{"done":true},  "t": "words"'), "so do the others");
+	assert.deepEqual(norm(core.parseBooklet(first).records.answers[""].e2), { pos: 30, done: false });
+	// e1 resumes and ends: its pos is taken out, its unknown keys and their spacing stay
+	const ended = core.setAnswer(first, "", "e1", core.listenNext(core.parseBooklet(first).records.answers[""].e1, "end", {}, 120));
+	assert.ok(ended.includes('{"e1": {"done": true, "seen-on": "a made-up device", "tags": ["x",  "y"]},'), ended);
+	assert.deepEqual(Object.keys(core.parseBooklet(ended).records.answers[""].e1), ["done", "seen-on", "tags"]);
+	// the design is the bytes it was, before the region and after it
+	assertOutsideUnchanged(orig, ended, "ended");
+	// v1 unticked is left { done: false }: holds nothing, so its member goes and the rest stays
+	const unticked = core.setAnswer(ended, "", "v1", core.listenNext({ done: true }, "untick", {}, 120));
+	assert.equal(core.parseBooklet(unticked).records.answers[""].v1, undefined);
+	assert.ok(unticked.includes('"t": "words"'));
+	assertOutsideUnchanged(orig, unticked, "unticked");
 });

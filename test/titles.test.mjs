@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const BOOK = `---\nbooklet: "0.17"\ntitle: "2026. Mood log"\n---\n\n> [!activity|a1] 1. First step\n\nHello.\n\n> [!activity|a2] # Second\n\nMore.\n`;
+const BOOK = `---\nbooklet: "0.18"\ntitle: "2026. Mood log"\n---\n\n> [!activity|a1] 1. First step\n\nHello.\n\n> [!activity|a2] # Second\n\nMore.\n`;
 
 const render = (markdown, el) => {
 	const li = /^\s{0,3}(\d{1,9})[.)]\s+(.*)$/.exec(markdown);

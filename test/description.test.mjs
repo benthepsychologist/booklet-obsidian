@@ -9,7 +9,7 @@ import { core, norm } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
 const SENTENCE = "Why the sea rises twice a day, and a short check.";
-const NOTE = `---\nbooklet: "0.17"\nid: example/tides\ntitle: How tides work\ndescription: ${SENTENCE}\nlang: en\n---\n\nThe first paragraph, which is not the description.\n\n> [!module|m] Tides\n\nThe module's opening.\n\n> [!activity|a] The pull\n\nThe moon pulls.\n\n> [!choice|q] Which pulls harder?\n- [ ] The moon\n- [ ] The sun\n\n> [!activity|b] The range\n\nSpring and neap.\n\n> [!module|m end]\n`;
+const NOTE = `---\nbooklet: "0.18"\nid: example/tides\ntitle: How tides work\ndescription: ${SENTENCE}\nlang: en\n---\n\nThe first paragraph, which is not the description.\n\n> [!module|m] Tides\n\nThe module's opening.\n\n> [!activity|a] The pull\n\nThe moon pulls.\n\n> [!choice|q] Which pulls harder?\n- [ ] The moon\n- [ ] The sun\n\n> [!activity|b] The range\n\nSpring and neap.\n\n> [!module|m end]\n`;
 
 test("description: is read from the front matter as written", () => {
 	assert.equal(norm(core.parseBooklet(NOTE).frontMatter).description, SENTENCE);

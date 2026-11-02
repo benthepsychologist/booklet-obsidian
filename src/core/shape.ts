@@ -16,7 +16,19 @@ export function holdsSomething(v: unknown): boolean {
 	return typeof v === "number" || v === true;
 }
 
+/**
+ * Whether a question counts as answered by what its record holds (SPEC section 5, "Listen": counting). It is when the record holds
+ * something, except for a listen: that is answered only when its `done` is true, and a `pos` alone is a place kept, not an answer. This is
+ * the test for counting and for Continue; the writer's own rule, that a record holding nothing is taken out, stays `holdsSomething`
+ * (a `pos` is written and kept).
+ */
+export function answeredOf(q: Pick<Question, "kind">, v: unknown): boolean {
+	if (q.kind === "listen") return !!v && typeof v === "object" && !Array.isArray(v) && (v as Record<string, unknown>)["done"] === true;
+	return holdsSomething(v);
+}
+
 const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 const isNum = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 const isWhole = (x: unknown, from: number): x is number => isNum(x) && Number.isInteger(x) && x >= from;
 /** A choice's or a multi's member: an option's position (a whole number from 1), or the reader's own option (a string). */
@@ -67,6 +79,10 @@ function kindIssue(q: Question, v: unknown): string | null {
 			return isPick(v) ? null : "a choice question keeps an option's position from 1, or the reader's own option";
 		case "multi":
 			return isMultiAnswer(v) ? null : "a multi question keeps a list of option positions from 1 and the reader's own options";
+		case "listen":
+			return isObj(v) && (!own(v, "pos") || isWhole(v["pos"], 0)) && (!own(v, "done") || typeof v["done"] === "boolean")
+				? null
+				: "a listen question keeps an object: pos, if there, a whole number of seconds from 0, and done, if there, true or false";
 		case "widget": {
 			const engine = q.widget ? engineOf(q.widget.data) : "";
 			if (engine === "grid-select") return Array.isArray(v) && v.every((x) => typeof x === "string") ? null : "a grid-select widget keeps a list of item ids and words of the reader's own";

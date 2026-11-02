@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { assertOutsideUnchanged, core, lint, norm, pythonAvailable } from "./helpers.mjs";
 
 const canLint = pythonAvailable();
-const FM = '---\nbooklet: "0.17"\nid: test/synthetic\ntitle: Synthetic\nlang: en\n---\n';
+const FM = '---\nbooklet: "0.18"\nid: test/synthetic\ntitle: Synthetic\nlang: en\n---\n';
 const BODY = `${FM}
 > [!activity|act] An activity
 
@@ -211,7 +211,9 @@ test("what cannot be written is refused, not guessed", () => {
 	assert.throws(() => core.setAnswer(open, "", "a", "x"), core.RecordsWriteError);
 	assert.throws(() => core.setAnswer(BODY, "nope", "a", "x"), core.RecordsWriteError);
 	assert.throws(() => core.setAnswer(BODY, "", "not an id", "x"), core.RecordsWriteError);
-	assert.throws(() => core.setAnswer(BODY, "", "a", { no: 1 }), core.RecordsWriteError);
+	// an answer may be an object since a listen's is one (listen-core.test.mjs), but only of values JSON writes as they are
+	assert.throws(() => core.setAnswer(BODY, "", "a", { no: Number.NaN }), core.RecordsWriteError);
+	assert.throws(() => core.setAnswer(BODY, "", "a", { no: undefined }), core.RecordsWriteError);
 });
 
 test("two records regions (two files pasted together): read as one, and only regions change", () => {

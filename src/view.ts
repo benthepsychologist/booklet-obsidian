@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, MarkdownView, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -24,9 +24,16 @@ import {
 	entryPlace,
 	finalizeDraft,
 	findHeading,
+	gateMedia,
+	slotAllowed,
+	entryFor,
+	isAllowed,
 	hasScreen,
+	answeredOf,
+	continueTarget,
 	holdsSomething,
 	noteNumbers,
+	pageIndexOf,
 	tokenise,
 	questionsIn,
 	stepsOf,
@@ -64,8 +71,10 @@ import {
 	whenText,
 	type ActTab,
 	type Activity,
+	type GateMode,
 	type AnswerValue,
 	type Booklet,
+	type ContinueTarget,
 	type DayRule,
 	type Entry,
 	type AnswerWords,
@@ -86,13 +95,22 @@ import {
 	type ShownDraft,
 	type WordPart,
 } from "./core";
+import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
+import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
+import { Listens, locate } from "./listen-view";
+import { markdownViewOf, replaceInEditor } from "./markdown-view";
+import type { ViewListen } from "./listen-writer";
+import type { LiftFrom, NowPlaying } from "./now-playing";
+import { keepFurthest, loadFurthest } from "./listen-store";
+import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { mountQuery } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
+import type { MediaAllows } from "./settings";
 import type { LeafMode } from "./switch";
 
 export const VIEW_TYPE = "booklet";
@@ -102,6 +120,10 @@ export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
 	/** The plugin's own manifest: the notice at the top of a note says which version of the plugin is reading it. */
 	manifest: { version: string };
+	/** The sites the reader has allowed media from (settings.ts): the gate reads it, and the allow card edits it. */
+	media: MediaAllows;
+	/** The bar that keeps a playing element going when its page goes (now-playing.ts). Absent only where a test does not exercise it. */
+	nowPlaying?: NowPlaying;
 }
 
 /**
@@ -116,6 +138,8 @@ const PRESS_END_MS = 300;
 const ENTRIES_SHOWN = 10;
 /** Ids handed out by every view, so two panes in one window never share one (a tab names its panel by id). */
 let uidCount = 0;
+/** The sites a booklet named that the reader put off ("Not now"), by note: not asked again until the app is next started. */
+const putOff = new Set<string>();
 
 /** What the pager asks of the steps of the page on show. */
 interface SteppingView {
@@ -243,6 +267,23 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** A scroll position to come back to once the drawing is finished (Back and Forward, a redraw of the same place). */
 	private scrollWanted: number | null = null;
 	private scrollKept: number | null = null;
+	/** The allow card, while it is open. */
+	private card: AllowCard | null = null;
+	/** What takes focus once the drawing that a change to the allow list asks for is finished (the card's button, drawn again). */
+	private refocus: (() => HTMLElement | null) | null = null;
+	/** The slot she pressed, carried over the redraw that allowing its site brings (media-view.ts). */
+	private readonly pressed = new PressedSlot();
+	/** Follows the drawn `listen` questions' media: their positions, pauses and ends (listen-view.ts). */
+	readonly listens: Listens;
+	/** The heading the next drawing scrolls to is a prompt Continue led to: focus goes to it (it takes a tabindex of -1). */
+	private headingFocus = false;
+	/**
+	 * Pieces of Markdown whose drawing does not wait for Obsidian to settle a local media embed. Obsidian's render of `![[x.wav]]`
+	 * resolves only some 5 s after the player is in the page (measured, 1.14.5, with `preload="none"` on it), and a drawing that
+	 * waited for that would put its focus, scroll and refocus off by as long. A piece with no slot and no mark to draw is counted
+	 * finished as soon as its media element exists (the observer in onload); its words are polished then and again when it resolves.
+	 */
+	private readonly early = new WeakMap<HTMLElement, () => void>();
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -253,6 +294,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// and when the view closes. This view never writes the whole file, so both are switched off here and
 		// in save() below: every write goes through the core on the note's fresh text (see write()).
 		this.requestSave = () => {};
+		this.listens = new Listens({
+			app: () => this.app,
+			path: () => (this.file ? this.file.path : null),
+			held: (t, q) => this.heldAnswer(t, q),
+			wrong: (t, q) => !!this.wrongOf(t, q),
+			write: (t, q, value, written, failed) => this.commit(t, q, value, written, failed),
+			idle: () => this.settleSoon(0),
+		});
 	}
 
 	override onload(): void {
@@ -267,6 +316,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.settleSoon(0);
 		});
 		this.registerDomEvent(this.contentEl, "pointerdown", (evt) => this.pressBegan(evt.target), { capture: true });
+		// the media of a `listen`: its events do not bubble, so one set of capture listeners sees the element however and whenever it was made
+		for (const type of MEDIA_EVENTS) this.registerDomEvent(this.contentEl, type, (evt) => void this.listens.onMedia(evt), { capture: true });
+		// a native player is lifted into the now-playing bar in the task of its own `play`, the one moment early enough to outlive a page move or a close (now-playing.ts); after the listener above, which has seen the `play` first
+		this.registerDomEvent(this.contentEl, "play", (evt) => this.host.nowPlaying?.lift(evt, () => this.nowSource()), { capture: true });
 		// a link in the note's own words (SPEC section 3): a heading link opens the place its words name, a link to a module opens it
 		this.registerDomEvent(this.contentEl, "click", (evt) => this.followLink(evt));
 		// a link to a note in the note's own words is Obsidian's: its hover preview is asked for as Reading view asks for it
@@ -283,7 +336,25 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.cancelSettle();
 			this.pressing = false;
 			this.endPressTail();
+			this.card?.close();
 		});
+		// Obsidian's own audio and video elements load nothing before they are pressed, as far as the page can say so (media-view.ts)
+		const win = this.contentEl.ownerDocument.defaultView;
+		if (win && typeof win.MutationObserver === "function") {
+			const watch = new win.MutationObserver((records) => {
+				for (const r of records)
+					for (const n of Array.from(r.addedNodes))
+						if (n.nodeType === 1) {
+							keepLocalPreload(n as Element);
+							nameLocalMedia(n as Element);
+							// media of one the bar holds is the bar's, however late Obsidian made it
+							this.host.nowPlaying?.restore(n as Element, () => this.nowSource());
+							this.mediaThere(n as Element);
+						}
+			});
+			watch.observe(this.contentEl, { childList: true, subtree: true });
+			this.register(() => watch.disconnect());
+		}
 		// back in use on a later day than the one drawn (the window or the app shown again, the pane made active): drawn
 		// again, so today is today. While the reader is in the middle of an answer the day it shows is kept.
 		const later = () => {
@@ -306,7 +377,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * work, and closes the window once that work is done, so the plugin offers a task only when there is some.
 	 */
 	hasUnsaved(): boolean {
-		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key));
+		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key)) || this.listens.unsaved();
 	}
 
 	/**
@@ -430,7 +501,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * double press on Next (one page turns) and wrong for a tab chosen during a turn: that one waits for the turn to land
 	 * and is made then, so the last move the reader asked for is the one that lands.
 	 */
-	go(to: Place, opts: { heading?: string | null; step?: boolean; focusTab?: boolean } = {}): void {
+	go(to: Place, opts: { heading?: string | null; step?: boolean; focusTab?: boolean; focus?: boolean } = {}): void {
 		if (!this.file || !this.nav) return;
 		const p = resolvePlace(this.nav, to);
 		const step = !!opts.step || isStep(this.place, p);
@@ -441,10 +512,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.flushAll();
 		if (opts.focusTab) this.focusTab = true;
 		if (samePlace(this.place, p)) {
-			if (opts.heading) this.scrollToHeading(opts.heading);
+			if (opts.heading) this.scrollToHeading(opts.heading, opts.focus);
 			return;
 		}
 		this.headingTo = opts.heading ?? null;
+		// `focus`: the heading is a prompt Continue led to, and focus goes to it once the screen is drawn
+		this.headingFocus = !!opts.focus && !!opts.heading;
 		if (!opts.focusTab && !opts.heading) this.focusScreen = true;
 		if (!step) {
 			this.setPlace(p);
@@ -464,6 +537,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			.catch(() => {
 				// the move did not happen, so no draw is coming to take the focus
 				this.focusScreen = false;
+				this.headingFocus = false;
 			})
 			.finally(() => {
 				this.moving = false;
@@ -478,6 +552,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private flushAll(): void {
 		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q, p.pick);
 		this.flushOwn(null);
+		// a position that plays or is noted and not written is read from its element now, before the drawing takes the element away
+		this.listens.flush();
 	}
 
 	/** The place a heading hit opens: a heading in the opening of an activity with tabs is drawn above every tab, so the tab and part on show stay. */
@@ -581,7 +657,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// yet is handed the file), and taking it would take back answers just given. So the editor's text is taken. A
 		// change made to the file elsewhere reaches that editor a moment after this view is handed it, and is followed
 		// from there.
-		const md = this.file ? this.markdownViewOf(this.file) : null;
+		const md = this.file ? markdownViewOf(this.app, this.file.path) : null;
 		const live = md ? md.editor.getValue() : "";
 		if (md && live && live !== data) {
 			this.following = true;
@@ -606,7 +682,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** The text a Markdown pane of the note holds now, if it differs from the view's (see setViewData). */
 	private followMarkdown(): void {
-		const md = this.file && this.book ? this.markdownViewOf(this.file) : null;
+		const md = this.file && this.book ? markdownViewOf(this.app, this.file.path) : null;
 		const live = md ? md.editor.getValue() : "";
 		if (live) this.take(live);
 	}
@@ -634,6 +710,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.following = false;
 		this.widgets.clear();
 		this.ownFields.clear();
+		this.listens.reset();
 		this.showAll.clear();
 		this.entriesFolded.clear();
 		this.nav = null;
@@ -672,8 +749,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/* ---- QuestionHost ---- */
 
-	/** Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). A scope (a module's id, "" for the bare activities, null for the booklet's) in place of `marks` names whose image definitions it is drawn with; else the screen's. */
-	md(markdown: string, el: HTMLElement, marksOrScope: boolean | string | null = false): void {
+	/**
+	 * Drawn by Obsidian. A footnote's mark in `markdown` is a numbered mark when `marks` (prose), and left out otherwise (a title, a label). A scope (a module's id, "" for the bare activities, null for the booklet's) in place of `marks` names whose image definitions it is drawn with; else the screen's.
+	 * `media` says what a media embed in `markdown` is (core/gate.ts): in `block` (prose, help, an opening) a slot with a Play button; in `inline`, the default
+	 * (a title, an option, an anchor, a label, a card, the trail), its alt text and no request. It is always passed, never worked out from `marks`.
+	 */
+	md(markdown: string, el: HTMLElement, marksOrScope: boolean | string | null = false, media: GateMode = "inline"): void {
 		const marks = typeof marksOrScope === "boolean" ? marksOrScope : false;
 		const at = typeof marksOrScope === "string" || marksOrScope === null ? marksOrScope : this.mdScope;
 		if (!this.drawing || this.offscreen) return;
@@ -686,19 +767,137 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (!contexts.has(at)) contexts.set(at, referenceContext(this.book.references, at));
 			context = contexts.get(at) ?? "";
 		}
-		const text = tokenise(context ? `${markdown}\n\n${context}` : markdown, ids);
+		// nothing remote is left for Obsidian to fetch: every remote media form is a token (or words) before it renders (core/gate.ts)
+		const gated = gateMedia(context ? `${markdown}\n\n${context}` : markdown, { mode: media, allows: this.host.media.allows(), notePath: this.file ? this.file.path : "" });
+		const text = tokenise(gated.text, ids);
 		this.rendering++;
 		const cite = marks ? this.cite : null;
-		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", this.drawing)
+		const drawing = this.drawing;
+		// what is done to a piece of Markdown that is drawn, whether its media embed has settled or not (each step is safe to repeat)
+		const polish = (): void => {
+			if (media === "block") drawLinkHosts(el);
+			keepLocalPreload(el);
+			nameLocalMedia(el);
+			// a task box in the file's prose is drawn, not operated: a press here must never edit the design
+			for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
+			this.fixLinks(el);
+		};
+		let counted = true;
+		const finish = (): void => {
+			if (!counted) return;
+			counted = false;
+			this.early.delete(el);
+			if (gen === this.gen && --this.rendering === 0) this.drawn();
+		};
+		if (!ids.length && !gated.slots.length)
+			this.early.set(el, () => {
+				polish();
+				finish();
+			});
+		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", drawing)
 			.then(() => {
 				if (ids.length) drawMarks(this, el, ids, cite, this.source);
-				// a task box in the file's prose is drawn, not operated: a press here must never edit the design
-				for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
-				this.fixLinks(el);
+				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(el), drawing);
+				this.host.nowPlaying?.restore(el, () => this.nowSource());
+				polish();
 			})
-			.finally(() => {
-				if (gen === this.gen && --this.rendering === 0) this.drawn();
-			});
+			.finally(finish);
+	}
+
+	/** Media has appeared in `added`: the pieces of Markdown it is in no longer hold the drawing back (see `early`). */
+	private mediaThere(added: Element): void {
+		const found = added.matches("audio, video") ? [added] : Array.from(added.querySelectorAll("audio, video"));
+		for (const m of found) for (let p = m.parentElement; p && p !== this.contentEl; p = p.parentElement) this.early.get(p)?.();
+	}
+
+	/** Block Markdown from the file that is not prose with footnote marks: a question's help. Media in it is a slot (see `md`). */
+	mdBlock(markdown: string, el: HTMLElement): void {
+		this.md(markdown, el, false, "block");
+	}
+
+	/* ---- media: the slots' asks, the allow card, the sites a booklet names ---- */
+
+	/** This page, for the now-playing bar (now-playing.ts): the note, the way back to it, and the `listen` followed in a box. */
+	private nowSource(): LiftFrom {
+		return {
+			path: this.file ? this.file.path : null,
+			state: { ...this.getState() },
+			about: (box) => this.listens.about(box),
+			follow: (evt, box) => this.listens.onMedia(evt, box),
+		};
+	}
+
+	/** The `listen` with this key as the view holds it, when the note is drawn here (listen-writer.ts: one writer for a place, this view's when it shows the note). */
+	listenOf(key: string): ViewListen | null {
+		const found = this.nav && this.book ? locate(this.nav, key) : null;
+		if (!found) return null;
+		const { t, q } = found;
+		return { held: this.heldAnswer(t, q), wrong: !!this.wrongOf(t, q), write: (value, written, failed) => this.commit(t, q, value, written, failed) };
+	}
+
+	/** `piece` is the element the Markdown is drawn into: the bar tells a `listen`'s media from another embed by where its slot is drawn. */
+	private mediaDeps(piece: HTMLElement): MediaDeps {
+		return {
+			isPress: isTrustedPress,
+			// the live list, not the one the slot was drawn with: a site she has just taken off is not played from
+			allowed: (slot) => slotAllowed(slot, this.host.media.allows(), this.file ? this.file.path : ""),
+			keepAlive: (player) => !!this.host.nowPlaying?.holds(player),
+			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource(), piece) ?? null,
+			carry: (opener, slot) => this.pressed.keep(this.contentEl, opener, slot),
+			render: (markdown, into, owner) => MarkdownRenderer.render(this.app, markdown, into, this.file ? this.file.path : "", owner),
+			ask: ({ slot, opener, once, again }) => {
+				// the slot is drawn again after an allow (the list changed): the nth slot takes the focus back
+				const slots = Array.from(this.contentEl.querySelectorAll(".booklet-media-slot"));
+				const at = slots.findIndex((x) => x.contains(opener));
+				this.openCard({ kind: "media", host: playerHost(slot), entry: slot.entry, once, again }, opener, () => (at >= 0 ? (this.contentEl.querySelectorAll(".booklet-media-slot")[at]?.querySelector<HTMLElement>("button, iframe, audio, video") ?? null) : null));
+			},
+		};
+	}
+
+	/** Opens the allow card for this note. `back` finds what takes focus once the note is drawn again after a change; the button that opened the card is the way back when it is not given. */
+	private openCard(request: CardRequest | undefined, opener: HTMLElement | null, back?: () => HTMLElement | null): void {
+		if (!this.file) return;
+		const again = back ?? (() => this.contentEl.querySelector<HTMLElement>(".booklet-allow-btn"));
+		this.card = openAllowCard({
+			doc: this.contentEl.ownerDocument,
+			allows: this.host.media,
+			notePath: this.file.path,
+			request,
+			returnFocus: () => (opener && opener.isConnected ? opener : again()),
+			onClose: ({ changed, left }) => {
+				this.card = null;
+				// a change draws the note again, and the focus goes back to the same place in the new drawing; when the note was already drawn again
+				// while the card was open there is nothing left to wait for, and a later, unrelated drawing must not take the focus
+				this.refocus = changed && this.stale ? again : null;
+				// the sites of the booklet that the reader left unanswered are not asked about again until the app is started again
+				if (this.file) for (const h of left) putOff.add(`${this.file.path}\n${h}`);
+			},
+		});
+	}
+
+	/** The button at the top of the note that opens the allow card. */
+	private drawAllowButton(page: HTMLElement): void {
+		const bar = page.createDiv({ cls: "booklet-toolbar" });
+		const button = bar.createEl("button", { cls: "booklet-allow-btn", text: "Allow list", attr: { type: "button", "aria-haspopup": "dialog" } });
+		button.addEventListener("click", () => this.openCard(undefined, button));
+	}
+
+	/** The origins the note's `media-from` names. A declaration allows nothing: it only lets the card ask up front. */
+	private declaredOrigins(): string[] {
+		return this.book?.mediaFrom ?? [];
+	}
+
+	/** On opening a note: the card, when the note names sites the reader has not allowed (for this vault or this note) and has not put off. */
+	private askDeclared(): void {
+		if (!this.file || this.card) return;
+		const path = this.file.path;
+		const allows = this.host.media.allows();
+		const hosts: string[] = [];
+		for (const origin of this.declaredOrigins()) {
+			const entry = entryFor(origin);
+			if (entry && !isAllowed(origin, allows, path) && !putOff.has(`${path}\n${entry}`) && !hosts.includes(entry)) hosts.push(entry);
+		}
+		if (hosts.length) this.openCard({ kind: "declared", hosts }, null);
 	}
 
 	uid(): string {
@@ -824,6 +1023,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// added below, as leaving the field would have added them (held-store.ts)
 		const restored = opened && this.file ? Object.entries(loadHeld(this.app, this.file.path)).filter(([k]) => !this.held.has(k)) : [];
 		for (const [k, w] of restored) this.held.set(k, w);
+		// a position still on its way into the note is written before the drawing, and the element that holds it, goes
+		this.listens.flush();
+		this.listens.reset();
 		const book = parseBooklet(this.text);
 		this.book = book;
 		this.widgets.clear();
@@ -848,6 +1050,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			back.addEventListener("click", () => void this.host.setMode(this.leaf, "markdown"));
 			return;
 		}
+
+		this.drawAllowButton(page);
 
 		// one screen at a time: the booklet's home, a module's screen, an activity's screen
 		const nav = buildNav(book, this.text);
@@ -886,6 +1090,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			this.headingTo = outside.heading;
 		}
 		this.setPlace(place);
+		// the furthest page reached on this device: Continue starts after it (listen-store.ts)
+		const reached = this.file ? pageIndexOf(nav, place) : null;
+		if (this.file && reached !== null) keepFurthest(this.app, this.file.path, reached);
 		const shown = this.drawnPlace;
 		this.drawnPlace = place;
 		const moved = !shown || !samePlace(shown, place);
@@ -910,7 +1117,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		this.commitHeldOffscreen(nav, restored.map(([k]) => k));
 		for (const [k] of restored) this.ownFields.get(k)?.commit();
+		// a position the device kept for a `listen` and the note does not hold (the app was killed while it played) is added, as held words are
+		if (opened) this.listens.resume(nav);
 		if (this.rendering === 0) this.drawn();
+		if (opened) this.askDeclared();
 	}
 
 	/**
@@ -952,12 +1162,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Every piece of Markdown in the drawing is rendered: a heading a link led to is scrolled into view, a scroll position kept is restored. */
 	private drawn(): void {
+		// the slot she pressed before allowing its site starts now that it is drawn allowed, before focus is put back
+		this.pressed.resume(this.contentEl);
+		const back = this.refocus;
+		this.refocus = null;
+		back?.()?.focus();
 		const heading = this.headingTo;
+		const focus = this.headingFocus;
 		this.headingTo = null;
+		this.headingFocus = false;
 		if (heading) {
 			this.scrollKept = null;
 			this.scrollWanted = null;
-			this.scrollToHeading(heading);
+			this.scrollToHeading(heading, focus);
 			return;
 		}
 		const y = this.scrollWanted ?? this.scrollKept;
@@ -966,12 +1183,17 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (y !== null) this.contentEl.scrollTop = y;
 	}
 
-	private scrollToHeading(words: string): void {
+	/** Scrolls to the heading or prompt with these words; `focus`: and puts focus on it (Continue: a keyboard or screen reader reader starts at the prompt). */
+	private scrollToHeading(words: string, focus = false): void {
 		const want = plainText(words).toLowerCase();
 		const found = Array.from(this.contentEl.querySelectorAll("h1, h2, h3, h4, h5, h6, .booklet-prompt, .callout-title-inner")).find((h) => plainText(h.textContent ?? "").toLowerCase() === want);
 		// a heading inside a folded callout: open the callout first
 		for (let p: Element | null = found?.parentElement ?? null; p && p !== this.contentEl; p = p.parentElement) if (p.classList.contains("is-collapsed")) p.classList.remove("is-collapsed");
 		if (found && typeof found.scrollIntoView === "function") found.scrollIntoView({ block: "start" });
+		if (found && focus && found.instanceOf(HTMLElement)) {
+			found.setAttr("tabindex", "-1");
+			found.focus({ preventScroll: true });
+		}
 	}
 
 	/* ---- the screens ---- */
@@ -999,7 +1221,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** The booklet's opening, or a module's: its first paragraph larger, the rest under it (SPEC section 3). */
 	private opening(into: HTMLElement, markdown: string): void {
-		if (markdown.trim()) this.md(markdown, into.createDiv({ cls: "booklet-opening booklet-prose markdown-rendered" }), true);
+		if (markdown.trim()) this.md(markdown, into.createDiv({ cls: "booklet-opening booklet-prose markdown-rendered" }), true, "block");
 	}
 
 	private actRow(na: NavAct, n: number): CardRow {
@@ -1039,8 +1261,38 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.md(inlineMd(this.bookTitle(nav)), t);
 		const o = book.openings.find((x) => x.module === null);
 		if (o) this.opening(page, o.markdown);
+		this.drawContinue(page);
 		drawCards(this, page, this.homeRows(nav, book));
 		this.watchCards(() => this.homeRows(nav, this.book as Booklet));
+	}
+
+	/**
+	 * Continue (SPEC section 12): a button on the home screen and a module's, named for where it leads ("Continue: Episode 3"), that opens the
+	 * first `listen` not done or question not answered after the reader's place, and puts focus on its prompt. There is none when nothing is
+	 * left. Her place is the furthest page reached on this device, else what the note's records say (core/nav.ts continueTarget).
+	 */
+	private drawContinue(into: HTMLElement): void {
+		const holder = into.createDiv({ cls: "booklet-continue" });
+		let target: ContinueTarget | null = null;
+		let sig: string | null = null;
+		const show = () => {
+			const nav = this.nav;
+			const book = this.book;
+			target = nav && book ? continueTarget(nav, book, { furthest: this.file ? loadFurthest(this.app, this.file.path) : null }) : null;
+			const now = target ? `Continue: ${plainText(target.heading)}` : "";
+			if (now === sig) return;
+			sig = now;
+			holder.empty();
+			if (!target) return;
+			const button = holder.createEl("button", { cls: "mod-cta booklet-continue-button", text: now, attr: { type: "button" } });
+			button.addEventListener("click", (evt) => {
+				evt.preventDefault();
+				const to = target;
+				if (to) this.go(to.place, { step: true, heading: to.heading, focus: true });
+			});
+		};
+		show();
+		this.onShow("screen-continue", show);
 	}
 
 	private drawModuleScreen(page: HTMLElement, nav: NavModel, book: Booklet, m: NavMod, place: Place): void {
@@ -1054,6 +1306,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.cite = this.citeScope(book, m.id, [m.opening, ...m.tabs.map((x) => x.md)]);
 		this.opening(page, m.opening);
 		page.createDiv({ cls: "booklet-meta", text: moduleMeta(m, book) });
+		this.drawContinue(page);
 		let tops = m.acts;
 		const bar = m.tabs.length > 1;
 		const tab = bar ? (m.tabs.find((x) => x.id === place.tab) ?? m.tabs[0]!) : (m.tabs[0] ?? null);
@@ -1067,7 +1320,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			}
 			// with no tab bar, a module's one tab is shown under its name, as an activity's is
 			else this.md(inlineMd(tab.title), page.createDiv({ cls: "booklet-tab markdown-rendered" }));
-			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
+			if (tab.md) this.md(tab.md, panel.createDiv({ cls: "booklet-prose markdown-rendered" }), true, "block");
 			if (bar) tops = m.acts.filter((x) => x.modTab === tab.id);
 		}
 		const rows = (): CardRow[] => tops.map((x) => this.actRow(x, x.number));
@@ -1232,13 +1485,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.mdScope = a.scope;
 		const t: Target = { scope: a.scope, activity: a };
 		for (const s of blocks) {
-			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true);
+			if (s.type === "prose") this.md(s.markdown, into.createDiv({ cls: "booklet-prose markdown-rendered" }), true, "block");
 			else if (s.type === "tab" || s.type === "page") continue;
 			else if (s.type === "query") this.drawQuery(into, a, s);
 			else if (s.type === "callout-box") {
 				const key = `${a.scope}/${a.id}#${s.start.line}`;
 				// a folded callout that holds an answer is drawn open, and one the reader opened or folded stays as they left it
-				const held = questionsIn(s.children).some((q) => holdsSomething(this.heldAnswer(t, q)));
+				const held = questionsIn(s.children).some((q) => answeredOf(q, this.heldAnswer(t, q)));
 				const open = this.calloutOpen.get(key) ?? (s === step || s.start.fold !== "-" || held);
 				const body = drawCallout(this, into, s, open, (now) => this.calloutOpen.set(key, now));
 				this.drawNodes(body, a, s.children);
@@ -1282,11 +1535,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private drawStepsOf(body: HTMLElement, a: Activity, lead: readonly Block[], steps: readonly Step[], key: string): SteppingView {
 		const t: Target = { scope: a.scope, activity: a };
 		this.drawNodes(body, a, lead);
-		const said = (i: number) => questionsIn(steps[i]?.nodes ?? []).some((q) => holdsSomething(this.heldAnswer(t, q)));
+		const said = (i: number) => questionsIn(steps[i]?.nodes ?? []).some((q) => answeredOf(q, this.heldAnswer(t, q)));
 		// a step is done when each of its questions holds an answer; one with no question, once a step after it holds one
 		const done = (i: number): boolean => {
 			const qs = questionsIn(steps[i]?.nodes ?? []);
-			return qs.length ? qs.every((q) => holdsSomething(this.heldAnswer(t, q))) : steps.some((_s, j) => j > i && said(j));
+			return qs.length ? qs.every((q) => answeredOf(q, this.heldAnswer(t, q))) : steps.some((_s, j) => j > i && said(j));
 		};
 		const first = steps.findIndex((_s, i) => !done(i));
 		const clamp = (n: number) => Math.max(0, Math.min(steps.length - 1, n));
@@ -1592,7 +1845,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** Is the reader in the middle of an answer (a field of this view has focus, or holds typing not yet written) or of a press (until its click)? */
 	private busy(): boolean {
-		if (this.pressing || this.pressTail || this.pending.size) return true;
+		if (this.pressing || this.pressTail || this.pending.size || this.listens.playing()) return true;
 		const el = this.contentEl.ownerDocument.activeElement;
 		return !!el && this.contentEl.contains(el) && (el.instanceOf(HTMLInputElement) || el.instanceOf(HTMLTextAreaElement));
 	}
@@ -1640,15 +1893,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/* ---- answering ---- */
 
 	/** Shows an answer at once, then writes it: into the activity's draft when it repeats, else into the answers. */
-	private commit(t: Target, q: Question, value: AnswerValue | undefined): void {
+	private commit(t: Target, q: Question, value: AnswerValue | undefined, written?: () => void, failed?: () => void): void {
 		const file = this.file;
-		if (!file) return;
+		if (!file) return failed?.();
 		// an answer of the wrong shape is kept as written: nothing typed or pressed replaces it (the writer refuses too)
 		const wrong = this.wrongOf(t, q);
 		if (wrong) {
 			new Notice(`Booklet: the answer was not saved. The note holds an answer to "${q.title || q.id}" that is not in the shape this question keeps, and it is kept as written.`);
 			this.syncWidgets();
-			return;
+			return failed?.();
 		}
 		if (this.book) {
 			const rec = this.book.records;
@@ -1667,7 +1920,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		const rule = this.dayRule();
 		const a = t.activity;
-		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.");
+		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.", written, failed);
 	}
 
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */
@@ -1711,34 +1964,16 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			});
 	}
 
-	/** An open Markdown view of the same note, if there is one. */
-	private markdownViewOf(file: TFile): MarkdownView | null {
-		let found: MarkdownView | null = null;
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			const v = leaf.view;
-			if (!found && v instanceof MarkdownView && v.file === file) found = v;
-		});
-		return found;
-	}
-
 	private async write(file: TFile, change: (text: string) => string): Promise<void> {
 		let result: string;
-		const md = this.markdownViewOf(file);
+		const md = markdownViewOf(this.app, file.path);
 		if (md) {
 			// The note is also open as Markdown. Its editor holds what was typed there and is not saved yet,
 			// so the change goes into that editor, as the smallest edit (only the records region differs),
 			// and the Markdown view saves it. Obsidian's guidelines: use the Editor for an open note.
 			const editor = md.editor;
 			const before = editor.getValue();
-			const after = change(before);
-			if (after !== before) {
-				let p = 0;
-				const max = Math.min(before.length, after.length);
-				while (p < max && before.charCodeAt(p) === after.charCodeAt(p)) p++;
-				let s = 0;
-				while (s < max - p && before.charCodeAt(before.length - 1 - s) === after.charCodeAt(after.length - 1 - s)) s++;
-				editor.replaceRange(after.slice(p, after.length - s), editor.offsetToPos(p), editor.offsetToPos(before.length - s));
-			}
+			replaceInEditor(md, before, change(before));
 			result = editor.getValue();
 		} else {
 			// Atomic read-modify-write of the note on disk: the change runs on the fresh text, never on this view's copy.

@@ -75,6 +75,9 @@ export function answerWords(q: Question, v: unknown): AnswerWords {
 			}
 			return null;
 		}
+		case "listen":
+			// what a listen holds (a position, whether it is done) is not put in words for a query yet
+			return null;
 	}
 }
 

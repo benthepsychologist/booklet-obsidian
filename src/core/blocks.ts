@@ -234,7 +234,7 @@ const DEFINITION = /^ {0,3}\[\^[^\]\s]+\]:/;
  * character at least as long and nothing after it; an unclosed one runs to the end), an indented code block (four spaces
  * or a tab, after a blank line or other code, and not in a list item), or a block of maths between two `$$` lines.
  */
-function inertLines(lines: readonly string[]): boolean[] {
+export function inertLines(lines: readonly string[]): boolean[] {
 	const out = lines.map(() => false);
 	let fence: string | null = null;
 	let maths = false;
@@ -277,7 +277,7 @@ function inertLines(lines: readonly string[]): boolean[] {
  * stands where it stood in the line. A code span runs from a run of backticks to the next run of the same length (a run
  * with no match is only backticks); maths is `$...$` with no space inside its ends, or `$$...$$`.
  */
-function inertSpans(l: string): string {
+export function inertSpans(l: string): string {
 	let out = l.replace(DEFINITION, (m) => " ".repeat(m.length));
 	const ticks = [...l.matchAll(/`+/g)];
 	// for each run, the next run of the same length: found once from the end, so a long line stays linear

@@ -51,6 +51,7 @@ const copyKey = (key: string, p: PickValue): string => `${key}#own:${pickKey(p)}
 function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (show: () => void) => void): QuestionHost {
 	return {
 		md: (markdown, el) => host.md(markdown, el),
+		mdBlock: (markdown, el) => host.mdBlock(markdown, el),
 		answerOf: (t) => pairFor(host.answerOf(t, q), pick)?.a,
 		answer: (t, _q, value) => host.answer(t, q, value, pick),
 		typed: (t, _q, value) => host.typed(t, q, value, pick),
@@ -66,6 +67,7 @@ function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (sho
 		uid: () => host.uid(),
 		wrongOf: (t) => host.wrongOf(t, q),
 		redrawSoon: () => host.redrawSoon(),
+		listens: host.listens,
 	};
 }
 

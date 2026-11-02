@@ -9,7 +9,7 @@ import { typeInto, until } from "./dom.mjs";
 import { pane } from "./pane.mjs";
 
 const BOOK = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Probe
 ---
 
@@ -106,7 +106,8 @@ test("words held for a later page of a tab and for another activity are all adde
 		await p.settled();
 		type(own(p), words);
 		p.close();
-		return JSON.parse([...d.store.values()][0]);
+		// the device keeps the furthest page reached beside the held words (listen-store.ts): the held words are the one under their own key
+		return JSON.parse(d.store.get("booklet-held:Note.booklet.md"));
 	};
 	const late = await typedOn({ version: 2, screen: "activity:/a3", tab: "two", part: 1 }, "late-page");
 	const second = await typedOn({ version: 2, screen: "activity:/a2", part: 0 }, "mine-a2");

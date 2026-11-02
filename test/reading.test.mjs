@@ -13,7 +13,7 @@ import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
 const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
-const head = 'booklet: "0.17"';
+const head = 'booklet: "0.18"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 const types = (text) => norm(core.parseBooklet(text).activities[0].segments.map((s) => (s.type === "callout" ? `callout:${s.kind}` : s.type === "question" ? `q:${s.id}` : s.type)));
 

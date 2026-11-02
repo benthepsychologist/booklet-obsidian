@@ -12,12 +12,12 @@ import { core, corpusFiles, read } from "./helpers.mjs";
 
 const PLUGIN = "0.11.0";
 const UPDATE = "To update: Settings, Community plugins, Check for updates.";
-const IS_PLUGIN = "This is Booklet plugin 0.11.0, which reads format 0.17.";
-const EARLIER = (m) => `This file says booklet: ${m}. This view reads format 0.17 and has opened it as it is; some of it may not draw.`;
+const IS_PLUGIN = "This is Booklet plugin 0.11.0, which reads format 0.18.";
+const EARLIER = (m) => `This file says booklet: ${m}. This view reads format 0.18 and has opened it as it is; some of it may not draw.`;
 
-const front = (marker = "0.17") => `---\nbooklet: "${marker}"\nid: made/up\ntitle: Made up\nlang: en\n---\n`;
+const front = (marker = "0.18") => `---\nbooklet: "${marker}"\nid: made/up\ntitle: Made up\nlang: en\n---\n`;
 /** A note: its front matter is six lines, a blank line follows, and the body starts on line 8. */
-const note = (body, marker = "0.17") => `${front(marker)}\n${body}`;
+const note = (body, marker = "0.18") => `${front(marker)}\n${body}`;
 const BASE = "> [!activity|a] A\n\n> [!text|t] T\n";
 /** The line (counting from 1, front matter included) of the first line of the file that holds `needle`. */
 const lineOf = (text, needle) => text.split(/\r?\n/).findIndex((l) => l.includes(needle)) + 1;
@@ -30,14 +30,14 @@ test("the notice's counting: the front matter is six lines, so the body starts o
 });
 
 test("a later marker: the spec's sentence, that the format is newer, the plugin and its format, and how to update; the note still reads", () => {
-	const t = note(BASE, "0.18");
+	const t = note(BASE, "0.19");
 	const b = core.parseBooklet(t);
 	assert.equal(b.ok, true);
 	assert.equal(b.activities[0].segments.filter((s) => s.type === "question").length, 1, "its question is read");
 	assert.deepEqual(noticeOf(t), {
 		paragraphs: [
-			"This file says booklet: 0.18. This view reads format 0.17 and has opened it as it is; some of it may not draw.",
-			"Format 0.18 is newer than the format this view reads.",
+			"This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
+			"Format 0.19 is newer than the format this view reads.",
 			IS_PLUGIN,
 			`A newer version of the plugin may read this note. ${UPDATE}`,
 		],
@@ -45,11 +45,11 @@ test("a later marker: the spec's sentence, that the format is newer, the plugin 
 		entriesAfter: -1,
 		count: 1,
 	});
-	assert.equal(noticeOf(note(BASE, "0.100"))?.paragraphs[1], "Format 0.100 is newer than the format this view reads.", "0.100 is later than 0.17");
+	assert.equal(noticeOf(note(BASE, "0.100"))?.paragraphs[1], "Format 0.100 is newer than the format this view reads.", "0.100 is later than 0.18");
 });
 
 test("an earlier marker: the spec's sentence and the plugin, and no word about updating", () => {
-	for (const m of ["0.16", "0.9", "0.1"]) {
+	for (const m of ["0.17", "0.16", "0.9", "0.1"]) {
 		assert.deepEqual(noticeOf(note(BASE, m)), { paragraphs: [EARLIER(m), IS_PLUGIN], entries: [], entriesAfter: -1, count: 1 }, m);
 	}
 });
@@ -117,7 +117,7 @@ test("a query key this view does not read: the line of the key itself", () => {
 test("a value the format does not allow for start, icon, status and tab: listed once at its line, and the allowed values list nothing", () => {
 	const why = (text) => core.parseBooklet(text).unread.map((u) => [u.line, u.text, u.why, u.newer]);
 	// `start:` takes `home` only
-	const started = (value) => `---\nbooklet: "0.17"\nid: made/up\ntitle: Made up\nlang: en\nstart: ${value}\n---\n\n${BASE}`;
+	const started = (value) => `---\nbooklet: "0.18"\nid: made/up\ntitle: Made up\nlang: en\nstart: ${value}\n---\n\n${BASE}`;
 	assert.deepEqual(why(started("later")), [[6, "start: later", "`start:` takes only the value `home`, so it was ignored", false]]);
 	assert.deepEqual(why(started("home")), []);
 	// `icon:` on a module, an activity and a page: a name outside the set is listed; a near miss is a mistake, any other might be a later name
@@ -160,7 +160,7 @@ test("several at once, in file order, with a later marker; a long line is cut; a
 	const long = "> [!text|t shiny:1] " + "A very long question that goes on and on ".repeat(5);
 	const body = `> [!activity|a] A\n\n${long}\n\n> [!lesson|x] L\n\n> [!group]\n> > [!number|n mx:5] N\n\n\`\`\`booklet bookmarks\n{}\n\`\`\`\n`;
 	for (const eol of ["\n", "\r\n"]) {
-		const t = note(body, "0.18").replace(/\n/g, eol);
+		const t = note(body, "0.19").replace(/\n/g, eol);
 		const n = noticeOf(t);
 		assert.deepEqual(
 			n?.entries.map((e) => e.slice(0, e.indexOf(":"))),
@@ -184,7 +184,7 @@ test("several at once, in file order, with a later marker; a long line is cut; a
 });
 
 test("the view lists the notice first, with the plugin's own version from its manifest, and counts what it says", async () => {
-	const t = note(`${BASE}\n> [!lesson|x] The lesson\n\n> [!text|u hidden] U\n`, "0.18");
+	const t = note(`${BASE}\n> [!lesson|x] The lesson\n\n> [!text|u hidden] U\n`, "0.19");
 	const v = openView(t, { path: "Made up.booklet.md" });
 	await v.settled();
 	const root = v.view.contentEl;
@@ -194,9 +194,9 @@ test("the view lists the notice first, with the plugin's own version from its ma
 	const first = box.querySelector("ul > li");
 	assert.ok(first.classList.contains("booklet-notice"), "the notice is the first item");
 	assert.deepEqual([...first.querySelectorAll(":scope > p")].map((p) => p.textContent), [
-		"This file says booklet: 0.18. This view reads format 0.17 and has opened it as it is; some of it may not draw.",
-		"Format 0.18 is newer than the format this view reads.",
-		"This is Booklet plugin 9.8.7, which reads format 0.17.",
+		"This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
+		"Format 0.19 is newer than the format this view reads.",
+		"This is Booklet plugin 9.8.7, which reads format 0.18.",
 		"This view does not read these 2 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:",
 		`A newer version of the plugin may read this note. ${UPDATE}`,
 	]);
@@ -223,7 +223,7 @@ test("the rest of the note still draws and takes answers; what is not read is by
 		"",
 		"> [!text|u hidden shiny:1] Another",
 	];
-	const t = note(`> [!activity|a] A\n\n> [!choice|c] Pick\n- [ ] One\n- [ ] Two\n\n> [!text|t] Say\n\n${odd.join("\n")}\n`, "0.18");
+	const t = note(`> [!activity|a] A\n\n> [!choice|c] Pick\n- [ ] One\n- [ ] Two\n\n> [!text|t] Say\n\n${odd.join("\n")}\n`, "0.19");
 	const v = openView(t, { path: "Made up.booklet.md" });
 	await v.settled();
 	const root = v.view.contentEl;
@@ -249,7 +249,7 @@ test("the rest of the note still draws and takes answers; what is not read is by
 	const design = core.designText(after).replace(/\s+$/, "");
 	assert.equal(design, core.designText(t).replace(/\s+$/, ""), "the design is unchanged");
 	for (const line of odd) assert.ok(after.includes(line + "\n") || after.endsWith(line), `kept as written: ${JSON.stringify(line)}`);
-	assert.ok(after.startsWith(front("0.18")), "the marker is the one the file came with");
+	assert.ok(after.startsWith(front("0.19")), "the marker is the one the file came with");
 	// and the notice is still there with the same entries after the redraw
 	assert.equal(root.querySelector(".booklet-problems summary").textContent, "5 things in this note could not be read", "the marker, the lesson, the block and the two settings");
 	v.close();
@@ -258,11 +258,11 @@ test("the rest of the note still draws and takes answers; what is not read is by
 test("no note of the corpus or the test vault holds anything this view does not read, and none says anything of its marker", () => {
 	for (const file of corpusFiles()) {
 		const b = core.parseBooklet(read(file));
-		// an activity line takes no `parent:` setting in format 0.17 (a note that still uses it is listed for that); a theme block
+		// an activity line takes no `parent:` setting in format 0.18 (a note that still uses it is listed for that); a theme block
 		// is a block the format defines and this view does not read yet (README: "themes")
 		const left = b.unread.filter((u) => !/an activity line takes no `parent:` setting/.test(u.why) && u.text !== "```booklet theme");
 		assert.deepEqual(left, [], file);
-		if (b.marker === "0.17") assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
+		if (b.marker === "0.18") assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
 	}
 });
 

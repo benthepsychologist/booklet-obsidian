@@ -147,6 +147,8 @@ export function corpusDirs() {
 		{ name: "kit starters (BOOKLET_STARTERS)", dir: STARTERS, filter: (f) => f.endsWith(".md"), external: true },
 		{ name: "the test vault", dir: join(ROOT, "test-vault"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 		{ name: "made-up page-tree notes (test/page-notes)", dir: join(ROOT, "test", "page-notes"), filter: (f) => f.endsWith(".booklet.md"), external: false },
+		// the listen demo's second note holds mistakes on purpose (it is for the opening notice), so only its clean note is in the corpus
+		{ name: "made-up listen demo (test/page-notes/Listen demo)", dir: join(ROOT, "test", "page-notes", "Listen demo"), filter: (f) => f.endsWith(".booklet.md") && !f.includes("with problems"), external: false },
 	].map((d) => ({ ...d, present: existsSync(d.dir) }));
 }
 
@@ -162,8 +164,73 @@ export function corpusFiles() {
 
 export const read = (f) => readFileSync(f, "utf8");
 
+/**
+ * A media element for a test, with the four things the plugin reads set by the test: `currentTime` (settable, as a seek is),
+ * `duration`, `paused` and `ended`. It is a real <audio> or <video> of the jsdom document, so it sits in a drawing and a
+ * capture listener on an ancestor sees its events; the properties are own properties that shadow jsdom's, and play() and
+ * pause() do what a player does to them (and fire `play` and `pause`). Nothing is loaded and no time passes by itself:
+ *   const m = fakeMedia({ duration: 600 });
+ *   box.appendChild(m);
+ *   m.currentTime = 12; m.fire("timeupdate");   // or m.tick(1): a second on, then timeupdate
+ *   m.fire("ended");                            // sets ended and paused, then dispatches `ended`
+ * Events do not bubble, as a browser's media events do not. `m.log` lists the types fired, in order; `m.seeks` lists
+ * every value `currentTime` was set to by the code under test (not by `tick`), so "never a seek while playing" can be asserted.
+ * Needs a `document` (import test/dom.mjs first).
+ */
+export function fakeMedia({ tag = "audio", src = "", currentTime = 0, duration = NaN, paused = true, ended = false } = {}) {
+	const el = document.createElement(tag);
+	if (src) el.setAttribute("src", src);
+	const state = { currentTime, duration, paused, ended };
+	const log = [];
+	const seeks = [];
+	let quiet = false;
+	for (const k of ["duration", "paused", "ended"]) Object.defineProperty(el, k, { get: () => state[k], set: (v) => (state[k] = v), configurable: true });
+	Object.defineProperty(el, "currentTime", {
+		get: () => state.currentTime,
+		set: (v) => {
+			if (!quiet) seeks.push(v);
+			state.currentTime = v;
+		},
+		configurable: true,
+	});
+	const fire = (type) => {
+		if (type === "ended") {
+			state.ended = true;
+			state.paused = true;
+		}
+		if (type === "play") {
+			state.paused = false;
+			state.ended = false;
+		}
+		if (type === "pause") state.paused = true;
+		log.push(type);
+		el.dispatchEvent(new (el.ownerDocument.defaultView.Event)(type, { bubbles: false }));
+	};
+	Object.assign(el, {
+		fire,
+		log,
+		seeks,
+		/** Time passes while playing: `s` seconds on, then `timeupdate`, without counting as a seek. */
+		tick(s = 1) {
+			quiet = true;
+			state.currentTime += s;
+			quiet = false;
+			fire("timeupdate");
+		},
+		play() {
+			if (state.paused) fire("play");
+			return Promise.resolve();
+		},
+		pause() {
+			if (!state.paused) fire("pause");
+		},
+		load() {},
+	});
+	return el;
+}
+
 // the set-up the 0.9.0 test files share: a note's front matter, a query fence, the day the views are drawn on, a plan's rows
-export const fm = `---\nbooklet: "0.17"\ntitle: Garden\n---\n`;
+export const fm = `---\nbooklet: "0.18"\ntitle: Garden\n---\n`;
 export const fence = (body) => "```booklet query\n" + body + "\n```";
 export const DRAWN = new Date("2026-10-28T12:00:00Z");
 export const rowsOf = (p) => p.groups.flatMap((g) => g.rows);
