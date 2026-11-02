@@ -78,7 +78,7 @@ const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
 // The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
-// with the format 0.17 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
+// with the format 0.18 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
 // test/helpers.mjs keeps the same list.
 const EXPECTED_LINT = {};
 // ok: the linter reports exactly the note's expected errors, each once, and nothing else (none for any other note)
@@ -1596,12 +1596,12 @@ async function check14() {
     const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
     fs.writeFileSync(file, orig);
     const OLDER = "Older marker.booklet.md";
-    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.17"', 'booklet: "0.15"'));
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.18"', 'booklet: "0.15"'));
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
     // a note marked with an earlier format: opened as it is, the notice first among its problems
     await openNote(o, OLDER, "/kinds");
     const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems .booklet-notice > p")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
-    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.17 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.18 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
     await openNote(o, EVERY);
     const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
     const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();

@@ -26,7 +26,7 @@ module.exports = function noticeChecks(env) {
     "> [!text|u hidden shiny:1] Another",
   ];
   const noteText = () => `---
-booklet: "0.18"
+booklet: "0.19"
 id: booklet-test/not-read
 title: Not read
 lang: en
@@ -56,7 +56,7 @@ shading: soft
 `;
   const lineOf = (text, needle) => text.split("\n").findIndex(l => l.includes(needle)) + 1;
   const two = `---
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/two
 title: Two activities
 lang: en
@@ -126,9 +126,9 @@ B words.
         c.ok(got.first, `[${where}] the notice is the first item of the list`);
         c.ok(got.summary === "6 things in this note could not be read", `[${where}] the list counts the marker and five parts: ${JSON.stringify(got.summary)}`);
         c.ok(JSON.stringify(got.paragraphs) === JSON.stringify([
-          "This file says booklet: 0.18. This view reads format 0.17 and has opened it as it is; some of it may not draw.",
-          "Format 0.18 is newer than the format this view reads.",
-          `This is Booklet plugin ${version}, which reads format 0.17.`,
+          "This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
+          "Format 0.19 is newer than the format this view reads.",
+          `This is Booklet plugin ${version}, which reads format 0.18.`,
           "This view does not read these 5 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:",
           `A newer version of the plugin may read this note. ${UPDATE}`,
         ]), `[${where}] its sentences, the real plugin's version in them: ${JSON.stringify(got.paragraphs)}`);
@@ -152,7 +152,7 @@ B words.
         c.ok(ok, `[${where}] a press on an option is written to the note's records`);
         c.ok(written.startsWith(orig.replace(/\s+$/, "")), `[${where}] the note above the records is the note as it was, byte for byte`);
         c.ok(ODD.every(l => written.includes(l + "\n")), `[${where}] every unread line is in the file as written: ${ODD.filter(l => !written.includes(l + "\n")).map(l => JSON.stringify(l)).join(", ") || "all six"}`);
-        c.ok(written.startsWith('---\nbooklet: "0.18"\n'), `[${where}] the marker is the one the file came with`);
+        c.ok(written.startsWith('---\nbooklet: "0.19"\n'), `[${where}] the marker is the one the file came with`);
         const again = await read();
         c.ok(again && JSON.stringify(again.entries) === JSON.stringify(want), `[${where}] and the notice still lists the same five parts after the write`);
       });

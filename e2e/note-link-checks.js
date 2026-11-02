@@ -17,7 +17,7 @@ module.exports = function noteLinkChecks(env) {
   const PARA = "This paragraph is plain prose with no link in it, and a reader should be able to select every word of it and copy it.";
   const otherText = `# Other note\n\n${OTHER_WORDS}\n\n## Sec heading\n\nMade-up words under the heading.\n`;
   const noteText = () => `---
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/links
 title: Links
 lang: en
