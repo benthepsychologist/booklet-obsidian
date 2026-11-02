@@ -633,6 +633,6 @@ test("each: words held on the device for a copy's Add your own field are held un
 	v = draw();
 	await v.settled();
 	assert.deepEqual(norm(core.parseBooklet(disk.text).records.answers[""].why), [{ pick: 1, a: ["Pencils are small"] }], "added to Pencil's pair");
-	assert.equal(store.size, 0, "and taken off the device once added");
+	assert.equal([...store.keys()].filter((k) => k.startsWith("booklet-held:")).length, 0, "and taken off the device once added (the furthest page reached is kept beside it)");
 	v.close();
 });

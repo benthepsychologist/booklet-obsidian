@@ -4,6 +4,7 @@
  */
 import { FileView, MarkdownView, Plugin, TFile, type WorkspaceLeaf } from "obsidian";
 import { moveHeld } from "./held-store";
+import { moveDevice } from "./listen-store";
 import { BookletView, VIEW_TYPE } from "./view";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
@@ -54,7 +55,13 @@ export default class BookletPlugin extends Plugin {
 				}
 			}),
 		);
-		this.registerEvent(this.app.vault.on("rename", (file, oldPath) => moveHeld(this.app, oldPath, file.path)));
+		this.registerEvent(
+			this.app.vault.on("rename", (file, oldPath) => {
+				moveHeld(this.app, oldPath, file.path);
+				// the positions kept for a `listen` and the furthest page reached go with the note too (listen-store.ts)
+				moveDevice(this.app, oldPath, file.path);
+			}),
+		);
 
 		const refresh = () => this.refreshMarkdownActions();
 		this.registerEvent(this.app.workspace.on("layout-change", refresh));

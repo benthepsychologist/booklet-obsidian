@@ -14,9 +14,10 @@
  * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
-import { earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
+import { answeredOf, earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
 import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
+import { drawListen, type Listens } from "./listen-view";
 import { drawMatrix } from "./matrix";
 
 /** Where a question's answer is kept: its module (scope), and its activity (a repeating one keeps a draft). */
@@ -27,8 +28,8 @@ export interface Target {
 
 /** What a question needs from the view that draws it. */
 export interface QuestionHost {
-	/** Draws inline Markdown from the file (a prompt, an option, an anchor) with Obsidian's own renderer. */
-	md(markdown: string, el: HTMLElement): void;
+	/** Draws inline Markdown from the file (a prompt, an option, an anchor) with Obsidian's own renderer. `block`: it is prose, where media may be drawn. */
+	md(markdown: string, el: HTMLElement, block?: boolean): void;
 	/** The answer the question shows now. */
 	answerOf(t: Target, q: Question): unknown;
 	/**
@@ -71,6 +72,8 @@ export interface QuestionHost {
 	wrongOf(t: Target, q: Question): { issue: string; kept: string } | null;
 	/** Draws the view again once the reader is not in a field or a press (when a question's answer changes shape). */
 	redrawSoon(): void;
+	/** Follows the drawn `listen` questions' media (listen-view.ts). */
+	listens: Listens;
 }
 
 export const keyOf = (t: Target, q: Question): string => `${t.scope}/${t.activity.id}/${q.id}`;
@@ -90,7 +93,7 @@ const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
  */
 export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
 	const wrong = host.wrongOf(t, q);
-	const box = q.kind === "widget" ? drawWidget(host, card, t, q, locked || !!wrong) : drawCommon(host, card, t, q, locked || !!wrong);
+	const box = q.kind === "widget" ? drawWidget(host, card, t, q, locked || !!wrong) : q.kind === "listen" ? drawListen(host, card, t, q, locked || !!wrong) : drawCommon(host, card, t, q, locked || !!wrong);
 	box.setAttr("data-booklet-q", q.id);
 	guardShape(host, box, t, q, !!wrong);
 }
@@ -226,7 +229,7 @@ function drawDate(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 	const show = () => {
 		const p = host.pendingOf(t, q);
 		const v = p ? p.value : host.answerOf(t, q);
-		clear.disabled = locked || !holdsSomething(v);
+		clear.disabled = locked || !answeredOf(q, v);
 		// a date written another way by hand is kept as written, and said, since a date field cannot show it
 		other.setText(typeof v === "string" && v.trim() && !asDate(v) ? `Kept as written: ${v}` : "");
 		if (host.pendingOf(t, q) || focused(field)) return;
