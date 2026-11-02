@@ -19,6 +19,8 @@ module.exports = function mediaChecks(env) {
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const bytes = f => fs.readFileSync(f);
   const answersIn = text => { const out = {}; for (const m of text.matchAll(/```booklet answers([^\n]*)\n([\s\S]*?)\n```/g)) out[m[1].trim()] = JSON.parse(m[2]); return out; };
+  // the answers of each module in a note's records: { "": the bare activities', "m1": module m1's, ... }
+  const answersByModule = text => { const out = {}; let scope = ""; for (const part of text.split(/^(?=> \[!records)/m)) { const m = /^> \[!records(?:\|([^\]\s]*))?\]/.exec(part); if (m) scope = m[1] || ""; const a = /```booklet answers[^\n]*\n([\s\S]*?)\n```/.exec(part); if (a) out[scope] = JSON.parse(a[1]); } return out; };
   const put = (ctx, rel, text) => { const f = ctx.file(rel); fs.mkdirSync(path.dirname(f), { recursive: true }); fs.writeFileSync(f, text); return f; };
   // every host a check could see a request for: the made-up ones, the services' (mapped to the local server), and Obsidian's own YouTube wrapper
   const WATCHED = new Set([...HOSTS, ...SERVICE_HOSTS, "releases.obsidian.md"]);
@@ -581,5 +583,79 @@ A parent path: ![](../tone-2s.wav)
     return c;
   }
 
-  return { 48: check48, 49: check49, 50: check50, 51: check51 };
+  /* ================= CHECK 52 ================= */
+  // Continue: three activities in two modules; the second question is skipped and the reader goes on
+  const NOTE52 = "Course.booklet.md";
+  const q52 = (id, t) => `> [!choice|${id}] ${t}\n- [ ] Yes\n- [ ] No\n\n`;
+  const note52 = front("course", "A course") + `> [!module|m1] Module one
+
+> [!activity|a1] First activity
+
+${q52("q1", "Question one")}${q52("q2", "Question two")}> [!activity|a2] Second activity
+
+${q52("q3", "Question three")}${q52("q4", "Question four")}> [!module|m1 end] End of module one
+
+> [!module|m2] Module two
+
+> [!activity|a3] Third activity
+
+${q52("q5", "Question five")}> [!module|m2 end] End of module two
+`;
+  async function check52() {
+    const c = new Check(52, "0.12.0 Continue: it names the first question after her place (\"Continue: Question three\"), a question she skipped and read past is never offered again, it puts focus on the prompt it opened, and it is gone when nothing is left");
+    await withMedia("c52", { note: NOTE52, files: () => ({ [NOTE52]: note52 }) }, async (o, ctx) => {
+      const view = () => o.evaluate(sel => {
+        const page = document.querySelector(sel + " .booklet-page"), b = page && page.querySelector(".booklet-continue-button"), holder = page && page.querySelector(".booklet-continue"), a = document.activeElement;
+        return { screen: page && page.getAttribute("data-booklet-screen"), label: b ? b.textContent : null, holder: !!holder, holderEmpty: holder ? holder.childElementCount === 0 : null, focus: a && a.closest(sel) ? { text: a.textContent.trim().slice(0, 40), cls: a.className.toString().slice(0, 40), tab: a.tabIndex } : null };
+      }, BOOK);
+      const press = text => o.page.locator(BOOK + " .booklet-page button", { hasText: text }).first().click({ timeout: 5000 });
+      const yes = id => o.page.locator(`${BOOK} [data-booklet-q='${id}'] button.booklet-choice`, { hasText: "Yes" }).click({ timeout: 5000 });
+      const wait = async (pred, what) => { const ok = await poll(async () => pred(await view()), 5000, 80); await quiet(o); return ok; };
+      await ctx.K.open(o, NOTE52);
+      let v = await view();
+      c.ok(v.screen === "home" && v.label === "Continue: Question one", `the overview of a booklet with nothing answered: ${JSON.stringify([v.screen, v.label])}`);
+      await press("Continue: Question one");
+      await wait(x => x.screen === "activity:m1/a1");
+      v = await view();
+      c.ok(v.screen === "activity:m1/a1" && v.focus && v.focus.text === "Question one" && v.focus.tab === -1, `Continue opens the first question's page and puts focus on its prompt (a heading-like block named by its words): ${JSON.stringify(v.focus)}`);
+      await yes("q1");
+      await quiet(o);
+      // skip question two and read on
+      await press("Next: 2. Second activity");
+      await wait(x => x.screen === "activity:m1/a2");
+      await press("Back to the overview");
+      await wait(x => x.screen === "home");
+      v = await view();
+      c.ok(v.label === "Continue: Question three", `question one answered, question two skipped, the reader has read on to the next activity and is back at the overview: Continue names ${JSON.stringify(v.label)}, not the question she skipped`);
+      // a module's own screen says the same
+      await ctx.K.goTo(o, "module:m1");
+      v = await view();
+      c.ok(v.screen === "module:m1" && v.label === "Continue: Question three", `a module's screen has it too: ${JSON.stringify([v.screen, v.label])}`);
+      await ctx.K.goTo(o, "home");
+      await press("Continue: Question three");
+      await wait(x => x.screen === "activity:m1/a2");
+      v = await view();
+      c.ok(v.focus && v.focus.text === "Question three" && v.focus.tab === -1, `pressed, it goes to question three and focus is on its prompt: ${JSON.stringify(v.focus)}`);
+      const place = await o.evaluate(() => app.loadLocalStorage("booklet-place:Course.booklet.md"));
+      c.ok(place === 1, `her place is kept on the device as the furthest page reached (the second page, index 1): ${JSON.stringify(place)}`);
+      await yes("q3"); await yes("q4");
+      await quiet(o);
+      await press("Back to the overview");
+      await wait(x => x.screen === "home");
+      v = await view();
+      c.ok(v.label === "Continue: Question five", `with three and four answered, the next question is the one in the second module: ${JSON.stringify(v.label)}`);
+      await press("Continue: Question five");
+      await wait(x => x.screen === "activity:m2/a3");
+      await yes("q5"); await quiet(o);
+      await press("Back to the overview");
+      await wait(x => x.screen === "home");
+      v = await view();
+      c.ok(v.label === null && v.holder && v.holderEmpty, `nothing is left after her place, though question two never was answered: the Continue button is not drawn (${JSON.stringify([v.label, v.holder, v.holderEmpty])})`);
+      const got = answersByModule(fs.readFileSync(ctx.file(NOTE52), "utf8"));
+      c.ok(same(Object.keys(got.m1 || {}), ["q1", "q3", "q4"]) && same(Object.keys(got.m2 || {}), ["q5"]), `the records hold exactly what she answered, question two nowhere: ${JSON.stringify(got)}`);
+    });
+    return c;
+  }
+
+  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52 };
 };
