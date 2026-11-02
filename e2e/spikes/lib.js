@@ -62,7 +62,9 @@ async function start(o, { vault, mediaDir, plugin = false, helper = false, extra
 		const found = { app: [], xvfb: [] };
 		for (const d of fs.readdirSync("/proc")) if (/^\d+$/.test(d)) {
 			let c; try { c = fs.readFileSync("/proc/" + d + "/cmdline", "utf8").split("\0"); } catch (e) { continue; }
-			if (c.includes("--remote-debugging-port=" + ob.port) && !c.some(x => x.startsWith("--type="))) found.app.push(+d);
+			// Electron rewrites its own title, so /proc holds the main process's whole command line as one string: it is read as one
+			const line = c.join(" ");
+			if (line.includes(" --remote-debugging-port=" + ob.port + " ") && !/ --type=/.test(line)) found.app.push(+d);
 			if (!process.env.DISPLAY && /(^|\/)Xvfb$/.test(c[0] || "") && c[1] === ob.display && !["91", "92", "93"].includes(ob.display.slice(1))) found.xvfb.push(+d);
 		}
 		return found;
