@@ -657,5 +657,102 @@ ${q52("q5", "Question five")}> [!module|m2 end] End of module two
     return c;
   }
 
-  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52 };
+  /* ================= CHECK 53 ================= */
+  // Frames and raw media tags are links naming their host, a look-alike link shows its host, and Reading view and the Markdown view are
+  // Obsidian's own, as they were. The same body is in a booklet note and in a plain note, so Reading view can be compared with itself.
+  const NOTE53 = "Frames.booklet.md", PLAIN53 = "Frames plain.md", PDF53 = "doc.pdf";
+  const PDF = Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/Parent 2 0 R/MediaBox[0 0 200 200]>>endobj\ntrailer<</Root 1 0 R/Size 4>>\n%%EOF\n");
+  const body53 = ctx => {
+    const o = p => ctx.url("other.example.org", p), la = (p = "") => ctx.url("look-alike.example.net", p), h = ctx.host("look-alike.example.net");
+    return [
+      `Frame with a title: <iframe src="${o("frame.html")}" title="A short talk"></iframe>`,
+      `<iframe src="${o("frame2.html")}"></iframe>`,
+      `Raw audio: <audio src="${o("tone-2s.wav")}" controls></audio>`,
+      `<video controls><source src="${o("clip.mp4")}" type="video/mp4"></video>`,
+      `<object data="${o("object.html")}"></object>`,
+      `<embed src="${o("embed.html")}">`,
+      `[good.example.org](${la("login")})`,
+      `[the program page](${ctx.url("media.example.org", "page.html")})`,
+      `[${la("same")}](${la("same")})`,
+      `[${h}](${la()})`,
+      `An Obsidian embed: ![[${PDF53}]]`,
+    ].join("\n\n") + "\n";
+  };
+  async function check53() {
+    const c = new Check(53, "0.12.0 frames and raw media tags are links naming their host and nothing is loaded; a link whose words are not its address shows its host after it, one whose words are its address does not; a PDF embed is still Obsidian's; Reading view and the Markdown view are Obsidian's own, as before, and the note's bytes never change");
+    await withMedia("c53", { note: NOTE53, files: ctx => ({ [NOTE53]: front("frames", "Frames") + "> [!activity|a] Frames\n\n" + body53(ctx) + "\n> [!text|q] A question?\n", [PLAIN53]: body53(ctx), [PDF53]: PDF, ...Object.fromEntries(["frame.html", "frame2.html", "object.html", "embed.html"].map(f => [f, "<!doctype html><title>made up</title><p>A page.</p>\n"])), "clip.mp4": "not a real video, only bytes\n" }) }, async (o, ctx) => {
+      const seen = watchRequests(o);
+      const f1 = ctx.file(NOTE53), f2 = ctx.file(PLAIN53);
+      const before = [bytes(f1), bytes(f2)];
+      ctx.server.mark("start");
+      await ctx.K.open(o, NOTE53);
+      await sleep(2500);
+      await quiet(o);
+      const view = await o.evaluate(sel => {
+        const root = document.querySelector(sel + " .booklet-page"), t = e => e.textContent.replace(/\s+/g, " ").trim();
+        const slots = [...root.querySelectorAll(".booklet-media-slot")].map(s => { const a = s.querySelector("a"); return { state: s.getAttribute("data-state"), words: a ? t(a) : "", href: a ? a.getAttribute("href") : "", target: a && a.getAttribute("target"), rel: a && a.getAttribute("rel"), hostText: t(s.querySelector(".booklet-media-host") || s), nextHost: !!(a && a.nextElementSibling && a.nextElementSibling.classList.contains("booklet-link-host")), tag: a && a.tagName };});
+        const links = [...root.querySelectorAll("a[href^='http']")].filter(a => !a.closest(".booklet-media-slot")).map(a => ({ words: t(a), href: a.getAttribute("href"), host: a.nextElementSibling && a.nextElementSibling.classList.contains("booklet-link-host") ? a.nextElementSibling.textContent : null }));
+        const loads = [...root.querySelectorAll("iframe, frame, audio, video, object, embed, source, track")].map(e => e.tagName.toLowerCase() + (e.closest(".internal-embed") ? " (in an Obsidian embed)" : ""));
+        const pdf = [...root.querySelectorAll(".internal-embed")].map(e => ({ src: e.getAttribute("src"), cls: e.className, inSlot: !!e.closest(".booklet-media-slot") }));
+        return { slots, links, loads, pdf, text: t(root).slice(0, 160) };
+      }, BOOK);
+      c.info("drawn: " + JSON.stringify({ slots: view.slots.length, links: view.links.length, loads: view.loads, pdf: view.pdf }));
+      const frames6 = view.slots.filter(s => s.state === "frame");
+      c.ok(frames6.length === 6, `the six raw tags (iframe with a title, iframe, audio, video with a source, object, embed) are six links: ${frames6.length} slots in state "frame" of ${view.slots.length}`);
+      c.ok(frames6.every(s => s.tag === "A" && /^https:\/\/other\.example\.org:\d+\//.test(s.href) && s.target === "_blank" && /noopener/.test(s.rel || "")), `each is a real link to its address that opens outside the view (target _blank, rel noopener): ${JSON.stringify(frames6.map(s => s.href.replace(/^https:\/\//, "")))}`);
+      c.ok(frames6.every(s => /other\.example\.org/.test(s.hostText)), `each names the host it goes to, after the link: ${JSON.stringify(frames6.map(s => s.hostText))}`);
+      c.ok(frames6[0] && frames6[0].words === "A short talk" && frames6[1] && /^other\.example\.org/.test(frames6[1].words), `a tag's title is the link's words, and with none the host is: ${JSON.stringify([frames6[0] && frames6[0].words, frames6[1] && frames6[1].words])}`);
+      c.ok(view.loads.every(x => /Obsidian embed/.test(x)), `no frame, audio, video, object, embed or source is in the view but Obsidian's own embeds: ${JSON.stringify(view.loads)}`);
+      const toOther = ctx.hits("other.example.org", "start"), toAll = ["look-alike.example.net", "media.example.org"].flatMap(h => ctx.hits(h, "start"));
+      c.ok(toOther.length === 0 && toAll.length === 0, `nothing was requested from any host the note names: ${toOther.length} from other.example.org, ${toAll.length} from the two link hosts`);
+      c.ok(seen.length === 0, `and the page itself asked for nothing from them either: ${seen.length}${seen.length ? " " + JSON.stringify(seen.slice(0, 4).map(r => r.url)) : ""}`);
+      // the host after a look-alike link
+      const lh = ctx.host("look-alike.example.net");
+      const byWords = w => view.links.find(l => l.words === w);
+      const good = byWords("good.example.org"), page = byWords("the program page");
+      c.ok(good && good.host === ` (${lh})` && /\/login$/.test(good.href), `[good.example.org](a link to another host) shows where it really goes, after it and outside it: words ${JSON.stringify(good && good.words)} then ${JSON.stringify(good && good.host)}`);
+      c.ok(page && page.host === ` (${ctx.host("media.example.org")})`, `[the program page](...) shows its host: ${JSON.stringify(page && page.host)}`);
+      const same = view.links.find(l => l.words === ctx.url("look-alike.example.net", "same")), bare = byWords(lh);
+      c.ok(same && same.host === null && bare && bare.host === null, `a link whose words are its own address, and one whose words are its host, show nothing more: ${JSON.stringify([same && same.host, bare && bare.host])}`);
+      c.ok(view.slots.filter(s => s.state === "frame").every(s => !s.nextHost), "the slot's own link is not given a second host");
+      // Obsidian's own embed
+      const pdf = view.pdf.find(p => p.src === PDF53);
+      c.ok(pdf && /pdf-embed/.test(pdf.cls) && !pdf.inSlot, `![[doc.pdf]] is Obsidian's embed, not a slot or a link: ${JSON.stringify(pdf)}`);
+
+      // Reading view of the booklet note, and of the plain note with the same body
+      const viewAs = async (rel, mode) => {
+        if (/\.booklet\.md$/.test(rel)) {
+          // a booklet note reaches the Markdown view by the plugin's own header action
+          await ctx.K.open(o, rel);
+          await o.page.locator(BOOK + " .view-action[aria-label='Show Markdown']").first().click({ timeout: 5000 });
+          await env.waitActiveType(o, "markdown", 6000);
+          await o.evaluate(async mode => { const l = app.workspace.getMostRecentLeaf(), st = l.getViewState(); await l.setViewState({ ...st, state: { ...st.state, mode } }); }, mode);
+        } else await o.evaluate(async ([rel, mode]) => { await app.workspace.getMostRecentLeaf().openFile(app.vault.getAbstractFileByPath(rel), { state: { mode } }); }, [rel, mode]);
+        await env.waitActiveType(o, "markdown", 6000);
+        await sleep(1800); await frames(o);
+      };
+      const readCounts = () => o.evaluate(() => { const r = document.querySelector(".workspace-leaf-content[data-type='markdown'] .markdown-preview-view"); const n = s => r ? r.querySelectorAll(s).length : -1; return { iframe: n("iframe"), audio: n("audio"), video: n("video"), object: n("object"), embed: n("embed"), pdf: n(".internal-embed.pdf-embed"), slots: n(".booklet-media-slot"), hosts: n(".booklet-link-host"), links: n("a.external-link") }; });
+      ctx.server.mark("reading");
+      await viewAs(NOTE53, "preview");
+      const rb = await readCounts();
+      await viewAs(PLAIN53, "preview");
+      const rp = await readCounts();
+      c.info(`Reading view, booklet note: ${JSON.stringify(rb)}; plain note with the same body: ${JSON.stringify(rp)}`);
+      c.ok(JSON.stringify(rb) === JSON.stringify(rp) && rb.slots === 0 && rb.hosts === 0, "Reading view of the booklet note is Obsidian's own, the same as the plain note's, with no slot and no host of ours in it");
+      c.ok(rb.iframe + rb.audio + rb.video + rb.object + rb.embed > 0, `and it still draws the tags (Obsidian's own, unchanged): ${JSON.stringify(rb)}`);
+      const reading = ctx.hits(null, "reading").length;
+      c.info(`Reading view asked the local server for ${reading} files (Obsidian's own; the plugin does not gate it)`);
+      // the Markdown view: the text as it is in the file
+      await viewAs(NOTE53, "source");
+      const src = await o.evaluate(() => { let t = null; app.workspace.iterateRootLeaves(l => { if (l.view.getViewType() === "markdown") t = { text: l.view.editor.getValue(), slots: l.view.containerEl.querySelectorAll(".booklet-media-slot, .booklet-link-host").length }; }); return t; });
+      c.ok(src && src.text === fs.readFileSync(f1, "utf8") && src.slots === 0, `the Markdown view shows the file's own text, every tag and address as written (${src && src.text.length} characters), with nothing of ours in it`);
+      // back to the booklet
+      await ctx.K.open(o, NOTE53);
+      await sleep(500);
+      c.ok(bytes(f1).equals(before[0]) && bytes(f2).equals(before[1]), "through the booklet view, Reading view of both notes and the Markdown view, neither note's bytes changed");
+    });
+    return c;
+  }
+
+  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53 };
 };
