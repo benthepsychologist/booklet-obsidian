@@ -6,14 +6,19 @@
  *
  * What it rewrites, outside code, maths and comments: the three embed forms (`![alt](address "title")`, `![alt][id]` with `![id][]`
  * and `![id]`), a link, an autolink or a bare address standing alone on its line when it leads to a service the plugin plays, and the
- * raw tags `iframe frame object embed audio video source track` that carry a remote address. A remote image, a local embed and
- * everything that is not one of these stay Obsidian's.
+ * raw tags `iframe frame object embed audio video source track` that carry a remote address (and `img`, `image`, when what they
+ * load is audio, video or a page Obsidian would turn into a frame). A remote image, a local embed and everything that is not one of
+ * these stay Obsidian's.
+ *
+ * An address is read the way a browser reads it, not the way it is written: character references (`&#104;ttps://`, `&colon;`) are
+ * undone, tabs and line breaks inside it dropped, and `https:/host` and `https:host` are as remote as `https://host` (spike B2,
+ * Obsidian 1.14.5: each of these loads at render).
  */
 import { inertLines, inertSpans } from "./blocks";
 import { entryFor, isAllowed, type Allows } from "./allow";
 import { hostOf, mediaClass } from "./media";
 import { referenceSource } from "./references";
-import { isYoutubeAddress, serviceAllowed, serviceOf, type Service } from "./services";
+import { isEmbedAddress, serviceAllowed, serviceOf, type Service } from "./services";
 
 /** Private-use characters round the number of a slot in rewritten text (U+E000 and U+E001 stand for footnote marks, blocks.ts). */
 export const SLOT_OPEN = "";
@@ -54,8 +59,8 @@ interface Edit {
 }
 
 /** Text that holds nothing the gate looks at is handed back as it is. */
-const MAYBE = /!\[|\]\(|\]\[|<https?:|https:\/\/|<(?:iframe|frame|object|embed|audio|video|source|track)\b/i;
-const RAW_TAG = /<(iframe|frame|object|embed|audio|video|source|track)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
+const MAYBE = /!\[|\]\(|\]\[|<https?:|https?:|&|<(?:iframe|frame|object|embed|audio|video|source|track|img|image)\b/i;
+const RAW_TAG = /<(iframe|frame|object|embed|audio|video|source|track|img|image)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
 const PAIRED = new Set(["iframe", "object", "audio", "video"]);
 /** The start of a line that is a quote, a list item, or nothing: a link alone on its line stands alone in its block. */
 const BLOCK_START = "(?:[ \\t]*(?:>|[-*+][ \\t]|\\d{1,9}[.)][ \\t]))*[ \\t]*";
@@ -158,8 +163,24 @@ function parseInline(s: string, text: string, open: number): { dest: string; end
 	return s[i] === ")" ? { dest, end: i + 1 } : null;
 }
 
-/** An address as written in a target: backslash escapes and `&amp;` undone. */
-const clean = (dest: string): string => dest.replace(/\\([!-/:-@[-`{-~])/g, "$1").replace(/&amp;/gi, "&").trim();
+/** The characters a named reference can write that an address is made of; a numbered reference is read whatever it writes. */
+const NAMED: Record<string, string> = { amp: "&", AMP: "&", lt: "<", gt: ">", quot: '"', apos: "'", colon: ":", sol: "/", bsol: "\\", period: ".", num: "#", quest: "?", equals: "=", percnt: "%", comma: ",", semi: ";", lpar: "(", rpar: ")", plus: "+", lowbar: "_", excl: "!", ast: "*", commat: "@", dollar: "$", Tab: "\t", NewLine: "\n" };
+
+/** Character references undone once, as a browser reads an attribute (`&#104;`, `&#x68;`, `&colon;`; a number may lack its `;`). */
+function undoReferences(s: string): string {
+	if (!s.includes("&")) return s;
+	return s.replace(/&(?:#(\d{1,7});?|#[xX]([0-9a-fA-F]{1,6});?|([A-Za-z][A-Za-z0-9]{1,31});)/g, (m, dec: string | undefined, hex: string | undefined, name: string | undefined) => {
+		if (name !== undefined) return Object.prototype.hasOwnProperty.call(NAMED, name) ? (NAMED[name] as string) : m;
+		const n = dec !== undefined ? Number.parseInt(dec, 10) : Number.parseInt(hex ?? "", 16);
+		return n > 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.fromCodePoint(n) : m;
+	});
+}
+
+/** An address as a browser reads it: character references undone once, tabs and line breaks inside it gone, controls and spaces at its ends gone. */
+const addressOf = (raw: string): string => undoReferences(raw).replace(/[\t\n\r]/g, "").replace(/^[\0-\x20]+|[\0-\x20]+$/g, "");
+
+/** An address as written in a target: backslash escapes undone, then read as a browser reads it. */
+const clean = (dest: string): string => addressOf(dest.replace(/\\([!-/:-@[-`{-~])/g, "$1"));
 
 /** Alt or link text as plain words: marks gone, a size suffix (`|300`) gone. */
 const altText = (raw: string): string =>
@@ -183,10 +204,10 @@ function nameOf(addr: string): string {
 	}
 }
 
-/** Where an address leads: `https`, `http`, `proto` (starts `//`), or `local` (a path in the vault, or a scheme that is Obsidian's). */
+/** Where an address leads: `https`, `http`, `proto` (starts `//`), or `local` (a path in the vault, or a scheme that is Obsidian's). A scheme with one slash or none (`https:host`) leads where `https://host` does: a browser reads it so. */
 function whereIs(dest: string): "https" | "http" | "proto" | "local" {
-	if (/^https:\/\//i.test(dest)) return "https";
-	if (/^http:\/\//i.test(dest)) return "http";
+	if (/^https:/i.test(dest)) return "https";
+	if (/^http:/i.test(dest)) return "http";
 	if (dest.startsWith("//")) return "proto";
 	return "local";
 }
@@ -220,8 +241,8 @@ class Gate {
 		const cls = mediaClass(dest);
 		if (where === "local") return this.inline && (cls === "audio" || cls === "video") ? escapeMd(alt || nameOf(dest)) : null;
 		const addr = absolute(dest, where);
-		// Obsidian draws a YouTube address as a frame whatever the rest of it says (even a picture's ending): it is never left to Obsidian
-		const tube = !!addr && isYoutubeAddress(addr);
+		// Obsidian draws a YouTube or Twitter address as a frame whatever the rest of it says (even a picture's ending): it is never left to Obsidian
+		const tube = !!addr && isEmbedAddress(addr);
 		if (cls === "image" && !tube) return null;
 		const host = addr ? hostOf(addr) : null;
 		if (!addr || !host) return null;
@@ -245,6 +266,15 @@ class Gate {
 		return serviceSlot(svc, addr, altText(textRaw), host, true);
 	}
 
+	/** A raw `img` or `image` whose address is audio, video or a page Obsidian would draw as a frame: what a Markdown embed of it would be. Any other picture stays Obsidian's. */
+	image(src: string, alt: string): string | MediaSlot | null {
+		const cls = mediaClass(src);
+		const where = whereIs(src);
+		if (where === "local") return null;
+		const addr = absolute(src, where);
+		return addr && (cls === "audio" || cls === "video" || isEmbedAddress(addr)) ? this.embed(src, alt) : null;
+	}
+
 	/** A raw tag with a remote address: a link naming its host (nothing is loaded), or in a title the host alone. */
 	frame(src: string, alt: string): string | MediaSlot | null {
 		const where = whereIs(src);
@@ -256,14 +286,25 @@ class Gate {
 	}
 }
 
-/** One attribute's value in a tag's attributes, entities for `&` undone. */
+/** One attribute's value in a tag's attributes, read as a browser reads it (see `addressOf`). */
 function attr(attrs: string, name: string): string | null {
 	const m = new RegExp(`(?:^|\\s)${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i").exec(attrs);
 	const v = m ? (m[1] ?? m[2] ?? m[3] ?? "") : null;
-	return v === null ? null : v.replace(/&amp;/gi, "&").trim();
+	return v === null ? null : addressOf(v);
 }
 
-/** The edits for raw tags that carry a remote address. */
+/** The addresses of the `source`, `track` and `embed` tags inside a paired tag's text. */
+function childAddresses(inside: string): string[] {
+	const out: string[] = [];
+	for (const n of inside.matchAll(/<(?:source|track|embed)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi)) out.push(attr(n[1] ?? "", "src") ?? "");
+	return out;
+}
+
+/**
+ * The edits for raw tags that carry a remote address. A tag with an address of its own plays from it (and a browser ignores the
+ * `source` tags inside); one without plays from the first of its `source` and `track` tags that is remote (spike B2: with a local
+ * first, the second loads).
+ */
 function rawTags(mask: string, text: string, g: Gate, edits: Edit[]): void {
 	for (const m of mask.matchAll(RAW_TAG)) {
 		const tag = (m[1] ?? "").toLowerCase();
@@ -274,16 +315,11 @@ function rawTags(mask: string, text: string, g: Gate, edits: Edit[]): void {
 			if (close) to += close.index + close[0].length;
 		}
 		const attrs = text.slice(from, from + m[0].length);
-		let src = attr(attrs, tag === "object" ? "data" : "src") ?? (tag === "object" ? attr(attrs, "src") : null);
-		if (src === null && to > from + m[0].length) {
-			const inner = /<(?:source|track|embed)\b((?:[^>"']|"[^"]*"|'[^']*')*)>/gi;
-			for (const n of text.slice(from + m[0].length, to).matchAll(inner)) {
-				src = attr(n[1] ?? "", "src");
-				if (src) break;
-			}
-		}
+		const own = attr(attrs, tag === "object" ? "data" : "src") ?? (tag === "object" ? attr(attrs, "src") : null);
+		const src = own !== null ? own : (childAddresses(text.slice(from + m[0].length, to)).find((a) => a && whereIs(a) !== "local") ?? null);
 		if (!src) continue;
-		const repl = g.frame(src, attr(attrs, "title") ?? "");
+		const alt = attr(attrs, tag === "img" || tag === "image" ? "alt" : "title") ?? "";
+		const repl = tag === "img" || tag === "image" ? g.image(src, alt) : g.frame(src, alt);
 		if (repl !== null) edits.push({ from, to, repl });
 	}
 }

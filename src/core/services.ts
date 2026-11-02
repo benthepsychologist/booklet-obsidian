@@ -125,10 +125,12 @@ export function hostList(hosts: readonly string[]): string {
 }
 
 /**
- * Is this address on a host Obsidian itself turns into a YouTube frame when it draws it as an image, whatever the rest of the address
- * says? Such an address is never left to Obsidian: it is the plugin's player or a link (gate.ts).
+ * Is this address on a host Obsidian itself turns into a frame of its own when it is the address of an image (a post-processor reads
+ * every `img` it draws: YouTube's and Twitter's or X's, with or without `www.`, `m.` or `mobile.`, and whatever the rest of the
+ * address says, even a picture's ending)? Such a frame is requested at render, so the address is never left to Obsidian (gate.ts).
  */
-export function isYoutubeAddress(url: string): boolean {
+export function isEmbedAddress(url: string): boolean {
 	const u = parse(url);
-	return !!u && (u.protocol === "https:" || u.protocol === "http:") && (u.hostname === "youtu.be" || u.hostname === "www.youtu.be" || YT_HOST.test(u.hostname));
+	if (!u || (u.protocol !== "https:" && u.protocol !== "http:")) return false;
+	return YT_HOST.test(u.hostname) || /^(?:www\.|m\.)?youtu\.be$/.test(u.hostname) || /^(?:(?:www|mobile)\.)?(?:twitter|x)\.com$/.test(u.hostname);
 }

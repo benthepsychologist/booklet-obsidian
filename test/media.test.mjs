@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, hostList, isYoutubeAddress, SUGGESTED_HOSTS } = core;
+const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, hostList, isEmbedAddress, SUGGESTED_HOSTS } = core;
 
 test("mediaClass: the extension of the path decides, in any case, before a query or a fragment", () => {
 	for (const e of ["mp3", "m4a", "ogg", "opus", "wav", "flac"]) assert.equal(mediaClass(`media/x.${e}`), "audio", e);
@@ -107,9 +107,9 @@ test("serviceAllowed: the link's own host, or any host of the service, on the li
 	for (const h of SUGGESTED_HOSTS) assert.equal(core.normaliseEntry(h).entry, h, `${h} is an entry as it stands`);
 });
 
-test("isYoutubeAddress: the hosts Obsidian turns into a YouTube frame, whatever the rest of the address says", () => {
-	for (const u of ["https://youtu.be/abcDEF12345", "http://youtu.be/abcDEF12345", "https://www.youtube.com/watch?v=abcDEF12345", "https://m.youtube.com/anything", "https://music.youtube.com/", "https://youtube.com/embed/abcDEF12345.png", "https://youtu.be/abcDEF12345.png", "https://www.youtube-nocookie.com/embed/abcDEF12345"])
-		assert.equal(isYoutubeAddress(u), true, u);
-	for (const u of ["https://evilyoutube.com/x", "https://youtube.com.evil.example/x", "https://media.example.org/youtube.com", "ftp://youtu.be/x", "not an address", "https://fakeyoutu.be/x"])
-		assert.equal(isYoutubeAddress(u), false, u);
+test("isEmbedAddress: the hosts Obsidian turns into a frame of its own when an image has their address, whatever the rest says", () => {
+	for (const u of ["https://youtu.be/abcDEF12345", "http://youtu.be/abcDEF12345", "https://www.youtube.com/watch?v=abcDEF12345", "https://m.youtube.com/anything", "https://music.youtube.com/", "https://youtube.com/embed/abcDEF12345.png", "https://youtu.be/abcDEF12345.png", "https://www.youtube-nocookie.com/embed/abcDEF12345", "https://twitter.com/someone/status/1234567890", "https://x.com/someone/status/1234567890.png", "https://mobile.twitter.com/a/status/1", "https://www.x.com/a/status/1"])
+		assert.equal(isEmbedAddress(u), true, u);
+	for (const u of ["https://evilyoutube.com/x", "https://youtube.com.evil.example/x", "https://media.example.org/youtube.com", "ftp://youtu.be/x", "not an address", "https://fakeyoutu.be/x", "https://box.com/a", "https://nox.com/a", "https://x.com.evil.example/a", "https://vimeo.com/123456789"])
+		assert.equal(isEmbedAddress(u), false, u);
 });
