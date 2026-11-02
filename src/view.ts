@@ -25,6 +25,7 @@ import {
 	finalizeDraft,
 	findHeading,
 	gateMedia,
+	slotAllowed,
 	entryFor,
 	isAllowed,
 	hasScreen,
@@ -838,6 +839,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private mediaDeps(piece: HTMLElement): MediaDeps {
 		return {
 			isPress: isTrustedPress,
+			// the live list, not the one the slot was drawn with: a site she has just taken off is not played from
+			allowed: (slot) => slotAllowed(slot, this.host.media.allows(), this.file ? this.file.path : ""),
 			keepAlive: (player) => !!this.host.nowPlaying?.holds(player),
 			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource(), piece) ?? null,
 			carry: (opener, slot) => this.pressed.keep(this.contentEl, opener, slot),
