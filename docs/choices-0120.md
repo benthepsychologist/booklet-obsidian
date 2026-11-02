@@ -132,3 +132,10 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 | (B) | | | |
 | (C) | | | |
 | (S) | | | |
+| (E) | After Not now on the card that opens on its own, the same note does not ask again until the app is started again; the Allow list button still opens the card | A reader who said no is not asked at every redraw; seen in the real app (check 50) | `view.ts` `askDeclared`, module-level `putOff`; check 50 |
+| (E) | Once lasts for the piece as drawn: a redraw of the page puts a once-allowed slot back to asking | "Kept nowhere" leaves how long a drawing lasts to the builder; seen in the real app (check 50) | `media-view.ts`; check 50 |
+| (E) | A frame or raw media tag is a link whose words are its `title` (else its host), followed by "from host:port"; the port shows when the address has one | Names the host the reader would reach; seen in the real app (check 53) | `media-view.ts` `otherSlot`; check 53 |
+| (E) | " (host)" is added only to links in prose; a link in a title, option or anchor is words only | Inline pieces are drawn as words, not as links to leave; seen in check 53 | `view.ts` (`drawLinkHosts` runs for `media === "block"` only) |
+| (E) | A position is kept on the device each whole second while media plays, and is lost for a kill only back to the browser's last commit of local storage (on a profile's first launch, nothing survives a SIGKILL) | Chromium commits `localStorage` late; measured in check 51 (3 s old on a second launch, nothing on the first) | `listen-store.ts`; check 51; its header comment ("no more than a second") overstates this |
+| (E) | A `![alt][id]` reference to a local audio file is drawn by Obsidian as a picture, not a player | The gate leaves local forms to Obsidian, which draws a reference embed as `img`; recorded by check 49 | `core/gate.ts`, `view.ts`; plan point 10 says it plays |
+| (E) | The e2e media checks run on Obsidian 1.14.5 only; the 1.8.10 floor is not measured | No older build is on the box | `e2e/media-checks.js` |
