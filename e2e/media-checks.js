@@ -146,7 +146,7 @@ module.exports = function mediaChecks(env) {
       const got1 = await poll(() => ctx.hits("vault.example.org", "press-1").length > 0, 6000);
       const r1 = ctx.hits("vault.example.org", "press-1");
       c.ok(got1 && r1.some(e => /tone-2s\.wav/.test(e.url)), `control: a press on an allowed host's Play requests its file: ${JSON.stringify(r1.map(e => e.method + " " + e.url + " " + e.status))}`);
-      const playing = await poll(() => o.evaluate(sel => { const a = document.querySelector(sel + " audio[data-booklet-player]"); return a && !a.paused && a.currentTime > 0.2 ? a.currentTime : 0; }, BOOK), 5000);
+      const playing = await poll(() => o.evaluate(sel => { const a = document.querySelector(".booklet-nowplaying audio[data-booklet-player], " + sel + " audio[data-booklet-player]"); return a && !a.paused && a.currentTime > 0.2 ? a.currentTime : 0; }, BOOK), 5000);
       c.ok(!!playing, `and it plays: the player's clock moved to ${playing && playing.toFixed ? playing.toFixed(2) : playing} s`);
       ctx.server.mark("press-2");
       await play("control blocked").scrollIntoViewIfNeeded();
@@ -161,12 +161,13 @@ module.exports = function mediaChecks(env) {
       const ytPlay = o.page.locator(BOOK + " .booklet-media-play", { hasText: "the talk" }).first();
       await ytPlay.scrollIntoViewIfNeeded();
       await ytPlay.click({ timeout: 5000 });
-      const got3 = await poll(() => SERVICE_HOSTS.some(h => ctx.hits(h, "press-3").length > 0), 6000);
-      const r3 = SERVICE_HOSTS.flatMap(h => ctx.hits(h, "press-3")).map(e => e.headers.host + e.url.slice(0, 60));
-      const frame = await o.evaluate(sel => { const f = document.querySelector(sel + " iframe[data-booklet-player]"); return f ? { src: f.getAttribute("src"), sandbox: f.getAttribute("sandbox"), focused: document.activeElement === f } : null; }, BOOK);
-      c.ok(got3 && frame && /^https:\/\/www\.youtube-nocookie\.com\/embed\/ABCDEFGHIJK/.test(frame.src), `control: a press on an allowed service's Play makes its player and that is when it is requested: ${JSON.stringify(r3)}; frame ${JSON.stringify(frame)}`);
-      const wrapper = seen.filter(r => r.host === "releases.obsidian.md");
-      c.ok(wrapper.length === 0, `Obsidian's own YouTube wrapper (releases.obsidian.md) was never asked for, before or after the press: ${wrapper.length}`);
+      const got3 = await poll(() => ctx.hits("releases.obsidian.md", "press-3").length > 0, 6000);
+      const r3 = ["releases.obsidian.md", ...SERVICE_HOSTS].flatMap(h => ctx.hits(h, "press-3")).map(e => e.headers.host + e.url.slice(0, 60));
+      // 0.12.0 (lane B2): an allowed YouTube slot is rendered through Obsidian's own embed, whose frame is Obsidian's wrapper page
+      const frame = await o.evaluate(sel => { const f = document.querySelector(sel + " .booklet-media-slot iframe"); return f ? { src: f.getAttribute("src") } : null; }, BOOK);
+      c.ok(got3 && frame && /^https:\/\/releases\.obsidian\.md\/youtube\?v=ABCDEFGHIJK/.test(frame.src), `control: a press on an allowed service's Play makes Obsidian's own YouTube frame in the slot, and that is when it is requested: ${JSON.stringify(r3)}; frame ${JSON.stringify(frame)}`);
+      const all = ctx.hits("releases.obsidian.md").length, after = ctx.hits("releases.obsidian.md", "press-3").length;
+      c.ok(all === after && after > 0, `Obsidian's YouTube wrapper (releases.obsidian.md) was asked for only after that press: ${all} request(s) in the session, ${after} of them after it`);
     });
     return c;
   }
@@ -256,6 +257,8 @@ A parent path: ![](../tone-2s.wav)
   });
   const cardBtn = (o, name) => o.page.locator(".booklet-allow-card button", { hasText: name });
   const play50 = (o, alt) => o.page.locator(BOOK + " .booklet-media-play", { hasText: alt }).first();
+  // 0.12.0: a piece that plays is lifted into the Now playing bar and goes on when its page is closed; the check lets it go before it draws the note again
+  const closeBar = async o => { await o.evaluate(() => { for (const b of document.querySelectorAll(".booklet-nowplaying-close")) b.click(); }); await sleep(900); };
   const closed = o => poll(() => o.evaluate(() => !document.querySelector(".booklet-allow")), 3000);
   async function check50() {
     const c = new Check(50, "0.12.0 the allow card and the three scopes in the real app: opens from the Allow list button, on open for declared sites not on a list and not otherwise, and on a press; once is kept nowhere, this note and this vault are kept in data.json and never in the note; a box removes a site at once; the write-in; the settings page shows the same list; keys, Escape, default focus on Not now");
@@ -331,22 +334,30 @@ A parent path: ![](../tone-2s.wav)
       await sleep(600);
       c.ok(once, `Allow once plays the piece: ${JSON.stringify(ctx.hits("media.example.org", "m1").map(e => e.method + " " + e.url + " " + e.status))}`);
       c.ok(ctx.data() === dataWas && bytes(ctx.file(NOTE50)).equals(noteBytes), "and keeps nothing: data.json is as it was (does not exist) and the note's bytes are unchanged");
-      c.info(`the slot after Allow once: ${await slotState(o, "once one")}`);
+      c.info(`the slot after Allow once: ${await slotState(o, "once one")} (the piece plays inside the card's own press and is in the Now playing bar: ${await o.evaluate(() => document.querySelectorAll(".booklet-nowplaying-item").length)} row)`);
+      await closeBar(o);
       await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
       await ctx.K.open(o, NOTE50);
       c.ok((await slotState(o, "once one")) === "blocked", `drawn again, the piece asks again: once was kept nowhere (state ${await slotState(o, "once one")})`);
       // this note
       await play50(o, "note one").click(); await poll(() => cardOf(o), 3000);
+      ctx.server.mark("m2");
       await cardBtn(o, /^Allow for this note$/).click();
       await closed(o);
       const wrote1 = await poll(() => { const d = dataOf(ctx); return d && d.noteAllows && d.noteAllows[NOTE50]; }, 5000);
       c.ok(same(dataOf(ctx), { allowedMediaHosts: [], noteAllows: { [NOTE50]: [H("note.example.org")] } }), `Allow for this note: data.json is exactly ${JSON.stringify(dataOf(ctx))}`);
       c.ok(bytes(ctx.file(NOTE50)).equals(noteBytes), "and nothing is written into the note (its bytes are unchanged)");
       await quiet(o);
-      c.ok((await slotState(o, "note one")) === "ready", `the slot is ready now (${await slotState(o, "note one")}); a press plays it with no card`);
-      ctx.server.mark("m2");
+      c.ok(await poll(() => ctx.hits("note.example.org", "m2").length > 0, 6000) && !(await cardOf(o)), `the piece she pressed starts by itself when the page is drawn again with the choice (lane B2), with no second card: ${JSON.stringify(ctx.hits("note.example.org", "m2").map(e => e.method + " " + e.url))}`);
+      await closeBar(o);
+      await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+      await ctx.K.open(o, NOTE50);
+      c.ok((await slotState(o, "note one")) === "ready", `drawn again the slot is ready (${await slotState(o, "note one")}); a press plays it with no card`);
+      ctx.server.mark("m2b");
       await play50(o, "note one").click(); await sleep(1200);
-      c.ok(ctx.hits("note.example.org", "m2").length > 0 && !(await cardOf(o)), `and it requests the file with no card: ${JSON.stringify(ctx.hits("note.example.org", "m2").map(e => e.method + " " + e.url))}`);
+      const pressed = await o.evaluate(() => { const a = document.querySelector(".booklet-nowplaying audio[data-booklet-player]"); return a ? { paused: a.paused, t: a.currentTime } : null; });
+      c.ok(!!pressed && !pressed.paused && !(await cardOf(o)), `and a press plays it with no card (the browser may serve the file from its cache, so the server's log is not the measure here): ${JSON.stringify(pressed)}; requests ${ctx.hits("note.example.org", "m2b").length}`);
+      await closeBar(o);
       await ctx.K.open(o, OTHER50);
       c.ok((await slotState(o, "note one")) === "blocked", `another note holding the same address still asks (this note's scope is this note's): ${await slotState(o, "note one")}`);
       // this vault, from that other note: a host the first note declared nowhere
@@ -357,6 +368,10 @@ A parent path: ![](../tone-2s.wav)
       c.ok(same(dataOf(ctx), { allowedMediaHosts: [H("vault.example.org")], noteAllows: { [NOTE50]: [H("note.example.org")] } }), `Allow for this vault: data.json is exactly ${JSON.stringify(dataOf(ctx))}`);
       c.ok(bytes(ctx.file(OTHER50)).equals(otherBytes), "the other note's bytes are unchanged");
       await quiet(o);
+      await sleep(800);
+      await closeBar(o);
+      await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+      await ctx.K.open(o, OTHER50);
       c.ok((await slotState(o, "vault one")) === "ready", `its slot is ready (${await slotState(o, "vault one")})`);
       await ctx.K.open(o, NOTE50);
       c.ok((await slotState(o, "vault one")) === "ready", `and in the first note, which never declared the host, the same host is ready: ${await slotState(o, "vault one")}`);
@@ -388,7 +403,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(await poll(() => { const d = dataOf(ctx); return d && d.allowedMediaHosts.includes("youtube.com"); }, 3000), `the write-in takes https://YouTube.com/ and keeps youtube.com (which stands for https://*.youtube.com/*): ${JSON.stringify(dataOf(ctx))}`);
       await sleep(600);
       k = await cardOf(o);
-      c.ok(k && k.vault.some(x => x.host === "youtube.com" && /also covers youtu\.be and youtube-nocookie\.com, which its player uses/.test(x.more)), `the list says what the site also covers: ${k && JSON.stringify(k.vault.find(x => x.host === "youtube.com"))}`);
+      c.ok(k && k.vault.some(x => x.host === "youtube.com" && /also covers youtu\.be, youtube-nocookie\.com and releases\.obsidian\.md, which its player uses/.test(x.more)), `the list says what the site also covers: ${k && JSON.stringify(k.vault.find(x => x.host === "youtube.com"))}`);
       c.ok((await slotState(o, "yt sub")) === "ready", `the subdomain link (m.youtube.com) is allowed by youtube.com: ${await slotState(o, "yt sub")}`);
       c.ok((await slotState(o, "evil one")) === "blocked", `and youtube.com.example.net is not (a look-alike is not a subdomain): ${await slotState(o, "evil one")}`);
       await blank.fill("note.example.net"); await blank.press("Enter");
@@ -476,7 +491,7 @@ A parent path: ![](../tone-2s.wav)
       const waitAns = (id, pred, ms = 6000) => poll(() => { try { return !!pred(ans()[id]); } catch (e) { return false; } }, ms, 80);
       const box = id => `${BOOK} [data-booklet-listen='/${id}']`;
       const tick = id => o.page.locator(box(id) + " .booklet-listen-tick");
-      const el = (id, fn, arg) => o.evaluate(([sel, id, src, arg]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/${id}'] audio`); return a ? new Function("a", "arg", "return (" + src + ")(a, arg)")(a, arg) : null; }, [BOOK, id, fn.toString(), arg]);
+      const el = (id, fn, arg) => o.evaluate(([sel, id, src, arg]) => { const reg = (window.__aud51 = window.__aud51 || {}); let a = document.querySelector(`${sel} [data-booklet-listen='/${id}'] audio`); if (a) reg[id] = a; else a = reg[id] || null; return a ? new Function("a", "arg", "return (" + src + ")(a, arg)")(a, arg) : null; }, [BOOK, id, fn.toString(), arg]);
       const state = id => el(id, a => ({ t: a.currentTime, paused: a.paused, ended: a.ended, dur: a.duration, rs: a.readyState }));
       const where = id => o.evaluate(([sel, id]) => document.querySelector(`${sel} [data-booklet-listen='/${id}'] .booklet-listen-where`).textContent, [BOOK, id]);
       const store = () => o.evaluate(() => app.loadLocalStorage("booklet-listen:Listen.booklet.md"));
@@ -537,7 +552,7 @@ A parent path: ![](../tone-2s.wav)
       const text6 = fs.readFileSync(file, "utf8");
       fs.writeFileSync(file, text6.replace(/("e3": \{\s*"pos": )\d+/, (m, a) => a + "40"));
       await sleep(2600);
-      const after6 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`); return { mark: a.dataset.mark, t: a.currentTime, paused: a.paused, seeks: window.__seeks.length, connected: a.isConnected }; }, [BOOK]);
+      const after6 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`) || (window.__aud51 || {}).e3; return { mark: a.dataset.mark, t: a.currentTime, paused: a.paused, seeks: window.__seeks.length, connected: a.isConnected }; }, [BOOK]);
       c.ok(after6.mark === "mine" && after6.connected, `the element that plays is the one it was (it was not drawn again under her): ${JSON.stringify(after6)}`);
       c.ok(!after6.paused && after6.seeks === 0 && after6.t > before6 + 1.5 && after6.t < before6 + 4, `an outside change to pos (to 40) while it plays: no seek, and the clock ran on from ${before6.toFixed(2)} to ${after6.t.toFixed(2)} s`);
       await el("e3", a => a.pause());
@@ -546,8 +561,8 @@ A parent path: ![](../tone-2s.wav)
 
       // 7. a hosted file: the slot's player, followed the same way
       await o.page.locator(box("e4") + " .booklet-media-play").click();
-      await poll(async () => { const s = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`); return a && !a.paused && a.currentTime > 1.2 ? a.currentTime : 0; }, [BOOK]); return s; }, 6000, 100);
-      const t7 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`); a.pause(); return a.currentTime; }, [BOOK]);
+      await poll(async () => { const s = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`) || [...document.querySelectorAll(".booklet-nowplaying-item")].filter(i => /Hosted/.test(i.textContent)).map(i => i.querySelector("audio"))[0]; return a && !a.paused && a.currentTime > 1.2 ? a.currentTime : 0; }, [BOOK]); return s; }, 6000, 100);
+      const t7 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`) || [...document.querySelectorAll(".booklet-nowplaying-item")].filter(i => /Hosted/.test(i.textContent)).map(i => i.querySelector("audio"))[0]; a.pause(); return a.currentTime; }, [BOOK]);
       c.ok(await waitAns("e4", v => v && Number.isInteger(v.pos)), `a hosted file is followed the same way: paused at ${t7.toFixed(2)} s writes ${JSON.stringify(ans().e4)}`);
 
       // 8. the kill. The browser keeps a changed local-storage value some seconds after the change, and the first launch on a new profile has
@@ -561,7 +576,7 @@ A parent path: ![](../tone-2s.wav)
         const baseNow = ans().e3, baseJson = JSON.stringify(baseNow);
         await o2.evaluate(([sel]) => document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`).play(), [BOOK]);
         await sleep(9500);
-        const probe = await o2.evaluate(([sel]) => ({ t: document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`).currentTime, kept: (app.loadLocalStorage("booklet-listen:Listen.booklet.md") || {})["/e3"] }), [BOOK]);
+        const probe = await o2.evaluate(([sel]) => ({ t: (document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`) || [...document.querySelectorAll(".booklet-nowplaying-item")].filter(i => /Sixty/.test(i.textContent)).map(i => i.querySelector("audio"))[0]).currentTime, kept: (app.loadLocalStorage("booklet-listen:Listen.booklet.md") || {})["/e3"] }), [BOOK]);
         c.info(`killed mid-episode: the clock reads ${probe.t.toFixed(2)} s, the device store holds ${JSON.stringify(probe.kept)}, the note holds ${baseJson}`);
         await ctx.kill(o2);
         c.ok(JSON.stringify(ans().e3) === baseJson, `the process was killed (SIGKILL) while the episode played, and the note still holds what it held: nothing was written while it played: ${JSON.stringify(ans().e3)}`);

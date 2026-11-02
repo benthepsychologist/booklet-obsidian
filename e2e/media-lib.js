@@ -56,7 +56,7 @@ module.exports = function mediaLib(env) {
   function watch(o, name) {
     sessions.push(name);
     o.page.on("console", m => { if (m.type() === "error" || m.type() === "warning") consoleReport.push({ where: name, kind: "console." + m.type(), text: m.text().slice(0, 400), url: (m.location() || {}).url || "" }); });
-    o.page.on("pageerror", e => consoleReport.push({ where: name, kind: "pageerror", text: String((e && (e.stack || e.message)) || e).slice(0, 600), url: "" }));
+    o.page.on("pageerror", e => consoleReport.push({ where: name, kind: /releases\.obsidian\.md/.test(String((e && (e.stack || e.message)) || e)) ? "pageerror (Obsidian's own YouTube wrapper frame, which cannot reach youtube.com from this test)" : "pageerror", text: String((e && (e.stack || e.message)) || e).slice(0, 600), url: "" }));
   }
 
   /**
@@ -82,7 +82,7 @@ module.exports = function mediaLib(env) {
     };
     const files = typeof opts.files === "function" ? opts.files(ctx) : opts.files;
     makeVault(vault, { files, data: typeof opts.data === "function" ? opts.data(ctx) : opts.data });
-    const rules = [...HOSTS, ...SERVICE_HOSTS, ...(opts.hosts || [])].map(h => `MAP ${h} 127.0.0.1:${port}`).join(", ");
+    const rules = [...HOSTS, ...SERVICE_HOSTS, "releases.obsidian.md", ...(opts.hosts || [])].map(h => `MAP ${h} 127.0.0.1:${port}`).join(", ");
     const args = ["--ignore-certificate-errors", "--host-resolver-rules=" + rules, ...(opts.args || [])];
     const start = async label => {
       const o = await launch({ obsidian: path.resolve(opt.obsidian), vault, configDir, args });
