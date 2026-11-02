@@ -96,7 +96,7 @@ import {
 } from "./core";
 import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
-import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, playerHost, type MediaDeps } from "./media-view";
+import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
 import { Listens, locate } from "./listen-view";
 import type { ViewListen } from "./listen-writer";
 import type { LiftFrom, NowPlaying } from "./now-playing";
@@ -337,6 +337,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					for (const n of Array.from(r.addedNodes))
 						if (n.nodeType === 1) {
 							keepLocalPreload(n as Element);
+							nameLocalMedia(n as Element);
 							// media of one the bar holds is the bar's, however late Obsidian made it
 							this.host.nowPlaying?.restore(n as Element, () => this.nowSource());
 						}
@@ -768,6 +769,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (media === "block") drawLinkHosts(el);
 				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(), drawing);
 				keepLocalPreload(el);
+				nameLocalMedia(el);
 				this.host.nowPlaying?.restore(el, () => this.nowSource());
 				// a task box in the file's prose is drawn, not operated: a press here must never edit the design
 				for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;

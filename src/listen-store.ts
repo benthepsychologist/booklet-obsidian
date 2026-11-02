@@ -2,7 +2,10 @@
  * What the device keeps for a `listen` and for Continue, never the note's (SPEC section 5, "Listen", renderer notes; section 12). The file
  * syncs between devices, so a `listen`'s position is written into it only when playback pauses or ends, when the reader leaves the page
  * and when the app quits. While media plays, each whole second is kept here instead, by note, so that a kill (the one stop no hook sees)
- * loses no more than a second: the next start finds the entry and adds it to the note. It is the vault-specific store Obsidian keeps for
+ * loses less: the next start finds the entry and adds it to the note. How much less is the browser's, not ours. Chromium commits
+ * `localStorage` to disk late, so a hard kill finds the last value it committed, not the last one written. Measured in the real app
+ * (e2e check 51, Obsidian 1.14.5): on a profile's first launch nothing survived a kill at 3 to 29 s of playback; on a second launch the
+ * value that survived was about 3 s old. It is the vault-specific store Obsidian keeps for
  * each vault (`app.loadLocalStorage`, since 1.8.7), the one held-store.ts uses: never synced, and the device's.
  *
  *   booklet-listen:<path>   { "<scope>/<id>": { pos, base } } for a position not written yet. `base` is the `pos` the note held when

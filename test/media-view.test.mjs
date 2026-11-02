@@ -9,7 +9,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const { createPlayer, drawMedia, drawLinkHosts, keepLocalPreload, isTrustedPress, playerHost, PressedSlot, MediaAllows } = await import("./.build/media.mjs");
+const { createPlayer, drawMedia, drawLinkHosts, keepLocalPreload, nameLocalMedia, isTrustedPress, playerHost, PressedSlot, MediaAllows } = await import("./.build/media.mjs");
 const { gateMedia } = core;
 
 /** jsdom does not play media: these record what the slots ask of an element. */
@@ -275,7 +275,7 @@ test("the other services keep the plugin's own sandboxed frame; an audio service
 	assert.equal(f.getAttribute("referrerpolicy"), "strict-origin-when-cross-origin");
 	assert.equal(f.getAttribute("allow"), "autoplay; picture-in-picture; fullscreen");
 	assert.equal(f.getAttribute("title"), "Vimeo: Talk");
-	assert.ok(f.hasAttribute("allowfullscreen"));
+	assert.equal(f.hasAttribute("allowfullscreen"), false, "`allow` carries fullscreen: the old attribute would only make the browser warn");
 	assert.equal(w.document.activeElement, f);
 	assert.deepEqual(rendered, [], "Obsidian does not embed Vimeo: it is not asked to");
 	v.o.unload();
@@ -371,6 +371,17 @@ test("keepLocalPreload: Obsidian's own audio and video get preload none, the plu
 	const lone = w.document.createElement("audio");
 	keepLocalPreload(lone);
 	assert.equal(lone.getAttribute("preload"), "none", "an element handed over itself is set too");
+	el.remove();
+});
+
+test("nameLocalMedia: Obsidian's own player is named by the listen prompt, else the embed's alt words, else the file; a name it has is kept", () => {
+	const el = w.document.body.createDiv();
+	el.innerHTML = '<div data-booklet-name="Listen to the tone"><span class="internal-embed" src="tone-10s.wav" alt="tone-10s.wav"><audio controls src="app://id/tone-10s.wav?1"></audio></span></div>'
+		+ '<span class="internal-embed" src="media/Spoken intro.mp3" alt="The intro"><audio controls src="app://id/media/Spoken%20intro.mp3?1"></audio></span>'
+		+ '<span class="internal-embed" src="media/Spoken%20clip.mp4"><video controls src="app://id/media/Spoken%20clip.mp4?1"></video></span>'
+		+ '<audio controls aria-label="Already named" src="a.mp3"></audio><audio data-booklet-player="audio" aria-label="Ours" src="https://media.example.org/x.mp3"></audio><audio src="app://id/plain.ogg?5"></audio>';
+	nameLocalMedia(el);
+	assert.deepEqual(Array.from(el.querySelectorAll("audio, video")).map((m) => m.getAttribute("aria-label")), ["Listen to the tone", "The intro", "Spoken clip.mp4", "Already named", "Ours", "plain.ogg"]);
 	el.remove();
 });
 

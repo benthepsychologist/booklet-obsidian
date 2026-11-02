@@ -451,3 +451,31 @@ test("a page that is hidden stops listening to the list", () => {
 	assert.equal(s.el.innerHTML, before);
 	s.el.remove();
 });
+
+const later = (ms) => new Promise((r) => w.setTimeout(r, ms));
+
+test("a card opened as a note opens keeps its default focus when something blurs it in the first moments, and never takes it from where she put it", async () => {
+	const { media } = lists();
+	const req = { kind: "declared", hosts: ["media.example.org"] };
+	const field = doc.body.createEl("input");
+	// blurred to nothing a moment after it opened (Obsidian making the pane active)
+	const a = open(media, { request: req });
+	assert.equal(doc.activeElement.textContent, "Not now");
+	doc.activeElement.blur();
+	assert.equal(doc.activeElement, doc.body);
+	await later(60);
+	assert.equal(doc.activeElement.textContent, "Not now", "put back on Not now");
+	// she moved focus elsewhere herself: it stays there
+	field.focus();
+	await later(60);
+	assert.equal(doc.activeElement, field, "focus she put elsewhere is left");
+	a.close(false);
+	// after the first second it no longer interferes
+	const b = open(media, { request: req });
+	await later(1100);
+	doc.activeElement.blur();
+	await later(60);
+	assert.equal(doc.activeElement, doc.body, "after the first moments a lost focus is not taken back");
+	b.close(false);
+	field.remove();
+});

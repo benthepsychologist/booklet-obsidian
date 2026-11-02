@@ -11,7 +11,7 @@
  *   - a position left in the device store by a kill is added to the note at the next start, if the note was not changed since.
  */
 import type { App } from "obsidian";
-import { answeredOf, clock, holdsSomething, listenNext, questionsOf, type AnswerValue, type ListenEvent, type NavModel, type Question } from "./core";
+import { answeredOf, clock, plainText, holdsSomething, listenNext, questionsOf, type AnswerValue, type ListenEvent, type NavModel, type Question } from "./core";
 import { dropListen, keepListen, loadListens } from "./listen-store";
 import { mediaEvent, Track } from "./playing";
 import { posIn } from "./listen-writer";
@@ -261,6 +261,8 @@ export function drawListen(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	const box = card.createDiv({ cls: "booklet-question booklet-kind-listen booklet-listen" });
 	// the key of a followed box; a box of a repeating activity is marked and followed by nothing
 	box.setAttr("data-booklet-listen", repeats ? "" : `${t.scope}/${q.id}`);
+	// the prompt in plain words: the name of Obsidian's player inside the box (media-view.ts nameLocalMedia)
+	box.setAttr("data-booklet-name", plainText(q.title || q.id));
 	const promptId = host.uid();
 	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered", attr: { id: promptId } }));
 	if (q.media) host.mdBlock(q.media, box.createDiv({ cls: "booklet-listen-media markdown-rendered" }));

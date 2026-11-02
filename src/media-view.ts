@@ -68,7 +68,6 @@ function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }
 	f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
 	f.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
 	f.setAttribute("allow", slot.allow);
-	if (slot.media === "video") f.setAttribute("allowfullscreen", "");
 	f.title = slot.alt ? `${slot.name}: ${slot.alt}` : slot.name;
 	f.src = hrefOf(embedUrl);
 	return f;
@@ -316,6 +315,29 @@ export function drawLinkHosts(el: HTMLElement): void {
 		host.className = "booklet-link-host";
 		host.textContent = ` (${u.host})`;
 		a.after(host);
+	}
+}
+
+/**
+ * Obsidian's own audio and video elements get an accessible name, since it gives them none: inside a `listen` the prompt (the box
+ * carries it as `data-booklet-name`), else the embed's alt words, else the file's name. An element that has a name already, and the
+ * plugin's own players (createPlayer names them), are left alone. Nothing else about Obsidian's player is touched.
+ */
+export function nameLocalMedia(root: Element): void {
+	for (const m of [root, ...Array.from(root.querySelectorAll("audio, video"))]) {
+		if (!m.matches("audio, video") || m.hasAttribute("data-booklet-player") || m.hasAttribute("aria-label") || m.hasAttribute("aria-labelledby")) continue;
+		const embed = m.closest(".internal-embed");
+		const from = embed?.getAttribute("src") || m.getAttribute("src") || "";
+		const file = (from.split(/[?#]/, 1)[0] ?? "").split("/").pop() ?? "";
+		let name = m.closest("[data-booklet-name]")?.getAttribute("data-booklet-name") || embed?.getAttribute("alt") || "";
+		if (!name) {
+			try {
+				name = decodeURIComponent(file);
+			} catch {
+				name = file;
+			}
+		}
+		m.setAttribute("aria-label", name || (m.matches("video") ? "Video" : "Audio"));
 	}
 }
 

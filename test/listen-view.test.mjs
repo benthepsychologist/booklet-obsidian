@@ -77,6 +77,7 @@ test("a listen is drawn as a box: the prompt, the media where it was written, th
 		assert.equal(words(box.querySelector(".booklet-prompt")), "Episode 1: Foundations");
 		assert.equal(box.querySelector(".booklet-listen-media audio")?.getAttribute("src"), "media/ep1.mp3", "the embed is drawn in the media div");
 		assert.match(words(box.querySelector(".booklet-help")), /^Listen to it all/);
+		assert.equal(box.getAttribute("data-booklet-name"), "Episode 1: Foundations", "the box carries the prompt as the name of the player inside it");
 		const tick = box.querySelector("button.booklet-listen-tick");
 		assert.equal(words(tick), "Done");
 		assert.equal(tick.getAttribute("aria-pressed"), "false");

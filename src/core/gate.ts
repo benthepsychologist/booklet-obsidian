@@ -7,8 +7,9 @@
  * What it rewrites, outside code, maths and comments: the three embed forms (`![alt](address "title")`, `![alt][id]` with `![id][]`
  * and `![id]`), a link, an autolink or a bare address standing alone on its line when it leads to a service the plugin plays, and the
  * raw tags `iframe frame object embed audio video source track` that carry a remote address (and `img`, `image`, when what they
- * load is audio, video or a page Obsidian would turn into a frame). A remote image, a local embed and everything that is not one of
- * these stay Obsidian's.
+ * load is audio, video or a page Obsidian would turn into a frame). A local audio or video file written as `![alt][id]`, `![id][]`
+ * or `![id]` becomes `![alt](path)`, since Obsidian draws a reference embed of it as a broken picture and the inline form as a
+ * player (spike S1). A remote image, any other local embed and everything that is not one of these stay Obsidian's.
  *
  * An address is read the way a browser reads it, not the way it is written: character references (`&#104;ttps://`, `&colon;`) are
  * undone, tabs and line breaks inside it dropped, and `https:/host` and `https:host` are as remote as `https://host` (spike B2,
@@ -235,11 +236,16 @@ class Gate {
 	}
 
 	/** What stands in place of a media embed whose address is `dest` (words, or a slot); null leaves it to Obsidian. */
-	embed(dest: string, altRaw: string): string | MediaSlot | null {
+	embed(dest: string, altRaw: string, viaDefinition = false): string | MediaSlot | null {
 		const alt = altText(altRaw);
 		const where = whereIs(dest);
 		const cls = mediaClass(dest);
-		if (where === "local") return this.inline && (cls === "audio" || cls === "video") ? escapeMd(alt || nameOf(dest)) : null;
+		if (where === "local") {
+			if (cls !== "audio" && cls !== "video") return null;
+			if (this.inline) return escapeMd(alt || nameOf(dest));
+			// Obsidian draws a reference embed of a local file as a broken `img`, and the inline form as a player: so it is handed the inline form
+			return viaDefinition && !/[<>]/.test(dest) ? `![${alt}](${/[\s()]/.test(dest) ? `<${dest}>` : dest})` : null;
+		}
 		const addr = absolute(dest, where);
 		// Obsidian draws a YouTube or Twitter address as a frame whatever the rest of it says (even a picture's ending): it is never left to Obsidian
 		const tube = !!addr && isEmbedAddress(addr);
@@ -367,7 +373,7 @@ export function gateMedia(markdown: string, ctx: GateContext): Gated {
 			end = c2 + 1;
 		} else dest = g.defs.get(norm(altRaw)) ?? null;
 		if (dest === null) continue;
-		const repl = g.embed(clean(dest), altRaw);
+		const repl = g.embed(clean(dest), altRaw, mask[close + 1] !== "(");
 		if (repl !== null) edits.push({ from: i, to: end, repl });
 	}
 

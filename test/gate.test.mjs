@@ -55,11 +55,32 @@ test("reference forms resolve through the definitions the text carries: ![alt][i
 });
 
 test("a remote image stays Obsidian's; a local embed stays Obsidian's in a block", () => {
-	for (const t of ["![p](https://img.example.org/p.png)", "![p](https://img.example.org/p.JPG?x=1)", "![p][r]\n\n[r]: https://img.example.org/p.svg", "![[x.mp3]]", "![[x.mp3|300]]", "![a](media/x.mp3)", "![a](<media/my song.mp3>)", "![a][l]\n\n[l]: media/x.mp3", "![a](data:audio/wav;base64,AAAA)", "![a](app://local/x.mp3)", "![a](file:///x.mp3)"]) {
+	for (const t of ["![p](https://img.example.org/p.png)", "![p](https://img.example.org/p.JPG?x=1)", "![p][r]\n\n[r]: https://img.example.org/p.svg", "![[x.mp3]]", "![[x.mp3|300]]", "![a](media/x.mp3)", "![a](<media/my song.mp3>)", "![a](data:audio/wav;base64,AAAA)", "![a](app://local/x.mp3)", "![a](file:///x.mp3)"]) {
 		const g = gateMedia(t, ctx());
 		assert.equal(g.text, t, t);
 		assert.deepEqual(g.slots, [], t);
 	}
+});
+
+test("a local audio or video file written as a reference embed becomes the inline form Obsidian plays; inline mode keeps its alt text", () => {
+	const cases = [
+		["![Tone][l]\n\n[l]: media/x.wav", "![Tone](media/x.wav)\n\n[l]: media/x.wav"],
+		["![l][]\n\n[l]: ../x.mp3", "![l](../x.mp3)\n\n[l]: ../x.mp3"],
+		["A ![Clip] B\n\n[clip]: clip.webm", "A ![Clip](clip.webm) B\n\n[clip]: clip.webm"],
+		["![Song][s]\n\n[s]: <media/my song (1).m4a>", "![Song](<media/my song (1).m4a>)\n\n[s]: <media/my song (1).m4a>"],
+		["![Q][q]\n\n[q]: x.WAV?t=3#a", "![Q](x.WAV?t=3#a)\n\n[q]: x.WAV?t=3#a"],
+	];
+	for (const [from, to] of cases) {
+		const g = gateMedia(from, ctx());
+		assert.equal(g.text, to, from);
+		assert.deepEqual(g.slots, [], from);
+		const again = gateMedia(g.text, ctx());
+		assert.equal(again.text, g.text, "the inline form is left as it is");
+	}
+	// a picture or a note through a reference stays Obsidian's, as does the inline form
+	for (const t of ["![p][r]\n\n[r]: media/p.png", "![n][r]\n\n[r]: Other note", "![a](media/x.wav)"]) assert.equal(gateMedia(t, ctx()).text, t, t);
+	// in a title or an option it is words, as every local media embed is there
+	assert.equal(gateMedia("![Tone][l]\n\n[l]: media/x.wav", ctx("inline")).text, "Tone\n\n[l]: media/x.wav");
 });
 
 test("an address that is not media is a link naming its host, not an embed; a known service is its player", () => {

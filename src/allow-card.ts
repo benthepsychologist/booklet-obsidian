@@ -64,9 +64,11 @@ export function openAllowCard(o: CardOptions): AllowCard {
 		return r;
 	};
 
+	let stopGuard: (() => void) | null = null;
 	const close = (restore = true): void => {
 		if (closed) return;
 		closed = true;
+		stopGuard?.();
 		if (open.get(o.doc) === handle) open.delete(o.doc);
 		root.remove();
 		if (restore) o.returnFocus?.()?.focus();
@@ -227,6 +229,32 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	});
 	backdrop.addEventListener("click", () => close());
 
-	(notNow ?? title).focus();
+	const first = notNow ?? title;
+	first.focus();
+	// A card that opens as a note opens (the sites a booklet names) is blurred a moment later, when Obsidian makes the pane active
+	// (measured: about 2 ms). For the first moments the default focus is put back if it was lost to nothing, and never taken from a
+	// place she chose: any press or key of hers ends this, and so does focus that is somewhere else.
+	const win = o.doc.defaultView;
+	if (win) {
+		const timers: number[] = [];
+		let live = true;
+		const stop = (): void => {
+			live = false;
+			for (const t of timers) win.clearTimeout(t);
+			timers.length = 0;
+			o.doc.removeEventListener("pointerdown", stop, true);
+			o.doc.removeEventListener("keydown", stop, true);
+		};
+		const regain = (): void => {
+			const at = o.doc.activeElement;
+			if (live && !closed && !card.contains(at) && (!at || at === o.doc.body)) first.focus();
+		};
+		o.doc.addEventListener("pointerdown", stop, true);
+		o.doc.addEventListener("keydown", stop, true);
+		root.addEventListener("focusout", () => live && timers.push(win.setTimeout(regain, 0)));
+		for (const ms of [30, 120, 300, 700]) timers.push(win.setTimeout(regain, ms));
+		timers.push(win.setTimeout(stop, 1000));
+		stopGuard = stop;
+	}
 	return handle;
 }

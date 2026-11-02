@@ -45,7 +45,7 @@ await esbuild.build({
 	logLevel: "warning",
 });
 await esbuild.build({
-	stdin: { contents: 'export { createPlayer, drawMedia, drawLinkHosts, keepLocalPreload, playerHost, isTrustedPress, PressedSlot } from "./src/media-view"; export { openAllowCard } from "./src/allow-card"; export { BookletSettingTab, MediaAllows } from "./src/settings";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export { createPlayer, drawMedia, drawLinkHosts, keepLocalPreload, nameLocalMedia, playerHost, isTrustedPress, PressedSlot } from "./src/media-view"; export { openAllowCard } from "./src/allow-card"; export { BookletSettingTab, MediaAllows } from "./src/settings";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",
