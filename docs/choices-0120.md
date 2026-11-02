@@ -2,9 +2,9 @@
 
 This is the 0.12.0 sequel to the choices in the README (*Choices made where the format is silent*). Format 0.18 (SPEC draft, booklet pull request #95) says what a `listen` records, what an embed looks like and that "the file declares; the reader or the host allows". It says little about how a reader asks, how long an allow lasts, what a frame does, or when a position is written. The plugin chose in each of those places. Each row is one choice, the reason, and where it lives in the code, so that 1.0.0's review can go through them one at a time.
 
-**How to read it.** The *Source* column says whose call it is: **Ben** (his words are in `design/plugin-0120/calls.md` in the booklet hub), **plan** (the redrawn plan, `plan-v2.md`), **design** (the first design pass, `design.md`, where `plan-v2.md` does not replace it) or **builder** (a lane chose it while building; Ben has not seen it). *Where* names the file and, when it helps, the function. A *Where* marked "planned" is the design's module name and has not been checked against the finished code.
+**How to read it.** The *Source* column says whose call it is: **Ben** (his words are in `design/plugin-0120/calls.md` in the booklet hub), **plan** (the redrawn plan, `plan-v2.md`), **design** (the first design pass, `design.md`, where `plan-v2.md` does not replace it) or **builder** (a lane chose it while building; Ben has not seen it). *Where* names the file and, when it helps, the function. Every *Where* names a file that exists on the integration branch; it was checked against the finished code after the lanes were merged and the fix round (lane U, 2026-11-02).
 
-Written by lane D from the plan and the design before the other lanes were merged. Builders add what they chose in the last section.
+The sections 1 to 6 were first written by lane D from the plan and the design, before the other lanes were merged, and their *Where* column was brought up to the finished code afterwards. Builders add what they chose in the last section.
 
 ## 1. What is local, what is remote
 
@@ -12,9 +12,9 @@ Written by lane D from the plan and the design before the other lanes were merge
 | --- | --- | --- |
 | Local means a file in the vault. `http://localhost` is remote | Ben: no asking about the reader's own device | `core/media.ts` (`mediaClass`, `originOf`) |
 | Local media is never gated and keeps Obsidian's player | Ben: keep the native player | `view.ts` `md()` leaves local forms alone |
-| `preload="none"` is set on local media, best effort | Honours "nothing before a press" as far as it can be | `media-view.ts` (planned); spike S1 decides |
+| `preload="none"` is set on local media, best effort | Honours "nothing before a press" as far as it can be | `media-view.ts` `keepLocalPreload`; spike S1 (the element and its request come at render, so `preload="none"` is set as soon as the element exists) |
 | The extension of the path decides, before `?` and `#` | The format does not say how a query string is read | `core/media.ts` `mediaClass` |
-| A remote embed with no known extension is a link | The format says so; it also turns a remote picture with no extension into a link | `view.ts` / `gateMedia` (planned) |
+| A remote embed with no known extension is a link | The format says so; it also turns a remote picture with no extension into a link | `core/gate.ts` `gateMedia` |
 | Remote pictures stay Obsidian's and are not gated | Ben: image drawing is left alone | no code: `gateMedia` skips image extensions |
 | Link schemes are not filtered (`obsidian://` and the rest) | Ben: Obsidian is not policed | no code |
 | Embedded notes (`![[Other note]]`) are Obsidian's | Ben: accepted and documented | no code; README limits |
@@ -25,62 +25,62 @@ Written by lane D from the plan and the design before the other lanes were merge
 | --- | --- | --- |
 | Allowed, not "declared and allowed": a vault host loads in any booklet | Ben, third round: allow without a declaration | `core/allow.ts` `isAllowed` |
 | Three scopes: once, this note, this vault | Ben, third round | `core/allow.ts`; the card |
-| Once is kept nowhere. It lasts for the piece as drawn | The plan says "kept nowhere"; how long a drawing lasts is the builder's | `media-view.ts` (planned) |
-| This note and this vault live in `data.json`, never in the note | Ben; the format forbids a permission in the file | `settings.ts` (planned), keys `noteAllows`, `allowedMediaHosts` |
-| A note's allows are keyed by the note's path | The plan says "this note"; the key is the builder's | `settings.ts` (planned); see section 7 for renames |
+| Once is kept nowhere. It lasts for the piece as drawn | The plan says "kept nowhere"; how long a drawing lasts is the builder's | `media-view.ts` `playSlot` (`once`), `allow-card.ts` |
+| This note and this vault live in `data.json`, never in the note | Ben; the format forbids a permission in the file | `settings.ts` `MediaAllows`, keys `noteAllows`, `allowedMediaHosts` |
+| A note's allows are keyed by the note's path | The plan says "this note"; the key is the builder's | `settings.ts` `MediaAllows`; see section 7 for renames |
 | An entry `youtube.com` means `https://*.youtube.com/*`: the host and subdomains | Ben: "picks up (https://*.youtube.com/*) by default" | `core/allow.ts` `isAllowed`, `normaliseEntry` |
 | Entries are hosts as typed, lower-case; https is assumed and the card says so | Ben: "https is assumed and that is made clear on the card" | `core/allow.ts` `normaliseEntry` |
 | A path prefix is not offered in the write-in | Ben: "just add the domain and tld" | `core/allow.ts` `normaliseEntry` |
 | An allow for a service also covers its embed host | The plan: the player's host is not the link's | `core/services.ts` `serviceOf` (`hosts`) |
-| The card opens on a booklet open for declared hosts not on the vault list | Ben: the booklet may ask; the format lets a reader do so | `view.ts` (planned) |
-| It opens on a press of media from a host not allowed | Ben: a request when she clicks | `media-view.ts` (planned) |
-| Default focus is Not now, and each choice states its cost | Plan: a safe default; the host will see when and from where | the card (planned) |
-| An "Allow list" button at the top of the view opens the card | Ben: "available as a button at the top of the renderer" | `view.ts` (planned) |
-| The vault list starts empty; nothing is pre-allowed | Ben: prepopulation is an option, not a default | `settings.ts` (planned) |
-| "Add suggested services" is a settings button; the list is YouTube, Vimeo and a few audio services | Ben: "put them in the plugin settings as an option" | `core/services.ts`, `settings.ts` (planned); Ben strikes the audio ones |
-| Unticking a host in the card takes effect at once | Plan: checkboxes to unallow | the card (planned) |
+| The card opens on a booklet open for declared hosts not on the vault list | Ben: the booklet may ask; the format lets a reader do so | `view.ts` `askDeclared` |
+| It opens on a press of media from a host not allowed | Ben: a request when she clicks | `media-view.ts` `playSlot`; `view.ts` `mediaDeps().ask`, `openCard` |
+| Default focus is Not now, and each choice states its cost | Plan: a safe default; the host will see when and from where | `allow-card.ts` `openAllowCard` |
+| An "Allow list" button at the top of the view opens the card | Ben: "available as a button at the top of the renderer" | `view.ts` `drawAllowButton` |
+| The vault list starts empty; nothing is pre-allowed | Ben: prepopulation is an option, not a default | `settings.ts` `MediaAllows` (starts empty) |
+| "Add suggested services" is a settings button; the list is YouTube, Vimeo and a few audio services | Ben: "put them in the plugin settings as an option" | `core/services.ts` `SUGGESTED_HOSTS`, `settings.ts` `addSuggested`. **Open for Ben:** this row says Ben strikes the audio ones, but `SUGGESTED_HOSTS` still holds `spotify.com` and `soundcloud.com`; the code has not been changed |
+| Unticking a host in the card takes effect at once | Plan: checkboxes to unallow | `allow-card.ts` `openAllowCard` (`draw`) |
 
 ## 3. What a slot is, and what a frame is
 
 | Choice | Why | Where |
 | --- | --- | --- |
-| A remote slot has no media element until a press | A browser fetches when `src` is set | `media-view.ts` (planned) |
-| Only a real press (`isTrusted`) loads it | A script cannot press for the reader | `media-view.ts` (planned) |
-| `src` is `new URL(addr).href`, never the raw text | One address is checked and used | `media-view.ts` (planned) |
-| `play()` is called inside the press handler; video is `playsinline` | iOS needs the gesture and fullscreens otherwise | `media-view.ts` (planned) |
-| Focus goes to the new player, and a polite line says "Loading ..." | A keyboard or screen-reader reader must find it | `media-view.ts` (planned) |
-| One error message for every failure, with the open-in-browser link | A 404 and an unsupported codec look the same to the element | `media-view.ts` (planned) |
-| Leaving the page tears the player down | A removed element stops the stream | `media-view.ts` (planned) |
-| Press-to-load for known audio and video services | Ben, third round: "video AND AUDIO services" | `core/services.ts`, `media-view.ts` (planned) |
+| A remote slot has no media element until a press | A browser fetches when `src` is set | `media-view.ts` `drawMedia`, `playSlot` |
+| Only a real press (`isTrusted`) loads it | A script cannot press for the reader | `media-view.ts` `isTrustedPress`, `playSlot` |
+| `src` is `new URL(addr).href`, never the raw text | One address is checked and used | `media-view.ts` `hrefOf` |
+| `play()` is called inside the press handler; video is `playsinline` | iOS needs the gesture and fullscreens otherwise | `media-view.ts` `createPlayer`, `playSlot` |
+| Focus goes to the new player, and a polite line says "Loading ..." | A keyboard or screen-reader reader must find it | `media-view.ts` `playSlot` |
+| One error message for every failure, with the open-in-browser link | A 404 and an unsupported codec look the same to the element | `media-view.ts` `FAILED`, `playSlot` |
+| Leaving the page tears the player down | A removed element stops the stream | `media-view.ts` `playSlot` (`owner.register`) |
+| Press-to-load for known audio and video services | Ben, third round: "video AND AUDIO services" | `core/services.ts`, `media-view.ts` `playSlot`, `createFrame` |
 | An unknown service stays a link that names the host | Plan | `core/services.ts` `serviceOf` returns null |
-| A `listen` holding a service link has only the tick | The plugin cannot read a framed player's position | `listen-view.ts` (planned) |
-| Frames draw as links naming the host and never load | Ben: frames drawn as links, not policed in Reading view | `core/media.ts` `gateMedia` (planned) |
-| Raw `<audio>` and `<video>` with a remote `src` are treated like frames | The design's reading of Ben's frame call | `core/media.ts` `gateMedia` (planned); confirm with Ben |
-| Media in a title, option or label is never drawn; its alt text shows | The issue's item 1 | `view.ts` `md()` mode `inline` (planned) |
-| The rewrite works on the text before the render, not on the DOM | A DOM sweep for `iframe` could break an Obsidian embed | `core/media.ts` `gateMedia` |
-| A link whose words are not its address shows its host after it | Ben, 3e | `view.ts` `fixLinks` (planned) |
-| "Is the address" means equal after dropping scheme, `www.` and a trailing slash | Needed to say when the words differ | `view.ts` (planned) |
-| The host shown is `new URL(href).hostname` plus a non-default port | Punycode then shows plainly | `view.ts` (planned) |
+| A `listen` holding a service link has only the tick | The plugin cannot read a framed player's position | `listen-view.ts` `drawListen` |
+| Frames draw as links naming the host and never load | Ben: frames drawn as links, not policed in Reading view | `core/gate.ts` `gateMedia`, `media-view.ts` `otherSlot` |
+| Raw `<audio>` and `<video>` with a remote `src` are treated like frames | The design's reading of Ben's frame call | `core/gate.ts` `rawTags`; confirm with Ben |
+| Media in a title, option or label is never drawn; its alt text shows | The issue's item 1 | `view.ts` `md` (its `media` mode, `inline` by default) |
+| The rewrite works on the text before the render, not on the DOM | A DOM sweep for `iframe` could break an Obsidian embed | `core/gate.ts` `gateMedia` |
+| A link whose words are not its address shows its host after it | Ben, 3e | `media-view.ts` `drawLinkHosts` |
+| "Is the address" means equal after dropping scheme, `www.` and a trailing slash | Needed to say when the words differ | `media-view.ts` `asAddress` |
+| The host shown is `new URL(href).hostname` plus a non-default port | Punycode then shows plainly | `media-view.ts` `drawLinkHosts` |
 
 ## 4. The `listen` question
 
 | Choice | Why | Where |
 | --- | --- | --- |
-| Position is kept on the device while playing and written on pause, end, leave, quit | The format's renderer note (S6) | `listen-store.ts`, `listen-view.ts` (planned) |
+| Position is kept on the device while playing and written on pause, end, leave, quit | The format's renderer note (S6) | `listen-store.ts`, `listen-view.ts` `Listens` |
 | Positions are whole seconds | The format | `core/listen.ts` |
-| `pos` is taken out at the end, leaving `{ "done": true }` | Smaller; the format allows `0` or none | `listen-view.ts` (planned) |
-| A new answer is written `{ "pos": n, "done": b }`, `pos` first | A stable order for a new answer | `listen-view.ts` (planned) |
+| `pos` is taken out at the end, leaving `{ "done": true }` | Smaller; the format allows `0` or none | `core/listen.ts` `listenNext` |
+| A new answer is written `{ "pos": n, "done": b }`, `pos` first | A stable order for a new answer | `core/listen.ts` `listenNext` |
 | Unticking a `done` that has no `pos` leaves `{}`, so the answer is removed | The format: `{}` holds nothing | `core/write.ts`, `core/shape.ts` |
 | Unknown keys in a `listen` answer are kept and key order too | The format's "write back as read" | `core/write.ts` |
-| Status wording for listens only is "N of M done"; mixed is "N of M answered" | The format gives the first; the second is the agent's | `core/shape.ts` / `screens.ts` (planned) |
-| A `listen` in a `repeat` activity is drawn without a tick and listed in the notice | The format says "a plain question" and does not say what that is | `listen-view.ts`, `core/notice.ts` (planned) |
-| Only the first embed under a `listen` is followed; the second is listed | The format makes more than one an error | `core/reader.ts` (planned) |
+| Status wording for listens only is "N of M done"; mixed is "N of M answered" | The format gives the first; the second is the agent's | `core/nav.ts` (the status line, `listens`) |
+| A `listen` in a `repeat` activity is drawn without a tick and listed in the notice | The format says "a plain question" and does not say what that is | `listen-view.ts` `drawListen`, `core/reader.ts` (`noteUnread`) |
+| Only the first embed under a `listen` is followed; the second is listed | The format makes more than one an error | `core/reader.ts` (`noteUnread`) |
 | A `left:` that is not whole seconds is ignored and listed | The format | `core/reader.ts` |
-| An incoming `pos` never moves playback; paused and not dirty, it may seek | The format's renderer note; never discard her work | `listen-view.ts` (planned) |
-| A redraw from Sync is held back while a listen plays | The player is never destroyed under her | `view.ts` `busy()` (planned) |
-| A surviving device entry is used after a kill if the file's `pos` still equals its base | Another device wrote since otherwise, so the file wins | `listen-store.ts` (planned) |
-| The tick is a button with `aria-pressed`, 44 px high, with a polite live line | The pattern of the other presses | `listen-view.ts` (planned) |
-| Her place for Continue is the furthest page on this device, key `booklet-place:<path>` | Plan item 7; a rename made in Obsidian moves it as held words do | `held-store.ts` (planned) |
+| An incoming `pos` never moves playback; paused and not dirty, it may seek | The format's renderer note; never discard her work | `listen-view.ts` `Listens.view` |
+| A redraw from Sync is held back while a listen plays | The player is never destroyed under her | `view.ts` `busy` |
+| A surviving device entry is used after a kill if the file's `pos` still equals its base | Another device wrote since otherwise, so the file wins | `listen-view.ts` `Listens.resume`, `listen-store.ts` |
+| The tick is a button with `aria-pressed`, 44 px high, with a polite live line | The pattern of the other presses | `listen-view.ts` `drawListen`, `tickMark`. The pressed tick also shows a check mark, since colour alone is not enough (lane U) |
+| Her place for Continue is the furthest page on this device, key `booklet-place:<path>` | Plan item 7; a rename made in Obsidian moves it as held words do | `listen-store.ts` (`PLACE`, `keepFurthest`), `main.ts` rename handler |
 
 ## 5. Continue
 
@@ -89,9 +89,9 @@ Written by lane D from the plan and the design before the other lanes were merge
 | Continue starts after her place, so a skipped question is never offered again | Ben: a trap "needs to be fixed" | `core/nav.ts` `continueTarget` |
 | Without a device place, her place is the last record in booklet order | The format's wording | `core/nav.ts` `continueTarget` |
 | Hidden and `repeat` activities are skipped | Their questions are never "answered" in the usual way | `core/nav.ts` `continueTarget` |
-| It shows on home and on a module screen, not on a booklet that opens straight into one activity | There is no home there | `view.ts` (planned) |
-| It hides when nothing is left, and names its target ("Continue: Episode 3") | A button that does nothing should not be there | `view.ts` (planned) |
-| Focus goes to the prompt it opened | A keyboard reader lands on the thing | `view.ts` `go()` (planned) |
+| It shows on home and on a module screen, not on a booklet that opens straight into one activity | There is no home there | `view.ts` `drawContinue` |
+| It hides when nothing is left, and names its target ("Continue: Episode 3") | A button that does nothing should not be there | `view.ts` `drawContinue` |
+| Focus goes to the prompt it opened | A keyboard reader lands on the thing | `view.ts` `go`, `drawContinue` |
 
 ## 6. Version and the opening notice
 
@@ -99,27 +99,27 @@ Written by lane D from the plan and the design before the other lanes were merge
 | --- | --- | --- |
 | `FORMAT_VERSION` is "0.18"; a "0.17" note gets the earlier-marker notice | Pre-1.0: no compatibility shim | `core/reader.ts` |
 | Test notes are re-marked, not read as 0.17 | The same | `test-vault/`, `test/page-notes/` |
-| Raw frame and media tags are listed among the note's problems, not as unread | A later plugin would not read them either | `core/notice.ts` (planned) |
+| Raw frame and media tags are listed among the note's problems, not as unread | A later plugin would not read them either | `core/reader.ts` (the raw-tag scan, "drawn as a link in this view; nothing loads") |
 | A malformed `media-from` value is listed and ignored; the rest of a list still counts | The format | `core/reader.ts` `mediaFromOf` |
 | A transcript is an ordinary callout; the plugin draws it as one | The format gives it no kind | no code |
 
 ## 7. Spikes and open questions
 
-None of the spikes has a result when this file is written. Builders fill the third column.
+Results of the spikes lane S ran (2026-11-02, Obsidian 1.14.5 only, so none of it speaks for the 1.8.10 floor or for phones). The full notes are `design/plugin-0120/spikes-s1-s2.md` and `spikes-s3-s13.md` in the booklet hub; each line here is one line of them.
 
 | Spike | What it decides | Result |
 | --- | --- | --- |
-| S1 render | How `![[x.mp3]]`, `![](x.mp3)` and `![alt][id]` draw; when a local read starts | (open) |
-| S2 raw HTML | Whether the raw tag rewrite is needed; detach-then-attach | (open) |
-| S3 headless play | Whether `play()` advances time under Xvfb | (open) |
-| S4 event reach | Whether a capture listener sees Obsidian's media events | (open) |
-| S5 server | Range requests and request headers for the privacy wording | (open) |
-| S11 persistent playback | How playback survives a page move and closing the note | (open) |
-| S12 card and settings | The card writes the vault list; the settings page shows it | (open) |
-| S13 native services | Whether Obsidian plays service addresses itself; framed players in the apps | (open) |
+| S1 render | How `![[x.mp3]]`, `![](x.mp3)` and `![alt][id]` draw; when a local read starts | Local embeds and the inline form become a native player; `![alt][id]` becomes a broken `<img>`; remote forms become `<img>` and load at once; the request comes before the render promise resolves, so the gate must rewrite the text first |
+| S2 raw HTML | Whether the raw tag rewrite is needed; detach-then-attach | Needed: a detached `audio`, `video` or `img` requests at once, so raw tags with a remote `src` are rewritten out of the text; only an `iframe` waits for attach |
+| S3 headless play | Whether `play()` advances time under Xvfb | Yes, with no gesture: 1500 ms moves `currentTime` by 1.39 to 1.45 s for wav, mp3, m4a, webm and mp4 |
+| S4 event reach | Whether a capture listener sees Obsidian's media events | Yes on the view's `contentEl`, a bubbling listener sees none; `currentTime` set on `loadedmetadata` sticks; removing a playing element fires `pause` on the element only |
+| S5 server | Range requests and request headers for the privacy wording | No Referer in any case; no Origin unless `crossorigin`; the user agent, `Sec-Fetch-*` and `Range: bytes=0-` are sent; `preload="none"` sends nothing before the press |
+| S11 persistent playback | How playback survives a page move and closing the note | Stock Obsidian stops on a note switch and on close; one synchronous move of the playing element into `document.body`, inside its own `play` event, keeps it playing through both, so the Now playing bar does that |
+| S12 card and settings | The card writes the vault list; the settings page shows it | No result in the spike notes. The unit test "the page and the card edit one list" (`test/allow-card.test.mjs`) shows it in the stub; the desktop app and a phone are not recorded here (open) |
+| S13 native services | Whether Obsidian plays service addresses itself; framed players in the apps | Only YouTube: Obsidian turns its address into its own frame at render; Vimeo, SoundCloud and Spotify stay `<img>`; a raw YouTube `/embed/` frame may say "unavailable" in the app window |
 | S8 sync conflict | What a merged `pos` line looks like | (open, Ben's devices) |
 
-- **A rename of a note** moves the device keys with the note. Whether the plugin also moves a note's entry in `noteAllows` is not stated in the plan and is for the builder of the settings page to say.
+- **A rename of a note** moves the device keys with the note, and the note's entry in `noteAllows` as well (`settings.ts` `moveNote`, pinned by the test "the note's list follows a rename made in Obsidian"). A note moved outside Obsidian is a note with no list, and asks again. A note **deleted** in Obsidian has its entry removed (`forgetNote`, from `main.ts`; lane U).
 - **A host in a `media-from` list with a path** is malformed; the vault list takes a host only. The format allows a reader's own list to carry a path prefix; this plugin's write-in does not offer it.
 
 ## 8. Filled by builders
@@ -128,8 +128,16 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 
 | Lane | Choice | Why | Where |
 | --- | --- | --- | --- |
-| (A) | | | |
-| (B) | | | |
+| (A) | A `media-from` value is one origin, a comma list or a YAML list; an empty value declares nothing and is not bad; a trailing slash is taken off; the origin kept is the browser's spelling (lower case, punycode) | The format says "an origin"; the allow list compares by the browser's spelling, so the two must agree | `core/reader.ts` `mediaFromOf` |
+| (A) | A `done` that is true is never cleared by a pause or the end; only the tick clears it. A first pause at the very start makes no answer | The format's done rule does not say who may clear it; a reader who finished should not lose it by pausing again | `core/listen.ts` `listenNext` |
+| (A) | With no embed under a `listen`, the first link is its media (a video service's page is a link, never an embed) | The format (section 5) names the link form; which link is the media is the builder's | `core/listen.ts` (the lines under a `listen`) |
+| (A) | Continue skips a question she cannot answer here (an unread widget, an answer of the wrong shape) | It would hold her at that question for good | `core/nav.ts` `continueTarget` |
+| (A) | A position is shown as `12:34`, or `1:02:03` from an hour on; one that is no number reads `0:00` | Whole seconds are kept; the clock is how a person says a place | `core/listen.ts` `clock` |
+| (B) | A port is kept in an allow-list entry when it is not the default one, and an entry covers an address on the same port only | `media.example.org` and `media.example.org:8443` are different servers | `core/allow.ts` `normaliseEntry`, `isAllowed` |
+| (B) | An entry that is a number (an IP address) covers that one machine and has no subdomains | `1.2.3.4` has no `*.1.2.3.4` | `core/allow.ts` |
+| (B) | A `$$` block that never closes hides nothing from the gate: remote media after it is still gated | An unclosed maths block would otherwise let a remote embed through unchecked | `core/gate.ts` `maskInert` |
+| (B) | The card does not draw its motion when the reader asks for less: the card is outside the view, so it has its own rule | The view's rule for reduced motion does not reach a node in the window's body | `styles.css` `@media (prefers-reduced-motion)` for `.booklet-allow` |
+| (B) | A list that cannot be saved is still in force for the session; the failure is not shown | A reader who allowed a site should not be told off for a full disk, and the next change saves again | `settings.ts` `MediaAllows.changed` |
 | (B2) | After "This note" or "This vault" the slot she pressed starts by itself when the booklet is drawn again. It is the nth slot of the view with the same address; the choice must be a trusted press; and it must come within 5 seconds of the choice | Ben: no second Play press. The 5 seconds stand for a browser's user activation, which is a few seconds. Checked in Obsidian 1.14.5 with real clicks: 0 requests before the press, 0 while the card is up, 1 after the choice, playing, focus on the player | `media-view.ts` `PressedSlot`; `view.ts` `mediaDeps().carry`, `drawn()` |
 | (B2) | A drawing made before the list changed (the slot is still not allowed in it) is waited past, not used up | The redraw the allow brings may be preceded by one already under way | `media-view.ts` `PressedSlot.resume` |
 | (B2) | If `play()` is refused with `NotAllowedError` after the redraw, the player is taken out, Play comes back with the line "Press Play to start", and her next press makes a new request. Any other refusal is left to the player's `error` event | A phone that wants the press itself cannot be told otherwise; one request more is the price of an honest Play button | `media-view.ts` `giveBack` |
@@ -145,8 +153,12 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 | (B2) | Left alone on purpose, all remote pictures: `<img>`, `srcset`, `poster`, an SVG `image`, CSS `url()`, `<input type=image>`, and `![](x.png)` | Ben: pictures are not gated. Each loads at render in 1.14.5 (spike B2) | no code; README limits |
 | (B2) | Left alone because Obsidian loads nothing: `![[https://...]]` (an empty embed), a plain link or autolink, `<iframe srcdoc>` (Obsidian drops the attribute), `<embed>`, `<object>` and `<link>` (it strips them) | Spike B2 saw no request. `<embed>` and `<object>` become links all the same | no code; `core/gate.ts` |
 | (B2) | Not covered: an embedded note (`![[Other note]]`) and a link's hover preview draw another note with Obsidian's own renderer, remote media in it included | Already a documented limit (section 1) | no code |
-| (C) | | | |
-| (S) | | | |
+| (C) | A drawing that would replace a playing element waits for it to stop; the device keeps each second and the note is written on pause, end, leave and quit | A reader hearing a lesson must not lose it to a redraw | `listen-view.ts` `Listens`, `view.ts` `busy`, `playing.ts` |
+| (C) | The furthest page reached is kept on the device beside held words, under `booklet-place:<path>`, and not in the note | A place is the device's: two devices read the same note at different pages | `listen-store.ts` `keepFurthest` |
+| (C) | Marking a `listen` done or not done is said to a screen reader by a polite line ("Marked done", "Marked not done") and not shown | The change is visible in the tick itself | `listen-view.ts` `drawListen` |
+| (C) | The answered count of listens uses `done` only: a `pos` with no `done` is not an answer | The format counts a `listen` as answered when `done` is true | `core/shape.ts` `answeredOf` |
+| (S) | The spike harness runs only against Obsidian 1.14.5, with its own `MediaRecorder` for `.webm`, `.mp4` and `.m4a`, a hand-built silent `.mp3` and WAV tones; no `.ogg` could be made | No older Obsidian and no codec tools were on the box; none of it speaks for the 1.8.10 floor | `e2e/spikes/`, `e2e/tones.js`, `e2e/media-server.js` |
+| (S) | The harness stops only the Obsidian it started (the pid with its own debugging port) and the Xvfb its launch made | A broad `pkill` was refused and is never the way; other lanes' sessions share the box | `e2e/spikes/lib.js` |
 | (P) | A placeholder stays in the page where a player was lifted from: "Its player is in the bar at the bottom of the window." | A listen's box would otherwise look emptied; it is also what a new drawing shows for media that still plays | `now-playing.ts` `lift`, `claim` |
 | (P) | An element that plays is never put back into a page; a paused one is, when a drawing makes a slot for the same media | Removing a playing element from a page stops it, and a page can go at any moment (spike S11) | `now-playing.ts` `claim` |
 | (P) | Two elements are the same media when the note's path and the source address match, less the hash and a `?<digits>` query (Obsidian's mtime); any other query is kept | A remote address's query can matter; the plan only names the mtime | `now-playing.ts` `keyOf` |
@@ -160,7 +172,7 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 | (P) | A media error after the lift takes the row away; a plugin player's placeholder goes too, Obsidian's element is put back to show its own state | The page keeps its own Play button for a player of ours | `now-playing.ts` `failed` |
 | (P) | With no view following the box, the device store keeps each second as a view would, and its `base` is read from the note at the first noted second | Same kill-safety as with a view; the base must be the note's own | `now-playing.ts` `note` |
 | (P) | The writer puts the change into the Markdown editor when the note is also open as Markdown, else uses `vault.process`; a failure says so in a notice | As the view's own write does, so unsaved words in the editor are not lost | `listen-writer.ts` `apply` |
-| (P) | While the bar shows, the page gets 8em of padding at its foot (`body.booklet-has-nowplaying`) | The fixed bar must not cover the last lines; not checked in real Obsidian | `styles.css` |
+| (P) | Superseded by the (M) row on `10em`: the 8em first chosen was not checked in real Obsidian, and the `10em` row was checked at 12 sizes | The fixed bar must not cover the last lines | `styles.css` |
 | (P) | `ViewHost.nowPlaying` is optional | Only so existing view tests, which do not exercise the bar, run unchanged; the plugin always supplies it | `view.ts` `ViewHost` |
 | (E) | After Not now on the card that opens on its own, the same note does not ask again until the app is started again; the Allow list button still opens the card | A reader who said no is not asked at every redraw; seen in the real app (check 50) | `view.ts` `askDeclared`, module-level `putOff`; check 50 |
 | (E) | Once lasts for the piece as drawn: a redraw of the page puts a once-allowed slot back to asking | "Kept nowhere" leaves how long a drawing lasts to the builder; seen in the real app (check 50) | `media-view.ts`; check 50 |
@@ -190,3 +202,15 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 | (M) | Not changed: with the card scrolled to its top, its Close footer lies over the foot of the content (the last buttons are half hidden until she scrolls) | Obsidian's own phone dialogs do the same; check 55 asserts that with the card scrolled to its end nothing is under the Close | no code |
 | (F) | "Back to the page" for a note that is open in a tab behind the active one asks for that tab (the plugin's `showPage`: reveal, then make it the active leaf with focus) and then puts the element back as before. "Behind" is read as an ancestor with `display: none`, which is how Obsidian hides inactive tabs | The placeholder is in the window but not on screen, so the bar took the page for showing and nothing came forward (check 56 d) | `main.ts` `showPage`; `now-playing.ts` `back`, `shown` |
 | (F) | An entry whose paused element is out of the document with an empty `src` is forgotten, not handed to the next drawing | Obsidian empties the `src` of the media of a page it closes; the next Play gave "The element has no supported sources" (check 56 d) | `now-playing.ts` `claim` |
+| (U) | The allow card is built by hand and not with Obsidian's `Modal`. **Open for Ben.** The record gives one reason, in the header of `allow-card.ts`: it sits in the window, not in the note's drawing, so it stays up while the note is drawn again after a change. `calls.md` and `plan-v2.md` say "a card" and do not say how it is built. `Modal` also lives in the window's body, so that reason does not by itself rule it out | Not decided by Ben; kept as lane B built it, with the five-timer focus hack (lane F's row above) as the cost. Whether `Modal` gives Escape, the focus trap and the focus return, and survives a blur at open, is not tested | `allow-card.ts` |
+| (U) | On the card of the sites a booklet names, pressing a row's button moves focus to the next row's first button, else to Not now; the change is said in a polite line ("a.example.org allowed for this note"). When the last site is dealt with the card closes, focus goes back to the button that opened it, and nothing is said | The row, and the button that had focus, is removed; focus fell to the page and the card's keys stopped working | `allow-card.ts` `openAllowCard` (`done`) |
+| (U) | The write-in says "Added {site} for this note" or "{site} is already on the list for this note" (or vault) in a polite line; the settings page says "Added {site}", "Removed {site}", "{site} is already on the list" | An add gave no sign it had happened | `allow-card.ts` `put`; `settings.ts` `display` |
+| (U) | The settings page draws only the list again after a change, not the whole page; adding keeps the focus in the (cleared) box; removing puts focus on the next Remove button, else the one before, else the box | The whole-page redraw lost focus and left a new empty field after Enter | `settings.ts` `display` |
+| (U) | A card button says its own words and then the site, as its accessible name: "Allow for this note: a.example.org". The settings field's accessible name is "Add a site", its visible label | An accessible name must contain the words shown | `allow-card.ts`, `settings.ts` |
+| (U) | One set of names: *Allow once*, *Allow for this note*, *Allow for this vault*; the write-in buttons *Add for this note* and *Add for this vault*; the lists *Allowed for this note* and *Allowed for this vault*; the list is the *Allow list* (button, card title, settings heading "Allow list for media"). The README says "site", not "host" | The same thing was called three ways | `allow-card.ts`, `settings.ts`, `README.md` |
+| (U) | The hint under the write-in is plain: "Add a site by its name, for example youtube.com. https is assumed: only secure addresses are covered, and the site's subdomains with them. Enter adds it for this note." No pattern syntax shows. For a service the title is "Allow media from YouTube?" and the line below says "Plays from youtube.com and releases.obsidian.md." | An unexplained `releases.obsidian.md` in a title, and `https://*.youtube.com/*`, meant nothing to a reader. The card reads the service's name and hosts out of the text `playerHost` gives it ("YouTube (youtube.com, releases.obsidian.md)") | `allow-card.ts` (`asked`); `media-view.ts` `playerHost` would give them separately, which is lane G's file |
+| (U) | The Done tick shows a check mark in front of the word when it is pressed (the mark is hidden from a screen reader, whose name stays "Done" with `aria-pressed`) and the pressed tick is bold | Pressed was colour alone | `listen-view.ts` `tickMark`; `styles.css` |
+| (U) | A prompt Continue led to shows a focus ring after a key, none after a mouse (`:focus-visible`) | It showed none, so a keyboard reader could not see where focus went | `styles.css` `.booklet-prompt` |
+| (U) | A `data.json` that cannot be read lets the plugin load with empty lists and a Notice "Booklet could not read its saved settings and started with none."; the bad file is not written over until she changes a list | The plugin did not load at all, and booklets opened as plain Markdown with no word why | `main.ts` `onload` |
+| (U) | A note deleted in Obsidian has its allow-list entry removed; a folder deleted takes every entry under it | A list should not outlive its note, nor start a new note at that path with it. Obsidian's events for a folder's children were not tested, so the folder is also matched by its path | `settings.ts` `forgetNote`; `main.ts` |
+| (U) | `data.json` keys the plugin does not know are kept in a store with no prototype, so one called `__proto__` is kept as a key; the `MediaData` type and `MediaAllows.saved()` are gone (nothing in `src/` used them; tests wait a tick for a save) | A `__proto__` key was taken as the object's prototype and lost | `settings.ts` |
