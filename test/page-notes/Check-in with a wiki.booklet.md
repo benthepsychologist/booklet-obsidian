@@ -1,5 +1,5 @@
 ---
-booklet: "0.17"
+booklet: "0.18"
 id: example/check-in-wiki
 title: A calm check-in
 lang: en
