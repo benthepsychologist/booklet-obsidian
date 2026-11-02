@@ -398,6 +398,12 @@ test("the settings page: a heading in sentence case without the plugin's name, t
 	s.done();
 });
 
+test("the settings page marks its container so that long site names wrap and a button's words wrap (styles.css)", () => {
+	const s = tab({ allowedMediaHosts: ["a-long-host-name.media.example.org"] });
+	assert.ok(s.el.classList.contains("booklet-settings"));
+	s.done();
+});
+
 test("Add suggested services is a one-time action that puts the suggestions on the list; pressing it again adds none", async () => {
 	Notice.said.length = 0;
 	const s = tab({ allowedMediaHosts: ["vimeo.com", "media.example.org"] });

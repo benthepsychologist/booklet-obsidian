@@ -1938,6 +1938,7 @@ async function check10() {
   const fns = { ...nav, ...study, ...reading, ...leftovers, ...dashboards, ...pictures, ...noteLinks, ...notice, 1: check1, 2: check2, 3: check3, 4: check4, 5: check5, 6: check6, 7: check7, 8: check8, 9: check9, 10: check10, 11: check11, 12: check12, 13: check13, 14: check14, 15: check15 };
   Object.assign(fns, require("./safety-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType, launch, opt, WORK, SRC_VAULT, consoleReport, sessions }));
   Object.assign(fns, require("./access-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType }));
+  Object.assign(fns, require("./mobile-checks")({ Check, SHOTS, opt, WORK, SRC_VAULT }));
   for (const n of only) {
     const t0 = Date.now();
     let c;
