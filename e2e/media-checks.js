@@ -1,4 +1,4 @@
-// Checks 48 to 54 and 56 of plugin-check.js (0.12.0, audio and video, the allow list and `listen`), in the real app. Every note is made up and
+// Checks 48 to 54 and 56 to 59 of plugin-check.js (0.12.0, audio and video, the allow list and `listen`), in the real app. Every note is made up and
 // written into the check's own vault; every remote address is on a made-up host (example.org, example.net) that Obsidian is told to reach
 // at the local https server (media-lib.js), so the server's log is the network log.
 //   48 nothing remote before a press (every remote form, every position, every state of a host; a press does request)
@@ -9,6 +9,9 @@
 //   53 frames and raw media tags are links naming the host; the host after a look-alike link; Reading view and Markdown unchanged
 //   54 accessibility of the new controls (keyboard walk, axe when it is installed, reduced motion, 200% zoom)
 //   56 the now-playing bar: playback that outlives its page (a page move, a note switch, closing the note), Back, pause, end, Close, a kill
+//   57 the gate on hostile spellings (<video/src>, no-break space, backtick, dollar, indented fence, reference definition, poster): nothing asked for before a press
+//   58 the declared-on-open card with two sites and the settings page: focus kept, what changed said to a polite region
+//   59 the now-playing bar through a rename, a delete and Close: the place kept, the row gone, focus off the body, the live region's words
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { quiet, frames, mobile } = require("./waits");
@@ -321,7 +324,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(k && k.intro[0] === `${H("media.example.org")} will see when you play and from where.`, `the cost is said first: ${k && k.intro[0]}`);
       c.ok(k && same(k.said.slice(0, 3), ["Plays this piece only. Nothing is kept.", `Kept in this plugin's data for this note: ${H("media.example.org")} and its subdomains.`, `Kept in this plugin's data for every note in this vault: ${H("media.example.org")} and its subdomains.`]), `each choice says what it costs and where it is kept: ${k && JSON.stringify(k.said.slice(0, 3))}`);
       c.ok(k && k.focus === "Not now" && k.focusIn, `default focus is Not now: ${k && k.focus}`);
-      c.ok(k && /https is assumed/.test(k.hint) && /\*\.youtube\.com/.test(k.hint), `the write-in says https is assumed and what youtube.com covers: ${k && k.hint}`);
+      c.ok(k && /https is assumed/.test(k.hint) && /youtube\.com/.test(k.hint) && /subdomains/.test(k.hint) && /Enter adds it for this note/.test(k.hint), `the write-in says https is assumed, gives youtube.com as the example, says subdomains are covered and what Enter does: ${k && k.hint}`);
       ctx.server.mark("m1");
       await cardBtn(o, /^Not now$/).click();
       await closed(o); await sleep(500);
@@ -383,7 +386,7 @@ A parent path: ![](../tone-2s.wav)
       await poll(() => cardOf(o), 3000); await sleep(300);
       k = await cardOf(o);
       c.info("the card from the button: " + JSON.stringify(k));
-      c.ok(k && k.title === "Allowed media sites" && k.buttons.includes("Close") && !k.buttons.includes("Not now"), `the Allow list button opens the card of lists: ${k && k.title}`);
+      c.ok(k && k.title === "Allow list" && k.buttons.includes("Close") && !k.buttons.includes("Not now"), `the Allow list button opens the card of lists: ${k && k.title}`);
       c.ok(k && same(k.vault.map(x => [x.host, x.on]), [[H("vault.example.org"), true]]) && same(k.note.map(x => [x.host, x.on]), [[H("note.example.org"), true]]), `it lists the vault's site and this note's site, each ticked: vault ${JSON.stringify(k && k.vault)}, note ${JSON.stringify(k && k.note)}`);
       await o.page.locator(".booklet-allow-card .booklet-allow-section:nth-child(1) input[type=checkbox]").first().uncheck();
       const gone = await poll(() => { const d = dataOf(ctx); return d && d.allowedMediaHosts.length === 0; }, 3000);
@@ -402,7 +405,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(same(dataOf(ctx), { allowedMediaHosts: [H("vault.example.org")], noteAllows: { [NOTE50]: [H("note.example.org")] } }), "and none of them was kept");
       c.ok((await slotState(o, "yt sub")) === "blocked", `before the write-in a YouTube link (m.youtube.com) is not allowed: ${await slotState(o, "yt sub")}`);
       await blank.fill("https://YouTube.com/");
-      await cardBtn(o, /^Add for every note$/).click();
+      await cardBtn(o, /^Add for this vault$/).click();
       c.ok(await poll(() => { const d = dataOf(ctx); return d && d.allowedMediaHosts.includes("youtube.com"); }, 3000), `the write-in takes https://YouTube.com/ and keeps youtube.com (which stands for https://*.youtube.com/*): ${JSON.stringify(dataOf(ctx))}`);
       await sleep(600);
       k = await cardOf(o);
@@ -423,7 +426,7 @@ A parent path: ![](../tone-2s.wav)
       const sp = await settingsPage();
       let st = await settings();
       c.info("the settings page: " + JSON.stringify(st));
-      c.ok(st && st.names.includes("Media from other sites") && st.names.includes(H("vault.example.org")) && st.names.includes("youtube.com") && !st.names.includes(H("note.example.org")), `the settings page lists the vault's sites (what the card wrote) and not the note's: ${st && JSON.stringify(st.names)}`);
+      c.ok(st && st.names.includes("Allow list for media") && st.names.includes(H("vault.example.org")) && st.names.includes("youtube.com") && !st.names.includes(H("note.example.org")), `the settings page lists the vault's sites (what the card wrote) and not the note's: ${st && JSON.stringify(st.names)}`);
       c.ok(st && st.buttons.includes("Add suggested services") && st.buttons.includes("Remove youtube.com"), `it has the Add suggested services button and a Remove for each site: ${st && JSON.stringify(st.buttons)}`);
       await sp.locator(".vertical-tab-content button", { hasText: /^Add suggested services$/ }).click();
       await sleep(500);
@@ -433,7 +436,7 @@ A parent path: ![](../tone-2s.wav)
       c.ok(same(dataOf(ctx).allowedMediaHosts, d.allowedMediaHosts), "pressed again it adds nothing");
       await sp.locator(".vertical-tab-content button[aria-label='Remove vimeo.com']").click(); await sleep(400);
       c.ok(!dataOf(ctx).allowedMediaHosts.includes("vimeo.com"), "Remove on the settings page takes a site off");
-      const field = sp.locator(".vertical-tab-content input[aria-label='Site to allow']");
+      const field = sp.locator(".vertical-tab-content input[aria-label='Add a site']");
       await field.fill("media.example.org:" + ctx.port); await field.press("Enter"); await sleep(400);
       c.ok(dataOf(ctx).allowedMediaHosts.includes(H("media.example.org")), "and Add writes one (Enter in its field too)");
       await o.evaluate(() => app.setting.close()); await sleep(300);
@@ -1322,5 +1325,330 @@ ${extra}> [!choice|q1] A question?
     return c;
   }
 
-  return { 56: check56, 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53, 54: check54 };
+  /* ================= CHECK 57 ================= */
+  // The gate on hostile spellings (lane G): the forms an HTML tokenizer or CommonMark reads as media although a plain pattern does not see them.
+  // Each is written twice, once at http://127.0.0.1:<port> (the server's own address, as the brief names it) and once at a made-up host the
+  // harness maps to the server over https (so the server's log sees it), and none may be requested before a press. Every file name carries its
+  // own input's id, so a request names the input that leaked.
+  const NOTE57 = "Hostile spellings.booklet.md", FILE57 = "File address.booklet.md";
+  const NBSP = " ";
+  function gate57(b, t) {
+    const u = (n, ext = "mp3") => `${b}/${t}-${n}.${ext}`;
+    return [
+      { id: "g1", how: "none", text: `<video/src="${u("g1")}" controls></video>` },
+      { id: "g2", how: "none", text: `<video title="x"src="${u("g2")}" controls></video>` },
+      { id: "g3", how: "none", text: `![x](${b}/${t}-g3${NBSP}b.mp3)` },
+      { id: "g4", how: "none", text: "![x](" + b + "/" + t + "-g4`b`.mp3)" },
+      { id: "g5", how: "none", text: `![x](${b}/${t}-g5$b$.mp3)` },
+      { id: "g6", how: "none", text: `    \`\`\`\n![x](${u("g6")})` },
+      { id: "g6b", how: "none", text: `![x](${u("g6b")})` },
+      { id: "g7", how: "none", text: `![x][r7${t}]`, def: `[r7${t}]:\n${u("g7")}` },
+      { id: "g8", how: "observe", text: `%% ![x](${u("g8")}) %%` },
+      { id: "g9", how: "observe", text: `$ ![x](${u("g9")}) $` },
+      { id: "g9b", how: "observe", text: `$![x](${u("g9b")})$` },
+      { id: "g10", how: "none", text: `<video poster="${u("g10", "png")}"></video>` },
+    ];
+  }
+  const bases57 = ctx => [{ t: "lo", b: `http://127.0.0.1:${ctx.port}` }, { t: "hs", b: ctx.url("leak.example.org").replace(/\/$/, "") }];
+  const note57 = ctx => {
+    let t = front("hostile", "Hostile spellings") + "> [!activity|a] Hostile spellings\n\nEvery one of these is a remote media address; none may be asked for before a press.\n\n";
+    const defs = [];
+    for (const { t: tag, b } of bases57(ctx)) {
+      for (const g of gate57(b, tag)) { t += `Input ${tag}-${g.id}:\n${g.text}\n\n`; if (g.def) defs.push(g.def); }
+      t += `Control image ${tag}: <img src="${b}/${tag}-img.png">\n\n`;
+    }
+    t += `The control that asks: ![control](${ctx.url("leak.example.org", "control.wav")})\n\n`;
+    return t + defs.join("\n\n") + "\n";
+  };
+  async function check57() {
+    const c = new Check(57, "0.12.0 the gate on hostile spellings in the real app: <video/src=...>, <video title=\"x\"src=...>, a no-break space, a backtick and a dollar in an address, an indented-four fence opener, a reference definition with its address on the next line, a video poster with no src: none is requested before a press (twice over: at 127.0.0.1 and at a made-up host); a comment and maths are told; a file:// address is told");
+    await withMedia("c57", { hosts: ["leak.example.org"], note: NOTE57, data: { allowedMediaHosts: [], noteAllows: {} }, files: ctx => ({ [NOTE57]: note57(ctx), [FILE57]: front("file-address", "File address") + "> [!activity|a] File address\n\nA picture on a file address: ![x](file://hostname/share/a.png)\n\nAnd a link: [x](file://hostname/share/b.png)\n" }) }, async (o, ctx) => {
+      const reqs = [], failed = [], msgs = [];
+      o.page.on("request", r => { reqs.push({ t: Date.now(), url: r.url(), type: r.resourceType() }); });
+      o.page.on("requestfailed", r => failed.push({ url: r.url(), why: r.failure() && r.failure().errorText }));
+      o.page.on("console", m => msgs.push({ type: m.type(), text: m.text().slice(0, 300) }));
+      ctx.server.mark("before-open");
+      await ctx.K.open(o, NOTE57);
+      await sleep(3000);   // media is asked for a few ms after a render starts; this is long past that
+      await quiet(o);
+      const mine = reqs.filter(r => r.url.includes(`:${ctx.port}/`));
+      const serverHits = ctx.hits(null, "before-open");
+      c.info(`the page is drawn: ${await o.evaluate(sel => ({ text: document.querySelector(sel + " .booklet-page").innerText.replace(/\s+/g, " ").slice(0, 160), slots: document.querySelectorAll(sel + " .booklet-media-slot").length, videos: document.querySelectorAll(sel + " video").length, audios: document.querySelectorAll(sel + " audio").length, imgs: document.querySelectorAll(sel + " img").length }), BOOK).then(JSON.stringify)}`);
+      c.info(`everything the page asked for at the server's port: ${JSON.stringify(mine.map(r => r.type + " " + r.url.replace(/^https?:\/\//, "")))}`);
+      for (const { t: tag, b } of bases57(ctx)) {
+        const ctrl = mine.filter(r => r.url.includes(`${tag}-img.png`));
+        c.ok(ctrl.length === 1, `(control, ${tag}) an <img> at ${b} is Obsidian's own and is asked for, so this watch sees a request when there is one: ${ctrl.length}`);
+        for (const g of gate57(b, tag)) {
+          const own = new RegExp(`/${tag}-${g.id}(?![0-9a-z])`), asked = mine.filter(r => own.test(r.url)), onServer = serverHits.filter(e => own.test(e.url));
+          const n = asked.length + onServer.length;
+          if (g.how === "none") c.ok(n === 0, `${tag}-${g.id} ${JSON.stringify(g.text)}: requests before a press: ${n}${n ? " LEAK " + JSON.stringify([...asked.map(r => r.type + " " + r.url), ...onServer.map(e => e.url)]) : ""}`);
+          else c.info(`${tag}-${g.id} ${JSON.stringify(g.text)}: requests before a press: ${n}${n ? " " + JSON.stringify([...asked.map(r => r.type + " " + r.url), ...onServer.map(e => e.url)]) : " (Obsidian renders no media for it)"}`);
+        }
+      }
+      // the other half of the proof: the one that asks is requested when she presses, so the log can see a leak
+      const ctl = o.page.locator(BOOK + " .booklet-media-play");
+      c.ok((await ctl.count()) >= 1, `the page has media slots to press: ${await ctl.count()}`);
+      const slotOf = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-media-slot")].map(s => ({ kind: s.getAttribute("data-booklet-media"), state: s.getAttribute("data-state"), where: (s.closest("p,div") || s).innerText.replace(/\s+/g, " ").slice(0, 60) })), BOOK);
+      c.info(`the slots the plugin drew: ${JSON.stringify(slotOf)}`);
+      const control = o.page.locator(BOOK + " .booklet-media-play", { hasText: /control/i }).first();
+      let pressed = false;
+      if (await control.count()) { await control.click({ timeout: 5000 }); pressed = true; }
+      else { await o.page.locator(BOOK + " .booklet-media-slot", { hasText: /control\.wav|leak\.example\.org/ }).last().locator("button").first().click({ timeout: 5000 }); pressed = true; }
+      await poll(() => o.evaluate(() => !!document.querySelector(".booklet-allow")), 3000);
+      await o.page.locator(".booklet-allow-card button", { hasText: /^Allow once$/ }).click({ timeout: 5000 });
+      const hit = await poll(() => ctx.hits("leak.example.org").some(e => /control\.wav/.test(e.url)), 6000, 100);
+      c.ok(pressed && hit, `(control) the press on the one that asks, then Allow once, requests control.wav from the made-up host: ${hit}`);
+      const after = ctx.hits(null, "before-open").filter(e => /\/(lo|hs)-g\d/.test(e.url));
+      c.ok(after.length === 0, `and the press asked for nothing of the hostile inputs: ${JSON.stringify(after.map(e => e.url))}`);
+
+      // file:// with a host: only told. What Obsidian does with it, and whether anything shows in its console
+      const mark = reqs.length, mm = msgs.length, ff = failed.length;
+      await ctx.K.open(o, FILE57);
+      await sleep(2500); await quiet(o);
+      const fileReqs = reqs.slice(mark).filter(r => !/^(app|devtools):/.test(r.url));
+      const d = await o.evaluate(sel => ({ imgs: [...document.querySelectorAll(sel + " img")].map(i => i.getAttribute("src")), slots: document.querySelectorAll(sel + " .booklet-media-slot").length, text: document.querySelector(sel + " .booklet-page").innerText.replace(/\s+/g, " ").slice(0, 200), links: [...document.querySelectorAll(sel + " a")].map(a => (a.getAttribute("href") || "") + " " + a.textContent) }), BOOK);
+      c.info(`file://hostname/share/a.png: the page shows ${JSON.stringify(d)}`);
+      c.info(`file://hostname/share/a.png: requests the page made (not app:) ${JSON.stringify(fileReqs.map(r => r.type + " " + r.url))}; failed ${JSON.stringify(failed.slice(ff))}; console ${JSON.stringify(msgs.slice(mm).filter(m => m.type === "error" || m.type === "warning"))}`);
+      c.info(`file://hostname/share/a.png is an image, so it is Obsidian's: the page's <img> asks for it and Chromium refuses ("Not allowed to load local resource") before any network request; the plugin neither gates nor changes it`);
+      // the baseline: the same lines in an ordinary note, in Obsidian's own Reading view with no plugin step in between, so that "none was requested" above
+      // means something: it lists what Obsidian itself asks for from these exact inputs
+      const BASE57 = "Baseline.md";
+      fs.writeFileSync(ctx.file(BASE57), note57(ctx).replace(/^---[\s\S]*?---\n\n/, "").replace(/^> \[!activity\|a\] .*\n/m, ""));
+      await sleep(500);
+      const m2 = reqs.length;
+      await o.evaluate(async rel => { const f = app.vault.getAbstractFileByPath(rel); const l = app.workspace.getLeaf("tab"); await l.setViewState({ type: "markdown", state: { file: f.path, mode: "preview" }, active: true }); }, BASE57);
+      await sleep(3500);
+      const baseline = reqs.slice(m2).filter(r => r.url.includes(`:${ctx.port}/`));
+      const names = baseline.map(r => r.url.replace(/^.*\/(lo|hs)-/, "$1-").replace(/\?.*$/, ""));
+      c.info(`the baseline, the same inputs in an ordinary note in Obsidian's own Reading view: Obsidian itself asks for ${JSON.stringify(names)}`);
+      c.ok(names.length >= 3, `(baseline) Obsidian's own renderer asks for several of these inputs, so a count of none above is the plugin's gate and not an input nobody fetches: ${names.length}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 58 ================= */
+  // Lane U: the card keeps focus and says what changed. A note declares two sites; "Allow for this note" on the first row; focus goes to the
+  // next row's first button, the polite region says so, Escape still closes. The settings page: Enter adds a site, focus stays in the box, the
+  // list gains the row, and the page is not built again (the box is the same node).
+  const NOTE58 = "Two sites.booklet.md";
+  let currentC58 = null;
+  // the settings page: Enter adds a site, focus stays in the same box, the list gains its row, the page is not built again
+  async function settings58(o, ctx, tag) {
+    const c = currentC58;
+    const settingsPage = async () => { for (const p of o.page.context().pages()) if (await p.evaluate(() => !!document.querySelector(".vertical-tab-content")).catch(() => false)) return p; return null; };
+    await o.evaluate(async () => { await app.setting.open(); await app.setting.openTabById("booklet"); });
+    await sleep(900);
+    const sp = await settingsPage();
+    c.ok(!!sp, tag + "the settings page is open");
+    if (sp) {
+      const names = () => sp.evaluate(() => [...document.querySelectorAll(".vertical-tab-content .setting-item-name")].map(x => x.textContent.trim()).filter(Boolean));
+      const info = () => sp.evaluate(() => { const i = window.__inp58, a = document.activeElement; return { same: i === document.querySelector(".vertical-tab-content input[aria-label='Add a site']"), connected: !!i && i.isConnected, focused: a === i, active: a && (a.getAttribute('aria-label') || a.className || a.tagName), value: i && i.value, live: (document.querySelector(".vertical-tab-content [role=status]") || {}).textContent }; });
+      const before = await names();
+      await sp.evaluate(() => { window.__inp58 = document.querySelector(".vertical-tab-content input[aria-label='Add a site']"); window.__page58 = document.querySelector(".vertical-tab-content .booklet-settings"); });
+      const field = sp.locator(".vertical-tab-content input[aria-label='Add a site']");
+      await field.fill("added.example.org");
+      await field.press("Enter");
+      await sleep(400);
+      const i1 = await info(), after = await names();
+      c.ok(i1.same && i1.connected && i1.focused && i1.value === "", `${tag}Enter adds the site; focus is still in the box, which is the same node (not rebuilt) and is empty again: ${JSON.stringify(i1)}`);
+      c.ok(after.length === before.length + 1 && after.includes("added.example.org"), `${tag}the list gained the row: ${before.length} to ${after.length} names, with added.example.org: ${JSON.stringify(after)}`);
+      c.ok(await sp.evaluate(() => window.__page58 === document.querySelector(".vertical-tab-content .booklet-settings")), tag + "and the page's container is the node it was (only the list was drawn again)");
+      c.ok(i1.live === "Added added.example.org", `${tag}the polite region says so: ${JSON.stringify(i1.live)}`);
+      c.ok(same(JSON.parse(ctx.data()).allowedMediaHosts, ["added.example.org"]), `${tag}and data.json holds it: ${ctx.data().replace(/\s+/g, " ")}`);
+      await field.fill("added.example.org");
+      await field.press("Enter"); await sleep(300);
+      const i2 = await info();
+      c.ok(i2.focused && i2.live === "added.example.org is already on the list" && (await names()).filter(n => n === "added.example.org").length === 1, `${tag}the same site again is said to be there already and is not added twice: ${JSON.stringify(i2.live)}`);
+      await field.fill("no way"); await field.press("Enter"); await sleep(300);
+      const e3 = await sp.evaluate(() => ({ err: (document.querySelector(".vertical-tab-content .booklet-allow-error") || {}).textContent, focused: document.activeElement === window.__inp58 }));
+      c.info(`${tag}a name that is not a site: ${JSON.stringify(e3)}`);
+      c.ok(!!e3.err, `${tag}a name that is not a site is refused in words: ${JSON.stringify(e3.err)}`);
+    }
+    await o.evaluate(() => app.setting.close());
+    await sleep(300);
+  }
+  async function check58() {
+    const c = currentC58 = new Check(58, "0.12.0 the declared-on-open card with two sites and the settings page keep focus and say what changed: Allow for this note on the first row puts focus on the second row's first button and the polite region says the host was allowed; Escape closes; Enter in the settings page's box adds a site, focus stays in the same box, the list gains its row");
+    await withMedia("c58", { note: NOTE58, data: { allowedMediaHosts: [], noteAllows: {} }, files: ctx => ({ [NOTE58]: front("two-sites", "Two sites", `media-from:\n  - ${ctx.url("declared.example.org")}\n  - ${ctx.url("media.example.org")}\n`) + "> [!activity|a] Two sites\n\nA page.\n" }) }, async (o, ctx) => {
+      const H1 = ctx.host("declared.example.org"), H2 = ctx.host("media.example.org");
+      const focus = () => o.evaluate(() => { const a = document.activeElement; return { body: !a || a === document.body, tag: a && a.tagName, text: a && (a.getAttribute("aria-label") || a.textContent || "").trim().slice(0, 60), inCard: !!(a && a.closest(".booklet-allow-card")), cls: a && String(a.className).slice(0, 60) }; });
+      const live = () => o.evaluate(() => { const l = document.querySelector(".booklet-allow-card [role=status]"); return l ? l.textContent : null; });
+      const rows = () => o.evaluate(() => [...document.querySelectorAll(".booklet-allow-card .booklet-allow-declared")].map(r => ({ host: r.querySelector("strong").textContent, buttons: [...r.querySelectorAll("button")].map(b => b.getAttribute("aria-label") || b.textContent) })));
+      await ctx.K.open(o, NOTE58);
+      const up = await poll(() => o.evaluate(() => !!document.querySelector(".booklet-allow")), 4000);
+      c.ok(up, "a booklet that names two sites on no list: the card opens on its own");
+      await sleep(1200);   // the card regains its default focus for the first moment: let that pass, as a reader's first press would come later
+      const r0 = await rows();
+      c.ok(same(r0.map(r => r.host), [H1, H2]), `it has one row for each site, in the booklet's order: ${JSON.stringify(r0)}`);
+      c.info(`the focus when it opened: ${JSON.stringify(await focus())}`);
+      await o.page.locator(".booklet-allow-card .booklet-allow-declared").nth(0).locator("button", { hasText: /^Allow for this note$/ }).click({ timeout: 5000 });
+      await sleep(400);
+      const r1 = await rows();
+      c.ok(r1.length === 1 && r1[0].host === H2, `the first row is gone and the second stays: ${JSON.stringify(r1)}`);
+      c.ok(await poll(() => card58(o), 2000), "the card is still open");
+      const f1 = await focus();
+      c.ok(!f1.body && f1.inCard && f1.tag === "BUTTON" && f1.text === `Allow for this note: ${H2}`, `focus is on the next row's first button, not on the page body: ${JSON.stringify(f1)}`);
+      const l1 = await poll(async () => { const t = await live(); return t && t.includes(H1) ? t : null; }, 2000);
+      c.ok(!!l1 && l1 === `${H1} allowed for this note`, `the polite live region says the host was allowed: ${JSON.stringify(await live())}`);
+      c.ok(await o.evaluate(() => { const l = document.querySelector(".booklet-allow-card [role=status]"); return !!l && l.getAttribute("aria-live") === "polite"; }), "and the region is role=status, aria-live=polite");
+      let data = {}; try { data = JSON.parse(ctx.data()); } catch (e) { /* not there */ }
+      c.ok(same(data.noteAllows, { [NOTE58]: [H1] }) && same(data.allowedMediaHosts, []), `the first site is kept for this note only: ${ctx.data()}`);
+      // Tab walks on from where focus is: it does not start again from the page
+      await o.page.keyboard.press("Tab");
+      const f2 = await focus();
+      c.ok(!f2.body && f2.inCard, `Tab from there stays in the card: ${JSON.stringify(f2)}`);
+      await o.page.keyboard.press("Escape");
+      c.ok(await poll(() => o.evaluate(() => !document.querySelector(".booklet-allow")), 3000), "Escape still closes the card");
+      c.info(`the focus after Escape: ${JSON.stringify(await focus())}`);
+
+      await settings58(o, ctx, "(after the card was closed after a change) ");
+    });
+    // the root of the settings failure, in one window: a card closed after a change leaves a stale "put focus back"
+    await withMedia("c58-stale", { note: NOTE58, data: { allowedMediaHosts: [], noteAllows: {} }, files: ctx => ({ [NOTE58]: front("two-sites", "Two sites", `media-from:\n  - ${ctx.url("declared.example.org")}\n  - ${ctx.url("media.example.org")}\n`) + "> [!activity|a] Two sites\n\nA page.\n" }) }, async (o, ctx) => {
+      const focus = () => o.evaluate(() => { const a = document.activeElement; return { body: !a || a === document.body, text: a && (a.getAttribute("aria-label") || a.textContent || "").trim().slice(0, 40), cls: a && String(a.className).slice(0, 40) }; });
+      await ctx.K.open(o, NOTE58);
+      await poll(() => o.evaluate(() => !!document.querySelector(".booklet-allow")), 4000);
+      await sleep(1200);
+      await o.page.locator(".booklet-allow-card .booklet-allow-declared").nth(0).locator("button", { hasText: /^Allow for this note$/ }).click({ timeout: 5000 });
+      await sleep(500);
+      await o.page.keyboard.press("Escape");
+      await sleep(500);
+      // a stale refocus: the card closed after a change armed a "put focus back" that the change's own redraw (done while the card was open) never used;
+      // the next redraw, whatever causes it, spends it and moves focus to the Allow list button. Here the reader has left the page's controls (focus on
+      // nothing) and an unrelated redraw (an allow-list change from elsewhere) is asked for.
+      await o.evaluate(() => { if (document.activeElement) document.activeElement.blur(); });
+      const beforeStale = await focus();
+      await o.evaluate(() => app.workspace.getLeavesOfType("booklet")[0].view.redrawSoon());
+      await sleep(1200);
+      const afterStale = await focus();
+      c.ok(beforeStale.body && afterStale.body, `(after the card was closed after a change) a later, unrelated redraw leaves focus where the reader had it: before ${JSON.stringify(beforeStale.cls)}, after ${JSON.stringify(afterStale.text)} (${afterStale.cls})`);
+    });
+    await withMedia("c58-settings", { note: NOTE58, data: { allowedMediaHosts: [], noteAllows: {} }, files: () => ({ [NOTE58]: front("one-page", "One page") + "> [!activity|a] One page\n\nA page.\n" }) }, async (o, ctx) => {
+      await ctx.K.open(o, NOTE58); await quiet(o);
+      await settings58(o, ctx, "");
+    });
+    return c;
+  }
+  const card58 = o => o.evaluate(() => !!document.querySelector(".booklet-allow"));
+
+  /* ================= CHECK 59 ================= */
+  // Lane L: the playback lifecycle in the Now playing bar. A note renamed while its audio plays keeps the place (in the new note, and no device
+  // key under the old path); a note deleted while its audio plays takes the bar row and the sound with it; Close leaves focus somewhere
+  // that is not the body; the live region says "Playing {label}" and then "Closed {label}".
+  const note59 = (id, title, items) => front(id, title) + "> [!activity|a1] Listening\n\n" + items.map(([k, label]) => `> [!listen|${k}] ${label}\n> ![[tone-60s.wav]]\n\n`).join("") + "> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n";
+  async function check59() {
+    const c = new Check(59, "0.12.0 the Now playing bar through a rename, a delete and Close: the new note holds the place and no device key is left under the old path (view open, and view closed); a deleted note's row goes and its audio stops; Close leaves focus off the body; the live region says Playing then Closed");
+    const NAMES = { r1: "Rename a.booklet.md", r2: "Rename b.booklet.md", d1: "Delete a.booklet.md", d2: "Delete b.booklet.md", t1: "Tabs.booklet.md" };
+    const files = () => ({
+      [NAMES.r1]: note59("rename-a", "Rename a", [["l1", "Rain"]]), [NAMES.r2]: note59("rename-b", "Rename b", [["l1", "Rain"]]),
+      [NAMES.d1]: note59("delete-a", "Delete a", [["l1", "Rain"]]), [NAMES.d2]: note59("delete-b", "Delete b", [["l1", "Rain"]]),
+      [NAMES.t1]: note59("tabs", "Tabs", [["l1", "Rain"], ["l2", "Wind"]]),
+    });
+    const deviceKeys = o => o.evaluate(() => Object.keys(localStorage).filter(k => /booklet-listen:/.test(k)));
+    const ansAt = (ctx, rel, key = "l1") => { try { return (answersIn(fs.readFileSync(ctx.file(rel), "utf8"))[""] || {})[key]; } catch (e) { return undefined; } };
+    const playIn = async (o, rel, ctx, keys = ["l1"]) => {
+      await ctx.K.open(o, rel); await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+      for (const k of keys) {
+        await o.evaluate(([sel, k]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/${k}'] audio`); (window.__a59 = window.__a59 || {})[k] = a; return a.play(); }, [BOOK, k]);
+        await poll(() => o.evaluate(k => { const a = window.__a59[k], bar = document.querySelector(".booklet-nowplaying"); return !!(bar && bar.contains(a)) && a.currentTime > 0.3 && !a.paused; }, k), 6000, 80);
+        await sleep(400);   // a word said within 100 ms of another replaces it (the region is emptied first); a reader presses seconds apart
+      }
+    };
+    const rowsNow = o => o.evaluate(() => ({ items: document.querySelectorAll(".booklet-nowplaying-item").length, bar: !!document.querySelector(".booklet-nowplaying") }));
+    const closeAll = async o => { await o.evaluate(() => { for (const b of document.querySelectorAll(".booklet-nowplaying-close")) b.click(); }); await sleep(900); };
+    await withMedia("c59", { note: NAMES.r1, data: { allowedMediaHosts: [], noteAllows: {} }, files }, async (o, ctx) => {
+      const exists = rel => fs.existsSync(ctx.file(rel));
+      // ---- a rename ----
+      for (const [open, from, to] of [[true, NAMES.r1, "Renamed a.booklet.md"], [false, NAMES.r2, "Renamed b.booklet.md"]]) {
+        const what = `(rename, the note's view ${open ? "open" : "closed"})`;
+        await playIn(o, from, ctx);
+        if (!open) { await o.evaluate(() => app.workspace.detachLeavesOfType("booklet")); await sleep(500); }
+        await o.evaluate(async ([a, b]) => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath(a), b); }, [from, to]);
+        await sleep(1500);
+        const mid = await o.evaluate(() => { const a = window.__a59.l1, bar = document.querySelector(".booklet-nowplaying"); return { paused: a.paused, t: a.currentTime, inBar: !!(bar && bar.contains(a)), label: (document.querySelector(".booklet-nowplaying-label") || {}).textContent }; });
+        c.ok(!mid.paused && mid.inBar && mid.label === "Rain", `${what} the renamed note's audio plays on in the bar: ${JSON.stringify(mid)}`);
+        const keysMid = await deviceKeys(o);
+        c.info(`${what} device keys while it plays after the rename: ${JSON.stringify(keysMid)}`);
+        const tp = await o.evaluate(() => { const a = window.__a59.l1; a.pause(); return a.currentTime; });
+        const got = await poll(() => { const v = ansAt(ctx, to); return v && Number.isInteger(v.pos) ? v : null; }, 6000, 100);
+        c.ok(!!got && got.pos === Math.floor(tp), `${what} pause: the NEW note holds the place ${JSON.stringify(got)} for ${tp.toFixed(2)} s`);
+        c.ok(!exists(from) && exists(to), `${what} the old file is gone and the new one is there`);
+        await sleep(600);
+        const keys = await deviceKeys(o);
+        const oldPath = from.replace(/\.booklet\.md$/, "");
+        c.ok(!keys.some(k => k.includes(oldPath)), `${what} no booklet-listen key is left for the old path: ${JSON.stringify(keys)}`);
+        c.ok(!keys.some(k => k.includes(to)), `${what} and none lingers for the new path once the note holds the place: ${JSON.stringify(keys)}`);
+        await closeAll(o);
+        await o.evaluate(() => app.workspace.detachLeavesOfType("booklet"));
+      }
+      // ---- a delete ----
+      for (const [open, rel] of [[false, NAMES.d1], [true, NAMES.d2]]) {
+        const what = `(delete, the note's view ${open ? "open" : "closed"})`;
+        await playIn(o, rel, ctx);
+        if (!open) { await o.evaluate(() => app.workspace.detachLeavesOfType("booklet")); await sleep(500); }
+        await sleep(1500);
+        c.ok((await rowsNow(o)).items === 1, `${what} before: the bar has its row: ${JSON.stringify(await rowsNow(o))}`);
+        await o.evaluate(async r => { await app.vault.delete(app.vault.getAbstractFileByPath(r)); }, rel);
+        const gone = await poll(async () => { const r = await rowsNow(o); return r.items === 0 && !r.bar ? r : null; }, 4000, 100);
+        c.ok(!!gone, `${what} the file is deleted: the bar row goes: ${JSON.stringify(await rowsNow(o))}`);
+        const st = await o.evaluate(() => { const a = window.__a59.l1; return { paused: a.paused, t: a.currentTime, connected: a.isConnected }; });
+        await sleep(1500);
+        const st2 = await o.evaluate(() => { const a = window.__a59.l1; return { paused: a.paused, t: a.currentTime }; });
+        c.ok(st.paused && st2.paused && st2.t === st.t, `${what} and the audio stopped and stays stopped: ${JSON.stringify(st)} then ${JSON.stringify(st2)}`);
+        c.ok(!exists(rel), `${what} the file is gone and was not written back`);
+        const keys = await deviceKeys(o);
+        c.ok(!keys.some(k => k.includes(rel.replace(/\.booklet\.md$/, ""))), `${what} and the device keeps nothing for it: ${JSON.stringify(keys)}`);
+        await o.evaluate(() => app.workspace.detachLeavesOfType("booklet"));
+        await sleep(300);
+      }
+      // ---- the live region over time, and Close ----
+      await ctx.K.open(o, NAMES.t1); await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+      await o.evaluate(() => {
+        const l = document.querySelector(".booklet-nowplaying-live");
+        window.__live59 = [];
+        if (!l) return;
+        window.__liveEl59 = l;
+        new MutationObserver(() => window.__live59.push({ t: Math.round(performance.now()), text: l.textContent })).observe(l, { childList: true, characterData: true, subtree: true });
+        document.addEventListener("play", e => window.__live59.push({ t: Math.round(performance.now()), play: (e.target.closest("[data-booklet-listen]") || e.target.closest(".booklet-nowplaying-item") || document.body).getAttribute("data-booklet-listen") || "bar" }), true);
+      });
+      c.ok(await o.evaluate(() => { const l = document.querySelector(".booklet-nowplaying-live"); return !!l && l.getAttribute("aria-live") === "polite" && l.getAttribute("aria-atomic") === "true"; }), "the window has its one live region (polite, atomic) before anything plays");
+      await playIn(o, NAMES.t1, ctx, ["l1"]);
+      await sleep(900);
+      await o.evaluate(() => document.querySelector(".booklet-nowplaying-close").focus());
+      await o.page.keyboard.press("Enter");
+      await poll(async () => (await rowsNow(o)).items === 0, 3000, 100);
+      await sleep(700);
+      const seq1 = await o.evaluate(() => window.__live59.filter(x => x.text).map(x => x.text));
+      const all1 = await o.evaluate(() => window.__live59);
+      c.info(`the live region over time (one row, Play then Close): ${JSON.stringify(all1)}`);
+      c.ok(same(seq1, ["Playing Rain", "Closed Rain"]), `the words, in order, are Playing Rain then Closed Rain: ${JSON.stringify(seq1)}`);
+      const f1 = await o.evaluate(() => { const a = document.activeElement; return { body: !a || a === document.body, tag: a && a.tagName, cls: a && String(a.className).slice(0, 50), text: a && (a.getAttribute("aria-label") || a.textContent || "").trim().slice(0, 40), inView: !!(a && a.closest(".workspace")), inBooklet: !!(a && a.closest(".booklet-view, .view-content")) }; });
+      c.info(`focus after Close of the only row: ${JSON.stringify(f1)}`);
+      c.ok(!f1.body, `Close of the only row leaves focus off the body: ${JSON.stringify(f1)}`);
+      // two rows: Close the second, then the first
+      await o.evaluate(() => { window.__live59.length = 0; });
+      await playIn(o, NAMES.t1, ctx, ["l1", "l2"]);
+      await sleep(900);
+      c.ok((await rowsNow(o)).items === 2, `two players, two rows: ${JSON.stringify(await rowsNow(o))}`);
+      await o.evaluate(() => document.querySelectorAll(".booklet-nowplaying-close")[1].focus());
+      await o.page.keyboard.press("Enter");
+      await poll(async () => (await rowsNow(o)).items === 1, 3000, 100);
+      await sleep(300);
+      const f2 = await o.evaluate(() => { const a = document.activeElement; const item = a && a.closest(".booklet-nowplaying-item"); return { body: !a || a === document.body, tag: a && a.tagName, text: a && (a.getAttribute("aria-label") || a.textContent || "").trim().slice(0, 40), inRow: item ? (item.querySelector(".booklet-nowplaying-label") || {}).textContent : null, page: !!(a && a.closest("[data-booklet-listen]")) }; });
+      c.info(`focus after Close of the second row: ${JSON.stringify(f2)}`);
+      c.ok(!f2.body && (f2.inRow === "Rain" || f2.page), `Close of the second of two rows leaves focus off the body: in the first row, or on the player that went back to the page: ${JSON.stringify(f2)}`);
+      await o.evaluate(() => document.querySelector(".booklet-nowplaying-close").focus());
+      await o.page.keyboard.press("Enter");
+      await poll(async () => (await rowsNow(o)).items === 0, 3000, 100);
+      await sleep(300);
+      const f3 = await o.evaluate(() => { const a = document.activeElement; return { body: !a || a === document.body, tag: a && a.tagName, cls: a && String(a.className).slice(0, 50), text: a && (a.getAttribute("aria-label") || a.textContent || "").trim().slice(0, 40), inView: !!(a && a.closest(".workspace")) }; });
+      c.info(`focus after Close of the last row: ${JSON.stringify(f3)}`);
+      c.ok(!f3.body, `Close of the last row leaves focus off the body: ${JSON.stringify(f3)}`);
+      const seq2 = await o.evaluate(() => window.__live59.filter(x => x.text).map(x => x.text));
+      c.ok(same(seq2, ["Playing Rain", "Playing Wind", "Closed Wind", "Closed Rain"]), `with two rows the words are Playing Rain, Playing Wind, Closed Wind, Closed Rain: ${JSON.stringify(seq2)}`);
+    });
+    return c;
+  }
+
+  return { 57: check57, 58: check58, 59: check59, 56: check56, 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53, 54: check54 };
 };
