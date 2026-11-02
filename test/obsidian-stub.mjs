@@ -2,6 +2,29 @@
  * The few parts of Obsidian's API that the Booklet view uses, so that the view itself can run in Node over a jsdom
  * document (test/view.test.mjs). test/build-for-tests.mjs bundles src/view.ts with "obsidian" pointing here. Only what
  * the view calls is here, and it does only what the view relies on: this is not a model of Obsidian.
+ *
+ * For the 0.12.0 tests (the allow list, the settings page, media and `listen`), the names to use are:
+ *   Plugin.loadData() / saveData(d)   an in-memory data.json: loadData is null until saveData has been called; a copy goes in and
+ *                                     a copy comes out, so a test sees what was stored and not a shared object. `plugin.savedData` is
+ *                                     the stored value (what data.json would hold), for a test to read or to seed.
+ *   Plugin.addSettingTab(tab)         recorded in `plugin.settingTabs`.
+ *   PluginSettingTab                  `display()` and `hide()` do nothing; `containerEl` is a div in the document (a test or the
+ *                                     tab's own display() fills it); `app` and `plugin` are kept.
+ *   Setting                           every method is a chainable no-op that records itself: `Setting.calls` is the list of
+ *                                     { id, method, args } across every Setting made (`Setting.reset()` empties it); `setting.calls`
+ *                                     is the same for one. addText, addTextArea, addButton, addToggle, addDropdown and
+ *                                     addSlider call their callback with a component that records too, and a test drives it:
+ *                                     `component.change(value)` runs the onChange handler, `component.click()` the onClick handler.
+ *                                     `setting.components` holds them, in order. The words (setName, setDesc) are also drawn into
+ *                                     the setting's element, `setting.settingEl`, so a test can read the page as text.
+ *   MarkdownRenderer.render           draws the markdown as its plain words, unless `useMediaRender()` has been called: then
+ *                                     `![alt](url)`, `![alt][id]` (with its `[id]: url` line) and `![[file]]` become <img>,
+ *                                     <audio> or <video> by the extension of the address, and the raw tags <img>, <audio>, <video>,
+ *                                     <iframe>, <source> and <embed> are made as written. Every element made with a src is
+ *                                     recorded in `mediaRequests` (as a browser starts a fetch when a src is set), so a test can
+ *                                     say "nothing remote was requested". `useMediaRender()` returns the function that puts the
+ *                                     plain renderer back; `mediaRequests.length = 0` empties the record.
+ * The fake media element a test puts in a drawing by hand is in test/helpers.mjs (`fakeMedia`).
  */
 export class Component {
 	constructor() {
@@ -71,7 +94,176 @@ export class Plugin extends Component {
 	}
 	registerView() {}
 	addCommand() {}
+	/** What data.json would hold; null until saveData is called (Obsidian's loadData gives null when the file is not there). */
+	savedData = null;
+	settingTabs = [];
+	async loadData() {
+		return this.savedData === null ? null : JSON.parse(JSON.stringify(this.savedData));
+	}
+	async saveData(data) {
+		this.savedData = JSON.parse(JSON.stringify(data));
+	}
+	addSettingTab(tab) {
+		this.settingTabs.push(tab);
+	}
 }
+
+/** A settings page: its content element is in the document, and display() and hide() do nothing until a test or the plugin's tab fills it. */
+export class PluginSettingTab extends Component {
+	constructor(app, plugin) {
+		super();
+		this.app = app;
+		this.plugin = plugin;
+		this.containerEl = document.body.createDiv({ cls: "vertical-tab-content" });
+	}
+	display() {}
+	hide() {}
+}
+
+/** One control of a Setting: records what is called on it, and a test drives its handler with change(value) or click(). */
+class StubComponent {
+	constructor(kind, log) {
+		this.kind = kind;
+		this.value = kind === "toggle" ? false : "";
+		this.disabled = false;
+		this.calls = [];
+		this.inputEl = document.createElement(kind === "textarea" ? "textarea" : kind === "dropdown" ? "select" : "input");
+		this.buttonEl = document.createElement("button");
+		this._log = log;
+	}
+	_note(method, args) {
+		this.calls.push({ method, args });
+		this._log(this.kind + "." + method, args);
+		return this;
+	}
+	setValue(v) {
+		this.value = v;
+		if ("value" in this.inputEl) this.inputEl.value = v === true || v === false ? "" : String(v);
+		return this._note("setValue", [v]);
+	}
+	getValue() {
+		return this.value;
+	}
+	setPlaceholder(v) {
+		this.inputEl.setAttribute("placeholder", v);
+		return this._note("setPlaceholder", [v]);
+	}
+	setDisabled(v) {
+		this.disabled = v;
+		return this._note("setDisabled", [v]);
+	}
+	setButtonText(v) {
+		this.buttonEl.textContent = v;
+		return this._note("setButtonText", [v]);
+	}
+	setCta() {
+		return this._note("setCta", []);
+	}
+	setWarning() {
+		return this._note("setWarning", []);
+	}
+	setTooltip(v) {
+		return this._note("setTooltip", [v]);
+	}
+	setLimits(...a) {
+		return this._note("setLimits", a);
+	}
+	addOption(value, label) {
+		this.options = { ...(this.options ?? {}), [value]: label };
+		return this._note("addOption", [value, label]);
+	}
+	addOptions(o) {
+		this.options = { ...(this.options ?? {}), ...o };
+		return this._note("addOptions", [o]);
+	}
+	onChange(fn) {
+		this._onChange = fn;
+		return this._note("onChange", []);
+	}
+	onClick(fn) {
+		this._onClick = fn;
+		return this._note("onClick", []);
+	}
+	/** A test changes the value as the reader would: the value is set, then the handler runs (its promise is returned). */
+	change(v) {
+		this.value = v;
+		return this._onChange?.(v);
+	}
+	click() {
+		return this._onClick?.();
+	}
+}
+
+let settingCount = 0;
+
+/** A row of a settings page: every method records itself and returns the setting, so a chain reads as in Obsidian. */
+export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
+	/** Every call on every Setting, in order: { id, method, args }. */
+	static calls = [];
+	static reset() {
+		Setting.calls.length = 0;
+	}
+	constructor(containerEl) {
+		this.id = ++settingCount;
+		this.containerEl = containerEl;
+		this.calls = [];
+		this.components = [];
+		this.settingEl = containerEl?.createDiv ? containerEl.createDiv({ cls: "setting-item" }) : document.createElement("div");
+		this.nameEl = this.settingEl.createDiv ? this.settingEl.createDiv({ cls: "setting-item-name" }) : document.createElement("div");
+		this.descEl = this.settingEl.createDiv ? this.settingEl.createDiv({ cls: "setting-item-description" }) : document.createElement("div");
+		this.controlEl = this.settingEl.createDiv ? this.settingEl.createDiv({ cls: "setting-item-control" }) : document.createElement("div");
+	}
+	_note(method, args) {
+		this.calls.push({ method, args });
+		Setting.calls.push({ id: this.id, method, args });
+		return this;
+	}
+	setName(v) {
+		this.nameEl.textContent = String(v);
+		return this._note("setName", [v]);
+	}
+	setDesc(v) {
+		this.descEl.textContent = String(v);
+		return this._note("setDesc", [v]);
+	}
+	setHeading() {
+		this.settingEl.classList.add("setting-item-heading");
+		return this._note("setHeading", []);
+	}
+	setClass(v) {
+		this.settingEl.classList.add(v);
+		return this._note("setClass", [v]);
+	}
+	setDisabled(v) {
+		return this._note("setDisabled", [v]);
+	}
+	_add(kind, method, cb) {
+		const c = new StubComponent(kind, (m, a) => Setting.calls.push({ id: this.id, method: m, args: a }));
+		this.components.push(c);
+		(kind === "button" ? c.buttonEl : c.inputEl) && this.controlEl.appendChild(kind === "button" ? c.buttonEl : c.inputEl);
+		this._note(method, []);
+		cb?.(c);
+		return this;
+	}
+	addText(cb) {
+		return this._add("text", "addText", cb);
+	}
+	addTextArea(cb) {
+		return this._add("textarea", "addTextArea", cb);
+	}
+	addButton(cb) {
+		return this._add("button", "addButton", cb);
+	}
+	addToggle(cb) {
+		return this._add("toggle", "addToggle", cb);
+	}
+	addDropdown(cb) {
+		return this._add("dropdown", "addDropdown", cb);
+	}
+	addSlider(cb) {
+		return this._add("slider", "addSlider", cb);
+	}
+});
 
 /** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
 export class FileView extends Component {}
@@ -95,7 +287,76 @@ export const Notice = (globalThis.__bookletStubNotice ??= class Notice {
 	hide() {}
 });
 
-/** Markdown is drawn as its plain words: enough to see which text a drawing came from. */
+/** Every element a media-aware render made with a src, in order: { tag, src }. One list, shared by every copy of this file. */
+export const mediaRequests = (globalThis.__bookletStubMediaRequests ??= []);
+
+const AUDIO = /\.(mp3|m4a|ogg|opus|wav|flac)$/i;
+const VIDEO = /\.(mp4|webm|mov|mkv|ogv|3gp)$/i;
+/** An element for an address, by the extension of its path: audio, video, or a picture. */
+function mediaEl(addr, alt) {
+	const path = addr.split(/[?#]/)[0];
+	const tag = AUDIO.test(path) ? "audio" : VIDEO.test(path) ? "video" : "img";
+	const el = document.createElement(tag);
+	if (tag === "img") el.setAttribute("alt", alt);
+	else {
+		el.setAttribute("controls", "");
+		el.setAttribute("aria-label", alt);
+	}
+	el.setAttribute("src", addr);
+	mediaRequests.push({ tag, src: addr });
+	return el;
+}
+
+/**
+ * A render that draws pictures and media: the draft of what Obsidian does, enough to see which elements a piece of prose
+ * would have made, and so which addresses a browser would have been asked for. A raw tag is made as written.
+ */
+export function mediaRender(markdown, el) {
+	const defs = new Map();
+	const lines = [];
+	for (const line of String(markdown).split("\n")) {
+		const d = /^\[([^\]]+)\]:\s*<?([^>\s]+)>?(?:\s+"[^"]*")?\s*$/.exec(line);
+		if (d) defs.set(d[1].toLowerCase(), d[2]);
+		else lines.push(line);
+	}
+	const FORM =
+		/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)|!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]|!\[([^\]]*)\]\[([^\]]*)\]|!\[([^\]]+)\](?!\()|<(img|audio|video|iframe|source|embed)\b([^>]*)>(?:<\/\7>)?/gi;
+	const text = lines.join("\n");
+	let at = 0;
+	for (const m of text.matchAll(FORM)) {
+		if (m.index > at) el.appendText(text.slice(at, m.index));
+		at = m.index + m[0].length;
+		if (m[7]) {
+			const raw = document.createElement(m[7].toLowerCase());
+			for (const a of m[8].matchAll(/([a-z-]+)(?:="([^"]*)")?/gi)) raw.setAttribute(a[1], a[2] ?? "");
+			if (raw.getAttribute("src")) mediaRequests.push({ tag: raw.localName, src: raw.getAttribute("src") });
+			el.appendChild(raw);
+			continue;
+		}
+		const [alt, addr] =
+			m[2] !== undefined
+				? [m[1], m[2]]
+				: m[3] !== undefined
+					? [m[3], m[3]]
+					: m[5] !== undefined || m[6] !== undefined
+						? [m[4] || m[6] || m[5], defs.get((m[5] || m[4] || m[6]).toLowerCase())]
+						: [m[0], undefined];
+		if (addr === undefined) el.appendText(m[0]);
+		else el.appendChild(mediaEl(addr, alt));
+	}
+	if (at < text.length) el.appendText(text.slice(at));
+}
+
+/** Makes the stub renderer draw pictures and media (mediaRender) until the returned function is called. */
+export function useMediaRender() {
+	const was = globalThis.__bookletStubRender;
+	globalThis.__bookletStubRender = mediaRender;
+	return () => {
+		globalThis.__bookletStubRender = was;
+	};
+}
+
+/** Markdown is drawn as its plain words: enough to see which text a drawing came from (see useMediaRender for media). */
 export const MarkdownRenderer = {
 	render(_app, markdown, el) {
 		// a test that needs links or other parts may stand in for the renderer
