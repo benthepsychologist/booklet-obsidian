@@ -20,8 +20,8 @@ const LINT = opt.lint || process.env.BOOKLET_LINTER || path.join(process.env.BOO
 const only = (opt.only ? opt.only.split(",").map(Number) : [1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 46, 47, 10]).sort((a, b) => (a === 10) - (b === 10));
 // checks 35 to 41 (0.11.0, data safety; safety-checks.js) and 42 to 45 (access-checks.js) join the default list, just before check 10
 if (!opt.only) only.splice(only.length - 1, 0, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45);
-// checks 48 to 54 (0.12.0, media-checks.js) need the local https server and Obsidian's host-resolver flags, which their own launcher (media-lib.js) sets
-if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54, 56);
+// checks 48 to 54 and 56 (0.12.0, media-checks.js) and 55 (mobile-checks.js) need the local https server and Obsidian's host-resolver flags, which their own launcher (media-lib.js) sets
+if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54, 55, 56);
 const SRC_VAULT = path.resolve(opt.vault);
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
