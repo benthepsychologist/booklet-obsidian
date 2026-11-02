@@ -132,3 +132,18 @@ Each lane adds a row here for every place it chose a behaviour the plan does not
 | (B) | | | |
 | (C) | | | |
 | (S) | | | |
+| (P) | A placeholder stays in the page where a player was lifted from: "Its player is in the bar at the bottom of the window." | A listen's box would otherwise look emptied; it is also what a new drawing shows for media that still plays | `now-playing.ts` `lift`, `claim` |
+| (P) | An element that plays is never put back into a page; a paused one is, when a drawing makes a slot for the same media | Removing a playing element from a page stops it, and a page can go at any moment (spike S11) | `now-playing.ts` `claim` |
+| (P) | Two elements are the same media when the note's path and the source address match, less the hash and a `?<digits>` query (Obsidian's mtime); any other query is kept | A remote address's query can matter; the plan only names the mtime | `now-playing.ts` `keyOf` |
+| (P) | A pause leaves the element in the bar even when its page is showing; "Back to the page" or a later drawing returns it | The plan: it stays until she closes it or returns | `now-playing.ts` `onEvent`, `back` |
+| (P) | Close returns the paused element to its page when that page is showing, and drops it when not | A placeholder with no player would be a dead end | `now-playing.ts` `close`, `release` |
+| (P) | The end writes, then the element goes back to a page that is showing (at its end), else is dropped | The plan says only "remove the element from the bar" | `now-playing.ts` `onEvent`, `release` |
+| (P) | "Back to the page" while the page shows a playing element's placeholder only scrolls to it and focuses it; with the page gone it opens the note as a booklet at the place of the press, in the pane that already shows the note, else a new tab | A playing element must not be moved into a page | `now-playing.ts` `back`, `main.ts` `showPage` |
+| (P) | Every native audio and video in the Booklet view is lifted, not only a `listen`'s; one outside a `listen` writes nothing | The plan: "every native audio/video the Booklet view hosts" | `view.ts` onload, `now-playing.ts` `lift` |
+| (P) | One bar per window with one row per lifted element; paused rows stay until closed or returned. The label is the prompt, else the embed's words, else the player's name, else the file name | More than one can be paused in the bar at once | `now-playing.ts` `labelOf`, `itemOf` |
+| (P) | Framed service players (iframes) are not lifted and stop with their page | An iframe cannot move without reloading (spike S13) | `now-playing.ts`: only `audio` and `video` are lifted |
+| (P) | A media error after the lift takes the row away; a plugin player's placeholder goes too, Obsidian's element is put back to show its own state | The page keeps its own Play button for a player of ours | `now-playing.ts` `failed` |
+| (P) | With no view following the box, the device store keeps each second as a view would, and its `base` is read from the note at the first noted second | Same kill-safety as with a view; the base must be the note's own | `now-playing.ts` `note` |
+| (P) | The writer puts the change into the Markdown editor when the note is also open as Markdown, else uses `vault.process`; a failure says so in a notice | As the view's own write does, so unsaved words in the editor are not lost | `listen-writer.ts` `apply` |
+| (P) | While the bar shows, the page gets 8em of padding at its foot (`body.booklet-has-nowplaying`) | The fixed bar must not cover the last lines; not checked in real Obsidian | `styles.css` |
+| (P) | `ViewHost.nowPlaying` is optional | Only so existing view tests, which do not exercise the bar, run unchanged; the plugin always supplies it | `view.ts` `ViewHost` |

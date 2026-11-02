@@ -16,11 +16,13 @@ export function firstMedia(box: Element): HTMLMediaElement | null {
 
 /**
  * The box (a `[data-booklet-listen]`) and the media element an event is about, when the element is the box's first: Obsidian's own
- * element, however late it appears, and the plugin's own, are seen the same way. Null for any other target.
+ * element, however late it appears, and the plugin's own, are seen the same way. Null for any other target. An element lifted out
+ * of its box (now-playing.ts) is in no box, so the box it came from is `home`, and it counts as that box's media.
  */
-export function mediaEvent(evt: Event): { el: HTMLMediaElement; box: HTMLElement } | null {
+export function mediaEvent(evt: Event, home?: HTMLElement): { el: HTMLMediaElement; box: HTMLElement } | null {
 	const el = evt.target as HTMLMediaElement | null;
 	if (!el || (el.localName !== "audio" && el.localName !== "video")) return null;
+	if (home) return { el, box: home };
 	const box = el.closest<HTMLElement>("[data-booklet-listen]");
 	return box && firstMedia(box) === el ? { el, box } : null;
 }

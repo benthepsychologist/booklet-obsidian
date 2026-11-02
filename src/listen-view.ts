@@ -14,6 +14,7 @@ import type { App } from "obsidian";
 import { answeredOf, clock, holdsSomething, listenNext, questionsOf, type AnswerValue, type ListenEvent, type NavModel, type Question } from "./core";
 import { dropListen, keepListen, loadListens } from "./listen-store";
 import { mediaEvent, Track } from "./playing";
+import { posIn } from "./listen-writer";
 import { keyOf, pressed, type QuestionHost, type Target } from "./questions";
 
 /** What the follower needs from the view. */
@@ -49,16 +50,8 @@ export interface ListenState {
 	show: () => void;
 }
 
-const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
-
-/** The `pos` an answer holds, else 0 (the start). */
-function posIn(v: unknown): number {
-	const p = isObj(v) ? v["pos"] : undefined;
-	return typeof p === "number" && Number.isInteger(p) && p > 0 ? p : 0;
-}
-
 /** The `listen` of a note by its store key (`<scope>/<id>`), outside a repeating activity. */
-function locate(nav: NavModel, key: string): { t: Target; q: Question } | null {
+export function locate(nav: NavModel, key: string): { t: Target; q: Question } | null {
 	const at = key.lastIndexOf("/");
 	const scope = key.slice(0, at);
 	const id = key.slice(at + 1);
@@ -113,12 +106,21 @@ export class Listens {
 		return false;
 	}
 
-	/** One media event, seen by the view's capture listener. */
-	onMedia(evt: Event): void {
-		const hit = mediaEvent(evt);
-		if (!hit) return;
+	/** The key and `left:` of the box a `listen` is followed in, else null (a lifted player asks, now-playing.ts). */
+	about(box: HTMLElement): { key: string; left: number } | null {
+		const st = this.states.get(box.getAttribute("data-booklet-listen") ?? "");
+		return st && st.box === box ? { key: st.key, left: st.q.left } : null;
+	}
+
+	/**
+	 * One media event, seen by the view's capture listener, or handed over for an element lifted out of its box (`home`: now-playing.ts).
+	 * False when this follows nothing it is about (the box was drawn again, or the view closed): the caller then deals with it.
+	 */
+	onMedia(evt: Event, home?: HTMLElement): boolean {
+		const hit = mediaEvent(evt, home);
+		if (!hit) return false;
 		const st = this.states.get(hit.box.getAttribute("data-booklet-listen") ?? "");
-		if (!st || st.box !== hit.box) return;
+		if (!st || st.box !== hit.box) return false;
 		const tr = st.track;
 		tr.adopt(hit.el);
 		switch (evt.type) {
@@ -147,6 +149,7 @@ export class Listens {
 				this.afterStop(st);
 				break;
 		}
+		return true;
 	}
 
 	/** Its metadata is in: it starts where the note says the reader left off (a place at or past its end is the start). */

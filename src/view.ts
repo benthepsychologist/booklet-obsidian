@@ -97,7 +97,9 @@ import {
 import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, playerHost, type MediaDeps } from "./media-view";
-import { Listens } from "./listen-view";
+import { Listens, locate } from "./listen-view";
+import type { ViewListen } from "./listen-writer";
+import type { LiftFrom, NowPlaying } from "./now-playing";
 import { keepFurthest, loadFurthest } from "./listen-store";
 import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
@@ -118,6 +120,8 @@ export interface ViewHost {
 	manifest: { version: string };
 	/** The sites the reader has allowed media from (settings.ts): the gate reads it, and the allow card edits it. */
 	media: MediaAllows;
+	/** The bar that keeps a playing element going when its page goes (now-playing.ts). Absent only where a test does not exercise it. */
+	nowPlaying?: NowPlaying;
 }
 
 /**
@@ -302,7 +306,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		});
 		this.registerDomEvent(this.contentEl, "pointerdown", (evt) => this.pressBegan(evt.target), { capture: true });
 		// the media of a `listen`: its events do not bubble, so one set of capture listeners sees the element however and whenever it was made
-		for (const type of MEDIA_EVENTS) this.registerDomEvent(this.contentEl, type, (evt) => this.listens.onMedia(evt), { capture: true });
+		for (const type of MEDIA_EVENTS) this.registerDomEvent(this.contentEl, type, (evt) => void this.listens.onMedia(evt), { capture: true });
+		// a native player is lifted into the now-playing bar in the task of its own `play`, the one moment early enough to outlive a page move or a close (now-playing.ts); after the listener above, which has seen the `play` first
+		this.registerDomEvent(this.contentEl, "play", (evt) => this.host.nowPlaying?.lift(evt, () => this.nowSource()), { capture: true });
 		// a link in the note's own words (SPEC section 3): a heading link opens the place its words name, a link to a module opens it
 		this.registerDomEvent(this.contentEl, "click", (evt) => this.followLink(evt));
 		// a link to a note in the note's own words is Obsidian's: its hover preview is asked for as Reading view asks for it
@@ -325,7 +331,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const win = this.contentEl.ownerDocument.defaultView;
 		if (win && typeof win.MutationObserver === "function") {
 			const watch = new win.MutationObserver((records) => {
-				for (const r of records) for (const n of Array.from(r.addedNodes)) if (n.nodeType === 1) keepLocalPreload(n as Element);
+				for (const r of records)
+					for (const n of Array.from(r.addedNodes))
+						if (n.nodeType === 1) {
+							keepLocalPreload(n as Element);
+							// media of one the bar holds is the bar's, however late Obsidian made it
+							this.host.nowPlaying?.restore(n as Element, () => this.nowSource());
+						}
 			});
 			watch.observe(this.contentEl, { childList: true, subtree: true });
 			this.register(() => watch.disconnect());
@@ -754,6 +766,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (media === "block") drawLinkHosts(el);
 				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(), drawing);
 				keepLocalPreload(el);
+				this.host.nowPlaying?.restore(el, () => this.nowSource());
 				// a task box in the file's prose is drawn, not operated: a press here must never edit the design
 				for (const box of Array.from(el.querySelectorAll("input[type=checkbox]"))) if (box.instanceOf(HTMLInputElement)) box.disabled = true;
 				this.fixLinks(el);
@@ -770,9 +783,29 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/* ---- media: the slots' asks, the allow card, the sites a booklet names ---- */
 
+	/** This page, for the now-playing bar (now-playing.ts): the note, the way back to it, and the `listen` followed in a box. */
+	private nowSource(): LiftFrom {
+		return {
+			path: this.file ? this.file.path : null,
+			state: { ...this.getState() },
+			about: (box) => this.listens.about(box),
+			follow: (evt, box) => this.listens.onMedia(evt, box),
+		};
+	}
+
+	/** The `listen` with this key as the view holds it, when the note is drawn here (listen-writer.ts: one writer for a place, this view's when it shows the note). */
+	listenOf(key: string): ViewListen | null {
+		const found = this.nav && this.book ? locate(this.nav, key) : null;
+		if (!found) return null;
+		const { t, q } = found;
+		return { held: this.heldAnswer(t, q), wrong: !!this.wrongOf(t, q), write: (value, written) => this.commit(t, q, value, written) };
+	}
+
 	private mediaDeps(): MediaDeps {
 		return {
 			isPress: isTrustedPress,
+			keepAlive: (player) => !!this.host.nowPlaying?.holds(player),
+			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource()) ?? null,
 			ask: ({ slot, opener, once }) => {
 				// the slot is drawn again after an allow (the list changed): the nth slot takes the focus back
 				const slots = Array.from(this.contentEl.querySelectorAll(".booklet-media-slot"));

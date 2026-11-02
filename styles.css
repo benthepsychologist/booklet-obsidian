@@ -2307,3 +2307,75 @@
 .booklet-prompt:focus {
 	outline: none;
 }
+
+/*
+ * Now playing (src/now-playing.ts): the bar a playing audio or video is lifted into so that it plays on through a page move and a close. It is a
+ * child of the window's body, fixed at the bottom, above the status bar and below Obsidian's modals, menus and notices. Nothing in it is animated.
+ */
+.booklet-nowplaying {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: var(--layer-popover, 30);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+	padding-bottom: calc(var(--size-4-2) + env(safe-area-inset-bottom, 0px));
+	background: var(--background-secondary);
+	border-top: 1px solid var(--background-modifier-border);
+}
+
+/* the page keeps its last lines above the bar */
+.booklet-has-nowplaying .booklet-view {
+	padding-bottom: 8em;
+}
+
+.booklet-nowplaying-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-nowplaying-label {
+	flex: 1 1 12em;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-nowplaying audio,
+.booklet-nowplaying video {
+	flex: 2 1 16em;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.booklet-nowplaying video {
+	max-height: 30vh;
+}
+
+.booklet-nowplaying button {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+}
+
+.booklet-nowplaying button:focus-visible,
+.booklet-nowplaying audio:focus-visible,
+.booklet-nowplaying video:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* what stands in the page where the player was lifted from; it is read, not operated */
+.booklet-nowplaying-here {
+	display: block;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-nowplaying-here:focus {
+	outline: none;
+}

@@ -17,6 +17,8 @@ export interface MediaDeps {
 	ask(req: { slot: Playable; opener: HTMLElement; once: (evt: Event) => void }): void;
 	/** Should a player be left playing when its drawing goes (a page turn)? Asked of each native player as the drawing is torn down; a player kept is the keeper's to stop. */
 	keepAlive?: (player: HTMLMediaElement, slot: Playable) => boolean;
+	/** Media at `src` (an address as `new URL` writes it) is already held outside this drawing, in the now-playing bar: the node to stand in the slot in place of the Play button (the player itself when it is paused, a note that it plays in the bar when it plays), else null. */
+	resume?: (src: string) => HTMLElement | null;
 }
 
 /** The event that counts as a press. */
@@ -94,6 +96,13 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 	const live = box.createDiv({ cls: "booklet-media-live", attr: { "aria-live": "polite" } });
 
 	let started = false;
+	// the press has been made already, and the media plays or waits in the bar: the slot shows it, not a second Play button
+	const kept = deps.resume?.(hrefOf(slot.addr));
+	if (kept) {
+		started = true;
+		box.insertBefore(kept, row);
+		play.remove();
+	}
 	const start = (): void => {
 		if (started) return;
 		started = true;
