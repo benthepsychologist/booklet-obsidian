@@ -64,10 +64,14 @@ const SEARCH = 4000;
 const blank = (s: string): string => s.replace(/[^\n]/g, " ");
 const norm = (label: string): string => label.trim().replace(/\s+/g, " ").toLowerCase();
 
-/** The text with code, maths and comments blanked to spaces (newlines kept), so every offset in it is an offset in the text. An unclosed comment is no comment: media in it is gated all the same. */
+/**
+ * The text with code, inline maths and comments blanked to spaces (newlines kept), so every offset in it is an offset in the text.
+ * An unclosed comment is no comment, and a block of maths between `$$` lines is not skipped (one that never closes would hide the
+ * rest of the text from the gate, and Obsidian draws what follows it): media in either is gated all the same.
+ */
 function maskInert(text: string): string {
 	const lines = text.split("\n");
-	const inert = inertLines(lines);
+	const inert = inertLines(lines.map((l) => (l.trim() === "$$" ? "x" : l)));
 	let out = lines.map((l, i) => (inert[i] ? blank(l) : inertSpans(l))).join("\n");
 	for (const [open, close] of [["<!--", "-->"], ["%%", "%%"]] as const) {
 		let at = 0;

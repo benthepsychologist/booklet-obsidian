@@ -21,8 +21,8 @@ export interface CardOptions {
 	request?: CardRequest;
 	/** What takes focus when the card closes, found when it does: the button that opened it may have been drawn again meanwhile. */
 	returnFocus?: () => HTMLElement | null;
-	/** Told when the card has closed. `changed`: a site was allowed or taken off while it was open. `answered`: for a request, every site in it was dealt with, or the one choice made. */
-	onClose?: (state: { changed: boolean; answered: boolean }) => void;
+	/** Told when the card has closed. `changed`: a site was allowed or taken off while it was open. `answered`: for a request, a choice was made. `left`: the sites of a request for the sites a booklet names that were not dealt with. */
+	onClose?: (state: { changed: boolean; answered: boolean; left: string[] }) => void;
 }
 
 export interface AllowCard {
@@ -52,6 +52,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	let changed = false;
 	let answered = false;
 	let closed = false;
+	const left = new Set(req?.kind === "declared" ? req.hosts : []);
 	const vaultAdd = (text: string) => {
 		const r = o.allows.addVault(text);
 		if (r.ok) changed = true;
@@ -69,7 +70,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 		if (open.get(o.doc) === handle) open.delete(o.doc);
 		root.remove();
 		if (restore) o.returnFocus?.()?.focus();
-		o.onClose?.({ changed, answered });
+		o.onClose?.({ changed, answered, left: [...left] });
 	};
 	const handle: AllowCard = { el: root, close: () => close() };
 	open.set(o.doc, handle);
@@ -111,7 +112,6 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	} else if (req?.kind === "declared") {
 		const box = body.createDiv({ cls: "booklet-allow-request" });
 		box.createEl("p", { text: "The booklet names these sites. A booklet cannot allow a site for you: only you can." });
-		let left = req.hosts.length;
 		for (const host of req.hosts) {
 			const row = box.createDiv({ cls: "booklet-allow-choice booklet-allow-declared" });
 			row.createEl("strong", { text: host });
@@ -119,7 +119,8 @@ export function openAllowCard(o: CardOptions): AllowCard {
 			const done = () => {
 				answered = true;
 				row.remove();
-				if (--left === 0) close();
+				left.delete(host);
+				if (!left.size) close();
 			};
 			button(row, "Allow for this note", `Allow ${host} for this note`, () => {
 				noteAdd(host);

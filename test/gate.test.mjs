@@ -141,7 +141,6 @@ test("code fences, code spans, maths and comments are left alone", () => {
 		"%% " + url + " %%",
 		"<!--\n" + url + "\n" + frame + "\n-->",
 		"%%\n" + url + "\n%%",
-		"$$\n" + url + "\n$$",
 		"- item\n\n  ```\n  " + url + "\n  ```",
 	];
 	for (const c of cases) {
@@ -149,6 +148,9 @@ test("code fences, code spans, maths and comments are left alone", () => {
 		assert.equal(g.text, c, c);
 		assert.deepEqual(g.slots, [], c);
 	}
+	// a block of maths that never closes hides nothing from the gate: Obsidian draws what follows it
+	assert.equal(gateMedia("$$\nx = 1\n\n" + url, ctx()).slots.length, 1);
+	assert.equal(gateMedia("$$\n" + url + "\n$$", ctx()).slots.length, 1, "and media between two $$ lines is gated too");
 	// after the code, the same embed is gated
 	const g = gateMedia("```\n" + url + "\n```\n\n" + url + "\n\n`" + url + "` and " + url, ctx());
 	assert.equal(g.slots.length, 2);

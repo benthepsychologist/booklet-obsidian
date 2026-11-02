@@ -60,7 +60,7 @@ test("an empty list says so; Close, Escape and a press on the backdrop close the
 		else click(doc.querySelector(".modal-bg"));
 		assert.equal(card(), null, how);
 		assert.equal(doc.activeElement, back, `${how}: focus is back on the button`);
-		assert.deepEqual(told, [{ changed: false, answered: false }], how);
+		assert.deepEqual(told, [{ changed: false, answered: false, left: [] }], how);
 	}
 	back.remove();
 });
@@ -153,7 +153,7 @@ test("a checkbox unticked takes the site off at once, and ticked again puts it b
 	await media.saved();
 	assert.deepEqual(saved.at(-1), { allowedMediaHosts: ["media.example.org"], noteAllows: {} }, "a note with nothing left has no key");
 	esc();
-	assert.deepEqual(told, [{ changed: true, answered: false }]);
+	assert.deepEqual(told, [{ changed: true, answered: false, left: [] }]);
 });
 
 test("a press on media from a site not allowed: the cost, three scopes with their costs, and Not now with the focus", () => {
@@ -192,7 +192,7 @@ test("Allow once calls for that piece with the press and keeps nothing: not in m
 	click(byText("Allow once"));
 	assert.deepEqual(got, ["click"]);
 	assert.equal(card(), null);
-	assert.deepEqual(told, [{ changed: false, answered: true }]);
+	assert.deepEqual(told, [{ changed: false, answered: true, left: [] }]);
 	assert.deepEqual(media.vaultList(), []);
 	assert.deepEqual(media.noteList(PATH), []);
 	assert.equal(saved.length, 0);
@@ -216,7 +216,7 @@ test("Allow for this note and for this vault keep the site and close the card; t
 	assert.equal(card(), null);
 	await vault.media.saved();
 	assert.deepEqual(vault.saved.at(-1), { allowedMediaHosts: ["media.example.org"], noteAllows: {} });
-	assert.deepEqual(told, [{ changed: true, answered: true }]);
+	assert.deepEqual(told, [{ changed: true, answered: true, left: [] }]);
 });
 
 test("a request for the sites a booklet names: each site with its own two buttons, and Not now", () => {
@@ -235,7 +235,14 @@ test("a request for the sites a booklet names: each site with its own two button
 	assert.equal(card(), null);
 	assert.deepEqual(media.vaultList(), ["audio.example.net"]);
 	assert.deepEqual(media.noteList(PATH), ["media.example.org"]);
-	assert.deepEqual(told, [{ changed: true, answered: true }]);
+	assert.deepEqual(told, [{ changed: true, answered: true, left: [] }]);
+
+	// closed with a site still unanswered: it is told as left
+	const part = [];
+	open(media, { request: { kind: "declared", hosts: ["a.example.org", "b.example.org"] }, onClose: (s) => part.push(s) });
+	click(card().querySelector('button[aria-label="Allow a.example.org for this note"]'));
+	esc();
+	assert.deepEqual(part, [{ changed: true, answered: true, left: ["b.example.org"] }]);
 });
 
 test("one card at a time in a window: a second request replaces the first", () => {

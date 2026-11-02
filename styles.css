@@ -2236,3 +2236,18 @@
 	color: var(--text-error);
 	min-height: 1.5em;
 }
+
+.booklet-view .booklet-allow-btn {
+	min-height: max(44px, var(--input-height));
+}
+
+/* the card sits in the window, outside the view, so the view's rule for less motion does not reach it */
+@media (prefers-reduced-motion: reduce) {
+	.booklet-allow,
+	.booklet-allow *,
+	.booklet-allow *::before,
+	.booklet-allow *::after {
+		transition: none !important;
+		animation: none !important;
+	}
+}
