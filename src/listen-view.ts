@@ -7,14 +7,14 @@
  *     the element is in (playing.ts) and acts only when it is the box's first media element;
  *   - while it plays, each whole second goes to the device store (listen-store.ts), never to the note, which syncs;
  *   - on pause, on the end, and when the reader leaves the page, the position is written into the note (core/listen.ts listenNext
- *     decides what the answer becomes: the done rule, the reset on the end, every other key kept);
+ *     decides what the answer becomes: the done rule, the reset on the end, every other key kept); a write that fails leaves the
+ *     position noted and kept on the device, and the element where she left it;
  *   - a position left in the device store by a kill is added to the note at the next start, if the note was not changed since.
  */
 import type { App } from "obsidian";
-import { answeredOf, clock, plainText, holdsSomething, listenNext, questionsOf, type AnswerValue, type ListenEvent, type NavModel, type Question } from "./core";
+import { answeredOf, clock, plainText, holdsSomething, listenNext, posIn, questionsOf, splitKey, type AnswerValue, type ListenEvent, type NavModel, type Question } from "./core";
 import { dropListen, keepListen, loadListens } from "./listen-store";
 import { mediaEvent, Track } from "./playing";
-import { posIn } from "./listen-writer";
 import { keyOf, pressed, type QuestionHost, type Target } from "./questions";
 
 /** What the follower needs from the view. */
@@ -26,8 +26,8 @@ export interface ListenIO {
 	held: (t: Target, q: Question) => unknown;
 	/** Is the answer of the wrong shape (kept as written, never written over)? */
 	wrong: (t: Target, q: Question) => boolean;
-	/** Writes an answer (undefined clears it): shown at once and queued; `written` runs when the write has landed. */
-	write: (t: Target, q: Question, value: AnswerValue | undefined, written: () => void) => void;
+	/** Writes an answer (undefined clears it): shown at once and queued; `written` runs when the write has landed, `failed` when it could not be made (the view has said so to the reader). */
+	write: (t: Target, q: Question, value: AnswerValue | undefined, written: () => void, failed: () => void) => void;
 	/** Playback stopped: a drawing that waited for it can be made. */
 	idle: () => void;
 }
@@ -52,9 +52,7 @@ export interface ListenState {
 
 /** The `listen` of a note by its store key (`<scope>/<id>`), outside a repeating activity. */
 export function locate(nav: NavModel, key: string): { t: Target; q: Question } | null {
-	const at = key.lastIndexOf("/");
-	const scope = key.slice(0, at);
-	const id = key.slice(at + 1);
+	const { scope, id } = splitKey(key);
 	for (const na of nav.byKey.values()) {
 		if (na.act.scope !== scope || na.act.repeat) continue;
 		const q = questionsOf(na.act).find((x) => x.kind === "listen" && x.id === id);
@@ -197,14 +195,28 @@ export class Listens {
 			return;
 		}
 		const at = el ? { pos: el.currentTime, duration: el.duration } : {};
-		const next = listenNext(this.io.held(st.t, st.q), ev, at, st.q.left);
+		const held = this.io.held(st.t, st.q);
+		const next = listenNext(held, ev, at, st.q.left);
 		if (next === null) {
 			this.forget(st);
 			return;
 		}
-		this.io.write(st.t, st.q, holdsSomething(next) ? next : undefined, () => {
-			if (!st.dirty) this.forget(st);
-		});
+		this.io.write(
+			st.t,
+			st.q,
+			holdsSomething(next) ? next : undefined,
+			() => {
+				if (!st.dirty) this.forget(st);
+			},
+			() => {
+				// the note did not take it: the place is hers still, so it stays noted (and the device store keeps it), and no drawing seeks the element back to the note's older one (`view`)
+				// (the end has no place to keep: a failed `done` is the one thing lost)
+				if (ev === "end") return;
+				st.dirty = true;
+				const path = this.io.path();
+				if (path) keepListen(this.io.app(), path, st.key, { pos: st.pos, base: posIn(held) });
+			},
+		);
 	}
 
 	private forget(st: ListenState): void {
@@ -246,7 +258,8 @@ export class Listens {
 				dropListen(app, path, key);
 				continue;
 			}
-			this.io.write(found.t, found.q, holdsSomething(next) ? next : undefined, () => dropListen(app, path, key));
+			// when it cannot be written the entry stays: the next start tries again
+			this.io.write(found.t, found.q, holdsSomething(next) ? next : undefined, () => dropListen(app, path, key), () => {});
 		}
 	}
 }

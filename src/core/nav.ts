@@ -881,8 +881,8 @@ export interface ContinueTarget {
 	place: Place;
 	/** The prompt, for `go(place, { step: true, heading })`. */
 	heading: string;
+	/** The question it leads to. */
 	question: Question;
-	act: NavAct;
 }
 
 /** Can the reader answer this question here? A widget this plugin does not draw, or one shown read-only, cannot be, and an answer of the wrong shape is kept as written. */
@@ -894,7 +894,7 @@ function answerable(q: Question, held: unknown): boolean {
 /**
  * Continue (SPEC section 12): the first `listen` not done, or the first question not answered, that comes after her place. Her place is
  * `place.furthest`, the furthest page she has reached on this device (`pageIndexOf`), and then what is on that page is still to do; with
- * none, it is the last `listen` done or question answered in the booklet's order (a repeat activity's records are not looked at), and then
+ * none (or one past the last page: the device keeps the furthest only, and pages may have been taken out since), it is the last `listen` done or question answered in the booklet's order (a repeat activity's records are not looked at), and then
  * only what comes after that one is. Nothing before her place is offered, so a question she passed over is never offered again and Continue
  * never holds her back; null when nothing is left. A `hidden` or `repeat` activity is skipped, as is a question she cannot answer here
  * (an unread widget, an answer of the wrong shape), which would hold her at it for good.
@@ -907,8 +907,9 @@ export function continueTarget(nav: NavModel, book: Booklet, place: { furthest: 
 	const held = (i: { q: Question; part: ReadingPart }): unknown => book.records.answers[i.part.act.act.scope]?.[i.q.id];
 	const offered = (i: { part: ReadingPart }) => !i.part.act.act.repeat;
 	let from: number;
-	if (place.furthest !== null && place.furthest >= 0) {
-		const furthest = place.furthest;
+	// the device's place only rises, so after the author took pages out it can lie past the last one: then it is no place, and the records say
+	const furthest = place.furthest !== null && place.furthest >= 0 && place.furthest < readingOrder(nav).length ? place.furthest : null;
+	if (furthest !== null) {
 		from = items.findIndex((i) => i.at >= furthest);
 		if (from < 0) return null;
 	} else {
@@ -922,7 +923,7 @@ export function continueTarget(nav: NavModel, book: Booklet, place: { furthest: 
 		if (!offered(i)) continue;
 		const v = held(i);
 		if (!answerable(i.q, v) || answeredOf(i.q, v)) continue;
-		return { place: placeOfPart(i.part), heading: i.q.title || i.q.id, question: i.q, act: i.part.act };
+		return { place: placeOfPart(i.part), heading: i.q.title || i.q.id, question: i.q };
 	}
 	return null;
 }

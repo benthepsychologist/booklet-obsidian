@@ -47,7 +47,6 @@ test("with no place and nothing answered, Continue offers the first listen, at t
 	const t = at(COURSE);
 	assert.deepEqual(ids(t), ["l1", "activity:/course", null, 0]);
 	assert.equal(t.heading, "Episode 1");
-	assert.equal(t.act.act.id, "course");
 	assert.deepEqual(t.place, { screen: "activity:/course", tab: null, part: 0 });
 });
 
@@ -90,9 +89,23 @@ test("the furthest page wins over the records: an answer behind it moves nothing
 test("nothing left after her place gives null", () => {
 	const all = withAnswers(COURSE, { l1: { done: true }, q1: "a", l2: { done: true }, c2: 1, q3: "c", m1: "x", m2: "y" });
 	assert.equal(at(all), null, "everything answered");
-	assert.equal(at(COURSE, 99), null, "a furthest page past the end");
 	assert.equal(at(withAnswers(COURSE, { m2: "last" })), null, "the last question answered and everything before it passed over");
 	assert.equal(core.continueTarget(...(({ book, nav }) => [nav, book, { furthest: null }])(build(`${HEAD}\n> [!activity|a] Prose only\n\nJust words.\n`))), null, "nothing to answer");
+});
+
+test("a furthest page past the last one (the author took pages out since) is no place: the records say, and Continue is still offered", () => {
+	const { nav } = build(COURSE);
+	const pages = core.pageIndexOf(nav, { screen: "activity:/more", tab: null, part: 0 }) + 1;
+	assert.equal(pages, 4, "the booklet has four parts");
+	// the device kept 4 (and 99) when the booklet had more pages; with nothing answered the first thing to do is offered, as with no place at all
+	for (const gone of [4, 99]) assert.equal(at(COURSE, gone).question.id, "l1", `furthest ${gone}`);
+	// with the records saying she is past l1, it is the first unfinished after her last answer
+	const text = withAnswers(COURSE, { l1: { done: true }, q1: "a" });
+	for (const gone of [4, 99]) assert.equal(at(text, gone).question.id, "l2", `furthest ${gone} with answers`);
+	// the last page that exists is still a place, and with everything on it answered nothing is left
+	const all = withAnswers(COURSE, { l1: { done: true }, q1: "a", l2: { done: true }, c2: 1, q3: "c", m1: "x", m2: "y" });
+	assert.equal(at(all, 3), null);
+	assert.equal(at(all, 99), null, "everything answered, whatever the device says");
 });
 
 test("a hidden activity and a repeat activity are skipped, and a repeat activity's records are not a place", () => {
