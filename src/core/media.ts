@@ -1,6 +1,6 @@
 /*
- * Audio, video and images by the extension of an address (SPEC section 6, "Audio and video"), and the parts of a web address the
- * allow list and the gate read: its origin and its host. Plain TypeScript: nothing here imports Obsidian.
+ * Audio, video and images by the extension of an address (SPEC section 6, "Audio and video"), and the one way the allow list, the
+ * services and the gate read a web address (`parseUrl`, `hostOf`). Plain TypeScript: nothing here imports Obsidian.
  */
 
 const AUDIO = new Set(["mp3", "m4a", "ogg", "opus", "wav", "flac"]);
@@ -19,7 +19,8 @@ export function mediaClass(addrOrPath: string): "audio" | "video" | "image" | nu
 	return null;
 }
 
-function parse(url: string): URL | null {
+/** An address as `new URL` reads it (surrounding spaces dropped), else null. The one place an address is parsed for the allow list, the services and the gate. */
+export function parseUrl(url: string): URL | null {
 	try {
 		return new URL(url.trim());
 	} catch {
@@ -27,15 +28,8 @@ function parse(url: string): URL | null {
 	}
 }
 
-/** The origin of an `https:` address as `new URL` writes it (a default port left off, the host in lower case, punycode shown plainly), else null: any other scheme, a user name or a password, an address that is not one. */
-export function originOf(url: string): string | null {
-	const u = parse(url);
-	if (!u || u.protocol !== "https:" || u.username || u.password) return null;
-	return u.origin;
-}
-
 /** The host of an `http:` or `https:` address as `new URL` writes it, with its port when it is not the default; else null. */
 export function hostOf(url: string): string | null {
-	const u = parse(url);
+	const u = parseUrl(url);
 	return u && (u.protocol === "https:" || u.protocol === "http:") ? u.host : null;
 }

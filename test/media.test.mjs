@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const { mediaClass, originOf, hostOf, serviceOf, serviceAllowed, alsoCovers, hostList, isEmbedAddress, SUGGESTED_HOSTS } = core;
+const { mediaClass, parseUrl, hostOf, serviceOf, serviceAllowed, alsoCovers, hostList, isEmbedAddress, SUGGESTED_HOSTS } = core;
 
 test("mediaClass: the extension of the path decides, in any case, before a query or a fragment", () => {
 	for (const e of ["mp3", "m4a", "ogg", "opus", "wav", "flac"]) assert.equal(mediaClass(`media/x.${e}`), "audio", e);
@@ -24,18 +24,12 @@ test("mediaClass: the extension of the path decides, in any case, before a query
 	assert.equal(mediaClass(""), null);
 });
 
-test("originOf and hostOf: new URL's reading, https for an origin, a port only when it is not the default", () => {
-	assert.equal(originOf("https://Media.Example.org/a.mp3"), "https://media.example.org");
-	assert.equal(originOf("https://media.example.org:443/a"), "https://media.example.org");
-	assert.equal(originOf("https://media.example.org:8443/a"), "https://media.example.org:8443");
-	assert.equal(originOf("http://media.example.org/a"), null);
-	assert.equal(originOf("//media.example.org/a"), null);
-	assert.equal(originOf("data:audio/wav;base64,AAAA"), null);
-	assert.equal(originOf("https://user:pw@media.example.org/a"), null, "user-info is never an origin");
-	assert.equal(originOf("not an address"), null);
-	assert.equal(originOf("https://xn--bcher-kva.example/a"), "https://xn--bcher-kva.example");
-	assert.equal(originOf("https://bücher.example/a"), "https://xn--bcher-kva.example", "punycode is shown plainly");
+test("parseUrl and hostOf: new URL's reading, a port only when it is not the default", () => {
+	assert.equal(parseUrl("  https://Media.Example.org/a.mp3 ")?.href, "https://media.example.org/a.mp3", "spaces round it are dropped");
+	assert.equal(parseUrl("not an address"), null);
+	assert.equal(parseUrl("https://bücher.example/a")?.host, "xn--bcher-kva.example", "punycode is shown plainly");
 	assert.equal(hostOf("https://media.example.org/a"), "media.example.org");
+	assert.equal(hostOf("https://media.example.org:443/a"), "media.example.org");
 	assert.equal(hostOf("http://media.example.org:8080/a"), "media.example.org:8080");
 	assert.equal(hostOf("ftp://media.example.org/a"), null);
 	assert.equal(hostOf("relative/path.mp3"), null);
@@ -48,7 +42,6 @@ test("serviceOf: the pages of the services the plugin knows, with a player built
 	assert.equal(yt.native, "https://www.youtube.com/watch?v=abcDEF12345", "the address Obsidian is handed on the press, built from the id alone");
 	assert.equal(yt.embedUrl, null, "the plugin makes no frame of its own for YouTube");
 	assert.deepEqual(yt.hosts, ["youtube.com", "youtu.be", "youtube-nocookie.com"]);
-	assert.deepEqual(yt.also, ["releases.obsidian.md"], "Obsidian's own frame is covered, and allows nothing alone");
 	assert.deepEqual(yt.shown, ["youtube.com", "releases.obsidian.md"]);
 	for (const u of ["https://youtu.be/abcDEF12345", "https://youtube.com/shorts/abcDEF12345", "https://m.youtube.com/watch?v=abcDEF12345", "https://www.youtube.com/embed/abcDEF12345", "https://music.youtube.com/watch?v=abcDEF12345", "https://www.youtube-nocookie.com/embed/abcDEF12345", "https://youtu.be/abcDEF12345?t=30", "https://www.youtube.com/watch?v=abcDEF12345&list=PLx"])
 		assert.equal(serviceOf(u)?.native, yt.native, u);
@@ -83,20 +76,30 @@ test("serviceOf: the pages of the services the plugin knows, with a player built
 	assert.equal(serviceOf("not an address"), null);
 });
 
-test("serviceAllowed: the link's own host, or any host of the service, on the list; alsoCovers names what an entry adds", () => {
-	const link = "https://youtu.be/abcDEF12345";
-	const svc = serviceOf(link);
+test("serviceAllowed: every host the player loads from is on the list; alsoCovers names what an entry adds", () => {
+	const svc = serviceOf("https://youtu.be/abcDEF12345");
 	const none = { vault: [], notes: {} };
-	assert.equal(serviceAllowed(svc, link, none, "N.md"), false);
-	assert.equal(serviceAllowed(svc, link, { vault: ["youtube.com"], notes: {} }, "N.md"), true, "youtube.com allows the youtu.be link and the player");
-	assert.equal(serviceAllowed(svc, link, { vault: ["youtube-nocookie.com"], notes: {} }, "N.md"), true);
-	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "N.md"), true);
-	assert.equal(serviceAllowed(svc, link, { vault: [], notes: { "N.md": ["youtu.be"] } }, "Other.md"), false, "another note's list is not this note's");
-	assert.equal(serviceAllowed(svc, link, { vault: ["example.org"], notes: {} }, "N.md"), false);
+	assert.equal(serviceAllowed(svc, none, "N.md"), false);
+	assert.equal(serviceAllowed(svc, { vault: ["youtube.com"], notes: {} }, "N.md"), true, "youtube.com allows the youtu.be link and the player, with Obsidian's frame");
+	assert.equal(serviceAllowed(svc, { vault: [], notes: { "N.md": ["youtube.com"] } }, "N.md"), true);
+	assert.equal(serviceAllowed(svc, { vault: [], notes: { "N.md": ["youtube.com"] } }, "Other.md"), false, "another note's list is not this note's");
+	assert.equal(serviceAllowed(svc, { vault: ["example.org"], notes: {} }, "N.md"), false);
+	// the player is not at the link's host: an entry for the link's host alone does not cover it
+	assert.equal(serviceAllowed(svc, { vault: ["youtu.be"], notes: {} }, "N.md"), false, "youtu.be is where the link is; the player loads from youtube.com");
+	assert.equal(serviceAllowed(svc, { vault: ["youtube-nocookie.com"], notes: {} }, "N.md"), false);
+	assert.equal(serviceAllowed(serviceOf("https://www.youtube.com/watch?v=abcDEF12345"), { vault: ["www.youtube.com"], notes: {} }, "N.md"), false, "www.youtube.com does not cover youtube.com");
+	const vimeo = serviceOf("https://www.vimeo.com/123456789");
+	assert.equal(serviceAllowed(vimeo, { vault: ["www.vimeo.com"], notes: {} }, "N.md"), false, "the player is at player.vimeo.com");
+	assert.equal(serviceAllowed(vimeo, { vault: ["vimeo.com"], notes: {} }, "N.md"), true);
+	assert.equal(serviceAllowed(vimeo, { vault: ["player.vimeo.com"], notes: {} }, "N.md"), true, "the player's own host is enough");
+	const sc = serviceOf("https://www.soundcloud.com/some-artist/some-track");
+	assert.equal(serviceAllowed(sc, { vault: ["www.soundcloud.com"], notes: {} }, "N.md"), false, "the player is at w.soundcloud.com");
+	assert.equal(serviceAllowed(sc, { vault: ["soundcloud.com"], notes: {} }, "N.md"), true);
+	assert.deepEqual(vimeo.shown, ["player.vimeo.com"], "and the card names the player's host");
 	assert.deepEqual(alsoCovers("youtube.com"), ["youtu.be", "youtube-nocookie.com", "releases.obsidian.md"]);
 	assert.deepEqual(alsoCovers("youtu.be"), ["youtube.com", "youtube-nocookie.com", "releases.obsidian.md"]);
 	assert.deepEqual(alsoCovers("releases.obsidian.md"), [], "Obsidian's frame host is not an entry that stands for YouTube");
-	assert.equal(serviceAllowed(svc, link, { vault: ["releases.obsidian.md"], notes: {} }, "N.md"), false, "and allows no YouTube");
+	assert.equal(serviceAllowed(svc, { vault: ["releases.obsidian.md"], notes: {} }, "N.md"), false, "and allows no YouTube");
 	assert.equal(hostList([]), "");
 	assert.equal(hostList(["a"]), "a");
 	assert.equal(hostList(["a", "b"]), "a and b");
