@@ -28,7 +28,9 @@ module.exports = function mediaLib(env) {
     const found = { app: [], xvfb: [] };
     for (const d of fs.readdirSync("/proc")) if (/^\d+$/.test(d)) {
       let c; try { c = fs.readFileSync("/proc/" + d + "/cmdline", "utf8").split("\0"); } catch (e) { continue; }
-      if (c.includes("--remote-debugging-port=" + o.port) && !c.some(x => x.startsWith("--type="))) found.app.push(+d);
+      // Electron rewrites its own title, so /proc holds the main process's whole command line as one string: it is read as one
+      const line = c.join(" ");
+      if (line.includes(" --remote-debugging-port=" + o.port + " ") && !/ --type=/.test(line)) found.app.push(+d);
       if (!process.env.DISPLAY && /(^|\/)Xvfb$/.test(c[0] || "") && c[1] === o.display && !["91", "92", "93"].includes(String(o.display).replace(/^:/, ""))) found.xvfb.push(+d);
     }
     return found;

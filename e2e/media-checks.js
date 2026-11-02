@@ -448,5 +448,138 @@ A parent path: ![](../tone-2s.wav)
     return c;
   }
 
-  return { 48: check48, 49: check49, 50: check50 };
+  /* ================= CHECK 51 ================= */
+  // `listen`: tone files of 2, 10 and 60 seconds, local, and one hosted (an allowed host). Every answer is read from the file on disk.
+  const NOTE51 = "Listen.booklet.md";
+  const note51 = ctx => front("listen", "Listen") + `> [!activity|a] Listening
+
+> [!listen|e1] Short, two seconds
+> ![[tone-2s.wav]]
+
+> [!listen|e2 left:4] Ten seconds, within four of the end counts
+> ![[tone-10s.wav]]
+
+> [!listen|e3] Sixty seconds
+> ![[tone-60s.wav]]
+
+> [!listen|e4] Hosted, ten seconds
+> ![hosted](${ctx.url("vault.example.org", "tone-10s.wav")})
+`;
+  async function check51() {
+    const c = new Check(51, "0.12.0 `listen` in the real app: the tick and untick write; a tone played to its end sets done and takes pos out; a pause past half and within left: sets done; an early pause writes pos in whole seconds without done; resume at pos; an incoming change while playing never moves it; a position is kept on the device while playing and not in the note; kill the app mid-episode and the next start adds it");
+    await withMedia("c51", { note: NOTE51, data: ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org")], noteAllows: {} }), files: ctx => ({ [NOTE51]: note51(ctx) }) }, async (o, ctx) => {
+      const file = ctx.file(NOTE51);
+      const ans = () => { try { return answersIn(fs.readFileSync(file, "utf8"))[""] || {}; } catch (e) { return {}; } };
+      const waitAns = (id, pred, ms = 6000) => poll(() => { try { return !!pred(ans()[id]); } catch (e) { return false; } }, ms, 80);
+      const box = id => `${BOOK} [data-booklet-listen='/${id}']`;
+      const tick = id => o.page.locator(box(id) + " .booklet-listen-tick");
+      const el = (id, fn, arg) => o.evaluate(([sel, id, src, arg]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/${id}'] audio`); return a ? new Function("a", "arg", "return (" + src + ")(a, arg)")(a, arg) : null; }, [BOOK, id, fn.toString(), arg]);
+      const state = id => el(id, a => ({ t: a.currentTime, paused: a.paused, ended: a.ended, dur: a.duration, rs: a.readyState }));
+      const where = id => o.evaluate(([sel, id]) => document.querySelector(`${sel} [data-booklet-listen='/${id}'] .booklet-listen-where`).textContent, [BOOK, id]);
+      const store = () => o.evaluate(() => app.loadLocalStorage("booklet-listen:Listen.booklet.md"));
+      await ctx.K.open(o, NOTE51);
+      const orig = fs.readFileSync(file, "utf8");
+
+      // 1. the tick
+      await tick("e1").click();
+      c.ok(await waitAns("e1", v => v && v.done === true), `a press on Done writes the answer: ${JSON.stringify(ans().e1)}`);
+      c.ok((await tick("e1").getAttribute("aria-pressed")) === "true", "and the button says it is pressed");
+      await tick("e1").click();
+      c.ok(await waitAns("e1", v => v === undefined), `a second press takes it away again, leaving no mark: ${JSON.stringify(ans())}`);
+      c.ok(fs.readFileSync(file, "utf8").startsWith(orig.replace(/\s+$/, "")), "and the note above the records is as it was, byte for byte");
+
+      // 2. the end of the tone: done, and no pos
+      await el("e1", a => a.play());
+      c.ok(await poll(async () => (await state("e1")).ended, 6000), "the two-second tone played to its end");
+      c.ok(await waitAns("e1", v => v && v.done === true && !("pos" in v)), `the end sets done and writes no pos: ${JSON.stringify(ans().e1)}`);
+      await sleep(300);
+      c.ok((await where("e1")) === "" && (await tick("e1").getAttribute("aria-pressed")) === "true", `the box shows it done and says no place: ${JSON.stringify(await where("e1"))}`);
+
+      // 3. a pause past half and within left: of the end (ten seconds, left: 4: done from the sixth second)
+      await el("e2", a => a.play());
+      await sleep(1500);
+      const st3 = await store();
+      c.ok(!ans().e2, `while it plays nothing is written to the note: ${JSON.stringify(ans().e2)}`);
+      c.ok(st3 && st3["/e2"] && Number.isInteger(st3["/e2"].pos) && st3["/e2"].pos >= 1 && st3["/e2"].pos <= 2, `the position is kept on the device, each whole second: ${JSON.stringify(st3)}`);
+      await poll(async () => (await state("e2")).t >= 6.3, 8000, 100);
+      const t3 = (await state("e2")).t;
+      await el("e2", a => a.pause());
+      c.ok(await waitAns("e2", v => v && v.done === true), `paused at ${t3.toFixed(2)} s of 10 (within 4 of the end, past half): done, and the position: ${JSON.stringify(ans().e2)}`);
+      c.ok(Number.isInteger(ans().e2 && ans().e2.pos) && ans().e2.pos === Math.floor(t3), `pos is whole seconds: ${ans().e2 && ans().e2.pos} for ${t3.toFixed(2)}`);
+      c.ok(await poll(async () => { const s = await store(); return !s || !s["/e2"]; }, 3000), `and the device's copy is taken out once the note holds it: ${JSON.stringify(await store())}`);
+
+      // 4. an early pause on the sixty-second tone
+      await el("e3", a => a.play());
+      await poll(async () => (await state("e3")).t >= 2.3, 6000, 100);
+      const t4 = (await state("e3")).t;
+      await el("e3", a => a.pause());
+      c.ok(await waitAns("e3", v => v && Number.isInteger(v.pos)), `an early pause writes pos: ${JSON.stringify(ans().e3)}`);
+      const e3 = ans().e3;
+      c.ok(e3.pos === Math.floor(t4) && e3.done !== true, `in whole seconds (${e3.pos} for ${t4.toFixed(2)}) and not done`);
+      await sleep(300);
+      c.ok((await where("e3")) === `Left off at 0:0${e3.pos}`, `the box says where she left off: ${JSON.stringify(await where("e3"))}`);
+
+      // 5. resume at pos: the note is closed and opened again, and the tone starts where she left off
+      await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+      await ctx.K.open(o, NOTE51);
+      c.ok((await where("e3")) === `Left off at 0:0${e3.pos}`, `opened again, the box still says ${JSON.stringify(await where("e3"))}`);
+      await el("e3", a => a.play());
+      await sleep(900);
+      const s5 = await state("e3");
+      c.ok(s5.t >= e3.pos && s5.t < e3.pos + 2.2 && !s5.paused, `it resumes at the place: pos ${e3.pos}, the clock reads ${s5.t.toFixed(2)} s 0.9 s after Play`);
+
+      // 6. a change from elsewhere while it plays moves nothing
+      await el("e3", a => { a.dataset.mark = "mine"; window.__seeks = []; a.addEventListener("seeking", () => window.__seeks.push(a.currentTime)); return 1; });
+      const before6 = (await state("e3")).t;
+      const text6 = fs.readFileSync(file, "utf8");
+      fs.writeFileSync(file, text6.replace(/("e3": \{\s*"pos": )\d+/, (m, a) => a + "40"));
+      await sleep(2600);
+      const after6 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`); return { mark: a.dataset.mark, t: a.currentTime, paused: a.paused, seeks: window.__seeks.length, connected: a.isConnected }; }, [BOOK]);
+      c.ok(after6.mark === "mine" && after6.connected, `the element that plays is the one it was (it was not drawn again under her): ${JSON.stringify(after6)}`);
+      c.ok(!after6.paused && after6.seeks === 0 && after6.t > before6 + 1.5 && after6.t < before6 + 4, `an outside change to pos (to 40) while it plays: no seek, and the clock ran on from ${before6.toFixed(2)} to ${after6.t.toFixed(2)} s`);
+      await el("e3", a => a.pause());
+      c.ok(await waitAns("e3", v => v && v.pos === Math.floor(after6.t) || (v && v.pos > e3.pos && v.pos < 12)), `when she stops, her own place is what is kept (not the 40 from outside): ${JSON.stringify(ans().e3)}`);
+      const e3b = ans().e3;
+
+      // 7. a hosted file: the slot's player, followed the same way
+      await o.page.locator(box("e4") + " .booklet-media-play").click();
+      await poll(async () => { const s = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`); return a && !a.paused && a.currentTime > 1.2 ? a.currentTime : 0; }, [BOOK]); return s; }, 6000, 100);
+      const t7 = await o.evaluate(([sel]) => { const a = document.querySelector(`${sel} [data-booklet-listen='/e4'] audio`); a.pause(); return a.currentTime; }, [BOOK]);
+      c.ok(await waitAns("e4", v => v && Number.isInteger(v.pos)), `a hosted file is followed the same way: paused at ${t7.toFixed(2)} s writes ${JSON.stringify(ans().e4)}`);
+
+      // 8. the kill. The browser keeps a changed local-storage value some seconds after the change, and the first launch on a new profile has
+      // not kept any (measured: nothing survived a kill 3, 9 or 29 s into playing on it), so the app is killed once to make the profile
+      // one that has lived, and the kill that is checked is the second.
+      await ctx.kill(o);
+      const o2 = await ctx.relaunch("c51-restart");
+      let o3 = null;
+      try {
+        await ctx.K.open(o2, NOTE51);
+        const baseNow = ans().e3, baseJson = JSON.stringify(baseNow);
+        await o2.evaluate(([sel]) => document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`).play(), [BOOK]);
+        await sleep(9500);
+        const probe = await o2.evaluate(([sel]) => ({ t: document.querySelector(`${sel} [data-booklet-listen='/e3'] audio`).currentTime, kept: (app.loadLocalStorage("booklet-listen:Listen.booklet.md") || {})["/e3"] }), [BOOK]);
+        c.info(`killed mid-episode: the clock reads ${probe.t.toFixed(2)} s, the device store holds ${JSON.stringify(probe.kept)}, the note holds ${baseJson}`);
+        await ctx.kill(o2);
+        c.ok(JSON.stringify(ans().e3) === baseJson, `the process was killed (SIGKILL) while the episode played, and the note still holds what it held: nothing was written while it played: ${JSON.stringify(ans().e3)}`);
+        o3 = await ctx.relaunch("c51-restart-again");
+        await ctx.K.open(o3, NOTE51);
+        const back = await poll(() => { const v = ans().e3; return v && v.pos !== baseNow.pos ? v : null; }, 8000, 100);
+        c.ok(!!back && back.done === false && back.pos > baseNow.pos && back.pos <= probe.kept.pos && back.pos >= probe.kept.pos - 6, `the next start adds the position the device kept to the note: it held pos ${baseNow.pos}, the device last wrote ${probe.kept && probe.kept.pos}, now it holds ${JSON.stringify(back)} (the browser had kept a value ${back ? probe.kept.pos - back.pos : "?"} s old)`);
+        await sleep(500);
+        const w = await o3.evaluate(([sel]) => document.querySelector(`${sel} [data-booklet-listen='/e3'] .booklet-listen-where`).textContent, [BOOK]);
+        c.ok(back && w === `Left off at 0:${String(back.pos).padStart(2, "0")}`, `and the box says where she left off: ${JSON.stringify(w)}`);
+        c.ok(await poll(() => o3.evaluate(() => { const st = app.loadLocalStorage("booklet-listen:Listen.booklet.md"); return !st || !st["/e3"]; }), 3000), "and the device's copy is taken out");
+        // the other end of it: the note was changed by another device since the session began, so the note wins and the device's copy goes
+        await o3.evaluate(() => app.saveLocalStorage("booklet-listen:Listen.booklet.md", { "/e3": { pos: 30, base: 1 } }));
+        await o3.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });
+        const noteNow = JSON.stringify(ans().e3);
+        await ctx.K.open(o3, NOTE51); await sleep(1200);
+        c.ok(JSON.stringify(ans().e3) === noteNow && (await o3.evaluate(() => { const st = app.loadLocalStorage("booklet-listen:Listen.booklet.md"); return !st || !st["/e3"]; })), `a device copy whose base is not what the note holds (another device wrote since) is dropped and the note wins: ${JSON.stringify(ans().e3)}`);
+      } finally { await o2.close().catch(() => {}); if (o3) await o3.close().catch(() => {}); }
+    });
+    return c;
+  }
+
+  return { 48: check48, 49: check49, 50: check50, 51: check51 };
 };
