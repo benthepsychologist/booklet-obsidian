@@ -1,4 +1,4 @@
-// Checks 48 to 54 of plugin-check.js (0.12.0, audio and video, the allow list and `listen`), in the real app. Every note is made up and
+// Checks 48 to 54 and 56 of plugin-check.js (0.12.0, audio and video, the allow list and `listen`), in the real app. Every note is made up and
 // written into the check's own vault; every remote address is on a made-up host (example.org, example.net) that Obsidian is told to reach
 // at the local https server (media-lib.js), so the server's log is the network log.
 //   48 nothing remote before a press (every remote form, every position, every state of a host; a press does request)
@@ -8,6 +8,7 @@
 //   52 Continue: a skipped question is never offered again
 //   53 frames and raw media tags are links naming the host; the host after a look-alike link; Reading view and Markdown unchanged
 //   54 accessibility of the new controls (keyboard walk, axe when it is installed, reduced motion, 200% zoom)
+//   56 the now-playing bar: playback that outlives its page (a page move, a note switch, closing the note), Back, pause, end, Close, a kill
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { quiet, frames, mobile } = require("./waits");
@@ -971,5 +972,255 @@ Blocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav"
     return c;
   }
 
-  return { 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53, 54: check54 };
+  /* ================= CHECK 56 ================= */
+  // The now-playing bar (plan point 12): a native audio element is lifted into the bar in its own `play` event, so it keeps playing through
+  // a page move, a note switch and closing the note. Sixty-second tone; every claim is read off the one element.
+  const NOTE56 = "Player.booklet.md", OTHER56 = "Other.booklet.md";
+  const note56 = (media, extra = "") => front("player", "Player") + `> [!activity|a1] Listening
+
+> [!listen|l1] Sixty seconds
+> ${media}
+
+${extra}> [!choice|q1] A question?
+- [ ] Yes
+- [ ] No
+
+> [!activity|a2] Second activity
+
+> [!choice|q2] Another question?
+- [ ] Yes
+- [ ] No
+`;
+  const other56 = front("other", "Other") + "> [!activity|b1] Elsewhere\n\n> [!choice|r1] Another note?\n- [ ] Yes\n- [ ] No\n";
+  const L1 = BOOK + " [data-booklet-listen='/l1']";
+  /** The state of the one element and of the bar, read in the page. */
+  const state56 = o => o.evaluate(() => {
+    const a = window.__a56, bar = document.querySelector(".booklet-nowplaying");
+    return { t: a.currentTime, now: performance.now(), paused: a.paused, ended: a.ended, dur: a.duration, connected: a.isConnected, inBar: !!(bar && bar.contains(a)), inItem: !!a.closest(".booklet-nowplaying-item"), barInBody: !!(bar && bar.parentElement === document.body),
+      bodyClass: document.body.classList.contains("booklet-has-nowplaying"), items: document.querySelectorAll(".booklet-nowplaying-item").length, pauses: window.__p56.length, label: (document.querySelector(".booklet-nowplaying-label") || {}).textContent || null,
+      here: document.querySelectorAll(".booklet-nowplaying-here").length };
+  });
+  async function check56() {
+    const c = new Check(56, "0.12.0 the now-playing bar in the real app: a sixty-second tone started on a page keeps playing, with no pause event on its element, through a page move, a note switch and closing the note; Back to the page, pause, the end, Close, a hosted player, a framed player (not lifted), the plugin turned off, and a kill");
+    const data = ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org"), "youtube.com"], noteAllows: {} });
+    const files = (ctx, media = "![[tone-60s.wav]]", extra = "") => ({ [NOTE56]: note56(media, extra), [OTHER56]: other56 });
+    const ansOf = (ctx, key = "l1") => { try { return (answersIn(fs.readFileSync(ctx.file(NOTE56), "utf8"))[""] || {})[key]; } catch (e) { return undefined; } };
+    // the element advances about one second per second, was never paused, and is in the bar in the body
+    async function survives(o, c, what) {
+      const s1 = await state56(o); await sleep(2000); const s2 = await state56(o);
+      const rate = (s2.t - s1.t) / ((s2.now - s1.now) / 1000);
+      c.ok(!s2.paused && rate > 0.85 && rate < 1.15 && s2.pauses === 0 && s2.inBar && s2.inItem && s2.barInBody && s2.bodyClass && s2.items === 1, `${what}: still playing at ${rate.toFixed(2)} s per second (${s1.t.toFixed(2)} to ${s2.t.toFixed(2)}), ${s2.pauses} pause events on the element, in .booklet-nowplaying in the body: ${s2.inBar && s2.barInBody}, ${s2.items} row, label ${JSON.stringify(s2.label)}`);
+      return s2;
+    }
+    /** A clean start: the bar emptied, every pane closed, the note as it was written, the device store cleared; the note is opened and the element is playing. */
+    async function begin(o, ctx, orig, play) {
+      await o.evaluate(() => { for (const b of document.querySelectorAll(".booklet-nowplaying-close")) b.click(); });
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); app.workspace.detachLeavesOfType("markdown"); });
+      await poll(() => o.evaluate(() => !document.querySelector(".booklet-nowplaying")), 3000);
+      await sleep(900);   // a Close writes her place a moment later: it must land before the note is put back as it was written
+      fs.writeFileSync(ctx.file(NOTE56), orig);
+      await o.evaluate(() => app.saveLocalStorage("booklet-listen:Player.booklet.md", null));
+      await ctx.K.open(o, NOTE56);
+      await ctx.K.goTo(o, "activity:/a1");
+      await quiet(o);
+      await o.evaluate(sel => { const a = document.querySelector(sel + " [data-booklet-listen='/l1'] audio"); window.__a56 = a; window.__p56 = []; a.addEventListener("pause", () => window.__p56.push({ t: a.currentTime, connected: a.isConnected })); }, BOOK);
+      await play(o);
+      await poll(async () => { const s = await state56(o); return s.inBar && s.t > 0.3 && !s.paused; }, 6000, 80);
+    }
+    const playNative = o => o.evaluate(() => window.__a56.play());
+    const next = async o => { await o.page.locator(BOOK + " .booklet-page button", { hasText: /^Next/ }).click({ timeout: 5000 }); await quiet(o); };
+    const noteBytes = (ctx, orig, what, c) => { const now = fs.readFileSync(ctx.file(NOTE56), "utf8"); const rest = now.startsWith(orig.replace(/\s+$/, "")) ? now.slice(orig.replace(/\s+$/, "").length) : null; c.ok(rest !== null && /^\s*%%\s*\n> \[!records/.test(rest), `${what}: every byte outside the answer is as it was (the note is the original, then the records block only)`); };
+
+    // ---- a to g ----
+    await withMedia("c56", { note: NOTE56, data, files: ctx => files(ctx) }, async (o, ctx) => {
+      const orig = note56("![[tone-60s.wav]]");
+      // (a) a page move
+      await begin(o, ctx, orig, playNative);
+      const s0 = await state56(o);
+      c.ok(s0.inBar && s0.barInBody && s0.bodyClass && s0.here === 1 && s0.label === "Sixty seconds", `(a) pressed on the page, the element is lifted at once into the bar (a placeholder stands where it was: ${s0.here}), labelled by the prompt: ${JSON.stringify(s0.label)}`);
+      await next(o);
+      await survives(o, c, "(a) after Next (a page move)");
+      // (b) another note in the same pane
+      await ctx.K.open(o, OTHER56); await quiet(o);
+      const vt = await o.evaluate(() => app.workspace.getMostRecentLeaf().view.file.path);
+      c.ok(vt === OTHER56, `(b) the pane now shows ${vt}`);
+      await survives(o, c, "(b) after switching to another note in the pane");
+      // (c) the note closed: no pane at all
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await sleep(300);
+      c.info(`(c) panes left: ${await o.evaluate(() => { let n = []; app.workspace.iterateRootLeaves(l => n.push(l.view.getViewType() + ":" + (l.view.file ? l.view.file.path : ""))); return JSON.stringify(n); })}`);
+      await survives(o, c, "(c) after the leaf is detached (the note closed)");
+      // (d) Back to the page, from another tab, with the note closed
+      await o.evaluate(async rel => { await app.workspace.getLeaf("tab").openFile(app.vault.getAbstractFileByPath(rel)); }, OTHER56);
+      await quiet(o);
+      const t0 = Date.now();
+      await o.page.locator(".booklet-nowplaying-back").click({ timeout: 5000 });
+      const d1 = await poll(() => o.evaluate(([sel, rel]) => { const l = app.workspace.getMostRecentLeaf(); const p = l && l.view.containerEl.querySelector(".booklet-page"); return l && l.view.getViewType() === "booklet" && l.view.file && l.view.file.path === rel && p ? { screen: p.getAttribute("data-booklet-screen"), here: !!l.view.containerEl.querySelector("[data-booklet-listen='/l1'] .booklet-nowplaying-here"), media: l.view.containerEl.querySelectorAll("[data-booklet-listen='/l1'] audio").length } : null; }, [BOOK, NOTE56]), 6000, 100);
+      c.ok(!!d1 && d1.screen === "activity:/a1" && d1.here && d1.media === 0, `(d) Back to the page with the note closed, from another tab, opens the note at its page ${JSON.stringify(d1)} and the placeholder stands where the player was, the player is not drawn twice`);
+      await survives(o, c, "(d) after Back to the page");
+      const tabs = await o.evaluate(() => { let n = 0; app.workspace.iterateRootLeaves(() => n++); return n; });
+      c.info(`(d) root panes after Back: ${tabs} (the other note's tab stays)`);
+      const panes = o.evaluate(() => { let n = []; app.workspace.iterateRootLeaves(x => { n.push(x.view.getViewType() + ":" + (x.view.file ? x.view.file.path : "")); }); return JSON.stringify(n); });
+      c.info(`(d) panes now: ${await panes}`);
+      // again, with the note showing in another pane than the one that is active: Back brings that pane forward and does not move the player
+      await o.evaluate(async rel => { await app.workspace.getLeaf("tab").openFile(app.vault.getAbstractFileByPath(rel)); }, OTHER56);
+      await quiet(o);
+      c.info(`(d) panes after another tab for the other note: ${await o.evaluate(() => { let n = []; app.workspace.iterateRootLeaves(x => { n.push(x.view.getViewType() + ":" + (x.view.file ? x.view.file.path : "")); }); return JSON.stringify(n); })}`);
+      await o.page.locator(".booklet-nowplaying-back").click({ timeout: 5000 });
+      const d2 = await poll(() => o.evaluate(rel => { const l = app.workspace.getMostRecentLeaf(), a = app.workspace.activeLeaf; return (l && l.view.file && l.view.file.path === rel && l.view.getViewType() === "booklet") || (a && a.view.file && a.view.file.path === rel) ? true : null; }, NOTE56), 4000);
+      const d2now = await o.evaluate(() => { const l = app.workspace.getMostRecentLeaf(), a = app.workspace.activeLeaf; let n = []; app.workspace.iterateRootLeaves(x => { n.push(x.view.getViewType() + ":" + (x.view.file ? x.view.file.path : "")); }); return { recent: l && l.view.file && l.view.file.path, active: a && a.view.file && a.view.file.path, panes: n }; });
+      c.ok(!!d2, `(d) with the note open in another tab, Back to the page brings that tab forward: ${JSON.stringify(d2now)}`);
+      await survives(o, c, "(d) and the player plays on");
+      // (e) pause with the note closed
+      await begin(o, ctx, orig, playNative);
+      await next(o);
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await sleep(3200);
+      const pe = await o.evaluate(() => { const a = window.__a56; a.pause(); return a.currentTime; });
+      const e1 = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) ? v : null; }, 6000, 100);
+      c.ok(!!e1 && e1.pos === Math.floor(pe) && e1.done !== true, `(e) paused with the note closed at ${pe.toFixed(2)} s: the note holds ${JSON.stringify(e1)} (whole seconds, not done)`);
+      noteBytes(ctx, orig, "(e)", c);
+      const se = await state56(o);
+      c.ok(se.items === 1 && se.paused, `(e) the row stays in the bar until she closes it or returns: ${se.items} row, paused ${se.paused}`);
+      c.ok(await poll(() => o.evaluate(() => { const st = app.loadLocalStorage("booklet-listen:Player.booklet.md"); return !st || !st["/l1"]; }), 3000), "(e) and the device's copy is taken out once the note holds it");
+
+      // (f) play to the end with the view closed
+      await begin(o, ctx, orig, playNative);
+      await next(o);
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await sleep(400);
+      await o.evaluate(() => { const a = window.__a56; a.currentTime = a.duration - 1.2; });
+      c.ok(await poll(async () => (await state56(o)).ended || !(await state56(o)).connected, 6000, 100), "(f) the tone played to its end with the note closed");
+      const f1 = await poll(() => { const v = ansOf(ctx); return v && v.done === true ? v : null; }, 6000, 100);
+      c.ok(!!f1 && !("pos" in f1), `(f) the file holds done true and no pos: ${JSON.stringify(ansOf(ctx))}`);
+      noteBytes(ctx, orig, "(f)", c);
+      c.ok(await poll(() => o.evaluate(() => !document.querySelector(".booklet-nowplaying-item") && !document.querySelector(".booklet-nowplaying") && !document.body.classList.contains("booklet-has-nowplaying")), 3000), "(f) the bar row is gone, and so is the bar");
+
+      // (g) Close
+      await begin(o, ctx, orig, playNative);
+      await next(o);
+      await sleep(2500);
+      await o.page.locator(".booklet-nowplaying-close").click({ timeout: 5000 });
+      const g = await o.evaluate(() => ({ paused: window.__a56.paused, t: window.__a56.currentTime, bar: !!document.querySelector(".booklet-nowplaying"), cls: document.body.classList.contains("booklet-has-nowplaying") }));
+      const g1 = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) ? v : null; }, 6000, 100);
+      c.ok(g.paused && !g.bar && !g.cls, `(g) Close pauses the element and removes the row and the bar: ${JSON.stringify(g)}`);
+      c.ok(!!g1 && g1.pos === Math.floor(g.t), `(g) and writes her place: the note holds ${JSON.stringify(g1)} for ${g.t.toFixed(2)} s`);
+      noteBytes(ctx, orig, "(g)", c);
+      await sleep(1500);
+      c.ok((await o.evaluate(() => window.__a56.paused)), "(g) and it stays paused");
+      // paused with the page showing: Back puts the element back into the page and the bar lets go
+      await begin(o, ctx, orig, playNative);
+      await o.evaluate(() => window.__a56.pause());
+      await sleep(400);
+      await o.page.locator(".booklet-nowplaying-back").click({ timeout: 5000 });
+      await sleep(600);
+      const d3 = await o.evaluate(sel => { const a = window.__a56; return { inPage: !!a.closest(sel), bar: !!document.querySelector(".booklet-nowplaying"), cls: document.body.classList.contains("booklet-has-nowplaying"), paused: a.paused }; }, L1);
+      c.ok(d3.inPage && !d3.bar && !d3.cls && d3.paused, `(d) a paused one is put back by Back to the page: the same element is in its box again, the bar is gone: ${JSON.stringify(d3)}`);
+
+      // the same element, left behind by a page that goes: the next drawing of the media must play
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await sleep(400);
+      await ctx.K.open(o, NOTE56); await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+      const d4 = await o.evaluate(async sel => { const a = document.querySelector(sel + " [data-booklet-listen='/l1'] audio"); if (!a) return { none: true }; let r; try { await a.play(); r = "played"; } catch (e) { r = String(e).slice(0, 80); } return { src: (a.getAttribute("src") || "").slice(-30), err: a.error && a.error.message, result: r, same: a === window.__a56 }; }, BOOK);
+      c.ok(d4.result === "played", `(d) paused, put back in the page by Back, the page closed and the note opened again: the old element's src is emptied by Obsidian's teardown and the plugin hands that element to the new drawing, so Play does ${d4.result === "played" ? "work" : "NOT work"}: ${JSON.stringify(d4)}`);
+    });
+
+    // ---- h: a hosted player ----
+    await withMedia("c56-hosted", { note: NOTE56, data, files: ctx => files(ctx, `![hosted tone](${ctx.url("vault.example.org", "tone-60s.wav")})`) }, async (o, ctx) => {
+      const orig = note56(`![hosted tone](${ctx.url("vault.example.org", "tone-60s.wav")})`);
+      const press = async o => { await o.page.locator(L1 + " .booklet-media-play").click({ timeout: 5000 }); await poll(() => o.evaluate(sel => !!document.querySelector(sel + " audio, .booklet-nowplaying audio"), L1), 5000); await o.evaluate(() => { const a = document.querySelector(".booklet-nowplaying audio") || document.querySelector("[data-booklet-listen='/l1'] audio"); window.__a56 = a; window.__p56 = []; a.addEventListener("pause", () => window.__p56.push({ t: a.currentTime, connected: a.isConnected })); }); };
+      // begin() grabs the element before the press; the hosted player exists only after it, so the press is made here and the element then read
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await ctx.K.open(o, NOTE56); await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+      await press(o);
+      await poll(async () => { const s = await state56(o); return s.inBar && s.t > 0.3 && !s.paused; }, 6000, 80);
+      const own = await o.evaluate(() => ({ ours: window.__a56.hasAttribute("data-booklet-player"), src: window.__a56.getAttribute("src") }));
+      c.ok(own.ours && /vault\.example\.org/.test(own.src), `(h) the hosted player is the plugin's own audio element (${own.src.replace(/^https:\/\//, "")}) and is lifted into the bar when pressed`);
+      await survives(o, c, "(h) hosted, lifted");
+      await next(o);
+      await survives(o, c, "(h) hosted, after Next");
+      await ctx.K.open(o, OTHER56); await quiet(o);
+      await survives(o, c, "(h) hosted, after switching note");
+      await o.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+      await sleep(300);
+      await survives(o, c, "(h) hosted, after the note is closed");
+      const ph = await o.evaluate(() => { const a = window.__a56; a.pause(); return a.currentTime; });
+      const h1 = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) ? v : null; }, 6000, 100);
+      c.ok(!!h1 && h1.pos === Math.floor(ph), `(h) paused: the note holds ${JSON.stringify(h1)} for ${ph.toFixed(2)} s`);
+      noteBytes(ctx, orig, "(h)", c);
+      c.ok(ctx.hits("vault.example.org").some(e => /tone-60s/.test(e.url)), "(h) the file was requested from the allowed host, and only when pressed");
+    });
+
+    // ---- i: a framed player ----
+    await withMedia("c56-service", { note: NOTE56, data, files: ctx => files(ctx, "![[tone-60s.wav]]", "A talk: ![the talk](https://www.youtube.com/watch?v=ABCDEFGHIJK)\n\n") }, async (o, ctx) => {
+      await ctx.K.open(o, NOTE56); await ctx.K.goTo(o, "activity:/a1"); await quiet(o);
+      await o.page.locator(BOOK + " .booklet-media-play", { hasText: "the talk" }).click({ timeout: 5000 });
+      const fr = await poll(() => o.evaluate(() => { const f = document.querySelector(".workspace-leaf-content[data-type='booklet'] iframe"); return f ? f.src : null; }), 5000);
+      await sleep(500);
+      const s1 = await o.evaluate(() => ({ frame: !!document.querySelector("iframe"), bar: !!document.querySelector(".booklet-nowplaying"), inBar: !!document.querySelector(".booklet-nowplaying iframe") }));
+      c.ok(!!fr && s1.frame && !s1.bar && !s1.inBar, `(i) a pressed service player is an iframe (${fr && fr.replace(/\?.*/, "")}) in the page and is not lifted: bar ${s1.bar}`);
+      await next(o);
+      const s2 = await o.evaluate(() => ({ frame: !!document.querySelector("iframe"), bar: !!document.querySelector(".booklet-nowplaying") }));
+      c.ok(!s2.frame && !s2.bar, `(i) with the page gone the frame is gone and nothing is left in a bar: ${JSON.stringify(s2)} (expected: a framed player cannot move without reloading, so it stops with its page)`);
+    });
+
+    // ---- j: the plugin turned off while playing ----
+    await withMedia("c56-disable", { note: NOTE56, data, files: ctx => files(ctx) }, async (o, ctx) => {
+      const orig = note56("![[tone-60s.wav]]");
+      await begin(o, ctx, orig, playNative);
+      await next(o);
+      await sleep(2500);
+      const tj = await o.evaluate(() => window.__a56.currentTime);
+      await o.evaluate(async () => { await app.plugins.disablePlugin("booklet"); });
+      await sleep(800);
+      const j = await o.evaluate(() => ({ bar: !!document.querySelector(".booklet-nowplaying"), cls: document.body.classList.contains("booklet-has-nowplaying"), paused: window.__a56.paused, t: window.__a56.currentTime, on: !!(app.plugins.plugins || {}).booklet }));
+      c.ok(!j.on && !j.bar && !j.cls && j.paused, `(j) the plugin turned off while it played: the bar and the body class are gone and the element is paused ${JSON.stringify(j)}`);
+      const j1 = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) ? v : null; }, 6000, 100);
+      c.ok(!!j1 && j1.pos >= Math.floor(tj) && j1.pos <= Math.ceil(j.t), `(j) and her place was written: the note holds ${JSON.stringify(j1)} (it was at ${tj.toFixed(2)} s before, ${j.t.toFixed(2)} s at the end)`);
+      noteBytes(ctx, orig, "(j)", c);
+    });
+
+    // ---- k: the kill ----
+    await withMedia("c56-kill", { note: NOTE56, data, files: ctx => files(ctx) }, async (o, ctx) => {
+      const orig = note56("![[tone-60s.wav]]");
+      // as in check 51: the first launch of a profile has kept no local storage, so the app is killed once to make a profile that has lived
+      await ctx.K.open(o, NOTE56); await quiet(o);
+      await ctx.kill(o);
+      const o2 = await ctx.relaunch("c56-kill-restart");
+      let o3 = null;
+      try {
+        await ctx.K.open(o2, NOTE56); await ctx.K.goTo(o2, "activity:/a1"); await quiet(o2);
+        await o2.evaluate(sel => { const a = document.querySelector(sel + " [data-booklet-listen='/l1'] audio"); window.__a56 = a; window.__p56 = []; return a.play(); }, BOOK);
+        await poll(async () => { const s = await state56(o2); return s.inBar && s.t > 0.3; }, 6000, 80);
+        await next(o2);
+        await o2.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+        await sleep(9500);
+        const probe = await o2.evaluate(() => ({ t: window.__a56.currentTime, playing: !window.__a56.paused, kept: (app.loadLocalStorage("booklet-listen:Player.booklet.md") || {})["/l1"] }));
+        c.info(`(k) killed with the note closed and the bar playing: the clock reads ${probe.t.toFixed(2)} s, the device store holds ${JSON.stringify(probe.kept)}`);
+        c.ok(probe.playing && probe.kept && Number.isInteger(probe.kept.pos), `(k) the bar kept the position on the device while it played with no page: ${JSON.stringify(probe.kept)}`);
+        const before = JSON.stringify(ansOf(ctx));
+        await ctx.kill(o2);
+        c.ok(JSON.stringify(ansOf(ctx)) === before, `(k) SIGKILLed while it played: nothing was written to the note meanwhile: ${before}`);
+        o3 = await ctx.relaunch("c56-kill-restart-again");
+        await ctx.K.open(o3, NOTE56); await ctx.K.goTo(o3, "activity:/a1");
+        const back = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) && v.pos > 0 ? v : null; }, 8000, 100);
+        c.ok(!!back && back.done !== true && probe.kept && back.pos <= probe.kept.pos && back.pos >= probe.kept.pos - 6, `(k) the next start adds the position the device kept to the note: ${JSON.stringify(back)} (device last held ${probe.kept && probe.kept.pos})`);
+        await sleep(500);
+        const w = await o3.evaluate(sel => (document.querySelector(sel + " [data-booklet-listen='/l1'] .booklet-listen-where") || {}).textContent, BOOK);
+        c.ok(back && w === `Left off at 0:${String(back.pos).padStart(2, "0")}`, `(k) and the box says where she left off: ${JSON.stringify(w)}`);
+        noteBytes(ctx, orig, "(k)", c);
+        // the quit hook, as the app runs it: the tasks the plugin adds on "quit" are awaited (emulated by calling the event; the app is not quit)
+        await o3.evaluate(sel => { const a = document.querySelector(sel + " [data-booklet-listen='/l1'] audio"); window.__a56 = a; window.__p56 = []; return a.play(); }, BOOK);
+        await poll(async () => (await state56(o3)).inBar, 5000, 80);
+        await o3.evaluate(() => { app.workspace.detachLeavesOfType("booklet"); });
+        await sleep(3200);
+        const q = await o3.evaluate(async () => { const tasks = []; app.workspace.trigger("quit", { add: f => tasks.push(f) }); const n = tasks.length; for (const f of tasks) await f(); const a = window.__a56; return { n, t: a.currentTime, paused: a.paused }; });
+        const k2 = await poll(() => { const v = ansOf(ctx); return v && Number.isInteger(v.pos) && v.pos >= Math.floor(q.t) - 1 ? v : null; }, 5000, 100);
+        c.ok(q.n >= 1 && q.paused && !!k2, `(k) the quit hook (emulated by triggering "quit" and awaiting the tasks it was handed: ${q.n}) pauses what plays in the bar and writes her place: ${JSON.stringify(k2)} at ${q.t.toFixed(2)} s`);
+      } finally { await o2.close().catch(() => {}); if (o3) await o3.close().catch(() => {}); }
+    });
+    return c;
+  }
+
+  return { 56: check56, 48: check48, 49: check49, 50: check50, 51: check51, 52: check52, 53: check53, 54: check54 };
 };
