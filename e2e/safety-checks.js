@@ -40,7 +40,7 @@ module.exports = function safetyChecks(env) {
   const DAMAGED = "Damaged records.booklet.md";
   const BAD_DRAFT = '```booklet draft diary\n{"entry": "half written",}\n```';
   const damagedText = () => `---
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/damaged-records
 title: Damaged records
 lang: en
@@ -139,7 +139,7 @@ ${BAD_DRAFT}
   /* ================= CHECK 36 ================= */
   // the writer's round trip in the real app: line endings, a byte-order mark, no final newline, non-Latin text and emoji
   const noteBytes = ({ eol = "\n", bom = false, finalNewline = true, words = "" } = {}) => {
-    const lines = ["---", 'booklet: "0.17"', "id: booklet-test/round-trip", ("title: Round trip " + words).trimEnd(), "lang: en", "---", "",
+    const lines = ["---", 'booklet: "0.18"', "id: booklet-test/round-trip", ("title: Round trip " + words).trimEnd(), "lang: en", "---", "",
       "> [!activity|kinds] Every kind", "", ("Made-up words " + words).trimEnd() + ".", "",
       "> [!choice|fruit] Which fruit?", "- [ ] Apple", "- [ ] Pear", "- [ ] Plum", "",
       "> [!scale|sure] How sure?", "", "1. Not sure", "2. Fairly sure", "3. Certain", "",
@@ -337,7 +337,7 @@ ${BAD_DRAFT}
   // the file changes under the open view: edited on disk by another process, renamed, moved, deleted, restored
   const GARDEN = "Garden log.booklet.md";
   const gardenText = () => `---
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/garden-log
 title: Garden log
 lang: en
@@ -632,7 +632,7 @@ The garden is quiet today.
       items.push(JSON.stringify({ ts: d + "T08:00:00Z", sleep, mood, verdict, note: "Day " + (i + 1) + ": a made-up line about the garden, the tides and a long walk." }));
     }
     return `---
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/big-tracker
 title: Big tracker
 lang: en
@@ -796,7 +796,7 @@ ${items.join(",\n")}
   const FORMAT = "Formatted.booklet.md";
   const formattedText = () => `---
 title: Formatted
-booklet: "0.17"
+booklet: "0.18"
 id: booklet-test/formatted
 lang: en
 ---

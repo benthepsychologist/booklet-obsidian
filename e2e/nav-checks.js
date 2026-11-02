@@ -3,7 +3,7 @@
 //   17 to 21, one check each: Back is free; no step for a tab; no move is lost; outside links; icons
 //   22 the finish (only under a tab that holds a question) and the kept-entries fold (0, 1, 4 and 25 entries; desktop and phone)
 //   23 the phone: no sideways scroll, controls 44 px, the pager clear of the floating bar, the trail and the pager wrapping, the tab keys
-//   27 and 28 page trees (format 0.17): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
+//   27 and 28 page trees (format 0.18): a made-up wiki of 13 pages and the check-in with a wiki tab; (24 to 26 are in other files)
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { kit } = require("./waits");
@@ -15,7 +15,7 @@ module.exports = function navChecks(env) {
 
   /* ---- made-up notes the checks write into their own copy of the vault ---- */
   const WEEKLY_NOTE = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Weekly plan
 ---
 
@@ -67,7 +67,7 @@ An ordinary note, made up.
 - [[Finish test.booklet#Answer]]
 `;
   const FINISH_NOTE = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Finish test
 ---
 
@@ -84,7 +84,7 @@ Some words to read.
 > [!text|what] What happened?
 `;
   const LONG_NOTE = `---
-booklet: "0.17"
+booklet: "0.18"
 title: A booklet with a rather long title that cannot fit on one line of a phone
 ---
 
@@ -109,7 +109,7 @@ Four.
 > [!module|long end] End
 `;
   const TABBED_NOTE = `---
-booklet: "0.17"
+booklet: "0.18"
 title: Tabs and pages
 ---
 
@@ -132,7 +132,7 @@ Two p2
 
   // a made-up wiki of 13 pages in three levels, one activity with no tab line (made-up words)
   const GARDEN_NOTE = `---
-booklet: "0.17"
+booklet: "0.18"
 title: A small garden
 ---
 
@@ -202,7 +202,7 @@ A spade, a fork and a trowel are enough.
 `;
   // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself
   const DEEP_NOTE = (() => {
-    let t = `---\nbooklet: "0.17"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
+    let t = `---\nbooklet: "0.18"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
     for (let n = 1; n <= 14; n++) {
       t += `\n> [!page|level-${n}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} of the tree\n\nWords on level ${n}.\n`;
       for (const side of ["a", "b"]) t += `\n> [!page|level-${n}${side}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} side ${side}\n\nA page beside level ${n}.\n`;
@@ -214,7 +214,7 @@ A spade, a fork and a trowel are enough.
   // a note of one repeating activity ("Log") with `n` made-up kept entries; with `two`, a second one ("More") with 4
   function foldNote(n, two) {
     const entries = (id, k) => `\`\`\`booklet entries ${id}\n{"items": [\n${Array.from({ length: k }, (_, i) => `{"ts": "2026-09-${String(i + 1).padStart(2, "0")}T09:00:00Z", "${id === "log" ? "what" : "else"}": "Made-up entry ${i + 1} of ${id}"}`).join(",\n")}\n]}\n\`\`\`\n`;
-    let t = `---\nbooklet: "0.17"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
+    let t = `---\nbooklet: "0.18"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
     if (two) t += `\n> [!activity|more repeat] More\n\n> [!text|else] What else?\n`;
     const blocks = (n ? entries("log", n) : "") + (two ? entries("more", 4) : "");
     return blocks ? t + `\n%%\n> [!records] App record — do not edit below this line\n\n${blocks}%%\n` : t;
@@ -224,7 +224,7 @@ A spade, a fork and a trowel are enough.
     return [...src.matchAll(/^\t"([a-z0-9-]+)",$/gm)].map(m => m[1]);
   }
   function iconsNote(names) {
-    let t = `---\nbooklet: "0.17"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
+    let t = `---\nbooklet: "0.18"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
     for (const n of names) t += `> [!activity|a-${n} icon:${n}] ${n}\n\nIcon ${n}.\n\n`;
     return t + `> [!module|icons end] End\n`;
   }
@@ -662,7 +662,7 @@ A spade, a fork and a trowel are enough.
 
   /* ================= CHECK 27 ================= */
   async function check27() {
-    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, format 0.17): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
+    const c = new Check(27, "a made-up wiki of 13 pages in three levels (page trees, format 0.18): the tree menu and its search, Back, Up and Next naming pages, the trail, cards under a page, Mentioned on, the saved place with a page key, history steps, nothing written; then the phone, light and dark");
     await withApp("c27", async (o, vault) => {
       const NOTE = "Garden.booklet.md", KEY = "activity:garden/garden", DEEP = "Deep.booklet.md", DEEPKEY = "activity:/deep";
       put(vault, NOTE, GARDEN_NOTE);
@@ -806,7 +806,7 @@ A spade, a fork and a trowel are enough.
       let pg = await page(), s = await state(o);
       const b0 = s.back;
       c.ok(pg.tabs.join("|") === "Learn|Check in|Past check-ins" && pg.on === "Learn", `three tabs, opening on the wiki: ${pg.tabs.join(" | ")}`);
-      c.ok(pg.problems.length === 0, `a file marked 0.17 that this view reads says nothing of its marker: ${pg.problems.length} problems`);
+      c.ok(pg.problems.length === 0, `a file marked 0.18 that this view reads says nothing of its marker: ${pg.problems.length} problems`);
       c.ok(pg.menu.length === 8 && pg.finalize === 0 && pg.questions === 0, `the wiki tab: a menu of ${pg.menu.length} pages, no Finalize, no question`);
       const seen = [];
       for (let i = 0; i < 8; i++) { await click(o, ".booklet-pager button", "Next"); const x = await page(); seen.push(x.title[0] + (x.at ? ` (${x.at})` : "")); }
