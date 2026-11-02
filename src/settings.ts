@@ -176,6 +176,7 @@ export class BookletSettingTab extends PluginSettingTab {
 		this.off?.();
 		this.off = this.allows.onChange(() => this.display());
 		containerEl.empty();
+		containerEl.addClass("booklet-settings");
 		new Setting(containerEl).setName("Media from other sites").setHeading();
 		new Setting(containerEl).setDesc(
 			"Audio and video hosted on these sites can load once you press Play. https is assumed, and a site covers its subdomains: youtube.com stands for https://*.youtube.com/*. A note can never allow a site for you. This list is for every note in this vault; the Allow list button at the top of a note also lets you allow a site for that note alone.",
