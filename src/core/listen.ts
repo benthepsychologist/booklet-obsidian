@@ -4,6 +4,8 @@
  * Plain TypeScript: nothing here imports Obsidian.
  */
 
+import { inertLines, inertSpans } from "./blocks";
+
 /** `left:` when the line sets none: a pause within this many seconds of the end counts as finished (past the half way mark). */
 export const LISTEN_LEFT = 120;
 
@@ -29,8 +31,6 @@ const LINK = /(^|[^![])(\[[^\][\n^][^\]\n]*\](?:\([^)\n]*\)|\[[^\]\n]*\]))|(<htt
 export interface ListenBody {
 	/** The embed written, else the link written, as it stands in the note (what the view hands to its Markdown renderer); null when there is neither. */
 	media: string | null;
-	/** Whether `media` is an embed (and not the link a video service's page needs). */
-	embed: boolean;
 	/** How many embeds the lines hold: more than one is reported, and only the first is the media. */
 	embeds: number;
 	/** The other lines, as Markdown: the media taken out. */
@@ -40,22 +40,22 @@ export interface ListenBody {
 /**
  * The `>` lines under a `listen` line, with their `>` already taken off: the one piece of media (the first embed, else the first
  * link) and, apart from it, the help. A line left empty by taking the media out is dropped; every other line is kept as written.
+ * Code is never the media: an embed or a link inside a fenced or indented block or an inline code span is words the author wrote
+ * about it, and stays in the help as written (the scan runs on the lines with their code blanked out, to the same length).
  */
 export function listenBody(body: readonly string[]): ListenBody {
+	const inert = inertLines(body);
+	const scan = body.map((l, i) => (inert[i] ? " ".repeat(l.length) : inertSpans(l)));
 	let embeds = 0;
 	let found: { line: number; start: number; end: number } | null = null;
-	let embed = false;
-	for (const [line, l] of body.entries()) {
+	for (const [line, l] of scan.entries()) {
 		for (const m of l.matchAll(EMBED)) {
 			embeds++;
-			if (!found) {
-				found = { line, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length };
-				embed = true;
-			}
+			if (!found) found = { line, start: m.index ?? 0, end: (m.index ?? 0) + m[0].length };
 		}
 	}
 	// with no embed, the first link is the media: a video service's page is a link, never an embed (SPEC section 5)
-	for (const [line, l] of embed ? [] : body.entries()) {
+	for (const [line, l] of embeds ? [] : scan.entries()) {
 		if (found) break;
 		for (const m of l.matchAll(LINK)) {
 			const text = m[2] ?? m[3] ?? m[4] ?? "";
@@ -64,17 +64,30 @@ export function listenBody(body: readonly string[]): ListenBody {
 			break;
 		}
 	}
-	if (!found) return { media: null, embed: false, embeds, help: body.join("\n").trim() };
+	if (!found) return { media: null, embeds, help: body.join("\n").trim() };
 	const { line: at, start, end } = found;
 	const text = body[at] ?? "";
 	const rest = (text.slice(0, start) + text.slice(end)).trim();
 	const lines = body.flatMap((l, i) => (i === at ? (rest ? [rest] : []) : [l]));
-	return { media: text.slice(start, end), embed, embeds, help: lines.join("\n").trim() };
+	return { media: text.slice(start, end), embeds, help: lines.join("\n").trim() };
 }
 
 /* ---- the answer ---- */
 
-const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+/** Is it a JSON object (not null, not an array)? */
+export const isObj = (x: unknown): x is Record<string, unknown> => x !== null && typeof x === "object" && !Array.isArray(x);
+
+/** The `pos` an answer holds, else 0 (the start). */
+export function posIn(v: unknown): number {
+	const p = isObj(v) ? v["pos"] : undefined;
+	return typeof p === "number" && Number.isInteger(p) && p > 0 ? p : 0;
+}
+
+/** The scope and question id of a `<scope>/<id>` key (a `listen`'s place in the note's records, and the device store's key). */
+export function splitKey(key: string): { scope: string; id: string } {
+	const at = key.lastIndexOf("/");
+	return { scope: key.slice(0, at), id: key.slice(at + 1) };
+}
 
 /**
  * Is the media done? It is when it has ended, or when its length is known and the position is within `left` seconds of the end and

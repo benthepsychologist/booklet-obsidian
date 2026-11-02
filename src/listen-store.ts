@@ -101,3 +101,13 @@ export function moveDevice(app: App, from: string, to: string): void {
 		// as above
 	}
 }
+
+/** A note deleted: what the device keeps for it goes. */
+export function dropDevice(app: App, path: string): void {
+	try {
+		app.saveLocalStorage(LISTEN + path, null);
+		app.saveLocalStorage(PLACE + path, null);
+	} catch {
+		// as above
+	}
+}

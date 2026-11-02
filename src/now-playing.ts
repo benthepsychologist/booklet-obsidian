@@ -7,11 +7,13 @@
  *   - lift: at the press, the element moves into a bar fixed at the bottom of the window, with its native controls, a label, "Back to the
  *     page" and "Close". A placeholder stays where it was, so the page does not look emptied. Obsidian's player is not replaced, and the
  *     plugin holds no `Audio` of its own.
- *   - put it back: when a drawing makes a slot for the same media (the note's path and the source address, less the `?mtime` Obsidian adds),
- *     a paused element takes the new slot's place and the bar lets go of it; one that plays stays in the bar and the slot shows the
+ *   - put it back: when a drawing makes a slot for the same media (the note's path, the `listen` whose media it is if any, and the source
+ *     address, less the `?mtime` Obsidian adds), a paused element takes the new slot's place and the bar lets go of it; one that plays stays in the bar and the slot shows the
  *     placeholder (an element never stays in a page while it plays: removing it from the page stops it, and a page can go at any time).
  *   - stop and end: the end writes once and lets the element go; a pause writes her place and leaves it in the bar until she closes it or
  *     returns; closing the plugin pauses, writes and removes the bar.
+ *   - rename and delete: the entry follows its note to the new path, and a note deleted stops what plays from it (`rename`, `deleted`).
+ *   - said and kept in place: one live region per window says what starts, closes and finishes; closing a row never leaves focus nowhere.
  *   - events after the lift: the view's capture listeners no longer see the element, so it carries its own listeners. While a view still
  *     follows the box it came from (`from.follow`), the event goes to that view; otherwise this file keeps the position on the device and
  *     writes it through the plugin-level writer (listen-writer.ts), which uses a view's write path when one shows the note.
@@ -19,11 +21,10 @@
  * A framed player (an iframe: a video service) cannot move without reloading, so it is never lifted and stops with its page.
  */
 import type { App } from "obsidian";
-import type { ListenEvent } from "./core";
+import { posIn, type ListenEvent } from "./core";
 import type { ListenWriter } from "./listen-writer";
-import { posIn } from "./listen-writer";
-import { dropListen, keepListen } from "./listen-store";
-import { MEDIA_EVENTS, Track } from "./playing";
+import { dropListen, dropDevice, keepListen } from "./listen-store";
+import { firstMedia, HERE_CLASS, MEDIA_EVENTS, Track } from "./playing";
 
 /** What a view tells the bar about the page an element is in. */
 export interface LiftFrom {
@@ -49,7 +50,14 @@ export interface NowPlayingDeps {
 
 interface Entry {
 	el: HTMLMediaElement;
+	/** The note, the `listen` it is the media of (else nothing) and the address: two slots of one note never share an entry. */
 	key: string;
+	/** The `listen` key that makes the slot (`<scope>/<id>`), else "": the media is a `listen`'s own only when it is the first in the box's media part. */
+	slot: string;
+	/** The address, less the hash and the `?<mtime>` Obsidian adds. */
+	addr: string;
+	/** Is it the media of the `listen` in its box (and so followed for it), and not another embed in the box? */
+	first: boolean;
 	path: string | null;
 	label: string;
 	from: LiftFrom;
@@ -68,15 +76,25 @@ interface Entry {
 	reading: boolean;
 	/** The reader closed it: events of the element itself no longer count (the ones made here do). */
 	closing: boolean;
+	/** What had focus in its page when it was lifted: where focus goes back to when its row goes and nothing else takes it. */
+	returnTo: HTMLElement | null;
 	listeners: [string, (evt: Event) => void][];
 }
 
-interface Bar {
-	root: HTMLElement;
-	live: HTMLElement;
+/** The window's one live region, and the timers that set and clear its words. */
+interface Live {
+	el: HTMLElement;
+	timer: number | null;
 }
 
+/** How long a message waits after the region is emptied (so that a screen reader sees a change, also for the same words twice), and stays. */
+const SAY_MS = 100;
+const CLEAR_MS = 5000;
+/** The most the quit hook waits for one place to be written. */
+const FLUSH_MS = 3000;
+
 const MEDIA = "audio, video";
+const LIVE = "booklet-nowplaying-live";
 const BOX = "[data-booklet-listen]";
 const HERE = "Its player is in the bar at the bottom of the window.";
 
@@ -90,9 +108,25 @@ function fileName(src: string): string {
 	}
 }
 
-/** The key two elements of one media share: the note and the address, less the hash and the `?<mtime>` Obsidian adds to a vault file. */
-function keyOf(path: string | null, src: string | null): string | null {
-	return src ? `${path ?? ""}\n${src.replace(/#.*$/, "").replace(/\?\d+$/, "")}` : null;
+/** An address less the hash and the `?<mtime>` Obsidian adds to a vault file. */
+const addrOf = (src: string | null): string => (src ?? "").replace(/#.*$/, "").replace(/\?\d+$/, "");
+
+/**
+ * The key two elements of one media share: the note, the `listen` whose media it is (else none) and the address. Two `listen`s on one
+ * file, or a `listen` and an embed of the same file, are two keys; two embeds of one address outside any `listen` are one (a place in
+ * the note that Obsidian's own elements do not tell).
+ */
+const keyOf = (path: string | null, slot: string, addr: string): string | null => (addr ? `${path ?? ""}\n${slot}\n${addr}` : null);
+
+/** Resolves with the promise's value, or false when it takes longer than `ms` or fails. */
+function within(p: Promise<boolean>, ms: number): Promise<boolean> {
+	return new Promise((done) => {
+		const t = setTimeout(() => done(false), ms);
+		p.then(
+			(v) => (clearTimeout(t), done(v)),
+			() => (clearTimeout(t), done(false)),
+		);
+	});
 }
 
 const isMedia = (n: EventTarget | null): n is HTMLMediaElement => !!n && (n as Element).localName !== undefined && ((n as Element).localName === "audio" || (n as Element).localName === "video");
@@ -100,12 +134,16 @@ const isMedia = (n: EventTarget | null): n is HTMLMediaElement => !!n && (n as E
 export class NowPlaying {
 	private byEl = new Map<HTMLMediaElement, Entry>();
 	private byKey = new Map<string, Entry>();
-	private bars = new Map<Document, Bar>();
+	private bars = new Map<Document, HTMLElement>();
+	private lives = new Map<Document, Live>();
 	/** Events this file made itself (a pause for a Close): they count where the element's own do not. */
 	private mine = new WeakSet<Event>();
 	private gone = false;
 
-	constructor(private readonly deps: NowPlayingDeps) {}
+	constructor(private readonly deps: NowPlayingDeps) {
+		// the region that says what plays is made now, empty and outside the bar: a region that is made in the task of its first message is missed
+		if (typeof document !== "undefined") this.liveOf(document);
+	}
 
 	/** Is this element held in the bar (and so to be left alone as its page goes)? */
 	holds(el: HTMLElement): boolean {
@@ -130,12 +168,18 @@ export class NowPlaying {
 		if (known?.item) return;
 		const from = source();
 		const doc = el.ownerDocument;
-		const had = doc.activeElement === el;
-		const e = known ?? this.make(el, from);
+		const focus = doc.activeElement;
+		const had = focus === el;
+		const box = el.closest<HTMLElement>(BOX);
+		// only the box's own media is the `listen`'s: another embed in its help is lifted as any media is, and writes nothing into the answer
+		const first = !!box && firstMedia(box) === el;
+		const about = first && box ? from.about(box) : null;
+		const e = known ?? this.make(el, from, about?.key ?? "");
 		e.from = from;
 		e.closing = false;
-		const box = el.closest<HTMLElement>(BOX);
-		if (box) e.listen = from.about(box) ?? e.listen;
+		e.first = first;
+		e.listen = first ? (about ?? e.listen) : null;
+		e.returnTo = focus && focus !== el && focus !== doc.body ? (focus as HTMLElement) : null;
 		e.label = this.labelOf(el, box);
 		e.track.adopt(el);
 		e.pos = Math.floor(el.currentTime) || 0;
@@ -144,16 +188,13 @@ export class NowPlaying {
 		const bar = this.barOf(doc);
 		const item = this.itemOf(doc, e);
 		// one synchronous task from here: a gap that yields to the event loop would pause the element
-		const here = doc.createElement("span");
-		here.className = "booklet-nowplaying-here";
-		here.tabIndex = -1;
-		here.textContent = HERE;
+		const here = this.placeholder(doc);
 		el.before(here);
-		bar.root.appendChild(item);
+		bar.appendChild(item);
 		item.insertBefore(el, item.querySelector(".booklet-nowplaying-back"));
 		e.item = item;
 		e.here = here;
-		this.say(bar, e.label);
+		this.say(doc, `Playing ${e.label}`);
 		if (had) el.focus({ preventScroll: true });
 	}
 
@@ -167,24 +208,54 @@ export class NowPlaying {
 		for (const m of found) {
 			if (!isMedia(m) || this.byEl.has(m)) continue;
 			const from = source();
-			const e = this.byKey.get(keyOf(from.path, m.getAttribute("src")) ?? "");
+			const box = m.closest<HTMLElement>(BOX);
+			const slot = (box && firstMedia(box) === m ? from.about(box)?.key : null) ?? "";
+			const e = this.byKey.get(keyOf(from.path, slot, addrOf(m.getAttribute("src"))) ?? "");
 			const node = e && this.claim(e, from);
 			if (node) m.replaceWith(node);
 		}
 	}
 
-	/** A slot is drawn for media at `src` in the note at `path`: the node that stands for the media the bar holds, else null (media-view.ts). */
-	take(src: string, source: FromSource): HTMLElement | null {
+	/**
+	 * A slot is drawn into `piece` for media at `src` in the note: the node that stands for the media the bar holds, else null (media-view.ts).
+	 * The slot of a `listen` is the one drawn into its media part; any other slot belongs to no `listen`.
+	 */
+	take(src: string, source: FromSource, piece: HTMLElement): HTMLElement | null {
 		if (!this.byKey.size) return null;
 		const from = source();
-		const e = this.byKey.get(keyOf(from.path, src) ?? "");
+		const box = piece.closest<HTMLElement>(BOX);
+		const slot = (box && piece.classList.contains("booklet-listen-media") ? from.about(box)?.key : null) ?? "";
+		const e = this.byKey.get(keyOf(from.path, slot, addrOf(src)) ?? "");
 		return (e && this.claim(e, from)) ?? null;
+	}
+
+	/** The note was renamed or moved: what the bar holds of it follows, so that a place is written into the note that is there now. */
+	rename(from: string, to: string): void {
+		for (const e of [...this.byEl.values()]) {
+			if (e.path !== from) continue;
+			if (this.byKey.get(e.key) === e) this.byKey.delete(e.key);
+			e.path = to;
+			e.key = keyOf(to, e.slot, e.addr) ?? e.key;
+			this.byKey.set(e.key, e);
+		}
+	}
+
+	/** The note was deleted: whatever plays from it stops and goes, nothing is written, and the device keeps nothing for it. */
+	deleted(path: string): void {
+		for (const e of [...this.byEl.values()]) {
+			if (e.path !== path) continue;
+			e.closing = true;
+			e.el.pause();
+			this.release(e);
+		}
+		dropDevice(this.deps.app, path);
 	}
 
 	/** The pause and write of every element in the bar that plays or holds a position, for the quit hook. */
 	async flush(): Promise<void> {
+		// a write that fails or never answers must not hold the quit: each is given FLUSH_MS
 		const done: Promise<unknown>[] = [];
-		for (const e of this.byEl.values()) if (e.item && e.listen && (e.dirty || e.track.live)) done.push(this.settle(e, "pause"));
+		for (const e of this.byEl.values()) if (e.item && e.listen && (e.dirty || e.track.live)) done.push(within(this.settle(e, "pause"), FLUSH_MS));
 		await Promise.all(done);
 	}
 
@@ -196,18 +267,24 @@ export class NowPlaying {
 			if (e.item) e.el.pause();
 			this.forget(e);
 		}
-		for (const [doc, b] of this.bars) {
-			b.root.remove();
+		for (const [doc, root] of this.bars) {
+			root.remove();
 			doc.body.classList.remove("booklet-has-nowplaying");
 		}
 		this.bars.clear();
+		for (const [doc, l] of this.lives) {
+			if (l.timer !== null) doc.defaultView?.clearTimeout(l.timer);
+			l.el.remove();
+		}
+		this.lives.clear();
 	}
 
 	/* ---- the entry and its row ---- */
 
-	private make(el: HTMLMediaElement, from: LiftFrom): Entry {
-		const key = keyOf(from.path, el.getAttribute("src")) ?? `\n${Math.random()}`;
-		const e: Entry = { el, key, path: from.path, label: "", from, track: new Track(), item: null, here: null, listen: null, pos: 0, dirty: false, base: null, reading: false, closing: false, listeners: [] };
+	private make(el: HTMLMediaElement, from: LiftFrom, slot: string): Entry {
+		const addr = addrOf(el.getAttribute("src"));
+		const key = keyOf(from.path, slot, addr) ?? `\n${Math.random()}`;
+		const e: Entry = { el, key, slot, addr, first: false, path: from.path, label: "", from, track: new Track(), item: null, here: null, listen: null, pos: 0, dirty: false, base: null, reading: false, closing: false, returnTo: null, listeners: [] };
 		for (const type of MEDIA_EVENTS) {
 			const h = (evt: Event) => this.onEvent(e, evt);
 			el.addEventListener(type, h);
@@ -232,23 +309,56 @@ export class NowPlaying {
 		);
 	}
 
-	private barOf(doc: Document): Bar {
-		let bar = this.bars.get(doc);
-		if (bar?.root.isConnected) return bar;
-		const root = doc.createElement("div");
+	private barOf(doc: Document): HTMLElement {
+		let root = this.bars.get(doc);
+		if (root?.isConnected) return root;
+		root = doc.createElement("div");
 		root.className = "booklet-nowplaying";
 		root.setAttribute("role", "region");
 		root.setAttribute("aria-label", "Now playing");
-		const live = root.createDiv({ cls: "booklet-sr", attr: { "aria-live": "polite" } });
-		bar = { root, live };
-		this.bars.set(doc, bar);
+		this.bars.set(doc, root);
 		doc.body.appendChild(root);
 		doc.body.classList.add("booklet-has-nowplaying");
-		return bar;
+		return root;
 	}
 
-	private say(bar: Bar, label: string): void {
-		bar.live.textContent = `Now playing: ${label}`;
+	/** What stands in a page where the element that was there plays in the bar. */
+	private placeholder(doc: Document): HTMLElement {
+		const here = doc.createElement("span");
+		here.className = HERE_CLASS;
+		here.tabIndex = -1;
+		here.textContent = HERE;
+		return here;
+	}
+
+	/** The window's one live region: made once, empty, outside the bar (a bar that goes takes nothing with it). */
+	private liveOf(doc: Document): Live {
+		let l = this.lives.get(doc);
+		if (l?.el.isConnected) return l;
+		const el = doc.createElement("div");
+		el.className = `${LIVE} booklet-sr`;
+		el.setAttribute("aria-live", "polite");
+		el.setAttribute("aria-atomic", "true");
+		doc.body.appendChild(el);
+		l = { el, timer: null };
+		this.lives.set(doc, l);
+		return l;
+	}
+
+	/** Says `text`: the region is emptied first and filled a moment later, so that the same words twice are two changes and the first is not missed. */
+	private say(doc: Document, text: string): void {
+		const win = doc.defaultView;
+		if (this.gone || !win) return;
+		const l = this.liveOf(doc);
+		if (l.timer !== null) win.clearTimeout(l.timer);
+		l.el.textContent = "";
+		l.timer = win.setTimeout(() => {
+			l.el.textContent = text;
+			l.timer = win.setTimeout(() => {
+				l.el.textContent = "";
+				l.timer = null;
+			}, CLEAR_MS);
+		}, SAY_MS);
 	}
 
 	/** A row of the bar: the label, then (where the element goes) the two buttons. */
@@ -277,10 +387,7 @@ export class NowPlaying {
 		if (e.item) {
 			e.from = from;
 			if (this.playing(e)) {
-				const here = e.el.ownerDocument.createElement("span");
-				here.className = "booklet-nowplaying-here";
-				here.tabIndex = -1;
-				here.textContent = HERE;
+				const here = this.placeholder(e.el.ownerDocument);
 				e.here = here;
 				return here;
 			}
@@ -315,15 +422,22 @@ export class NowPlaying {
 	/** The bar goes when it holds no row. */
 	private tidy(doc: Document): void {
 		const bar = this.bars.get(doc);
-		if (!bar || bar.root.querySelector(".booklet-nowplaying-item")) return;
-		bar.root.remove();
+		if (!bar || bar.querySelector(".booklet-nowplaying-item")) return;
+		bar.remove();
 		this.bars.delete(doc);
 		doc.body.classList.remove("booklet-has-nowplaying");
 	}
 
-	/** An entry is done with: its listeners go, and the element too, unless a placeholder stands for it in a page that is showing. */
-	private release(e: Entry): void {
+	/**
+	 * An entry is done with: its listeners go, and the element too, unless a placeholder stands for it in a page that is showing. Where
+	 * focus was in its row (or on the element) it does not fall to nowhere: it goes to the element if it is back in a page, else to the
+	 * next row, else to where she was.
+	 */
+	private release(e: Entry, pressed = false): void {
 		const doc = e.el.ownerDocument;
+		// `pressed`: the reader used a button of the row, so focus was in it, whatever a browser does with a pressed button's focus
+		const lost = pressed || (!!e.item && (e.item.contains(doc.activeElement) || e.el === doc.activeElement));
+		const neighbour = e.item ? ((e.item.nextElementSibling ?? e.item.previousElementSibling) as HTMLElement | null) : null;
 		if (e.here?.isConnected) e.here.replaceWith(e.el);
 		else e.el.remove();
 		e.item?.remove();
@@ -331,6 +445,18 @@ export class NowPlaying {
 		e.here = null;
 		this.forget(e);
 		this.tidy(doc);
+		if (lost) this.refocus(e, neighbour);
+	}
+
+	/** Focus after a row went: the element in its page, the next row's first button, the place she was at, else the note she was in. */
+	private refocus(e: Entry, neighbour: HTMLElement | null): void {
+		if (e.el.isConnected) return e.el.focus();
+		const next = neighbour?.isConnected ? neighbour.querySelector<HTMLElement>("button") : null;
+		const back = e.returnTo?.isConnected ? e.returnTo : null;
+		if (next || back) return (next ?? back)?.focus();
+		const ws = this.deps.app.workspace;
+		const leaf = ws.getMostRecentLeaf?.();
+		if (leaf) ws.setActiveLeaf(leaf, { focus: true });
 	}
 
 	private forget(e: Entry): void {
@@ -373,30 +499,36 @@ export class NowPlaying {
 		if (!e.item) return;
 		const doc = e.el.ownerDocument;
 		const was = !e.el.paused;
+		const label = e.label;
 		e.closing = true;
 		e.el.pause();
 		if (was) {
 			const evt = new Event("pause");
 			this.mine.add(evt);
 			e.el.dispatchEvent(evt);
+		} else if (e.dirty) {
+			// scrubbed while paused, and no view followed it: the place she moved to is written as a pause writes it
+			void this.settle(e, "pause");
 		}
-		const back = !!e.here?.isConnected;
 		// the entry goes with the row: a later press on the element in the page lifts it afresh
-		const el = e.el;
-		this.release(e);
-		if (back) el.focus();
-		else doc.defaultView?.setTimeout(() => doc.body.focus?.(), 0);
+		this.release(e, true);
+		this.say(doc, `Closed ${label}`);
 	}
 
 	/* ---- the element's events, from the bar ---- */
 
 	private onEvent(e: Entry, evt: Event): void {
 		if (!e.item || (e.closing && !this.mine.has(evt))) return;
-		const box = e.here?.isConnected ? e.here.closest<HTMLElement>(BOX) : null;
+		// only the media of the box's `listen` is followed for it (another embed in the box is not)
+		const box = e.first && e.here?.isConnected ? e.here.closest<HTMLElement>(BOX) : null;
 		if (box) e.listen = e.from.about(box) ?? e.listen;
 		if (!(box && e.from.follow(evt, box))) this.headless(e, evt);
-		if (evt.type === "ended") this.release(e);
-		else if (evt.type === "error") this.failed(e);
+		if (evt.type === "ended") {
+			const doc = e.el.ownerDocument;
+			const label = e.label;
+			this.release(e);
+			this.say(doc, `${label} finished`);
+		} else if (evt.type === "error") this.failed(e);
 	}
 
 	/** No view follows the box it came from: the device store keeps the position as it plays, and the writer puts it in the note. */
@@ -447,6 +579,8 @@ export class NowPlaying {
 		e.pos = ev === "end" ? 0 : Math.floor(el.currentTime) || 0;
 		return this.deps.writer.apply(path, listen.key, ev, ev === "end" ? {} : { pos: el.currentTime, duration: el.duration }, listen.left).then((ok) => {
 			if (ok && !e.dirty) dropListen(this.deps.app, path, listen.key);
+			// the note did not take it: the place is still not in the note (the device store holds what it held), and the quit hook asks again
+			if (!ok && ev !== "end") e.dirty = true;
 			return ok;
 		});
 	}

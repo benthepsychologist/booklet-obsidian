@@ -282,6 +282,24 @@ test("never a seek while playing; a place that reaches the note from elsewhere m
 	v.close();
 });
 
+test("a write that fails keeps her place: it stays noted and kept on the device, and the redraw does not seek the paused element back to the note's older one", async () => {
+	// the note ends inside a code fence that is never closed, so no answer can be written after it
+	const v = open(COURSE + "\n```\nnever closed\n");
+	await v.settled();
+	v.m.fire("loadedmetadata");
+	v.m.fire("play");
+	v.m.tick(40);
+	v.m.fire("pause");
+	await v.settled();
+	assert.equal(v.answer(), undefined, "nothing could be written");
+	assert.deepEqual(v.m.seeks, [], "the element was never put back at the note's place");
+	assert.equal(v.m.currentTime, 40);
+	assert.deepEqual(v.kept(), { "/e1": { pos: 40, base: 0 } }, "the device still holds it");
+	assert.equal(v.where(), "Left off at 0:40", "and the box tells where she is");
+	assert.equal(v.view.hasUnsaved(), true, "the quit hook still knows");
+	v.close();
+});
+
 test("a place at or past the end starts at the beginning", async () => {
 	const v = open(core.setAnswer(COURSE, "", "e1", { pos: 700 }), { media: { duration: 600, currentTime: 9 } });
 	await v.settled();
@@ -308,6 +326,28 @@ test("the media of a followed box only: another listen's element, an element tha
 	loose.fire("play");
 	loose.tick(30);
 	loose.fire("pause");
+	assert.equal(v.disk.writes, 0);
+	v.close();
+});
+
+test("with the box's own media lifted into the bar, an embed in its help is still not its media", async () => {
+	const v = open(COURSE);
+	await v.settled();
+	// a placeholder stands where the box's own player was (the bar holds it)
+	const part = v.box().querySelector(".booklet-listen-media");
+	v.m.remove();
+	const here = document.createElement("span");
+	here.className = "booklet-nowplaying-here";
+	part.appendChild(here);
+	const extra = fakeMedia({ duration: 600 });
+	v.box().querySelector(".booklet-help").appendChild(extra);
+	extra.fire("loadedmetadata");
+	extra.fire("play");
+	extra.tick(50);
+	extra.fire("pause");
+	await v.settled();
+	assert.equal(v.answer(), undefined);
+	assert.equal(v.kept(), null);
 	assert.equal(v.disk.writes, 0);
 	v.close();
 });

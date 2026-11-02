@@ -59,6 +59,30 @@ test("with no embed the first link is the media (a video service's page is a lin
 	assert.equal(link("> ![[#^data]]\n").media, null, "a block embed is no media");
 });
 
+test("code is never the media: an embed or a link in a code span or a fenced block stays in the help as the author wrote it", () => {
+	const body = (lines) => lines.map((l) => `> ${l}`).join("\n") + "\n";
+	const of = (lines) => q(note(`> [!activity|a] A\n\n> [!listen|l] L\n${body(lines)}`), "l");
+	// the case that went wrong: the span comes first
+	const span = of(["Use `![[x.mp3]]` to embed", "![[real.mp3]]"]);
+	assert.deepEqual([span.media, span.help], ["![[real.mp3]]", "Use `![[x.mp3]]` to embed"]);
+	// fenced, with the real one after it
+	const fence = of(["```", "![[x.mp3]]", "```", "![[real.mp3]]"]);
+	assert.deepEqual([fence.media, fence.help], ["![[real.mp3]]", "```\n![[x.mp3]]\n```"]);
+	// an indented code block, and a tilde fence
+	assert.equal(of(["Before:", "", "    ![[x.mp3]]", "", "![[real.mp3]]"]).media, "![[real.mp3]]");
+	assert.equal(of(["~~~", "![a](x.mp3)", "~~~", "![[real.mp3]]"]).media, "![[real.mp3]]");
+	// code only: there is no media, and the help is the lines untouched
+	const only = of(["Use `![[x.mp3]]` to embed", "```", "![[y.mp3]]", "```"]);
+	assert.deepEqual([only.media, only.help], [null, "Use `![[x.mp3]]` to embed\n```\n![[y.mp3]]\n```"]);
+	// a link in code is no link; a real link after it is the media
+	const link = of(["See `[docs](https://example.org/d)`.", "[Watch](https://video.example.org/watch/x)"]);
+	assert.deepEqual([link.media, link.help], ["[Watch](https://video.example.org/watch/x)", "See `[docs](https://example.org/d)`."]);
+	assert.equal(of(["```", "https://example.org/in-code", "```"]).media, null);
+	// code embeds are not counted as embeds (the notice counts the ones the reader would see played)
+	assert.deepEqual(core.parseBooklet(note(`> [!activity|a] A\n\n> [!listen|l] L\n${body(["Use `![[x.mp3]]`.", "![[a.mp3]]"])}`)).unread, []);
+	assert.deepEqual(core.listenBody(["`![[x.mp3]]` and `![[y.mp3]]`", "![[real.mp3]]"]).embeds, 1);
+});
+
 test("a listen with no embed and no link, or a second embed, is listed in the notice and read as it can be", () => {
 	const none = core.parseBooklet(note("> [!activity|a] A\n\n> [!listen|l] Nothing\n> Only words.\n"));
 	assert.deepEqual(none.unread.map((u) => [u.line, u.why, u.newer]), [[10, "a `listen` holds no embed and no link, so there is nothing to play, and the tick is all it has", false]]);
@@ -292,4 +316,19 @@ test("two answers blocks: a listen held in an earlier block is written whole in 
 	const next = core.setAnswer(orig, "", "e1", { pos: 9, note: "k" });
 	assert.deepEqual(norm(core.parseBooklet(next).records.answers[""]), { e1: { pos: 9, note: "k" }, t: "words" });
 	assertOutsideUnchanged(orig, next, "two blocks");
+});
+
+test("smallestEdit keeps the common start and end and replaces only what lies between (one function for both writers)", () => {
+	const apply = (a, b) => {
+		const e = core.smallestEdit(a, b);
+		assert.equal(a.slice(0, e.from) + e.text + a.slice(e.to), b, `${a} -> ${b}`);
+		return [e.from, e.to, e.text];
+	};
+	assert.deepEqual(apply("abcdef", "abXYef"), [2, 4, "XY"]);
+	assert.deepEqual(apply("abc", "abcdef"), [3, 3, "def"]);
+	assert.deepEqual(apply("abcdef", "abc"), [3, 6, ""]);
+	assert.deepEqual(apply("same", "same"), [4, 4, ""]);
+	assert.deepEqual(apply("aaa", "aaaa"), [3, 3, "a"], "a repeated character is not counted twice");
+	apply("", "new");
+	apply("old", "");
 });

@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import esbuild from "esbuild";
-import { click, quiet, testApp, window as w, words } from "./dom.mjs";
+import { click, quiet, testApp, until, window as w, words } from "./dom.mjs";
 import { assertOutsideUnchanged, core, fakeMedia, norm, ROOT } from "./helpers.mjs";
 import { Notice, useMediaRender } from "./obsidian-stub.mjs";
 
@@ -50,12 +50,12 @@ const BAR = ".booklet-nowplaying";
 /** An app with a device store and a vault of one note; `views` lists the Booklet views open on it. */
 function rig(text = COURSE, seed = {}) {
 	// a test that failed half way leaves its bar in the window
-	w.document.querySelectorAll(BAR).forEach((b) => b.remove());
+	w.document.querySelectorAll(`${BAR}, .booklet-nowplaying-live`).forEach((b) => b.remove());
 	w.document.body.classList.remove("booklet-has-nowplaying");
 	const disk = { text, writes: 0 };
 	const store = new Map(Object.entries(seed).map(([k, v]) => [k, JSON.stringify(v)]));
 	const app = testApp(disk, {
-		vault: { getFileByPath: (p) => (p === PATH ? { path: p } : null), cachedRead: async () => disk.text },
+		vault: { getFileByPath: (p) => (p === (disk.path ?? PATH) ? { path: p } : null), cachedRead: async () => disk.text },
 		loadLocalStorage: (k) => (store.has(k) ? JSON.parse(store.get(k)) : null),
 		saveLocalStorage: (k, d) => (d === null ? store.delete(k) : store.set(k, JSON.stringify(d))),
 	});
@@ -67,7 +67,7 @@ function rig(text = COURSE, seed = {}) {
 			const v = views.find((x) => x.view.file.path === path);
 			const l = v?.view.listenOf(key) ?? null;
 			if (!l) return null;
-			return { ...l, write: (value, written) => (used.view++, l.write(value, written)) };
+			return { ...l, write: (value, written, failed) => (used.view++, l.write(value, written, failed)) };
 		},
 	});
 	const shown = [];
@@ -80,13 +80,14 @@ function rig(text = COURSE, seed = {}) {
 		shown,
 		used,
 		views,
+		writer,
 		kept: () => (store.has(STORE) ? JSON.parse(store.get(STORE)) : null),
 		answer: (key = "e1") => norm(core.parseBooklet(disk.text).records.answers[""]?.[key]),
 		/** A Booklet view of the note, on `screen`. */
-		open(screen = "activity:/course") {
+		open(screen = "activity:/course", path = PATH) {
 			const leaf = { app, setViewState: async (vs) => view.setState(vs.state, {}) };
 			const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" }, media: new MediaAllows(null, () => {}), nowPlaying: np });
-			view.file = { path: PATH, basename: "Note.booklet" };
+			view.file = { path, basename: path.replace(/\.md$/, "") };
 			view.load();
 			void view.setState({ version: 2, screen }, {});
 			view.setViewData(disk.text, true);
@@ -123,6 +124,8 @@ function rig(text = COURSE, seed = {}) {
 }
 
 const bar = () => w.document.querySelector(BAR);
+/** The window's one live region (outside the bar). */
+const live = () => w.document.querySelector(".booklet-nowplaying-live");
 const items = () => [...w.document.querySelectorAll(`${BAR} .booklet-nowplaying-item`)];
 const tidy = (r) => {
 	r.np.dispose();
@@ -166,8 +169,9 @@ test("the bar is named: its prompt, a polite live line, two real buttons of 44 p
 	assert.equal(item.getAttribute("role"), "group");
 	assert.equal(words(item.querySelector(".booklet-nowplaying-label")), "Episode 1: Foundations");
 	assert.equal(item.getAttribute("aria-labelledby"), item.querySelector(".booklet-nowplaying-label").id);
-	const live = bar().querySelector('[aria-live="polite"]');
-	assert.equal(words(live), "Now playing: Episode 1: Foundations");
+	assert.equal(bar().querySelector("[aria-live]"), null, "the live region is not in the bar: a bar that goes would take it");
+	assert.equal(words(live()), "", "and it is empty until a tick after the press");
+	await until(() => words(live()) === "Playing Episode 1: Foundations", "the press said");
 	const back = item.querySelector("button.booklet-nowplaying-back");
 	const close = item.querySelector("button.booklet-nowplaying-close");
 	assert.equal(words(back), "Back to the page");
@@ -182,7 +186,7 @@ test("the bar is named: its prompt, a polite live line, two real buttons of 44 p
 	v.view.contentEl.appendChild(other);
 	other.fire("play");
 	assert.equal(words(items()[1].querySelector(".booklet-nowplaying-label")), "some talk.mp3");
-	assert.equal(words(live), "Now playing: some talk.mp3");
+	await until(() => words(live()) === "Playing some talk.mp3", "the second press said");
 	await v.close();
 	tidy(r);
 });
@@ -691,21 +695,25 @@ test("a press-to-load slot for media the bar holds shows what stands for it, not
 	await v.go("activity:/more");
 	const slot = { type: "media", media: "audio", addr: src, alt: "A talk", host: "media.example.org", allowed: true, entry: "example.org" };
 	const owner = { register() {} };
-	const el = w.document.createElement("div");
-	el.textContent = "" + "0" + "";
-	const g = await import("./.build/view.mjs");
-	void g;
-	// the tokens are the gate's: the slot is drawn where the token stands
-	const core2 = core;
-	const t = core2.SLOT_OPEN + "0" + core2.SLOT_CLOSE;
-	el.textContent = t;
-	drawMedia(el, [slot], { isPress: () => true, ask() {}, resume: (s) => r.np.take(s, () => ({ path: PATH, state: {}, about: () => null, follow: () => false })) }, owner);
+	// a slot drawn into the media part of the same listen's box
+	const t = core.SLOT_OPEN + "0" + core.SLOT_CLOSE;
+	const piece = () => {
+		const box = w.document.createElement("div");
+		box.setAttribute("data-booklet-listen", "/e1");
+		const part = w.document.createElement("div");
+		part.className = "booklet-listen-media";
+		part.textContent = t;
+		box.appendChild(part);
+		return part;
+	};
+	const source = () => ({ path: PATH, state: {}, about: () => ({ key: "/e1", left: 120 }), follow: () => false });
+	const el = piece();
+	drawMedia(el, [slot], { isPress: () => true, ask() {}, resume: (s) => r.np.take(s, source, el) }, owner);
 	assert.equal(el.querySelector(".booklet-media-play"), null, "no Play button");
 	assert.ok(el.querySelector(".booklet-nowplaying-here"), "it plays in the bar");
 	m.fire("pause");
-	const el2 = w.document.createElement("div");
-	el2.textContent = t;
-	drawMedia(el2, [slot], { isPress: () => true, ask() {}, resume: (s) => r.np.take(s, () => ({ path: PATH, state: {}, about: () => null, follow: () => false })) }, owner);
+	const el2 = piece();
+	drawMedia(el2, [slot], { isPress: () => true, ask() {}, resume: (s) => r.np.take(s, source, el2) }, owner);
 	assert.ok(el2.contains(m), "paused, the very element is in the slot");
 	assert.equal(bar(), null);
 	await v.close();
@@ -733,6 +741,287 @@ test("no animation or transition in the bar's style: nothing to turn off under r
 	assert.match(block, /min-height: max\(44px/);
 	assert.match(block, /:focus-visible/);
 	assert.match(block, /z-index: var\(--layer-popover/);
+});
+
+/* ---- the fix round (lane L): rename, delete, writes that fail, extra embeds, shared addresses, Close, speech and focus ---- */
+
+const RENAMED = "Renamed.booklet.md";
+const gone = (ms = 15) => new Promise((res) => setTimeout(res, ms));
+
+test("rename while the bar holds the element: the next pause writes the NEW note, the device store follows, and the media of the renamed note is the bar's", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("loadedmetadata");
+	m.fire("play");
+	m.tick(5);
+	await v.close();
+	// Obsidian renames the file; main.ts moves the device store and tells the bar
+	r.disk.path = RENAMED;
+	r.np.rename(PATH, RENAMED);
+	m.tick(5);
+	await gone();
+	assert.equal(r.store.has(STORE), false, "nothing is kept under the old name");
+	assert.deepEqual(JSON.parse(r.store.get(`booklet-listen:${RENAMED}`))["/e1"].pos, 10, "the seconds are kept under the new one");
+	m.fire("pause");
+	await gone();
+	assert.deepEqual(r.answer(), { pos: 10, done: false }, "the renamed note holds the place");
+	assert.equal(r.store.has(`booklet-listen:${RENAMED}`), false);
+	assert.equal(r.store.has(STORE), false, "no orphan under the old name");
+	// reopened under its new name, the media of its listen is the bar's: a slot drawn there gets the element, not a second one
+	const piece = w.document.createElement("div");
+	const box = w.document.createElement("div");
+	box.setAttribute("data-booklet-listen", "/e1");
+	piece.className = "booklet-listen-media";
+	box.appendChild(piece);
+	const node = r.np.take("app://vault/media/ep1.mp3", () => ({ path: RENAMED, state: {}, about: () => ({ key: "/e1", left: 120 }), follow: () => false }), piece);
+	assert.equal(node, m, "paused, the very element takes the slot of the renamed note");
+	tidy(r);
+});
+
+test("a note deleted while the bar holds its element: what plays stops and goes, nothing is written, and the device keeps nothing", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("loadedmetadata");
+	m.fire("play");
+	m.tick(5);
+	await v.close();
+	m.tick(2);
+	await gone();
+	assert.ok(r.kept(), "the device keeps the second");
+	r.store.set("booklet-place:" + PATH, "2");
+	const writes = r.disk.writes;
+	r.np.deleted(PATH);
+	await gone();
+	assert.equal(m.paused, true);
+	assert.equal(m.isConnected, false);
+	assert.equal(bar(), null);
+	assert.equal(r.kept(), null);
+	assert.equal(r.store.has("booklet-place:" + PATH), false);
+	assert.equal(r.disk.writes, writes, "nothing was written");
+	assert.equal(r.np.unsaved(), false);
+	tidy(r);
+});
+
+test("a note whose records cannot be written: apply resolves false and the quit flush returns (through a view or not)", async () => {
+	const stuck = COURSE + "\n```\nnever closed\n";
+	const r = rig(stuck);
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("loadedmetadata");
+	m.fire("play");
+	m.tick(40);
+	await v.go("activity:/more");
+	const hang = (ms) => new Promise((res) => setTimeout(() => res("hung"), ms));
+	// through the view that shows the note: the view's own write path refused the change
+	assert.equal(await Promise.race([r.writer.apply(PATH, "/e1", "pause", { pos: 40, duration: 600 }, 120), hang(1500)]), false, "resolves false");
+	assert.equal(await Promise.race([r.np.flush().then(() => "returned"), hang(1500)]), "returned", "the quit hook is not held");
+	assert.equal(r.disk.text, stuck, "the note is as it was");
+	assert.equal(r.np.unsaved(), true, "the place is still not in the note, and says so");
+	assert.ok(r.kept(), "and the device still holds it");
+	await v.close();
+	// with no view
+	assert.equal(await Promise.race([r.writer.apply(PATH, "/e1", "pause", { pos: 40, duration: 600 }, 120), hang(1500)]), false);
+	assert.equal(await Promise.race([r.np.flush().then(() => "returned"), hang(1500)]), "returned");
+	assert.equal(r.disk.text, stuck);
+	tidy(r);
+});
+
+test("a writer that never answers does not hold the quit flush for more than its timeout", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("loadedmetadata");
+	m.fire("play");
+	m.tick(3);
+	await v.close();
+	// no note to write, no answer ever: apply is made to hang
+	r.writer.apply = () => new Promise(() => {});
+	const t0 = Date.now();
+	await r.np.flush();
+	const took = Date.now() - t0;
+	assert.ok(took >= 2500 && took < 6000, `returned after the 3 s limit (${took} ms)`);
+	tidy(r);
+});
+
+test("another embed in a listen's help is lifted like any media but writes nothing into the listen, whichever is pressed first", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const first = v.media();
+	const extra = fakeMedia({ duration: 600, src: "app://vault/media/extra.mp3?1700000000000" });
+	v.box().querySelector(".booklet-help").appendChild(extra);
+	// the help's embed is pressed first
+	extra.fire("loadedmetadata");
+	extra.fire("play");
+	extra.tick(50);
+	extra.fire("pause");
+	await gone();
+	assert.ok(items()[0].contains(extra), "lifted into the bar like any media");
+	assert.equal(r.answer(), undefined, "no place written into the listen");
+	assert.equal(r.kept(), null, "nor kept for it");
+	assert.equal(r.np.unsaved(), false);
+	// then the box's own, and then (with the box's own lifted out) the help's again
+	first.fire("loadedmetadata");
+	first.fire("play");
+	first.tick(7);
+	extra.fire("play");
+	extra.tick(30);
+	extra.fire("pause");
+	first.fire("pause");
+	await v.settled();
+	await gone();
+	assert.deepEqual(r.answer(), { pos: 7, done: false }, "only the box's own media wrote, and its own place");
+	tidy(r);
+	await v.close();
+});
+
+test("two listens on one file are two entries: a press on one never writes into the other, and each slot gets its own element back", async () => {
+	const same = "app://vault/media/same.mp3?1700000000000";
+	const text = HEAD + "\n> [!activity|course] The course\n\n> [!listen|e1] Part one\n> ![One](media/same.mp3)\n\n> [!listen|e2] Part two\n> ![Two](media/same.mp3)\n\n> [!activity|more] More\n\n> [!text|q1] What stayed with you?\n";
+	const r = rig(text);
+	const v = r.open();
+	await v.settled();
+	const m1 = v.media("e1", { duration: 600, src: same });
+	const m2 = v.media("e2", { duration: 600, src: same });
+	m1.fire("loadedmetadata");
+	m2.fire("loadedmetadata");
+	m1.fire("play");
+	m1.tick(10);
+	m2.fire("play");
+	m2.tick(20);
+	m2.fire("pause");
+	await v.settled();
+	assert.deepEqual([r.answer("e1"), r.answer("e2")], [undefined, { pos: 20, done: false }], "the press on the second wrote into the second");
+	m1.fire("pause");
+	await v.settled();
+	assert.deepEqual(r.answer("e1"), { pos: 10, done: false });
+	assert.deepEqual(r.answer("e2"), { pos: 20, done: false });
+	// both leave a placeholder; the page is drawn again: each slot is given its own
+	m1.fire("play");
+	m1.tick(1);
+	await v.go("activity:/more");
+	await v.go("activity:/course");
+	const boxOf = (id) => v.box(id).querySelector(".booklet-listen-media");
+	const source = (id) => () => ({ path: PATH, state: {}, about: () => ({ key: `/${id}`, left: 120 }), follow: () => false });
+	const piece = (id) => boxOf(id);
+	assert.equal(r.np.take("app://vault/media/same.mp3", source("e2"), piece("e2")), m2, "the second slot gets the second element (paused)");
+	assert.ok(r.np.take("app://vault/media/same.mp3", source("e1"), piece("e1"))?.classList.contains("booklet-nowplaying-here"), "the first slot is told the first still plays");
+	await v.close();
+	tidy(r);
+});
+
+test("Close on a paused element she scrubbed with no view open writes the place she moved to", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("loadedmetadata");
+	m.fire("play");
+	m.tick(10);
+	m.fire("pause");
+	await v.settled();
+	assert.deepEqual(r.answer(), { pos: 10, done: false });
+	await v.close();
+	// paused in the bar, no page: she drags the native scrubber
+	m.currentTime = 77;
+	m.fire("seeked");
+	assert.equal(r.np.unsaved(), true, "the moved place is not in the note");
+	click(items()[0].querySelector(".booklet-nowplaying-close"));
+	await gone();
+	assert.deepEqual(r.answer(), { pos: 77, done: false }, "written on Close");
+	assert.equal(r.kept(), null);
+	assert.equal(bar(), null);
+	tidy(r);
+});
+
+test("one live region per window, outside the bar, empty until a tick after the news: it says Playing, Closed and finished, and the same words twice are two changes", async () => {
+	const r = rig();
+	const region = live();
+	assert.ok(region && region.parentElement === w.document.body, "made with the plugin, in the body");
+	assert.equal(region.getAttribute("aria-live"), "polite");
+	assert.equal(words(region), "");
+	const v = r.open();
+	await v.settled();
+	const m = v.media();
+	m.fire("play");
+	assert.equal(words(region), "", "not in the task of the press");
+	await until(() => words(region) === "Playing Episode 1: Foundations", "Playing said");
+	assert.equal(live(), region, "the one region, not remade with the bar");
+	// Close says it, and the region outlives the bar
+	click(items()[0].querySelector(".booklet-nowplaying-close"));
+	assert.equal(bar(), null);
+	await until(() => words(region) === "Closed Episode 1: Foundations", "Closed said");
+	assert.ok(region.isConnected, "the bar going took nothing with it");
+	// the same news again: emptied first, then the words, so a change is seen
+	const seen = [];
+	new w.MutationObserver(() => seen.push(words(region))).observe(region, { childList: true, characterData: true, subtree: true });
+	m.fire("play");
+	await until(() => words(region) === "Playing Episode 1: Foundations", "Playing said again");
+	assert.ok(seen.includes(""), "it was emptied between the two");
+	// the end
+	m.fire("ended");
+	await until(() => words(region) === "Episode 1: Foundations finished", "finished said");
+	await v.close();
+	tidy(r);
+});
+
+test("focus after a row goes: to the element in a page that is showing, else the next row's button, else where she was, else the note's leaf; a row that ended with focus elsewhere takes none", async () => {
+	const r = rig();
+	const v = r.open();
+	await v.settled();
+	const a = v.media("e1");
+	const b = v.media("e2");
+	const origin = w.document.createElement("button");
+	origin.textContent = "Where she was";
+	w.document.body.appendChild(origin);
+	origin.focus();
+	a.fire("play");
+	b.fire("play");
+	await v.go("activity:/more");
+	// the page is gone: closing the first row hands focus to the second row's button
+	click(items()[0].querySelector(".booklet-nowplaying-close"));
+	assert.equal(items().length, 1);
+	assert.equal(w.document.activeElement, items()[0].querySelector("button"), "the next row's first button");
+	// the last row: focus goes back to where she was (the button she pressed from, still in the window)
+	click(items()[0].querySelector(".booklet-nowplaying-close"));
+	assert.equal(bar(), null);
+	assert.equal(w.document.activeElement, origin);
+	// where she was is gone too: the note's leaf is made the active one
+	origin.remove();
+	await v.go("activity:/course");
+	const c = v.media("e1");
+	c.fire("play");
+	const called = [];
+	r.app.workspace.getMostRecentLeaf = () => "leaf";
+	r.app.workspace.setActiveLeaf = (leaf, o) => called.push([leaf, !!o?.focus]);
+	await v.go("activity:/more");
+	click(items()[0].querySelector(".booklet-nowplaying-close"));
+	assert.deepEqual(called, [["leaf", true]]);
+	// an end with focus in the page does not take it
+	const other = w.document.createElement("button");
+	w.document.body.appendChild(other);
+	await v.go("activity:/course");
+	const d = v.media("e2");
+	d.fire("play");
+	other.focus();
+	d.fire("ended");
+	assert.equal(w.document.activeElement, other, "focus was elsewhere, and stays");
+	// an end with focus in the row moves it
+	const e2 = v.media("e1");
+	e2.tabIndex = 0;
+	e2.fire("play");
+	items()[0].querySelector("button").focus();
+	e2.fire("ended");
+	assert.equal(w.document.activeElement, e2, "focus went to the element, back in its page, not to the body");
+	other.remove();
+	await v.close();
+	tidy(r);
 });
 
 test("no notice was shown by any of this", () => {

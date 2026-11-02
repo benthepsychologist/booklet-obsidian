@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, MarkdownView, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -98,6 +98,7 @@ import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
 import { Listens, locate } from "./listen-view";
+import { markdownViewOf, replaceInEditor } from "./markdown-view";
 import type { ViewListen } from "./listen-writer";
 import type { LiftFrom, NowPlaying } from "./now-playing";
 import { keepFurthest, loadFurthest } from "./listen-store";
@@ -297,7 +298,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			path: () => (this.file ? this.file.path : null),
 			held: (t, q) => this.heldAnswer(t, q),
 			wrong: (t, q) => !!this.wrongOf(t, q),
-			write: (t, q, value, written) => this.commit(t, q, value, written),
+			write: (t, q, value, written, failed) => this.commit(t, q, value, written, failed),
 			idle: () => this.settleSoon(0),
 		});
 	}
@@ -655,7 +656,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// yet is handed the file), and taking it would take back answers just given. So the editor's text is taken. A
 		// change made to the file elsewhere reaches that editor a moment after this view is handed it, and is followed
 		// from there.
-		const md = this.file ? this.markdownViewOf(this.file) : null;
+		const md = this.file ? markdownViewOf(this.app, this.file.path) : null;
 		const live = md ? md.editor.getValue() : "";
 		if (md && live && live !== data) {
 			this.following = true;
@@ -680,7 +681,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 
 	/** The text a Markdown pane of the note holds now, if it differs from the view's (see setViewData). */
 	private followMarkdown(): void {
-		const md = this.file && this.book ? this.markdownViewOf(this.file) : null;
+		const md = this.file && this.book ? markdownViewOf(this.app, this.file.path) : null;
 		const live = md ? md.editor.getValue() : "";
 		if (live) this.take(live);
 	}
@@ -795,7 +796,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		void MarkdownRenderer.render(this.app, text, el, this.file ? this.file.path : "", drawing)
 			.then(() => {
 				if (ids.length) drawMarks(this, el, ids, cite, this.source);
-				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(), drawing);
+				if (gen === this.gen) drawMedia(el, gated.slots, this.mediaDeps(el), drawing);
 				this.host.nowPlaying?.restore(el, () => this.nowSource());
 				polish();
 			})
@@ -830,14 +831,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const found = this.nav && this.book ? locate(this.nav, key) : null;
 		if (!found) return null;
 		const { t, q } = found;
-		return { held: this.heldAnswer(t, q), wrong: !!this.wrongOf(t, q), write: (value, written) => this.commit(t, q, value, written) };
+		return { held: this.heldAnswer(t, q), wrong: !!this.wrongOf(t, q), write: (value, written, failed) => this.commit(t, q, value, written, failed) };
 	}
 
-	private mediaDeps(): MediaDeps {
+	/** `piece` is the element the Markdown is drawn into: the bar tells a `listen`'s media from another embed by where its slot is drawn. */
+	private mediaDeps(piece: HTMLElement): MediaDeps {
 		return {
 			isPress: isTrustedPress,
 			keepAlive: (player) => !!this.host.nowPlaying?.holds(player),
-			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource()) ?? null,
+			resume: (src) => this.host.nowPlaying?.take(src, () => this.nowSource(), piece) ?? null,
 			carry: (opener, slot) => this.pressed.keep(this.contentEl, opener, slot),
 			render: (markdown, into, owner) => MarkdownRenderer.render(this.app, markdown, into, this.file ? this.file.path : "", owner),
 			ask: ({ slot, opener, once, again }) => {
@@ -1887,15 +1889,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/* ---- answering ---- */
 
 	/** Shows an answer at once, then writes it: into the activity's draft when it repeats, else into the answers. */
-	private commit(t: Target, q: Question, value: AnswerValue | undefined, written?: () => void): void {
+	private commit(t: Target, q: Question, value: AnswerValue | undefined, written?: () => void, failed?: () => void): void {
 		const file = this.file;
-		if (!file) return;
+		if (!file) return failed?.();
 		// an answer of the wrong shape is kept as written: nothing typed or pressed replaces it (the writer refuses too)
 		const wrong = this.wrongOf(t, q);
 		if (wrong) {
 			new Notice(`Booklet: the answer was not saved. The note holds an answer to "${q.title || q.id}" that is not in the shape this question keeps, and it is kept as written.`);
 			this.syncWidgets();
-			return;
+			return failed?.();
 		}
 		if (this.book) {
 			const rec = this.book.records;
@@ -1914,7 +1916,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		}
 		const rule = this.dayRule();
 		const a = t.activity;
-		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.", written);
+		this.queue(file, (text) => (a.repeat ? setDraftAnswer(text, t.scope, a.id, q.id, value, a.daily ? rule : undefined) : setAnswer(text, t.scope, q.id, value)), "The answer was not saved.", written, failed);
 	}
 
 	/** Finalize: what was typed is written first, then the draft is kept as a dated entry. */
@@ -1958,34 +1960,16 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			});
 	}
 
-	/** An open Markdown view of the same note, if there is one. */
-	private markdownViewOf(file: TFile): MarkdownView | null {
-		let found: MarkdownView | null = null;
-		this.app.workspace.iterateAllLeaves((leaf) => {
-			const v = leaf.view;
-			if (!found && v instanceof MarkdownView && v.file === file) found = v;
-		});
-		return found;
-	}
-
 	private async write(file: TFile, change: (text: string) => string): Promise<void> {
 		let result: string;
-		const md = this.markdownViewOf(file);
+		const md = markdownViewOf(this.app, file.path);
 		if (md) {
 			// The note is also open as Markdown. Its editor holds what was typed there and is not saved yet,
 			// so the change goes into that editor, as the smallest edit (only the records region differs),
 			// and the Markdown view saves it. Obsidian's guidelines: use the Editor for an open note.
 			const editor = md.editor;
 			const before = editor.getValue();
-			const after = change(before);
-			if (after !== before) {
-				let p = 0;
-				const max = Math.min(before.length, after.length);
-				while (p < max && before.charCodeAt(p) === after.charCodeAt(p)) p++;
-				let s = 0;
-				while (s < max - p && before.charCodeAt(before.length - 1 - s) === after.charCodeAt(after.length - 1 - s)) s++;
-				editor.replaceRange(after.slice(p, after.length - s), editor.offsetToPos(p), editor.offsetToPos(before.length - s));
-			}
+			replaceInEditor(md, before, change(before));
 			result = editor.getValue();
 		} else {
 			// Atomic read-modify-write of the note on disk: the change runs on the fresh text, never on this view's copy.
