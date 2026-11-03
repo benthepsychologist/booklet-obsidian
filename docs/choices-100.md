@@ -2,7 +2,7 @@
 
 This is the one list of the choices the Obsidian plugin made where the Booklet format (SPEC 0.18) is silent, so that Ben rules only on the ones that are not already his own recorded words. It folds three sources into one: the README's "Choices made where the format is silent" bullets, the 0.12.0 table in `docs/choices-0120.md`, and what a sweep of `src/` and `styles.css` found that neither names.
 
-**Count.** 166 rows: 24 in A (they change what is written to a note) and 142 in B. By tier: 43 `ben-words`, 29 `plan`, 7 `design`, 87 `builder`. 101 source lines were folded into other rows (a row says "merges N source lines"). 20 entries in D are behaviours SPEC 0.18 now defines, so they are not rows; each covers one or more README or table lines. The merge tallies are the list-maker's own count, not a proof that every source line is accounted for. The tiers are only these four. A row is `ben-words` only when his words on that point are quoted with their file and date; a blanket "all as recommended" makes a row `plan`.
+**Count.** 168 rows: 24 in A (they change what is written to a note) and 144 in B (C-167 and C-168 were added by lane F on 2026-11-03, for two choices lane E2 made). By tier: 43 `ben-words`, 29 `plan`, 7 `design`, 89 `builder`. 101 source lines were folded into other rows (a row says "merges N source lines"). 20 entries in D are behaviours SPEC 0.18 now defines, so they are not rows; each covers one or more README or table lines. The merge tallies are the list-maker's own count, not a proof that every source line is accounted for. The tiers are only these four. A row is `ben-words` only when his words on that point are quoted with their file and date; a blanket "all as recommended" makes a row `plan`.
 
 Every row says what the plugin does in one sentence, why (quoted where a quote exists), where in the code (file and line, each found by searching the file), the source tier, and a suggestion. A suggestion is the list-maker's, never a ruling.
 
@@ -1232,7 +1232,7 @@ Every row says what the plugin does in one sentence, why (quoted where a quote e
   - Suggestion: keep as the plugin's own
   - From: hardening list rows 14 and 32
 
-### B. Appearance and mobile (9)
+### B. Appearance and mobile (11)
 
 - **C-152** · tier `ben-words`
   The view takes its colours, fonts and tints from Obsidian's own CSS variables only (no colour, shadow or font of its own), so it follows the theme, light and dark, and any community theme; the plugin only lays the view out and keeps it legible.
@@ -1299,12 +1299,28 @@ Every row says what the plugin does in one sentence, why (quoted where a quote e
   - From: hardening list row 16
 
 - **C-160** · tier `builder` (merges 2 source lines)
-  At 200% text on a 320 px phone Obsidian's own folded callout (a "Transcript") is 41 px wider than its box and its arrow sits 5 px past the window; with the allow card scrolled to its top its Close footer lies over the foot of the content. Both were left unchanged.
-  - Why: Older than 0.12.0 and Obsidian's own callout; Obsidian's own phone dialogs do the same.
-  - Where: `styles.css:2382`
-  - Source: Not ruled on: `docs/choices-0120.md` §8 (M) last two rows ("Not changed").
-  - Suggestion: keep as the plugin's own; Ben to say whether either is a 1.0.0 fix
+  At 200% text on a 320 px phone two things were wrong, and lane E2 (2026-11-03, measured in Obsidian 1.14.5 by `e2e/phone-200-100.js`) fixed both. (1) The Allow card's scrolling part was 275 px of a 568 px window and its last line in view was cut at the scroll area's edge by the Close footer (the footer is in flow under the scroll area, so nothing lay under it); the card now takes the window less a margin on a phone, its headings are the dialog's size, and a rule marks where the scrolling part ends: 327 px. (2) Obsidian's own folded callout (a "Transcript") had its fold arrow 11 px past the window; the callout title's row may now wrap, which it does only when the row is wider than its box.
+  - Why: Older than 0.12.0. The callout is Obsidian's own, so the wrap is a rule on `.booklet-view .callout-title` and applies to every callout inside the plugin's view (see C-168).
+  - Where: `styles.css:2088` (the callout title); `styles.css:2487` to `2499` (the card on a phone, its headings, the rule over the footer)
+  - Source: Ben's ruling of 2026-11-03 is in section E (*"fix, allow the card for the two layout faults"*). Earlier: not ruled on, `docs/choices-0120.md` §8 (M) last two rows ("Not changed"). Built in `0629614`.
+  - Suggestion: keep as the plugin's own
   - From: `docs/choices-0120.md` §8 (M)
+
+- **C-167** · tier `builder`
+  The focus ring of the plugin's own controls is the text colour. The plugin's rules for links, disclosures, `role=button`, cards, charts, sort heads, the kept-entries fold, steps and the Continue prompt draw the ring in `var(--text-normal)`, and one rule gives the buttons, fields and media players inside the view and the Allow card an outline in `var(--text-normal)`, 2 px wide and 3 px off the control. That rule overrides Obsidian's own ring on those controls (Obsidian's pale ring stays inside it, so the control has a double ring). Obsidian's ring on its own controls elsewhere (its settings page, its menus) is not touched. The Now playing bar's accent ring is unchanged.
+  - Why: Obsidian's ring is the theme's pale focus border, 1.74 to 1.88 to 1 on the page and cards in the light theme, 1.98 to 2.29 in the dark and 1.47 on a tinted card; a keyboard reader needs 3 to 1 (WCAG 1.4.11). The text colour is Obsidian's own variable, so a theme that changes its colours changes the ring with them.
+  - Where: `styles.css:2381` (the one rule for buttons, fields and players); the other rules each carry `var(--text-normal)` in their `:focus-visible` block
+  - Source: Not ruled on. Related: Ben, 2026-11-03, hub item `plugin-100-release`, Rulings: *"A is fine, sticking with obsidian's theme colors for now"* (contrast that follows the theme); the same section adds that "the focus ring gets the second look the review page recommended" (the hub item's words, not his). Built in `14889fc`, measured by `e2e/focus-ring-100.js`.
+  - Suggestion: keep, Ben to say if he reads Obsidian's own controls more narrowly
+  - From: `docs/accessibility-100.md` finding 10; lane E2
+
+- **C-168** · tier `builder`
+  The callout-title wrap of C-160 applies to every callout inside the plugin's view, not only a folded "Transcript": `.booklet-view .callout-title { flex-wrap: wrap }`. Obsidian's own rule is a single row of picture, title and fold arrow that does not wrap; with the plugin's rule the row wraps only when the title is wider than its box. A callout outside the plugin's view is not touched.
+  - Why: The row is Obsidian's own markup; one rule on the view is the small contained change C-160's ruling allowed. A rule for one callout kind would be a list of one-off views.
+  - Where: `styles.css:2088`
+  - Source: Not ruled on. Related: Ben, 2026-11-03, hub item `plugin-100-release`, Rulings, item 9 (C-160): *"fix, allow the card for the two layout faults"*, read there (the hub item's reading, not his words) as "the callout is Obsidian's own and is fixed only if a small contained CSS change does it". Built in `0629614`.
+  - Suggestion: keep, Ben to say if he reads Obsidian's own controls more narrowly
+  - From: lane E2
 
 ### B. Settings (1)
 
@@ -1466,9 +1482,9 @@ Each of these was a plugin choice once (or a README bullet that says so). SPEC 0
 
 ## E. Rulings, 2026-11-03
 
-Ben ruled on this list in chat on 2026-11-03, on the choices review page (`briefs/2026-11-03-plugin-100-release-review.md` in the booklet hub; its section numbers are the ones used here). His words below are quoted from the hub item `plugin-100-release`, section "Rulings". Text after "Read as" is the main session's reading, not his, and is marked so. An outcome is one of: **kept as the plugin's own**, **changed**, or **listed for the spec** (`docs/spec-proposals-100.md`). "Changed" says what Ben decided; the code is built in the fix round, and this document does not say it is built.
+Ben ruled on this list in chat on 2026-11-03, on the choices review page (`briefs/2026-11-03-plugin-100-release-review.md` in the booklet hub; its section numbers are the ones used here). His words below are quoted from the hub item `plugin-100-release`, section "Rulings". Text after "Read as" is the main session's reading, not his, and is marked so. An outcome is one of: **kept as the plugin's own**, **changed**, or **listed for the spec** (`docs/spec-proposals-100.md`). "Changed" says what Ben decided; each "Built" line under it (added 2026-11-03 by lane F) says what lanes E1 and E2 actually built, read from their commits and the code, with the commit.
 
-No row text above this section was edited. One thing in the rows is struck by a ruling (below): C-161's mention of "no settings tab" and plan-100 point 10. The row text of C-161 and the paragraph in D1 that ask what "no settings tab" means stay as they were written, and this section replaces them.
+Lane F edited the row text of C-160 only, and added rows C-167 and C-168; every other row stands as written. One thing in the rows is struck by a ruling (below): C-161's mention of "no settings tab" and plan-100 point 10. The row text of C-161 and the paragraph in D1 that ask what "no settings tab" means stay as they were written, and this section replaces them.
 
 ### The 18 for the spec list (review section 1)
 
@@ -1488,15 +1504,18 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 **C-033. A page line inside a comment, a `<pre>` block or `$$`.**
 - Ben: *"B. A commented out page line should not appear"*.
 - Outcome: **changed** (a page line there is not read as a page), **and listed for the spec.**
+- Built (`1f32539`): a `> [!page` line that starts inside an HTML comment, a `<pre>` block or a `$$` block starts no page, so a commented-out page is not in the page menu or the trail; the line stays text and is not listed among the note's problems. **Only the page line changed.** A `> [!tab]` line in the same places is still read there, as before. This is an open point for Ben: the row's suggestion was to read a page line only where a tab line is read; the built rule is the other way round (the page line is not read, the tab line still is). The decision is whether a tab line inside a comment, a `<pre>` or a `$$` block should also stop being read. `docs/spec-proposals-e1.md` asks the spec to settle both the same way.
 
 **C-066. The `#own:` key.**
 - Ben: *"B. Clean it out and drop the promise. No back compat"*.
 - Outcome: **changed**: the key is renamed and the old-version promise is dropped.
+- Built (`e8cc579`): the words typed in a copy's *Add your own* field (a question asked for each pick) are held at `<key>#pick:<pick>`. The old key `<key>#own:<pick>` is no longer looked for, so words an earlier version held there are not found. The keys of a grid cell and of a body-map place (`<key>#own:<id>`) and of a plain field (`<key>#own`) are unchanged: they never shared a shape with a copy's key.
 
 **C-069. One row per entry, not per pick.**
 - Ben: *"B. Let' the plugin go ahead of the spec in this one case and note it for the next version of the spec."*
 - Read as: option B on the page was to change the plugin to the spec's one row per pick; the plugin then goes ahead of the reference renderer. The main session flagged this reading to Ben to confirm.
 - Outcome: **changed** (to one row per pick), **and listed for the spec.**
+- Built (`6ff2eae`): a question asked for each pick and named alone in `from:` gives one row per pick in a table, a list and cards, as it already did in tiles, bars and a line: in the source's order, the label the pick's words, the value the answer from the newest entry that answered it. The reference renderer still gives one row per entry in table, list and cards, and a "does not draw it yet" line in the other three, so the plugin is ahead of it; `docs/spec-proposals-e1.md` asks the renderer to follow.
 
 **C-093. Raw audio and video tags with a remote address.**
 - Ben: *"confirm"*.
@@ -1509,6 +1528,7 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 **C-079. `localhost`.**
 - Ben: *"localhost is local, not treated as remote"*.
 - Outcome: **changed.** The row says `http://localhost` and other addresses on the reader's machine are treated as remote; that is no longer the plugin's rule.
+- Built (`0a92ee3`): an `http:` or `https:` address that leads to the reader's own machine and nowhere else is local, as a vault file is, with any port: the host `localhost` or a name under `.localhost`, an address written as `127.a.b.c` (the whole `127.0.0.0/8` block), or `[::1]`. The host must be written in one of those forms. Forms a browser would turn into 127.0.0.1 (`http://2130706433/`, `http://127.1/`, `http://0x7f.1/`), `[::ffff:127.0.0.1]`, `localhost.` with a trailing dot, an address with a user name in front of the host, a LAN address (`192.168.x.x`, `10.x.x.x`), `0.0.0.0` and a name that merely holds the word (`localhost.example.org`) stay remote and are asked about. For a media embed and a media tag (`audio`, `video`, `source`, `track`, `img`) the address is left to Obsidian, not gated. A frame (`iframe`, `frame`, `object`, `embed`) or anything inside a `srcdoc` on the reader's own machine is a page, not a file to play, and is still held back.
 
 **C-161. The suggested services.**
 - Ben: *"spotify and soundcloud can stay as suggested services that's fine"*.
@@ -1519,6 +1539,7 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 - Ben: *"fix, allow the card for the two layout faults"*.
 - Read as: fix the Allow card's footer fault; the callout is Obsidian's own and is fixed only if a small contained CSS change does it, otherwise listed. The main session flagged this reading to Ben.
 - Outcome: **changed** (the Allow card), the callout **changed or listed** depending on whether a small CSS change does it.
+- Built (`0629614`): both. The card has more room to scroll in on a phone (275 px of 568 before, 327 px after, at 320 x 568 and 200% text) with a rule over its Close footer, and a callout title inside the plugin's view may wrap, so the fold arrow stays in the window (11 px past it before). The callout fix is one rule that applies to every callout in the view (C-168). Measured on Obsidian 1.14.5 only.
 
 **"No settings tab" (point 10 of the block, the subject of C-161's source and of D1's paragraph on it).**
 - Ben: *"strike this completely. We have settings, and if we need to add a new one here, it is not disallowed."*
@@ -1526,5 +1547,6 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 
 ### The audit calls
 
-- The Allow card's second defect (focus pulled back to Obsidian's Settings, and one Escape closing both, on Obsidian 1.11.7; `docs/accessibility-100.md`, finding 13). Ben: *"option A, do the fix so it doesn't escape to close both the popup and the card. that's annoying and it might actually block the allow-list usage"*. Outcome: **changed** (to be fixed in 1.0.0).
-- Contrast that comes from Obsidian's theme colours (`docs/accessibility-100.md`, findings 7 to 10). Ben: *"A is fine, sticking with obsidian's theme colors for now"*. Outcome: **kept as the plugin's own** (it follows the user's theme) and listed in the README's Accessibility section. The hub item adds that the focus ring gets the second look the review page recommended.
+- The Allow card's second defect (focus pulled back to Obsidian's Settings, and one Escape closing both, on Obsidian 1.11.7; `docs/accessibility-100.md`, finding 13). Ben: *"option A, do the fix so it doesn't escape to close both the popup and the card. that's annoying and it might actually block the allow-list usage"*. Outcome: **changed** (to be fixed in 1.0.0). Built (`5098737`): the card puts a key scope of its own on Obsidian's key stack while it is open, so Escape goes to the topmost scope only: it closes the card when the card is on top and Settings when Settings is, and Settings no longer pulls focus back from the card. The card's own document listener keeps Tab only. `e2e/allow-settings-100.js`: 9 of 16 facts passed before on 1.11.7, 21 of 21 pass after on both 1.11.7 and 1.14.5.
+- Contrast that comes from Obsidian's theme colours (`docs/accessibility-100.md`, findings 7 to 10). Ben: *"A is fine, sticking with obsidian's theme colors for now"*. Outcome: **kept as the plugin's own** (it follows the user's theme) and listed in the README's Accessibility section. The hub item adds that the focus ring gets the second look the review page recommended. Built (`14889fc`): the plugin's own focus rings are the text colour (C-167), the one place the colours were changed; the accent contrasts (findings 7 to 9) still follow the theme.
+- The settings page's heading. Not a ruling: lane E2 removed the "Allow list for media" heading from the settings page, which has one section only (`5098737`; no row held it).
