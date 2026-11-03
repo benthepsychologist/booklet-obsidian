@@ -158,6 +158,13 @@ PLAYWRIGHT=$S/npm/node_modules node phone-200-100.js --obsidian <binary> --out <
 ```
 It is a phone the way `mobile-checks.js` is (`app.emulateMobile(true)`, `Emulation.setDeviceMetricsOverride`, `--preferred-text-scale`), at 320x568 and 390x844, each at 100% and 200%, on the made-up Screen reader walk note. It measures the Allow card with its scroll area at the top, in the middle and at the end (the Close footer is in flow under the scroll area: nothing in view may lie under it; the height of the scroll area is recorded) and Obsidian's own folded callout (a "Transcript"): the page does not scroll sideways, the title ends inside its box and its fold arrow is inside the window. Screenshots and `<tag>-phone-200.json` go to `--out`. Before the rules in `styles.css` (the card's phone height and heading size, the rule over the footer, `.booklet-view .callout-title { flex-wrap: wrap }`), on 1.14.5 at 320x568 and 200%: the scroll area was 275 px and the arrow 11 px past the window; after: 327 px and the arrow inside.
 
+## Measure the focus ring (`focus-ring-100.js`)
+Not part of `plugin-check.js`: a script run by hand, once for each Obsidian version, for the ring a keyboard reader sees.
+```
+PLAYWRIGHT=$S/npm/node_modules node focus-ring-100.js --obsidian <binary> --out <dir> [--tag name] [--vault ../test-vault]
+```
+It presses the real Tab key through the opening screen, a wiki page with the Pages panel, every question kind, the kept-days views, the four dashboards, the Allow card in its three forms, the Now playing bar and (on a version that draws Settings in the main window) the plugin's settings page, in the light and the dark theme. At every stop, once Obsidian's 150 ms ease-in has finished, it reads the ring (an outline or a box shadow, its colour), the colour of the surface behind (every ancestor's background laid over the others) and the WCAG ratio of the two (a focus indicator needs 3:1, WCAG 1.4.11). It says whose ring it is by measuring it again with the plugin's stylesheet switched off: a ring that changes is the plugin's, one that does not is Obsidian's. It prints a table by control and theme, lowest ratio first, and writes `<tag>-focus-ring.json` (every stop) and `<tag>-focus-ring-table.json`.
+
 ## Running an older Obsidian
 The Linux tarballs of every release are on github.com/obsidianmd/obsidian-releases. Two things differ for an old one:
 - An old installer fetches the newest app code on its first start and runs that instead. `drive.js` writes `updateDisabled: true` into the scratch config's `obsidian.json` so the version asked for is the version run.

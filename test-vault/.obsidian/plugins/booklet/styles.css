@@ -376,7 +376,7 @@
 
 /* the rule above takes Obsidian's ring away with the button's shadow: a key that reaches the fold shows one */
 .booklet-entries .booklet-fold:focus-visible {
-	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	box-shadow: 0 0 0 2px var(--text-normal);
 }
 
 .booklet-fold-chevron {
@@ -1324,7 +1324,7 @@
 }
 
 .booklet-ch-svg:focus-visible {
-	outline: 2px solid var(--background-modifier-border-focus);
+	outline: 2px solid var(--text-normal);
 	outline-offset: 2px;
 }
 
@@ -1554,7 +1554,7 @@
 }
 
 .booklet-q-sort:focus-visible {
-	outline: 2px solid var(--background-modifier-border-focus);
+	outline: 2px solid var(--text-normal);
 	border-radius: var(--radius-s);
 }
 
@@ -1771,7 +1771,7 @@
 }
 
 .booklet-cardrow:focus-visible {
-	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+	box-shadow: 0 0 0 2px var(--text-normal);
 	outline: none;
 }
 
@@ -2250,7 +2250,7 @@
 }
 
 .booklet-step:focus-visible {
-	outline: var(--border-width) solid var(--background-modifier-border-focus);
+	outline: var(--border-width) solid var(--text-normal);
 	outline-offset: var(--size-2-2);
 }
 
@@ -2369,8 +2369,19 @@
 /* a link, a heading that works as a button (a folded group's) and a disclosure draw a ring when a key reaches them: Obsidian draws none on these.
    :where() keeps this at the lowest weight, so a control with a ring of its own (a card, a chart) keeps it. */
 :where(.booklet-view) :where(a, [role="button"], [role="link"], summary):focus-visible {
-	outline: 2px solid var(--background-modifier-border-focus);
+	outline: 2px solid var(--text-normal);
 	outline-offset: 2px;
+}
+
+/* The ring on the plugin's own controls. Obsidian's is the theme's pale focus border: 1.9 to 1 against white, 1.5 to 1 against a tinted card, 2.3 to 1
+   in the dark theme, where a keyboard reader needs 3 to 1. An outline in the text colour is 12 to 1 or more on every surface the plugin draws, in either
+   theme, and it is Obsidian's own variable, so a theme that changes its colours changes the ring with them. It stands off the control (3 px, past the pale
+   ring Obsidian keeps), which makes a double ring: the pale one against the control, the strong one against the page. Obsidian's ring on its own controls
+   elsewhere (its settings and menus) is not touched. */
+.booklet-view :is(button, input, textarea, select, audio, video):focus-visible,
+.booklet-allow :is(button, input, textarea, select):focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 3px;
 }
 
 /* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
@@ -2653,7 +2664,7 @@
 
 /* after a key press led here, a ring shows where focus went (the same ring as a link's) */
 .booklet-prompt:focus-visible {
-	outline: 2px solid var(--background-modifier-border-focus);
+	outline: 2px solid var(--text-normal);
 	outline-offset: 2px;
 }
 
