@@ -477,6 +477,24 @@ test("the Close button closes the panel and returns focus to the Pages button; E
 	p.close();
 });
 
+test("Escape with focus on the Pages button itself closes an open panel and keeps focus there; with the panel shut it is left alone for Obsidian", async () => {
+	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
+	await p.settled();
+	let reached = 0;
+	p.el.addEventListener("keydown", () => reached++);
+	assert.equal(isOpen(p), false);
+	assert.equal(press(btn(p), "Escape"), true, "shut: the key is not taken");
+	assert.equal(reached, 1, "and goes on up");
+	click(btn(p));
+	btn(p).focus();
+	assert.equal(isOpen(p), true);
+	assert.equal(press(btn(p), "Escape"), false, "open: the key is taken");
+	assert.equal(isOpen(p), false, "and closes the panel");
+	assert.equal(w.document.activeElement, btn(p), "focus stays on the button");
+	assert.equal(reached, 1, "and goes no further");
+	p.close();
+});
+
 test("on a phone the panel is a drawer: choosing a page closes it; focus goes to the panel, not the search box; a wide pane's panel stays open", async () => {
 	const style = w.document.createElement("style");
 	style.textContent = ".booklet-pagemenu { position: absolute; }";

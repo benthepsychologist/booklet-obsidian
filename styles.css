@@ -374,6 +374,11 @@
 	background-color: var(--background-modifier-hover);
 }
 
+/* the rule above takes Obsidian's ring away with the button's shadow: a key that reaches the fold shows one */
+.booklet-entries .booklet-fold:focus-visible {
+	box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+}
+
 .booklet-fold-chevron {
 	display: inline-flex;
 	color: var(--text-muted);
@@ -1653,6 +1658,8 @@
 /* the slash after a crumb belongs to it, so a wrapped trail never starts a line with one */
 .booklet-trail-link::after {
 	content: "/";
+	/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash" (a browser that does not know the form keeps the line above) */
+	content: "/" / "";
 	color: var(--text-faint);
 	margin-left: var(--size-4-2);
 }
@@ -2020,7 +2027,10 @@
 }
 
 .booklet-pagelink {
-	display: block;
+	display: flex;
+	align-items: center;
+	/* a target of at least 24 CSS px (WCAG 2.2, 2.5.8): the tree's rows are close together */
+	min-height: 24px;
 	padding: var(--size-2-1) var(--size-2-3);
 	border-radius: var(--radius-s);
 	color: var(--text-normal);
@@ -2051,11 +2061,6 @@
 .is-mobile .booklet-pagelink,
 .is-mobile .booklet-cardrow {
 	min-height: 44px;
-}
-
-.is-mobile .booklet-pagelink {
-	display: flex;
-	align-items: center;
 }
 
 /* ---- reading kinds, groups and callouts that hold questions, rows, steps and sources (0.7.0) ---- */
@@ -2726,4 +2731,14 @@
 /* the settings page's one write-in: Obsidian's input is 40px high on a phone before 1.11 */
 .booklet-settings .setting-item-control input[type="text"] {
 	min-height: max(44px, var(--input-height));
+}
+
+/* a hint in a box is text and is read: Obsidian's faint grey (2.3 to 1 on white in its default theme) gives way to the muted text colour (6.8 to 1) */
+.booklet-view input::placeholder,
+.booklet-view textarea::placeholder,
+.booklet-view .search-input-container input::placeholder,
+.booklet-allow-card input::placeholder,
+.booklet-settings input::placeholder {
+	color: var(--text-muted);
+	opacity: 1;
 }

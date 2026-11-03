@@ -74,10 +74,12 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	};
 
 	let stopGuard: (() => void) | null = null;
+	let stopKeys: (() => void) | null = null;
 	const close = (restore = true): void => {
 		if (closed) return;
 		closed = true;
 		stopGuard?.();
+		stopKeys?.();
 		if (open.get(o.doc) === handle) open.delete(o.doc);
 		root.remove();
 		if (restore) o.returnFocus?.()?.focus();
@@ -225,8 +227,14 @@ export function openAllowCard(o: CardOptions): AllowCard {
 
 	if (!req) button(card.createDiv({ cls: "modal-button-container" }), "Close", null, () => close());
 
-	// Escape closes, and Tab stays inside the card
-	root.addEventListener("keydown", (evt) => {
+	// Escape closes, and Tab stays inside the card. The keys are heard on the document, not on the card: with focus on the page behind it
+	// (or on nothing) a key never passes through the card, and Escape did nothing and Tab walked out into the note. A key aimed at another
+	// dialog (Obsidian's command palette, say) is that dialog's own and is left alone.
+	const onKey = (evt: KeyboardEvent): void => {
+		if (closed) return;
+		// (no `instanceof`: the card may live in a window of its own, whose Element is not this one)
+		const target = evt.target as Element | null;
+		if (target?.closest && !root.contains(target) && target.closest(".modal-container")) return;
 		if (evt.key === "Escape") {
 			evt.preventDefault();
 			evt.stopPropagation();
@@ -246,7 +254,9 @@ export function openAllowCard(o: CardOptions): AllowCard {
 			evt.preventDefault();
 			first.focus();
 		}
-	});
+	};
+	o.doc.addEventListener("keydown", onKey, true);
+	stopKeys = () => o.doc.removeEventListener("keydown", onKey, true);
 	backdrop.addEventListener("click", () => close());
 
 	const first = notNow ?? title;

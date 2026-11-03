@@ -104,8 +104,10 @@ export function drawPageMenu(host: ScreenHost, into: HTMLElement, tab: ActTab, h
 		state.query = input.value;
 		draw();
 	});
-	panel.addEventListener("keydown", (evt) => {
+	// Escape is heard on the button as well as in the panel: with the panel open, a reader who has Shift+Tabbed back to the button closes it there
+	side.addEventListener("keydown", (evt) => {
 		if (evt.key === "Escape") {
+			if (!state.open) return;
 			evt.preventDefault();
 			evt.stopPropagation();
 			if (evt.target === input && input.value) {

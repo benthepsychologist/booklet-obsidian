@@ -86,6 +86,51 @@ test("Tab stays inside the card, from the last control to the first and back", (
 	esc();
 });
 
+test("keys are heard with focus outside the card: Escape closes it, and Tab comes back in (the page behind it, nothing focused)", () => {
+	const { media } = lists({ allowedMediaHosts: ["youtube.com"] });
+	const behind = doc.body.createEl("button", { text: "A control behind the card" });
+	const key = (target, k, shiftKey = false) => target.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, shiftKey, bubbles: true, cancelable: true }));
+	const items = () => Array.from(card().querySelectorAll("button, input"));
+	// Escape, focus on the page behind the card
+	const back = doc.body.createEl("button", { text: "Allow list" });
+	open(media, { returnFocus: () => back });
+	behind.focus();
+	assert.ok(!card().contains(doc.activeElement));
+	key(behind, "Escape");
+	assert.equal(card(), null, "Escape with focus on a control behind the card closes it");
+	assert.equal(doc.activeElement, back, "and focus goes to where the card said");
+	// Escape, nothing focused: the key is aimed at the body
+	open(media);
+	doc.activeElement?.blur?.();
+	key(doc.body, "Escape");
+	assert.equal(card(), null, "Escape with nothing focused closes it");
+	// Tab from the page behind goes into the card, first control; Shift+Tab, last
+	open(media);
+	behind.focus();
+	key(behind, "Tab");
+	assert.equal(doc.activeElement, items()[0], "Tab from outside lands on the card's first control");
+	behind.focus();
+	key(behind, "Tab", true);
+	assert.equal(doc.activeElement, items().at(-1), "Shift+Tab from outside lands on its last control");
+	// a key aimed at another dialog is that dialog's own: Escape in a command palette does not close the card
+	const palette = doc.body.createDiv({ cls: "modal-container" });
+	const field = palette.createEl("input");
+	field.focus();
+	key(field, "Escape");
+	assert.ok(card(), "Escape in another modal leaves the card alone");
+	palette.remove();
+	// closed, the card hears nothing: no handler is left on the document
+	card().querySelector(".modal-button-container button").click();
+	assert.equal(card(), null);
+	open(media);
+	esc();
+	behind.focus();
+	key(behind, "Tab");
+	assert.equal(doc.activeElement, behind, "after the card closes, Tab is the page's again");
+	behind.remove();
+	back.remove();
+});
+
 test("the blank: youtube.com for the vault is kept as the host, allows https://*.youtube.com/*, and is saved in the data file's shape", async () => {
 	const { media, saved } = lists();
 	open(media);
