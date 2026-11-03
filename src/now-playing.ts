@@ -121,10 +121,10 @@ const keyOf = (path: string | null, slot: string, addr: string): string | null =
 /** Resolves with the promise's value, or false when it takes longer than `ms` or fails. */
 function within(p: Promise<boolean>, ms: number): Promise<boolean> {
 	return new Promise((done) => {
-		const t = setTimeout(() => done(false), ms);
+		const t = window.setTimeout(() => done(false), ms);
 		p.then(
-			(v) => (clearTimeout(t), done(v)),
-			() => (clearTimeout(t), done(false)),
+			(v) => (window.clearTimeout(t), done(v)),
+			() => (window.clearTimeout(t), done(false)),
 		);
 	});
 }
@@ -186,11 +186,10 @@ export class NowPlaying {
 		e.dirty = false;
 		e.base = null;
 		const bar = this.barOf(doc);
-		const item = this.itemOf(doc, e);
+		const item = this.itemOf(bar, e);
 		// one synchronous task from here: a gap that yields to the event loop would pause the element
 		const here = this.placeholder(doc);
 		el.before(here);
-		bar.appendChild(item);
 		item.insertBefore(el, item.querySelector(".booklet-nowplaying-back"));
 		e.item = item;
 		e.here = here;
@@ -312,12 +311,8 @@ export class NowPlaying {
 	private barOf(doc: Document): HTMLElement {
 		let root = this.bars.get(doc);
 		if (root?.isConnected) return root;
-		root = doc.createElement("div");
-		root.className = "booklet-nowplaying";
-		root.setAttribute("role", "region");
-		root.setAttribute("aria-label", "Now playing");
+		root = doc.body.createDiv({ cls: "booklet-nowplaying", attr: { role: "region", "aria-label": "Now playing" } });
 		this.bars.set(doc, root);
-		doc.body.appendChild(root);
 		doc.body.classList.add("booklet-has-nowplaying");
 		return root;
 	}
@@ -335,11 +330,7 @@ export class NowPlaying {
 	private liveOf(doc: Document): Live {
 		let l = this.lives.get(doc);
 		if (l?.el.isConnected) return l;
-		const el = doc.createElement("div");
-		el.className = `${LIVE} booklet-sr`;
-		el.setAttribute("aria-live", "polite");
-		el.setAttribute("aria-atomic", "true");
-		doc.body.appendChild(el);
+		const el = doc.body.createDiv({ cls: `${LIVE} booklet-sr`, attr: { "aria-live": "polite", "aria-atomic": "true" } });
 		l = { el, timer: null };
 		this.lives.set(doc, l);
 		return l;
@@ -362,12 +353,9 @@ export class NowPlaying {
 	}
 
 	/** A row of the bar: the label, then (where the element goes) the two buttons. */
-	private itemOf(doc: Document, e: Entry): HTMLElement {
-		const item = doc.createElement("div");
-		item.className = "booklet-nowplaying-item";
-		item.setAttribute("role", "group");
+	private itemOf(bar: HTMLElement, e: Entry): HTMLElement {
 		const labelId = `booklet-nowplaying-${++uid}`;
-		item.setAttribute("aria-labelledby", labelId);
+		const item = bar.createDiv({ cls: "booklet-nowplaying-item", attr: { role: "group", "aria-labelledby": labelId } });
 		item.createSpan({ cls: "booklet-nowplaying-label", text: e.label, attr: { id: labelId } });
 		const back = item.createEl("button", { cls: "booklet-nowplaying-back", text: "Back to the page", attr: { type: "button", "aria-describedby": labelId } });
 		const close = item.createEl("button", { cls: "booklet-nowplaying-close", text: "Close", attr: { type: "button", "aria-describedby": labelId } });

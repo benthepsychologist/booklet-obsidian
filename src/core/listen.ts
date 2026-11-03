@@ -20,7 +20,7 @@ export function leftValue(v: string): number | null {
  * An embed: Obsidian's file embed (`![[x.mp3]]`; `![[#^id]]` is a block embed, which is no media), the image syntax inline
  * (`![alt](url "title")`), and its reference forms (`![alt][id]`, `![id][]`, `![id]`).
  */
-const EMBED = /!\[\[[^\]\n#][^\]\n]*\]\]|!\[[^\]\n]*\]\([^)\n]*\)|!\[[^\]\n]*\]\[[^\]\n]*\]|!\[[^\]\n[]+\](?![(\[:])/g;
+const EMBED = /!\[\[[^\]\n#][^\]\n]*\]\]|!\[[^\]\n]*\]\([^)\n]*\)|!\[[^\]\n]*\]\[[^\]\n]*\]|!\[[^\]\n[]+\](?![([:])/g;
 
 /**
  * A link, found where no `!` stands before it (a prefix character is part of the first form, so there is no lookbehind): inline
