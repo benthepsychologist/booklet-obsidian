@@ -448,6 +448,8 @@ A spade, a fork and a trowel are enough.
       put(vault, "Links.md", LINKS_NOTE);
       put(vault, "Finish test.booklet.md", FINISH_NOTE);
       const link = async text => {
+        // the note was written after Obsidian started: wait until the vault has noticed it, or openFile gets nothing to open
+        await o.page.waitForFunction(rel => !!app.vault.getAbstractFileByPath(rel), "Links.md", { timeout: 8000 });
         await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel), { state: { mode: "preview" } }); }, "Links.md");
         await o.page.waitForSelector(".markdown-preview-view a.internal-link", { timeout: 8000 });
         await o.evaluate(() => document.querySelectorAll(".hover-popover").forEach(e => e.remove()));

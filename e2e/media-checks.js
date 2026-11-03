@@ -1334,9 +1334,10 @@ ${extra}> [!choice|q1] A question?
 
   /* ================= CHECK 57 ================= */
   // The gate on hostile spellings (lane G): the forms an HTML tokenizer or CommonMark reads as media although a plain pattern does not see them.
-  // Each is written twice, once at http://127.0.0.1:<port> (the server's own address, as the brief names it) and once at a made-up host the
-  // harness maps to the server over https (so the server's log sees it), and none may be requested before a press. Every file name carries its
-  // own input's id, so a request names the input that leaked.
+  // Each is written at a made-up host the harness maps to the server over https (so the server's log sees it), and none may be requested before
+  // a press. Every file name carries its own input's id, so a request names the input that leaked. (They were also written at
+  // http://127.0.0.1:<port>, the server's own address; since ruling C-079 an address on the reader's own machine is local, so Obsidian's own
+  // player or picture asks for it at once and the gate has nothing to hold back there. Loopback is tested in test/loopback.test.mjs.)
   const NOTE57 = "Hostile spellings.booklet.md", FILE57 = "File address.booklet.md";
   const NBSP = " ";
   function gate57(b, t) {
@@ -1356,7 +1357,7 @@ ${extra}> [!choice|q1] A question?
       { id: "g10", how: "none", text: `<video poster="${u("g10", "png")}"></video>` },
     ];
   }
-  const bases57 = ctx => [{ t: "lo", b: `http://127.0.0.1:${ctx.port}` }, { t: "hs", b: ctx.url("leak.example.org").replace(/\/$/, "") }];
+  const bases57 = ctx => [{ t: "hs", b: ctx.url("leak.example.org").replace(/\/$/, "") }];
   const note57 = ctx => {
     let t = front("hostile", "Hostile spellings") + "> [!activity|a] Hostile spellings\n\nEvery one of these is a remote media address; none may be asked for before a press.\n\n";
     const defs = [];
@@ -1368,7 +1369,7 @@ ${extra}> [!choice|q1] A question?
     return t + defs.join("\n\n") + "\n";
   };
   async function check57() {
-    const c = new Check(57, "0.12.0 the gate on hostile spellings in the real app: <video/src=...>, <video title=\"x\"src=...>, a no-break space, a backtick and a dollar in an address, an indented-four fence opener, a reference definition with its address on the next line, a video poster with no src: none is requested before a press (twice over: at 127.0.0.1 and at a made-up host); a comment and maths are told; a file:// address is told");
+    const c = new Check(57, "0.12.0 the gate on hostile spellings in the real app: <video/src=...>, <video title=\"x\"src=...>, a no-break space, a backtick and a dollar in an address, an indented-four fence opener, a reference definition with its address on the next line, a video poster with no src: none is requested before a press (at a made-up host); a comment and maths are told; a file:// address is told");
     await withMedia("c57", { hosts: ["leak.example.org"], note: NOTE57, data: { allowedMediaHosts: [], noteAllows: {} }, files: ctx => ({ [NOTE57]: note57(ctx), [FILE57]: front("file-address", "File address") + "> [!activity|a] File address\n\nA picture on a file address: ![x](file://hostname/share/a.png)\n\nAnd a link: [x](file://hostname/share/b.png)\n" }) }, async (o, ctx) => {
       const reqs = [], failed = [], msgs = [];
       o.page.on("request", r => { reqs.push({ t: Date.now(), url: r.url(), type: r.resourceType() }); });
@@ -1405,7 +1406,7 @@ ${extra}> [!choice|q1] A question?
       await o.page.locator(".booklet-allow-card button", { hasText: /^Allow once$/ }).click({ timeout: 5000 });
       const hit = await poll(() => ctx.hits("leak.example.org").some(e => /control\.wav/.test(e.url)), 6000, 100);
       c.ok(pressed && hit, `(control) the press on the one that asks, then Allow once, requests control.wav from the made-up host: ${hit}`);
-      const after = ctx.hits(null, "before-open").filter(e => /\/(lo|hs)-g\d/.test(e.url));
+      const after = ctx.hits(null, "before-open").filter(e => /\/hs-g\d/.test(e.url));
       c.ok(after.length === 0, `and the press asked for nothing of the hostile inputs: ${JSON.stringify(after.map(e => e.url))}`);
 
       // file:// with a host: only told. What Obsidian does with it, and whether anything shows in its console
@@ -1426,7 +1427,7 @@ ${extra}> [!choice|q1] A question?
       await o.evaluate(async rel => { const f = app.vault.getAbstractFileByPath(rel); const l = app.workspace.getLeaf("tab"); await l.setViewState({ type: "markdown", state: { file: f.path, mode: "preview" }, active: true }); }, BASE57);
       await sleep(3500);
       const baseline = reqs.slice(m2).filter(r => r.url.includes(`:${ctx.port}/`));
-      const names = baseline.map(r => r.url.replace(/^.*\/(lo|hs)-/, "$1-").replace(/\?.*$/, ""));
+      const names = baseline.map(r => r.url.replace(/^.*\/hs-/, "hs-").replace(/\?.*$/, ""));
       c.info(`the baseline, the same inputs in an ordinary note in Obsidian's own Reading view: Obsidian itself asks for ${JSON.stringify(names)}`);
       c.ok(names.length >= 3, `(baseline) Obsidian's own renderer asks for several of these inputs, so a count of none above is the plugin's gate and not an input nobody fetches: ${names.length}`);
     });
