@@ -108,6 +108,8 @@ const { BookletView, MediaAllows } = await import("./.build/view.mjs");
 export function testApp(disk, more = {}) {
 	const { vault, workspace, ...rest } = more;
 	return {
+		scope: {},
+		keymap: testKeymap(),
 		vault: {
 			process: async (_file, fn) => {
 				disk.writes++;
@@ -118,6 +120,34 @@ export function testApp(disk, more = {}) {
 		},
 		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {}, ...workspace },
 		...rest,
+	};
+}
+
+/**
+ * The app's key scopes as Obsidian keeps them: a stack, and a key goes to the topmost scope (or up through its parents) and to no scope
+ * below it; a handler that returns false takes the key. `scopes` is the stack, for a test that puts a modal's scope over a card's.
+ */
+export function testKeymap(win = w) {
+	const scopes = [];
+	win.addEventListener(
+		"keydown",
+		(evt) => {
+			const mods = evt.ctrlKey || evt.metaKey || evt.altKey || evt.shiftKey;
+			for (let s = scopes.at(-1); s; s = s.parent) {
+				const h = s.handlers.find((x) => x.key === evt.key && (x.modifiers === null || (x.modifiers.length === 0 && !mods)));
+				if (h && h.func(evt, {}) === false) {
+					evt.preventDefault();
+					evt.stopPropagation();
+					return;
+				}
+			}
+		},
+		true,
+	);
+	return {
+		scopes,
+		pushScope: (s) => void scopes.push(s),
+		popScope: (s) => void scopes.splice(scopes.indexOf(s), 1),
 	};
 }
 

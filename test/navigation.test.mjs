@@ -225,6 +225,38 @@ test("an activity of pages: the page under a page is a card on it, the trail nam
 	p.close();
 });
 
+test("the trail does not name the booklet twice: a module of one activity with no words, and an activity titled as its booklet, give one crumb", async () => {
+	const book = (body) => `---\nbooklet: "0.18"\ntitle: Garden wiki\n---\n\n${body}`;
+	// a module with no words of its own is called by the booklet's title, and so is its one activity's card and trail
+	const noModule = pane(book("> [!module|g]\n\n> [!activity|beds] Beds\n\nWords.\n\n> [!module|g end] E\n"));
+	await noModule.settled();
+	assert.equal(noModule.screen, "activity:g/beds");
+	assert.deepEqual(noModule.trail(), ["Garden wiki"], "one crumb, not 'Garden wiki / Garden wiki'");
+	noModule.close();
+	const same = pane(book("> [!activity|beds] Garden wiki\n\nWords.\n"));
+	await same.settled();
+	assert.deepEqual(same.trail(), ["Garden wiki"]);
+	same.close();
+	// on a page under the activity's first, the crumb that stays is the activity's, a link to its top; home is the pager's "Back to the overview"
+	const pages = pane(book("> [!activity|beds] Garden wiki\n\nWords.\n\n> [!page|soil] Soil\n\nSoil words.\n\n> [!page|compost parent:soil] Compost\n\nCompost words.\n"));
+	await pages.settled();
+	await pages.pageNext();
+	await pages.card("1.Compost");
+	assert.deepEqual(pages.trail(), ["Garden wiki", "Soil", "Compost"], "the activity once, then the page above, then the page");
+	const links = [...pages.el.querySelectorAll(".booklet-trail a")].map((a) => a.textContent.trim());
+	assert.deepEqual(links, ["Garden wiki", "Soil"], "the first link is the activity, not home");
+	await pages.trailTo("Garden wiki");
+	assert.equal(pages.screen, "activity:/beds", "it leads to the activity's top page");
+	assert.deepEqual(pages.trail(), ["Garden wiki"]);
+	pages.close();
+	// where the titles differ the trail is as it was: the booklet, then the activity
+	const apart = pane(book("> [!activity|beds] Beds\n\nWords.\n\n> [!activity|paths] Paths\n\nMore.\n"));
+	await apart.settled();
+	await apart.card("1.Beds");
+	assert.deepEqual(apart.trail(), ["Garden wiki", "Beds"]);
+	apart.close();
+});
+
 /* ---- the saved place ---- */
 
 test("the view's state is { version, screen, tab, part } beside the file, and a pane restored from it opens in the same place", async () => {

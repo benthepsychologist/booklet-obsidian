@@ -49,8 +49,11 @@ export function placeLink(host: ScreenHost, into: HTMLElement, cls: string, md: 
 /** The trail: from the booklet down, each step above the screen a link ("Learning to sketch / The basics / Lines that hold"). `noCurrent`: the last step is plain text and not marked as the page (the page menu marks it, and a screen has one). */
 export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], noCurrent = false): void {
 	const nav = page.createEl("nav", { cls: "booklet-trail", attr: { "aria-label": "Where you are" } });
+	// the booklet's title leads the trail as a link home; where the next crumb says the same words (a module of one activity with no
+	// words of its own is called by the booklet's title, and so is an activity titled as its booklet) it is that one that stays
+	const shown = crumbs[0]?.to && crumbs[0].md === crumbs[1]?.md ? crumbs.slice(1) : crumbs;
 	// the slash after each crumb but the last is drawn by the stylesheet, so it stays on the line its crumb ends on
-	crumbs.forEach((c) => {
+	shown.forEach((c) => {
 		const to = c.to;
 		if (to) placeLink(host, nav, "booklet-trail-link", c.md, to, c.scope);
 		else host.md(inlineMd(linkless(c.md)), nav.createSpan({ cls: "booklet-trail-here booklet-inline markdown-rendered", attr: noCurrent ? {} : { "aria-current": "page" } }));

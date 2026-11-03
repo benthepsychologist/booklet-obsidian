@@ -271,6 +271,22 @@ export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 });
 
 /** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
+/** A key scope: the handlers registered on it, by modifiers and key. The app's keymap (`app.keymap`) keeps a stack of them. */
+export class Scope {
+	constructor(parent) {
+		this.parent = parent;
+		this.handlers = [];
+	}
+	register(modifiers, key, func) {
+		const h = { modifiers, key, func };
+		this.handlers.push(h);
+		return h;
+	}
+	unregister(h) {
+		this.handlers = this.handlers.filter((x) => x !== h);
+	}
+}
+
 /** One class, shared by the copy bundled into test/.build/view.mjs and a test that imports this file (main.ts tests `instanceof FileView`). */
 export const FileView = (globalThis.__bookletStubFileView ??= class FileView extends Component {});
 export class TFile {}
