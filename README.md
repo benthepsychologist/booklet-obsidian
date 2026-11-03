@@ -439,3 +439,5 @@ SPEC 0.18 section 3 defines the page line and the tree (and `CHANGES.md` says wh
 ## Licence
 
 Apache-2.0. See `LICENSE`.
+
+**Third-party code.** One library is bundled into `main.js`: [monkey-around](https://github.com/pjeby/monkey-around) 3.0.0 by PJ Eby, declared ISC in its package. It is used in `src/switch.ts` to open a Booklet note in its own view. Its package carries no separate licence file or copyright line to reproduce here.
