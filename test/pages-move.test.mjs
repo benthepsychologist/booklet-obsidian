@@ -88,11 +88,11 @@ test("Next and Back walk the wiki: pages named on Next and Up, parts counted \"1
 test("the trail names the pages above: the activity, the tab when there is a tab bar, each page above as a link, then the page itself", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 5) });
 	await p.settled();
-	assert.deepEqual(p.trail(), ["A calm check-in", "A calm check-in", "Learn", "The feelings grid", "The two axes"]);
-	assert.deepEqual(p.all(".booklet-trail-link").map(p.words), ["A calm check-in", "A calm check-in", "Learn", "The feelings grid"], "the last is the screen itself, not a link");
+	assert.deepEqual(p.trail(), ["A calm check-in", "Learn", "The feelings grid", "The two axes"], "the booklet and its one activity are called the same: one crumb");
+	assert.deepEqual(p.all(".booklet-trail-link").map(p.words), ["A calm check-in", "Learn", "The feelings grid"], "the last is the screen itself, not a link");
 	await p.trailTo("The feelings grid");
 	assert.deepEqual(p.pageTitles(), ["The feelings grid"]);
-	assert.deepEqual(p.trail(), ["A calm check-in", "A calm check-in"], "a top page has no page above it: the trail ends at the activity as it did");
+	assert.deepEqual(p.trail(), ["A calm check-in"], "a top page has no page above it: the trail ends at the activity as it did");
 	// the tab's link opens that tab on its first page
 	const q = pane(WIKI, { state: wikiAt("wiki", 2) });
 	await q.settled();
