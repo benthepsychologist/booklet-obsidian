@@ -16,7 +16,7 @@
  * An address is read the way a browser reads it, not the way it is written: character references (`&#104;ttps://`, `&colon;`) are
  * undone, tabs and line breaks inside it dropped, and `https:/host` and `https:host` are as remote as `https://host` (spike B2,
  * Obsidian 1.14.5: each of these loads at render). A `file:` address with a host is a share on another machine and is as remote.
- * An `http:` or `https:` address that leads to the reader's own machine and nowhere else (`isLoopback` in media.ts: `localhost`, `*.localhost`,
+ * An `http:` or `https:` address that leads to the reader's own machine and nowhere else (`isLoopback` in media.ts: `localhost`,
  * 127.0.0.0/8 and `[::1]`, written in those forms) is local, as a vault file is: left to Obsidian, in a media embed and a media tag, but not a frame's.
  * A destination is read raw (a code span, maths or a comment inside it is part of the address), the way CommonMark reads it; a raw tag
  * is read the way an HTML tokenizer reads it (a `/` or no space between attributes, quoted or bare values, references undone).

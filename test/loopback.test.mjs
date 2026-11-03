@@ -1,6 +1,6 @@
 /*
  * An address on the reader's own machine is local (plan 1.0.0, C-079; Ben: "localhost is local, not treated as remote"). `isLoopback`
- * says yes only to the host `localhost` or a name under `.localhost`, an IPv4 address of 127.0.0.0/8 and IPv6 `::1`, written in
+ * says yes only to the host `localhost`, an IPv4 address of 127.0.0.0/8 and IPv6 `::1`, written in
  * those forms, over http or https, with any port. The gate leaves such a media embed to Obsidian's own player (no slot, no asking),
  * as it leaves a vault file; anything else stays remote and gated. Made-up addresses only (example.org, example.net, evil.example).
  */
@@ -21,8 +21,6 @@ const LOOPBACK = [
 	"http://localhost#x",
 	"HTTP://LOCALHOST/a.mp3",
 	"http://LocalHost:3000/a.mp3",
-	"http://media.localhost/a.mp3",
-	"http://a.b-c.localhost:9/a.mp3",
 	"http://127.0.0.1/a.mp3",
 	"https://127.0.0.1:8443/a.mp3",
 	"http://127.1.2.3/a.mp3",
@@ -37,6 +35,9 @@ const REMOTE = [
 	// names that merely hold the word, userinfo and fragments that try to say it
 	["localhost as the start of another name", "http://localhost.evil.example/a.mp3"],
 	["localhost as the end of another name", "http://evillocalhost/a.mp3"],
+	["a name under .localhost", "http://media.localhost/a.mp3"],
+	["a deeper name under .localhost, with a port", "http://a.b-c.localhost:9/a.mp3"],
+	["a name under .localhost, upper case", "http://EVIL.LOCALHOST/a.mp3"],
 	["a name ending in localhost with no dot", "http://notlocalhost.example/a.mp3"],
 	["localhost as userinfo", "http://localhost@evil.example/a.mp3"],
 	["localhost as userinfo with a password", "http://localhost:80@evil.example/a.mp3"],
@@ -106,7 +107,7 @@ const REMOTE = [
 	["an empty address", ""],
 ];
 
-test("isLoopback: the host localhost or under .localhost, 127.0.0.0/8 and [::1], over http or https, any port", () => {
+test("isLoopback: the host localhost, 127.0.0.0/8 and [::1], over http or https, any port", () => {
 	for (const a of LOOPBACK) assert.equal(isLoopback(a), true, a);
 });
 
@@ -118,7 +119,7 @@ const json = (g) => JSON.stringify(g.slots.map((s) => [s.type, s.addr]));
 
 test("the gate leaves a loopback media embed to Obsidian: no slot, text as written, in a block and in a title", () => {
 	const forms = (a) => [`![x](${a})`, `![x](<${a}>)`, `![x](${a} "a title")`, `![x][v]\n\n[v]: ${a}`, `![v]\n\n[v]: ${a}`, `![v][]\n\n[v]: ${a}`];
-	for (const a of ["http://localhost:8080/a.mp3", "http://127.0.0.1/a.mp4", "https://[::1]:9/a.ogg", "http://media.localhost/a.wav", "HTTP://LOCALHOST/a.mp3"]) {
+	for (const a of ["http://localhost:8080/a.mp3", "http://127.0.0.1/a.mp4", "https://[::1]:9/a.ogg", "HTTP://LOCALHOST/a.mp3"]) {
 		for (const text of forms(a)) {
 			const g = gateMedia(text, ctx("block"));
 			assert.deepEqual(g.slots, [], `${text} -> ${json(g)}`);
@@ -188,4 +189,11 @@ test("a loopback address next to a remote one in a note: only the remote one is 
 	assert.deepEqual(g.slots.map((s) => s.addr), ["https://evil.example/b.mp3", "http://127.0.0.1/d.mp3"], "the slot holds the address as a browser reads it");
 	assert.equal(g.slots[1].type, "refused", "http is never allowed, and the decimal form is not read as a loopback address");
 	assert.ok(g.text.includes("http://localhost:8080/a.mp3") && g.text.includes("http://127.0.0.1/c.mp3"));
+});
+
+test("a name under .localhost is remote and held back (the owner's list is the host localhost, 127.0.0.0/8 and [::1] only)", () => {
+	const g = gateMedia("![a](http://evil.localhost/a.mp3)\n\n![b](http://localhost/b.mp3)\n", ctx("block"));
+	assert.equal(g.slots.length, 1);
+	assert.equal(g.slots[0].addr, "http://evil.localhost/a.mp3");
+	assert.ok(!g.text.includes("evil.localhost") && g.text.includes("http://localhost/b.mp3"));
 });
