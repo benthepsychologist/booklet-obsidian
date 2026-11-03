@@ -1461,3 +1461,70 @@ Each of these was a plugin choice once (or a README bullet that says so). SPEC 0
 - Writing records: only what the reader changed is written; line endings and the byte order mark are kept; a draft left holding nothing is taken out; a number outside min and max is stored as typed. (SPEC 1157 to 1167; was: README "Choices made where the format is silent", Records bullet 4 (the draft half), the "changes only what the reader changed" pledge)
 - A question asked for each pick (`each:`) of every kind follows SPEC; a pair whose `a` holds nothing is no answer. (SPEC 589 to 627; was: README "Choices made where the format is silent", Records bullet 12)
 - Marking (a `choice` with several `[x]` takes the first; a `multi` takes all; an option of your own is never marked; a menu's option has no `[x]`): the README says the plugin does what SPEC section 5 and the reference renderer agree on. Not re-read line by line by this document. (SPEC 469 to 500 (not re-verified); was: README "Choices made where the format is silent", Records bullet 10)
+
+---
+
+## E. Rulings, 2026-11-03
+
+Ben ruled on this list in chat on 2026-11-03, on the choices review page (`briefs/2026-11-03-plugin-100-release-review.md` in the booklet hub; its section numbers are the ones used here). His words below are quoted from the hub item `plugin-100-release`, section "Rulings". Text after "Read as" is the main session's reading, not his, and is marked so. An outcome is one of: **kept as the plugin's own**, **changed**, or **listed for the spec** (`docs/spec-proposals-100.md`). "Changed" says what Ben decided; the code is built in the fix round, and this document does not say it is built.
+
+No row text above this section was edited. One thing in the rows is struck by a ruling (below): C-161's mention of "no settings tab" and plan-100 point 10. The row text of C-161 and the paragraph in D1 that ask what "no settings tab" means stay as they were written, and this section replaces them.
+
+### The 18 for the spec list (review section 1)
+
+Ben: *"yes to all 18 in Section 1"*.
+
+Outcome: **kept as the plugin's own, and listed for the spec.** The 18 rows are C-004, C-005, C-007, C-009, C-010, C-019, C-031, C-037, C-043, C-044, C-045, C-056, C-061, C-062, C-068, C-002, C-033 and C-069. The last three were also ruled on separately (below). The proposed lines are in `docs/spec-proposals-100.md`, with C-033, C-069 and the renderer-follows entry in `docs/spec-proposals-e1.md`.
+
+The 96 plain keeps (review section 2) were not named in his answer. They stand as keeps unless he objects (the hub item's own words, not his).
+
+### The ten calls (Section 2 of Ben's answer, in his numbering)
+
+**C-002. Writing through the Markdown editor loses CRLF and the byte-order mark.**
+- Ben: *"A as recommended"*.
+- Read as: leave it as it is, and list it for the spec.
+- Outcome: **kept as the plugin's own, and listed for the spec.**
+
+**C-033. A page line inside a comment, a `<pre>` block or `$$`.**
+- Ben: *"B. A commented out page line should not appear"*.
+- Outcome: **changed** (a page line there is not read as a page), **and listed for the spec.**
+
+**C-066. The `#own:` key.**
+- Ben: *"B. Clean it out and drop the promise. No back compat"*.
+- Outcome: **changed**: the key is renamed and the old-version promise is dropped.
+
+**C-069. One row per entry, not per pick.**
+- Ben: *"B. Let' the plugin go ahead of the spec in this one case and note it for the next version of the spec."*
+- Read as: option B on the page was to change the plugin to the spec's one row per pick; the plugin then goes ahead of the reference renderer. The main session flagged this reading to Ben to confirm.
+- Outcome: **changed** (to one row per pick), **and listed for the spec.**
+
+**C-093. Raw audio and video tags with a remote address.**
+- Ben: *"confirm"*.
+- Outcome: **kept as the plugin's own.**
+
+**C-134. YouTube and X addresses that end in `.png`.**
+- Ben: *"keep"*.
+- Outcome: **kept as the plugin's own.**
+
+**C-079. `localhost`.**
+- Ben: *"localhost is local, not treated as remote"*.
+- Outcome: **changed.** The row says `http://localhost` and other addresses on the reader's machine are treated as remote; that is no longer the plugin's rule.
+
+**C-161. The suggested services.**
+- Ben: *"spotify and soundcloud can stay as suggested services that's fine"*.
+- Read as: all four suggested services stay.
+- Outcome: **kept as the plugin's own.**
+
+**C-160. 200% text on a 320 px phone.**
+- Ben: *"fix, allow the card for the two layout faults"*.
+- Read as: fix the Allow card's footer fault; the callout is Obsidian's own and is fixed only if a small contained CSS change does it, otherwise listed. The main session flagged this reading to Ben.
+- Outcome: **changed** (the Allow card), the callout **changed or listed** depending on whether a small CSS change does it.
+
+**"No settings tab" (point 10 of the block, the subject of C-161's source and of D1's paragraph on it).**
+- Ben: *"strike this completely. We have settings, and if we need to add a new one here, it is not disallowed."*
+- Outcome: **struck.** C-161's mention of "no settings tab", and plan-100 point 10, are struck from the plan. The plugin's allow-list settings page stays; a new setting is not disallowed.
+
+### The audit calls
+
+- The Allow card's second defect (focus pulled back to Obsidian's Settings, and one Escape closing both, on Obsidian 1.11.7; `docs/accessibility-100.md`, finding 13). Ben: *"option A, do the fix so it doesn't escape to close both the popup and the card. that's annoying and it might actually block the allow-list usage"*. Outcome: **changed** (to be fixed in 1.0.0).
+- Contrast that comes from Obsidian's theme colours (`docs/accessibility-100.md`, findings 7 to 10). Ben: *"A is fine, sticking with obsidian's theme colors for now"*. Outcome: **kept as the plugin's own** (it follows the user's theme) and listed in the README's Accessibility section. The hub item adds that the focus ring gets the second look the review page recommended.

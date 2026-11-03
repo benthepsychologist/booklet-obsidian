@@ -1,3 +1,5 @@
+Dated record: the floor is now 1.11.7 (docs/floor-0130.md)
+
 # Choices in 0.12.0 where the format is silent
 
 This is the 0.12.0 sequel to the choices in the README (*Choices made where the format is silent*). Format 0.18 (SPEC draft, booklet pull request #95) says what a `listen` records, what an embed looks like and that "the file declares; the reader or the host allows". It says little about how a reader asks, how long an allow lasts, what a frame does, or when a position is written. The plugin chose in each of those places. Each row is one choice, the reason, and where it lives in the code, so that 1.0.0's review can go through them one at a time.

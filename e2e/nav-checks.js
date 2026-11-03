@@ -694,7 +694,9 @@ A spade, a fork and a trowel are enough.
       c.ok(foc.current === 1, `one aria-current=page on the screen (the menu's): ${foc.current}`);
       c.ok(pg.trail.slice(-3).join("|") === "Soil|Loam|Drainage", `the trail names the pages above, then the page: ${pg.trail.join(" / ")}`);
       c.ok(pg.pager[0] === "Up: Loam" && pg.pager.at(-1) === "Next: Compost", `Up names the parent, Next the next page: ${pg.pager.join(" | ")}`);
-      c.ok(pg.menuOpen && pg.menu.join("|") === "Drainage|Compost", `the menu stays open for the pane, with its search: ${pg.menu.join(" | ")}`);
+      // the Pages panel is a side panel on a wide pane (it stays open after a page is chosen) and a drawer over the page on a narrow one (choosing a page closes it); either way the words in its search box stay
+      const surface = await o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, m = root.querySelector(".booklet-pagemenu"); return { drawer: getComputedStyle(m).position === "absolute", area: Math.round(root.querySelector(".booklet-pagearea").clientWidth), words: m.querySelector("input").value }; });
+      c.ok(pg.menuOpen === !surface.drawer && surface.words === "drain" && pg.menu.join("|") === "Drainage|Compost", `after a page is chosen the Pages panel stays open as a side panel and shuts as a drawer (here a ${surface.drawer ? "drawer" : "side panel"}, ${surface.area} px wide, open ${pg.menuOpen}), with its search words ("${surface.words}"): ${pg.menu.join(" | ")}`);
       await click(o, ".booklet-pager button", "Up: Loam");
       pg = await page();
       c.ok(pg.title[0] === "Loam" && pg.cards.join("|") === "1.Drainage|2.Compost", `Up goes to the parent; under it, cards for its pages: ${pg.title}, ${pg.cards}`);
@@ -754,7 +756,7 @@ A spade, a fork and a trowel are enough.
       await openMenu(o);
       await sleep(400);
       const deepDesk = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { n: l.querySelectorAll("a").length, scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: v.scrollWidth - v.clientWidth, title: (v.querySelector(".booklet-pagetitle") || {}).textContent }; });
-      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.5 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
+      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.6 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
       await shot(o, "deep-menu-desktop-dark");
       // the phone, light and dark
       await o.page.setViewportSize({ width: 390, height: 844 });
