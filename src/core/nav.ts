@@ -339,15 +339,18 @@ function foldedGroups(segs: readonly Segment[]): number {
 function readsOf(markdown: string): number {
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
+	// a callout line a reader does not see (inside a closed comment, `<pre>` or `$$` block) is no callout to read, and holds no question
+	const { hidden } = visibleLines(lines);
 	let n = 0;
 	for (let i = 0; i < lines.length; i++) {
-		if (fenced[i]) continue;
+		if (fenced[i] || hidden[i]) continue;
 		const l = lines[i] ?? "";
 		const m = CALLOUT_LINE.exec(l);
 		if (!m || !m[1]) continue;
 		const k = bodyEnd(lines, i);
 		const kind = m[1].toLowerCase();
-		const holdsQuestion = lines.slice(i + 1, k).some((x) => {
+		const holdsQuestion = lines.slice(i + 1, k).some((x, j) => {
+			if (hidden[i + 1 + j]) return false;
 			const mm = CALLOUT_LINE.exec(x.replace(/^(?:>[ \t]?)+/, "> "));
 			return !!mm && QUESTION_LINE_KINDS.has((mm[1] ?? "").toLowerCase());
 		});
@@ -491,9 +494,10 @@ interface ModuleParts {
 /**
  * What a module holds before its first activity (SPEC section 3): its opening, its tab lines each with the prose after
  * it, and its notice. Read from lines [from, to) the way the reader reads them, so a fenced block and a widget
- * placed by reference are left out of the prose.
+ * placed by reference are left out of the prose. A line in `hidden` (it starts inside a closed comment, `<pre>` or `$$` block) is text
+ * a reader does not see: no tab, notice or page line there is read, and no fence opens there.
  */
-function moduleParts(lines: readonly string[], from: number, to: number, title: string): ModuleParts {
+function moduleParts(lines: readonly string[], hidden: readonly boolean[], from: number, to: number, title: string): ModuleParts {
 	const open: string[] = [];
 	const found: { title: string; id: string | null; body: string[] }[] = [];
 	const notice: [string, string][] = [];
@@ -501,7 +505,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 	let into = open;
 	for (let i = from; i < to; i++) {
 		const ln = lines[i] ?? "";
-		const f = FENCE_OPEN.exec(ln);
+		const f = hidden[i] ? null : FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
 			let n = k + 1;
@@ -512,7 +516,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 			i = hasId ? n : Math.min(k, lines.length - 1);
 			continue;
 		}
-		const m = CALLOUT_LINE.exec(ln);
+		const m = hidden[i] ? null : CALLOUT_LINE.exec(ln);
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
 			const k = bodyEnd(lines, i);
@@ -560,6 +564,7 @@ function statusOf(lines: readonly string[], at: number): string | null {
 
 export function buildNav(book: Booklet, text: string): NavModel {
 	const lines = splitLines(text).map((l) => l.text);
+	const hidden = visibleLines(lines, book.bodyStart).hidden;
 	const mods: NavMod[] = [];
 	const byKey = new Map<string, NavAct>();
 	const problems: string[] = [];
@@ -571,7 +576,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const written = (line?.[4] ?? "").trim();
 		const t = splitEmoji(m.title);
 		const firstAct = book.activities.find((a) => a.scope === m.id);
-		const parts = moduleParts(lines, bodyEnd(lines, m.line), firstAct ? firstAct.line : (m.endLine ?? lines.length), m.title);
+		const parts = moduleParts(lines, hidden, bodyEnd(lines, m.line), firstAct ? firstAct.line : (m.endLine ?? lines.length), m.title);
 		mods.push({
 			id: m.id,
 			bare: false,
@@ -1117,8 +1122,9 @@ function proseHeadings(markdown: string): string[] {
 	const out: string[] = [];
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
+	const { hidden } = visibleLines(lines);
 	for (const [i, l] of lines.entries()) {
-		if (fenced[i]) continue;
+		if (fenced[i] || hidden[i]) continue; // a heading or a callout title a reader does not see is no place to link to
 		const h = HEADING_WORDS.exec(l);
 		if (h && h[1]) out.push(h[1]);
 		else if (CALLOUT_ANY.test(l)) {

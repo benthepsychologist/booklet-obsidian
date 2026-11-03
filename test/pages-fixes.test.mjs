@@ -22,7 +22,7 @@ const only = (nav) => [...nav.byKey.values()][0];
 
 /* ---- S1: a page line inside a comment, a `<pre>` or a `$$` block; what "Mentioned on" counts ---- */
 
-test("a page line inside an HTML comment, a <pre> block or a $$ block starts no page (a commented-out page does not appear); a tab line there is still read", () => {
+test("a page line inside an HTML comment, a <pre> block or a $$ block starts no page (a commented-out page does not appear); nor does a tab line there", () => {
 	for (const marker of ["0.16", "0.18"]) {
 		for (const [name, wrap] of [
 			["comment", (x) => `<!--\n${x}\n-->`],
@@ -42,10 +42,10 @@ test("a page line inside an HTML comment, a <pre> block or a $$ block starts no 
 	// a page line after the comment has closed, or a comment that closes on the line before it, is read
 	const after = `${head()}> [!activity|a] A\n\n<!--\nold\n-->\n> [!page|seen] Seen page\n\nWords.\n\n<pre>\nx\n</pre>\n> [!page|seen2] Seen too\n\nWords.\n\n$$\nx\n$$\n> [!page|seen3] And this\n\nWords.\n`;
 	assert.deepEqual(only(build(after).nav).tabs[0].tree.map((p) => p.id), ["seen", "seen2", "seen3"]);
-	// a tab line in the same places is still read (the format leaves it open, and this change is about the page line)
+	// a tab line in the same places is not read either (the owner's ruling: nothing commented out appears; test/hidden-structure.test.mjs has the rest)
 	for (const wrap of [(x) => `<!--\n${x}\n-->`, (x) => `<pre>\n${x}\n</pre>`, (x) => `$$\n${x}\n$$`]) {
 		const tabText = `${head("0.18")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
-		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), true);
+		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), false);
 	}
 	// what is not a line start, or sits in a fence, stays text
 	const text = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\nAn inline \`> [!page|x] T\` and text.\n\n\`\`\`\n> [!page|x] T\n\`\`\`\n`;

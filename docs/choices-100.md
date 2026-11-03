@@ -273,7 +273,7 @@ Every row says what the plugin does in one sentence, why (quoted where a quote e
   - From: README Pages silent bullet 3; 0.11.0 call 2
 
 - **C-033** · tier `design`
-  A `> [!page` line at the start of a line inside an HTML comment, a `<pre>` block or a `$$` block is read as a page line there, as a `> [!tab]` line is.
+  A `> [!page` line at the start of a line inside an HTML comment, a `<pre>` block or a `$$` block is read as a page line there, as a `> [!tab]` line is. (This is the row as asked; Ben's ruling and what was built are under "C-033" in the rulings below, and the tab line was widened the same way on 2026-11-03.)
   - Why: SPEC does not cover a comment or `<pre>`, and lists the `$$` case as open (SPEC 1313); the plugin's "Mentioned on" ignores links in the same places, so the two disagree.
   - Where: `src/core/nav.ts:226`
   - Source: `design/pages/plugin-lead-notes.md` ("Page line in a comment, `<pre>` or `$$`"); row 33 of `design/obsidian-hardening/choices.md` (2026-11-01 researcher's list, 91 rows; not ruled on) says "ASK THE FORMAT, leaning CHANGE". Not ruled on.
@@ -1505,6 +1505,7 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 - Ben: *"B. A commented out page line should not appear"*.
 - Outcome: **changed** (a page line there is not read as a page), **and listed for the spec.**
 - Built (`1f32539`): a `> [!page` line that starts inside an HTML comment, a `<pre>` block or a `$$` block starts no page, so a commented-out page is not in the page menu or the trail; the line stays text and is not listed among the note's problems. **Only the page line changed.** A `> [!tab]` line in the same places is still read there, as before. This is an open point for Ben: the row's suggestion was to read a page line only where a tab line is read; the built rule is the other way round (the page line is not read, the tab line still is). The decision is whether a tab line inside a comment, a `<pre>` or a `$$` block should also stop being read. `docs/spec-proposals-e1.md` asks the spec to settle both the same way.
+- Built, widened (plugin 1.0.0, branch `feat/100-h-tabs`; Ben, 2026-11-03: *"nothing commented out should appear, take care of those too"*): the open point above is settled. A Booklet line of **any** kind (tab, activity, module, question, row, notice, data, group and the rest), a footnote definition and a heading as a link target are now read only where a reader sees them, by the same scan as the page line (`visibleLines`): nothing inside a closed comment, `<pre>` block or `$$` block is read as structure, and a hidden line says nothing among the note's problems. An opener with no closer hides nothing, as before. **Left as they were:** the records section, which is read from the raw file so that a closer in a saved answer cannot hide it (nothing is lost or misplaced); an Obsidian `%%` comment, which the ruling does not name; and a page break (`---`), the open item the spec lists. Tests: `test/hidden-structure.test.mjs`.
 
 **C-066. The `#own:` key.**
 - Ben: *"B. Clean it out and drop the promise. No back compat"*.

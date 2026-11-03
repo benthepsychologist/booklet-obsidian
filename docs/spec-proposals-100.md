@@ -2,7 +2,7 @@
 
 This is a list, not an edit. Each entry says which choice row of `docs/choices-100.md` it comes from, what the plugin does, and the line the spec could say. Changing `SPEC.md` is its own piece of work in the Booklet repository.
 
-Ben approved 18 rows for this list on 2026-11-03 ("yes to all 18 in Section 1"). Sixteen of them are here (the fifteen rows C-004 to C-068 named in the review, and C-002), with two spec sentences the review found. The other two of the 18 are C-033 (a page line inside a comment) and C-069 (one row per pick); with a third entry, that the renderer should follow the format, they live in `docs/spec-proposals-e1.md`, which the code lane writes.
+Ben approved 18 rows for this list on 2026-11-03 ("yes to all 18 in Section 1"). Sixteen of them are here (the fifteen rows C-004 to C-068 named in the review, and C-002), with two spec sentences the review found. The other two of the 18 are C-033 (a structure line inside a comment) and C-069 (one row per pick); with a third entry, that the renderer should follow the format, they live in `docs/spec-proposals-e1.md`, which the code lane writes.
 
 Every SPEC line number below was opened in `/workspace/booklet/SPEC.md` at its commit `ea964b0` (Format 0.18), on 2026-11-03. Where the spec already says part of a thing, the entry says so. The plugin code places are in each row of `docs/choices-100.md`; they were not re-opened for this list, except where an entry cites a `src/` line.
 

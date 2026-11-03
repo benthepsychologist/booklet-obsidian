@@ -631,10 +631,13 @@ const plainWords = (md: string): string =>
 		.trim()
 		.toLowerCase();
 
-/** Does the body hold a module line or an activity line, outside fences and the records region? */
-function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[]): boolean {
+/**
+ * Does the body hold a module line or an activity line, outside fences, the records region and the lines a reader does not see (`hidden`: a
+ * line that starts inside a closed comment, `<pre>` or `$$` block, as `visibleLines` says)?
+ */
+function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[], hidden: readonly boolean[]): boolean {
 	for (let i = from; i < lines.length; i++) {
-		if (inRegion[i]) continue;
+		if (inRegion[i] || hidden[i]) continue;
 		const f = FENCE_OPEN.exec(lines[i] ?? "");
 		if (f && f[1]) {
 			i = fenceEnd(lines, i, f[1]);
@@ -901,16 +904,17 @@ export function parseBooklet(text: string): Booklet {
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
 	const open: { lines: string[]; resume: number; kind: string }[] = [];
 
+	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block that really closes: no Booklet line there is read (a reader sees
+	// none of it). Index i is the same line of the file at every depth, for the body of a callout is read from the file's own lines with its `>` off
+	const hiddenStart = visibleLines(lines, fm.bodyStart).hidden;
+
 	// a file with no activity line and no module line is one activity, named by the front matter title (SPEC section 3): its prose, its tab
 	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries
-	if (!hasStructureLine(lines, fm.bodyStart, inRegion) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
+	if (!hasStructureLine(lines, fm.bodyStart, inRegion, hiddenStart) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && !hiddenStart[n] && l.trim())) {
 		started = true;
 		act = { id: "", title: frontMatter["title"] || "Activity", scope: "", line: -1, repeat: false, daily: false, entriesFolded: false, hidden: false, segments: [] };
 		activities.push(act);
 	}
-
-	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block: a page line there is not read (a reader sees no page)
-	const hiddenStart = visibleLines(lines, fm.bodyStart).hidden;
 
 	for (let i = fm.bodyStart; ; i++) {
 		if (i >= lines.length) {
@@ -969,8 +973,8 @@ export function parseBooklet(text: string): Booklet {
 		const m = CALLOUT_LINE.exec(ln);
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
-			if (kind === "page" && !open.length && hiddenStart[i]) {
-				// a commented-out page line (or one in a `<pre>` or `$$` block) starts no page and draws nothing a reader sees: it stays text
+			if (hiddenStart[i]) {
+				// a commented-out line (or one in a `<pre>` or `$$` block) of any kind starts nothing and draws nothing a reader sees: it stays text, and is not a problem
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i, k), i);
 				i = k - 1;
@@ -1231,7 +1235,8 @@ export function parseBooklet(text: string): Booklet {
 			// a reading callout (note, tip, hint, solution, group, diff, law, opinion, …): Obsidian draws it
 			const k = bodyEnd(lines, i);
 			if (act && section === "content") {
-				const nested = lines.slice(i + 1, k).some((l) => {
+				const nested = lines.slice(i + 1, k).some((l, n) => {
+					if (hiddenStart[i + 1 + n]) return false; // a question line a reader does not see makes the callout no container
 					const mm = CALLOUT_LINE.exec(l.replace(/^(?:>[ \t]?)+/, "> "));
 					return !!mm && QUESTION_KINDS.has((mm[1] ?? "").toLowerCase());
 				});
@@ -1253,9 +1258,9 @@ export function parseBooklet(text: string): Booklet {
 			i = k - 1;
 			continue;
 		}
-		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
+		if (CALLOUT_ANY.test(ln) && !hiddenStart[i]) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
 		const def = NOTE_DEF.exec(ln);
-		if (def && def[1] && !open.length) {
+		if (def && def[1] && !open.length && !hiddenStart[i]) {
 			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
 			const words = [(def[2] ?? "").trim()];
 			let j = i + 1;
