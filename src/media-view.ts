@@ -52,7 +52,7 @@ const hrefOf = (addr: string): string => {
  * puts it in the page and plays it.
  */
 export function createPlayer(doc: Document, slot: Playable): HTMLAudioElement | HTMLVideoElement {
-	const el = doc.createElement(slot.media);
+	const el = doc.win.createEl(slot.media);
 	el.controls = true;
 	el.setAttribute("preload", "metadata");
 	if (slot.media === "video") el.setAttribute("playsinline", "");
@@ -64,7 +64,7 @@ export function createPlayer(doc: Document, slot: Playable): HTMLAudioElement | 
 
 /** The framed player of a service the plugin frames itself (not YouTube's, which Obsidian draws): a sandboxed frame on the service's own embed address, with only what that player needs. */
 function createFrame(doc: Document, slot: Extract<MediaSlot, { type: "service" }>, embedUrl: string): HTMLIFrameElement {
-	const f = doc.createElement("iframe");
+	const f = doc.win.createEl("iframe");
 	f.className = `booklet-media-frame is-${slot.media}`;
 	f.setAttribute("data-booklet-player", "frame");
 	f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-presentation");
@@ -122,7 +122,7 @@ export class PressedSlot {
 }
 
 function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Component): HTMLElement {
-	const box = doc.createElement("div");
+	const box = doc.win.createDiv();
 	box.className = "booklet-media-slot";
 	box.setAttribute("data-booklet-media", slot.media);
 	box.setAttribute("data-state", slot.allowed ? "ready" : "blocked");
@@ -249,7 +249,7 @@ function playSlot(doc: Document, slot: Playable, deps: MediaDeps, owner: Compone
 }
 
 function otherSlot(doc: Document, slot: Exclude<MediaSlot, { type: "media" | "service" }>): HTMLElement {
-	const box = doc.createElement("div");
+	const box = doc.win.createDiv();
 	box.className = "booklet-media-slot";
 	box.setAttribute("data-booklet-media", slot.type);
 	if (slot.type === "refused") {
@@ -279,7 +279,7 @@ export function drawMedia(el: HTMLElement, slots: readonly MediaSlot[], deps: Me
 	for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes(SLOT_OPEN)) texts.push(n as Text);
 	for (const t of texts) {
 		const parent = t.parentElement;
-		const frag = doc.createDocumentFragment();
+		const frag = doc.win.createFragment();
 		t.data.split(TOKEN).forEach((part, n) => {
 			if (n % 2 === 0) {
 				if (part) frag.appendChild(doc.createTextNode(part));
@@ -316,7 +316,7 @@ export function drawLinkHosts(el: HTMLElement): void {
 			continue;
 		}
 		if (asAddress(a.textContent ?? "", u) || a.nextElementSibling?.classList.contains("booklet-link-host")) continue;
-		const host = a.ownerDocument.createElement("span");
+		const host = a.ownerDocument.win.createSpan();
 		host.className = "booklet-link-host";
 		host.textContent = ` (${u.host})`;
 		a.after(host);

@@ -76,13 +76,31 @@ w.Node.prototype.createSvg = function (tag, o, cb) {
 w.Node.prototype.instanceOf = function (T) {
 	return this instanceof T;
 };
-// the window a node is in (Obsidian's `node.win`)
+// the window a node is in (Obsidian's `node.win`); for a document, the window it is in
 Object.defineProperty(w.Node.prototype, "win", {
 	configurable: true,
 	get() {
-		return this.ownerDocument?.defaultView ?? w;
+		return this.defaultView ?? this.ownerDocument?.defaultView ?? w;
 	},
 });
+// Obsidian's helpers on a window (a pop-out window included): they make a loose element in that window's document, so that
+// `doc.win.createEl(...)` is an element of `doc`. Not on a Document: there `createEl` appends to the node it is called on.
+w.createEl = function (tag, o, cb) {
+	const el = apply(this.document.createElement(tag), o);
+	cb?.(el);
+	return el;
+};
+w.createDiv = function (o, cb) {
+	return this.createEl("div", o, cb);
+};
+w.createSpan = function (o, cb) {
+	return this.createEl("span", o, cb);
+};
+w.createFragment = function (cb) {
+	const el = this.document.createDocumentFragment();
+	cb?.(el);
+	return el;
+};
 
 for (const k of ["window", "document", "Node", "HTMLElement", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "Event", "KeyboardEvent", "FocusEvent"])
 	globalThis[k] = k === "window" ? w : w[k];

@@ -319,7 +319,7 @@ export class NowPlaying {
 
 	/** What stands in a page where the element that was there plays in the bar. */
 	private placeholder(doc: Document): HTMLElement {
-		const here = doc.createElement("span");
+		const here = doc.win.createSpan();
 		here.className = HERE_CLASS;
 		here.tabIndex = -1;
 		here.textContent = HERE;

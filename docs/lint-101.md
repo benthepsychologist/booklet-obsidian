@@ -7,7 +7,7 @@ Written 2026-11-03 for the 1.0.1 release. The linter is `eslint-plugin-obsidianm
 | | Errors | Warnings | Total |
 | --- | --- | --- | --- |
 | First run, on 1.0.0 as released | 5 | 26 | 31 |
-| Final run | 0 | 17 | 17 |
+| Final run | 0 | 4 | 4 |
 
 First run, per rule:
 
@@ -25,11 +25,10 @@ Final run, per rule:
 
 | Rule | Count | Level |
 | --- | --- | --- |
-| `obsidianmd/prefer-create-el` | 13 | warn |
 | `obsidianmd/ui/sentence-case` | 3 | warn |
 | `obsidianmd/settings-tab/prefer-setting-definitions` | 1 | warn |
 
-Every error is fixed. The 17 warnings that remain are listed below with the reason each was left.
+Every error is fixed. The 4 warnings that remain are listed below with the reason each was left. (A first pass of this work ended at 17 warnings, with 13 `prefer-create-el` left; those were fixed in a second pass, below.)
 
 ## Fixed (none of these changes what a reader sees)
 
@@ -39,22 +38,11 @@ Every error is fixed. The 17 warnings that remain are listed below with the reas
 - `prefer-window-timers`, `src/now-playing.ts` (`within`): `setTimeout` and `clearTimeout` are now `window.setTimeout` and `window.clearTimeout`.
 - `prefer-create-el`, the ones with a parent to create in: `src/allow-card.ts` (three `createEl("span", ...)` are `createSpan(...)`), and in `src/now-playing.ts` the bar, the live region and a bar row are made with `createDiv` on the element they go into (`doc.body`, or the bar) instead of made loose and appended on the next line. Same elements, same attributes, same place in the page.
 
+## Fixed in the second pass: the 13 loose-element warnings
+
+`src/media-view.ts` (six), `src/now-playing.ts` (one), `src/reading.ts` (five) and `src/view.ts` (one) made an element loose in a node's own document with `doc.createElement(...)` or `doc.createDocumentFragment()`, on purpose, so that it is made in the right window. They are now `doc.win.createEl(...)`, `createDiv()`, `createSpan()` and `createFragment()`, which the rule asks for. The document is the same one at every call (the `doc` the function was given, or the node's `ownerDocument`), and the window is that document's. The reason it is safe: a real-Obsidian probe (1.14.5 and 1.11.7) showed that in a pop-out window `win.createEl`, `createDiv`, `createSpan` and `createFragment` are functions at run time, `doc.win` is the pop-out window and `popW.createEl("div").ownerDocument` is the pop-out document. TypeScript did not know it (TS2339, `Window` has no such members in the `obsidian` 1.14.4 types), so `src/obsidian-window.d.ts` adds them to `Window` in one place; no cast at any call. The test helper `test/dom.mjs` gets the same four functions on its window, and `win` of a document is its window. One thing to keep: never call `createEl` or `createDiv` on a Document itself (the probe: it throws `HierarchyRequestError`, as it appends to the node it is called on); always on `doc.win`.
+
 ## Left as it is
-
-### `obsidianmd/prefer-create-el`, 13 warnings
-
-Where: `src/media-view.ts:55, 67, 125, 252, 282, 319`; `src/now-playing.ts:322`; `src/reading.ts:184, 195, 239, 247, 249`; `src/view.ts:643`.
-
-These are elements (and two fragments) made loose, in the document of the node they belong to (`doc.createElement(...)`, `a.ownerDocument.createElement(...)`), and put in the page by the caller a moment later, or handed to a caller who moves them. The document is passed on purpose so that an element made for a pop-out window is made in that window.
-
-The rule's suggestion is `doc.win.createEl(...)`, `doc.win.createDiv()`, `doc.win.createFragment()`. Reasons it was not taken:
-
-- It does not compile: in `obsidian` 1.14.4's types `Window` has no `createEl`, `createDiv`, `createSpan` or `createFragment` (checked with `tsc`: TS2339). The rule itself only offers it as a suggestion, not an automatic fix, for that reason.
-- That these helpers exist on a pop-out window's `Window` at run time could not be checked here (no Obsidian binary on this machine; the real-Obsidian suite in `e2e/` was not run). A wrong guess breaks the media player, the source panels and the now-playing bar in a pop-out window.
-- The jsdom test helper (`test/dom.mjs`) defines the helpers on `Element` only, so a change would also change what the tests stand on.
-- The alternative of the global `createEl(...)` would make the element in the main window's document and rely on adoption when it is inserted; that changes where it is made, which is a behaviour change this release does not take.
-
-To take it later: confirm in real Obsidian (pop-out window) that `win.createEl` exists, add the type, update the test helper, run `e2e/`.
 
 ### `obsidianmd/ui/sentence-case`, 3 warnings
 
