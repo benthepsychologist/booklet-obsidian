@@ -461,7 +461,9 @@ async function states(ctx) {
       out.push({ state: "now playing safe area" + (hidden ? ", bottom bar hidden" : ""), rows: [], failures: g, foot: f2 });
     }
   } catch (e) {
-    out.push({ state: "now playing safe area", rows: [], failures: [`[${tag}] could not set a safe area: ${e.message}`] });
+    // Chromium before Obsidian 1.14's has no Emulation.setSafeAreaInsetsOverride: nothing to measure there, which is not a failure of the plugin
+    if (/wasn't found/.test(e.message)) ctx.notes.push(`[${tag}] not measured: this Chromium has no Emulation.setSafeAreaInsetsOverride (the bottom safe area of the Now playing bar)`);
+    out.push({ state: "now playing safe area", rows: [], failures: /wasn't found/.test(e.message) ? [] : [`[${tag}] could not set a safe area: ${e.message}`] });
   } finally {
     await o.evaluate(() => document.body.classList.remove("is-hidden-nav"));
     await ctx.cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { bottom: 0 } }).catch(() => {});

@@ -164,13 +164,15 @@ module.exports = function mediaChecks(env) {
       const ytPlay = o.page.locator(BOOK + " .booklet-media-play", { hasText: "the talk" }).first();
       await ytPlay.scrollIntoViewIfNeeded();
       await ytPlay.click({ timeout: 5000 });
-      const got3 = await poll(() => ctx.hits("releases.obsidian.md", "press-3").length > 0, 6000);
+      // Obsidian 1.14 frames the video through its wrapper page (releases.obsidian.md/youtube?v=ID); 1.8.10 frames www.youtube.com/embed/ID itself
+      const got3 = await poll(() => ctx.hits("releases.obsidian.md", "press-3").length + ctx.hits("www.youtube.com", "press-3").length > 0, 6000);
       const r3 = ["releases.obsidian.md", ...SERVICE_HOSTS].flatMap(h => ctx.hits(h, "press-3")).map(e => e.headers.host + e.url.slice(0, 60));
       // 0.12.0 (lane B2): an allowed YouTube slot is rendered through Obsidian's own embed, whose frame is Obsidian's wrapper page
       const frame = await o.evaluate(sel => { const f = document.querySelector(sel + " .booklet-media-slot iframe"); return f ? { src: f.getAttribute("src") } : null; }, BOOK);
-      c.ok(got3 && frame && /^https:\/\/releases\.obsidian\.md\/youtube\?v=ABCDEFGHIJK/.test(frame.src), `control: a press on an allowed service's Play makes Obsidian's own YouTube frame in the slot, and that is when it is requested: ${JSON.stringify(r3)}; frame ${JSON.stringify(frame)}`);
-      const all = ctx.hits("releases.obsidian.md").length, after = ctx.hits("releases.obsidian.md", "press-3").length;
-      c.ok(all === after && after > 0, `Obsidian's YouTube wrapper (releases.obsidian.md) was asked for only after that press: ${all} request(s) in the session, ${after} of them after it`);
+      c.ok(got3 && frame && /^https:\/\/(releases\.obsidian\.md\/youtube\?v=|www\.youtube\.com\/embed\/)ABCDEFGHIJK/.test(frame.src), `control: a press on an allowed service's Play makes Obsidian's own YouTube frame in the slot, and that is when it is requested: ${JSON.stringify(r3)}; frame ${JSON.stringify(frame)}`);
+      const fh = frame ? new URL(frame.src).host : "releases.obsidian.md";
+      const all = ctx.hits(fh).length, after = ctx.hits(fh, "press-3").length;
+      c.ok(all === after && after > 0, `Obsidian's YouTube frame host (${fh}) was asked for only after that press: ${all} request(s) in the session, ${after} of them after it`);
     });
     return c;
   }
@@ -813,6 +815,11 @@ ${q52("q5", "Question five")}> [!module|m2 end] End of module two
         if (/\.booklet\.md$/.test(rel)) {
           // a booklet note reaches the Markdown view by the plugin's own header action
           await ctx.K.open(o, rel);
+          // Obsidian before 1.14 draws a Notice in the main window, over the header actions, and keeps it while the pointer is over it: dismiss it with a click, as a person would
+          if (await o.page.waitForSelector(".notice-container .notice", { timeout: 3000 }).then(() => true, () => false)) {
+            await o.page.locator(".notice-container .notice").first().click({ timeout: 3000 }).catch(() => {});
+            await o.page.waitForFunction(() => !document.querySelector(".notice-container .notice"), null, { timeout: 5000 }).catch(() => {});
+          }
           await o.page.locator(BOOK + " .view-action[aria-label='Show Markdown']").first().click({ timeout: 5000 });
           await env.waitActiveType(o, "markdown", 6000);
           await o.evaluate(async mode => { const l = app.workspace.getMostRecentLeaf(), st = l.getViewState(); await l.setViewState({ ...st, state: { ...st.state, mode } }); }, mode);
