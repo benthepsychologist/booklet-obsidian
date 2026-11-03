@@ -586,6 +586,11 @@ function choiceBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 			pressed(b, c.includes(n + 1));
 			showMark(b, n, markOf(n + 1, c));
 		});
+		// the question itself says it is answered right or not quite, as the line under its options does, and its sheet's edge draws it
+		// (a wrong pick or a right option left out wins over a right pick)
+		const notQuite = shownMarks.includes("wrong") || shownMarks.includes("answer");
+		box.toggleClass("booklet-answered-wrong", notQuite);
+		box.toggleClass("booklet-answered-right", !notQuite && shownMarks.includes("right"));
 		const own = c.filter((x): x is string => typeof x === "string");
 		const earlier = io.offered(c);
 		const sig = JSON.stringify([own, earlier]);

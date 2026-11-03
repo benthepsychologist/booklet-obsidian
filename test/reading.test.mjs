@@ -370,10 +370,14 @@ test("reading kinds: diff, law and opinion are drawn in their own colour, pictur
 		const rule = new RegExp(`\\.booklet-view \\.callout\\[data-callout="${kind}"\\]\\s*\\{([^}]*)\\}`).exec(css);
 		assert.ok(rule, `a rule for ${kind}`);
 		assert.match(rule[1], new RegExp(`--callout-icon: lucide-${icon};`));
-		assert.match(rule[1], /--callout-color: var\(--[a-z0-9-]+\);/);
-		assert.match(rule[1], /background-color: rgba\(var\(--callout-color\), 0\.1\);/, "a soft ground of its colour, as the reference draws");
-		assert.match(rule[1], new RegExp(`border-left: [^;]*${border}`));
+		// 0.13.0: the kind's colour is a theme colour, whole (the callout colour of an Obsidian is a triplet in one and a colour in another), and the
+		// block's tint and hairline are made from it by the rule for every callout (a soft ground of its colour, as the reference draws)
+		assert.match(rule[1], /--booklet-callout-colour: var\(--[a-z0-9-]+\);/);
+		assert.doesNotMatch(rule[1], /--callout-color/, "the kind does not set Obsidian's own callout colour, whose format differs between Obsidians");
+		assert.match(rule[1], new RegExp(`border-inline-start: [^;]*${border}`));
 	}
+	assert.match(css, /\.booklet-view \.callout \{[^}]*background-color: var\(--background-secondary\);/, "a plain fill first, for an Obsidian that cannot mix");
+	assert.match(css, /@supports[^{]*\{\s*\.booklet-view \.callout \{[^}]*background-color: color-mix\(in srgb, var\(--booklet-callout-colour\) 10%, var\(--background-primary\)\);/, "the tint is its colour mixed a tenth into the page");
 	assert.match(css, /\.is-mobile \.booklet-view button\.booklet-cite-mark \{\s*min-height: 0;/, "a phone's 44px button height would stretch the line a mark stands in");
 });
 
