@@ -79,54 +79,110 @@ export function fencedLines(lines: readonly string[]): boolean[] {
 /** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
 export const COMMENT = /<!--[\s\S]*?-->/g;
 
+/** The marks `visibleLines` looks for, earliest first: a run of backticks, `<!--`, `<pre` and `$$`. Global; each use sets `lastIndex`. */
+const OPENERS = /`+|<!--|<pre[\s>]|\$\$/gi;
+const BACKTICK_RUN = /`+/g;
+const PRE_CLOSE = /<\/pre>/gi;
+
 /**
  * What a reader sees of each line, by one short scan shared by the heading links and the page line: outside a fenced code block, an HTML
  * comment, a `<pre>` block and a `$$` math block. `hidden[i]` is true when line `i` STARTS inside a comment, a `<pre>` or a `$$` block, so
  * a line-start mark such as `> [!page` there is not read. `text[i]` is the line with its comments and its `$$ ... $$` spans taken out, or
  * null when nothing of it is seen (a fenced line, or a line wholly inside a comment, `<pre>` or `$$` block). `from` is the first line read.
+ *
+ * A region hides only what it really encloses. The scan goes in order, and a mark counts as an opener only when its closer (`-->`,
+ * `</pre>`, the next `$$`) is found later in the note: a `<!--` with no `-->` after it, a `<pre>` with no `</pre>`, and a lone or odd
+ * `$$` (a price such as `$$$`) hide nothing, so every line after them stays visible, as before this scan existed. A mark inside an
+ * inline code span (one run of backticks, closed by a run of the same length on its line) is not an opener. A fence line is only a fence
+ * when it starts outside a region: a "```" line inside a comment is part of the comment. A single-line `<!-- ... -->`, `$$ ... $$` or
+ * `<pre>...</pre>` is a span of its line, not a region over lines.
  */
 export function visibleLines(lines: readonly string[], from = 0): { hidden: boolean[]; text: (string | null)[] } {
-	const fenced = fencedLines(lines);
+	const n = lines.length;
 	const hidden = lines.map(() => false);
 	const text: (string | null)[] = lines.map(() => null);
-	let comment = false;
-	let math = false;
-	let pre = false;
-	for (let i = from; i < lines.length; i++) {
-		if (fenced[i]) continue;
-		hidden[i] = comment || math || pre;
-		let l = lines[i] ?? "";
-		if (comment) {
-			const end = l.indexOf("-->");
-			if (end < 0) continue;
-			l = l.slice(end + 3);
-			comment = false;
+	// a search for a closer that found none will find none for any later opener either, so it is made once per kind of region
+	const none = { comment: false, pre: false, math: false };
+	/** The end (index just past the closer) of the first closer at or after column `col` of line `i`, as the line and the column, or null. */
+	const closeOf = (kind: "comment" | "pre" | "math", i: number, col: number): { line: number; end: number } | null => {
+		if (none[kind]) return null;
+		for (let j = i; j < n; j++) {
+			const l = lines[j] ?? "";
+			const at = j === i ? col : 0;
+			let end = -1;
+			if (kind === "comment") {
+				const x = l.indexOf("-->", at);
+				if (x >= 0) end = x + 3;
+			} else if (kind === "math") {
+				const x = l.indexOf("$$", at);
+				if (x >= 0) end = x + 2;
+			} else {
+				PRE_CLOSE.lastIndex = at;
+				const m = PRE_CLOSE.exec(l);
+				if (m) end = m.index + m[0].length;
+			}
+			if (end >= 0) return { line: j, end };
 		}
-		l = l.replace(COMMENT, "");
-		const open = l.indexOf("<!--");
-		if (open >= 0) {
-			l = l.slice(0, open);
-			comment = true;
-		}
-		if (pre) {
-			if (/<\/pre>/i.test(l)) pre = false;
+		none[kind] = true;
+		return null;
+	};
+	for (let i = from; i < n; ) {
+		const f = FENCE_OPEN.exec(lines[i] ?? "");
+		if (f && f[1]) {
+			i = Math.min(fenceEnd(lines, i, f[1]), n - 1) + 1;
 			continue;
 		}
-		if (/<pre[\s>]/i.test(l) && !/<\/pre>/i.test(l)) {
-			pre = true;
-			continue;
+		let cur = i;
+		let p = 0;
+		let kept = "";
+		for (;;) {
+			const l = lines[cur] ?? "";
+			OPENERS.lastIndex = p;
+			const m = OPENERS.exec(l);
+			if (!m) {
+				kept += l.slice(p);
+				break;
+			}
+			kept += l.slice(p, m.index);
+			const mark = m[0];
+			const after = m.index + mark.length;
+			p = after;
+			if (mark[0] === "`") {
+				// an inline code span: its text is kept, and nothing in it opens anything. A run with no run of its own length after it is plain text.
+				BACKTICK_RUN.lastIndex = after;
+				let c: RegExpExecArray | null;
+				let end = after;
+				while ((c = BACKTICK_RUN.exec(l))) {
+					if (c[0].length === mark.length) {
+						end = c.index + c[0].length;
+						break;
+					}
+				}
+				kept += l.slice(m.index, end);
+				p = end;
+				continue;
+			}
+			const kind = mark === "<!--" ? "comment" : mark === "$$" ? "math" : "pre";
+			const close = closeOf(kind, cur, after);
+			if (!close) {
+				kept += mark;
+				continue;
+			}
+			if (close.line === cur) {
+				// a span of this line. A comment and a `$$` span are taken out of what is seen; a `<pre>` with its end on its line is read as text
+				if (kind === "pre") kept += mark;
+				else p = close.end;
+				continue;
+			}
+			// a region over lines: this line is seen up to the opener, the lines inside are hidden, and the closing line is seen after the closer
+			text[cur] = kept;
+			for (let j = cur + 1; j <= close.line; j++) hidden[j] = true;
+			cur = close.line;
+			p = close.end;
+			kept = "";
 		}
-		if (math) {
-			if (l.includes("$$")) math = false;
-			continue;
-		}
-		l = l.replace(/\$\$[^$]*\$\$/g, "");
-		const dollars = l.indexOf("$$");
-		if (dollars >= 0) {
-			l = l.slice(0, dollars);
-			math = true;
-		}
-		text[i] = l;
+		text[cur] = kept;
+		i = cur + 1;
 	}
 	return { hidden, text };
 }

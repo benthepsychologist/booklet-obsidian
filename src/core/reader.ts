@@ -931,7 +931,8 @@ export function parseBooklet(text: string): Booklet {
 		const ln = lines[i] ?? "";
 		const ref = referenceTokens.definitions.get(i);
 		if (ref) { addDefinition(open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text); i = ref.end; continue; }
-		const f = FENCE_OPEN.exec(ln);
+		// a fence line that starts inside a comment, a `<pre>` or a `$$` block is part of it, not a fence (the same reading as `visibleLines`)
+		const f = !open.length && hiddenStart[i] ? null : FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
 			let n = k + 1;
