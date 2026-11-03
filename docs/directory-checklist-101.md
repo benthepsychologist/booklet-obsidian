@@ -6,7 +6,7 @@ Evidence form: `file:line` was opened and read; "ran" means the command was run 
 
 ## 1. Result in one line
 
-**47 PASS, 0 FAIL, 8 NOT APPLICABLE, 2 NOTE (57 rows).** The first run had 1 FAIL (item 39, the settings heading) and 5 COULD NOT CHECK (13, 18, 27, 48, 49); all six now have a result, below. Two NOTE rows are things to decide, not failures: a style recommendation (async/await, item 56) and the README not naming the one bundled library (item 57). What still cannot be checked from here is in section 5.
+**48 PASS, 0 FAIL, 8 NOT APPLICABLE, 1 NOTE (57 rows).** The first run had 1 FAIL (item 39, the settings heading) and 5 COULD NOT CHECK (13, 18, 27, 48, 49); all six now have a result, below. The one NOTE row is a style recommendation, not a failure (async/await, item 56); item 57, the README not naming the one bundled library, was fixed in `f7dc2f9`. What still cannot be checked from here is in section 5.
 
 ## 2. The five that could not be checked, and the one that failed
 
@@ -146,7 +146,7 @@ Search: `grep -rnE "fetch\(|XMLHttpRequest|requestUrl|WebSocket|EventSource|send
 | 54 | Use `FileManager.processFrontMatter` for front matter | N/A | the plugin edits the note's records section, not YAML front matter |
 | 55 | Prefer `const`/`let` to `var` | PASS | no `var` declaration in `src/` (ran grep) |
 | 56 | Prefer `async`/`await` to `.then()`/`.catch()` chains | NOTE | 11 `.then(`/`.catch(` sites remain: `view.ts:539, :800, :1966-1968`, `now-playing.ts:125, :550, :568`, `settings.ts:81`, `media-view.ts:178, :220`. It is a stated preference, not in the linter (0 findings), and changing it is a rewrite of working code for no change a reader sees; left as it is |
-| 57 | Comply with the licences of code used, with attribution in the README | NOTE | `monkey-around` 3.0.0 (author PJ Eby, `"license": "ISC"` in its `package.json`) is the one runtime dependency and is bundled into `main.js`. `README.md` does not name it. The package and its upstream repository carry no LICENSE file or copyright line to retain (checked the npm package folder and the GitHub repository's file list), so there is no notice to copy; a one-line "Third-party code" entry in the README would settle it. Not changed here |
+| 57 | Comply with the licences of code used, with attribution in the README | PASS | `monkey-around` 3.0.0 (author PJ Eby, `"license": "ISC"` in its `package.json`) is the one runtime dependency and is bundled into `main.js`. Fixed in `f7dc2f9`: the README's Licence section now names it ("Third-party code"). The package and its upstream repository carry no LICENSE file or copyright line to retain (checked the npm package folder and the GitHub repository's file list), so there is no notice to copy; the README line is all there is to add |
 
 ## 6. What rules changed since the 100 checklist
 
