@@ -278,10 +278,10 @@ To use it in a vault of your own, install it with BRAT (below), or copy `main.js
 
 ## Install a test build with BRAT
 
-Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository, which BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs and updates; Obsidian's developer docs recommend it for testing a plugin before it is listed.
+Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository (tags like `1.0.2-beta.1`; see Releasing), and its real releases are plain `x.y.z` releases; BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs and updates; Obsidian's developer docs recommend it for testing a plugin before it is listed.
 
 1. In *Settings → Community plugins*, browse for **BRAT**, install it and turn it on.
-2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release; turn Booklet on under *Community plugins* if BRAT has not.
+2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release or pre-release by version number; turn Booklet on under *Community plugins* if BRAT has not.
 3. To get a later build, check for updates in BRAT.
 
 If the earlier "Booklet (spike)" plugin is in the vault, turn it off first: both open booklet notes.
@@ -327,9 +327,9 @@ CI does not run the real-Obsidian suite (`e2e/`): it needs the Obsidian binary a
 
 ## Releasing
 
-Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. Until Booklet is listed, every release is marked a pre-release, and nothing is submitted to the directory from here. `docs/release-checklist-100.md` is the maintainer's step list for 1.0.0 (which files carry the version, what `release-check.mjs` checks, what to look at on the release page, and the open question whether the directory accepts a release marked pre-release).
+Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. A plain `x.y.z` tag makes a real release (marked latest, and it must be on `main`); a tag `x.y.z-<suffix>` such as `1.0.2-beta.1` makes a pre-release, for trying a build in BRAT before the real one (it may be on any branch). Nothing is submitted to the directory from here. `docs/release-flow.md` is the maintainer's step list for both (which files carry the version, what `release-check.mjs` checks, what to look at on the release page).
 
-1. **Set the version** on the branch that carries the change: `npm version 0.2.0`. npm writes it into `package.json`, and `version-bump.mjs` writes it into `manifest.json` and adds it to `versions.json` with the manifest's `minAppVersion`; `.npmrc` stops npm from committing or tagging. Versions are plain `x.y.z`: Obsidian does not order `0.2.0-beta.1` the way semver does, and its directory takes no other kind.
+1. **Set the version** on the branch that carries the change: `npm version 0.2.0`. npm writes it into `package.json`, and `version-bump.mjs` writes it into `manifest.json` and adds it to `versions.json` with the manifest's `minAppVersion`; `.npmrc` stops npm from committing or tagging. The version in the three files is always a plain `x.y.z`: Obsidian's directory takes no other kind. A pre-release is a tag with a suffix on top of that version (`0.2.0-beta.1`); the suffix is in no file.
 2. **Test and merge:** `npm test` and the real-Obsidian check (`e2e/`), then merge to `main`.
 3. **Tag `main` and push the tag:**
    ```
@@ -337,7 +337,7 @@ Every build is a GitHub release made by `.github/workflows/release.yml` when a v
    git tag -a 0.2.0 -m 0.2.0
    git push origin 0.2.0
    ```
-4. **The workflow** refuses a tag that is not on `main`, is not a plain `x.y.z`, or is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`). Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
+4. **The workflow** refuses a tag that is not a plain `x.y.z` or `x.y.z-<suffix>`, whose `x.y.z` is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`), or, for a plain `x.y.z`, that is not on `main`. Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them: a plain `x.y.z` as a real release, `x.y.z-<suffix>` as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
 
 Once Booklet is listed, the directory takes every new release straight from GitHub, so a release is then a release to everyone.
 
