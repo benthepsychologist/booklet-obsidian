@@ -162,6 +162,20 @@ These names are kept, so that a hotkey, a saved workspace or a style snippet wri
 - **Two custom CSS properties are stable**, by name and by meaning (their default values may change with the theme): `--booklet-ch-bar` (the colour of a bar in a chart, the theme's accent by default) and `--booklet-mx-text` (the width of the words column of a matrix, `12rem` by default). The plugin's other `--booklet-*` properties are internal and may change before 1.0.0, as its class names may (next).
 - **Class names are not an API.** The `booklet-…` classes may change from one release to the next; a snippet that styles them does so knowing that.
 
+## Styling
+
+The look follows the reader's theme, light or dark, because it is drawn from Obsidian's own CSS variables; there is no setting for it. A question is a sheet, and a reading block (a callout) is tinted with its own colour and edged in it.
+
+Five custom properties are stable, by name and by meaning, with the Obsidian variable each one defaults to. They are set once, on `.booklet-view`, and a CSS snippet can change any of them. They join the two named in "What stays put".
+
+- `--booklet-card-bg`: the fill of a sheet, `var(--background-secondary)`.
+- `--booklet-card-border`: the hairline round a sheet, `var(--background-modifier-border)`.
+- `--booklet-card-radius`: the corner radius of a sheet and a block, `var(--radius-l)`.
+- `--booklet-card-pad`: the room inside a sheet, `var(--size-4-4)`.
+- `--booklet-block-edge`: the width of the coloured edge of a reading block and of an answered sheet, `var(--size-2-3)`.
+
+Class names are not an API: a snippet that styles the `booklet-…` classes does so knowing that they may change.
+
 ## Compared with Reading view
 
 **What the plugin does and does not do.** A note drawn in the view can do what any Obsidian note can (links, embeds, images, blocks drawn by community plugins). The plugin sets no limit on what a note may show and filters nothing out, except where the list below says it changes something.

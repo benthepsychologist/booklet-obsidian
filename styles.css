@@ -2,7 +2,25 @@
  * Booklet. Every rule uses Obsidian's own CSS variables, so the view follows the theme,
  * light and dark, and any community theme. Colours and fonts are the theme's: the rules here
  * only lay the view out and keep it legible. Every class starts with booklet-.
+ *
+ * A look is made of Obsidian's variables only: no colour, shadow or font of our own. Where a tint is mixed from a
+ * theme colour (color-mix), a plain fill or border is declared first and the mix sits in @supports, so an Obsidian
+ * that cannot mix draws the plain one.
  */
+
+/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view */
+.booklet-view {
+	--booklet-card-bg: var(--background-secondary);
+	--booklet-card-border: var(--background-modifier-border);
+	--booklet-card-radius: var(--radius-l);
+	--booklet-card-pad: var(--size-4-4);
+	--booklet-block-edge: var(--size-2-3);
+}
+
+/* the probe callout drawn for a moment to read Obsidian's callout colour (see calloutColourIsTriplet in reading.ts) */
+.booklet-probe {
+	display: none;
+}
 
 .booklet-page {
 	max-width: var(--file-line-width);
@@ -56,15 +74,57 @@
 	margin: var(--size-4-5) 0;
 }
 
-.booklet-prompt {
-	font-weight: var(--font-semibold);
-	margin-bottom: var(--size-4-2);
+/* a question is a sheet: a fill, a hairline, a radius and room inside */
+.booklet-question,
+.booklet-group {
+	background-color: var(--booklet-card-bg);
+	border: var(--border-width) solid var(--booklet-card-border);
+	border-radius: var(--booklet-card-radius);
 }
 
+.booklet-question {
+	padding: var(--booklet-card-pad);
+}
+
+/* an answered question: its sheet takes an edge from what the code found (see booklet-answered-right and -wrong in questions.ts) */
+.booklet-view .booklet-question.booklet-answered-right {
+	border-inline-start: var(--booklet-block-edge) solid var(--color-green);
+}
+
+.booklet-view .booklet-question.booklet-answered-wrong {
+	border-inline-start: var(--booklet-block-edge) solid var(--color-orange);
+}
+
+/* a question inside a group or a callout sits on that sheet: no second sheet, and no edge of its own */
+.booklet-view .booklet-group-body .booklet-question,
+.booklet-view .callout .booklet-question {
+	background-color: transparent;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	margin: var(--size-4-3) 0 0;
+}
+
+.booklet-question > .booklet-prompt {
+	font-weight: var(--font-semibold);
+	font-size: var(--h3-size);
+	border-bottom: var(--border-width) solid var(--booklet-card-border);
+	padding-bottom: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+/* the theme's muted text on a sheet's fill can fall under 4.5:1 (Minimal, light); a fifth of the normal text colour mixed in
+   keeps it a muted grey and lifts it clear of that */
 .booklet-help {
 	color: var(--text-muted);
 	font-size: var(--font-ui-small);
 	margin-bottom: var(--size-4-2);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-help {
+		color: color-mix(in srgb, var(--text-muted) 80%, var(--text-normal));
+	}
 }
 
 .booklet-help p {
@@ -84,6 +144,30 @@
 	text-align: start;
 	white-space: normal;
 	line-height: var(--line-height-tight);
+}
+
+/* the choices of a choice question stack as answer rows; a multi and a scale keep their rows */
+.booklet-kind-choice .booklet-choices {
+	flex-direction: column;
+}
+
+.booklet-kind-choice .booklet-choices .booklet-choice {
+	width: 100%;
+	justify-content: flex-start;
+}
+
+.booklet-kind-choice .booklet-choice .booklet-mark {
+	margin-inline-start: auto;
+}
+
+/* a button on a sheet takes the page's own colour, so it stands off the sheet (on a phone the theme's button is as grey as the sheet);
+   a pressed or marked answer keeps its own look */
+.booklet-question .booklet-choice:not(.is-selected):not(.booklet-answer) {
+	background-color: var(--background-primary);
+}
+
+.booklet-question .booklet-choice:not(.is-selected):not(.booklet-answer):hover {
+	background-color: var(--interactive-hover);
 }
 
 .booklet-scale .booklet-choice {
@@ -189,7 +273,7 @@
 
 .booklet-choices .booklet-choice.booklet-right,
 .booklet-choices .booklet-choice.booklet-answer {
-	background-color: rgba(var(--color-green-rgb), 0.18);
+	background-color: var(--background-primary);
 	box-shadow: inset 0 0 0 2px var(--color-green);
 	color: var(--text-normal);
 }
@@ -202,9 +286,19 @@
 }
 
 .booklet-choices .booklet-choice.booklet-wrong {
-	background-color: rgba(var(--color-orange-rgb), 0.18);
+	background-color: var(--background-primary);
 	box-shadow: inset 0 0 0 2px var(--color-orange);
 	color: var(--text-normal);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-choices .booklet-choice.booklet-right {
+		background-color: color-mix(in srgb, var(--color-green) 18%, transparent);
+	}
+
+	.booklet-choices .booklet-choice.booklet-wrong {
+		background-color: color-mix(in srgb, var(--color-orange) 18%, transparent);
+	}
 }
 
 .booklet-acts {
@@ -359,44 +453,38 @@
  *   teal  -> --color-cyan    Obsidian's blue-green; teal has no tone
  *   blue  -> --color-blue    a colour name from format 0.16; blue has no tone
  *   purple -> --color-purple a colour name from format 0.16; purple has no tone
- *   slate -> --text-muted, on a wash of --mono-rgb-100 (the theme's text colour): Obsidian has no
+ *   slate -> --text-muted, on a wash of --text-normal (the theme's text colour): Obsidian has no
  *            blue-grey, and its own muted grey is the nearest neutral; slate has no tone
  * A cell is a pale wash of its colour with a band of the full colour at its top; its words stay in the
  * theme's text colour, so they read the same in every theme.
  */
 .booklet-colour-warm {
 	--booklet-tone: var(--color-red);
-	--booklet-tone-rgb: var(--color-red-rgb);
 }
 
 .booklet-colour-green {
 	--booklet-tone: var(--color-green);
-	--booklet-tone-rgb: var(--color-green-rgb);
 }
 
 .booklet-colour-amber {
 	--booklet-tone: var(--color-orange);
-	--booklet-tone-rgb: var(--color-orange-rgb);
 }
 
 .booklet-colour-teal {
 	--booklet-tone: var(--color-cyan);
-	--booklet-tone-rgb: var(--color-cyan-rgb);
 }
 
 .booklet-colour-slate {
 	--booklet-tone: var(--text-muted);
-	--booklet-tone-rgb: var(--mono-rgb-100);
+	--booklet-tone-wash: var(--text-normal);
 }
 
 .booklet-colour-blue {
 	--booklet-tone: var(--color-blue);
-	--booklet-tone-rgb: var(--color-blue-rgb);
 }
 
 .booklet-colour-purple {
 	--booklet-tone: var(--color-purple);
-	--booklet-tone-rgb: var(--color-purple-rgb);
 }
 
 /* the edge labels around the cells: top and bottom across, left and right read upwards and downwards */
@@ -471,12 +559,15 @@
 	min-width: 0;
 }
 
-.booklet-cell[class*="booklet-colour-"] {
-	background-color: rgba(var(--booklet-tone-rgb), 0.12);
-}
+/* a coloured cell: a wash of its colour (a plain sheet fill where the wash cannot be mixed) */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-cell[class*="booklet-colour-"] {
+		background-color: color-mix(in srgb, var(--booklet-tone-wash, var(--booklet-tone)) 12%, transparent);
+	}
 
-.booklet-cell.booklet-colour-slate {
-	background-color: rgba(var(--booklet-tone-rgb), 0.07);
+	.booklet-cell.booklet-colour-slate {
+		background-color: color-mix(in srgb, var(--booklet-tone-wash) 7%, transparent);
+	}
 }
 
 .booklet-cell-name {
@@ -806,7 +897,7 @@
 	position: sticky;
 	top: 0;
 	z-index: 2;
-	background-color: var(--background-primary);
+	background-color: var(--booklet-card-bg);
 	margin: 0 0 var(--size-4-1);
 	padding: var(--size-4-2) 0 var(--size-4-2) var(--size-4-3);
 	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
@@ -841,17 +932,14 @@
 /* a tone: good, warn or bad, in the theme's success, warning and error colours */
 .booklet-tone-good {
 	--booklet-q-tone: var(--color-green);
-	--booklet-q-tone-rgb: var(--color-green-rgb);
 }
 
 .booklet-tone-warn {
 	--booklet-q-tone: var(--color-orange);
-	--booklet-q-tone-rgb: var(--color-orange-rgb);
 }
 
 .booklet-tone-bad {
 	--booklet-q-tone: var(--color-red);
-	--booklet-q-tone-rgb: var(--color-red-rgb);
 }
 
 .booklet-q-value.booklet-tone-good,
@@ -892,7 +980,14 @@
 .booklet-q-pill.booklet-tone-warn,
 .booklet-q-pill.booklet-tone-bad {
 	border-color: var(--booklet-q-tone);
-	background-color: rgba(var(--booklet-q-tone-rgb), 0.12);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-q-pill.booklet-tone-good,
+	.booklet-q-pill.booklet-tone-warn,
+	.booklet-q-pill.booklet-tone-bad {
+		background-color: color-mix(in srgb, var(--booklet-q-tone) 12%, transparent);
+	}
 }
 
 .booklet-q-icon {
@@ -1023,7 +1118,14 @@
 .booklet-q-tile.booklet-tone-warn,
 .booklet-q-tile.booklet-tone-bad {
 	border-color: var(--booklet-q-tone);
-	background-color: rgba(var(--booklet-q-tone-rgb), 0.08);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-q-tile.booklet-tone-good,
+	.booklet-q-tile.booklet-tone-warn,
+	.booklet-q-tile.booklet-tone-bad {
+		background-color: color-mix(in srgb, var(--booklet-q-tone) 8%, transparent);
+	}
 }
 
 .booklet-q-big {
@@ -1476,11 +1578,24 @@
 }
 
 /* Obsidian's warning button is white on a bright red (3.5:1 in a dark theme, 4.2:1 in a light one), and on a phone its red words on the pale button read 3.9:1 in a light one;
-   a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces) */
+   a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces).
+   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. */
 .booklet-view .booklet-entry-ask button.mod-warning,
 .booklet-view .booklet-entry-ask button.mod-warning:hover {
-	background: color-mix(in srgb, var(--background-modifier-error) 70%, black);
+	background: var(--background-modifier-error);
 	color: var(--text-on-accent);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.theme-light .booklet-view .booklet-entry-ask button.mod-warning,
+	.theme-light .booklet-view .booklet-entry-ask button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
+	}
+
+	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning,
+	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
+	}
 }
 
 .booklet-entry-ask-text {
@@ -1488,9 +1603,11 @@
 	font-weight: var(--font-semibold);
 }
 
-/* the theme's error red on a light page reads 4.2:1; darkened a tenth it reads 5.0:1 (a dark page is already 4.9:1 or more, and darkening would lower it) */
-.theme-light .booklet-entry-ask-text {
-	color: color-mix(in srgb, var(--text-error) 90%, black);
+/* the theme's error red on a light page reads 4.2:1; darkened with the theme's text colour it reads 5.0:1 or more (a dark page is already 4.9:1 or more, and darkening would lower it) */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.theme-light .booklet-entry-ask-text {
+		color: color-mix(in srgb, var(--text-error) 85%, var(--text-normal));
+	}
 }
 
 .booklet-entry-delete {
@@ -1501,7 +1618,13 @@
 }
 
 .booklet-entry-delete:hover {
-	background: rgba(var(--color-red-rgb), 0.1);
+	background: var(--background-modifier-hover);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-entry-delete:hover {
+		background: color-mix(in srgb, var(--color-red) 10%, transparent);
+	}
 }
 
 /* ---- screens and moves (0.6.0): home, a module, an activity, one screen at a time ---- */
@@ -1628,7 +1751,7 @@
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-3);
-	padding: var(--size-4-3) var(--size-4-4);
+	padding: var(--size-4-4) var(--size-4-5);
 	background-color: var(--background-primary-alt);
 	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-l);
@@ -1654,6 +1777,7 @@
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--size-2-2);
+	font-size: var(--h3-size);
 	font-weight: var(--font-semibold);
 	color: var(--text-normal);
 }
@@ -1706,6 +1830,10 @@
 	flex-wrap: wrap;
 	gap: var(--size-4-3);
 	margin: var(--size-4-6) 0 var(--size-4-4);
+	/* the pager sits on a strip */
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
 }
 
 .booklet-pager button {
@@ -1855,41 +1983,88 @@
 
 /* ---- reading kinds, groups and callouts that hold questions, rows, steps and sources (0.7.0) ---- */
 
-/* the format's own reading kinds, in the reference renderer's colours and pictures (diff: petrol, git-compare, dashed; law: slate, scale, double; opinion: rose, message-circle, dotted) */
+/*
+ * Reading blocks. A block is tinted with its own colour, edged on the inline start in that colour at full strength, and has a hairline of it
+ * on its other sides. Obsidian gives a callout's colour as a plain colour (1.14.5) or as an `r, g, b` triplet drawn `rgb(var(--callout-color))` (1.8.10);
+ * the view says which with the class booklet-callout-triplet (calloutColourIsTriplet in reading.ts), and --booklet-callout-colour is the colour
+ * in either format. The format's own kinds (diff, law, opinion) set --booklet-callout-colour from a theme colour directly.
+ */
+.booklet-view .callout {
+	--booklet-callout-colour: var(--callout-color);
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-inline-start: var(--booklet-block-edge) solid var(--booklet-callout-colour);
+	border-radius: var(--booklet-card-radius);
+}
+
+.booklet-view.booklet-callout-triplet .callout {
+	--booklet-callout-colour: rgb(var(--callout-color));
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-view .callout {
+		background-color: color-mix(in srgb, var(--booklet-callout-colour) 10%, var(--background-primary));
+		border-block-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
+		border-inline-end-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
+	}
+}
+
+/* the format's own reading kinds, in the reference renderer's colours and pictures (diff: petrol, git-compare, dashed; law: slate, scale, double; opinion: rose, message-circle, dotted).
+   Their own edge is the dashed, double or dotted line; their words stay in the theme's text colour, and their picture takes the kind's colour. */
+.booklet-view .callout[data-callout="diff"] .callout-title,
+.booklet-view .callout[data-callout="law"] .callout-title,
+.booklet-view .callout[data-callout="opinion"] .callout-title {
+	color: var(--text-normal);
+}
+
+.booklet-view .callout[data-callout="diff"] .callout-icon svg,
+.booklet-view .callout[data-callout="law"] .callout-icon svg,
+.booklet-view .callout[data-callout="opinion"] .callout-icon svg {
+	color: var(--booklet-callout-colour);
+}
+
 .booklet-view .callout[data-callout="diff"] {
-	--callout-color: var(--color-cyan-rgb);
+	--booklet-callout-colour: var(--color-cyan);
 	--callout-icon: lucide-git-compare;
-	background-color: rgba(var(--callout-color), 0.1);
-	border-left: var(--size-4-1) dashed rgba(var(--color-cyan-rgb), 0.8);
+	border-inline-start: var(--size-4-1) dashed var(--booklet-callout-colour);
 }
 
 .booklet-view .callout[data-callout="law"] {
-	--callout-color: var(--mono-rgb-100);
+	--booklet-callout-colour: var(--text-normal);
 	--callout-icon: lucide-scale;
-	background-color: rgba(var(--callout-color), 0.1);
-	border-left: var(--size-4-1) double rgba(var(--mono-rgb-100), 0.6);
+	border-inline-start: var(--size-4-1) double var(--booklet-callout-colour);
 }
 
 .booklet-view .callout[data-callout="opinion"] {
-	--callout-color: var(--color-pink-rgb);
+	--booklet-callout-colour: var(--color-pink);
 	--callout-icon: lucide-message-circle;
-	background-color: rgba(var(--callout-color), 0.1);
-	border-left: var(--size-4-1) dotted rgba(var(--color-pink-rgb), 0.8);
+	border-inline-start: var(--size-4-1) dotted var(--booklet-callout-colour);
 }
 
-/* a group: a titled container on plain paper, a fold when written `[!group]-` */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-view .callout[data-callout="diff"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
+	}
+
+	.booklet-view .callout[data-callout="law"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 60%, transparent);
+	}
+
+	.booklet-view .callout[data-callout="opinion"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
+	}
+}
+
+/* a group: a titled sheet (the look of a question's sheet), a fold when written `[!group]-` */
 .booklet-group {
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	margin: var(--size-4-4) 0;
-	background-color: var(--background-primary);
+	margin: var(--size-4-5) 0;
 }
 
 .booklet-group-title {
 	display: flex;
 	align-items: center;
 	gap: var(--size-4-2);
-	padding: var(--size-4-2) var(--size-4-3);
+	padding: var(--booklet-card-pad);
 	font-weight: var(--font-semibold);
 }
 
@@ -1912,7 +2087,7 @@
 }
 
 .booklet-group-body {
-	padding: var(--size-4-2) var(--size-4-3) var(--size-4-3);
+	padding: 0 var(--booklet-card-pad) var(--booklet-card-pad);
 }
 
 .booklet-group-body > :first-child {
