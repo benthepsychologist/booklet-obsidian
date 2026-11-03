@@ -340,7 +340,7 @@ function foldedGroups(segs: readonly Segment[]): number {
 function readsOf(markdown: string): number {
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
-	// a callout line a reader does not see (inside a closed comment, `<pre>` or `$$` block) is no callout to read, and holds no question
+	// a callout line a reader does not see (inside a closed comment (HTML or `%%`), `<pre>` or `$$` block) is no callout to read, and holds no question
 	const { hidden } = visibleLines(lines);
 	let n = 0;
 	for (let i = 0; i < lines.length; i++) {
@@ -495,7 +495,7 @@ interface ModuleParts {
 /**
  * What a module holds before its first activity (SPEC section 3): its opening, its tab lines each with the prose after
  * it, and its notice. Read from lines [from, to) the way the reader reads them, so a fenced block and a widget
- * placed by reference are left out of the prose. A line in `hidden` (it starts inside a closed comment, `<pre>` or `$$` block) is text
+ * placed by reference are left out of the prose. A line in `hidden` (it starts inside a closed comment (HTML or `%%`), `<pre>` or `$$` block) is text
  * a reader does not see: no tab, notice or page line there is read, and no fence opens there.
  */
 function moduleParts(lines: readonly string[], hidden: readonly boolean[], from: number, to: number, title: string): ModuleParts {
@@ -1171,7 +1171,7 @@ export function searchPages(tab: ActTab, query: string): TreePage[] {
 
 /**
  * The target of every heading link in some Markdown, in order: `[[#Words]]`, `[[#Words|label]]` and `[label](#words)`. A block link (`#^id`)
- * is none. What is not text a reader sees is left out, as far as a short scan can tell: a code fence, inline code, an HTML comment, a
+ * is none. What is not text a reader sees is left out, as far as a short scan can tell: a code fence, inline code, an HTML comment, a `%%` comment, a
  * `<pre>` block, a `$$` math block and an indented code block (four spaces or a tab after a blank line, outside a list).
  */
 export function headingLinksIn(markdown: string): string[] {

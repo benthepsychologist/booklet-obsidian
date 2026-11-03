@@ -17,7 +17,6 @@ import {
 	calloutWords,
 	earlierValue,
 	fenceEnd,
-	fencedLines,
 	ignoredSettings,
 	isBlank,
 	splitLines,
@@ -633,7 +632,7 @@ const plainWords = (md: string): string =>
 
 /**
  * Does the body hold a module line or an activity line, outside fences, the records region and the lines a reader does not see (`hidden`: a
- * line that starts inside a closed comment, `<pre>` or `$$` block, as `visibleLines` says)?
+ * line that starts inside a closed comment (HTML or `%%`), `<pre>` or `$$` block, as `visibleLines` says)?
  */
 function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[], hidden: readonly boolean[]): boolean {
 	for (let i = from; i < lines.length; i++) {
@@ -904,7 +903,7 @@ export function parseBooklet(text: string): Booklet {
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
 	const open: { lines: string[]; resume: number; kind: string }[] = [];
 
-	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block that really closes (in the body, never looking into the records
+	// where a line starts inside an HTML or `%%` comment, a `<pre>` block or a `$$` block that really closes (in the body, never looking into the records
 	// section): no Booklet line there is read (a reader sees none of it). Index i is the same line of the file at every depth, for the body of a
 	// callout is read from the file's own lines with its `>` off
 	const hiddenStart = visibleLines(lines, fm.bodyStart, inRegion).hidden;
@@ -937,7 +936,7 @@ export function parseBooklet(text: string): Booklet {
 		const ln = lines[i] ?? "";
 		const ref = referenceTokens.definitions.get(i);
 		if (ref) { addDefinition(open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text); i = ref.end; continue; }
-		// a fence line that starts inside a comment, a `<pre>` or a `$$` block is part of it, not a fence (the same reading as `visibleLines`)
+		// a fence line that starts inside a comment (either kind), a `<pre>` or a `$$` block is part of it, not a fence (the same reading as `visibleLines`)
 		const f = !open.length && hiddenStart[i] ? null : FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
@@ -976,7 +975,7 @@ export function parseBooklet(text: string): Booklet {
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
 			if (hiddenStart[i]) {
-				// a commented-out line (or one in a `<pre>` or `$$` block) of any kind starts nothing and draws nothing a reader sees: it stays text, and is not a problem
+				// a commented-out line (or one in a `%%` comment, a `<pre>` or a `$$` block) of any kind starts nothing and draws nothing a reader sees: it stays text, and is not a problem
 				const k = bodyEnd(lines, i);
 				pushText(lines.slice(i, k), i);
 				i = k - 1;
@@ -1356,28 +1355,17 @@ const RAW_TAG = /<(iframe|frame|object|embed|audio|video)(?=[\s/>])/gi;
 
 /**
  * Each raw `<iframe>`, `<frame>`, `<object>`, `<embed>`, `<audio>` or `<video>` tag in the note's design, with its line: this view draws one
- * as a link and nothing loads, and says so among the note's problems. Code (a fenced block, a code span), HTML comments and the records
+ * as a link and nothing loads, and says so among the note's problems. Code (a fenced block, a code span), comments (HTML and `%%`) and the records
  * are left alone; one tag name is said once for a line.
  */
 function rawMediaTags(lines: readonly string[], from: number, inRegion: readonly boolean[]): string[] {
-	const fenced = fencedLines(lines);
+	// what a reader sees of each line, as `visibleLines` reads it: fenced code, a comment of either kind (HTML or Obsidian's `%%`) and a
+	// comment that has no closer are all decided there, so this check cannot disagree with it. Code spans are taken out below.
+	const { text } = visibleLines(lines, from, inRegion);
 	const out: string[] = [];
-	let comment = false;
 	for (let i = from; i < lines.length; i++) {
-		if (inRegion[i] || fenced[i]) continue;
-		let l = lines[i] ?? "";
-		// HTML comments, which may run over lines, and then code spans: what is left is the text a tag would be read in
-		let kept = "";
-		while (l) {
-			const at = comment ? l.indexOf("-->") : l.indexOf("<!--");
-			if (at < 0) {
-				if (!comment) kept += l;
-				break;
-			}
-			if (!comment) kept += l.slice(0, at);
-			l = l.slice(at + (comment ? 3 : 4));
-			comment = !comment;
-		}
+		const kept = text[i];
+		if (inRegion[i] || kept == null) continue;
 		const seen = new Set<string>();
 		for (const m of kept.replace(/(`+)[^`]*?\1/g, "").matchAll(RAW_TAG)) {
 			const tag = (m[1] ?? "").toLowerCase();

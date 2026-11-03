@@ -76,24 +76,28 @@ export function fencedLines(lines: readonly string[]): boolean[] {
 	return out;
 }
 
-/** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
-export const COMMENT = /<!--[\s\S]*?-->/g;
+/**
+ * A comment, HTML (`<!-- ... -->`) or Obsidian's own (`%% ... %%`): not words a reader sees. A mark with no closer after it matches nothing.
+ * Global; `String.replace` starts again each call, so one pattern is shared. (This one strips comments out of a piece of prose; it does not
+ * know code spans. Where a line is hidden, or an opener is inside code, `visibleLines` is what decides.)
+ */
+export const COMMENT = /<!--[\s\S]*?-->|%%[\s\S]*?%%/g;
 
-/** The marks `visibleLines` looks for, earliest first: a run of backticks, `<!--`, `<pre` and `$$`. Global; each use sets `lastIndex`. */
-const OPENERS = /`+|<!--|<pre[\s>]|\$\$/gi;
+/** The marks `visibleLines` looks for, earliest first: a run of backticks, `<!--`, `%%`, `<pre` and `$$`. Global; each use sets `lastIndex`. */
+const OPENERS = /`+|<!--|%%|<pre[\s>]|\$\$/gi;
 const BACKTICK_RUN = /`+/g;
 const PRE_CLOSE = /<\/pre>/gi;
 
 /**
  * What a reader sees of each line, by one short scan shared by the heading links and the page line: outside a fenced code block, an HTML
- * comment, a `<pre>` block and a `$$` math block. `hidden[i]` is true when line `i` STARTS inside a comment, a `<pre>` or a `$$` block, so
+ * comment, an Obsidian `%%` comment, a `<pre>` block and a `$$` math block. `hidden[i]` is true when line `i` STARTS inside a comment, a `<pre>` or a `$$` block, so
  * a line-start mark such as `> [!page` there is not read. `text[i]` is the line with its comments and its `$$ ... $$` spans taken out, or
  * null when nothing of it is seen (a fenced line, or a line wholly inside a comment, `<pre>` or `$$` block). `from` is the first line read.
  * `skip` marks lines that are not part of what is read, the records section (SPEC section 8): they are not scanned (`hidden` false, `text`
  * null), and no region reaches across one, so a saved answer that holds `-->` or `$$` can never close a mark written in the body.
  *
  * A region hides only what it really encloses. The scan goes in order, and a mark counts as an opener only when its closer (`-->`,
- * `</pre>`, the next `$$`) is found later in the note, before the next skipped line: a `<!--` with no `-->` after it, a `<pre>` with no
+ * `</pre>`, the next `$$`, the next `%%`) is found later in the note, before the next skipped line: a `<!--` with no `-->` after it, a `<pre>` with no
  * `</pre>`, and a lone or odd `$$` (a price such as `$$$`) hide nothing, so every line after them stays visible, as before this scan
  * existed. A mark inside an inline code span (one run of backticks, closed by a run of the same length on its line) is not an opener.
  * A fence line is only a fence when it starts outside a region: a "```" line inside a comment is part of the comment. Text in a fenced code
@@ -108,9 +112,9 @@ export function visibleLines(lines: readonly string[], from = 0, skip?: readonly
 	const text: (string | null)[] = lines.map(() => null);
 	// A search for a closer that found none will find none for any later opener either, up to the line where it stopped, so each kind of
 	// region remembers that line (the scan stays linear). `block` is a mark that starts its line, whose search runs over fence lines.
-	const dead = { comment: [0, 0], pre: [0, 0], math: [0, 0] } as Record<"comment" | "pre" | "math", [number, number]>;
+	const dead = { comment: [0, 0], percent: [0, 0], pre: [0, 0], math: [0, 0] } as Record<"comment" | "percent" | "pre" | "math", [number, number]>;
 	/** The end (index just past the closer) of the first closer at or after column `col` of line `i`, as the line and the column, or null. */
-	const closeOf = (kind: "comment" | "pre" | "math", i: number, col: number, block: boolean): { line: number; end: number } | null => {
+	const closeOf = (kind: "comment" | "percent" | "pre" | "math", i: number, col: number, block: boolean): { line: number; end: number } | null => {
 		const d = dead[kind];
 		if (i < (block ? d[0] : Math.max(d[0], d[1]))) return null;
 		let j = i;
@@ -123,8 +127,8 @@ export function visibleLines(lines: readonly string[], from = 0, skip?: readonly
 			if (kind === "comment") {
 				const x = l.indexOf("-->", at);
 				if (x >= 0) end = x + 3;
-			} else if (kind === "math") {
-				const x = l.indexOf("$$", at);
+			} else if (kind === "math" || kind === "percent") {
+				const x = l.indexOf(kind === "math" ? "$$" : "%%", at);
 				if (x >= 0) end = x + 2;
 			} else {
 				PRE_CLOSE.lastIndex = at;
@@ -178,14 +182,14 @@ export function visibleLines(lines: readonly string[], from = 0, skip?: readonly
 				p = end;
 				continue;
 			}
-			const kind = mark === "<!--" ? "comment" : mark === "$$" ? "math" : "pre";
+			const kind = mark === "<!--" ? "comment" : mark === "%%" ? "percent" : mark === "$$" ? "math" : "pre";
 			const close = closeOf(kind, cur, after, /^ {0,3}$/.test(l.slice(0, m.index)));
 			if (!close) {
 				kept += mark;
 				continue;
 			}
 			if (close.line === cur) {
-				// a span of this line. A comment and a `$$` span are taken out of what is seen; a `<pre>` with its end on its line is read as text
+				// a span of this line. A comment (either kind) and a `$$` span are taken out of what is seen; a `<pre>` with its end on its line is read as text
 				if (kind === "pre") kept += mark;
 				else p = close.end;
 				continue;
