@@ -2645,3 +2645,8 @@
 .booklet-nowplaying-here:focus {
 	outline: none;
 }
+
+/* the settings page's one write-in: Obsidian's input is 40px high on a phone before 1.11 */
+.booklet-settings .setting-item-control input[type="text"] {
+	min-height: max(44px, var(--input-height));
+}
