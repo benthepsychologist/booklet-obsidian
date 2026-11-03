@@ -1897,34 +1897,108 @@
 	padding: 0 var(--size-2-3);
 }
 
-/* the menu of a tab's tree and its search; "Mentioned on" */
-.booklet-pagemenu {
+/*
+ * The "Pages" button of a tab's tree, and the panel it opens: the tree and its search. The button stands on the left of the page area. On a
+ * wide pane the open panel is a column beside the page; on a narrow pane and on a phone it is a drawer over the page, under the button, with a
+ * Close button. The panel scrolls inside itself, so a tree of a hundred pages never lengthens the page. Obsidian's own variables only.
+ */
+.booklet-pagearea {
+	position: relative;
+	container: booklet-pagearea / inline-size;
 	margin: 0 0 var(--size-4-4);
+}
+
+.booklet-pagenav {
+	margin-bottom: var(--size-4-3);
+}
+
+.booklet-pagemain {
+	min-width: 0;
+}
+
+.booklet-pagemenu {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	max-height: 60vh;
+	margin-top: var(--size-4-2);
+	background-color: var(--background-primary);
 	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	padding: var(--size-4-2) var(--size-4-3);
 }
 
-.booklet-pagemenu summary {
-	cursor: pointer;
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	font-weight: var(--font-semibold);
+.booklet-pagemenu[hidden] {
+	display: none;
 }
 
-.booklet-pagemenu[open] summary {
+.booklet-pagemenu:focus {
+	outline: none;
+}
+
+/* the drawer: over the page, under the button */
+.booklet-pagemenu {
+	position: absolute;
+	z-index: var(--layer-popover, 30);
+	left: 0;
+	width: min(100%, 24rem);
+}
+
+.booklet-pagemenu-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
 	margin-bottom: var(--size-4-2);
 }
 
 .booklet-pagesearch {
-	margin-bottom: var(--size-4-2);
+	flex: 1 1 auto;
+	min-width: 0;
 }
 
-/* a deep tree scrolls inside its menu, not the page */
+.booklet-pagemenu-close {
+	flex: none;
+}
+
+/* a deep tree scrolls inside its panel, not the page */
 .booklet-pagelist {
-	max-height: 50vh;
+	flex: 1 1 auto;
+	min-height: 0;
 	overflow: auto;
 	overscroll-behavior: contain;
+	overflow-wrap: anywhere;
+}
+
+/* a phone's bottom bar covers the foot of the window: keep the drawer clear of it */
+.is-phone .booklet-pagemenu {
+	max-height: 45vh;
+}
+
+/* a wide pane, not a phone: the open panel is a column beside the page */
+@container booklet-pagearea (min-width: 40rem) {
+	body:not(.is-phone) .booklet-pageframe.is-open {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--size-4-4);
+	}
+
+	body:not(.is-phone) .booklet-pageframe.is-open .booklet-pagenav {
+		flex: 0 0 min(18rem, 35%);
+		min-width: 0;
+	}
+
+	body:not(.is-phone) .booklet-pageframe.is-open .booklet-pagemain {
+		flex: 1 1 0;
+	}
+
+	body:not(.is-phone) .booklet-pagemenu {
+		position: static;
+		width: auto;
+	}
+
+	body:not(.is-phone) .booklet-pagemenu-close {
+		display: none;
+	}
 }
 
 /* the labels the tree adds ("Pages under this one", "Mentioned on") stand off the text above them as a section label does */
@@ -1971,13 +2045,14 @@
 .is-mobile .booklet-tabbtn,
 .is-mobile .booklet-pager button,
 .is-mobile .booklet-entries .booklet-fold,
-.is-mobile .booklet-pagemenu summary,
+.is-mobile .booklet-pagesbtn,
+.is-mobile .booklet-pagemenu-close,
+.is-mobile .booklet-pagesearch input[type="search"],
 .is-mobile .booklet-pagelink,
 .is-mobile .booklet-cardrow {
 	min-height: 44px;
 }
 
-.is-mobile .booklet-pagemenu summary,
 .is-mobile .booklet-pagelink {
 	display: flex;
 	align-items: center;

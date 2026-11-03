@@ -1,6 +1,6 @@
 /*
- * The notice at the top of a note that holds something this view does not read (plugin 0.11.0): a later marker, a kind of line, a setting,
- * a query key or a block that is not read. Each case is a made-up note. The notice names each part by its line in the file (front matter
+ * The notice at the top of a note that holds something this view does not read (plugin 0.11.0; quieter in 1.0.0): a kind of line, a
+ * setting, a query key or a block that is not read. A note's 0.x marker alone, earlier or later, makes no notice. Each case is a made-up note. The notice names each part by its line in the file (front matter
  * counted) and what is written there, says which version of the plugin is reading and which format it reads, and says how to update when
  * a newer plugin might read what is left out. The rest of the note still draws and still takes answers, and what is not read stays in the
  * file exactly as written.
@@ -13,7 +13,6 @@ import { core, corpusFiles, read } from "./helpers.mjs";
 const PLUGIN = "0.11.0";
 const UPDATE = "To update: Settings, Community plugins, Check for updates.";
 const IS_PLUGIN = "This is Booklet plugin 0.11.0, which reads format 0.18.";
-const EARLIER = (m) => `This file says booklet: ${m}. This view reads format 0.18 and has opened it as it is; some of it may not draw.`;
 
 const front = (marker = "0.18") => `---\nbooklet: "${marker}"\nid: made/up\ntitle: Made up\nlang: en\n---\n`;
 /** A note: its front matter is six lines, a blank line follows, and the body starts on line 8. */
@@ -29,29 +28,32 @@ test("the notice's counting: the front matter is six lines, so the body starts o
 	assert.equal(lineOf(t, "[!text"), 10);
 });
 
-test("a later marker: the spec's sentence, that the format is newer, the plugin and its format, and how to update; the note still reads", () => {
-	const t = note(BASE, "0.19");
-	const b = core.parseBooklet(t);
-	assert.equal(b.ok, true);
-	assert.equal(b.activities[0].segments.filter((s) => s.type === "question").length, 1, "its question is read");
-	assert.deepEqual(noticeOf(t), {
-		paragraphs: [
-			"This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
-			"Format 0.19 is newer than the format this view reads.",
-			IS_PLUGIN,
-			`A newer version of the plugin may read this note. ${UPDATE}`,
-		],
-		entries: [],
-		entriesAfter: -1,
-		count: 1,
-	});
-	assert.equal(noticeOf(note(BASE, "0.100"))?.paragraphs[1], "Format 0.100 is newer than the format this view reads.", "0.100 is later than 0.18");
+test("a marker alone makes no notice: 0.9, 0.17, 0.19 and 0.99 with nothing unread open quietly, and the note still reads", () => {
+	for (const m of ["0.1", "0.9", "0.16", "0.17", "0.18", "0.19", "0.99", "0.100"]) {
+		const t = note(BASE, m);
+		const b = core.parseBooklet(t);
+		assert.equal(b.ok, true, m);
+		assert.equal(b.activities[0].segments.filter((s) => s.type === "question").length, 1, `${m}: its question is read`);
+		assert.equal(noticeOf(t), null, `${m}: no notice`);
+	}
+	// a marker that is not a 0.x version is not a note this view opens
+	assert.equal(core.parseBooklet(note(BASE, "1.0")).ok, false);
 });
 
-test("an earlier marker: the spec's sentence and the plugin, and no word about updating", () => {
-	for (const m of ["0.17", "0.16", "0.9", "0.1"]) {
-		assert.deepEqual(noticeOf(note(BASE, m)), { paragraphs: [EARLIER(m), IS_PLUGIN], entries: [], entriesAfter: -1, count: 1 }, m);
+test("a note of another 0.x marker with one unread line: the notice names that line, the plugin and its format, and says nothing of the marker", () => {
+	for (const m of ["0.9", "0.99"]) {
+		const t = note(`${BASE}\n> [!lesson|intro] The lesson\n> Some words.\n`, m);
+		const n = noticeOf(t);
+		assert.deepEqual(n?.entries, [`Line 12: > [!lesson|intro] The lesson ("lesson" is not a kind this view reads, so it is drawn as "not yet supported")`], m);
+		assert.equal(n?.count, 1, `${m}: the marker is not counted`);
+		assert.ok(n?.paragraphs.every((p) => !/This file says booklet|is newer than the format/.test(p)), `${m}: no marker sentence: ${JSON.stringify(n?.paragraphs)}`);
+		assert.equal(n?.paragraphs[0], IS_PLUGIN, m);
 	}
+	// an earlier marker adds no update line of its own to a mistake; a later one keeps it (a newer plugin may read what a later format wrote)
+	const early = noticeOf(note("> [!activity|a] A\n\n> [!number|n mx:5] N\n", "0.9"));
+	assert.deepEqual(early?.paragraphs, [IS_PLUGIN, "This view does not read this part of the note. It stays in the file exactly as written, and the rest of the note works as usual:"]);
+	const late = noticeOf(note("> [!activity|a] A\n\n> [!number|n mx:5] N\n", "0.99"));
+	assert.equal(late?.paragraphs.at(-1), `A newer version of the plugin may read this note. ${UPDATE}`);
 });
 
 test("a kind of line this view does not read: its line, its words, and how to update", () => {
@@ -173,10 +175,10 @@ test("several at once, in file order, with a later marker; a long line is cut; a
 		assert.ok(n?.entries[0]?.startsWith("Line 10: > [!text|t shiny:1] A very long question that goes on and on A very"), n?.entries[0]);
 		assert.ok(/…\s\(/.test(n?.entries[0] ?? ""), "a long line is cut with an ellipsis before the reason");
 		assert.ok(n.entries.every((e) => !e.includes("\r")), "no carriage return in the notice");
-		assert.equal(n.count, 5, "the marker, and four parts");
+		assert.equal(n.count, 4, "the four parts; the marker is not counted");
 		assert.equal(n.paragraphs.at(-1), `A newer version of the plugin may read this note. ${UPDATE}`);
-		assert.equal(n.paragraphs[3], "This view does not read these 4 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:");
-		assert.equal(n.entriesAfter, 3);
+		assert.equal(n.paragraphs[1], "This view does not read these 4 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:");
+		assert.equal(n.entriesAfter, 1);
 	}
 	// a mistake among others: the hint says "some of these"
 	const mixed = noticeOf(note("> [!activity|a] A\n\n> [!lesson|x] L\n\n> [!number|n mx:5] N\n"));
@@ -190,12 +192,10 @@ test("the view lists the notice first, with the plugin's own version from its ma
 	const root = v.view.contentEl;
 	const box = root.querySelector(".booklet-problems");
 	assert.ok(box, "the problems list is drawn");
-	assert.equal(box.querySelector("summary").textContent, "3 things in this note could not be read", "the marker and two parts");
+	assert.equal(box.querySelector("summary").textContent, "2 things in this note could not be read", "the two parts");
 	const first = box.querySelector("ul > li");
 	assert.ok(first.classList.contains("booklet-notice"), "the notice is the first item");
 	assert.deepEqual([...first.querySelectorAll(":scope > p")].map((p) => p.textContent), [
-		"This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
-		"Format 0.19 is newer than the format this view reads.",
 		"This is Booklet plugin 9.8.7, which reads format 0.18.",
 		"This view does not read these 2 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:",
 		`A newer version of the plugin may read this note. ${UPDATE}`,
@@ -251,7 +251,7 @@ test("the rest of the note still draws and takes answers; what is not read is by
 	for (const line of odd) assert.ok(after.includes(line + "\n") || after.endsWith(line), `kept as written: ${JSON.stringify(line)}`);
 	assert.ok(after.startsWith(front("0.19")), "the marker is the one the file came with");
 	// and the notice is still there with the same entries after the redraw
-	assert.equal(root.querySelector(".booklet-problems summary").textContent, "5 things in this note could not be read", "the marker, the lesson, the block and the two settings");
+	assert.equal(root.querySelector(".booklet-problems summary").textContent, "4 things in this note could not be read", "the lesson, the block and the two settings");
 	v.close();
 });
 
@@ -262,7 +262,7 @@ test("no note of the corpus or the test vault holds anything this view does not 
 		// is a block the format defines and this view does not read yet (README: "themes")
 		const left = b.unread.filter((u) => !/an activity line takes no `parent:` setting/.test(u.why) && u.text !== "```booklet theme");
 		assert.deepEqual(left, [], file);
-		if (b.marker === "0.18") assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
+		assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
 	}
 });
 

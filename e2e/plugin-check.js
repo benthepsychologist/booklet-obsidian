@@ -1591,7 +1591,7 @@ async function check13() {
 /* ================= CHECK 14 ================= */
 // Add your own adds the words typed and not added when it is left (format 0.16, SPEC section 5), as Enter or Add would.
 // This run's copy of Every kind gives its choice `open`, so that a choice and a multi both take an option of the reader's
-// own; a copy of it marked "0.15" is opened first, for the notice an older marker gets.
+// own; a copy of it marked "0.15" is opened first: an older marker alone gets no notice.
 async function check14() {
   const c = new Check(14, "Add your own adds the words typed when it is left (format 0.16): a click elsewhere in the view, Tab, a press on another option (the words first, then the press), a press on the option the words name (pressed once, not taken back), Add (once), another note opened in the pane, the view switched to Markdown, the pane closed; on a choice the words replace the pick; white space adds nothing; a note marked 0.15 opens with its notice");
   await withApp("c14", async (o, vault) => {
@@ -1601,10 +1601,10 @@ async function check14() {
     const OLDER = "Older marker.booklet.md";
     fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.18"', 'booklet: "0.15"'));
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
-    // a note marked with an earlier format: opened as it is, the notice first among its problems
+    // a note marked with an earlier format: opened as it is, with no notice for its marker alone
     await openNote(o, OLDER, "/kinds");
-    const older = await o.evaluate(() => ({ problems: [...document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-problems .booklet-notice > p")].map(l => l.textContent), questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
-    c.ok(older.problems[0] === "This file says booklet: 0.15. This view reads format 0.18 and has opened it as it is; some of it may not draw." && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn, and first among its problems: " + JSON.stringify(older.problems[0]));
+    const older = await o.evaluate(() => ({ lists: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-notice").length, questions: document.querySelectorAll(".workspace-leaf-content[data-type='booklet'] .booklet-question").length }));
+    c.ok(older.lists === 0 && older.questions >= 7, "a note marked 0.15 opens with " + older.questions + " questions drawn and no notice (its marker alone says nothing): " + older.lists + " notices")
     await openNote(o, EVERY);
     const ownIn = kind => question(o, K, kind).locator(".booklet-own-row input");
     const option = (kind, words) => question(o, K, kind).locator(".booklet-choices > button.booklet-choice", { hasText: words }).first();

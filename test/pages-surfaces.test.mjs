@@ -11,6 +11,11 @@ import { pane } from "./pane.mjs";
 
 const wiki = () => build(WIKI).nav.byKey.get("calm/check-in").tabs.find((t) => t.id === "wiki");
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
+const btn = (p) => p.el.querySelector(".booklet-pagesbtn");
+const isOpen = (p) => btn(p).getAttribute("aria-expanded") === "true";
+const openMenu = (p) => {
+	if (!isOpen(p)) click(btn(p));
+};
 const menuTree = (p) => {
 	const walk = (ul) => [...ul.children].map((li) => ({ t: p.words(li.querySelector(":scope > a")), kids: li.querySelector(":scope > ul") ? walk(li.querySelector(":scope > ul")) : [] }));
 	return walk(menu(p).querySelector(".booklet-pagelist > ul"));
@@ -118,13 +123,26 @@ test("\"Mentioned on\" names a source by its page, with its tab and activity whe
 
 /* ---- the menu, the cards and "Mentioned on", in the view ---- */
 
-test("a tab of pages has a closed menu \"Pages in this tab\" holding its tree, the page on show marked; a 0.16 tab and a tab of one page have none", async () => {
+test("a tab of pages has a \"Pages\" button and a closed panel holding its tree, the page on show marked; a 0.16 tab and a tab of one page have none", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 3) });
 	await p.settled();
 	const m = menu(p);
-	assert.ok(m, "the menu is drawn");
-	assert.equal(m.open, false, "closed to begin with");
-	assert.equal(p.words(m.querySelector("summary")), "Pages in this tab");
+	assert.ok(m, "the panel is drawn");
+	const b = btn(p);
+	assert.equal(b.tagName, "BUTTON", "a real button");
+	assert.equal(b.getAttribute("type"), "button");
+	assert.equal(p.words(b), "Pages");
+	assert.equal(b.getAttribute("aria-expanded"), "false", "closed to begin with");
+	assert.equal(b.getAttribute("aria-controls"), m.id, "it names the panel it opens");
+	assert.equal(m.hidden, true, "the panel is hidden while closed");
+	assert.equal(m.tagName, "NAV", "a navigation landmark");
+	assert.equal(m.getAttribute("aria-label"), "Pages in this tab");
+	assert.equal(m.contains(b), false, "the button is not inside the panel");
+	assert.ok(b.compareDocumentPosition(m) & w.Node.DOCUMENT_POSITION_FOLLOWING, "the button comes first, then its panel");
+	assert.equal(m.closest(".booklet-pagearea").querySelector(".booklet-pagebody") !== null, true, "the panel and the page share one area");
+	openMenu(p);
+	assert.equal(b.getAttribute("aria-expanded"), "true");
+	assert.equal(m.hidden, false);
 	assert.deepEqual(menuTree(p), [
 		{ t: "Learn", kids: [] },
 		{ t: "The body map", kids: [{ t: "Choosing a place", kids: [] }, { t: "Words for what you notice", kids: [] }] },
@@ -147,15 +165,14 @@ test("a tab of pages has a closed menu \"Pages in this tab\" holding its tree, t
 	const old = pane(SKETCH, { screen: "activity:basics/lines" });
 	await old.settled();
 	assert.equal(menu(old), null);
-	assert.equal(old.all(".booklet-pagemenu, .booklet-mentioned").length, 0);
+	assert.equal(old.all(".booklet-pagemenu, .booklet-pagesbtn, .booklet-mentioned").length, 0);
 	old.close();
 });
 
-test("a press on a page in the menu opens it as a step; the menu stays open for the pane, and the words in its search box with it", async () => {
+test("a press on a page in the panel opens it as a step; the panel stays open for the pane, and the words in its search box with it", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 0) });
 	await p.settled();
-	menu(p).open = true;
-	menu(p).dispatchEvent(new w.Event("toggle"));
+	openMenu(p);
 	search(p, "grid");
 	const before = p.hist.back.length;
 	const link = [...menu(p).querySelectorAll(".booklet-pagelist a")].find((a) => p.words(a) === "The feelings grid");
@@ -163,7 +180,8 @@ test("a press on a page in the menu opens it as a step; the menu stays open for 
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["The feelings grid"]);
 	assert.equal(p.hist.back.length, before + 1, "a step");
-	assert.equal(menu(p).open, true, "still open on the next page");
+	assert.equal(isOpen(p), true, "still open on the next page");
+	assert.equal(menu(p).hidden, false);
 	assert.equal(menu(p).querySelector("input").value, "grid", "with its words");
 	assert.equal(p.disk.writes, 0);
 	assert.equal(sha(p.disk.text), sha(WIKI));
@@ -171,13 +189,15 @@ test("a press on a page in the menu opens it as a step; the menu stays open for 
 	p.close();
 	const q = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await q.settled();
-	assert.equal(menu(q).open, false);
+	assert.equal(isOpen(q), false);
+	assert.equal(menu(q).hidden, true);
 	q.close();
 });
 
 test("the search lists the pages whose title or words hold the words typed, titles first; none says so; Enter opens the first; Escape clears", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 0) });
 	await p.settled();
+	openMenu(p);
 	search(p, "grid");
 	assert.deepEqual(hits(p), ["The feelings grid", "Learn", "The two axes"], "the title first, then the pages whose words hold it, in reading order");
 	search(p, "zzz");
