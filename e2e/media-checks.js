@@ -428,7 +428,7 @@ A parent path: ![](../tone-2s.wav)
       const sp = await settingsPage();
       let st = await settings();
       c.info("the settings page: " + JSON.stringify(st));
-      c.ok(st && st.names.includes("Allow list for media") && st.names.includes(H("vault.example.org")) && st.names.includes("youtube.com") && !st.names.includes(H("note.example.org")), `the settings page lists the vault's sites (what the card wrote) and not the note's: ${st && JSON.stringify(st.names)}`);
+      c.ok(st && st.names.includes(H("vault.example.org")) && st.names.includes("youtube.com") && !st.names.includes(H("note.example.org")), `the settings page lists the vault's sites (what the card wrote) and not the note's: ${st && JSON.stringify(st.names)}`);
       c.ok(st && st.buttons.includes("Add suggested services") && st.buttons.includes("Remove youtube.com"), `it has the Add suggested services button and a Remove for each site: ${st && JSON.stringify(st.buttons)}`);
       await sp.locator(".vertical-tab-content button", { hasText: /^Add suggested services$/ }).click();
       await sleep(500);

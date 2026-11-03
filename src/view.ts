@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, Scope, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -866,6 +866,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			notePath: this.file.path,
 			request,
 			returnFocus: () => (opener && opener.isConnected ? opener : again()),
+			keyScope: (escape) => {
+				const scope = new Scope(this.app.scope);
+				scope.register([], "Escape", () => {
+					escape();
+					return false;
+				});
+				this.app.keymap.pushScope(scope);
+				return () => this.app.keymap.popScope(scope);
+			},
 			onClose: ({ changed, left }) => {
 				this.card = null;
 				// a change draws the note again, and the focus goes back to the same place in the new drawing; when the note was already drawn again
