@@ -904,13 +904,15 @@ export function parseBooklet(text: string): Booklet {
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
 	const open: { lines: string[]; resume: number; kind: string }[] = [];
 
-	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block that really closes: no Booklet line there is read (a reader sees
-	// none of it). Index i is the same line of the file at every depth, for the body of a callout is read from the file's own lines with its `>` off
-	const hiddenStart = visibleLines(lines, fm.bodyStart).hidden;
+	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block that really closes (in the body, never looking into the records
+	// section): no Booklet line there is read (a reader sees none of it). Index i is the same line of the file at every depth, for the body of a
+	// callout is read from the file's own lines with its `>` off
+	const hiddenStart = visibleLines(lines, fm.bodyStart, inRegion).hidden;
 
 	// a file with no activity line and no module line is one activity, named by the front matter title (SPEC section 3): its prose, its tab
-	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries
-	if (!hasStructureLine(lines, fm.bodyStart, inRegion, hiddenStart) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && !hiddenStart[n] && l.trim())) {
+	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries.
+	// A hidden line needs no check among the words: the line that opens its region comes first, is seen, and is not blank.
+	if (!hasStructureLine(lines, fm.bodyStart, inRegion, hiddenStart) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
 		started = true;
 		act = { id: "", title: frontMatter["title"] || "Activity", scope: "", line: -1, repeat: false, daily: false, entriesFolded: false, hidden: false, segments: [] };
 		activities.push(act);

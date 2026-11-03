@@ -7,6 +7,7 @@
  */
 import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, COMMENT, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds, visibleLines } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
+import { regionMask } from "./records";
 import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Question, type Segment } from "./reader";
 import { answeredOf, shapeIssue } from "./shape";
 import { ENGINES, engineOf } from "./widgets";
@@ -564,7 +565,7 @@ function statusOf(lines: readonly string[], at: number): string | null {
 
 export function buildNav(book: Booklet, text: string): NavModel {
 	const lines = splitLines(text).map((l) => l.text);
-	const hidden = visibleLines(lines, book.bodyStart).hidden;
+	const hidden = visibleLines(lines, book.bodyStart, regionMask(lines.length, book.records.regions)).hidden;
 	const mods: NavMod[] = [];
 	const byKey = new Map<string, NavAct>();
 	const problems: string[] = [];

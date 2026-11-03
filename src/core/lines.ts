@@ -89,25 +89,35 @@ const PRE_CLOSE = /<\/pre>/gi;
  * comment, a `<pre>` block and a `$$` math block. `hidden[i]` is true when line `i` STARTS inside a comment, a `<pre>` or a `$$` block, so
  * a line-start mark such as `> [!page` there is not read. `text[i]` is the line with its comments and its `$$ ... $$` spans taken out, or
  * null when nothing of it is seen (a fenced line, or a line wholly inside a comment, `<pre>` or `$$` block). `from` is the first line read.
+ * `skip` marks lines that are not part of what is read, the records section (SPEC section 8): they are not scanned (`hidden` false, `text`
+ * null), and no region reaches across one, so a saved answer that holds `-->` or `$$` can never close a mark written in the body.
  *
  * A region hides only what it really encloses. The scan goes in order, and a mark counts as an opener only when its closer (`-->`,
- * `</pre>`, the next `$$`) is found later in the note: a `<!--` with no `-->` after it, a `<pre>` with no `</pre>`, and a lone or odd
- * `$$` (a price such as `$$$`) hide nothing, so every line after them stays visible, as before this scan existed. A mark inside an
- * inline code span (one run of backticks, closed by a run of the same length on its line) is not an opener. A fence line is only a fence
- * when it starts outside a region: a "```" line inside a comment is part of the comment. A single-line `<!-- ... -->`, `$$ ... $$` or
+ * `</pre>`, the next `$$`) is found later in the note, before the next skipped line: a `<!--` with no `-->` after it, a `<pre>` with no
+ * `</pre>`, and a lone or odd `$$` (a price such as `$$$`) hide nothing, so every line after them stays visible, as before this scan
+ * existed. A mark inside an inline code span (one run of backticks, closed by a run of the same length on its line) is not an opener.
+ * A fence line is only a fence when it starts outside a region: a "```" line inside a comment is part of the comment. Text in a fenced code
+ * block is code, so it is never a closer either. A mark that starts its line (up to three spaces in) opens a block, as Markdown's HTML
+ * block and a math block do, and a fence line inside it is part of it. A mark further along a line sits in a paragraph, and a fence line
+ * ends that paragraph, so the search for its closer stops there and finds none. A single-line `<!-- ... -->`, `$$ ... $$` or
  * `<pre>...</pre>` is a span of its line, not a region over lines.
  */
-export function visibleLines(lines: readonly string[], from = 0): { hidden: boolean[]; text: (string | null)[] } {
+export function visibleLines(lines: readonly string[], from = 0, skip?: readonly boolean[]): { hidden: boolean[]; text: (string | null)[] } {
 	const n = lines.length;
 	const hidden = lines.map(() => false);
 	const text: (string | null)[] = lines.map(() => null);
-	// a search for a closer that found none will find none for any later opener either, so it is made once per kind of region
-	const none = { comment: false, pre: false, math: false };
+	// A search for a closer that found none will find none for any later opener either, up to the line where it stopped, so each kind of
+	// region remembers that line (the scan stays linear). `block` is a mark that starts its line, whose search runs over fence lines.
+	const dead = { comment: [0, 0], pre: [0, 0], math: [0, 0] } as Record<"comment" | "pre" | "math", [number, number]>;
 	/** The end (index just past the closer) of the first closer at or after column `col` of line `i`, as the line and the column, or null. */
-	const closeOf = (kind: "comment" | "pre" | "math", i: number, col: number): { line: number; end: number } | null => {
-		if (none[kind]) return null;
-		for (let j = i; j < n; j++) {
+	const closeOf = (kind: "comment" | "pre" | "math", i: number, col: number, block: boolean): { line: number; end: number } | null => {
+		const d = dead[kind];
+		if (i < (block ? d[0] : Math.max(d[0], d[1]))) return null;
+		let j = i;
+		for (; j < n; j++) {
+			if (skip?.[j]) break;
 			const l = lines[j] ?? "";
+			if (!block && j > i && FENCE_OPEN.test(l)) break;
 			const at = j === i ? col : 0;
 			let end = -1;
 			if (kind === "comment") {
@@ -123,10 +133,16 @@ export function visibleLines(lines: readonly string[], from = 0): { hidden: bool
 			}
 			if (end >= 0) return { line: j, end };
 		}
-		none[kind] = true;
+		// stopped at a fence line (a search over fence lines never stops there) or at the end of what is read
+		if (j < n && !skip?.[j]) d[1] = j;
+		else d[0] = j;
 		return null;
 	};
 	for (let i = from; i < n; ) {
+		if (skip?.[i]) {
+			i++;
+			continue;
+		}
 		const f = FENCE_OPEN.exec(lines[i] ?? "");
 		if (f && f[1]) {
 			i = Math.min(fenceEnd(lines, i, f[1]), n - 1) + 1;
@@ -163,7 +179,7 @@ export function visibleLines(lines: readonly string[], from = 0): { hidden: bool
 				continue;
 			}
 			const kind = mark === "<!--" ? "comment" : mark === "$$" ? "math" : "pre";
-			const close = closeOf(kind, cur, after);
+			const close = closeOf(kind, cur, after, /^ {0,3}$/.test(l.slice(0, m.index)));
 			if (!close) {
 				kept += mark;
 				continue;
