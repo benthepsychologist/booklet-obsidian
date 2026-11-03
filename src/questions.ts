@@ -452,7 +452,7 @@ export function pressHold(host: QuestionHost, scope: HTMLElement): PressHold {
 
 function drawChoice(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const multi = q.kind === "multi";
-	// a copy asked for each pick is given a key that already ends in the pick's own-option key (each-question.ts copyKey)
+	// a copy asked for each pick is given a key of its own, already specific to the pick, and holds its own-option words under it (each-question.ts copyKey)
 	const ownKey = host.earlierOf(t).pick === undefined ? `${key}#own` : key;
 	const show = choiceBody(host, box, t, q, label, locked, {
 		picks: () => picksOf(host.answerOf(t, q)),
