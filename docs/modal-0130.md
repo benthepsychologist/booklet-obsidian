@@ -1,3 +1,5 @@
+Dated record: the floor is now 1.11.7 (docs/floor-0130.md)
+
 # The allow card on Obsidian's `Modal`: a measurement (plugin 0.13.0, lane M)
 
 ## 1. The question

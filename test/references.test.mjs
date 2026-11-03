@@ -72,14 +72,15 @@ test('a definition in a group or a reading callout belongs to its module; the ot
  }
 });
 
-test('structure lines inside a comment stay live, as at 0.9.0; a definition inside one is no definition', () => {
- // 0.9.0 read no comments at all: a module or activity line is a line wherever it stands, and the plugin keeps that
- for (const [open, close] of [['%%', '%%'], ['<!--', '-->']]) {
-  const book = core.parseBooklet(head + `${open}\n\n> [!activity|x] Hidden?\n\n${close}\n\n> [!activity|a] A\n\nWords.\n`);
-  assert.deepEqual(book.activities.map(a => a.id), ['x', 'a']);
- }
+test('structure lines inside an Obsidian %% comment or an HTML comment that closes are not read; a definition inside either is no definition', () => {
+ // 0.9.0 read no comments at all: a module or activity line was a line wherever it stood. The owner's ruling (nothing commented out appears)
+ // covers a comment that closes, HTML or Obsidian's `%%` ("add %% comments to 1.0.0 as a comment too")
+ const percent = core.parseBooklet(head + `%%\n\n> [!activity|x] Hidden\n\n%%\n\n> [!activity|a] A\n\nWords.\n`);
+ assert.deepEqual(percent.activities.map(a => a.id), ['a']);
+ const html = core.parseBooklet(head + `<!--\n\n> [!activity|x] Hidden\n\n-->\n\n> [!activity|a] A\n\nWords.\n`);
+ assert.deepEqual(html.activities.map(a => a.id), ['a']);
  const wrapped = core.parseBooklet(head + '<!--\n\n> [!module|fake] Fake\n\n> [!module|fake end]\n\n-->\n\n> [!activity|a] A\n\nWords.\n');
- assert.deepEqual(wrapped.modules.map(m => m.id), ['fake']);
+ assert.deepEqual(wrapped.modules.map(m => m.id), []);
  const inline = core.parseBooklet(head + '> [!module|one] One <!-- note -->\n\n> [!activity|a] A\n\nHello\n\n[pic]: one.png\n\n> [!module|one end]\n');
  assert.deepEqual(inline.modules.map(m => m.id), ['one']);
  assert.equal(core.referenceContext(inline.references, 'one'), '[pic]: one.png');

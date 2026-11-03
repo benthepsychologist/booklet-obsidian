@@ -1,7 +1,7 @@
 /*
  * Rows carry what a date sort, a chart and removal need (a kept entry's time, a scale answer's chart number), and a
- * question asked for each pick, named alone in `from:`, draws as tiles, bars or a line with one row for each pick
- * (SPEC section 6 says "one row per pick and value" and not what the row holds: the plugin leads the format here).
+ * question asked for each pick, named alone in `from:`, draws in every view with one row for each pick
+ * (SPEC section 6 says "one row per pick and value" and not what the row holds, and the reference renderer does not do it yet for a table, list or cards: the plugin leads the format here).
  * Made-up entries only.
  */
 import test from "node:test";
@@ -118,11 +118,34 @@ test("tiles of an each-pick over no entries say the query's empty words", () => 
 	assert.equal(p.empty, "Nothing used yet.");
 });
 
-test("a table, a list or cards of an each-pick still give a row for each entry with a field for each pick", () => {
-	const p = planOf(["from: uses"]);
-	assert.equal(p.set.kind, "entries");
-	assert.equal(rowsOf(p).length, 2);
-	assert.deepEqual(p.set.own.slice(0, 1), ["date"]);
+test("a table, a list or cards of an each-pick give one row for each pick, as tiles, bars and a line do (the plugin is ahead of the reference renderer here)", () => {
+	for (const view of ["table", "list", "cards"]) {
+		const p = planOf([`from: uses\nas: ${view}`]);
+		assert.equal(p.kind, "rows");
+		assert.equal(p.set.kind, "picks", view);
+		assert.deepEqual(
+			rowsOf(p).map((r) => [r.cells.label.text, r.cells.value.text]),
+			[
+				["Pencil", "5"],
+				["Ruler", "1"],
+				["Scissors", "2"],
+			],
+			`${view}: a row for each pick, in the source's order, the value from the newest entry that answered it`,
+		);
+	}
+	// with no as:, a question named alone is cards, and gives the same rows
+	assert.deepEqual(rowsOf(planOf(["from: uses"])).map((r) => r.cells.label.text), ["Pencil", "Ruler", "Scissors"]);
+	// a table holds the two columns, labelled with the question's title and the word for an answer; fields: has no other field to pick
+	const t = planOf(["from: uses\nas: table\nfields: uses"]);
+	assert.deepEqual(t.cols, ["label", "value"]);
+	assert.deepEqual(t.cols.map((k) => t.set.label(k).map((x) => x.md ?? x.text).join("")), ["Times used", "Answer"]);
+	// an each-pick scale gives the anchor's words; limit takes the first picks; a pick nobody answered has no row
+	const g = planOf(["from: grip\nas: table\nlimit: 1"]);
+	assert.deepEqual(rowsOf(g).map((r) => [r.cells.label.text, r.cells.value.text]), [["Pencil", "Fine"]]);
+	// a question asked for each pick named among several, with fields:, is still one field for each pick of one row for each entry
+	const many = planOf(["from: log\nfields: uses"]);
+	assert.equal(many.set.kind, "entries");
+	assert.equal(rowsOf(many).length, 2);
 });
 
 test("bars and a line of an each-pick are drawn from the same rows: a bar for each pick", () => {

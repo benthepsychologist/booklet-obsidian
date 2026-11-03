@@ -13,22 +13,39 @@ import { pane, sleep } from "./pane.mjs";
 
 const head = (marker = "0.18") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
+const btn = (p) => p.el.querySelector(".booklet-pagesbtn");
+const isOpen = (p) => btn(p).getAttribute("aria-expanded") === "true";
+const openMenu = (p) => {
+	if (!isOpen(p)) click(btn(p));
+};
 const only = (nav) => [...nav.byKey.values()][0];
 
 /* ---- S1: a page line inside a comment, a `<pre>` or a `$$` block; what "Mentioned on" counts ---- */
 
-test("a 0.16 note's page line inside an HTML comment, a <pre> block or a $$ block is read as a page, as a tab line there already is (the documented exception)", () => {
-	for (const [name, wrap] of [
-		["comment", (x) => `<!--\n${x}\n-->`],
-		["pre", (x) => `<pre>\n${x}\n</pre>`],
-		["math", (x) => `$$\n${x}\n$$`],
-	]) {
-		const text = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!page|hid] Hidden page")}\n\nMore.\n`;
-		const { nav } = build(text);
-		const tab = only(nav).tabs[0];
-		assert.deepEqual(tab.tree.map((p) => p.title), ["A", "Hidden page"], `${name}: read as a page line`);
-		const tabText = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
-		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), true, `${name}: and a tab line is read there at 0.6.0 too`);
+test("a page line inside an HTML comment, a <pre> block or a $$ block starts no page (a commented-out page does not appear); nor does a tab line there", () => {
+	for (const marker of ["0.16", "0.18"]) {
+		for (const [name, wrap] of [
+			["comment", (x) => `<!--\n${x}\n-->`],
+			["pre", (x) => `<pre>\n${x}\n</pre>`],
+			["math", (x) => `$$\n${x}\n$$`],
+			["one-line comment", (x) => `<!-- ${x.split("\n")[0]} -->`],
+		]) {
+			const text = `${head(marker)}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!page|hid] Hidden page")}\n\nMore.\n`;
+			const { nav } = build(text);
+			const tab = only(nav).tabs[0];
+			assert.deepEqual(tab.tree.map((p) => p.title), ["A"], `${marker} ${name}: no page`);
+			assert.equal(core.parseBooklet(text).activities[0].segments.some((s) => s.type === "page"), false, `${marker} ${name}: no page segment`);
+			assert.deepEqual([...core.parseBooklet(text).problems, ...nav.problems].filter((p) => /page|Booklet line/.test(p)), [], `${marker} ${name}: nothing said about it`);
+			assert.equal(core.headingLinksIn(wrap("[[#Hidden]]")).length, 0, `${name}: and a link there is none either`);
+		}
+	}
+	// a page line after the comment has closed, or a comment that closes on the line before it, is read
+	const after = `${head()}> [!activity|a] A\n\n<!--\nold\n-->\n> [!page|seen] Seen page\n\nWords.\n\n<pre>\nx\n</pre>\n> [!page|seen2] Seen too\n\nWords.\n\n$$\nx\n$$\n> [!page|seen3] And this\n\nWords.\n`;
+	assert.deepEqual(only(build(after).nav).tabs[0].tree.map((p) => p.id), ["seen", "seen2", "seen3"]);
+	// a tab line in the same places is not read either (the owner's ruling: nothing commented out appears; test/hidden-structure.test.mjs has the rest)
+	for (const wrap of [(x) => `<!--\n${x}\n-->`, (x) => `<pre>\n${x}\n</pre>`, (x) => `$$\n${x}\n$$`]) {
+		const tabText = `${head("0.18")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
+		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), false);
 	}
 	// what is not a line start, or sits in a fence, stays text
 	const text = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\nAn inline \`> [!page|x] T\` and text.\n\n\`\`\`\n> [!page|x] T\n\`\`\`\n`;
@@ -72,6 +89,7 @@ test("a source whose only link sits in a comment is not listed under the page it
 test("Enter in a search box with no words does nothing: no move, no step in the history; with words it opens the first hit", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await p.settled();
+	openMenu(p);
 	const here = p.pageTitles();
 	const steps = p.hist.back.length;
 	const calls = p.flight.calls;
@@ -267,14 +285,13 @@ test("the page title is a heading a move lands on: a press on the menu or on Nex
 	assert.equal(h.tagName, "H2");
 	assert.equal(h.getAttribute("tabindex"), "-1");
 	assert.notEqual(w.document.activeElement, h, "not on the first drawing");
-	menu(p).open = true;
-	menu(p).dispatchEvent(new w.Event("toggle"));
+	openMenu(p);
 	click([...menu(p).querySelectorAll(".booklet-pagelist a")].find((a) => p.words(a) === "The feelings grid"));
 	await p.settled();
 	const now = p.el.querySelector(".booklet-pagetitle");
 	assert.equal(p.words(now), "The feelings grid");
 	assert.equal(w.document.activeElement, now, "after a menu press");
-	assert.equal(menu(p).open, true, "the menu stays open");
+	assert.equal(isOpen(p), true, "the menu stays open");
 	w.document.activeElement.blur();
 	await p.pageNext();
 	assert.equal(w.document.activeElement, p.el.querySelector(".booklet-pagetitle"), "after Next");
@@ -321,11 +338,12 @@ test("a page group's label keeps the page's own name with the count; a tab of no
 	q.close();
 });
 
-test("a deep tree scrolls inside its menu: the list has an overflow rule", () => {
+test("a deep tree scrolls inside its panel: the panel has a height limit, the list an overflow rule, and a closed panel is not drawn", () => {
 	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	assert.match(/\.booklet-pagemenu \{[^}]*\}/.exec(css)?.[0] ?? "", /max-height:/);
 	const rule = /\.booklet-pagelist \{[^}]*\}/.exec(css)?.[0] ?? "";
-	assert.match(rule, /max-height:/);
 	assert.match(rule, /overflow:\s*auto/);
+	assert.match(css, /\.booklet-pagemenu\[hidden\] \{[^}]*display:\s*none/);
 	assert.match(css, /\.booklet-treelabel \{[^}]*margin-top:\s*var\(--size-4-/);
 });
 
@@ -358,19 +376,18 @@ test("the menu is not drawn for a tab of one page", async () => {
 	p.close();
 });
 
-test("the menu's open state is kept by the toggle event, and dropped when a different note loads", async () => {
+test("the panel's open state is kept by the button alone, and dropped when a different note loads", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 1) });
 	await p.settled();
-	menu(p).open = true;
-	menu(p).dispatchEvent(new w.Event("toggle"));
+	openMenu(p);
 	await p.pageNext();
-	assert.equal(menu(p).open, true, "kept across a move, by the toggle alone (nothing typed)");
+	assert.equal(isOpen(p), true, "kept across a move, by the button alone (nothing typed)");
 	assert.equal(menu(p).querySelector("input").value, "");
 	p.view.setViewData(WIKI, true);
 	await p.settled();
 	p.view.go(wikiAt("wiki", 1));
 	await p.settled();
-	assert.equal(menu(p).open, false, "a note loaded again starts with the menu closed");
+	assert.equal(isOpen(p), false, "a note loaded again starts with the menu closed");
 	p.close();
 });
 
@@ -423,23 +440,97 @@ test("a page whose title starts with an emoji is found by a link with or without
 	assert.deepEqual(core.mentionsOf(nav, na, tab, marks).map((m) => m.title), ["Plain one", "Written one"]);
 });
 
-test("the menu's search box stops the keys it uses: Escape (with words) and Enter (with a hit) keep their default and go no further", async () => {
+test("the panel stops the keys it uses: Escape (words cleared first, then the panel closes, focus back on the button) and Enter (with a hit) keep their default and go no further", async () => {
 	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
 	await p.settled();
 	let reached = 0;
 	p.el.addEventListener("keydown", () => reached++);
+	openMenu(p);
+	assert.equal(w.document.activeElement, menu(p).querySelector("input"), "opening moves focus to the search box");
 	const input = menu(p).querySelector("input");
 	typeInto(input, "axes");
 	assert.equal(press(input, "Escape"), false, "Escape with words in the box: default prevented");
 	assert.equal(reached, 0, "and not passed up (Obsidian would close a modal or the pane on it)");
 	assert.equal(input.value, "", "and the words are cleared");
-	assert.equal(press(input, "Escape"), true, "Escape in an empty box is left to the app");
-	assert.equal(reached, 1);
+	assert.equal(isOpen(p), true, "the first Escape only clears the words");
+	assert.equal(press(input, "Escape"), false, "Escape in an empty box closes the panel");
+	assert.equal(reached, 0, "and goes no further");
+	assert.equal(isOpen(p), false);
+	assert.equal(menu(p).hidden, true);
+	assert.equal(w.document.activeElement, btn(p), "focus returns to the button");
+	openMenu(p);
 	typeInto(input, "axes");
 	assert.equal(press(input, "Enter"), false, "Enter with a hit: default prevented");
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["The two axes"]);
 	p.close();
+});
+
+test("the Close button closes the panel and returns focus to the Pages button; Escape on a link closes it too; the button toggles", async () => {
+	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
+	await p.settled();
+	const close = menu(p).querySelector(".booklet-pagemenu-close");
+	assert.equal(close.tagName, "BUTTON");
+	assert.equal(p.words(close), "Close");
+	openMenu(p);
+	click(close);
+	assert.equal(isOpen(p), false);
+	assert.equal(w.document.activeElement, btn(p));
+	click(btn(p));
+	assert.equal(isOpen(p), true);
+	click(btn(p));
+	assert.equal(isOpen(p), false, "the button opens and closes");
+	click(btn(p));
+	const link = menu(p).querySelector("a");
+	assert.equal(press(link, "Escape"), false);
+	assert.equal(isOpen(p), false, "Escape with focus on a link closes the panel");
+	assert.equal(w.document.activeElement, btn(p));
+	assert.equal(p.disk.writes, 0, "nothing is written to the note");
+	p.close();
+});
+
+test("Escape with focus on the Pages button itself closes an open panel and keeps focus there; with the panel shut it is left alone for Obsidian", async () => {
+	const p = pane(WIKI, { state: wikiAt("wiki", 4) });
+	await p.settled();
+	let reached = 0;
+	p.el.addEventListener("keydown", () => reached++);
+	assert.equal(isOpen(p), false);
+	assert.equal(press(btn(p), "Escape"), true, "shut: the key is not taken");
+	assert.equal(reached, 1, "and goes on up");
+	click(btn(p));
+	btn(p).focus();
+	assert.equal(isOpen(p), true);
+	assert.equal(press(btn(p), "Escape"), false, "open: the key is taken");
+	assert.equal(isOpen(p), false, "and closes the panel");
+	assert.equal(w.document.activeElement, btn(p), "focus stays on the button");
+	assert.equal(reached, 1, "and goes no further");
+	p.close();
+});
+
+test("on a phone the panel is a drawer: choosing a page closes it; focus goes to the panel, not the search box; a wide pane's panel stays open", async () => {
+	const style = w.document.createElement("style");
+	style.textContent = ".booklet-pagemenu { position: absolute; }";
+	w.document.head.appendChild(style);
+	w.document.body.classList.add("is-mobile");
+	try {
+		const p = pane(WIKI, { state: wikiAt("wiki", 0) });
+		await p.settled();
+		openMenu(p);
+		assert.equal(w.document.activeElement, menu(p), "the panel takes focus on a phone, so no keyboard rises");
+		click([...menu(p).querySelectorAll(".booklet-pagelist a")].find((a) => p.words(a) === "The feelings grid"));
+		await p.settled();
+		assert.deepEqual(p.pageTitles(), ["The feelings grid"]);
+		assert.equal(isOpen(p), false, "the drawer closed over the page it opened");
+		openMenu(p);
+		typeInto(menu(p).querySelector("input"), "axes");
+		press(menu(p).querySelector("input"), "Enter");
+		await p.settled();
+		assert.equal(isOpen(p), false, "Enter in a drawer closes it too");
+		p.close();
+	} finally {
+		style.remove();
+		w.document.body.classList.remove("is-mobile");
+	}
 });
 
 test("a cycle is found when a chain read earlier has already been walked, and a page under the cycle stays under its page", () => {

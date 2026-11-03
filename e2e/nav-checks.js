@@ -263,7 +263,7 @@ A spade, a fork and a trowel are enough.
   // ask the pane for a place, keeping the rest of its state (a value of null undoes a kept one), and wait for it to draw
   const setPlace = async (o, st) => { await o.evaluate(async (st) => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, ...st }, active: true }); }, st); await sleep(900); };
   // open the page menu if it is closed
-  const openMenu = o => o.evaluate(() => { const d = app.workspace.getLeavesOfType("booklet")[0].view.contentEl.querySelector(".booklet-pagemenu"); if (!d.open) d.querySelector("summary").click(); });
+  const openMenu = o => o.evaluate(() => { const b = app.workspace.getLeavesOfType("booklet")[0].view.contentEl.querySelector(".booklet-pagesbtn"); if (b.getAttribute("aria-expanded") !== "true") b.click(); });
 
   /* ================= CHECK 16 ================= */
   async function check16() {
@@ -448,6 +448,8 @@ A spade, a fork and a trowel are enough.
       put(vault, "Links.md", LINKS_NOTE);
       put(vault, "Finish test.booklet.md", FINISH_NOTE);
       const link = async text => {
+        // the note was written after Obsidian started: wait until the vault has noticed it, or openFile gets nothing to open
+        await o.page.waitForFunction(rel => !!app.vault.getAbstractFileByPath(rel), "Links.md", { timeout: 8000 });
         await o.evaluate(async rel => { await app.workspace.getLeaf().openFile(app.vault.getAbstractFileByPath(rel), { state: { mode: "preview" } }); }, "Links.md");
         await o.page.waitForSelector(".markdown-preview-view a.internal-link", { timeout: 8000 });
         await o.evaluate(() => document.querySelectorAll(".hover-popover").forEach(e => e.remove()));
@@ -668,11 +670,11 @@ A spade, a fork and a trowel are enough.
       put(vault, NOTE, GARDEN_NOTE);
       const before = sha(path.join(vault, NOTE));
       await ready(o, NOTE);
-      const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: (q(".booklet-pager-at")[0] || ""), cards: q(".booklet-cardrow .booklet-cardtitle"), mentioned: q(".booklet-mentioned a"), trail: q(".booklet-trail > *"), menu: q(".booklet-pagelist a"), menuOpen: !!(root.querySelector(".booklet-pagemenu") || {}).open, hasMenu: !!root.querySelector(".booklet-pagemenu") }; });
+      const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: (q(".booklet-pager-at")[0] || ""), cards: q(".booklet-cardrow .booklet-cardtitle"), mentioned: q(".booklet-mentioned a"), trail: q(".booklet-trail > *"), menu: q(".booklet-pagelist a"), menuOpen: (root.querySelector(".booklet-pagesbtn") || {}).getAttribute?.("aria-expanded") === "true", hasMenu: !!root.querySelector(".booklet-pagesbtn") }; });
       const goPage = (id, part = 0) => setPlace(o, { version: 2, screen: KEY, page: id, part });
       let s = await state(o), pg = await page();
       c.ok(s.screen === KEY && pg.hasMenu && !pg.menuOpen, `a note of one activity opens into it, with the tree menu drawn and closed: ${s.screen}, menu ${pg.hasMenu}, open ${pg.menuOpen}`);
-      await tap(o, ".booklet-pagemenu summary", "Pages in this tab", 400);
+      await tap(o, ".booklet-pagesbtn", "Pages", 400);
       pg = await page();
       c.ok(pg.menuOpen && pg.menu.length === 13 && pg.menu[0] === "Garden notes", `opened by a press: the menu lists all ${pg.menu.length} pages of the tab, the first page first`);
       const nested = await o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const depth = a => { let d = 0; for (let e = a.parentElement; e && !e.classList.contains("booklet-pagelist"); e = e.parentElement) if (e.tagName === "UL") d++; return d; }; return Object.fromEntries([...root.querySelectorAll(".booklet-pagelist a")].map(a => [a.textContent.trim(), depth(a)])); });
@@ -694,7 +696,9 @@ A spade, a fork and a trowel are enough.
       c.ok(foc.current === 1, `one aria-current=page on the screen (the menu's): ${foc.current}`);
       c.ok(pg.trail.slice(-3).join("|") === "Soil|Loam|Drainage", `the trail names the pages above, then the page: ${pg.trail.join(" / ")}`);
       c.ok(pg.pager[0] === "Up: Loam" && pg.pager.at(-1) === "Next: Compost", `Up names the parent, Next the next page: ${pg.pager.join(" | ")}`);
-      c.ok(pg.menuOpen && pg.menu.join("|") === "Drainage|Compost", `the menu stays open for the pane, with its search: ${pg.menu.join(" | ")}`);
+      // the Pages panel is a side panel on a wide pane (it stays open after a page is chosen) and a drawer over the page on a narrow one (choosing a page closes it); either way the words in its search box stay
+      const surface = await o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, m = root.querySelector(".booklet-pagemenu"); return { drawer: getComputedStyle(m).position === "absolute", area: Math.round(root.querySelector(".booklet-pagearea").clientWidth), words: m.querySelector("input").value }; });
+      c.ok(pg.menuOpen === !surface.drawer && surface.words === "drain" && pg.menu.join("|") === "Drainage|Compost", `after a page is chosen the Pages panel stays open as a side panel and shuts as a drawer (here a ${surface.drawer ? "drawer" : "side panel"}, ${surface.area} px wide, open ${pg.menuOpen}), with its search words ("${surface.words}"): ${pg.menu.join(" | ")}`);
       await click(o, ".booklet-pager button", "Up: Loam");
       pg = await page();
       c.ok(pg.title[0] === "Loam" && pg.cards.join("|") === "1.Drainage|2.Compost", `Up goes to the parent; under it, cards for its pages: ${pg.title}, ${pg.cards}`);
@@ -754,12 +758,12 @@ A spade, a fork and a trowel are enough.
       await openMenu(o);
       await sleep(400);
       const deepDesk = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { n: l.querySelectorAll("a").length, scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: v.scrollWidth - v.clientWidth, title: (v.querySelector(".booklet-pagetitle") || {}).textContent }; });
-      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.5 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
+      c.ok(deepDesk.n === 43 && deepDesk.scrolls && deepDesk.box <= deepDesk.win * 0.6 + 1 && deepDesk.sideways <= 0, `a 43-page, 14-level tree: the menu list scrolls inside itself (${deepDesk.box} px of ${deepDesk.win}), the page does not scroll sideways (${deepDesk.sideways})`);
       await shot(o, "deep-menu-desktop-dark");
       // the phone, light and dark
       await o.page.setViewportSize({ width: 390, height: 844 });
       await o.evaluate(() => app.emulateMobile(true)); await sleep(1500);
-      const metrics = () => o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, r = e => e.getBoundingClientRect(), min = q => { const h = [...v.querySelectorAll(q)].map(e => r(e).height); return h.length ? Math.min(...h) : null; }; return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), summary: min(".booklet-pagemenu summary"), link: min(".booklet-pagelink"), card: min(".booklet-cardrow"), pager: min(".booklet-pager button"), phone: document.body.classList.contains("is-phone"), search: min(".booklet-pagesearch input") }; });
+      const metrics = () => o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, r = e => e.getBoundingClientRect(), min = q => { const h = [...v.querySelectorAll(q)].map(e => r(e).height); return h.length ? Math.min(...h) : null; }; return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), summary: min(".booklet-pagesbtn"), link: min(".booklet-pagelink"), card: min(".booklet-cardrow"), pager: min(".booklet-pager button"), phone: document.body.classList.contains("is-phone"), search: min(".booklet-pagesearch input") }; });
       for (const scheme of ["light", "dark"]) {
         await o.setScheme(scheme); await sleep(300);
         await ready(o, NOTE); await goPage("compost", 0);
@@ -784,7 +788,7 @@ A spade, a fork and a trowel are enough.
       await openMenu(o);
       await sleep(400);
       const deepPhone = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, l = v.querySelector(".booklet-pagelist"); return { scrolls: l.scrollHeight > l.clientHeight + 1 || l.scrollWidth > l.clientWidth + 1, box: l.clientHeight, win: window.innerHeight, sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), phone: document.body.classList.contains("is-phone"), link: Math.min(...[...l.querySelectorAll("a")].map(a => a.getBoundingClientRect().height)) }; });
-      c.ok(deepPhone.phone && deepPhone.scrolls && deepPhone.box <= deepPhone.win * 0.5 + 1 && deepPhone.sideways <= 0 && deepPhone.link >= 44, `phone, the deep tree: the list scrolls inside itself (${deepPhone.box} px of ${deepPhone.win}), links ${Math.round(deepPhone.link)} px, no sideways scroll (${deepPhone.sideways})`);
+      c.ok(deepPhone.phone && deepPhone.scrolls && deepPhone.box <= deepPhone.win * 0.6 + 1 && deepPhone.sideways <= 0 && deepPhone.link >= 44, `phone, the deep tree: the list scrolls inside itself (${deepPhone.box} px of ${deepPhone.win}), links ${Math.round(deepPhone.link)} px, no sideways scroll (${deepPhone.sideways})`);
       await shot(o, "deep-menu-phone-light");
       await o.evaluate(() => app.emulateMobile(false));
       c.ok(sha(path.join(vault, NOTE)) === before, "and still nothing written into the note");
@@ -836,7 +840,7 @@ A spade, a fork and a trowel are enough.
       await click(o, ".booklet-tabbtn", "Learn");
       pg = await page();
       c.ok(pg.title[0] === "Thoughts as headlines", `the wiki comes back on the page last seen there: ${pg.title}`);
-      await tap(o, ".booklet-pagemenu summary", "Pages in this tab", 300);
+      await tap(o, ".booklet-pagesbtn", "Pages", 300);
       await shot(o, "checkin-wiki-menu-desktop-light");
       for (const scheme of ["dark", "light"]) {
         await o.setScheme(scheme); await sleep(300);
@@ -847,7 +851,7 @@ A spade, a fork and a trowel are enough.
       for (const scheme of ["light", "dark"]) {
         await o.setScheme(scheme); await sleep(300);
         await ready(o, NOTE); await goTo({ tab: "wiki", part: 5 });
-        const m = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, h = q => Math.min(...[...v.querySelectorAll(q)].map(e => e.getBoundingClientRect().height)); return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), pager: h(".booklet-pager button"), tab: h(".booklet-tabbtn"), summary: h(".booklet-pagemenu summary") }; });
+        const m = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet")[0].view.contentEl, h = q => Math.min(...[...v.querySelectorAll(q)].map(e => e.getBoundingClientRect().height)); return { sideways: Math.max(v.scrollWidth - v.clientWidth, document.documentElement.scrollWidth - document.documentElement.clientWidth), pager: h(".booklet-pager button"), tab: h(".booklet-tabbtn"), summary: h(".booklet-pagesbtn") }; });
         c.ok(m.sideways <= 0 && m.pager >= 44 && m.tab >= 44 && m.summary >= 44, `[${scheme}] phone, The two axes: no sideways scroll (${m.sideways}), pager ${Math.round(m.pager)}, tabs ${Math.round(m.tab)}, menu ${Math.round(m.summary)} px`);
         await shot(o, `checkin-wiki-axes-phone-${scheme}`);
       }

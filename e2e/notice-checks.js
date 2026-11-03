@@ -1,5 +1,5 @@
 // Checks 46 and 47 of plugin-check.js (0.11.0), in the real app.
-// 46: the notice at the top of a note that holds something the plugin does not read. A made-up note (a later marker, a kind of line, a setting,
+// 46: the notice at the top of a note that holds something the plugin does not read. A made-up note (marked with a later version, which says nothing by itself; a kind of line, a setting,
 //   a query key and a block the plugin does not read) is written into the check's own copy of the vault and opened. The notice's words, the
 //   line numbers it names (the front matter counts) and the plugin's version (read from the app's own manifest, not typed here) are compared
 //   with what the file holds; the unread lines are drawn as "Not yet supported"; an answer is still taken and written; and after the write
@@ -88,7 +88,7 @@ B words.
 `;
 
   async function check46() {
-    const c = new Check(46, "0.11.0 the notice for what the plugin does not read: a later marker, a kind of line, a setting, a query key and a block, each named by its line in the file, with the plugin's version and how to update; the rest of the note draws and takes an answer; every unread line is kept byte for byte");
+    const c = new Check(46, "0.11.0 the notice for what the plugin does not read, none for the marker: a kind of line, a setting, a query key and a block, each named by its line in the file, with the plugin's version and how to update, and no sentence about the marker; the rest of the note draws and takes an answer; every unread line is kept byte for byte");
     for (const where of ["desktop", "phone"]) {
       await withApp("c46-" + where, async (o, vault) => {
         const file = path.join(vault, NOTE), orig = noteText();
@@ -124,10 +124,8 @@ B words.
         ];
         c.info(`[${where}] the notice: ${JSON.stringify(got)}`);
         c.ok(got.first, `[${where}] the notice is the first item of the list`);
-        c.ok(got.summary === "6 things in this note could not be read", `[${where}] the list counts the marker and five parts: ${JSON.stringify(got.summary)}`);
+        c.ok(got.summary === "5 things in this note could not be read", `[${where}] the list counts the five parts: ${JSON.stringify(got.summary)}`);
         c.ok(JSON.stringify(got.paragraphs) === JSON.stringify([
-          "This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.",
-          "Format 0.19 is newer than the format this view reads.",
           `This is Booklet plugin ${version}, which reads format 0.18.`,
           "This view does not read these 5 parts of the note. They stay in the file exactly as written, and the rest of the note works as usual:",
           `A newer version of the plugin may read this note. ${UPDATE}`,

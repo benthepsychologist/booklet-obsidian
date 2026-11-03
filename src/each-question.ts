@@ -37,11 +37,13 @@ interface Copy {
 export type DrawCopy = (host: QuestionHost, into: HTMLElement, key: string, labelledBy: string) => void;
 
 /**
- * The key a copy's controls are drawn under: one for each pick. For a `choice` or a `multi` it is the key the words typed
- * in the copy's Add your own field are held under on the device (held-store.ts), so it must stay `<key>#own:<pick>`:
- * words held under it by an earlier version are found again, and not lost.
+ * The key a copy's controls are drawn under: one for each pick. For a `choice` or a `multi` it is also the key the words typed in
+ * the copy's Add your own field are held under on the device (held-store.ts). It is `<question's key>#pick:<pick's key>`. A question's
+ * key is `scope/activity/question` and holds no `#`, so the first `#` of a held key is the one this function or its neighbours wrote:
+ * `#own` (a plain field), `#own:<id>` (a grid cell or a body-map region) and `#pick:` (a copy) differ in their first word, so no pick,
+ * whatever words its key holds, can make this key equal another field's.
  */
-const copyKey = (key: string, p: PickValue): string => `${key}#own:${pickKey(p)}`;
+const copyKey = (key: string, p: PickValue): string => `${key}#pick:${pickKey(p)}`;
 
 /**
  * A host for one copy of a question asked for each pick: the copy's answer is the `a` of its pick's pair, a press and

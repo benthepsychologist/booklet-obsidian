@@ -5681,7 +5681,7 @@
     }
    },
    "activity:basics/light||0": {
-    "sha": "97db1bea048fb6678b1b42750f23b50bbb585e375467ce2dc5538703b5bfc95a",
+    "sha": "130afc7510ed6df4cb327a81e9f7d7c10f0a2539e54f7fc3047186de61c3288b",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/light",
@@ -5693,7 +5693,7 @@
     }
    },
    "activity:basics/light||1": {
-    "sha": "9a863405d748b46be3f045995a497ee2b00f7ddea6297af9dbfc79f9a2bfcd5c",
+    "sha": "cb55e1062572a0efd7ebf3a9b0b13e13b4db7b8aa8dc231a75b6a121dcb3bfb8",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/light",
@@ -5706,7 +5706,7 @@
     }
    },
    "activity:basics/light||2": {
-    "sha": "dacff5aed5d8de062e7ac3c0260ed92137c495345e8c4e9ccf876c978461c58c",
+    "sha": "72ff589c4372ca6ab6f8beed6b64f09dc19dda30f036470d96af43edf6ad3095",
     "writes": 0,
     "same": true,
     "drawn": "activity:basics/light",
@@ -8320,7 +8320,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "59e33955069f6dd9c6850135b7fbbe532cd3bb27b8ec5fce535b441b92012ca9",
+    "sha": "c726442dbb097c04b5f73ec13b545f15485f3a385b254bea2493fec3732da28f",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8332,7 +8332,7 @@
     }
    },
    "activity:/t|first|0": {
-    "sha": "50ba342e3c8b297689a8b4b743256a02ff0e04d24a1b0c6291f9eab12500be82",
+    "sha": "ecc7e10a18c75c8dd9acf3cacfd33058315a610115696f7e6b222ef1ebfe1fc0",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8345,7 +8345,7 @@
     }
    },
    "activity:/t|first|1": {
-    "sha": "c99aa07fb0949722c621c55737ac05828fb6aac4e82522ec4514ad58fe5dbd3f",
+    "sha": "ff466023f00ba7142205cdaa774f92c7fee9395d717f5db0bde49f84e03b6eda",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8358,7 +8358,7 @@
     }
    },
    "activity:/t|second-one|0": {
-    "sha": "d198390da0d87ad8bdf9200fee194e0470ff60778513f4e6d9db6c8a4dda84ee",
+    "sha": "8ffb8e35d7119154dbaced8e762c857a0a2d0dd0eeb6655eb0dfb2b43fbdbf54",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8371,7 +8371,7 @@
     }
    },
    "activity:/t|third|0": {
-    "sha": "0a2893d9f4b9f592cbdfa9e06ae1344e313b4f9c1c33e60ad1a0bc7b26612554",
+    "sha": "7b0849f6609ef542fe73d4e0274fa86e216071da23219083d619d6c9a09b489b",
     "writes": 0,
     "same": true,
     "drawn": "activity:/t",
@@ -8648,7 +8648,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "a3e57f58afc2b34a58b83d1093e015b70b3b323e0effdc976434c58a999fe270",
+    "sha": "8c167897d6f7e6922b695d4e3582a46df5e63df76d74d636379ba9a3ff62fb18",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8660,7 +8660,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "90127808b92cb74e345ec1c2d122e40d70c67335cf502a37cb94d369becbdac6",
+    "sha": "10458466adb65b60d91eeb8314dac29604dff65f217a38412079d26e1042c98f",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

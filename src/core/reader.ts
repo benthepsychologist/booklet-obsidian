@@ -17,12 +17,12 @@ import {
 	calloutWords,
 	earlierValue,
 	fenceEnd,
-	fencedLines,
 	ignoredSettings,
 	isBlank,
 	splitLines,
 	tabIdOf,
 	uniqueIds,
+	visibleLines,
 	type Words,
 } from "./lines";
 import { BOOKLET_ICONS } from "../booklet-icons";
@@ -630,10 +630,13 @@ const plainWords = (md: string): string =>
 		.trim()
 		.toLowerCase();
 
-/** Does the body hold a module line or an activity line, outside fences and the records region? */
-function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[]): boolean {
+/**
+ * Does the body hold a module line or an activity line, outside fences, the records region and the lines a reader does not see (`hidden`: a
+ * line that starts inside a closed comment (HTML or `%%`), `<pre>` or `$$` block, as `visibleLines` says)?
+ */
+function hasStructureLine(lines: readonly string[], from: number, inRegion: readonly boolean[], hidden: readonly boolean[]): boolean {
 	for (let i = from; i < lines.length; i++) {
-		if (inRegion[i]) continue;
+		if (inRegion[i] || hidden[i]) continue;
 		const f = FENCE_OPEN.exec(lines[i] ?? "");
 		if (f && f[1]) {
 			i = fenceEnd(lines, i, f[1]);
@@ -900,9 +903,15 @@ export function parseBooklet(text: string): Booklet {
 	/** The callouts being read: where to go on in the file's own lines once a callout's body is read (the body's segments are in the activity's). */
 	const open: { lines: string[]; resume: number; kind: string }[] = [];
 
+	// where a line starts inside an HTML or `%%` comment, a `<pre>` block or a `$$` block that really closes (in the body, never looking into the records
+	// section): no Booklet line there is read (a reader sees none of it). Index i is the same line of the file at every depth, for the body of a
+	// callout is read from the file's own lines with its `>` off
+	const hiddenStart = visibleLines(lines, fm.bodyStart, inRegion).hidden;
+
 	// a file with no activity line and no module line is one activity, named by the front matter title (SPEC section 3): its prose, its tab
-	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries
-	if (!hasStructureLine(lines, fm.bodyStart, inRegion) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
+	// and page lines and its questions are that activity's, and it has no id, so it keeps no entries.
+	// A hidden line needs no check among the words: the line that opens its region comes first, is seen, and is not blank.
+	if (!hasStructureLine(lines, fm.bodyStart, inRegion, hiddenStart) && lines.some((l, n) => n >= fm.bodyStart && !inRegion[n] && l.trim())) {
 		started = true;
 		act = { id: "", title: frontMatter["title"] || "Activity", scope: "", line: -1, repeat: false, daily: false, entriesFolded: false, hidden: false, segments: [] };
 		activities.push(act);
@@ -927,7 +936,8 @@ export function parseBooklet(text: string): Booklet {
 		const ln = lines[i] ?? "";
 		const ref = referenceTokens.definitions.get(i);
 		if (ref) { addDefinition(open.length ? lines.slice(i, ref.end + 1).join("\n") : ref.text); i = ref.end; continue; }
-		const f = FENCE_OPEN.exec(ln);
+		// a fence line that starts inside a comment (either kind), a `<pre>` or a `$$` block is part of it, not a fence (the same reading as `visibleLines`)
+		const f = !open.length && hiddenStart[i] ? null : FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
 			let n = k + 1;
@@ -964,6 +974,13 @@ export function parseBooklet(text: string): Booklet {
 		const m = CALLOUT_LINE.exec(ln);
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
+			if (hiddenStart[i]) {
+				// a commented-out line (or one in a `%%` comment, a `<pre>` or a `$$` block) of any kind starts nothing and draws nothing a reader sees: it stays text, and is not a problem
+				const k = bodyEnd(lines, i);
+				pushText(lines.slice(i, k), i);
+				i = k - 1;
+				continue;
+			}
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
@@ -1219,7 +1236,8 @@ export function parseBooklet(text: string): Booklet {
 			// a reading callout (note, tip, hint, solution, group, diff, law, opinion, …): Obsidian draws it
 			const k = bodyEnd(lines, i);
 			if (act && section === "content") {
-				const nested = lines.slice(i + 1, k).some((l) => {
+				const nested = lines.slice(i + 1, k).some((l, n) => {
+					if (hiddenStart[i + 1 + n]) return false; // a question line a reader does not see makes the callout no container
 					const mm = CALLOUT_LINE.exec(l.replace(/^(?:>[ \t]?)+/, "> "));
 					return !!mm && QUESTION_KINDS.has((mm[1] ?? "").toLowerCase());
 				});
@@ -1241,9 +1259,9 @@ export function parseBooklet(text: string): Booklet {
 			i = k - 1;
 			continue;
 		}
-		if (CALLOUT_ANY.test(ln)) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
+		if (CALLOUT_ANY.test(ln) && !hiddenStart[i]) problems.push(`${at(i)}: this line starts like a Booklet line but cannot be read, so it is shown as text.`);
 		const def = NOTE_DEF.exec(ln);
-		if (def && def[1] && !open.length) {
+		if (def && def[1] && !open.length && !hiddenStart[i]) {
 			// a footnote's definition: one paragraph, its first line and the indented lines straight after it; never drawn as prose
 			const words = [(def[2] ?? "").trim()];
 			let j = i + 1;
@@ -1337,28 +1355,17 @@ const RAW_TAG = /<(iframe|frame|object|embed|audio|video)(?=[\s/>])/gi;
 
 /**
  * Each raw `<iframe>`, `<frame>`, `<object>`, `<embed>`, `<audio>` or `<video>` tag in the note's design, with its line: this view draws one
- * as a link and nothing loads, and says so among the note's problems. Code (a fenced block, a code span), HTML comments and the records
+ * as a link and nothing loads, and says so among the note's problems. Code (a fenced block, a code span), comments (HTML and `%%`) and the records
  * are left alone; one tag name is said once for a line.
  */
 function rawMediaTags(lines: readonly string[], from: number, inRegion: readonly boolean[]): string[] {
-	const fenced = fencedLines(lines);
+	// what a reader sees of each line, as `visibleLines` reads it: fenced code, a comment of either kind (HTML or Obsidian's `%%`) and a
+	// comment that has no closer are all decided there, so this check cannot disagree with it. Code spans are taken out below.
+	const { text } = visibleLines(lines, from, inRegion);
 	const out: string[] = [];
-	let comment = false;
 	for (let i = from; i < lines.length; i++) {
-		if (inRegion[i] || fenced[i]) continue;
-		let l = lines[i] ?? "";
-		// HTML comments, which may run over lines, and then code spans: what is left is the text a tag would be read in
-		let kept = "";
-		while (l) {
-			const at = comment ? l.indexOf("-->") : l.indexOf("<!--");
-			if (at < 0) {
-				if (!comment) kept += l;
-				break;
-			}
-			if (!comment) kept += l.slice(0, at);
-			l = l.slice(at + (comment ? 3 : 4));
-			comment = !comment;
-		}
+		const kept = text[i];
+		if (inRegion[i] || kept == null) continue;
 		const seen = new Set<string>();
 		for (const m of kept.replace(/(`+)[^`]*?\1/g, "").matchAll(RAW_TAG)) {
 			const tag = (m[1] ?? "").toLowerCase();

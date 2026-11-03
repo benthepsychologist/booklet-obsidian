@@ -3,13 +3,13 @@
  * nowhere, "this note" and "this vault" are kept in the plugin's data (`allowedMediaHosts`, `noteAllows`) and never in a note. The
  * card and the settings page edit one list. Made-up addresses only.
  */
-import { window as w, click, words, typeInto, press } from "./dom.mjs";
+import { window as w, click, words, typeInto, press, testKeymap } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
 const { openAllowCard, BookletSettingTab, MediaAllows } = await import("./.build/media.mjs");
-const { Notice } = await import("./obsidian-stub.mjs");
+const { Notice, Scope } = await import("./obsidian-stub.mjs");
 
 /** Lets the saves that were started finish (a change saves in a microtask). */
 const flush = () => new Promise((r) => w.setTimeout(r, 0));
@@ -29,7 +29,18 @@ const byText = (t) => Array.from(card().querySelectorAll("button")).find((b) => 
 const esc = () => card().parentElement.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 /** The button of a site's row in the card of the sites a booklet names, found by the words it shows. */
 const declared = (host, text) => Array.from(card().querySelectorAll(".booklet-allow-declared")).find((r) => words(r.querySelector("strong")) === host).querySelector(`button[aria-label^="${text}"]`);
-const open = (media, o = {}) => openAllowCard({ doc, allows: media, notePath: PATH, ...o });
+/** The app's key scopes (a stack; a key goes to the topmost) and the card's way into them, as the view gives it. */
+const keys = testKeymap();
+const keyScope = (escape) => {
+	const scope = new Scope();
+	scope.register([], "Escape", () => {
+		escape();
+		return false;
+	});
+	keys.pushScope(scope);
+	return () => keys.popScope(scope);
+};
+const open = (media, o = {}) => openAllowCard({ doc, allows: media, notePath: PATH, keyScope, ...o });
 
 test("the card from the button: a title, the two lists, the blank, 'https is assumed', and a Close button; focus starts on the title", () => {
 	const { media } = lists({ allowedMediaHosts: ["youtube.com", "media.example.org"], noteAllows: { [PATH]: ["note.example.net"], "Other.md": ["other.example.net"] } });
@@ -84,6 +95,51 @@ test("Tab stays inside the card, from the last control to the first and back", (
 	tab(true);
 	assert.equal(doc.activeElement, last);
 	esc();
+});
+
+test("keys are heard with focus outside the card: Escape closes it, and Tab comes back in (the page behind it, nothing focused)", () => {
+	const { media } = lists({ allowedMediaHosts: ["youtube.com"] });
+	const behind = doc.body.createEl("button", { text: "A control behind the card" });
+	const key = (target, k, shiftKey = false) => target.dispatchEvent(new w.KeyboardEvent("keydown", { key: k, shiftKey, bubbles: true, cancelable: true }));
+	const items = () => Array.from(card().querySelectorAll("button, input"));
+	// Escape, focus on the page behind the card
+	const back = doc.body.createEl("button", { text: "Allow list" });
+	open(media, { returnFocus: () => back });
+	behind.focus();
+	assert.ok(!card().contains(doc.activeElement));
+	key(behind, "Escape");
+	assert.equal(card(), null, "Escape with focus on a control behind the card closes it");
+	assert.equal(doc.activeElement, back, "and focus goes to where the card said");
+	// Escape, nothing focused: the key is aimed at the body
+	open(media);
+	doc.activeElement?.blur?.();
+	key(doc.body, "Escape");
+	assert.equal(card(), null, "Escape with nothing focused closes it");
+	// Tab from the page behind goes into the card, first control; Shift+Tab, last
+	open(media);
+	behind.focus();
+	key(behind, "Tab");
+	assert.equal(doc.activeElement, items()[0], "Tab from outside lands on the card's first control");
+	behind.focus();
+	key(behind, "Tab", true);
+	assert.equal(doc.activeElement, items().at(-1), "Shift+Tab from outside lands on its last control");
+	// a key aimed at another dialog is that dialog's own: Tab in a command palette does not come into the card
+	const palette = doc.body.createDiv({ cls: "modal-container" });
+	const field = palette.createEl("input");
+	field.focus();
+	key(field, "Tab");
+	assert.equal(doc.activeElement, field, "Tab in another modal is left alone");
+	palette.remove();
+	// closed, the card hears nothing: no handler is left on the document
+	card().querySelector(".modal-button-container button").click();
+	assert.equal(card(), null);
+	open(media);
+	esc();
+	behind.focus();
+	key(behind, "Tab");
+	assert.equal(doc.activeElement, behind, "after the card closes, Tab is the page's again");
+	behind.remove();
+	back.remove();
 });
 
 test("the blank: youtube.com for the vault is kept as the host, allows https://*.youtube.com/*, and is saved in the data file's shape", async () => {
@@ -228,6 +284,38 @@ test("Allow for this note and for this vault keep the site and close the card; t
 	assert.deepEqual(vault.saved.at(-1), { allowedMediaHosts: ["media.example.org"], noteAllows: {} });
 	assert.deepEqual(closed, [{ changed: true, answered: true, left: [] }]);
 	assert.equal(again, 1);
+});
+
+test("Escape goes through the app's key scopes: the card's scope is on top while it is open, a modal over it keeps its own Escape, and it is taken off when the card closes", () => {
+	const { media } = lists();
+	const before = keys.scopes.length;
+	const c = open(media);
+	assert.equal(keys.scopes.length, before + 1, "the card puts a scope on the stack");
+	// a modal opened over the card (Obsidian's Settings, say) has the scope on top: it hears Escape, and the card stays
+	const heard = [];
+	const modal = new Scope();
+	modal.register([], "Escape", () => void heard.push("modal"));
+	keys.pushScope(modal);
+	w.document.body.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	assert.deepEqual(heard, ["modal"]);
+	assert.ok(card(), "the card is not closed by the Escape that is the modal's");
+	keys.popScope(modal);
+	// with the card's scope on top again, the same key closes the card, and the key is taken (default prevented, stopped)
+	const evt = new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true });
+	w.document.body.dispatchEvent(evt);
+	assert.equal(card(), null);
+	assert.equal(evt.defaultPrevented, true);
+	assert.equal(keys.scopes.length, before, "closing the card takes its scope off, whatever closed it");
+	c.close();
+	open(media);
+	click(byText("Close"));
+	assert.equal(keys.scopes.length, before, "Close takes the scope off too");
+	// a second card replaces the first: one scope, not two
+	open(media);
+	open(media);
+	assert.equal(keys.scopes.length, before + 1);
+	esc();
+	assert.equal(keys.scopes.length, before);
 });
 
 test("a request for the sites a booklet names: each site with its own two buttons, and Not now", () => {
@@ -390,15 +478,13 @@ function tab(raw = null) {
 const rows = (el) => Array.from(el.querySelectorAll(".setting-item")).map((s) => words(s.querySelector(".setting-item-name")));
 const btn = (el, text) => Array.from(el.querySelectorAll("button")).find((b) => words(b) === text);
 
-test("the settings page: a heading in sentence case without the plugin's name, the vault's list, the blank, and the suggestions button", () => {
+test("the settings page: no heading (one section only), the explanation, the vault's list, the blank, and the suggestions button", () => {
 	const s = tab();
-	const heading = s.el.querySelector(".setting-item-heading");
-	assert.equal(words(heading), "Allow list for media");
-	assert.ok(!/booklet/i.test(words(heading)));
+	assert.equal(s.el.querySelector(".setting-item-heading"), null, "a page with one section has no heading");
 	assert.match(words(s.el), /https is assumed/);
 	assert.match(words(s.el), /A note can never allow a site for you/);
 	assert.match(words(s.el), /No site is allowed yet\./, "the list starts empty");
-	assert.deepEqual(rows(s.el).filter(Boolean), ["Allow list for media", "Add a site", "Suggested services"]);
+	assert.deepEqual(rows(s.el).filter(Boolean), ["Add a site", "Suggested services"]);
 	assert.ok(btn(s.el, "Add suggested services"));
 	assert.deepEqual(s.media.vaultList(), [], "nothing is allowed until the button is pressed");
 	s.done();
@@ -415,7 +501,7 @@ test("Add suggested services is a one-time action that puts the suggestions on t
 	const s = tab({ allowedMediaHosts: ["vimeo.com", "media.example.org"] });
 	click(btn(s.el, "Add suggested services"));
 	assert.deepEqual(s.media.vaultList(), ["vimeo.com", "media.example.org", "youtube.com", "spotify.com", "soundcloud.com"]);
-	assert.deepEqual(rows(s.el).filter(Boolean), ["Allow list for media", "vimeo.com", "media.example.org", "youtube.com", "spotify.com", "soundcloud.com", "Add a site", "Suggested services"], "the page shows them at once");
+	assert.deepEqual(rows(s.el).filter(Boolean), ["vimeo.com", "media.example.org", "youtube.com", "spotify.com", "soundcloud.com", "Add a site", "Suggested services"], "the page shows them at once");
 	assert.deepEqual(Notice.said, ["Added 3 suggested sites."]);
 	await flush();
 	assert.deepEqual(s.saved.at(-1).allowedMediaHosts, ["vimeo.com", "media.example.org", "youtube.com", "spotify.com", "soundcloud.com"]);
@@ -430,12 +516,12 @@ test("Add suggested services is a one-time action that puts the suggestions on t
 
 test("the page and the card edit one list: what one writes the other shows", () => {
 	const s = tab({ allowedMediaHosts: ["media.example.org"] });
-	assert.deepEqual(rows(s.el).filter(Boolean).slice(1, 2), ["media.example.org"]);
+	assert.deepEqual(rows(s.el).filter(Boolean).slice(0, 1), ["media.example.org"]);
 	// the card writes
 	const c = open(s.media);
 	typeInto(c.el.querySelector('input[type="text"]'), "vimeo.com");
 	click(Array.from(c.el.querySelectorAll("button")).find((b) => words(b) === "Add for this vault"));
-	assert.deepEqual(rows(s.el).filter(Boolean).slice(1, 3), ["media.example.org", "vimeo.com"]);
+	assert.deepEqual(rows(s.el).filter(Boolean).slice(0, 2), ["media.example.org", "vimeo.com"]);
 	c.close();
 	// the page writes
 	click(s.el.querySelector('button[aria-label="Remove media.example.org"]'));
@@ -630,7 +716,7 @@ test("a change made elsewhere (the card) redraws only the list on a settings pag
 	s.media.addVault("b.example.org");
 	assert.equal(s.el.querySelector('input[type="text"]'), input);
 	assert.equal(doc.activeElement, input, "focus is not taken");
-	assert.deepEqual(rows(s.el).filter(Boolean).slice(1, 3), ["a.example.org", "b.example.org"]);
+	assert.deepEqual(rows(s.el).filter(Boolean).slice(0, 2), ["a.example.org", "b.example.org"]);
 	s.done();
 });
 

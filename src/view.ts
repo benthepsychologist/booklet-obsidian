@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, Notice, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, Scope, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -866,6 +866,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			notePath: this.file.path,
 			request,
 			returnFocus: () => (opener && opener.isConnected ? opener : again()),
+			keyScope: (escape) => {
+				const scope = new Scope(this.app.scope);
+				scope.register([], "Escape", () => {
+					escape();
+					return false;
+				});
+				this.app.keymap.pushScope(scope);
+				return () => this.app.keymap.popScope(scope);
+			},
 			onClose: ({ changed, left }) => {
 				this.card = null;
 				// a change draws the note again, and the focus goes back to the same place in the new drawing; when the note was already drawn again
@@ -1387,17 +1396,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!asPanel && na.named) this.md(inlineMd(tab.title), card.createDiv({ cls: "booklet-tab markdown-rendered" }));
 		const pages = tab.pages;
 		const at = Math.min(place.part, pages.length - 1);
-		// a tab of named pages with two or more pages has a menu of its tree, with a search (a tab with none is a 0.16 tab and is drawn as it was)
+		// a tab of named pages with two or more pages has a "Pages" button that opens its tree, with a search (a tab with none is a 0.16 tab and is
+		// drawn as it was); the page and what comes under it are then drawn in the area beside the panel, else in the card
+		let flow: HTMLElement = card;
 		if (menu) {
 			const key = `${place.screen}#${tab.id}`;
 			const state = this.menus.get(key) ?? { open: false, query: "" };
 			this.menus.set(key, state);
-			drawPageMenu(this, card, tab, pager.page, (q) => ({ screen: place.screen, tab: place.tab, part: q.at }), state);
+			flow = drawPageMenu(this, card, tab, pager.page, (q) => ({ screen: place.screen, tab: place.tab, part: q.at }), state);
 		}
 		const counter = pager.of > 1 ? pagerCount(pager.at, pager.of, pager.pageLines) : null;
 		// the group keeps its own name with the count: "Soil, 2 of 3" on a named page ("2 of 3" alone says nothing of what it counts)
 		const label = counter && pager.page.named ? `${plainText(pager.page.title)}, ${counter}` : counter;
-		const body = card.createDiv({ cls: "booklet-pagebody", attr: label ? { role: "group", "aria-label": label } : {} });
+		const body = flow.createDiv({ cls: "booklet-pagebody", attr: label ? { role: "group", "aria-label": label } : {} });
 		// under a tab bar the page body is the chosen tab's panel (named by its tab, so the page group's own label stays but does not name it; the page count is also its description)
 		if (asPanel) {
 			asPanel(body);
@@ -1419,14 +1430,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// under the last part of a page come the pages under it, as cards, and the pages that link to it
 		if (pager.pageLines && pager.at === pager.of - 1) {
 			if (pager.page.children.length) {
-				card.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Pages under this one" });
+				flow.createDiv({ cls: "booklet-meta booklet-treelabel", text: "Pages under this one" });
 				drawCards(
 					this,
-					card,
+					flow,
 					pager.page.children.map((c, i) => ({ title: c.title, emoji: c.emoji, icon: c.icon, blurb: c.blurb, status: "", statusMd: false, n: i + 1, to: { screen: place.screen, tab: place.tab, part: c.at } })),
 				);
 			}
-			drawMentions(this, card, mentionsOf(nav, na, tab, pager.page));
+			drawMentions(this, flow, mentionsOf(nav, na, tab, pager.page));
 		}
 		if (this.showsFinish(na, tab)) this.drawFinish(card, a);
 

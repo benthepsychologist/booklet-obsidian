@@ -16,6 +16,8 @@
  * An address is read the way a browser reads it, not the way it is written: character references (`&#104;ttps://`, `&colon;`) are
  * undone, tabs and line breaks inside it dropped, and `https:/host` and `https:host` are as remote as `https://host` (spike B2,
  * Obsidian 1.14.5: each of these loads at render). A `file:` address with a host is a share on another machine and is as remote.
+ * An `http:` or `https:` address that leads to the reader's own machine and nowhere else (`isLoopback` in media.ts: `localhost`,
+ * 127.0.0.0/8 and `[::1]`, written in those forms) is local, as a vault file is: left to Obsidian, in a media embed and a media tag, but not a frame's.
  * A destination is read raw (a code span, maths or a comment inside it is part of the address), the way CommonMark reads it; a raw tag
  * is read the way an HTML tokenizer reads it (a `/` or no space between attributes, quoted or bare values, references undone).
  *
@@ -24,7 +26,7 @@
  * search that failed once is not repeated.
  */
 import { entryFor, isAllowed, type Allows } from "./allow";
-import { hostOf, mediaClass, parseUrl } from "./media";
+import { hostOf, isLoopback, mediaClass, parseUrl } from "./media";
 import { isEmbedAddress, serviceAllowed, serviceOf, type Service } from "./services";
 
 /** Private-use characters round the number of a slot in rewritten text (U+E000 and U+E001 stand for footnote marks, blocks.ts). */
@@ -70,6 +72,8 @@ const MAYBE = /!\[|\]\(|\]\[|<https?:|https?:|&|<(?:iframe|frame|object|embed|au
 const TAGS = new Set(["iframe", "frame", "object", "embed", "audio", "video", "source", "track", "img", "image"]);
 const PAIRED = new Set(["iframe", "object", "audio", "video"]);
 const CHILDREN = new Set(["source", "track", "embed"]);
+/** The raw tags that play a file or draw a picture, whose address on the reader's own machine is left to Obsidian. */
+const MEDIA_TAGS = new Set(["audio", "video", "source", "track", "img", "image"]);
 /** The start of a line that is a quote, a list item, or nothing: a link alone on its line stands alone in its block. */
 const BLOCK_START = "(?:[ \\t]*(?:>|[-*+][ \\t]|\\d{1,9}[.)][ \\t]))*[ \\t]*";
 const ALONE_BEFORE = new RegExp(`^${BLOCK_START}$`);
@@ -741,7 +745,8 @@ class Gate {
 	 * (any other picture stays Obsidian's, and so does a local one).
 	 */
 	embed(dest: string, altRaw: string, viaDefinition = false, picture = false): string | MediaSlot | null {
-		const where = whereIs(dest);
+		// an address on the reader's own machine is read as a vault file is (see `isLoopback`)
+		const where = isLoopback(dest) ? "local" : whereIs(dest);
 		const cls = mediaClass(dest);
 		if (where === "local") {
 			if (picture || (cls !== "audio" && cls !== "video")) return null;
@@ -790,7 +795,7 @@ class Gate {
 	/** Is this a picture's address that Obsidian would not leave as a picture: audio, video, or a page it draws as a frame? */
 	loadsMedia(src: string): boolean {
 		const where = whereIs(src);
-		if (where === "local") return false;
+		if (where === "local" || isLoopback(src)) return false;
 		const cls = mediaClass(src);
 		if (cls === "audio" || cls === "video") return true;
 		const addr = absolute(src, where);
@@ -807,7 +812,10 @@ class Gate {
 	address(tag: Tag, any = false, depth = 0): string | null {
 		const picture = tag.name === "img" || tag.name === "image";
 		const values = (name: string): string[] => tag.attrs.filter((a) => a.name === name).map((a) => a.value);
-		const fires = (v: string, pic: boolean): boolean => (pic && !any ? this.loadsMedia(v) : whereIs(v) !== "local");
+		// a media tag's own address on the reader's machine is read as a vault file is; a frame's (`iframe`, `frame`, `object`, `embed`)
+		// and anything inside a `srcdoc` (`any`) is not: a page from a local server is a page, not a file to play
+		const away = (v: string): boolean => whereIs(v) !== "local" && (any || !MEDIA_TAGS.has(tag.name) || !isLoopback(v));
+		const fires = (v: string, pic: boolean): boolean => (pic && !any ? this.loadsMedia(v) : away(v));
 		for (const raw of [...values("src"), ...(tag.name === "object" ? values("data") : [])]) {
 			const v = addressOf(raw);
 			if (fires(v, picture)) return v;
@@ -821,7 +829,7 @@ class Gate {
 		if (tag.name === "video" && !values("src").length) {
 			for (const raw of values("poster")) {
 				const v = addressOf(raw);
-				if (whereIs(v) !== "local") return v;
+				if (away(v)) return v;
 			}
 		}
 		for (const raw of values("srcdoc")) {

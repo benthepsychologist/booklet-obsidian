@@ -20,19 +20,14 @@ test("the marker: none, or not 0.x, is refused; 0.18 says nothing; another 0.x o
 		assert.deepEqual(now.unread, [], m);
 		assert.equal(core.openingNotice(now, "0.11.0"), null, `${m}: no notice`);
 	}
-	// an earlier 0.x opens as it is, and the notice is the spec's sentence (SPEC section 2), first
-	for (const m of ['booklet: "0.17"', "booklet: 0.17", "booklet: '0.17'", 'booklet: "0.16"', 'booklet: "0.15"', 'booklet: "0.9"']) {
-		const prev = core.parseBooklet(fm(m) + body);
-		const v = m.replace(/\D*(0\.\d+)\D*/, "$1");
-		assert.equal(prev.ok, true, m);
-		assert.equal(core.openingNotice(prev, "0.11.0")?.paragraphs[0], `This file says booklet: ${v}. This view reads format 0.18 and has opened it as it is; some of it may not draw.`, m);
-		assert.equal(core.openingNotice(prev, "0.11.0")?.paragraphs.some((x) => /newer/.test(x)), false, `${m}: an earlier marker is not newer`);
-		assert.equal(prev.activities[0].segments.filter((s) => s.type === "question").length, 1, `${m}: its question is read`);
+	// another 0.x opens as it is, with no notice for its marker alone (earlier or later)
+	for (const m of ['booklet: "0.17"', "booklet: 0.17", "booklet: '0.17'", 'booklet: "0.16"', 'booklet: "0.15"', 'booklet: "0.9"', 'booklet: "0.19"', 'booklet: "0.99"']) {
+		const other = core.parseBooklet(fm(m) + body);
+		assert.equal(other.ok, true, m);
+		assert.deepEqual(other.unread, [], m);
+		assert.equal(core.openingNotice(other, "0.11.0"), null, `${m}: no notice`);
+		assert.equal(other.activities[0].segments.filter((s) => s.type === "question").length, 1, `${m}: its question is read`);
 	}
-	// a later 0.x opens the same way, and says the format is newer
-	const later = core.openingNotice(core.parseBooklet(fm('booklet: "0.19"') + body), "0.12.0");
-	assert.equal(later?.paragraphs[0], "This file says booklet: 0.19. This view reads format 0.18 and has opened it as it is; some of it may not draw.");
-	assert.match(later?.paragraphs[1] ?? "", /newer than the format this view reads/);
 	assert.equal(core.parseBooklet(fm('booklet: "0.10"') + body).ok, true, "0.10 is a 0.x version, not 0.1");
 	assert.equal(core.markerAgainstFormat("0.10"), "earlier", "0.10 is earlier than 0.18, and 0.9 earlier than 0.10");
 	assert.equal(core.markerAgainstFormat("0.100"), "later", "0.100 is later than 0.18");

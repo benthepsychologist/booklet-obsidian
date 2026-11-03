@@ -5,8 +5,9 @@
  * the rules for where a booklet opens, what is next, where a heading link leads, and how a saved place is read back.
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
-import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds } from "./lines";
+import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, COMMENT, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds, visibleLines } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
+import { regionMask } from "./records";
 import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Question, type Segment } from "./reader";
 import { answeredOf, shapeIssue } from "./shape";
 import { ENGINES, engineOf } from "./widgets";
@@ -222,9 +223,6 @@ function splitEmoji(title: string): { title: string; emoji: string | null } {
 	return { title: t.slice(m[0].length), emoji: m[1] };
 }
 
-/** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
-const COMMENT = /<!--[\s\S]*?-->/g;
-
 /** Inline Markdown as plain words: marks, link addresses and footnote marks gone, a link its label, an image its alt text. */
 export function plainText(md: string): string {
 	return md
@@ -342,15 +340,18 @@ function foldedGroups(segs: readonly Segment[]): number {
 function readsOf(markdown: string): number {
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
+	// a callout line a reader does not see (inside a closed comment (HTML or `%%`), `<pre>` or `$$` block) is no callout to read, and holds no question
+	const { hidden } = visibleLines(lines);
 	let n = 0;
 	for (let i = 0; i < lines.length; i++) {
-		if (fenced[i]) continue;
+		if (fenced[i] || hidden[i]) continue;
 		const l = lines[i] ?? "";
 		const m = CALLOUT_LINE.exec(l);
 		if (!m || !m[1]) continue;
 		const k = bodyEnd(lines, i);
 		const kind = m[1].toLowerCase();
-		const holdsQuestion = lines.slice(i + 1, k).some((x) => {
+		const holdsQuestion = lines.slice(i + 1, k).some((x, j) => {
+			if (hidden[i + 1 + j]) return false;
 			const mm = CALLOUT_LINE.exec(x.replace(/^(?:>[ \t]?)+/, "> "));
 			return !!mm && QUESTION_LINE_KINDS.has((mm[1] ?? "").toLowerCase());
 		});
@@ -494,9 +495,10 @@ interface ModuleParts {
 /**
  * What a module holds before its first activity (SPEC section 3): its opening, its tab lines each with the prose after
  * it, and its notice. Read from lines [from, to) the way the reader reads them, so a fenced block and a widget
- * placed by reference are left out of the prose.
+ * placed by reference are left out of the prose. A line in `hidden` (it starts inside a closed comment (HTML or `%%`), `<pre>` or `$$` block) is text
+ * a reader does not see: no tab, notice or page line there is read, and no fence opens there.
  */
-function moduleParts(lines: readonly string[], from: number, to: number, title: string): ModuleParts {
+function moduleParts(lines: readonly string[], hidden: readonly boolean[], from: number, to: number, title: string): ModuleParts {
 	const open: string[] = [];
 	const found: { title: string; id: string | null; body: string[] }[] = [];
 	const notice: [string, string][] = [];
@@ -504,7 +506,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 	let into = open;
 	for (let i = from; i < to; i++) {
 		const ln = lines[i] ?? "";
-		const f = FENCE_OPEN.exec(ln);
+		const f = hidden[i] ? null : FENCE_OPEN.exec(ln);
 		if (f && f[1]) {
 			const k = fenceEnd(lines, i, f[1]);
 			let n = k + 1;
@@ -515,7 +517,7 @@ function moduleParts(lines: readonly string[], from: number, to: number, title: 
 			i = hasId ? n : Math.min(k, lines.length - 1);
 			continue;
 		}
-		const m = CALLOUT_LINE.exec(ln);
+		const m = hidden[i] ? null : CALLOUT_LINE.exec(ln);
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
 			const k = bodyEnd(lines, i);
@@ -563,6 +565,7 @@ function statusOf(lines: readonly string[], at: number): string | null {
 
 export function buildNav(book: Booklet, text: string): NavModel {
 	const lines = splitLines(text).map((l) => l.text);
+	const hidden = visibleLines(lines, book.bodyStart, regionMask(lines.length, book.records.regions)).hidden;
 	const mods: NavMod[] = [];
 	const byKey = new Map<string, NavAct>();
 	const problems: string[] = [];
@@ -574,7 +577,7 @@ export function buildNav(book: Booklet, text: string): NavModel {
 		const written = (line?.[4] ?? "").trim();
 		const t = splitEmoji(m.title);
 		const firstAct = book.activities.find((a) => a.scope === m.id);
-		const parts = moduleParts(lines, bodyEnd(lines, m.line), firstAct ? firstAct.line : (m.endLine ?? lines.length), m.title);
+		const parts = moduleParts(lines, hidden, bodyEnd(lines, m.line), firstAct ? firstAct.line : (m.endLine ?? lines.length), m.title);
 		mods.push({
 			id: m.id,
 			bare: false,
@@ -1120,8 +1123,9 @@ function proseHeadings(markdown: string): string[] {
 	const out: string[] = [];
 	const lines = markdown.split("\n");
 	const fenced = fencedLines(lines);
+	const { hidden } = visibleLines(lines);
 	for (const [i, l] of lines.entries()) {
-		if (fenced[i]) continue;
+		if (fenced[i] || hidden[i]) continue; // a heading or a callout title a reader does not see is no place to link to
 		const h = HEADING_WORDS.exec(l);
 		if (h && h[1]) out.push(h[1]);
 		else if (CALLOUT_ANY.test(l)) {
@@ -1167,52 +1171,18 @@ export function searchPages(tab: ActTab, query: string): TreePage[] {
 
 /**
  * The target of every heading link in some Markdown, in order: `[[#Words]]`, `[[#Words|label]]` and `[label](#words)`. A block link (`#^id`)
- * is none. What is not text a reader sees is left out, as far as a short scan can tell: a code fence, inline code, an HTML comment, a
+ * is none. What is not text a reader sees is left out, as far as a short scan can tell: a code fence, inline code, an HTML comment, a `%%` comment, a
  * `<pre>` block, a `$$` math block and an indented code block (four spaces or a tab after a blank line, outside a list).
  */
 export function headingLinksIn(markdown: string): string[] {
 	const out: string[] = [];
-	const lines = markdown.split("\n");
-	const fenced = fencedLines(lines);
-	let comment = false;
-	let math = false;
-	let pre = false;
+	const { text } = visibleLines(markdown.split("\n"));
 	let code = false;
 	let list = false;
 	let blank = true;
-	for (const [i, raw] of lines.entries()) {
-		if (fenced[i]) continue;
-		let l = raw;
-		if (comment) {
-			const end = l.indexOf("-->");
-			if (end < 0) continue;
-			l = l.slice(end + 3);
-			comment = false;
-		}
-		l = l.replace(COMMENT, "");
-		const open = l.indexOf("<!--");
-		if (open >= 0) {
-			l = l.slice(0, open);
-			comment = true;
-		}
-		if (pre) {
-			if (/<\/pre>/i.test(l)) pre = false;
-			continue;
-		}
-		if (/<pre[\s>]/i.test(l) && !/<\/pre>/i.test(l)) {
-			pre = true;
-			continue;
-		}
-		if (math) {
-			if (l.includes("$$")) math = false;
-			continue;
-		}
-		l = l.replace(/\$\$[^$]*\$\$/g, "");
-		const dollars = l.indexOf("$$");
-		if (dollars >= 0) {
-			l = l.slice(0, dollars);
-			math = true;
-		}
+	for (const seen of text) {
+		if (seen === null) continue;
+		const l = seen;
 		if (!l.trim()) {
 			blank = true;
 			continue;

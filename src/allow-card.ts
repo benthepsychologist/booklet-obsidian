@@ -22,6 +22,12 @@ export interface CardOptions {
 	request?: CardRequest;
 	/** What takes focus when the card closes, found when it does: the button that opened it may have been drawn again meanwhile. */
 	returnFocus?: () => HTMLElement | null;
+	/**
+	 * Puts the card's Escape at the top of the app's key scopes while it is open, and returns what takes it off again. Obsidian hands a key to
+	 * the topmost scope only, so Escape closes the card when it is on top and the modal over it when one is. A modal under the card (Obsidian's
+	 * Settings on 1.11.7 has a scope of its own, hears Escape first and pulls the focus back into itself) hears nothing while the card is up.
+	 */
+	keyScope: (escape: () => void) => () => void;
 	/** Told when the card has closed. `changed`: a site was allowed or taken off while it was open. `answered`: for a request, a choice was made. `left`: the sites of a request for the sites a booklet names that were not dealt with. */
 	onClose?: (state: { changed: boolean; answered: boolean; left: string[] }) => void;
 }
@@ -74,10 +80,14 @@ export function openAllowCard(o: CardOptions): AllowCard {
 	};
 
 	let stopGuard: (() => void) | null = null;
+	let stopKeys: (() => void) | null = null;
+	let dropScope: (() => void) | null = null;
 	const close = (restore = true): void => {
 		if (closed) return;
 		closed = true;
 		stopGuard?.();
+		stopKeys?.();
+		dropScope?.();
 		if (open.get(o.doc) === handle) open.delete(o.doc);
 		root.remove();
 		if (restore) o.returnFocus?.()?.focus();
@@ -225,14 +235,14 @@ export function openAllowCard(o: CardOptions): AllowCard {
 
 	if (!req) button(card.createDiv({ cls: "modal-button-container" }), "Close", null, () => close());
 
-	// Escape closes, and Tab stays inside the card
-	root.addEventListener("keydown", (evt) => {
-		if (evt.key === "Escape") {
-			evt.preventDefault();
-			evt.stopPropagation();
-			close();
-			return;
-		}
+	// Tab stays inside the card. It is heard on the document, not on the card: with focus on the page behind it (or on nothing) a key never
+	// passes through the card, and Tab walked out into the note. A key aimed at another dialog (Obsidian's command palette, say) is that
+	// dialog's own and is left alone. Escape is not heard here but in the app's key scope (`keyScope`), which also covers focus outside the card.
+	const onKey = (evt: KeyboardEvent): void => {
+		if (closed) return;
+		// (no `instanceof`: the card may live in a window of its own, whose Element is not this one)
+		const target = evt.target as Element | null;
+		if (target?.closest && !root.contains(target) && target.closest(".modal-container")) return;
 		if (evt.key !== "Tab") return;
 		const items = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
 		const first = items[0];
@@ -246,7 +256,11 @@ export function openAllowCard(o: CardOptions): AllowCard {
 			evt.preventDefault();
 			first.focus();
 		}
-	});
+	};
+	o.doc.addEventListener("keydown", onKey, true);
+	// before the first focus below, so that a modal under the card never has a say in where the focus goes
+	dropScope = o.keyScope(() => close());
+	stopKeys = () => o.doc.removeEventListener("keydown", onKey, true);
 	backdrop.addEventListener("click", () => close());
 
 	const first = notNow ?? title;
