@@ -141,3 +141,8 @@ Checks 48 to 54 make their own vault for each session (`media-lib.js` `withMedia
 The Linux tarballs of every release are on github.com/obsidianmd/obsidian-releases. Two things differ for an old one:
 - An old installer fetches the newest app code on its first start and runs that instead. `drive.js` writes `updateDisabled: true` into the scratch config's `obsidian.json` so the version asked for is the version run.
 - Obsidian 1.5.x is Electron 28, which does not answer `Browser.setDownloadBehavior`, and the Playwright that `.tools` installs asks for it, so `connectOverCDP` fails. A Playwright 1.41 (`PLAYWRIGHT=<its node_modules>/playwright-core`) connects.
+- With `E2E_PORT_RANGE=9341-9349` in the environment, `launch` takes the first free debugging port in that range (for runs side by side on one machine); unset, it takes any free port.
+- Obsidian before 1.14 draws a Notice in the main window (1.14 draws it in a window of its own), and keeps it while the pointer is over it: a Playwright click on a header button under it times out until the Notice is clicked away.
+- Obsidian before 1.14 frames an allowed YouTube video at `www.youtube.com/embed/ID` itself; 1.14 frames its wrapper page `releases.obsidian.md/youtube?v=ID`.
+- Chrome 132 (Obsidian 1.8.10) has no `Emulation.setSafeAreaInsetsOverride`: check 55 then reports the Now playing bar's safe-area part as "not measured".
+- Measured floor for 0.12.0 (see `docs/floor-0130.md`): the suite passes completely on 1.11.7 and 1.14.5; on 1.8.10 only check 55 fails.
