@@ -1,0 +1,240 @@
+{
+ "meta": {
+  "obsidian": "1.14.5",
+  "label": "modal-plain-1.14.5"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#3:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    43,
+    "in",
+    "button#1:Allow list"
+   ],
+   [
+    44,
+    "out",
+    "button#1:Allow list"
+   ],
+   [
+    55,
+    "in",
+    "input#2:on"
+   ],
+   [
+    55,
+    "out",
+    "input#2:on"
+   ],
+   [
+    56,
+    "in",
+    "div#3:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#5:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    36,
+    "in",
+    "button#1:Allow list"
+   ],
+   [
+    37,
+    "out",
+    "button#1:Allow list"
+   ],
+   [
+    39,
+    "in",
+    "input#4:on"
+   ],
+   [
+    39,
+    "out",
+    "input#4:on"
+   ],
+   [
+    39,
+    "in",
+    "div#5:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  }
+ }
+}

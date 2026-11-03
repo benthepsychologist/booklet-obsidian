@@ -1,0 +1,10 @@
+--- a/src/view.ts
++++ b/src/view.ts
+@@ -859,6 +859,7 @@
+ 		if (!this.file) return;
+ 		const again = back ?? (() => this.contentEl.querySelector<HTMLElement>(".booklet-allow-btn"));
+ 		this.card = openAllowCard({
++			app: this.app,
+ 			doc: this.contentEl.ownerDocument,
+ 			allows: this.host.media,
+ 			notePath: this.file.path,
