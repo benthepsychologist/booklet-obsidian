@@ -148,6 +148,7 @@ export function corpusDirs() {
 		{ name: "the test vault", dir: join(ROOT, "test-vault"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 		{ name: "made-up page-tree notes (test/page-notes)", dir: join(ROOT, "test", "page-notes"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 		// the listen demo's second note holds mistakes on purpose (it is for the opening notice), so only its clean note is in the corpus
+		{ name: "made-up screen-reader walk (test/page-notes/Screen reader walk)", dir: join(ROOT, "test", "page-notes", "Screen reader walk"), filter: (f) => f.endsWith(".booklet.md"), external: false },
 		{ name: "made-up listen demo (test/page-notes/Listen demo)", dir: join(ROOT, "test", "page-notes", "Listen demo"), filter: (f) => f.endsWith(".booklet.md") && !f.includes("with problems"), external: false },
 	].map((d) => ({ ...d, present: existsSync(d.dir) }));
 }
