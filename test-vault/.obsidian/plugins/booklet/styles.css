@@ -2083,6 +2083,12 @@
 	--booklet-callout-colour: rgb(var(--callout-color));
 }
 
+/* a callout's title (Obsidian's own, drawn in the plugin's view only) is a row of picture, words and fold arrow that does not wrap: at 200% text on a
+   320 px phone a folded "Transcript" is wider than its box and the arrow lands past the window. The row may wrap, which it does only when it must. */
+.booklet-view .callout-title {
+	flex-wrap: wrap;
+}
+
 @supports (color: color-mix(in srgb, red, blue)) {
 	.booklet-view .callout {
 		background-color: color-mix(in srgb, var(--booklet-callout-colour) 10%, var(--background-primary));
@@ -2462,6 +2468,23 @@
 .booklet-allow-card {
 	max-height: 85vh;
 	overflow-y: auto;
+}
+
+/* On a phone the card is the window less a margin, and at a large text size its headings are the dialog's own size: the part that scrolls was
+   about a half of the window, and the last line in view was cut by the Close footer's edge. The footer sits below the part that scrolls
+   (nothing lies under it); a rule above it says where the scrolling part ends. */
+.is-phone .booklet-allow-card {
+	max-height: calc(100dvh - var(--size-4-8));
+}
+
+.booklet-allow-card h3 {
+	font-size: var(--font-ui-large);
+	margin: var(--size-4-3) 0 var(--size-4-1);
+}
+
+.booklet-allow-card .modal-button-container {
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding-top: var(--size-4-3);
 }
 
 .booklet-allow-btn-choice {
