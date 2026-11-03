@@ -1,0 +1,671 @@
+{
+ "meta": {
+  "obsidian": "1.14.5",
+  "label": "bare-1.14.5"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "button#2:One (in the card)",
+  "focus-trace-first-2s": [
+   [
+    89,
+    "in",
+    "button#1:Open the bare modal"
+   ],
+   [
+    90,
+    "out",
+    "button#1:Open the bare modal"
+   ],
+   [
+    91,
+    "in",
+    "button#2:One"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container bare mod-dim",
+   "modalClass": "modal bare-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "One",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Two",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Three",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "A box",
+     "ignored": false,
+     "focusable": true,
+     "checked": "false"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "A site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": null,
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Open the bare modal",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "button#2:One",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 8,
+   "presses": 40,
+   "leftCardAt": [
+    6,
+    "button#8:Navigate back"
+   ],
+   "leftCardCount": 9,
+   "first6": [
+    "button#3:Two",
+    "button#4:Three",
+    "input#5:on",
+    "input#6:A site",
+    "button#7:Close",
+    "button#8:Navigate back"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "button#4:Three",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 3,
+   "presses": 40,
+   "leftCardAt": [
+    3,
+    "button#1:Open the bare modal"
+   ],
+   "leftCardCount": 31,
+   "first6": [
+    "button#3:Two",
+    "button#2:One",
+    "button#1:Open the bare modal",
+    "button#2:One",
+    "button#1:Open the bare modal",
+    "button#2:One"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "button#20:One (in the card)",
+  "focus-trace-first-2s": [
+   [
+    34,
+    "in",
+    "button#1:Open the bare modal"
+   ],
+   [
+    35,
+    "out",
+    "button#1:Open the bare modal"
+   ],
+   [
+    37,
+    "in",
+    "button#20:One"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container bare mod-dim",
+   "modalClass": "modal bare-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "One",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Two",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Three",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "A box",
+     "ignored": false,
+     "focusable": true,
+     "checked": "false"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "A site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": null,
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Open the bare modal",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "button#20:One",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 8,
+   "presses": 40,
+   "leftCardAt": [
+    6,
+    "button#8:Navigate back"
+   ],
+   "leftCardCount": 11,
+   "first6": [
+    "button#21:Two",
+    "button#22:Three",
+    "input#23:on",
+    "input#24:A site",
+    "button#25:Close",
+    "button#8:Navigate back"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "button#22:Three",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 4,
+   "presses": 40,
+   "leftCardAt": [
+    3,
+    "button#1:Open the bare modal"
+   ],
+   "leftCardCount": 27,
+   "first6": [
+    "button#21:Two",
+    "button#20:One",
+    "button#1:Open the bare modal",
+    "div#11:Go to file",
+    "button#20:One",
+    "button#1:Open the bare modal"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  }
+ },
+ "phone-setup": {
+  "app.emulateMobile-exists": true
+ },
+ "phone-light": {
+  "viewport": [
+   390,
+   844,
+   "is-phone"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "BODY (NOT in the card)",
+  "focus-trace-first-2s": [
+   [
+    67,
+    "in",
+    "button#1:Open the bare modal"
+   ],
+   [
+    68,
+    "out",
+    "button#1:Open the bare modal"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container bare mod-dim",
+   "modalClass": "modal bare-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "One",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Two",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Three",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "A box",
+     "ignored": false,
+     "focusable": true,
+     "checked": "false"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "A site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": null,
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Open the bare modal",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "BODY",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 7,
+   "presses": 40,
+   "leftCardAt": [
+    7,
+    "button#8:Expand"
+   ],
+   "leftCardCount": 8,
+   "first6": [
+    "button#2:One",
+    "button#3:Two",
+    "button#4:Three",
+    "input#5:on",
+    "input#6:A site",
+    "button#7:Close"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "button#4:Three",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 5,
+   "presses": 40,
+   "leftCardAt": [
+    3,
+    "button#1:Open the bare modal"
+   ],
+   "leftCardCount": 31,
+   "first6": [
+    "button#3:Two",
+    "button#2:One",
+    "button#1:Open the bare modal",
+    "button#12:Navigate forward",
+    "button#13:Navigate back",
+    "button#2:One"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  }
+ },
+ "phone-dark": {
+  "viewport": [
+   390,
+   844,
+   "is-phone"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "BODY (NOT in the card)",
+  "focus-trace-first-2s": [
+   [
+    28,
+    "in",
+    "button#1:Open the bare modal"
+   ],
+   [
+    28,
+    "out",
+    "button#1:Open the bare modal"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container bare mod-dim",
+   "modalClass": "modal bare-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "dialogAbove": null,
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "One",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Two",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Three",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "A box",
+     "ignored": false,
+     "focusable": true,
+     "checked": "false"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "A site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": null,
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Open the bare modal",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "BODY",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 8,
+   "presses": 40,
+   "leftCardAt": [
+    7,
+    "button#8:Expand"
+   ],
+   "leftCardCount": 11,
+   "first6": [
+    "button#17:One",
+    "button#18:Two",
+    "button#19:Three",
+    "input#20:on",
+    "input#21:A site",
+    "button#22:Close"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "button#8:Expand",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 5,
+   "presses": 40,
+   "leftCardAt": [
+    1,
+    "button#1:Open the bare modal"
+   ],
+   "leftCardCount": 32,
+   "first6": [
+    "button#1:Open the bare modal",
+    "button#12:Navigate forward",
+    "button#13:Navigate back",
+    "div#14:Go to file",
+    "button#17:One",
+    "button#1:Open the bare modal"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Open the bare modal",
+   "closed": true,
+   "focusAfter": "button#1:Open the bare modal",
+   "backOnOpener": true,
+   "onBody": false
+  }
+ }
+}

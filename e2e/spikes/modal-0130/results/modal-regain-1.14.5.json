@@ -1,0 +1,232 @@
+{
+ "meta": {
+  "obsidian": "1.14.5",
+  "label": "modal-regain-1.14.5"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#3:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    42,
+    "in",
+    "button#1:Allow list"
+   ],
+   [
+    43,
+    "out",
+    "button#1:Allow list"
+   ],
+   [
+    54,
+    "in",
+    "input#2:on"
+   ],
+   [
+    54,
+    "out",
+    "input#2:on"
+   ],
+   [
+    54,
+    "in",
+    "div#3:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 37,
+   "focusSamples": [
+    "0ms button#5:Not now",
+    "50ms button#5:Not now",
+    "150ms button#5:Not now",
+    "400ms button#5:Not now",
+    "800ms button#5:Not now",
+    "1500ms button#5:Not now"
+   ],
+   "finalFocusInCard": true,
+   "finalFocus": "button#5:Not now",
+   "trace": [
+    [
+     15,
+     "in",
+     "button#4:Allow for this note: declared."
+    ],
+    [
+     15,
+     "out",
+     "button#4:Allow for this note: declared."
+    ],
+    [
+     15,
+     "in",
+     "button#5:Not now"
+    ],
+    [
+     15,
+     "out",
+     "button#5:Not now"
+    ],
+    [
+     18,
+     "in",
+     "button#5:Not now"
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#9:Allow list",
+   "rightAfterOpen": "div#11:Allow list",
+   "after1300ms": "div#11:Allow list",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "div#13:Allow list",
+   "hasFocus": true,
+   "trace": [
+    [
+     4,
+     "in",
+     "input#12:on"
+    ],
+    [
+     4,
+     "out",
+     "input#12:on"
+    ],
+    [
+     4,
+     "in",
+     "div#13:Allow list"
+    ]
+   ]
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#16:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    35,
+    "in",
+    "button#14:Allow list"
+   ],
+   [
+    36,
+    "out",
+    "button#14:Allow list"
+   ],
+   [
+    38,
+    "in",
+    "input#15:on"
+   ],
+   [
+    38,
+    "out",
+    "input#15:on"
+   ],
+   [
+    38,
+    "in",
+    "div#16:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 43,
+   "focusSamples": [
+    "0ms button#18:Not now",
+    "50ms button#18:Not now",
+    "150ms button#18:Not now",
+    "400ms button#18:Not now",
+    "800ms button#18:Not now",
+    "1500ms button#18:Not now"
+   ],
+   "finalFocusInCard": true,
+   "finalFocus": "button#18:Not now",
+   "trace": [
+    [
+     20,
+     "in",
+     "button#17:Allow for this note: declared."
+    ],
+    [
+     21,
+     "out",
+     "button#17:Allow for this note: declared."
+    ],
+    [
+     21,
+     "in",
+     "button#18:Not now"
+    ],
+    [
+     21,
+     "out",
+     "button#18:Not now"
+    ],
+    [
+     25,
+     "in",
+     "button#18:Not now"
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#22:Allow list",
+   "rightAfterOpen": "div#24:Allow list",
+   "after1300ms": "div#24:Allow list",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "div#26:Allow list",
+   "hasFocus": true,
+   "trace": [
+    [
+     4,
+     "in",
+     "input#25:on"
+    ],
+    [
+     4,
+     "out",
+     "input#25:on"
+    ],
+    [
+     4,
+     "in",
+     "div#26:Allow list"
+    ]
+   ]
+  }
+ }
+}

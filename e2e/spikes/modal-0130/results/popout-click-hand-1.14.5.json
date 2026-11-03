@@ -1,0 +1,35 @@
+{
+ "meta": {
+  "obsidian": "1.14.5",
+  "label": "t-pop-hand-1.14.5"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "card-asked-for-by-a-view-in-a-popout-window": {
+   "cardInPopoutWindow": true,
+   "cardInMainWindow": false,
+   "focusInPopout": "H2:Allow list"
+  },
+  "card-opened-by-a-click-in-the-popout-window": {
+   "cardInPopoutWindow": true,
+   "focusIn": true,
+   "cardInMainWindow": false,
+   "pages": [
+    "app://obsidian.md/index.html",
+    "about:blank",
+    "about:blank"
+   ]
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ]
+ }
+}
