@@ -613,6 +613,8 @@ export function rolesOf(set: RowSet, rows: readonly Row[], q: Query, view: ViewN
 export function colsOf(set: RowSet, q: Query, view: ViewName, roles: Record<Role, string | null>): string[] {
 	// on a summary, `fields:` picks the rows: a table shows every field, and the other views draw a row by its roles
 	if (set.kind === "summary") return view === "table" ? set.own : [];
+	// a question asked for each pick, named alone, is a row for each pick holding its label and its value; `fields:` has no other field to pick
+	if (set.kind === "picks") return view === "table" ? set.own : [];
 	const named = VIEW_DRAWS[view].includes("fields") ? q.fields : null;
 	if (view === "table") return named ? named.flatMap(set.expand) : set.own;
 	// the fields that play no role: a list's extras and a data block's card lines (never `id`, the group or the parent)
@@ -654,8 +656,8 @@ function dataCell(v: DataValue | DataValue[]): Cell | null {
 }
 
 /**
- * A question asked for each pick, named alone and drawn as tiles, bars or a line (SPEC section 6: "one row per pick and
- * value"; the format does not say what the row holds, so this is the plugin's reading): one row for each pick the source
+ * A question asked for each pick, named alone and drawn in any view (SPEC section 6: "one row per pick and value"; the format
+ * does not say what the row holds, so this is the plugin's reading): one row for each pick the source
  * holds over the entries read, in the source's order, its label the pick's words and its value the pick's answer, taken
  * from the newest entry that answered it.
  */
@@ -711,7 +713,8 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 				? pickAnswers(a, one, ents).flatMap((p) => distribution(plainOf(one), p.values, locale, [p.parts, { text: " · " }]))
 				: distribution(one, answersOf(one, ents), locale);
 			set = summarySet(ents.length ? rows : [], "answer");
-		} else if (one.each && (view === "tiles" || view === "bars" || view === "line")) {
+		} else if (one.each) {
+			// SPEC section 6: a follow-up named alone in `from:` gives one row per pick and value, in every view
 			set = pickRows(a, one, a.repeat ? ents : [book.records.answers[a.scope] ?? {}]);
 		} else {
 			set = entryRows(book, a, [one], [one], q, opts);

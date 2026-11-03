@@ -201,3 +201,21 @@ test("a summary as tiles and as a list, by its roles: value and note default by 
 	assert.equal(row.querySelector(".booklet-q-extras"), null, "a summary row's other statistics are a table's columns, not a list's extras");
 	v.close();
 });
+
+test("a question asked for each pick, named alone in from:, is drawn as one row for each pick in a table, a list and cards (the plugin is ahead of the reference renderer here)", async (t) => {
+	t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-10-28T12:00:00Z") });
+	const base = withEntries().replace("```booklet query\nfrom: today\nlimit: 7 days\nfields: thoughts\n```", "```booklet query\nfrom: felt\nas: table\n```\n\n```booklet query\nfrom: felt\nas: list\n```\n\n```booklet query\nfrom: felt\nas: cards\n```");
+	const v = open(base, "Check-in.booklet.md");
+	const [, table, list, cards] = v.queries();
+	assert.deepEqual([...table.querySelectorAll("thead th")].map((x) => x.textContent), ["Where do you feel it?", "Answer"]);
+	const rows = [...table.querySelectorAll("tbody tr")].map((tr) => [...tr.querySelectorAll("td")].map((td) => td.textContent));
+	assert.deepEqual(rows[0], ["Tense", "Stomach"], "a row for the pick Tense, the newest entry's answer");
+	assert.equal(rows.length, 2, "one row for each pick that was answered, not one for each entry");
+	assert.equal(list.querySelectorAll("li").length, 2);
+	assert.match(list.textContent, /Tense/);
+	assert.equal(cards.querySelectorAll(".booklet-q-card").length, 2);
+	assert.equal(cards.querySelectorAll(".booklet-entry").length, 0, "no dated card for an entry");
+	await v.settled();
+	assert.equal(v.disk.writes, 0);
+	v.close();
+});

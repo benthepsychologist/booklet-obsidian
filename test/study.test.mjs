@@ -608,7 +608,7 @@ lang: en
 - [ ] It was near
 `;
 
-test("each: words held on the device for a copy's Add your own field are held under the key earlier versions used (<key>#own:<pick>), so a reload from an older version still finds them", async () => {
+test("each: words held on the device for a copy's Add your own field are held under <key>#pick:<pick>, and a reload finds them", async () => {
 	const disk = { text: OPEN_NOTE, writes: 0 };
 	const store = new Map();
 	const app = testApp(disk, {
@@ -624,15 +624,41 @@ test("each: words held on the device for a copy's Add your own field are held un
 	[...v.view.contentEl.querySelectorAll('[data-booklet-q="tools"] .booklet-choice')].find((b) => b.textContent.trim() === "Pencil").click();
 	await v.settled();
 	const copy = field("why", ".booklet-copy");
-	assert.equal(copy.getAttribute("data-booklet-key"), plain.replace(/tools#own$/, "why#own:n:1"), "a copy's field is held under <question's key>#own:<pick's key>, as 0.5.0 held it");
+	assert.equal(copy.getAttribute("data-booklet-key"), plain.replace(/tools#own$/, "why#pick:n:1"), "a copy's field is held under <question's key>#pick:<pick's key>");
 	typeInto(copy, "Pencils are small");
 	const [held] = [...store.entries()].filter(([k]) => k.startsWith("booklet-held:"));
-	assert.ok(held[1].includes(plain.replace(/tools#own$/, "why#own:n:1")), "kept on the device under that key as it is typed");
+	assert.ok(held[1].includes(plain.replace(/tools#own$/, "why#pick:n:1")), "kept on the device under that key as it is typed");
 	// the reload: the view goes away with no blur and no write; the next drawing adds the words to that pick's pair
 	v.view.containerEl.remove();
 	v = draw();
 	await v.settled();
 	assert.deepEqual(norm(core.parseBooklet(disk.text).records.answers[""].why), [{ pick: 1, a: ["Pencils are small"] }], "added to Pencil's pair");
 	assert.equal([...store.keys()].filter((k) => k.startsWith("booklet-held:")).length, 0, "and taken off the device once added (the furthest page reached is kept beside it)");
+	v.close();
+});
+
+test("each: words held under the key 0.5.0 and 0.6.0 used for a copy's Add your own field (<key>#own:<pick>) are no longer looked for", async () => {
+	const disk = { text: OPEN_NOTE, writes: 0 };
+	const store = new Map();
+	const app = testApp(disk, {
+		vault: { getName: () => "Made-up vault" },
+		loadLocalStorage: (k) => (store.has(k) ? JSON.parse(store.get(k)) : null),
+		saveLocalStorage: (k, d) => (d === null ? store.delete(k) : store.set(k, JSON.stringify(d))),
+	});
+	let v = openView(disk.text, { path: "Held.booklet.md", disk, app, screen: "activity:/log" });
+	const plain = v.view.contentEl.querySelector('[data-booklet-q="tools"] .booklet-own-row input').getAttribute("data-booklet-key");
+	[...v.view.contentEl.querySelectorAll('[data-booklet-q="tools"] .booklet-choice')].find((b) => b.textContent.trim() === "Pencil").click();
+	await v.settled();
+	v.close();
+	const old = plain.replace(/tools#own$/, "why#own:n:1");
+	store.set("booklet-held:Held.booklet.md", JSON.stringify({ [old]: "Left by an old version" }));
+	const before = disk.text;
+	v = openView(disk.text, { path: "Held.booklet.md", disk, app, screen: "activity:/log" });
+	await v.settled();
+	assert.equal(core.parseBooklet(disk.text).records.answers[""].why, undefined, "nothing was added to Pencil's pair");
+	assert.equal(disk.text, before, "and the note is as it was");
+	const copy = v.view.contentEl.querySelector('[data-booklet-q="why"] .booklet-copy .booklet-own-row input');
+	assert.equal(copy.value, "", "the copy's field starts empty");
+	assert.notEqual(copy.getAttribute("data-booklet-key"), old);
 	v.close();
 });
