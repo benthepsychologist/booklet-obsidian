@@ -1771,6 +1771,8 @@
 .booklet-cardtext {
 	flex: 1 1 auto;
 	min-width: 0;
+	/* a long word in a title breaks rather than push the roomier card past the screen at 200% text */
+	overflow-wrap: anywhere;
 }
 
 .booklet-cardtitle {

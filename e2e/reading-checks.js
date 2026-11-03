@@ -33,7 +33,7 @@ module.exports = function readingChecks(env) {
     const c = document.querySelector(sel + " .callout[data-callout='" + kind + "']");
     if (!c) return null;
     const s = getComputedStyle(c), icon = c.querySelector(".callout-icon svg");
-    return { style: s.borderLeftStyle, width: s.borderLeftWidth, colour: s.getPropertyValue("--callout-color").trim(), icon: icon ? [...icon.classList].filter(k => /^lucide-/.test(k)).join() : "", title: (c.querySelector(".callout-title-inner") || {}).textContent, bg: s.backgroundColor };
+    return { style: s.borderLeftStyle, width: s.borderLeftWidth, colour: s.getPropertyValue("--booklet-callout-colour").trim(), icon: icon ? [...icon.classList].filter(k => /^lucide-/.test(k)).join() : "", title: (c.querySelector(".callout-title-inner") || {}).textContent, bg: s.backgroundColor };
   }, [BOOK, kind]);
 
   async function check25() {
