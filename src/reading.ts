@@ -22,6 +22,18 @@ function iconOf(el: HTMLElement): string {
 	return v && /^[a-z0-9-]+$/i.test(v) ? v : "lucide-pencil";
 }
 
+/**
+ * Whether this Obsidian gives a callout its colour as an `r, g, b` triplet (1.8.10 does, and the theme draws `rgb(var(--callout-color))`)
+ * or as a plain colour (1.14.5 does); where the change came between them is not known. The styles have a rule set for each, chosen by a class on the view, so a tint, a border and an edge are
+ * the callout's own colour in both. Read from a callout of Obsidian's own kind `note`, drawn for the moment and taken away.
+ */
+export function calloutColourIsTriplet(root: HTMLElement): boolean {
+	const probe = root.createDiv({ cls: "callout booklet-probe", attr: { "data-callout": "note" } });
+	const v = root.ownerDocument.defaultView?.getComputedStyle(probe).getPropertyValue("--callout-color").trim() ?? "";
+	probe.remove();
+	return /^\d+\s*,\s*\d+\s*,\s*\d+$/.test(v);
+}
+
 /** What a folded callout is called when it has no title: the first words of what it holds. */
 export function firstWords(box: CalloutBox): string {
 	const words = (n: CalloutBox["children"][number]): string => {

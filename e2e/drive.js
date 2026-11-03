@@ -25,6 +25,16 @@ const freePort = () => new Promise((res, rej) => {
   const s = net.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); s.on("error", rej);
 });
 
+/* E2E_PORT_RANGE="9341-9349" keeps the debugging port inside a range of the caller's own (when several runs share a machine). */
+async function pickPort() {
+  const m = /^(\d+)-(\d+)$/.exec(process.env.E2E_PORT_RANGE || "");
+  if (m) for (let p = +m[1]; p <= +m[2]; p++) {
+    const free = await new Promise(res => { const s = net.createServer(); s.on("error", () => res(false)); s.listen(p, "127.0.0.1", () => s.close(() => res(true))); });
+    if (free) return p;
+  }
+  return freePort();
+}
+
 /* Start our own Xvfb when there is no DISPLAY (xvfb-run needs xauth; Xvfb alone does not). */
 async function startXvfb() {
   for (let n = 90; n < 130; n++) {
@@ -58,7 +68,7 @@ async function launch({ obsidian, vault, configDir, port, args = [], env = {}, e
 
   let xvfb = null, display = process.env.DISPLAY;
   if (!display) { xvfb = await startXvfb(); display = xvfb.display; }
-  port = port || await freePort();
+  port = port || await pickPort();
   const out = [];
   const child = spawn(obsidian, ["--no-sandbox", "--disable-gpu", "--remote-debugging-port=" + port, ...args], {
     env: { ...process.env, ...env, DISPLAY: display, XDG_CONFIG_HOME: configDir },

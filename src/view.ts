@@ -105,7 +105,7 @@ import type { LiftFrom, NowPlaying } from "./now-playing";
 import { keepFurthest, loadFurthest } from "./listen-store";
 import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
-import { drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
+import { calloutColourIsTriplet, drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
 import { mountQuery } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
@@ -223,6 +223,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private entriesFolded = new Map<string, boolean>();
 	/** Callouts the reader opened or folded, by place: for as long as the pane is open, never written. */
 	private calloutOpen = new Map<string, boolean>();
+	/** Whether this Obsidian gives a callout's colour as an r, g, b triplet (null until asked, at the first drawing). */
+	private tripletCallouts: boolean | null = null;
 	/** The step on show in each part with steps, by place (SPEC section 12, "one at a time"): never saved, and no step in Back and Forward. */
 	private stepAt = new Map<string, number>();
 	/** The notes' marks of the screen being drawn, and the one source open (see reading.ts); null where marks are left out. */
@@ -1040,6 +1042,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const root = this.contentEl;
 		root.empty();
 		root.addClass("booklet-view");
+		// which format this Obsidian gives a callout's colour in; asked once, as it does not change while the view is open
+		this.tripletCallouts ??= calloutColourIsTriplet(root);
+		root.toggleClass("booklet-callout-triplet", this.tripletCallouts);
 		const page = root.createDiv({ cls: "booklet-page" });
 
 		if (!book.ok) {

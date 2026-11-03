@@ -159,8 +159,22 @@ These names are kept, so that a hotkey, a saved workspace or a style snippet wri
 - **A setting changes how the view looks, or which hosts media may load from, and never what is written to a note.**
 - **The plugin's settings keys are `allowedMediaHosts` and `noteAllows`.** They are kept in the plugin's own `data.json` (`.obsidian/plugins/booklet/data.json`), which has this shape, and Obsidian Sync may or may not carry it to another device (unmeasured): `{ "allowedMediaHosts": ["youtube.com"], "noteAllows": { "Courses/Tea.booklet.md": ["media.example.org"] } }`. Each entry is a host as written (`youtube.com`), lower-case, meaning `https://*.youtube.com/*`.
 - **The device keeps two keys in the vault's local storage:** `booklet-listen:<path>` holds the position of a `listen` that is playing and has not been written to the note yet, and `booklet-place:<path>` holds the furthest page reached in that booklet. Neither is ever in a note, and neither is sent anywhere.
-- **Two custom CSS properties are stable**, by name and by meaning (their default values may change with the theme): `--booklet-ch-bar` (the colour of a bar in a chart, the theme's accent by default) and `--booklet-mx-text` (the width of the words column of a matrix, `12rem` by default). The plugin's other `--booklet-*` properties are internal and may change before 1.0.0, as its class names may (next).
+- **Two custom CSS properties are stable**, by name and by meaning (their default values may change with the theme): `--booklet-ch-bar` (the colour of a bar in a chart, the theme's accent by default) and `--booklet-mx-text` (the width of the words column of a matrix, `12rem` by default). Five more are listed under "Styling" below. The plugin's other `--booklet-*` properties are internal and may change before 1.0.0, as its class names may (next).
 - **Class names are not an API.** The `booklet-…` classes may change from one release to the next; a snippet that styles them does so knowing that.
+
+## Styling
+
+The look follows the reader's theme, light or dark, because it is drawn from Obsidian's own CSS variables; there is no setting for it. A question is a sheet, and a reading block (a callout) is tinted with its own colour and edged in it.
+
+Five custom properties are stable, by name and by meaning, with the Obsidian variable each one defaults to. They are set once, on `.booklet-view`, and a CSS snippet can change any of them. They join the two named in "What stays put".
+
+- `--booklet-card-bg`: the fill of a sheet, `var(--background-secondary)`.
+- `--booklet-card-border`: the hairline round a sheet, `var(--background-modifier-border)`.
+- `--booklet-card-radius`: the corner radius of a sheet and a block, `var(--radius-l)`.
+- `--booklet-card-pad`: the room inside a sheet, `var(--size-4-4)`.
+- `--booklet-block-edge`: the width of the coloured edge of a reading block and of an answered sheet, `var(--size-2-3)`.
+
+Class names are not an API: a snippet that styles the `booklet-…` classes does so knowing that they may change.
 
 ## Compared with Reading view
 
@@ -202,7 +216,7 @@ These names are kept, so that a hotkey, a saved workspace or a style snippet wri
 
 ## Which Obsidian
 
-Booklet needs Obsidian 1.8.10 or later (`minAppVersion`). Of the releases the real-Obsidian suite (`e2e/plugin-check.js`) was run on, 1.8.10 is the oldest it passes on completely; an older release that works is not ruled out, only not shown. It also passes on the newest release at the time of writing (1.14.5). That is the measurement for the releases before 0.12.0. The 0.12.0 media checks (audio and video, the allow list, `listen`, Now playing) were run on 1.14.5 only, and the 1.8.10 floor for 0.12.0 has not been measured; the plugin uses `app.loadLocalStorage`, which Obsidian has had since 1.8.7. Earlier releases were run and fail: on 1.5.8 and 1.7.7 an image written as a definition line (`![Alt][name]`) is not given an address Obsidian can load (and 17 of Booklet's icon names draw nothing on 1.5.8), and on 1.8.3 and 1.8.7 the check that edits a note in a Markdown pane found an ordered list lower in the note renumbered by Obsidian's editor (a matrix's `0.` `1.` `2.` became `4.` `5.` `6.`). The releases run were 1.5.8, 1.7.7, 1.8.3, 1.8.7, 1.8.10 and 1.14.5; 1.5.3 was downloaded and not run, and 1.8.4 to 1.8.6, 1.8.8 and 1.8.9 were not run.
+Booklet needs Obsidian 1.11.7 or later (`minAppVersion`). The real-Obsidian suite (`e2e/plugin-check.js`, 59 checks) passes completely on 1.11.7, the oldest release it was shown to pass on, and on the newest release at the time of writing (1.14.5). On 1.8.10 it passes 58 of 59 (closing a pop-out window sometimes throws an uncaught `illegal access` there, cause not found). The one failure is the phone layout: the Now playing bar covers Obsidian's bottom bar, because Obsidian before 1.11.7 has no `--navbar-height` for the bar to stand above (1.11.4 and 1.11.5 have it but lack the floating-bar class and offset), and the settings page's write-in was 40 px high there (a rule now makes it 44 px). 1.10.6, 1.11.4 and 1.11.5 were run in part, and the releases between 1.8.10 and 1.11.7 that are not named here were not run. The suite runs in desktop Obsidian in a virtual display: Android has not been tried and no phone was used for 0.12.0 or 0.13.0. The plugin uses `app.loadLocalStorage`, which Obsidian has had since 1.8.7. Earlier releases were run and fail: on 1.5.8 and 1.7.7 an image written as a definition line (`![Alt][name]`) is not given an address Obsidian can load (and 17 of Booklet's icon names draw nothing on 1.5.8), and on 1.8.3 and 1.8.7 the check that edits a note in a Markdown pane found an ordered list lower in the note renumbered by Obsidian's editor (a matrix's `0.` `1.` `2.` became `4.` `5.` `6.`). The releases run were 1.5.8, 1.7.7, 1.8.3, 1.8.7, 1.8.10, 1.10.6, 1.11.4, 1.11.5, 1.11.7 and 1.14.5; 1.5.3 was downloaded and not run, and 1.8.4 to 1.8.6, 1.8.8 and 1.8.9 were not run. The measurement is in `docs/floor-0130.md`.
 
 It is not desktop-only: it has been used on an iPhone (0.1.0 to 0.3.0) and every build is checked under Obsidian's own mobile emulation and at a phone's width. **Android has not been tried.**
 

@@ -1,0 +1,1497 @@
+{
+ "meta": {
+  "obsidian": "1.14.5",
+  "label": "modal-1.14.5"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "input#3:on (in the card)",
+  "focus-trace-first-2s": [
+   [
+    32,
+    "in",
+    "button#1:Allow list"
+   ],
+   [
+    33,
+    "out",
+    "button#1:Allow list"
+   ],
+   [
+    42,
+    "in",
+    "div#2:Allow list"
+   ],
+   [
+    43,
+    "out",
+    "div#2:Allow list"
+   ],
+   [
+    43,
+    "in",
+    "input#3:on"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "dialog",
+    "name": "Allow list",
+    "ignored": false,
+    "modal": true
+   },
+   "dialogAbove": {
+    "name": "Allow list",
+    "modal": true
+   },
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "input#3:on",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 7,
+   "presses": 40,
+   "leftCardAt": [
+    6,
+    "button#9:Navigate back"
+   ],
+   "leftCardCount": 9,
+   "first6": [
+    "input#4:on",
+    "input#5:",
+    "button#6:Add for this vault",
+    "button#7:Add for this note",
+    "button#8:Close",
+    "button#9:Navigate back"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "button#9:Navigate back",
+   "focusablesInCard": 6,
+   "cycleAfterPresses": 2,
+   "presses": 40,
+   "leftCardAt": [
+    1,
+    "button#13:Back to the overview"
+   ],
+   "leftCardCount": 27,
+   "first6": [
+    "button#13:Back to the overview",
+    "input#3:on",
+    "button#13:Back to the overview",
+    "button#13:Back to the overview",
+    "input#3:on",
+    "button#13:Back to the overview"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "write-in": {
+   "cardStillUp": true,
+   "before": {
+    "rows": 2
+   },
+   "after": {
+    "rows": 3,
+    "pageRedrawn": true,
+    "live": "Added written-desktop-light.example.org for this note",
+    "hasFocus": "input#27:"
+   },
+   "focusTrace": []
+  },
+  "press-opens-card": {
+   "up": true,
+   "title": "Allow media from media.example.org?",
+   "focus": "button#31:Allow once",
+   "inCard": true
+  },
+  "press-escape-returns-focus-to-the-play-button": {
+   "focus": "button#29:Play audio: the tone",
+   "onBody": false
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 45,
+   "focusSamples": [
+    "0ms BODY (not in card)",
+    "50ms BODY (not in card)",
+    "150ms BODY (not in card)",
+    "400ms BODY (not in card)",
+    "800ms BODY (not in card)",
+    "1500ms BODY (not in card)"
+   ],
+   "finalFocusInCard": false,
+   "finalFocus": "BODY",
+   "trace": [
+    [
+     17,
+     "in",
+     "button#32:Not now"
+    ],
+    [
+     17,
+     "out",
+     "button#32:Not now"
+    ],
+    [
+     17,
+     "in",
+     "button#33:Allow for this note: declared."
+    ],
+    [
+     18,
+     "out",
+     "button#33:Allow for this note: declared."
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#37:Allow list",
+   "rightAfterOpen": "input#39:on",
+   "after1300ms": "input#39:on",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "input#41:on",
+   "hasFocus": true,
+   "trace": [
+    [
+     4,
+     "in",
+     "div#40:Allow list"
+    ],
+    [
+     5,
+     "out",
+     "div#40:Allow list"
+    ],
+    [
+     5,
+     "in",
+     "input#41:on"
+    ]
+   ]
+  },
+  "open-while-the-window-is-not-focused": {
+   "mainWindowHasFocusWhenOpened": false,
+   "cardUp": true,
+   "activeIsInCard": true,
+   "active": "INPUT:"
+  },
+  "redraw-declared": {
+   "opened": true,
+   "rowsBefore": [
+    "one.example.org",
+    "two.example.org"
+   ],
+   "rowsAfter": [
+    "two.example.org"
+   ],
+   "cardStillUp": true,
+   "pageRedrawn": true,
+   "live": "one.example.org allowed for this note",
+   "focusAfter": "button#44:Allow for this note: two.examp",
+   "focusInCard": true,
+   "focusTrace": [
+    [
+     32,
+     "in",
+     "button#43:Allow for this note: one.examp"
+    ],
+    [
+     32,
+     "out",
+     "button#43:Allow for this note: one.examp"
+    ],
+    [
+     33,
+     "in",
+     "button#44:Allow for this note: two.examp"
+    ]
+   ]
+  },
+  "redraw-declared-escape-focus": {
+   "focus": "button#45:Allow list",
+   "onBody": false
+  },
+  "card-then-settings": {
+   "stack": [
+    {
+     "cls": "modal-container booklet-allow mod-dim",
+     "z": "50",
+     "title": "Allow list"
+    }
+   ],
+   "centreBelongsTo": "modal-container booklet-allow mod-dim",
+   "afterOneEscape": []
+  },
+  "settings-then-card": {
+   "stack": [],
+   "focus": "BODY",
+   "inCard": false,
+   "afterOneEscape": []
+  },
+  "z-index": {
+   "nowPlayingBar": "30",
+   "modalContainer": "50"
+  },
+  "card-asked-for-by-a-view-in-a-popout-window": {
+   "cardInPopoutWindow": false,
+   "cardInMainWindow": true,
+   "focusInPopout": "BODY:Plain.booklet - vaul"
+  },
+  "desktop-motion": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all",
+   "maxHeight": "680px",
+   "overflowY": "auto",
+   "width": 560,
+   "height": 623
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "input#52:on (in the card)",
+  "focus-trace-first-2s": [
+   [
+    26,
+    "in",
+    "button#46:Allow list"
+   ],
+   [
+    27,
+    "out",
+    "button#46:Allow list"
+   ],
+   [
+    29,
+    "in",
+    "div#51:Allow list"
+   ],
+   [
+    30,
+    "out",
+    "div#51:Allow list"
+   ],
+   [
+    30,
+    "in",
+    "input#52:on"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "dialog",
+    "name": "Allow list",
+    "ignored": false,
+    "modal": true
+   },
+   "dialogAbove": {
+    "name": "Allow list",
+    "modal": true
+   },
+   "title": {
+    "role": "generic",
+    "name": "",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "written-desktop-light.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "input#52:on",
+   "focusablesInCard": 7,
+   "cycleAfterPresses": 8,
+   "presses": 40,
+   "leftCardAt": [
+    7,
+    "button#9:Navigate back"
+   ],
+   "leftCardCount": 10,
+   "first6": [
+    "input#53:on",
+    "input#54:on",
+    "input#55:",
+    "button#56:Add for this vault",
+    "button#57:Add for this note",
+    "button#58:Close"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "input#52:on",
+   "focusablesInCard": 7,
+   "cycleAfterPresses": 2,
+   "presses": 40,
+   "leftCardAt": [
+    2,
+    "button#61:Back to the overview"
+   ],
+   "leftCardCount": 25,
+   "first6": [
+    "input#52:on",
+    "button#61:Back to the overview",
+    "input#52:on",
+    "button#61:Back to the overview",
+    "input#52:on",
+    "button#61:Back to the overview"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#46:Allow list",
+   "closed": true,
+   "focusAfter": "button#46:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#46:Allow list",
+   "closed": true,
+   "focusAfter": "button#46:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#46:Allow list",
+   "closed": true,
+   "focusAfter": "button#46:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#46:Allow list",
+   "closed": true,
+   "focusAfter": "button#46:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "write-in": {
+   "cardStillUp": true,
+   "before": {
+    "rows": 3
+   },
+   "after": {
+    "rows": 4,
+    "pageRedrawn": true,
+    "live": "Added written-desktop-dark.example.org for this note",
+    "hasFocus": "input#75:"
+   },
+   "focusTrace": []
+  },
+  "press-opens-card": {
+   "up": true,
+   "title": "Allow media from media.example.org?",
+   "focus": "button#79:Allow once",
+   "inCard": true
+  },
+  "press-escape-returns-focus-to-the-play-button": {
+   "focus": "button#77:Play audio: the tone",
+   "onBody": false
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 34,
+   "focusSamples": [
+    "0ms BODY (not in card)",
+    "50ms BODY (not in card)",
+    "150ms BODY (not in card)",
+    "400ms BODY (not in card)",
+    "800ms BODY (not in card)",
+    "1500ms BODY (not in card)"
+   ],
+   "finalFocusInCard": false,
+   "finalFocus": "BODY",
+   "trace": [
+    [
+     15,
+     "in",
+     "button#80:Not now"
+    ],
+    [
+     15,
+     "out",
+     "button#80:Not now"
+    ],
+    [
+     15,
+     "in",
+     "button#81:Allow for this note: declared."
+    ],
+    [
+     16,
+     "out",
+     "button#81:Allow for this note: declared."
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#85:Allow list",
+   "rightAfterOpen": "input#87:on",
+   "after1300ms": "input#87:on",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "input#89:on",
+   "hasFocus": true,
+   "trace": [
+    [
+     4,
+     "in",
+     "div#88:Allow list"
+    ],
+    [
+     4,
+     "out",
+     "div#88:Allow list"
+    ],
+    [
+     4,
+     "in",
+     "input#89:on"
+    ]
+   ]
+  },
+  "redraw-declared": {
+   "opened": true,
+   "rowsBefore": [
+    "one.example.org",
+    "two.example.org"
+   ],
+   "rowsAfter": [
+    "two.example.org"
+   ],
+   "cardStillUp": true,
+   "pageRedrawn": true,
+   "live": "one.example.org allowed for this note",
+   "focusAfter": "button#92:Allow for this note: two.examp",
+   "focusInCard": true,
+   "focusTrace": [
+    [
+     24,
+     "in",
+     "button#91:Allow for this note: one.examp"
+    ],
+    [
+     24,
+     "out",
+     "button#91:Allow for this note: one.examp"
+    ],
+    [
+     25,
+     "in",
+     "button#92:Allow for this note: two.examp"
+    ]
+   ]
+  },
+  "redraw-declared-escape-focus": {
+   "focus": "button#93:Allow list",
+   "onBody": false
+  },
+  "card-then-settings": {
+   "stack": [
+    {
+     "cls": "modal-container booklet-allow mod-dim",
+     "z": "50",
+     "title": "Allow list"
+    }
+   ],
+   "centreBelongsTo": "modal-container booklet-allow mod-dim",
+   "afterOneEscape": []
+  },
+  "settings-then-card": {
+   "stack": [],
+   "focus": "BODY",
+   "inCard": false,
+   "afterOneEscape": []
+  },
+  "z-index": {
+   "nowPlayingBar": "30",
+   "modalContainer": "50"
+  },
+  "desktop-motion": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all",
+   "maxHeight": "680px",
+   "overflowY": "auto",
+   "width": 560,
+   "height": 667
+  }
+ },
+ "phone-setup": {
+  "app.emulateMobile-exists": true
+ },
+ "phone-light": {
+  "viewport": [
+   390,
+   844,
+   "is-phone"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#2:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    27,
+    "in",
+    "button#1:Allow list"
+   ],
+   [
+    28,
+    "out",
+    "button#1:Allow list"
+   ],
+   [
+    33,
+    "in",
+    "div#2:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "dialog",
+    "name": "Allow list",
+    "ignored": false,
+    "modal": true
+   },
+   "dialogAbove": {
+    "name": "Allow list",
+    "modal": true
+   },
+   "title": {
+    "role": "generic",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "written-desktop-light.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "div#2:Allow list",
+   "focusablesInCard": 8,
+   "cycleAfterPresses": 10,
+   "presses": 40,
+   "leftCardAt": [
+    9,
+    "button#11:Expand"
+   ],
+   "leftCardCount": 10,
+   "first6": [
+    "input#3:on",
+    "input#4:on",
+    "input#5:on",
+    "input#6:on",
+    "input#7:",
+    "button#8:Add for this vault"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "input#3:on",
+   "focusablesInCard": 8,
+   "cycleAfterPresses": 19,
+   "presses": 40,
+   "leftCardAt": [
+    1,
+    "button#15:Navigate forward"
+   ],
+   "leftCardCount": 31,
+   "first6": [
+    "button#15:Navigate forward",
+    "button#16:Navigate back",
+    "button#17:Back to the overview",
+    "input#18:",
+    "a#19:Open in browser",
+    "button#20:Play audio: the tone"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#1:Allow list",
+   "closed": true,
+   "focusAfter": "button#1:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "write-in": {
+   "cardStillUp": true,
+   "before": {
+    "rows": 4
+   },
+   "after": {
+    "rows": 5,
+    "pageRedrawn": true,
+    "live": "Added written-phone-light.example.org for this note",
+    "hasFocus": "input#27:"
+   },
+   "focusTrace": []
+  },
+  "press-opens-card": {
+   "up": true,
+   "title": "Allow media from media.example.org?",
+   "focus": "button#30:Not now",
+   "inCard": true
+  },
+  "press-escape-returns-focus-to-the-play-button": {
+   "focus": "button#29:Play audio: the tone",
+   "onBody": false
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 41,
+   "focusSamples": [
+    "0ms BODY (not in card)",
+    "50ms BODY (not in card)",
+    "150ms BODY (not in card)",
+    "400ms BODY (not in card)",
+    "800ms BODY (not in card)",
+    "1500ms BODY (not in card)"
+   ],
+   "finalFocusInCard": false,
+   "finalFocus": "BODY",
+   "trace": [
+    [
+     14,
+     "in",
+     "button#31:Not now"
+    ],
+    [
+     19,
+     "out",
+     "button#31:Not now"
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#34:Allow list",
+   "rightAfterOpen": "div#35:Allow list",
+   "after1300ms": "div#35:Allow list",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "div#36:Allow list",
+   "hasFocus": true,
+   "trace": [
+    [
+     5,
+     "in",
+     "div#36:Allow list"
+    ]
+   ]
+  },
+  "redraw-declared": {
+   "opened": true,
+   "rowsBefore": [
+    "one.example.org",
+    "two.example.org"
+   ],
+   "rowsAfter": [
+    "two.example.org"
+   ],
+   "cardStillUp": true,
+   "pageRedrawn": true,
+   "live": "one.example.org allowed for this note",
+   "focusAfter": "button#39:Allow for this note: two.examp",
+   "focusInCard": true,
+   "focusTrace": [
+    [
+     29,
+     "in",
+     "button#38:Allow for this note: one.examp"
+    ],
+    [
+     30,
+     "out",
+     "button#38:Allow for this note: one.examp"
+    ],
+    [
+     31,
+     "in",
+     "button#39:Allow for this note: two.examp"
+    ]
+   ]
+  },
+  "redraw-declared-escape-focus": {
+   "focus": "button#40:Allow list",
+   "onBody": false
+  },
+  "phone-card-plain": {
+   "viewport": [
+    390,
+    844
+   ],
+   "card": {
+    "left": 12,
+    "top": 63,
+    "width": 366,
+    "height": 717,
+    "right": 378,
+    "bottom": 781
+   },
+   "fits": true,
+   "overflowY": "auto",
+   "scrollsInside": false,
+   "scrollHeight": 717,
+   "clientHeight": 717,
+   "controlsUnder44": [],
+   "controlCount": 9,
+   "minControl": 44,
+   "pageScrollers": 1,
+   "cardScrollers": [
+    "modal-content 555/661"
+   ]
+  },
+  "phone-scroll-plain": {
+   "pageBehindUnchanged": true,
+   "pageBefore": {
+    "scrollTops": [
+     12
+    ],
+    "doc": 0
+   },
+   "pageAfter": {
+    "scrollTops": [
+     12
+    ],
+    "doc": 0
+   },
+   "cardScrolledTo": [
+    "modal-content 106"
+   ],
+   "lastButton": {
+    "label": "Close",
+    "inViewport": true,
+    "top": 691,
+    "bottom": 735,
+    "topmost": true
+   }
+  },
+  "phone-motion-plain": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all"
+  },
+  "phone-card-declared": {
+   "viewport": [
+    390,
+    844
+   ],
+   "card": {
+    "left": 12,
+    "top": 63,
+    "width": 366,
+    "height": 717,
+    "right": 378,
+    "bottom": 781
+   },
+   "fits": true,
+   "overflowY": "auto",
+   "scrollsInside": false,
+   "scrollHeight": 717,
+   "clientHeight": 717,
+   "controlsUnder44": [],
+   "controlCount": 21,
+   "minControl": 44,
+   "pageScrollers": 0,
+   "cardScrollers": [
+    "modal-content 636/2068"
+   ]
+  },
+  "phone-scroll-declared": {
+   "pageBehindUnchanged": true,
+   "pageBefore": {
+    "scrollTops": [],
+    "doc": 0
+   },
+   "pageAfter": {
+    "scrollTops": [],
+    "doc": 0
+   },
+   "cardScrolledTo": [
+    "modal-content 1432"
+   ],
+   "lastButton": {
+    "label": "Add for this note",
+    "inViewport": true,
+    "top": 713,
+    "bottom": 757,
+    "topmost": true
+   }
+  },
+  "phone-motion-declared": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all"
+  }
+ },
+ "phone-dark": {
+  "viewport": [
+   390,
+   844,
+   "is-phone"
+  ],
+  "opens-from-button": true,
+  "focus-at-open": "div#46:Allow list (in the card)",
+  "focus-trace-first-2s": [
+   [
+    21,
+    "in",
+    "button#45:Allow list"
+   ],
+   [
+    22,
+    "out",
+    "button#45:Allow list"
+   ],
+   [
+    25,
+    "in",
+    "div#46:Allow list"
+   ]
+  ],
+  "hasFocus-window": true,
+  "dom": {
+   "containerClass": "modal-container booklet-allow mod-dim",
+   "modalClass": "modal booklet-allow-card",
+   "tag": "DIV",
+   "titleTag": "DIV",
+   "hasHeaderX": true,
+   "bgStyle": "opacity: 0.85;"
+  },
+  "accessibility-tree": {
+   "card": {
+    "role": "dialog",
+    "name": "Allow list",
+    "ignored": false,
+    "modal": true
+   },
+   "dialogAbove": {
+    "name": "Allow list",
+    "modal": true
+   },
+   "title": {
+    "role": "generic",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   },
+   "buttons": [
+    {
+     "role": "button",
+     "name": "Add for this vault",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Add for this note",
+     "ignored": false,
+     "focusable": true
+    },
+    {
+     "role": "button",
+     "name": "Close",
+     "ignored": false,
+     "focusable": true
+    }
+   ],
+   "checkboxes": [
+    {
+     "role": "checkbox",
+     "name": "vault.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "note.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    },
+    {
+     "role": "checkbox",
+     "name": "written-desktop-light.example.org",
+     "ignored": false,
+     "focusable": true,
+     "checked": "true"
+    }
+   ],
+   "textbox": {
+    "role": "textbox",
+    "name": "Add a site",
+    "ignored": false,
+    "focusable": true
+   },
+   "live": {
+    "role": "status",
+    "name": "",
+    "ignored": false
+   },
+   "headerButton": {
+    "role": "generic",
+    "name": "",
+    "ignored": false
+   },
+   "behind": {
+    "role": "button",
+    "name": "Allow list",
+    "ignored": false,
+    "focusable": true
+   }
+  },
+  "tab-walk": {
+   "start": "div#46:Allow list",
+   "focusablesInCard": 9,
+   "cycleAfterPresses": 18,
+   "presses": 40,
+   "leftCardAt": [
+    10,
+    "button#11:Expand"
+   ],
+   "leftCardCount": 15,
+   "first6": [
+    "input#47:on",
+    "input#48:on",
+    "input#49:on",
+    "input#50:on",
+    "input#51:on",
+    "input#52:"
+   ]
+  },
+  "shift-tab-walk": {
+   "start": "input#47:on",
+   "focusablesInCard": 9,
+   "cycleAfterPresses": 2,
+   "presses": 40,
+   "leftCardAt": [
+    1,
+    "button#15:Navigate forward"
+   ],
+   "leftCardCount": 31,
+   "first6": [
+    "button#15:Navigate forward",
+    "input#47:on",
+    "input#47:on",
+    "input#47:on",
+    "button#15:Navigate forward",
+    "input#47:on"
+   ]
+  },
+  "escape-with-focus-on-body-closes": true,
+  "focus-return-after-escape": {
+   "opener": "button#45:Allow list",
+   "closed": true,
+   "focusAfter": "button#45:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-close-button": {
+   "opener": "button#45:Allow list",
+   "closed": true,
+   "focusAfter": "button#45:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-header-x": {
+   "opener": "button#45:Allow list",
+   "closed": true,
+   "focusAfter": "button#45:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "focus-return-after-outside": {
+   "opener": "button#45:Allow list",
+   "closed": true,
+   "focusAfter": "button#45:Allow list",
+   "backOnOpener": true,
+   "onBody": false
+  },
+  "write-in": {
+   "cardStillUp": true,
+   "before": {
+    "rows": 5
+   },
+   "after": {
+    "rows": 6,
+    "pageRedrawn": true,
+    "live": "Added written-phone-dark.example.org for this note",
+    "hasFocus": "input#67:"
+   },
+   "focusTrace": []
+  },
+  "press-opens-card": {
+   "up": true,
+   "title": "Allow media from media.example.org?",
+   "focus": "button#70:Not now",
+   "inCard": true
+  },
+  "press-escape-returns-focus-to-the-play-button": {
+   "focus": "button#69:Play audio: the tone",
+   "onBody": false
+  },
+  "open-on-note-open": {
+   "cardOpened": true,
+   "msFromOpenFileToCard": 43,
+   "focusSamples": [
+    "0ms BODY (not in card)",
+    "50ms BODY (not in card)",
+    "150ms BODY (not in card)",
+    "400ms BODY (not in card)",
+    "800ms BODY (not in card)",
+    "1500ms BODY (not in card)"
+   ],
+   "finalFocusInCard": false,
+   "finalFocus": "BODY",
+   "trace": [
+    [
+     17,
+     "in",
+     "button#71:Not now"
+    ],
+    [
+     21,
+     "out",
+     "button#71:Not now"
+    ]
+   ]
+  },
+  "open-with-another-control-focused": {
+   "beforeOpen": "button#74:Allow list",
+   "rightAfterOpen": "div#75:Allow list",
+   "after1300ms": "div#75:Allow list",
+   "hasFocus": true
+  },
+  "open-with-nothing-focused": {
+   "focus": "div#76:Allow list",
+   "hasFocus": true,
+   "trace": [
+    [
+     4,
+     "in",
+     "div#76:Allow list"
+    ]
+   ]
+  },
+  "redraw-declared": {
+   "opened": true,
+   "rowsBefore": [
+    "one.example.org",
+    "two.example.org"
+   ],
+   "rowsAfter": [
+    "two.example.org"
+   ],
+   "cardStillUp": true,
+   "pageRedrawn": true,
+   "live": "one.example.org allowed for this note",
+   "focusAfter": "button#79:Allow for this note: two.examp",
+   "focusInCard": true,
+   "focusTrace": [
+    [
+     41,
+     "in",
+     "button#78:Allow for this note: one.examp"
+    ],
+    [
+     42,
+     "out",
+     "button#78:Allow for this note: one.examp"
+    ],
+    [
+     43,
+     "in",
+     "button#79:Allow for this note: two.examp"
+    ]
+   ]
+  },
+  "redraw-declared-escape-focus": {
+   "focus": "button#80:Allow list",
+   "onBody": false
+  },
+  "phone-card-plain": {
+   "viewport": [
+    390,
+    844
+   ],
+   "card": {
+    "left": 12,
+    "top": 63,
+    "width": 366,
+    "height": 717,
+    "right": 378,
+    "bottom": 781
+   },
+   "fits": true,
+   "overflowY": "auto",
+   "scrollsInside": false,
+   "scrollHeight": 717,
+   "clientHeight": 717,
+   "controlsUnder44": [],
+   "controlCount": 10,
+   "minControl": 44,
+   "pageScrollers": 1,
+   "cardScrollers": [
+    "modal-content 555/705"
+   ]
+  },
+  "phone-scroll-plain": {
+   "pageBehindUnchanged": true,
+   "pageBefore": {
+    "scrollTops": [
+     12
+    ],
+    "doc": 0
+   },
+   "pageAfter": {
+    "scrollTops": [
+     12
+    ],
+    "doc": 0
+   },
+   "cardScrolledTo": [
+    "modal-content 150"
+   ],
+   "lastButton": {
+    "label": "Close",
+    "inViewport": true,
+    "top": 691,
+    "bottom": 735,
+    "topmost": true
+   }
+  },
+  "phone-motion-plain": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all"
+  },
+  "phone-card-declared": {
+   "viewport": [
+    390,
+    844
+   ],
+   "card": {
+    "left": 12,
+    "top": 63,
+    "width": 366,
+    "height": 717,
+    "right": 378,
+    "bottom": 781
+   },
+   "fits": true,
+   "overflowY": "auto",
+   "scrollsInside": false,
+   "scrollHeight": 717,
+   "clientHeight": 717,
+   "controlsUnder44": [],
+   "controlCount": 21,
+   "minControl": 44,
+   "pageScrollers": 0,
+   "cardScrollers": [
+    "modal-content 636/2068"
+   ]
+  },
+  "phone-scroll-declared": {
+   "pageBehindUnchanged": true,
+   "pageBefore": {
+    "scrollTops": [],
+    "doc": 0
+   },
+   "pageAfter": {
+    "scrollTops": [],
+    "doc": 0
+   },
+   "cardScrolledTo": [
+    "modal-content 1432"
+   ],
+   "lastButton": {
+    "label": "Add for this note",
+    "inViewport": true,
+    "top": 713,
+    "bottom": 757,
+    "topmost": true
+   }
+  },
+  "phone-motion-declared": {
+   "animationName": "none",
+   "animationDuration": "0s",
+   "transition": "all"
+  }
+ }
+}

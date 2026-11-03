@@ -1,0 +1,35 @@
+{
+ "meta": {
+  "obsidian": "1.8.10",
+  "label": "t-pop-modal-1.8.10"
+ },
+ "desktop-light": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ],
+  "card-asked-for-by-a-view-in-a-popout-window": {
+   "cardInPopoutWindow": false,
+   "cardInMainWindow": true,
+   "focusInPopout": "BODY:Plain.booklet - vaul"
+  },
+  "card-opened-by-a-click-in-the-popout-window": {
+   "cardInPopoutWindow": false,
+   "focusIn": false,
+   "cardInMainWindow": true,
+   "pages": [
+    "app://obsidian.md/index.html",
+    "about:blank",
+    "about:blank"
+   ]
+  }
+ },
+ "desktop-dark": {
+  "viewport": [
+   1024,
+   800,
+   "desktop"
+  ]
+ }
+}
