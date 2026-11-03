@@ -76,6 +76,61 @@ export function fencedLines(lines: readonly string[]): boolean[] {
 	return out;
 }
 
+/** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
+export const COMMENT = /<!--[\s\S]*?-->/g;
+
+/**
+ * What a reader sees of each line, by one short scan shared by the heading links and the page line: outside a fenced code block, an HTML
+ * comment, a `<pre>` block and a `$$` math block. `hidden[i]` is true when line `i` STARTS inside a comment, a `<pre>` or a `$$` block, so
+ * a line-start mark such as `> [!page` there is not read. `text[i]` is the line with its comments and its `$$ ... $$` spans taken out, or
+ * null when nothing of it is seen (a fenced line, or a line wholly inside a comment, `<pre>` or `$$` block). `from` is the first line read.
+ */
+export function visibleLines(lines: readonly string[], from = 0): { hidden: boolean[]; text: (string | null)[] } {
+	const fenced = fencedLines(lines);
+	const hidden = lines.map(() => false);
+	const text: (string | null)[] = lines.map(() => null);
+	let comment = false;
+	let math = false;
+	let pre = false;
+	for (let i = from; i < lines.length; i++) {
+		if (fenced[i]) continue;
+		hidden[i] = comment || math || pre;
+		let l = lines[i] ?? "";
+		if (comment) {
+			const end = l.indexOf("-->");
+			if (end < 0) continue;
+			l = l.slice(end + 3);
+			comment = false;
+		}
+		l = l.replace(COMMENT, "");
+		const open = l.indexOf("<!--");
+		if (open >= 0) {
+			l = l.slice(0, open);
+			comment = true;
+		}
+		if (pre) {
+			if (/<\/pre>/i.test(l)) pre = false;
+			continue;
+		}
+		if (/<pre[\s>]/i.test(l) && !/<\/pre>/i.test(l)) {
+			pre = true;
+			continue;
+		}
+		if (math) {
+			if (l.includes("$$")) math = false;
+			continue;
+		}
+		l = l.replace(/\$\$[^$]*\$\$/g, "");
+		const dollars = l.indexOf("$$");
+		if (dollars >= 0) {
+			l = l.slice(0, dollars);
+			math = true;
+		}
+		text[i] = l;
+	}
+	return { hidden, text };
+}
+
 /** The kinds that take no id: every word after the bar is a setting (SPEC section 4). */
 export const NO_ID_KINDS = new Set(["row", "notice", "manifest", "hint", "solution", "group", "diff", "law", "opinion"]);
 

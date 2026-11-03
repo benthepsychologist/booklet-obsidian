@@ -5,7 +5,7 @@
  * the rules for where a booklet opens, what is next, where a heading link leads, and how a saved place is read back.
  * Plain TypeScript: nothing here imports Obsidian, and nothing here ever writes the note.
  */
-import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds } from "./lines";
+import { BLOCK_ID_LINE, CALLOUT_ANY, CALLOUT_LINE, COMMENT, FENCE_OPEN, bodyEnd, calloutWords, fenceEnd, fencedLines, idFromName, isBlank, splitLines, tabIdOf, uniqueIds, visibleLines } from "./lines";
 import { treeOf, questionsIn } from "./blocks";
 import { COMMON_KINDS, HEADING_WORDS, isThematicBreak, kvLine, openingMarkdown, type Activity, type Booklet, type PageHeading, type Question, type Segment } from "./reader";
 import { answeredOf, shapeIssue } from "./shape";
@@ -221,9 +221,6 @@ function splitEmoji(title: string): { title: string; emoji: string | null } {
 	if (!m || !m[1] || !t.slice(m[0].length).trim()) return { title, emoji: null };
 	return { title: t.slice(m[0].length), emoji: m[1] };
 }
-
-/** An HTML comment: not words a reader sees. Global; `String.replace` starts again each call, so one pattern is shared. */
-const COMMENT = /<!--[\s\S]*?-->/g;
 
 /** Inline Markdown as plain words: marks, link addresses and footnote marks gone, a link its label, an image its alt text. */
 export function plainText(md: string): string {
@@ -1172,47 +1169,13 @@ export function searchPages(tab: ActTab, query: string): TreePage[] {
  */
 export function headingLinksIn(markdown: string): string[] {
 	const out: string[] = [];
-	const lines = markdown.split("\n");
-	const fenced = fencedLines(lines);
-	let comment = false;
-	let math = false;
-	let pre = false;
+	const { text } = visibleLines(markdown.split("\n"));
 	let code = false;
 	let list = false;
 	let blank = true;
-	for (const [i, raw] of lines.entries()) {
-		if (fenced[i]) continue;
-		let l = raw;
-		if (comment) {
-			const end = l.indexOf("-->");
-			if (end < 0) continue;
-			l = l.slice(end + 3);
-			comment = false;
-		}
-		l = l.replace(COMMENT, "");
-		const open = l.indexOf("<!--");
-		if (open >= 0) {
-			l = l.slice(0, open);
-			comment = true;
-		}
-		if (pre) {
-			if (/<\/pre>/i.test(l)) pre = false;
-			continue;
-		}
-		if (/<pre[\s>]/i.test(l) && !/<\/pre>/i.test(l)) {
-			pre = true;
-			continue;
-		}
-		if (math) {
-			if (l.includes("$$")) math = false;
-			continue;
-		}
-		l = l.replace(/\$\$[^$]*\$\$/g, "");
-		const dollars = l.indexOf("$$");
-		if (dollars >= 0) {
-			l = l.slice(0, dollars);
-			math = true;
-		}
+	for (const seen of text) {
+		if (seen === null) continue;
+		const l = seen;
 		if (!l.trim()) {
 			blank = true;
 			continue;

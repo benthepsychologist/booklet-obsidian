@@ -22,18 +22,30 @@ const only = (nav) => [...nav.byKey.values()][0];
 
 /* ---- S1: a page line inside a comment, a `<pre>` or a `$$` block; what "Mentioned on" counts ---- */
 
-test("a 0.16 note's page line inside an HTML comment, a <pre> block or a $$ block is read as a page, as a tab line there already is (the documented exception)", () => {
-	for (const [name, wrap] of [
-		["comment", (x) => `<!--\n${x}\n-->`],
-		["pre", (x) => `<pre>\n${x}\n</pre>`],
-		["math", (x) => `$$\n${x}\n$$`],
-	]) {
-		const text = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!page|hid] Hidden page")}\n\nMore.\n`;
-		const { nav } = build(text);
-		const tab = only(nav).tabs[0];
-		assert.deepEqual(tab.tree.map((p) => p.title), ["A", "Hidden page"], `${name}: read as a page line`);
-		const tabText = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
-		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), true, `${name}: and a tab line is read there at 0.6.0 too`);
+test("a page line inside an HTML comment, a <pre> block or a $$ block starts no page (a commented-out page does not appear); a tab line there is still read", () => {
+	for (const marker of ["0.16", "0.18"]) {
+		for (const [name, wrap] of [
+			["comment", (x) => `<!--\n${x}\n-->`],
+			["pre", (x) => `<pre>\n${x}\n</pre>`],
+			["math", (x) => `$$\n${x}\n$$`],
+			["one-line comment", (x) => `<!-- ${x.split("\n")[0]} -->`],
+		]) {
+			const text = `${head(marker)}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!page|hid] Hidden page")}\n\nMore.\n`;
+			const { nav } = build(text);
+			const tab = only(nav).tabs[0];
+			assert.deepEqual(tab.tree.map((p) => p.title), ["A"], `${marker} ${name}: no page`);
+			assert.equal(core.parseBooklet(text).activities[0].segments.some((s) => s.type === "page"), false, `${marker} ${name}: no page segment`);
+			assert.deepEqual([...core.parseBooklet(text).problems, ...nav.problems].filter((p) => /page|Booklet line/.test(p)), [], `${marker} ${name}: nothing said about it`);
+			assert.equal(core.headingLinksIn(wrap("[[#Hidden]]")).length, 0, `${name}: and a link there is none either`);
+		}
+	}
+	// a page line after the comment has closed, or a comment that closes on the line before it, is read
+	const after = `${head()}> [!activity|a] A\n\n<!--\nold\n-->\n> [!page|seen] Seen page\n\nWords.\n\n<pre>\nx\n</pre>\n> [!page|seen2] Seen too\n\nWords.\n\n$$\nx\n$$\n> [!page|seen3] And this\n\nWords.\n`;
+	assert.deepEqual(only(build(after).nav).tabs[0].tree.map((p) => p.id), ["seen", "seen2", "seen3"]);
+	// a tab line in the same places is still read (the format leaves it open, and this change is about the page line)
+	for (const wrap of [(x) => `<!--\n${x}\n-->`, (x) => `<pre>\n${x}\n</pre>`, (x) => `$$\n${x}\n$$`]) {
+		const tabText = `${head("0.18")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
+		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), true);
 	}
 	// what is not a line start, or sits in a fence, stays text
 	const text = `${head("0.16")}> [!activity|a] A\n\nFirst words.\n\nAn inline \`> [!page|x] T\` and text.\n\n\`\`\`\n> [!page|x] T\n\`\`\`\n`;

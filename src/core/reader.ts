@@ -23,6 +23,7 @@ import {
 	splitLines,
 	tabIdOf,
 	uniqueIds,
+	visibleLines,
 	type Words,
 } from "./lines";
 import { BOOKLET_ICONS } from "../booklet-icons";
@@ -908,6 +909,9 @@ export function parseBooklet(text: string): Booklet {
 		activities.push(act);
 	}
 
+	// where a line starts inside an HTML comment, a `<pre>` block or a `$$` block: a page line there is not read (a reader sees no page)
+	const hiddenStart = visibleLines(lines, fm.bodyStart).hidden;
+
 	for (let i = fm.bodyStart; ; i++) {
 		if (i >= lines.length) {
 			// the end of a callout's body: what it held is closed, and the file's own lines go on after it
@@ -964,6 +968,13 @@ export function parseBooklet(text: string): Booklet {
 		const m = CALLOUT_LINE.exec(ln);
 		if (m && m[1]) {
 			const kind = m[1].toLowerCase();
+			if (kind === "page" && !open.length && hiddenStart[i]) {
+				// a commented-out page line (or one in a `<pre>` or `$$` block) starts no page and draws nothing a reader sees: it stays text
+				const k = bodyEnd(lines, i);
+				pushText(lines.slice(i, k), i);
+				i = k - 1;
+				continue;
+			}
 			const w = calloutWords(kind, m[2]);
 			const title = (m[4] ?? "").trim();
 			const hasWords = !!(w.id || w.flags.size || Object.keys(w.set).length);
