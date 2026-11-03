@@ -10,9 +10,9 @@ The workflow runs when any tag is pushed. The tag decides what is published:
 | --- | --- | --- | --- |
 | plain `x.y.z` | a real release, marked latest | on `main` only | `1.0.1` |
 | `x.y.z-<suffix>` | a pre-release | any branch | `1.0.2-beta.1` |
-| anything else | refused | | `v1.0.1`, `1.0`, `1.0.1-`, `1.0.1+b2` |
+| anything else | refused | | `v1.0.1`, `1.0`, `1.0.1-`, `1.0.1+b2`, `01.0.1`, `1.0.1-01` |
 
-In both cases the `x.y.z` part of the tag has to be the version in `package.json`, `manifest.json` and `versions.json` (and `versions.json` gives it the manifest's `minAppVersion`). The suffix after the hyphen is only a name for the test build: it is not written in any file. `node release-check.mjs <tag>` runs that check by hand, and tells you which kind the tag is.
+In both cases the `x.y.z` part of the tag has to be the version in `package.json`, `manifest.json` and `versions.json` (and `versions.json` gives it the manifest's `minAppVersion`). The tag follows semver: no leading zeros in x, y, z or in a numeric part of the suffix (`1.0.1-0` is fine, `1.0.1-01` is not). The suffix after the hyphen is only a name for the test build: it is not written in any file. `node release-check.mjs <tag>` runs that check by hand, and tells you which kind the tag is.
 
 Both kinds are built and tested the same way (`npm ci`, `npm run build`, `npm test`), and both attach `main.js`, `manifest.json` and `styles.css` with a build-provenance attestation.
 

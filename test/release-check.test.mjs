@@ -22,7 +22,7 @@ test("release-check: a plain x.y.z tag that is the version everywhere is a real 
 });
 
 test("release-check: x.y.z-suffix tags are pre-releases of x.y.z", () => {
-	for (const tag of ["2.3.4-beta.1", "2.3.4-rc1", "2.3.4-test", "2.3.4-pr-12.2", "2.3.4-0"]) {
+	for (const tag of ["2.3.4-beta.1", "2.3.4-rc1", "2.3.4-test", "2.3.4-pr-12.2", "2.3.4-0", "2.3.4-a-", "2.3.4-0a", "2.3.4-1.0.beta"]) {
 		assert.deepEqual(checkRelease(tag, files()), { kind: "prerelease", base: "2.3.4", problems: [] }, tag);
 	}
 });
@@ -59,7 +59,7 @@ test("release-check: versions.json must give the version the manifest's minAppVe
 });
 
 test("release-check: tags that are neither kind are refused with no kind", () => {
-	for (const tag of ["", "v2.3.4", "2.3", "2.3.4.5", "2.3.4-", "2.3.4-.1", "2.3.4-beta..1", "2.3.4+build", "2.3.4-beta+1", "2.3.x", "02.3.4 ", " 2.3.4", "2.3.4-be ta", "main", "2.3.4\n"]) {
+	for (const tag of ["", "v2.3.4", "2.3", "2.3.4.5", "2.3.4-", "2.3.4-.1", "2.3.4-beta..1", "2.3.4+build", "2.3.4-beta+1", "2.3.x", "02.3.4", "01.0.1", "2.03.4", "2.3.04", "2.3.4-01", "2.3.4-beta.01", "2.3.4-00", "2.3.4-1.01", "02.3.4 ", " 2.3.4", "2.3.4-be ta", "main", "2.3.4\n"]) {
 		const r = checkRelease(tag, files());
 		assert.equal(r.kind, null, JSON.stringify(tag));
 		assert.equal(r.problems.length, 1, JSON.stringify(tag));

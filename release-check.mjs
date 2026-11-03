@@ -5,7 +5,8 @@
  *   - x.y.z-<suffix> (1.0.2-beta.1): a pre-release, for testing in BRAT before the real one. The x.y.z in front of the suffix
  *     must be that version in the three files; the suffix is only a name for the test build. The directory never sees it:
  *     it takes plain x.y.z, and GitHub's "latest release" ignores pre-releases.
- * Anything else (a leading v, two numbers, an empty suffix, build metadata with +) stops the release.
+ * Anything else (a leading v, two numbers, a leading zero in a number such as 01.0.1 or 1.0.1-01, an empty suffix, build metadata
+ * with +) stops the release.
  *   node release-check.mjs <tag>
  * It prints the kind it found, and when run by GitHub Actions (GITHUB_OUTPUT set) writes it there as `kind=release` or
  * `kind=prerelease`, for the workflow to choose how to publish and whether the tag has to be on main.
@@ -14,8 +15,14 @@ import { appendFileSync, readFileSync } from "node:fs";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-/** x.y.z, then optionally a hyphen and dot-separated names made of letters, digits and hyphens (semver's own shape for a pre-release). */
-const TAG = /^(\d+\.\d+\.\d+)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/;
+/**
+ * Semver's own shape. x, y and z are numbers with no leading zero (01.0.1 is refused). A pre-release is a hyphen and dot-separated
+ * identifiers: a number with no leading zero (1.0.1-0 is fine, 1.0.1-01 is refused), or a name of letters, digits and hyphens that has
+ * a letter or a hyphen in it (beta, rc1, 0a, a-, so 1.0.1-a- is fine).
+ */
+const NUM = "(?:0|[1-9]\\d*)";
+const IDENT = "(?:0|[1-9]\\d*|\\d*[A-Za-z-][0-9A-Za-z-]*)";
+const TAG = new RegExp(`^(${NUM}\\.${NUM}\\.${NUM})(?:-(${IDENT}(?:\\.${IDENT})*))?$`);
 
 /**
  * Checks a tag against the three version files, given as objects. Returns `{ kind, base, problems }`: kind is "release" (a plain
