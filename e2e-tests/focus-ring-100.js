@@ -8,7 +8,7 @@
 // the plugin's, one that does not is Obsidian's own. The result is a table by control and theme, and `<out>/<tag>-focus-ring.json`.
 const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
-const { quiet } = require("./waits");
+const { quiet, bookletPage } = require("./waits");
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ? process.argv[i + 1] : d; };
 const opt = { obsidian: arg("obsidian"), out: arg("out"), vault: arg("vault", path.join(__dirname, "..", "test-vault")), tag: arg("tag", "run") };
@@ -171,6 +171,7 @@ async function walk(o, name, rootSel, { limit = 70, modal = false, start = null 
     // Obsidian's own Settings page: the plugin's rows
     await o.evaluate(async () => { await app.setting.open(); await app.setting.openTabById("booklet"); }); await sleep(1000);
     const inMain = await o.evaluate(() => !!document.querySelector(".vertical-tab-content"));
+    if (inMain) await bookletPage(o.page); // Obsidian 1.13 and later: the entry's page holds the rows
     if (inMain) await walk(o, "Settings page (Booklet)", ".vertical-tab-content", { limit: 20, start: async () => { await o.evaluate(() => { const t = document.querySelector(".vertical-tab-content"); const f = t.querySelector("button, input"); f && f.focus(); }); } });
     await o.evaluate(() => app.setting.close && app.setting.close());
     fs.writeFileSync(path.join(OUT, opt.tag + "-focus-ring.json"), JSON.stringify({ version, rows }, null, 1));

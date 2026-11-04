@@ -78,4 +78,21 @@ const kit = (env, note) => {
   return { shot, sha, goTo, open, answers, recordsOf };
 };
 
-module.exports = { quiet, drawn, drawing, frames, mobile, untilTrue, kit };
+/**
+ * The Booklet settings tab, in the Settings window `sp` (a Playwright page), opened to the rows. On Obsidian 1.13 and later the tab lists one
+ * navigable entry ("Allowed media sites and suggested services") and the rows are on the page it opens, so this clicks the entry and waits for the
+ * 'Add a site' box; on 1.11 and 1.12 the tab is the page and nothing is clicked. Gives true if it clicked the entry, false if the rows were already there.
+ */
+const bookletPage = async (sp, timeout = 8000) => {
+  const box = ".vertical-tab-content input[aria-label='Add a site']";
+  await sp.waitForSelector(box + ", .vertical-tab-content .mod-navigable", { timeout });
+  const entry = sp.locator(".vertical-tab-content .mod-navigable").first();
+  if (!(await entry.count())) return false;
+  await entry.click();
+  await sp.waitForSelector(box, { timeout });
+  // Obsidian keeps the tab's list in the document while the page slides in: wait until it is gone, so that a read of '.vertical-tab-content' is the page's
+  await sp.waitForSelector(".vertical-tab-content .mod-navigable", { state: "detached", timeout });
+  return true;
+};
+
+module.exports = { quiet, drawn, drawing, frames, mobile, untilTrue, kit, bookletPage };

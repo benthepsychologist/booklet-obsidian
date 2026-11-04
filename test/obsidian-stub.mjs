@@ -121,6 +121,22 @@ export class PluginSettingTab extends Component {
 	hide() {}
 }
 
+/**
+ * A sub-page of a settings tab (Obsidian 1.13 and later): it has a titlebar and a container of its own, as the real one does
+ * (`.setting-page-titlebar` and `.setting-page-content`, measured in 1.14.5), and the tab gives it display() and hide().
+ * Before 1.13 the class is not there, so making one on an app that old throws, as extending `undefined` would.
+ */
+export class SettingPage {
+	constructor() {
+		if (!requireApiVersion("1.13.0")) throw new TypeError("SettingPage is not there before Obsidian 1.13");
+		this.rootEl = document.body.createDiv({ cls: "setting-page vertical-tab-content" });
+		this.titlebarEl = this.rootEl.createDiv({ cls: "setting-page-titlebar" });
+		this.containerEl = this.rootEl.createDiv({ cls: "setting-page-content" });
+		this.title = "";
+	}
+	hide() {}
+}
+
 /** One control of a Setting: records what is called on it, and a test drives its handler with change(value) or click(). */
 class StubComponent {
 	constructor(kind, log) {
@@ -269,6 +285,20 @@ export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 		return this._add("slider", "addSlider", cb);
 	}
 });
+
+/**
+ * Obsidian's requireApiVersion: true when the app's API version is at least `v`. The app here is 1.14.5 unless a test sets
+ * `globalThis.__bookletStubApiVersion` (the settings tests set "1.11.7" to see the page as the oldest supported Obsidian draws it).
+ */
+export function requireApiVersion(v) {
+	const have = String(globalThis.__bookletStubApiVersion ?? "1.14.5").split(".").map(Number);
+	const want = String(v).split(".").map(Number);
+	for (let i = 0; i < 3; i++) {
+		const d = (have[i] ?? 0) - (want[i] ?? 0);
+		if (d) return d > 0;
+	}
+	return true;
+}
 
 /** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
 /** A key scope: the handlers registered on it, by modifiers and key. The app's keymap (`app.keymap`) keeps a stack of them. */

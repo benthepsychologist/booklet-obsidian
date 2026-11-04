@@ -14,7 +14,7 @@
 //   59 the now-playing bar through a rename, a delete and Close: the place kept, the row gone, focus off the body, the live region's words
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
-const { quiet, frames, mobile } = require("./waits");
+const { quiet, frames, mobile, bookletPage } = require("./waits");
 
 module.exports = function mediaChecks(env) {
   const { Check, BOOK, sleep } = env;
@@ -426,6 +426,7 @@ A parent path: ![](../tone-2s.wav)
       await o.evaluate(async () => { await app.setting.open(); await app.setting.openTabById("booklet"); });
       await sleep(800);
       const sp = await settingsPage();
+      await bookletPage(sp); // Obsidian 1.13 and later: the tab lists one entry and the rows are on its page (before: the tab is the page)
       let st = await settings();
       c.info("the settings page: " + JSON.stringify(st));
       c.ok(st && st.names.includes(H("vault.example.org")) && st.names.includes("youtube.com") && !st.names.includes(H("note.example.org")), `the settings page lists the vault's sites (what the card wrote) and not the note's: ${st && JSON.stringify(st.names)}`);
@@ -1449,6 +1450,7 @@ ${extra}> [!choice|q1] A question?
     const sp = await settingsPage();
     c.ok(!!sp, tag + "the settings page is open");
     if (sp) {
+      await bookletPage(sp); // Obsidian 1.13 and later: open the entry's page first
       const names = () => sp.evaluate(() => [...document.querySelectorAll(".vertical-tab-content .setting-item-name")].map(x => x.textContent.trim()).filter(Boolean));
       const info = () => sp.evaluate(() => { const i = window.__inp58, a = document.activeElement; return { same: i === document.querySelector(".vertical-tab-content input[aria-label='Add a site']"), connected: !!i && i.isConnected, focused: a === i, active: a && (a.getAttribute('aria-label') || a.className || a.tagName), value: i && i.value, live: (document.querySelector(".vertical-tab-content [role=status]") || {}).textContent }; });
       const before = await names();
