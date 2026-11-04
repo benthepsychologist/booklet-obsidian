@@ -1,6 +1,6 @@
 # Booklet
 
-An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.18"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
+An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. The format, with a live renderer and docs, is at [bookletmd.org](https://bookletmd.org). A Markdown note whose front matter says `booklet: "0.18"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
 Version 1.0.2. It reads format 0.18 (`SPEC.md` in the Booklet repository). A note marked with any 0.x version, earlier or later, opens as it is, and its marker alone never produces a notice. The view says something only when the note holds a part it does not read; that notice is described under *What it does not draw yet*. It is not desktop-only: every release has been tried by the author on an iPhone 17, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
@@ -274,11 +274,11 @@ The folder `test/page-notes/Pictures demo` is a made-up note with its small pict
 
 The folder `test/page-notes/Listen demo` is a made-up three-unit tea course for trying audio, video, `listen`, the allow card and Continue (0.12.0): a local tone for each unit (made again, byte for byte, by `make-tones.mjs`), one hosted episode on an address that never answers (`media.tea-course.invalid`), a video link and a quiz in each unit. Copy the whole folder into a vault that has the plugin and open `Tea course.booklet.md`. `Tea course with problems.booklet.md` beside it holds mistakes on purpose, for the opening notice and the look-alike link rule, and is not part of the corpus test.
 
-To use it in a vault of your own, install it with BRAT (below), or copy `main.js`, `manifest.json` and `styles.css` from `test-vault/.obsidian/plugins/booklet/` into `<your vault>/.obsidian/plugins/booklet/`, then turn it on under *Community plugins*.
+To use it in a vault of your own, install it from the Community plugins directory or with BRAT (below), or copy `main.js`, `manifest.json` and `styles.css` from `test-vault/.obsidian/plugins/booklet/` into `<your vault>/.obsidian/plugins/booklet/`, then turn it on under *Community plugins*.
 
 ## Install a test build with BRAT
 
-Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository (tags like `1.0.2-beta.1`; see Releasing), and its real releases are plain `x.y.z` releases. BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs both and updates them; Obsidian's developer docs recommend it for testing a plugin before it is listed.
+Booklet is in Obsidian's Community plugins directory: [community.obsidian.md/plugins/booklet](https://community.obsidian.md/plugins/booklet), or *Settings → Community plugins → Browse* and search for Booklet. BRAT is the way to try a build before it is released. Its test builds are GitHub pre-releases of this repository (tags like `1.0.2-beta.1`; see Releasing), and its real releases are plain `x.y.z` releases. BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs both and updates them.
 
 1. In *Settings → Community plugins*, browse for **BRAT**, install it and turn it on.
 2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release or pre-release by version number; turn Booklet on under *Community plugins* if BRAT has not.
@@ -340,7 +340,7 @@ Every build is a GitHub release made by `.github/workflows/release.yml` when a v
    ```
 4. **The workflow** refuses a tag that is not a plain `x.y.z` or `x.y.z-<suffix>`, whose `x.y.z` is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`), or, for a plain `x.y.z`, that is not on `main`. Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them: a plain `x.y.z` as a real release, `x.y.z-<suffix>` as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
 
-Once Booklet is listed, the directory takes every new release straight from GitHub, so a release is then a release to everyone.
+Booklet is listed, so the directory takes every new release straight from GitHub, and a release is a release to everyone.
 
 ## Choices made where the format is silent
 
