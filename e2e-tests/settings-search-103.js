@@ -11,7 +11,7 @@
 //  1. For each query ('allow', 'site', 'suggested', 'media', 'booklet') it types into the Settings search box, waits, and reads the search results
 //     (`.setting-search-results`): whether the entry is listed (with the result's text). 'allow', 'site' and 'suggested' have an expected answer by
 //     version (found from 1.13, not found before; Obsidian 1.11.7 has no settings search box at all, which is reported); 'media' and 'booklet' are reported only. For 'suggested' on 1.13+ it also presses the result and
-//     checks that the entry's page opens (title 'Allowed media sites', the 'Add a site' box there).
+//     checks that the entry's page opens (title 'Allow list', the 'Add a site' box there).
 //  2. Whichever way the version draws it, it opens the Booklet tab (on 1.13+ it presses the entry to open its page), checks the three rows, adds
 //     'example.org' (text box and Enter), reads the status message and the list, removes it with its Remove button and checks the focus moved to the
 //     box (it is the only entry), with a screenshot after each step. This repeats what the accessibility pass measured (docs/accessibility-100.md).

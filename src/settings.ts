@@ -395,6 +395,8 @@ function allowSettingPage(rows: AllowPage, release: (page: AllowPage) => void): 
 	if (requireApiVersion("1.13.0")) {
 		class AllowSettingPage extends SettingPage {
 			override display(): void {
+				// Obsidian draws a page again when it comes back to the top of the stack: the first draw's listeners go first
+				rows.dispose();
 				this.title = PAGE_TITLE;
 				this.containerEl.empty();
 				this.containerEl.addClass("booklet-settings");

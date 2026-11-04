@@ -195,12 +195,33 @@ test("each time the entry is opened it is a new page, and the one left listens t
 	const two = def.page();
 	assert.notEqual(one, two);
 	two.display();
+	const listening = media.listeners.size;
+	assert.ok(listening > 0, "the open page listens to the list");
+	two.hide();
+	assert.equal(media.listeners.size, 0, "hide() takes every listener away (the list draws into a div that is gone, so the DOM cannot show a leak)");
+	two.display();
+	assert.equal(media.listeners.size, listening, "and a page drawn again listens as before");
 	media.addVault("b.example.org");
 	assert.equal(remove(one.containerEl, "b.example.org"), null, "the page that was left does not follow the list");
 	assert.ok(remove(two.containerEl, "b.example.org"));
 	two.hide();
 	one.rootEl.remove();
 	two.rootEl.remove();
+	t.containerEl.remove();
+});
+
+test("a page drawn again without being hidden does not keep the first draw's listeners", () => {
+	const media = new MediaAllows({ allowedMediaHosts: ["a.example.org"] }, () => {});
+	const t = new BookletSettingTab({}, {}, media);
+	const p = t.getSettingDefinitions()[0].page();
+	p.display();
+	const once = media.listeners.size;
+	p.display();
+	p.display();
+	assert.equal(media.listeners.size, once, "Obsidian calls display() again on a page that is already open");
+	p.hide();
+	assert.equal(media.listeners.size, 0);
+	p.rootEl.remove();
 	t.containerEl.remove();
 });
 
