@@ -1,6 +1,6 @@
 {
 	"name": "booklet",
-	"version": "1.0.1",
+	"version": "1.0.2",
 	"description": "An Obsidian plugin: a Booklet note opens in a view of its own, and the answers given there are written into its records section.",
 	"main": "main.js",
 	"type": "module",
@@ -10,7 +10,7 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "node test/build-for-tests.mjs && node --test test/*.test.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint src"
+		"lint": "eslint ."
 	},
 	"license": "Apache-2.0",
 	"devDependencies": {

@@ -142,7 +142,7 @@ export class NowPlaying {
 
 	constructor(private readonly deps: NowPlayingDeps) {
 		// the region that says what plays is made now, empty and outside the bar: a region that is made in the task of its first message is missed
-		if (typeof document !== "undefined") this.liveOf(document);
+		if (typeof activeDocument !== "undefined") this.liveOf(activeDocument);
 	}
 
 	/** Is this element held in the bar (and so to be left alone as its page goes)? */

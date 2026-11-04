@@ -1,8 +1,8 @@
-# Booklet for Obsidian
+# Booklet
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.18"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 1.0.1. It reads format 0.18 (`SPEC.md` in the Booklet repository). A note marked with any 0.x version, earlier or later, opens as it is, and its marker alone never produces a notice. The view says something only when the note holds a part it does not read; that notice is described under *What it does not draw yet*. It is not desktop-only: every release has been tried by the author on an iPhone 17, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
+Version 1.0.2. It reads format 0.18 (`SPEC.md` in the Booklet repository). A note marked with any 0.x version, earlier or later, opens as it is, and its marker alone never produces a notice. The view says something only when the note holds a part it does not read; that notice is described under *What it does not draw yet*. It is not desktop-only: every release has been tried by the author on an iPhone 17, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
@@ -292,7 +292,7 @@ If the earlier "Booklet (spike)" plugin is in the vault, turn it off first: both
 npm install
 npm run build    # type-checks, builds main.js, copies main.js, manifest.json and styles.css into test-vault/.obsidian/plugins/booklet/
 npm test         # bundles src/core and src/view.ts with esbuild, then runs node --test over test/*.test.mjs
-npm run lint     # the Obsidian directory's linter (eslint-plugin-obsidianmd) over src/; see docs/lint-101.md for what it finds and what is left
+npm run lint     # the Obsidian directory's linter (eslint-plugin-obsidianmd) over the repository root (src/, manifest.json, package.json, LICENSE); see docs/lint-101.md for what it finds and what is left
 ```
 
 `npm test` runs the reader, the records writer, drafts and kept entries, the JSON edits, and a check that the plugin uses no HTML sinks, no inline styles and no Node or Electron module. It runs the two widget engines of the reference renderer (`booklet.html`, taken from the Booklet repository as it is) step by step beside the plugin's, and checks that both store the same answer after every step. It also runs the view itself over a jsdom document, with the few parts of Obsidian's API it uses stubbed (`test/obsidian-stub.mjs`), to check that a change to the note arriving while a field is being edited leaves that field and what was typed in it alone. The stub also holds an in-memory `data.json`, a settings page and its `Setting` rows, a renderer that draws pictures and media, and (in `test/helpers.mjs`) a fake media element, so the allow list, the settings and `listen` can be tested without Obsidian; its top comment names each. Its corpus test goes over every booklet example in the Booklet repository, every kit starter, every test-vault note and the listen demo's clean note: it answers every question of the eight kinds, every widget and every question on a shared list, finalizes every repeating activity (and finishes a daily one twice in a day), clears every answer, and after each step checks that nothing outside the records region changed, that every record it did not need to change is byte for byte the same, and that `lint-booklet.py` passes on the written file. The corpus is found through these environment variables; a folder that is not there is a skipped test, with a message, not a failure:

@@ -1,6 +1,6 @@
 # Submitting Booklet to the Obsidian community directory: everything to hand
 
-> **DRAFT. NOT SENT.** Nothing has been submitted, tagged, released or pushed. This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files still say 1.0.0; the 1.0.1 release does not exist.
+> **DRAFT. NOT SENT.** Nothing has been submitted, tagged, released or pushed. This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files said 1.0.0 when it was written. **Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`): the files now say 1.0.2, which is the version to submit; the directory's bot had flagged three things in 1.0.1 (no `authorUrl`, the README's first heading, the global `document`), fixed in 1.0.2 (`docs/lint-101.md` section 0). Still a draft: nothing is submitted, tagged, released or pushed by this document, and the 1.0.1 and 1.0.2 steps below are the same steps with the version raised.
 
 ## 1. What the directory asks for
 
@@ -19,9 +19,9 @@ Read on 2026-11-03 through a fetch tool that returns a summary of a page, not it
 | Default branch | `main` | `.github/workflows/ci.yml` |
 | Plugin id | `booklet` | `manifest.json` |
 | Name | Booklet | `manifest.json` |
-| Author | Ben Armstrong | `manifest.json` (`authorUrl` and `fundingUrl` absent) |
-| Version | 1.0.1 at submission (the files say 1.0.0 until `npm version 1.0.1`) | `manifest.json`, `package.json` |
-| Release tag the directory will use | `1.0.1`, no leading `v`; **not yet created** | `docs/release-flow.md` |
+| Author | Ben Armstrong | `manifest.json` (`authorUrl` is `https://github.com/benthepsychologist` since 1.0.2; `fundingUrl` absent, no donations are taken) |
+| Version | 1.0.2 at submission (the files say 1.0.2 on `feat/102-scanner-fixes`, made by `npm version 1.0.2`) | `manifest.json`, `package.json` |
+| Release tag the directory will use | `1.0.2`, no leading `v`; **not yet created** | `docs/release-flow.md` |
 | minAppVersion | 1.11.7 | `manifest.json`; the evidence is `docs/directory-checklist-101.md` item 18 |
 | isDesktopOnly | false | `manifest.json` |
 | Licence | Apache-2.0 | `LICENSE`, `package.json` |
@@ -64,17 +64,17 @@ From `README.md:218-232` ("Which Obsidian"), `docs/accessibility-100.md` and `do
 ## 6. Things the draft found that Ben may want to settle before sending
 
 - **README says the plugin is not in the directory** (`README.md:281`, and the BRAT section as the way to install). That is right until it is listed; it needs an edit when it is.
-- **README says "Version 1.0.0"** (`README.md:5`). It will be one release behind after 1.0.1.
+- **README version line** (`README.md:5`) says "Version 1.0.2" on this branch; it has to be raised with each release.
 - **Bundled library not named.** `monkey-around` 3.0.0 (author PJ Eby, declared ISC) is bundled into `main.js`; the Developer policies say to comply with the licences of code used, "including required attribution in the README". The package and its upstream repository carry no LICENSE file or copyright line to copy, and the README does not name it. A one-line "Third-party code" entry would settle it (`docs/directory-checklist-101.md` item 57).
 - **Linter warnings left:** 4, none an error (`docs/lint-101.md`). The directory's automated review may not accept all four; if it reports them, they are the `youtube.com` / `https` capitalisation (3) and the settings-search API (1).
 - **LICENSE notice** is the filled Apache appendix line (`LICENSE:189`); the linter's licence rule does not read that form (`docs/directory-checklist-101.md` item 13).
 
 ## 7. Before sending (for Ben)
 
-1. Merge `feat/community-release` to `main` (CI green), then on `main`: `npm version 1.0.1`, `npm run build`, commit including `test-vault/.obsidian/plugins/booklet/`, merge. (`docs/release-flow.md` has the commands.)
-2. Optional, to try it first: tag `1.0.1-beta.1` on the branch and install it with BRAT.
-3. Tag `main` with `1.0.1` and push the tag. Wait for the Release workflow in Actions to go green.
-4. On the release page for `1.0.1`: confirm it is **not** marked Pre-release (and is marked Latest); that it carries `main.js`, `manifest.json` and `styles.css`; that the attached `manifest.json` says `"version": "1.0.1"` and `"minAppVersion": "1.11.7"`; that `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` passes on a downloaded `main.js`.
-5. Confirm `manifest.json` at the head of `main` says 1.0.1 (the directory reads it from there).
+1. Merge `feat/102-scanner-fixes` to `main` (CI green), then on `main`: `npm version 1.0.2`, `npm run build`, commit including `test-vault/.obsidian/plugins/booklet/`, merge. (`docs/release-flow.md` has the commands.)
+2. Optional, to try it first: tag `1.0.2-beta.1` on the branch and install it with BRAT.
+3. Tag `main` with `1.0.2` and push the tag. Wait for the Release workflow in Actions to go green.
+4. On the release page for `1.0.2`: confirm it is **not** marked Pre-release (and is marked Latest); that it carries `main.js`, `manifest.json` and `styles.css`; that the attached `manifest.json` says `"version": "1.0.2"` and `"minAppVersion": "1.11.7"`; that `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` passes on a downloaded `main.js`.
+5. Confirm `manifest.json` at the head of `main` says 1.0.2 (the directory reads it from there).
 6. Decide the open points in section 6 (the phone check record, the README lines, the `monkey-around` line).
-7. Sign in at community.obsidian.md, link GitHub, **Plugins > New plugin**, enter the repository URL and the owner, agree to the Developer policies, **Submit**. Then read the automated review's findings; fix with a new release (1.0.2 and so on).
+7. Sign in at community.obsidian.md, link GitHub, **Plugins > New plugin**, enter the repository URL and the owner, agree to the Developer policies, **Submit**. Then read the automated review's findings; fix with a new release (1.0.3 and so on).

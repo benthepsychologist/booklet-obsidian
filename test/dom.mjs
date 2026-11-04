@@ -104,6 +104,9 @@ w.createFragment = function (cb) {
 
 for (const k of ["window", "document", "Node", "HTMLElement", "HTMLInputElement", "HTMLTextAreaElement", "HTMLButtonElement", "Event", "KeyboardEvent", "FocusEvent"])
 	globalThis[k] = k === "window" ? w : w[k];
+// Obsidian's globals for the window and document that are in front (the one the reader is in); here, the one window there is
+globalThis.activeWindow = w;
+globalThis.activeDocument = w.document;
 
 export { w as window };
 
