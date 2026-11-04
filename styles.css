@@ -1536,9 +1536,37 @@
 	min-height: 44px;
 }
 
-/* a table heading that sorts is a button that looks like the heading */
+/* a table heading that sorts is a button that looks like the heading.
+   This was `all: unset`. It is now the properties that reset did something to on a button: the ones a browser's own button
+   style and Obsidian's `button` rules (1.14.5: border, padding, height, border-radius, font, white-space, transition,
+   user-select and justify-content on `button` itself) set. Those that are inherited are inherited from the heading, as `all: unset`
+   gave; the others are put back to their start value. (Obsidian's `button:not(.clickable-icon)` rules for colour, background and
+   shadow are stronger than a class, so they won over `all: unset` too and still do.) */
 .booklet-q-sort {
-	all: unset;
+	appearance: none;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	corner-shape: initial;
+	margin: 0;
+	padding: 0;
+	width: auto;
+	height: auto;
+	min-width: auto;
+	min-height: auto;
+	outline: none;
+	transition: none;
+	user-select: auto;
+	justify-content: normal;
+	font: inherit;
+	letter-spacing: inherit;
+	word-spacing: inherit;
+	text-align: inherit;
+	text-indent: inherit;
+	text-shadow: inherit;
+	text-transform: inherit;
+	white-space: inherit;
 	display: inline-flex;
 	align-items: center;
 	gap: var(--size-2-2);
