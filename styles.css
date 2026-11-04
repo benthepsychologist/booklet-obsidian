@@ -1658,10 +1658,15 @@
 /* the slash after a crumb belongs to it, so a wrapped trail never starts a line with one */
 .booklet-trail-link::after {
 	content: "/";
-	/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash" (a browser that does not know the form keeps the line above) */
-	content: "/" / "";
 	color: var(--text-faint);
 	margin-left: var(--size-4-2);
+}
+
+/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash". A browser that does not know the form skips this block and keeps the plain slash above; it is a block of its own so that no rule holds two `content` lines */
+@supports (content: "/" / "") {
+	.booklet-trail-link::after {
+		content: "/" / "";
+	}
 }
 
 .booklet-trail-here {
