@@ -6,3 +6,7 @@ node_modules/
 
 # what the tests build for themselves
 test/.build/
+
+# e2e-tests/android: downloads, the staged vault and plugin, and the result folders
+/e2e-tests/android/.cache/
+/e2e-tests/android/results/

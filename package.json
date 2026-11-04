@@ -10,7 +10,9 @@
 		"build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
 		"test": "node test/build-for-tests.mjs && node --test test/*.test.mjs",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"lint": "eslint ."
+		"lint": "eslint .",
+		"e2e:android:setup": "npm --prefix e2e-tests/android ci",
+		"e2e:android": "node e2e-tests/android/run.mjs"
 	},
 	"license": "Apache-2.0",
 	"devDependencies": {

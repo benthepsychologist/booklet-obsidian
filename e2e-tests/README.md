@@ -174,3 +174,5 @@ The Linux tarballs of every release are on github.com/obsidianmd/obsidian-releas
 - Obsidian before 1.14 frames an allowed YouTube video at `www.youtube.com/embed/ID` itself; 1.14 frames its wrapper page `releases.obsidian.md/youtube?v=ID`.
 - Chrome 132 (Obsidian 1.8.10) has no `Emulation.setSafeAreaInsetsOverride`: check 55 then reports the Now playing bar's safe-area part as "not measured".
 - Measured floor for 0.12.0 (see `docs/floor-0130.md`): the suite passes completely on 1.11.7 and 1.14.5; on 1.8.10 only check 55 fails.
+
+Android: `android/` runs the real Obsidian Android app in an emulator on a Mac (see `android/STEPS.md`; run with `npm run e2e:android`). It is separate from the desktop harness above.
