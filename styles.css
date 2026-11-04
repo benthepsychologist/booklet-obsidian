@@ -2418,15 +2418,19 @@
 }
 
 /* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
+/* These were `!important`. Obsidian's own rules for its icons and buttons are more specific than `.booklet-view *` (0,1,0), so the class is
+   written five times: `.booklet-view` on its own is then (0,5,0), `.booklet-view *` the same, and `*::before` and `*::after` (0,5,1). A scan of
+   Obsidian 1.14.5's style sheet for rules that set a transition, an animation or scroll-behavior found none that can reach inside a view above
+   (0,4,1): the few at (0,5,0) and up are for its side drawer, its canvas and its loading header. The plugin sets none of its own, apart from the
+   sort button's `transition: none`. So these win without a flag, and a tie goes to the later sheet, which is the plugin's. The repeats mean nothing else. */
 @media (prefers-reduced-motion: reduce) {
-	.booklet-view,
-	.booklet-view *,
-	.booklet-view *::before,
-	.booklet-view *::after {
-		/* important: Obsidian's own rules for its icons are more specific than these */
-		transition: none !important;
-		animation: none !important;
-		scroll-behavior: auto !important;
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::before,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::after {
+		transition: none;
+		animation: none;
+		scroll-behavior: auto;
 	}
 }
 
@@ -2620,13 +2624,14 @@
 }
 
 /* the card sits in the window, outside the view, so the view's rule for less motion does not reach it */
+/* (no `!important`, for the reason given at the view's rule: the class five times makes this (0,5,0), and (0,5,1) for the pseudo-elements) */
 @media (prefers-reduced-motion: reduce) {
-	.booklet-allow,
-	.booklet-allow *,
-	.booklet-allow *::before,
-	.booklet-allow *::after {
-		transition: none !important;
-		animation: none !important;
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::before,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::after {
+		transition: none;
+		animation: none;
 	}
 }
 
