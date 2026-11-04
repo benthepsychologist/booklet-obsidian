@@ -1536,9 +1536,37 @@
 	min-height: 44px;
 }
 
-/* a table heading that sorts is a button that looks like the heading */
+/* a table heading that sorts is a button that looks like the heading.
+   This was `all: unset`. It is now the properties that reset did something to on a button: the ones a browser's own button
+   style and Obsidian's `button` rules (1.14.5: border, padding, height, border-radius, font, white-space, transition,
+   user-select and justify-content on `button` itself) set. Those that are inherited are inherited from the heading, as `all: unset`
+   gave; the others are put back to their start value. (Obsidian's `button:not(.clickable-icon)` rules for colour, background and
+   shadow are stronger than a class, so they won over `all: unset` too and still do.) */
 .booklet-q-sort {
-	all: unset;
+	appearance: none;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	corner-shape: initial;
+	margin: 0;
+	padding: 0;
+	width: auto;
+	height: auto;
+	min-width: auto;
+	min-height: auto;
+	outline: none;
+	transition: none;
+	user-select: auto;
+	justify-content: normal;
+	font: inherit;
+	letter-spacing: inherit;
+	word-spacing: inherit;
+	text-align: inherit;
+	text-indent: inherit;
+	text-shadow: inherit;
+	text-transform: inherit;
+	white-space: inherit;
 	display: inline-flex;
 	align-items: center;
 	gap: var(--size-2-2);
@@ -1658,10 +1686,15 @@
 /* the slash after a crumb belongs to it, so a wrapped trail never starts a line with one */
 .booklet-trail-link::after {
 	content: "/";
-	/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash" (a browser that does not know the form keeps the line above) */
-	content: "/" / "";
 	color: var(--text-faint);
 	margin-left: var(--size-4-2);
+}
+
+/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash". A browser that does not know the form skips this block and keeps the plain slash above; it is a block of its own so that no rule holds two `content` lines */
+@supports (content: "/" / "") {
+	.booklet-trail-link::after {
+		content: "/" / "";
+	}
 }
 
 .booklet-trail-here {
@@ -2385,15 +2418,19 @@
 }
 
 /* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
+/* These were `!important`. Obsidian's own rules for its icons and buttons are more specific than `.booklet-view *` (0,1,0), so the class is
+   written five times: `.booklet-view` on its own is then (0,5,0), `.booklet-view *` the same, and `*::before` and `*::after` (0,5,1). A scan of
+   Obsidian 1.14.5's style sheet for rules that set a transition, an animation or scroll-behavior found none that can reach inside a view above
+   (0,4,1): the few at (0,5,0) and up are for its side drawer, its canvas and its loading header. The plugin sets none of its own, apart from the
+   sort button's `transition: none`. So these win without a flag, and a tie goes to the later sheet, which is the plugin's. The repeats mean nothing else. */
 @media (prefers-reduced-motion: reduce) {
-	.booklet-view,
-	.booklet-view *,
-	.booklet-view *::before,
-	.booklet-view *::after {
-		/* important: Obsidian's own rules for its icons are more specific than these */
-		transition: none !important;
-		animation: none !important;
-		scroll-behavior: auto !important;
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::before,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::after {
+		transition: none;
+		animation: none;
+		scroll-behavior: auto;
 	}
 }
 
@@ -2587,13 +2624,14 @@
 }
 
 /* the card sits in the window, outside the view, so the view's rule for less motion does not reach it */
+/* (no `!important`, for the reason given at the view's rule: the class five times makes this (0,5,0), and (0,5,1) for the pseudo-elements) */
 @media (prefers-reduced-motion: reduce) {
-	.booklet-allow,
-	.booklet-allow *,
-	.booklet-allow *::before,
-	.booklet-allow *::after {
-		transition: none !important;
-		animation: none !important;
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::before,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::after {
+		transition: none;
+		animation: none;
 	}
 }
 

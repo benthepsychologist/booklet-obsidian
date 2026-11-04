@@ -1,6 +1,8 @@
 # Submitting Booklet to the Obsidian community directory: everything to hand
 
-> **DRAFT. NOT SENT.** Nothing has been submitted to the directory. (1.0.1 was merged, tagged and released on 2026-11-04 as a real release; 1.0.2 is not yet.) This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files said 1.0.0 when it was written. **Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`): the files now say 1.0.2, which is the version to submit; the directory's bot had flagged three things in 1.0.1 (no `authorUrl`, the README's first heading, the global `document`), fixed in 1.0.2 (`docs/lint-101.md` section 0). Still a draft: nothing is submitted by this document, and the 1.0.1 and 1.0.2 steps below are the same steps with the version raised.
+> **LISTED (updated 2026-11-04 for 1.0.3).** Booklet is in the directory: https://community.obsidian.md/plugins/booklet . 1.0.2 was submitted (Ben's word) and the directory's scan of the live 1.0.2 passed everything, with five warnings that 1.0.3 addresses (`docs/lint-101.md` section 00). The rest of this file is the draft it was written as, kept as the record of what the submission needed; where it says "draft", "not sent" or "not yet" it describes the time it was written. The files now say 1.0.3.
+>
+> *Original banner:* **DRAFT. NOT SENT.** Nothing had been submitted to the directory. (1.0.1 was merged, tagged and released on 2026-11-04 as a real release; 1.0.2 was not yet.) This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files said 1.0.0 when it was written. **Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`): the files now say 1.0.2, which is the version to submit; the directory's bot had flagged three things in 1.0.1 (no `authorUrl`, the README's first heading, the global `document`), fixed in 1.0.2 (`docs/lint-101.md` section 0). Still a draft: nothing is submitted by this document, and the 1.0.1 and 1.0.2 steps below are the same steps with the version raised.
 
 ## 1. What the directory asks for
 
@@ -20,7 +22,7 @@ Read on 2026-11-03 through a fetch tool that returns a summary of a page, not it
 | Plugin id | `booklet` | `manifest.json` |
 | Name | Booklet | `manifest.json` |
 | Author | Ben Armstrong | `manifest.json` (`authorUrl` is `https://github.com/benthepsychologist` since 1.0.2; `fundingUrl` absent, no donations are taken) |
-| Version | 1.0.2 at submission (the files say 1.0.2 on `feat/102-scanner-fixes`, made by `npm version 1.0.2`) | `manifest.json`, `package.json` |
+| Version | 1.0.2 at submission (the files said 1.0.2 on `feat/102-scanner-fixes`, made by `npm version 1.0.2`); 1.0.3 now (`npm version 1.0.3`) | `manifest.json`, `package.json` |
 | Release tag the directory will use | `1.0.2`, no leading `v`; **not yet created** | `docs/release-flow.md` |
 | minAppVersion | 1.11.7 | `manifest.json`; the evidence is `docs/directory-checklist-101.md` item 18 |
 | isDesktopOnly | false | `manifest.json` |
@@ -63,7 +65,7 @@ From `README.md:218-232` ("Which Obsidian"), `docs/accessibility-100.md` and `do
 
 ## 6. Things the draft found that Ben may want to settle before sending
 
-- **README says the plugin is not in the directory** (`README.md:281`, and the BRAT section as the way to install). That is right until it is listed; it needs an edit when it is.
+- **README says the plugin is not in the directory** (`README.md:281`, and the BRAT section as the way to install). That was right until it was listed. Since 1.0.3 the README says it is listed, links https://community.obsidian.md/plugins/booklet and keeps BRAT as the way to try a build before it is released.
 - **README version line** (`README.md:5`) says "Version 1.0.2" on this branch; it has to be raised with each release.
 - **Bundled library not named.** `monkey-around` 3.0.0 (author PJ Eby, declared ISC) is bundled into `main.js`; the Developer policies say to comply with the licences of code used, "including required attribution in the README". The package and its upstream repository carry no LICENSE file or copyright line to copy, and the README does not name it. A one-line "Third-party code" entry would settle it (`docs/directory-checklist-101.md` item 57).
 - **Linter warnings left:** 4, none an error (`docs/lint-101.md`). The directory's automated review may not accept all four; if it reports them, they are the `youtube.com` / `https` capitalisation (3) and the settings-search API (1).
