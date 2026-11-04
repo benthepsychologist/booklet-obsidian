@@ -121,6 +121,22 @@ export class PluginSettingTab extends Component {
 	hide() {}
 }
 
+/**
+ * A sub-page of a settings tab (Obsidian 1.13 and later): it has a titlebar and a container of its own, as the real one does
+ * (`.setting-page-titlebar` and `.setting-page-content`, measured in 1.14.5), and the tab gives it display() and hide().
+ * Before 1.13 the class is not there, so making one on an app that old throws, as extending `undefined` would.
+ */
+export class SettingPage {
+	constructor() {
+		if (!requireApiVersion("1.13.0")) throw new TypeError("SettingPage is not there before Obsidian 1.13");
+		this.rootEl = document.body.createDiv({ cls: "setting-page vertical-tab-content" });
+		this.titlebarEl = this.rootEl.createDiv({ cls: "setting-page-titlebar" });
+		this.containerEl = this.rootEl.createDiv({ cls: "setting-page-content" });
+		this.title = "";
+	}
+	hide() {}
+}
+
 /** One control of a Setting: records what is called on it, and a test drives its handler with change(value) or click(). */
 class StubComponent {
 	constructor(kind, log) {

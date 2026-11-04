@@ -25,6 +25,7 @@
 const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
 const { writeTones } = require("./tones");
+const { bookletPage } = require("./waits");
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const TAP = 44;
@@ -419,6 +420,8 @@ async function states(ctx) {
   await closeCard(o); await sleep(300);
   // settings
   await o.evaluate(() => { app.setting.open(); app.setting.openTabById("booklet"); });
+  await o.page.waitForSelector(".vertical-tab-content .setting-item", { timeout: 4000 });
+  await bookletPage(o.page); // Obsidian 1.13 and later: the tab lists one entry, the rows are on its page
   await o.page.waitForSelector(".vertical-tab-content .setting-item button", { timeout: 4000 });
   await sleep(400);
   await take("settings page", ".modal-container:not(.booklet-allow) .modal, .vertical-tab-content");

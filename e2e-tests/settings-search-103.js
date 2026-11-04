@@ -3,15 +3,18 @@
 // Not part of plugin-check.js. One Obsidian at a time, on a scratch config and a vault of the plugin's files with an empty allow list.
 // (E2E_PORT_RANGE="9341-9349" keeps the debugging port inside a range of your own; drive.js reads it.)
 //
-// What it measures. From Obsidian 1.13 the plugin gives the settings page as setting definitions (settings.ts getSettingDefinitions), so the
-// Settings search can find its rows: 'Allowed sites', 'Add a site' and 'Suggested services' (button 'Add suggested services'). On Obsidian
-// 1.11.7 nothing calls the definitions: the old Booklet tab is drawn by display() and the search is not expected to find the rows.
-//  1. For each query ('allow', 'site', 'suggested', 'media', 'booklet') it types into the Settings search box, waits, and reads which of the
-//     plugin's rows are shown (with the DOM text of each), screenshot per query. 'allow', 'site' and 'suggested' have an expected answer by
-//     version (found from 1.13, not found before); 'media' and 'booklet' are reported only.
-//  2. Whichever way the version draws it, it opens the Booklet tab, checks the three rows, adds 'example.org' (text box and Enter), reads the
-//     status message and the list, removes it with its Remove button and checks the focus moved to the box (it is the only entry), with a
-//     screenshot after each step. This repeats what the accessibility pass measured (docs/accessibility-100.md).
+// What it measures. From Obsidian 1.13 the plugin gives the settings page as ONE navigable setting definition (settings.ts getSettingDefinitions:
+// a `page` entry named 'Allowed media sites and suggested services', whose page holds the rows), so the Settings search can find the entry. (Measured
+// in 1.14.5: the search looks in the NAME of a page entry only, not its description and not `aliases`; a first design of three `render` rows with sibling
+// divs for the list was dropped by Obsidian and is why the page form is used.) On Obsidian 1.11.7 nothing calls the definitions: the old Booklet tab
+// is drawn by display() and the search is not expected to find anything of the plugin's.
+//  1. For each query ('allow', 'site', 'suggested', 'media', 'booklet') it types into the Settings search box, waits, and reads the search results
+//     (`.setting-search-results`): whether the entry is listed (with the result's text). 'allow', 'site' and 'suggested' have an expected answer by
+//     version (found from 1.13, not found before; Obsidian 1.11.7 has no settings search box at all, which is reported); 'media' and 'booklet' are reported only. For 'suggested' on 1.13+ it also presses the result and
+//     checks that the entry's page opens (title 'Allowed media sites', the 'Add a site' box there).
+//  2. Whichever way the version draws it, it opens the Booklet tab (on 1.13+ it presses the entry to open its page), checks the three rows, adds
+//     'example.org' (text box and Enter), reads the status message and the list, removes it with its Remove button and checks the focus moved to the
+//     box (it is the only entry), with a screenshot after each step. This repeats what the accessibility pass measured (docs/accessibility-100.md).
 // The Settings search box is found by its look (type=search, or a placeholder that says search), not by a class name that changes between
 // versions: the candidates are printed as INFO lines so a wrong guess can be fixed from one run's output. `--expect` overrides the version rule.
 // Output: <out>/<tag>-NN-*.png and <out>/<tag>-settings-search.json. Exit 1 on any FAIL.
@@ -45,6 +48,7 @@ if (dry) {
 }
 
 const { launch } = require("./drive");
+const { bookletPage } = require("./waits");
 fs.mkdirSync(OUT, { recursive: true });
 const WORK = path.join(OUT, "work-" + Date.now());
 let pass = 0, fail = 0;
@@ -80,12 +84,27 @@ const ROWS = () => {
   out.visibleNames = out.visibleNames.slice(0, 30);
   return out;
 };
+/* in the page (the Settings window): what the search lists. Each result group is a tab (label, and for a plugin's tab the plugin's name as the sublabel) with the
+   rows found in it; a page entry of a plugin is listed as a tab-like result whose label is the entry's name and whose sublabel is the plugin ('Booklet'). The
+   plugin's results are the ones whose label or title is the entry's name or one of the old rows' names, or whose sublabel is 'Booklet'. */
+const RESULTS = () => {
+  const flat = s => (s || "").replace(/\s+/g, " ").trim();
+  const groups = [...document.querySelectorAll(".setting-search-result-group")].map(g => ({
+    label: flat((g.querySelector(".setting-search-result-tab-label") || {}).textContent),
+    sub: flat((g.querySelector(".setting-search-result-tab-sublabel") || {}).textContent),
+    items: [...g.querySelectorAll(".setting-search-result-item")].map(i => flat(i.textContent)),
+  }));
+  const ours = /Allowed media sites|Allowed sites|Add a site|Suggested services/;
+  const plugin = groups.filter(g => g.sub === "Booklet" || ours.test(g.label) || g.items.some(t => ours.test(t)));
+  return { groups, plugin, text: flat((document.querySelector(".setting-search-results") || {}).innerText).slice(0, 300) };
+};
 /* mark the settings search box (type=search, or a box whose placeholder says search) so Playwright can find it, and list the candidates */
 const MARK_SEARCH = () => {
   const vis = e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
   const inputs = [...document.querySelectorAll("input")].filter(vis);
   const cands = inputs.map(i => ({ type: i.type, placeholder: i.placeholder, cls: i.className, parent: i.parentElement && i.parentElement.className, label: i.getAttribute("aria-label") }));
-  const pick = inputs.find(i => i.type === "search") || inputs.find(i => /search/i.test(i.placeholder || "")) || inputs.find(i => i.closest(".setting-search-container, .search-input-container"));
+  /* the settings search is the box in the sidebar ('Search settings...'); the 'Search installed plugins...' box on the Community plugins page is not it (Obsidian 1.11.7 has no settings search at all, only that one) */
+  const pick = inputs.find(i => /search settings/i.test(i.placeholder || "")) || inputs.find(i => i.closest(".setting-search-container"));
   document.querySelectorAll("[data-e2e-search]").forEach(e => e.removeAttribute("data-e2e-search"));
   if (pick) pick.setAttribute("data-e2e-search", "1");
   return { found: !!pick, cands };
@@ -100,7 +119,7 @@ const MARK_SEARCH = () => {
     const atLeast = (a, b, c) => num[0] > a || (num[0] === a && (num[1] > b || (num[1] === b && (num[2] || 0) >= c)));
     const declarative = opt.expect === "auto" ? atLeast(1, 13, 0) : opt.expect === "declarative";
     result.version = version; result.declarative = declarative;
-    say(`version ${version}; expecting the search to ${declarative ? "FIND" : "NOT find"} the plugin's rows (${opt.expect === "auto" ? "by version" : "by --expect"})`);
+    say(`version ${version}; expecting the search to ${declarative ? "FIND" : "NOT find"} the plugin's entry (${opt.expect === "auto" ? "by version" : "by --expect"})`);
     const shot = async (sp, name) => { const f = path.join(OUT, `${opt.tag}-${name}.png`); await sp.screenshot({ path: f }).catch(e => say("INFO screenshot " + name + ": " + e.message.slice(0, 80))); return f; };
     const settingsPage = async () => {
       for (let i = 0; i < 40; i++) {
@@ -122,14 +141,15 @@ const MARK_SEARCH = () => {
     // what the plugin itself decided: does its tab give setting definitions here?
     const defs = await o.evaluate(() => { try { const t = (app.setting.pluginTabs || []).find(x => x.id === "booklet"); return t && t.getSettingDefinitions ? t.getSettingDefinitions().length : null; } catch (e) { return "error: " + e.message; } });
     result.definitions = defs;
-    fact(declarative ? defs === 3 : (defs === 0 || defs === null), `the Booklet tab offers ${declarative ? "3 setting definitions" : "no setting definitions"} on ${version} (it offers ${defs})`);
+    fact(declarative ? defs === 1 : (defs === 0 || defs === null), `the Booklet tab offers ${declarative ? "1 setting definition (the page entry)" : "no setting definitions"} on ${version} (it offers ${defs})`);
 
     // ---- 1. the search ----
     let sp = await openSettings(null);
     say("INFO Settings is drawn in " + (sp !== o.page ? "a window of its own" : "the main window"));
     const mk = await sp.evaluate(MARK_SEARCH);
     say("INFO search box candidates: " + JSON.stringify(mk.cands));
-    fact(mk.found, "the Settings window has a search box");
+    if (declarative) fact(mk.found, "the Settings window has a search box ('Search settings...')");
+    else say(`INFO ${mk.found ? "the Settings window has a search box" : "this Obsidian has no settings search box (only the 'Search installed plugins' box of Community plugins), so the plugin's rows cannot be found by search"}`);
     await shot(sp, "00-settings-open");
     if (mk.found) {
       const box = sp.locator("[data-e2e-search]").first();
@@ -140,15 +160,24 @@ const MARK_SEARCH = () => {
         await sp.keyboard.press("Control+A"); await sp.keyboard.press("Backspace"); await sleep(250);
         await sp.keyboard.type(q, { delay: 40 });
         await sleep(900);
-        const r = await sp.evaluate(ROWS);
-        const rows = ["allowed", "add", "suggested"].filter(k => r[k].length);
-        result.queries[q] = { rows, allowed: r.allowed, add: r.add, suggested: r.suggested, visibleNames: r.visibleNames, content: r.content };
-        const found = rows.length > 0;
+        const r = await sp.evaluate(RESULTS);
+        const found = r.plugin.length > 0;
+        result.queries[q] = { found, plugin: r.plugin, groups: r.groups.map(g => g.label + (g.sub ? " / " + g.sub : "")), text: r.text };
         await shot(sp, `${String(n).padStart(2, "0")}-search-${q}`);
-        say(`INFO '${q}': plugin rows shown: ${rows.length ? rows.join(", ") : "none"}; the window lists ${r.visibleNames.length} row(s): ${JSON.stringify(r.visibleNames.slice(0, 12))}`);
-        for (const k of rows) for (const t of r[k]) say(`INFO '${q}' [${k}] DOM text: ${t.slice(0, 200)}`);
-        if (gated) fact(found === declarative, `search '${q}' ${declarative ? "finds" : "does not find"} the Booklet rows on ${version} (shown: ${rows.join(", ") || "none"})`);
-        else say(`INFO search '${q}' (no expectation): ${found ? "finds" : "does not find"} the Booklet rows`);
+        say(`INFO '${q}': the plugin is listed: ${found}; the search lists ${r.groups.length} group(s): ${JSON.stringify(r.groups.map(g => g.label + (g.sub ? " / " + g.sub : "")).slice(0, 12))}`);
+        for (const g of r.plugin) say(`INFO '${q}' the plugin's result: ${JSON.stringify(g)}`);
+        if (gated) fact(found === declarative, `search '${q}' ${declarative ? "finds" : "does not find"} the Booklet entry on ${version} (listed: ${found})`);
+        else say(`INFO search '${q}' (no expectation): ${found ? "finds" : "does not find"} the Booklet entry`);
+        if (q === "suggested" && declarative && found) {
+          // pressing the result opens the entry's page
+          await sp.locator(".setting-search-result-tab", { hasText: "Allowed media sites" }).first().click();
+          await sleep(900);
+          const pg = await sp.evaluate(() => ({ title: ((document.querySelector(".setting-page-title") || document.querySelector(".modal-title") || {}).innerText || "").trim(), box: !!document.querySelector("input[aria-label='Add a site']"), page: !!document.querySelector(".setting-page-content.booklet-settings") }));
+          result.queries[q].opened = pg;
+          await shot(sp, `${String(n).padStart(2, "0")}-search-${q}-opened`);
+          fact(pg.box && pg.page, `pressing the search result opens the entry's page: the 'Add a site' box is there and the page has the booklet-settings class (title "${pg.title}")`);
+          await sp.keyboard.press("Escape"); await sleep(700);
+        }
       }
       await box.click(); await sp.keyboard.press("Control+A"); await sp.keyboard.press("Backspace"); await sleep(300);
     }
@@ -156,7 +185,9 @@ const MARK_SEARCH = () => {
 
     // ---- 2. the Booklet tab: add, read, remove ----
     sp = await openSettings("booklet");
-    await sp.waitForSelector("input[aria-label='Add a site']", { timeout: 8000 }).catch(() => {});
+    const entered = await bookletPage(sp).catch(e => { say("INFO bookletPage: " + e.message.slice(0, 100)); return null; });
+    say("INFO the Booklet tab " + (entered ? "lists one entry; it was pressed to open the page" : "is the page itself"));
+    fact(entered === declarative, `the Booklet tab ${declarative ? "lists an entry that opens the page" : "is the page itself"} on ${version} (entry pressed: ${entered})`);
     const tab = await sp.evaluate(ROWS);
     result.tab.rows = { allowed: tab.allowed, add: tab.add, suggested: tab.suggested };
     await shot(sp, "10-tab-open");

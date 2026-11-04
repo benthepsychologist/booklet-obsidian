@@ -10,7 +10,7 @@
 // What it cannot measure: speech. Nothing here hears a screen reader.
 const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
-const { quiet, mobile } = require("./waits");
+const { quiet, mobile, bookletPage } = require("./waits");
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ? process.argv[i + 1] : d; };
 const opt = { obsidian: arg("obsidian"), out: arg("out"), vault: arg("vault", path.join(__dirname, "..", "test-vault")), only: (arg("only", "") || "").split(",").filter(Boolean), tag: arg("tag", "run") };
@@ -486,6 +486,7 @@ const save = () => fs.writeFileSync(path.join(OUT, opt.tag + "-results.json"), J
       R.settingsWindow = own ? "own" : "main";
       if (sp) {
         await sp.bringToFront().catch(() => {});
+        await bookletPage(sp); // Obsidian 1.13 and later: the entry's page holds the rows
         const so = own ? { page: sp, evaluate: (f, a) => sp.evaluate(f, a), setScheme: o.setScheme, screenshot: async f => { fs.mkdirSync(path.dirname(path.resolve(f)), { recursive: true }); await sp.screenshot({ path: f }); } } : o;
         // only the plugin's own part: Obsidian's sidebar of settings tabs is not ours to measure
         const rootSel = ".vertical-tab-content";

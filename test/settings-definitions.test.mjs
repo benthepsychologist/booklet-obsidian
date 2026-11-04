@@ -1,8 +1,12 @@
 /*
- * The settings page on Obsidian 1.13 and later: BookletSettingTab.getSettingDefinitions() declares the rows so that the settings
- * search finds them, and each row's `render` draws it with the same code as display() (src/settings.ts, AllowPage). Before 1.13
- * nothing calls getSettingDefinitions and display() draws the page. These tests draw the page both ways over the stub (test/obsidian-stub.mjs)
- * and look for the same DOM and the same behaviour. They cannot say how Obsidian 1.13 lays the declared rows out: that is measured in the real app.
+ * The settings page on Obsidian 1.13 and later: BookletSettingTab.getSettingDefinitions() gives ONE navigable entry (a `page`
+ * definition) so that the settings search finds it, and the page it opens is drawn with the same code as display() (src/settings.ts,
+ * AllowPage) into a container of its own. Before 1.13 nothing calls getSettingDefinitions and display() draws the page. These tests
+ * draw the page both ways over the stub (test/obsidian-stub.mjs) and look for the same DOM and the same behaviour. They cannot say
+ * how Obsidian lays the entry and the page out, or what its search looks in: that is measured in the real app
+ * (e2e-tests/settings-search-103.js, and checks 50 and 58 of plugin-check.js). The first design here drew three `render` rows and put
+ * the list, the error line and the status message beside them as sibling divs; Obsidian 1.14.5 drops such siblings, and the stub
+ * (which cannot) had let it pass.
  */
 import { window as w, click, words, typeInto, press } from "./dom.mjs";
 import test from "node:test";
@@ -16,22 +20,24 @@ const btn = (el, text) => Array.from(el.querySelectorAll("button")).find((b) => 
 const liveOf = (el) => el.querySelector('[role="status"][aria-live="polite"]');
 const remove = (el, host) => el.querySelector(`button[aria-label="Remove ${host}"]`);
 
-/** The page drawn as the app does it: by display() ("old", Obsidian before 1.13), or by each definition's render ("new", 1.13 and later). */
+/**
+ * The page drawn as the app does it: by display() ("old", Obsidian before 1.13), or as the entry's page ("new", 1.13 and later: the
+ * app calls the definition's `page()` for each time the entry is opened, then display() on what it gave, and hide() when it leaves).
+ */
 function page(how, raw = null) {
 	const media = new MediaAllows(raw, () => {});
 	const t = new BookletSettingTab({}, {}, media);
 	doc.body.appendChild(t.containerEl);
-	const cleanups = [];
-	if (how === "old") t.display();
-	else {
-		// what Obsidian does with the definitions: a row for each, handed to its render
-		for (const d of t.getSettingDefinitions()) {
-			assert.equal(typeof d.render, "function", `${d.name} is drawn by render`);
-			const c = d.render(new Setting(t.containerEl), { listEl: t.containerEl });
-			if (typeof c === "function") cleanups.push(c);
-		}
+	if (how === "old") {
+		t.display();
+		return { media, t, el: t.containerEl, done: () => (t.hide(), t.containerEl.remove()) };
 	}
-	return { media, t, el: t.containerEl, cleanups, done: () => (t.hide(), t.containerEl.remove()) };
+	const defs = t.getSettingDefinitions();
+	assert.equal(defs.length, 1, "one entry");
+	assert.equal(defs[0].type, "page");
+	const p = defs[0].page();
+	p.display();
+	return { media, t, el: p.containerEl, p, def: defs[0], done: () => (p.hide(), p.rootEl.remove(), t.hide(), t.containerEl.remove()) };
 }
 
 /** The same reader, the same steps, on a page: adds, a duplicate, an error, removes, the suggestions. Gives what she could see and hear after each. */
@@ -65,32 +71,53 @@ function walk(s) {
 	return out;
 }
 
-test("getSettingDefinitions gives the declared rows, and their search text has the words a reader would look for", () => {
+test("getSettingDefinitions gives one entry, and the words a reader would search for are in its name (the search looks in the name only)", () => {
 	const { t, done } = page("old");
 	const defs = t.getSettingDefinitions();
-	assert.deepEqual(defs.map((d) => d.name), ["Allowed sites", "Add a site", "Suggested services"]);
-	const text = (d) => [d.name, typeof d.desc === "string" ? d.desc : "", ...(d.aliases ?? [])].join(" ").toLowerCase();
-	for (const word of ["allowed sites", "add a site", "add suggested services", "allow", "media", "hosts", "youtube.com", "remove", "audio", "video"])
-		assert.ok(defs.some((d) => text(d).includes(word)), `a row can be found by "${word}"`);
-	assert.match(text(defs[0]), /a note can never allow a site for you/, "the explanation is in the search text");
-	for (const d of defs) {
-		assert.equal(d.searchable, undefined, "none is hidden from search");
-		assert.equal(d.visible, undefined, "none is hidden from the page");
-	}
+	assert.equal(defs.length, 1);
+	const d = defs[0];
+	assert.equal(d.type, "page");
+	assert.equal(typeof d.page, "function", "the page is drawn by our SettingPage, not by nested definitions");
+	assert.equal(d.items, undefined);
+	for (const word of ["allow", "site", "suggested"]) assert.ok(d.name.toLowerCase().includes(word), `the name has "${word}"`);
+	assert.equal(d.visible, undefined, "it is not hidden");
+	assert.match(typeof d.desc === "string" ? d.desc : "", /youtube\.com/, "the description says what is on the page");
 	done();
 });
 
-test("the rows drawn by render are the same DOM as display() draws, for an empty list and for a list", () => {
+test("the entry says how many sites are allowed, read each time it is drawn", () => {
+	const none = page("new");
+	assert.equal(none.def.displayValue(), "None");
+	none.media.addVault("a.example.org");
+	assert.equal(none.def.displayValue(), "1 site");
+	none.media.addVault("b.example.org");
+	assert.equal(none.def.displayValue(), "2 sites");
+	none.done();
+});
+
+test("the page the entry opens has the same DOM as display() draws, for an empty list and for a list, and has the page class on its container", () => {
 	for (const raw of [null, { allowedMediaHosts: ["youtube.com", "a-long-host-name.media.example.org"] }]) {
 		const a = page("old", raw);
 		const b = page("new", raw);
 		assert.equal(b.el.innerHTML, a.el.innerHTML);
-		assert.equal(b.el.className, a.el.className);
+		assert.ok(b.el.classList.contains("booklet-settings"), "styles.css rules (44 px targets, wrapping, placeholder contrast) hang on this class, so it is on the page's container");
+		assert.ok(a.el.classList.contains("booklet-settings"));
+		assert.equal(b.p.title, "Allow list");
 		assert.match(words(b.el), /A note can never allow a site for you/);
 		assert.deepEqual(Array.from(b.el.querySelectorAll("button")).map(words), Array.from(a.el.querySelectorAll("button")).map(words));
 		a.done();
 		b.done();
 	}
+});
+
+test("every row of the page is inside the element that has the page class (the list, the error line and the status message among them)", () => {
+	const b = page("new", { allowedMediaHosts: ["a.example.org"] });
+	const holder = b.el.closest(".booklet-settings");
+	assert.equal(holder, b.el);
+	for (const sel of ['input[aria-label="Add a site"]', 'button[aria-label="Remove a.example.org"]', '[role="alert"]', '[role="status"][aria-live="polite"]'])
+		assert.ok(holder.querySelector(sel), `${sel} is under the page class`);
+	assert.equal(b.t.containerEl.querySelector("input"), null, "and nothing is drawn into the tab itself");
+	b.done();
 });
 
 test("add, a duplicate, an error, Remove with the focus after it, and the suggestions behave the same on both paths", () => {
@@ -107,7 +134,7 @@ test("add, a duplicate, an error, Remove with the focus after it, and the sugges
 	b.done();
 });
 
-test("on the declared path: the words said, the focus, the error line and the label of each Remove are what the accessibility pass measured", () => {
+test("on the page: the words said, the focus, the error line and the label of each Remove are what the accessibility pass measured", () => {
 	const s = page("new", { allowedMediaHosts: ["a.example.org", "b.example.org", "c.example.org"] });
 	const input = s.el.querySelector('input[type="text"]');
 	const live = liveOf(s.el);
@@ -138,7 +165,7 @@ test("on the declared path: the words said, the focus, the error line and the la
 	s.done();
 });
 
-test("a change made elsewhere redraws only the list on the declared path, and a row's cleanup and hide() stop it listening", () => {
+test("a change made elsewhere redraws only the list on the page, and the page's hide() stops it listening", () => {
 	const s = page("new", { allowedMediaHosts: ["a.example.org"] });
 	const input = s.el.querySelector('input[type="text"]');
 	input.focus();
@@ -146,36 +173,51 @@ test("a change made elsewhere redraws only the list on the declared path, and a 
 	assert.equal(s.el.querySelector('input[type="text"]'), input);
 	assert.equal(doc.activeElement, input);
 	assert.ok(remove(s.el, "b.example.org"));
-	// the cleanups the rows gave back take their parts away
-	for (const c of s.cleanups) c();
-	assert.equal(s.el.querySelector('[role="alert"]'), null);
-	assert.equal(remove(s.el, "a.example.org"), null, "the list is gone with its row's cleanup");
+	s.p.hide();
+	assert.equal(s.el.querySelector('[role="alert"]'), null, "the error line is taken away with the page");
+	assert.equal(remove(s.el, "a.example.org"), null, "so is the list");
 	const before = s.el.innerHTML;
 	s.media.addVault("c.example.org");
 	assert.equal(s.el.innerHTML, before, "and it no longer listens");
-	// hide() alone does the same, and twice does no harm
-	const h = page("new", { allowedMediaHosts: ["a.example.org"] });
-	h.t.hide();
-	const was = h.el.innerHTML;
-	h.media.addVault("z.example.org");
-	assert.equal(h.el.innerHTML, was);
-	h.t.hide();
+	// hide() twice does no harm; the tab's own hide() after the page's does none either
+	s.p.hide();
+	s.t.hide();
 	s.done();
-	h.done();
+});
+
+test("each time the entry is opened it is a new page, and the one left listens to nothing", () => {
+	const media = new MediaAllows({ allowedMediaHosts: ["a.example.org"] }, () => {});
+	const t = new BookletSettingTab({}, {}, media);
+	const def = t.getSettingDefinitions()[0];
+	const one = def.page();
+	one.display();
+	one.hide();
+	const two = def.page();
+	assert.notEqual(one, two);
+	two.display();
+	media.addVault("b.example.org");
+	assert.equal(remove(one.containerEl, "b.example.org"), null, "the page that was left does not follow the list");
+	assert.ok(remove(two.containerEl, "b.example.org"));
+	two.hide();
+	one.rootEl.remove();
+	two.rootEl.remove();
+	t.containerEl.remove();
 });
 
 test("a call made only to index the search draws nothing and listens to nothing", () => {
 	const media = new MediaAllows(null, () => {});
 	const t = new BookletSettingTab({}, {}, media);
 	const before = t.containerEl.innerHTML;
+	const pagesBefore = doc.querySelectorAll(".setting-page").length;
 	t.getSettingDefinitions();
 	t.getSettingDefinitions();
 	media.addVault("youtube.com");
 	assert.equal(t.containerEl.innerHTML, before);
+	assert.equal(doc.querySelectorAll(".setting-page").length, pagesBefore, "no page is made until the entry is opened");
 	t.containerEl.remove();
 });
 
-test("before 1.13 the tab is display() alone: the definitions are empty, nothing calls them, and the page is the same as ever", () => {
+test("before 1.13 the tab is display() alone: the definitions are empty, nothing calls them, SettingPage is never made, and the page is the same as ever", () => {
 	assert.equal(PluginSettingTab.prototype.getSettingDefinitions, undefined, "the stub, like Obsidian 1.11.7, has no such method");
 	assert.equal(Object.getPrototypeOf(BookletSettingTab.prototype).getSettingDefinitions, undefined, "so the tab's own is the only one");
 	const a = page("old", { allowedMediaHosts: ["youtube.com"] });
@@ -184,9 +226,10 @@ test("before 1.13 the tab is display() alone: the definitions are empty, nothing
 		assert.deepEqual(a.t.getSettingDefinitions(), [], "asked on an older app it gives nothing, so display() is the page");
 		const b = page("old", { allowedMediaHosts: ["youtube.com"] });
 		assert.equal(b.el.innerHTML, a.el.innerHTML);
+		assert.ok(b.el.classList.contains("booklet-settings"));
 		b.done();
 		globalThis.__bookletStubApiVersion = "1.13.0";
-		assert.equal(a.t.getSettingDefinitions().length, 3, "1.13.0 is the first that has them");
+		assert.equal(a.t.getSettingDefinitions().length, 1, "1.13.0 is the first that has them");
 	} finally {
 		delete globalThis.__bookletStubApiVersion;
 	}
