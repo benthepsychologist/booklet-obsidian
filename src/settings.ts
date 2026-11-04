@@ -4,7 +4,7 @@
  * never in a note and never read from one. "Once" is kept nowhere: it is a press on one piece of media (media-view.ts). The card
  * (allow-card.ts) and this page edit the same list, so whatever one writes the other shows.
  */
-import { Notice, PluginSettingTab, Setting, type App, type Plugin } from "obsidian";
+import { Notice, PluginSettingTab, Setting, requireApiVersion, type App, type Plugin, type SettingDefinitionItem } from "obsidian";
 import { SUGGESTED_HOSTS, alsoCovers, hostList, normaliseEntry, type Allows, type EntryResult } from "./core";
 
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
@@ -156,59 +156,89 @@ export class MediaAllows {
 	}
 }
 
-/** The plugin's settings page: the vault's list and the way to add to it. */
-export class BookletSettingTab extends PluginSettingTab {
-	private off: (() => void) | null = null;
+const INTRO =
+	"Audio and video hosted on these sites can load once you press Play. Sites are written by their name, like youtube.com; https is assumed, and a site covers its subdomains. A note can never allow a site for you. This list is for every note in this vault; the Allow list button at the top of a note also lets you allow a site for that note alone.";
 
-	constructor(
-		app: App,
-		plugin: Plugin,
-		private readonly allows: MediaAllows,
-	) {
-		super(app, plugin);
+/**
+ * The rows of the settings page, drawn into rows that something else makes: `display()` makes them on Obsidian before 1.13
+ * (`new Setting(containerEl)`), and the `render` of each setting definition is given one on 1.13 and later. The drawing and
+ * the behaviour (the focus after Remove, the words said to a screen reader, Enter to add, the error line) are these methods,
+ * once, so the two ways to show the page cannot drift apart. Each `draw…` gives back what takes its parts away again.
+ */
+class AllowPage {
+	private input: HTMLInputElement | null = null;
+	private live: HTMLElement | null = null;
+	private cleanups: (() => void)[] = [];
+
+	constructor(private readonly allows: MediaAllows) {}
+
+	/** What a screen reader is told about a change, without moving focus. */
+	private say(text: string): void {
+		this.live?.setText(text);
 	}
 
-	override display(): void {
-		const { containerEl } = this;
-		this.off?.();
-		containerEl.empty();
-		containerEl.addClass("booklet-settings");
-		new Setting(containerEl).setDesc(
-			"Audio and video hosted on these sites can load once you press Play. Sites are written by their name, like youtube.com; https is assumed, and a site covers its subdomains. A note can never allow a site for you. This list is for every note in this vault; the Allow list button at the top of a note also lets you allow a site for that note alone.",
-		);
+	private keep(fn: () => void): () => void {
+		let done = false;
+		const once = (): void => {
+			if (done) return;
+			done = true;
+			fn();
+		};
+		this.cleanups.push(once);
+		return once;
+	}
 
+	dispose(): void {
+		for (const f of this.cleanups.splice(0)) f();
+	}
+
+	/** The explanation, and under it the vault's list (a div of its own, put right after the row). */
+	drawIntro(row: Setting): () => void {
+		// the row has no name: the words are the description. (Obsidian 1.13 may have set the definition's name on it, which is only there for search.)
+		row.setName("").setDesc(INTRO);
 		// only the list is drawn again after a change, so the box below it, the focus and the words said to a screen reader stay where they are
-		const listEl = containerEl.createDiv();
+		const listEl = row.settingEl.createDiv();
+		row.settingEl.after(listEl);
 		const draw = (): void => {
 			listEl.empty();
 			const list = this.allows.vaultList();
 			if (!list.length) new Setting(listEl).setDesc("No site is allowed yet.");
 			for (const entry of list) {
 				const covers = alsoCovers(entry);
-				const row = new Setting(listEl).setName(entry);
-				if (covers.length) row.setDesc(`Also covers ${hostList(covers)}, which its player uses.`);
-				row.addButton((b) => {
+				const item = new Setting(listEl).setName(entry);
+				if (covers.length) item.setDesc(`Also covers ${hostList(covers)}, which its player uses.`);
+				item.addButton((b) => {
 					b.setButtonText("Remove").onClick(() => {
 						const at = this.allows.vaultList().indexOf(entry);
 						this.allows.removeVault(entry);
 						// the button that had the focus is gone: it goes to the next one, else the one before, else the box
 						const left = listEl.querySelectorAll<HTMLElement>("button");
-						(left[Math.min(at, left.length - 1)] ?? input).focus();
-						say(`Removed ${entry}`);
+						(left[Math.min(at, left.length - 1)] ?? this.input)?.focus();
+						this.say(`Removed ${entry}`);
 					});
 					b.buttonEl.setAttribute("aria-label", `Remove ${entry}`);
 				});
 			}
 		};
+		draw();
+		const off = this.allows.onChange(draw);
+		return this.keep(() => {
+			off();
+			listEl.remove();
+		});
+	}
 
-		const error = containerEl.createDiv({ cls: "setting-item-description booklet-allow-error", attr: { role: "alert" } });
+	/** The box, its button and the error line and the live region before it. */
+	drawAdd(row: Setting): () => void {
+		const error = row.settingEl.createDiv({ cls: "setting-item-description booklet-allow-error", attr: { role: "alert" } });
 		// what a change did, said to a screen reader without moving focus
-		const live = containerEl.createDiv({ cls: "booklet-sr", attr: { role: "status", "aria-live": "polite" } });
-		const say = (text: string): void => live.setText(text);
+		const live = row.settingEl.createDiv({ cls: "booklet-sr", attr: { role: "status", "aria-live": "polite" } });
+		row.settingEl.before(error, live);
+		this.live = live;
 		let typed = "";
-		let input!: HTMLInputElement;
 		let field!: { setValue(v: string): unknown };
-		const add = () => {
+		let input!: HTMLInputElement;
+		const add = (): void => {
 			const n = normaliseEntry(typed);
 			// a site already on the list is said so, not added a second time and not passed over in silence
 			const had = n.ok && this.allows.vaultList().includes(n.entry);
@@ -221,14 +251,14 @@ export class BookletSettingTab extends PluginSettingTab {
 			typed = "";
 			field.setValue("");
 			input.focus();
-			say(had ? `${r.entry} is already on the list` : `Added ${r.entry}`);
+			this.say(had ? `${r.entry} is already on the list` : `Added ${r.entry}`);
 		};
-		new Setting(containerEl)
-			.setName("Add a site")
+		row.setName("Add a site")
 			.setDesc("The site's name, like youtube.com. Enter adds it.")
 			.addText((t) => {
 				field = t;
 				input = t.inputEl;
+				this.input = input;
 				t.setPlaceholder("youtube.com").onChange((v) => {
 					typed = v;
 					error.setText("");
@@ -240,25 +270,104 @@ export class BookletSettingTab extends PluginSettingTab {
 				});
 			})
 			.addButton((b) => b.setButtonText("Add").onClick(add));
+		return this.keep(() => {
+			error.remove();
+			live.remove();
+			if (this.live === live) this.live = null;
+			if (this.input === input) this.input = null;
+		});
+	}
 
-		new Setting(containerEl)
-			.setName("Suggested services")
+	/** The one-time button that puts the suggested services on the list. */
+	drawSuggested(row: Setting): () => void {
+		row.setName("Suggested services")
 			.setDesc(`Adds ${SUGGESTED_HOSTS.join(", ")} to the list above. Nothing is allowed until you do this, and you can remove any of them again.`)
 			.addButton((b) =>
 				b.setButtonText("Add suggested services").onClick(() => {
 					const n = this.allows.addSuggested();
 					const said = n ? `Added ${n} suggested ${n === 1 ? "site" : "sites"}.` : "The suggested services are already on the list.";
 					new Notice(said);
-					say(said);
+					this.say(said);
 				}),
 			);
+		return this.keep(() => undefined);
+	}
+}
 
-		draw();
-		this.off = this.allows.onChange(draw);
+/**
+ * The plugin's settings page: the vault's list and the way to add to it.
+ *
+ * Obsidian 1.13 and later call `getSettingDefinitions()` and draw the page from what it gives (and do not call `display()`
+ * when it gives something), so the rows are found by the settings search. Before 1.13 nothing calls it and `display()` draws
+ * the page, as it always did. Both ways draw the same rows with the same code (`AllowPage`).
+ */
+export class BookletSettingTab extends PluginSettingTab {
+	private pages = new Set<AllowPage>();
+
+	constructor(
+		app: App,
+		plugin: Plugin,
+		private readonly allows: MediaAllows,
+	) {
+		super(app, plugin);
+	}
+
+	/** A page of rows to draw into, one for each time the settings are shown; taken away when the tab is hidden. */
+	private newPage(): AllowPage {
+		const page = new AllowPage(this.allows);
+		this.pages.add(page);
+		return page;
+	}
+
+	private disposePages(): void {
+		for (const page of this.pages) page.dispose();
+		this.pages.clear();
+	}
+
+	/**
+	 * Obsidian 1.13 and later. The rows are drawn by `render` (the code of `display()`), and the name, the words and the
+	 * aliases here are what the settings search looks in. Nothing before 1.13 calls this; if something does, it is empty and
+	 * `display()` is the page.
+	 */
+	override getSettingDefinitions(): SettingDefinitionItem[] {
+		if (!requireApiVersion("1.13.0")) return [];
+		// the three rows share one page of state; it is made by the first one drawn, so that a call made only to index the search makes nothing
+		let page: AllowPage | null = null;
+		const shared = (): AllowPage => (page ??= this.newPage());
+		return [
+			{
+				name: "Allowed sites",
+				desc: INTRO,
+				aliases: ["allow", "allow list", "allowed", "media", "hosts", "sites", "audio", "video", "https", "vault", "remove"],
+				render: (setting) => shared().drawIntro(setting),
+			},
+			{
+				name: "Add a site",
+				desc: "The site's name, like youtube.com. Enter adds it.",
+				aliases: ["allow", "allowed sites", "media", "host", "hosts", "site", "add"],
+				render: (setting) => shared().drawAdd(setting),
+			},
+			{
+				name: "Suggested services",
+				desc: `Adds ${SUGGESTED_HOSTS.join(", ")} to the list above. Nothing is allowed until you do this, and you can remove any of them again.`,
+				aliases: ["Add suggested services", "allow", "media", "hosts", "suggestions", ...SUGGESTED_HOSTS],
+				render: (setting) => shared().drawSuggested(setting),
+			},
+		];
+	}
+
+	override display(): void {
+		const { containerEl } = this;
+		this.disposePages();
+		containerEl.empty();
+		containerEl.addClass("booklet-settings");
+		const page = this.newPage();
+		page.drawIntro(new Setting(containerEl));
+		page.drawAdd(new Setting(containerEl));
+		page.drawSuggested(new Setting(containerEl));
 	}
 
 	override hide(): void {
-		this.off?.();
-		this.off = null;
+		this.disposePages();
 	}
 }

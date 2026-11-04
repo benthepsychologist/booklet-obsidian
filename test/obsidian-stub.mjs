@@ -270,6 +270,20 @@ export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 	}
 });
 
+/**
+ * Obsidian's requireApiVersion: true when the app's API version is at least `v`. The app here is 1.14.5 unless a test sets
+ * `globalThis.__bookletStubApiVersion` (the settings tests set "1.11.7" to see the page as the oldest supported Obsidian draws it).
+ */
+export function requireApiVersion(v) {
+	const have = String(globalThis.__bookletStubApiVersion ?? "1.14.5").split(".").map(Number);
+	const want = String(v).split(".").map(Number);
+	for (let i = 0; i < 3; i++) {
+		const d = (have[i] ?? 0) - (want[i] ?? 0);
+		if (d) return d > 0;
+	}
+	return true;
+}
+
 /** The classes main.ts and switch.ts name: a view on a file, a note, and the leaf whose prototype the view switch wraps. */
 /** A key scope: the handlers registered on it, by modifiers and key. The app's keymap (`app.keymap`) keeps a stack of them. */
 export class Scope {
