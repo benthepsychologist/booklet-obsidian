@@ -25,7 +25,6 @@ function page(how, raw = null) {
 	if (how === "old") t.display();
 	else {
 		// what Obsidian does with the definitions: a row for each, handed to its render
-		t.containerEl.classList.add("booklet-settings");
 		for (const d of t.getSettingDefinitions()) {
 			assert.equal(typeof d.render, "function", `${d.name} is drawn by render`);
 			const c = d.render(new Setting(t.containerEl), { listEl: t.containerEl });

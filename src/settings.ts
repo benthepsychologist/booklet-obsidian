@@ -333,7 +333,11 @@ export class BookletSettingTab extends PluginSettingTab {
 		if (!requireApiVersion("1.13.0")) return [];
 		// the three rows share one page of state; it is made by the first one drawn, so that a call made only to index the search makes nothing
 		let page: AllowPage | null = null;
-		const shared = (): AllowPage => (page ??= this.newPage());
+		const shared = (): AllowPage => {
+			// display() puts this class on the page; on 1.13 and later display() is not called, so the first row drawn does, or the page's rules (the 44 px targets, the wrapping of long names) would not apply
+			this.containerEl.addClass("booklet-settings");
+			return (page ??= this.newPage());
+		};
 		return [
 			{
 				name: "Allowed sites",
