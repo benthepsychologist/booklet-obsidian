@@ -2,11 +2,13 @@
 
 Checked 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`, on top of plugin 1.0.0 at `e3cfb19`; the files still say 1.0.0, the 1.0.1 bump has not been made). `docs/directory-checklist-100.md` stays as the dated record of the first run; this file re-checks every row of it against the repository as it is now, and adds the rows the current Guidelines page has that the first run did not list. Nothing is submitted to the directory by this document.
 
-Evidence form: `file:line` was opened and read; "ran" means the command was run in this worktree on 2026-11-03. `src/`, `test-vault/` and `e2e/` were only read (a real-Obsidian run was using them), so the build was not re-run here (item 28).
+**Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`, worktree `/workspace/booklet-wt/c102`; the files now say 1.0.2). The directory's bot found three things in 1.0.1: no `authorUrl`, a README heading that was not the plugin's name, and the global `document` in `src/now-playing.ts`. Rows 21 (authorUrl), 16 (version), 48 (the linter run, now over the whole repository root) and 49 (the `prefer-active-doc` grep) were re-checked and changed; section 2.3 and the item-13 paragraph say what the wider lint now does. Everything else is as checked on 2026-11-03 and was not re-run for 1.0.2. `docs/lint-101.md` section 0 has the detail. Not submitted to the directory by this document either.
+
+Evidence form: `file:line` was opened and read; "ran" means the command was run in this worktree on 2026-11-03. `src/`, `test-vault/` and `e2e-tests/` were only read (a real-Obsidian run was using them), so the build was not re-run here (item 28).
 
 ## 1. Result in one line
 
-**48 PASS, 0 FAIL, 8 NOT APPLICABLE, 1 NOTE (57 rows).** The first run had 1 FAIL (item 39, the settings heading) and 5 COULD NOT CHECK (13, 18, 27, 48, 49); all six now have a result, below. The one NOTE row is a style recommendation, not a failure (async/await, item 56); item 57, the README not naming the one bundled library, was fixed in `f7dc2f9`. What still cannot be checked from here is in section 5.
+**49 PASS, 0 FAIL, 7 NOT APPLICABLE, 1 NOTE (57 rows).** (1.0.1 had 48 PASS and 8 NOT APPLICABLE; row 21, `authorUrl`, moved from NOT APPLICABLE to PASS in 1.0.2.) The first run had 1 FAIL (item 39, the settings heading) and 5 COULD NOT CHECK (13, 18, 27, 48, 49); all six now have a result, below. The one NOTE row is a style recommendation, not a failure (async/await, item 56); item 57, the README not naming the one bundled library, was fixed in `f7dc2f9`. What still cannot be checked from here is in section 5.
 
 ## 2. The five that could not be checked, and the one that failed
 
@@ -15,11 +17,11 @@ Evidence form: `file:line` was opened and read; "ran" means the command was run 
 | 13 | LICENSE copyright line | CNC | PASS | `LICENSE:189` is `Copyright 2026 Ben Armstrong` (commit `30157ec`); the template text is gone, nothing else in the file changed |
 | 18 | minAppVersion is the true floor | CNC | PASS | see 2.1 |
 | 27 | Directory accepts the release | CNC | PASS (workflow sense) | see 2.2 |
-| 48 | eslint-plugin-obsidianmd run | CNC | PASS | `npm run lint` over `src/`: 0 errors, 4 warnings (2.3) |
+| 48 | eslint-plugin-obsidianmd run | CNC | PASS | `npm run lint` over the repository root (1.0.2): 0 errors, 4 warnings (2.3) |
 | 49 | Grep hints for linter rules | CNC | PASS | every grep from 100's item 49 and section 1 re-run: 0 hits (2.4) |
 | 39 | Settings heading only with several sections | FAIL | PASS | `src/settings.ts` has no `setHeading` at all (ran `grep -rn setHeading src`: no hits); `display()` at `:171-181` opens with a description line and the list, no heading |
 
-Item 13 in detail. The notice sits in the appendix block ("How to apply the Apache License to your work", `LICENSE:178-189`), the only place the template line ever was, so it was filled where it stood. The linter's `obsidianmd/validate-license` rule (read in `node_modules/eslint-plugin-obsidianmd/dist/lib/rules/validateLicense.js`) only parses a line of the shape `Copyright (C) 2020-2025 by Holder`, reports an end year before the current year and the holder `Dynalist Inc.`; the Apache line is not in that shape, so it matches nothing, and the recommended config does not apply the rule to the LICENSE file here (`npx eslint LICENSE`: "File ignored because no matching configuration was supplied"). So the rule was not run on the file; the result rests on the line being filled with the owner and the current year.
+Item 13 in detail. The notice sits in the appendix block ("How to apply the Apache License to your work", `LICENSE:178-189`), the only place the template line ever was, so it was filled where it stood. The linter's `obsidianmd/validate-license` rule (read in `node_modules/eslint-plugin-obsidianmd/dist/lib/rules/validateLicense.js`) only parses a line of the shape `Copyright (C) 2020-2025 by Holder`, reports an end year before the current year and the holder `Dynalist Inc.`; the Apache line is not in that shape, so it matches nothing, and the recommended config did not apply the rule to the LICENSE file in 1.0.1 (`npx eslint LICENSE`: "File ignored because no matching configuration was supplied"), so it was not run on the file then. **1.0.2:** `eslint.config.mjs` now reads `LICENSE` as plain lines and applies the rule, so `npm run lint` does run it on the file: no finding, because the Apache line is not in the shape the rule matches (it fires on a scratch copy holding `Copyright (C) 2020 by Dynalist Inc.`). The result still rests on the line being filled with the owner and the current year.
 
 ### 2.1 Item 18: minAppVersion 1.11.7
 
@@ -33,14 +35,14 @@ Item 13 in detail. The notice sits in the appendix block ("How to apply the Apac
 
 - `.github/workflows/release.yml` now publishes a plain `x.y.z` tag as a normal release (`--latest`, not `--prerelease`), after `release-check.mjs` has confirmed the tag is the version in `package.json`, `manifest.json` and `versions.json` and the tag is on `main`; an `x.y.z-<suffix>` tag is a pre-release for BRAT. `docs/release-flow.md` has the steps. Tested: `test/release-check.test.mjs` (11 tests). Ran `node release-check.mjs`: `1.0.0` "is the version everywhere (a real release)"; `1.0.0-beta.1` "is a pre-release of 1.0.0"; `1.0.1` refused (manifest, package and versions still say 1.0.0); `v1.0.0` refused.
 - So the flow the directory reads (a release whose tag equals the manifest version, with `main.js`, `manifest.json`, `styles.css` attached, not marked pre-release) is in place: PASS in the workflow sense.
-- **The real release does not exist yet.** `gh release view 1.0.0` shows `isPrerelease: true` with the three assets, and `gh release list` shows every release to date (0.10.0 to 1.0.0) as a pre-release. The 1.0.1 release exists only when Ben tags it.
+- **The real release does not exist yet.** `gh release view 1.0.0` shows `isPrerelease: true` with the three assets, and `gh release list` shows every release to date (0.10.0 to 1.0.0) as a pre-release. *(As of 2026-11-03.)* The 1.0.1 real release was tagged and published the next day, 2026-11-04, as Latest, not a pre-release.
 - **Not checked:** that the directory's reader of releases picks the latest non-pre-release one (the Submit page says installs pull the three files "from the GitHub release whose tag matches the manifest version"; it does not say what it does with pre-releases); that the workflow runs end to end on GitHub (the `if:` condition, the `kind` output and `gh release create --latest` are read, not run).
 
 ### 2.3 Item 48: the linter
 
-Ran `npm run lint` (`eslint src`, `eslint-plugin-obsidianmd` 0.4.2 recommended set, ESLint 9.39.5): **`✖ 4 problems (0 errors, 4 warnings)`**. They are the 3 `ui/sentence-case` warnings (`allow-card.ts:205`, `settings.ts:177` and `:228`: the rule wants `youtube.com` as `YouTube.com`, `https` as `HTTPS`, and button names `Play` / `Allow list` lowercased) and 1 `settings-tab/prefer-setting-definitions` (`settings.ts:160`). Each is explained, with the reason it was left, in `docs/lint-101.md`. The first run on 1.0.0 had 5 errors and 26 warnings.
+Ran `npm run lint` (1.0.1: `eslint src`; 1.0.2: `eslint .`, `eslint-plugin-obsidianmd` 0.4.2 recommended set plus `prefer-active-doc`, ESLint 9.39.5): **`✖ 4 problems (0 errors, 4 warnings)`** on both. They are the 3 `ui/sentence-case` warnings (`allow-card.ts:205`, `settings.ts:177` and `:228`: the rule wants `youtube.com` as `YouTube.com`, `https` as `HTTPS`, and button names `Play` / `Allow list` lowercased) and 1 `settings-tab/prefer-setting-definitions` (`settings.ts:160`). Each is explained, with the reason it was left, in `docs/lint-101.md`. The first run on 1.0.0 had 5 errors and 26 warnings.
 
-What this does not cover: `npm run lint` lints `src/` only. `package.json` was also linted (`npx eslint package.json`, no findings). The test, e2e and build scripts (`test/`, `e2e/`, root `*.mjs`) are not part of the plugin and were left out; run through the same rule set they give parse errors and Node-global warnings (260 errors and warnings in `e2e/`, 88 in `test/`, ran once and not kept). Whether the directory's tooling reads those files is not known.
+What this covers and does not (1.0.2): `npm run lint` lints the repository root: `src/`, `manifest.json` (`validate-manifest`), `package.json` and `LICENSE` (`validate-license`), and has `prefer-active-doc` on (the 1.0.1 run linted `src/` only, plus `package.json` by hand). The test, e2e and build scripts (`test/`, `e2e-tests/`, root `*.mjs`) are not part of the plugin and were left out; run through the same rule set they give parse errors and Node-global warnings (260 errors and warnings in `e2e-tests/`, 88 in `test/`, ran once and not kept). Whether the directory's tooling reads those files is not known.
 
 ### 2.4 Item 49: the greps, re-run over `src/*.ts`
 
@@ -56,7 +58,7 @@ What this does not cover: `npm run lint` lints `src/` only. `package.json` was a
 | detach in onunload | `detach` | 0 | 0 |
 | inline styles | `.style`, `cssText`, `setAttribute("style"` | 0 | 0 |
 | global `app` | a bare `app.` or `window.app` | not searched | 0 |
-| `prefer-active-doc` | a bare `document` outside comments | not searched | `now-playing.ts:145` `typeof document !== "undefined"` then `this.liveOf(document)`: the one use of the global (the other hits are comments); the linter does not flag it |
+| `prefer-active-doc` | a bare `document` outside comments | not searched | 1.0.1: `now-playing.ts:145` used the global `document` (the bot flagged it; the recommended set has the rule off). 1.0.2: it is `activeDocument` there, and the rule is on in `eslint.config.mjs`: 0 findings |
 | lookbehind | `(?<=`, `(?<!` | not searched | 0 |
 | Node modules | `from "fs"`, `"path"`, `"os"`, `"electron"`, `require(` | 0 | 0 |
 | `navigator` / `Platform` | `navigator.`, `Platform` | 0 | 0 |
@@ -93,16 +95,16 @@ Search: `grep -rnE "fetch\(|XMLHttpRequest|requestUrl|WebSocket|EventSource|send
 | 13 | Copyright notice | PASS | 2 above |
 | 14 | id: lowercase letters and hyphens, no "obsidian", not ending "plugin" | PASS | `manifest.json` `"id": "booklet"` |
 | 15 | name has no "obsidian" | PASS | `"name": "Booklet"` |
-| 16 | version is x.y.z and matches package.json | PASS | `1.0.0` in both (ran `node release-check.mjs 1.0.0`). The 1.0.1 bump is not made; it is made by `npm version 1.0.1` (`docs/release-flow.md`) |
+| 16 | version is x.y.z and matches package.json | PASS | 1.0.2: `1.0.2` in `package.json`, `package-lock.json`, `manifest.json` and `versions.json` (made by `npm version 1.0.2`); ran `node release-check.mjs 1.0.2-beta.1`: "a pre-release of 1.0.2, the version everywhere" |
 | 17 | minAppVersion present | PASS | `"minAppVersion": "1.11.7"` |
 | 18 | minAppVersion is the true oldest version | PASS | 2.1 |
 | 19 | description: action start, 250 chars or fewer, ends with a period, no emoji | PASS | ran: 110 characters; starts "Opens a Booklet note..."; ends "."; no emoji; it also matches the plugin linter's own `validate-manifest` pattern (letters, digits, spaces and `.,!?'"-` only) |
 | 20 | author present | PASS | `"author": "Ben Armstrong"` |
-| 21 | authorUrl | N/A | optional, absent |
+| 21 | authorUrl | PASS | 1.0.2: `"authorUrl": "https://github.com/benthepsychologist"`, a page about the author, https, not the plugin repository; `validate-manifest` accepts it. (1.0.1: absent, which the bot flagged) |
 | 22 | fundingUrl | N/A | absent; the rule says to leave it out if no donations are taken |
 | 23 | isDesktopOnly matches the code | PASS | `false`; no Node or Electron import (item 53), `Platform` unused |
 | 24 | versions.json valid | PASS | 15 entries, `x.y.z` to a minimum version; `1.0.0` maps to `1.11.7`, same as the manifest (enforced by `release-check.mjs`) |
-| 25 | Release carries main.js, manifest.json, styles.css; tag equals version | PASS | `release.yml` attaches the three files; ran `gh release view 1.0.0`: assets `main.js`, `manifest.json`, `styles.css`, tag `1.0.0` (marked pre-release; the 1.0.1 real release does not exist yet) |
+| 25 | Release carries main.js, manifest.json, styles.css; tag equals version | PASS | `release.yml` attaches the three files; ran `gh release view 1.0.0`: assets `main.js`, `manifest.json`, `styles.css`, tag `1.0.0` (marked pre-release; checked 2026-11-03, before 1.0.1 was released as a real release on 2026-11-04) |
 | 26 | `release-check.mjs` guards the tag | PASS | now accepts `x.y.z` (a real release) and `x.y.z-<suffix>` (a pre-release), refuses leading zeros, a leading `v` and anything else; the `x.y.z` must be the version in the three files; tests in `test/release-check.test.mjs` |
 | 27 | Directory accepts the release | PASS | 2.2 |
 | 28 | Built from source | PASS | `package.json` script `build` = `tsc -noEmit -skipLibCheck && node esbuild.config.mjs production`. Ran `npx tsc -noEmit -skipLibCheck` now: no errors. `npm run build` was last run before the lint commit (`16a9187`) and left `git status` clean; not re-run here because it rewrites `test-vault/`. CI (`.github/workflows/ci.yml`) diffs the committed test-vault copies against a fresh build |
@@ -161,9 +163,9 @@ No rule that made a row of 100 pass now makes it fail.
 
 ## 7. Still not checked
 
-- That the directory's own review tooling finds nothing more than the plugin linter (it may run other rules or read files outside `src/`).
-- That the real 1.0.1 release workflow runs end to end on GitHub and produces a non-pre-release (it has not run).
+- That the directory's own review tooling finds nothing more than the plugin linter (it may run other rules, or other versions of them; 1.0.2 lints the repository root but still not `test/`, `e2e-tests/` or the root `*.mjs` scripts).
+- That the real release workflow runs end to end on GitHub and produces a non-pre-release (checked 2026-11-04: it ran for tag 1.0.1 and published a non-pre-release Latest with the three files; the attestation was not confirmed).
 - That Obsidian's directory ignores pre-releases when it picks a version.
 - The pull-request template route (`obsidian-releases`) is no longer how the Submit page says to submit; whether the old route still works is not known.
-- The real-Obsidian suite (`e2e/`) was not re-run on the 1.0.1 source for this document; the 1.0.0 runs are in `README.md:222-226`.
+- The real-Obsidian suite (`e2e-tests/`) was not re-run on the 1.0.1 source for this document (it was run on the 1.0.1 source on 2026-11-03 before the release, and is run on the 1.0.2 source before it is merged); the 1.0.0 runs are in `README.md:222-226`.
 - Android, a real phone and a real screen reader (`README.md:229-231`).

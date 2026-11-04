@@ -3,7 +3,7 @@
  * as entries, hand-edited and answered again, and each time the file is compared as bytes (Buffer), not strings: every byte
  * the writer was not asked to change is the byte that was there. Line endings, a byte-order mark, a missing final newline,
  * non-Latin text and emoji and a design written after the records are the ways a file differs that a string comparison on
- * one machine does not see. The same flows in the real app are check 36 of e2e/plugin-check.js.
+ * one machine does not see. The same flows in the real app are check 36 of e2e-tests/plugin-check.js.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

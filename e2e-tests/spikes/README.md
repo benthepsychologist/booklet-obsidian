@@ -6,7 +6,7 @@ floor has not been measured.
 
 ## Common setup
 ```
-cd e2e/spikes
+cd e2e-tests/spikes
 export PLAYWRIGHT=<folder holding node_modules/playwright-core, or the package itself>
 OB=<path to the obsidian binary>    OUT=<a scratch folder>
 node make-media.js --obsidian $OB --out $OUT --media $OUT/media     # once: records clip.webm, clip.mp4, sound.m4a, sound.webm; writes sound.mp3 (silence)

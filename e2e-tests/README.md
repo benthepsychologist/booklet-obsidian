@@ -1,4 +1,4 @@
-# e2e: drive the real Obsidian desktop app
+# e2e-tests: drive the real Obsidian desktop app
 
 Launches Obsidian 1.14.5 (Linux x64 tarball, Electron 43.8.3) headless on a scratch config and any vault, and drives it
 over Chrome DevTools Protocol with `playwright-core`. Playwright's own `_electron.launch` does NOT work (it times out; the

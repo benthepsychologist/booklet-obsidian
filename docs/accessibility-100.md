@@ -26,7 +26,7 @@ measured by a script driving a real Obsidian, on two versions.
 | Obsidian 1.14.5 | Chrome 150, Electron 43.8.3, real binary under Xvfb |
 | Obsidian 1.11.7 | Chrome 142, Electron 39.5.1, real binary under Xvfb |
 | Plugin | the committed test-vault build (equal to `npm run build`) |
-| Script | `e2e/access-pass-100.js`, run by hand, see `e2e/README.md` |
+| Script | `e2e-tests/access-pass-100.js`, run by hand, see `e2e-tests/README.md` |
 | axe-core | 4.10.2, from the Playwright tools folder, not installed in this repo |
 | Test note | `test/page-notes/Screen reader walk`, made-up content only |
 
@@ -157,7 +157,7 @@ Where each figure comes from:
 
 ## 200% text at a phone width
 
-390 by 844, Obsidian phone emulation as `e2e/mobile-checks.js` does it. 1.14.5: 200% is exact (32px
+390 by 844, Obsidian phone emulation as `e2e-tests/mobile-checks.js` does it. 1.14.5: 200% is exact (32px
 base). 1.11.7 ignores the text-scale variable, so the script sets the base font to 32px, which gives 30px
 (about 187%); that is the best that version allows.
 
@@ -169,7 +169,7 @@ base). 1.11.7 ignores the text-scale variable, so the script sets the base font 
 | Pages (questions) | fits | fits |
 
 Sideways scroll 0, overlapping controls 0, cut-off controls 0, targets under 24px 0, on both versions.
-At 390 by 844 that was the whole result. Lane E2 then measured a 320 by 568 phone at 200% (`e2e/phone-200-100.js`)
+At 390 by 844 that was the whole result. Lane E2 then measured a 320 by 568 phone at 200% (`e2e-tests/phone-200-100.js`)
 and found two faults there (finding 18, fixed). Two things are listed, both small: data tables are wider than the screen (+339px at 100%, +1000px at
 200%) and scroll inside their own box, which is the design; and at 100% the Pages drawer on a short page
 runs under Obsidian's floating bottom bar (the list scrolls inside itself).
@@ -187,14 +187,14 @@ runs under Obsidian's floating bottom bar (the list scrolls inside itself).
   - **Before.** 1.14.5 did not reproduce it: Settings is a window of its own there, the card kept focus and
     Escape closed only the card. 1.11.7 reproduced it: Settings is a modal in the main window with a key
     scope of its own; the card opened, but focus was pulled straight back to Settings' "Remove" button, and
-    one Escape closed both Settings and the card. `e2e/allow-settings-100.js` on 1.11.7 before the fix: 9
+    one Escape closed both Settings and the card. `e2e-tests/allow-settings-100.js` on 1.11.7 before the fix: 9
     facts passed and 7 failed.
   - **The fix.** The card puts a scope of its own on Obsidian's key stack while it is open
     (`new Scope(app.scope)` with `app.keymap.pushScope`, `keyScope` in `src/allow-card.ts` and
     `src/view.ts`). Obsidian hands a key to the topmost scope only, so one Escape closes the card when the
     card is on top and Settings when Settings is, and Settings no longer pulls focus back. The card's
     document listener keeps Tab only.
-  - **After.** `e2e/allow-settings-100.js`: 21 of 21 facts pass on 1.11.7 and on 1.14.5 (see "Rerun by lane F"
+  - **After.** `e2e-tests/allow-settings-100.js`: 21 of 21 facts pass on 1.11.7 and on 1.14.5 (see "Rerun by lane F"
     below for the runs made on this branch).
 
 ## Findings
@@ -245,13 +245,13 @@ reader wrote): none of the fixes changes what is stored or sent.
    `role=button`, cards, charts, sort heads, the kept-entries fold, steps and the Continue prompt) are now
    `var(--text-normal)`, and one rule (`styles.css:2381`) gives the buttons, fields and players inside the view
    and the Allow card a 2 px outline in `var(--text-normal)`, 3 px off the control (Obsidian's pale ring stays
-   inside it). Evidence: `e2e/focus-ring-100.js` presses the real Tab key through every screen in both themes and
+   inside it). Evidence: `e2e-tests/focus-ring-100.js` presses the real Tab key through every screen in both themes and
    reads the ring after Obsidian's ease-in; the lowest ratio for a plugin-owned text-colour ring is 12.42 in the
    light theme and 8.02 in the dark (8.23 on 1.11.7), the same figures as lane E2's, rerun by lane F (below). Before: 1.74 to 1.88 on the page and cards in
    light, 1.98 to 2.29 in dark, 1.47 on a tinted card. The Now playing bar's accent ring (3.17 and 3.46) is
    unchanged. Choice recorded as C-167 in `docs/choices-100.md`.
 13. **Defect (ii), 1.11.7, fixed by E2 in `5098737`.** See the Allow-card section above.
-18. **200% text at 320 by 568, fixed by E2 in `0629614`.** Obsidian 1.14.5, `e2e/phone-200-100.js`.
+18. **200% text at 320 by 568, fixed by E2 in `0629614`.** Obsidian 1.14.5, `e2e-tests/phone-200-100.js`.
    The Allow card's scrolling part was 275 px of the 568 px window and its last line in view was cut at the
    scroll area's edge (the Close footer is in flow under the scroll area, so nothing lay under it). On a phone
    the card now takes the window less a margin, its headings are the dialog's size, and a rule over the Close
@@ -289,7 +289,7 @@ reader wrote): none of the fixes changes what is stored or sent.
   Obsidian's: 1.80 (light) and 2.08 (dark) to 1 on 1.11.7 in the focus-ring measurement (6 control and theme
   pairs under 3:1 there; 2 on 1.14.5). The plugin does not draw those rows.
 - **The native audio player's focus ring** (the browser's own control inside the plugin's player and the Now
-  playing bar) was not measured (the script records no ring for it, 2 stops with no ring on each version): `e2e/focus-ring-100.js` reads the outline or box shadow the page's CSS gives an element, and a media element's own controls draw their ring inside the browser, outside the page's CSS.
+  playing bar) was not measured (the script records no ring for it, 2 stops with no ring on each version): `e2e-tests/focus-ring-100.js` reads the outline or box shadow the page's CSS gives an element, and a media element's own controls draw their ring inside the browser, outside the page's CSS.
 - **11, 12, 14, 15:** light chart colours, table names, the Pages drawer's foot at 100% on a short page, and
   tables that scroll in their own box. Unchanged from the list above.
 - **16:** Escape on the page body keeps the Pages panel open, by design.
@@ -300,12 +300,12 @@ reader wrote): none of the fixes changes what is stored or sent.
 
 | Script | Obsidian | Result |
 | --- | --- | --- |
-| `e2e/allow-settings-100.js` | 1.14.5 | 21 passed, 0 failed |
-| `e2e/allow-settings-100.js` | 1.11.7 | 21 passed, 0 failed |
-| `e2e/focus-ring-100.js` | 1.14.5 | 331 stops; plugin rings under 3:1: 0 pairs |
-| `e2e/focus-ring-100.js` | 1.11.7 | 341 stops; plugin rings under 3:1: 0 pairs |
-| `e2e/phone-200-100.js` | 1.14.5 | 20 passed, 0 failed |
-| `e2e/phone-200-100.js` | 1.11.7 | 20 passed, 0 failed |
+| `e2e-tests/allow-settings-100.js` | 1.14.5 | 21 passed, 0 failed |
+| `e2e-tests/allow-settings-100.js` | 1.11.7 | 21 passed, 0 failed |
+| `e2e-tests/focus-ring-100.js` | 1.14.5 | 331 stops; plugin rings under 3:1: 0 pairs |
+| `e2e-tests/focus-ring-100.js` | 1.11.7 | 341 stops; plugin rings under 3:1: 0 pairs |
+| `e2e-tests/phone-200-100.js` | 1.14.5 | 20 passed, 0 failed |
+| `e2e-tests/phone-200-100.js` | 1.11.7 | 20 passed, 0 failed |
 
 - **Focus ring.** Lowest plugin-owned ring: the Now playing bar's buttons, which keep the accent ring
   (3.17 light and 3.46 dark on 1.14.5; 3.17 and 3.55 on 1.11.7). Lowest of the text-colour rings: 12.42 light
@@ -334,11 +334,11 @@ reader wrote): none of the fixes changes what is stored or sent.
 
 ## How to repeat
 
-`e2e/README.md`, section "Run the measured accessibility pass". Results land in a JSON file per version.
-The existing end-to-end suite (`e2e/plugin-check.js`, 59 checks) was run in full on both versions with this
+`e2e-tests/README.md`, section "Run the measured accessibility pass". Results land in a JSON file per version.
+The existing end-to-end suite (`e2e-tests/plugin-check.js`, 59 checks) was run in full on both versions with this
 lane's changes: 58 pass and 1 fails on each, check 27 (the wiki of 13 pages). The same two lines of
 check 27 fail on lane d's committed build without this lane's changes (run by hand on 1.14.5), so they are
 not caused by this lane: the check still expects a tree menu that stays open for the pane after a page
 is chosen, and a list no taller than half the window; the new Pages panel (lane d) probably opens and sizes
-differently. `e2e/nav-checks.js` lines 697 and 757 are the lines to update. Checks 23 and 55 (phone),
+differently. `e2e-tests/nav-checks.js` lines 697 and 757 are the lines to update. Checks 23 and 55 (phone),
 28, 42 to 45, 54, 56, 58 and 59, which touch what this lane changed, pass.

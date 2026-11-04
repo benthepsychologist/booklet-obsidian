@@ -1,5 +1,5 @@
 # Checks every pull request to main, and every push to main, with what can run on a plain runner: the unit
-# tests (the safety test among them) and a fresh-build comparison. The real-Obsidian suite (e2e/) needs the
+# tests (the safety test among them) and a fresh-build comparison. The real-Obsidian suite (e2e-tests/) needs the
 # Obsidian binary and a display, about 9 minutes, and stays a local gate; see the README.
 # Same hardening as release.yml: no secrets, no dependency cache, read-only permissions.
 name: CI

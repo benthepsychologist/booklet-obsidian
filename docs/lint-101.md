@@ -1,6 +1,41 @@
-# Lint for 1.0.1: the directory's linter, what it found, what was fixed, what was left
+# Lint for 1.0.1 and 1.0.2: the directory's linter, what it found, what was fixed, what was left
 
-Written 2026-11-03 for the 1.0.1 release. The linter is `eslint-plugin-obsidianmd` 0.4.2 (the Obsidian plugin directory's own rule set, `configs.recommended`, which also brings the type-checked typescript-eslint rules), with ESLint 9.39.5. Run it with `npm run lint` (it lints `src/`; the config is `eslint.config.mjs`). The tests, the e2e scripts and the build scripts are not linted.
+Written 2026-11-03 for the 1.0.1 release; section 0 was added on 2026-11-04 for 1.0.2 and widens the scope that section 1 describes. Section 1 onward is the 1.0.1 record, kept as it was written, except where section 0 says otherwise.
+
+## 0. 1.0.2: a wider lint, and the three scanner findings fixed
+
+The directory's bot found three things in 1.0.1 that `npm run lint` did not: the manifest had no `authorUrl`, the README's first heading (`Booklet for Obsidian`) was not the manifest's name, and `src/now-playing.ts` used the global `document` where the scanner wants `activeDocument`. 1.0.2 fixes all three and widens the lint so the first two are checked here too. Nothing a reader sees changes.
+
+**The new lint scope.** `npm run lint` is now `eslint .` (it was `eslint src`). It lints, with the same plugin version (`eslint-plugin-obsidianmd` 0.4.2) and ESLint 9.39.5:
+
+- `src/`, as before.
+- `manifest.json` with `obsidianmd/validate-manifest` (required keys, no disallowed key, types, no `obsidian` or `plugin` in `name`, `description` or `id`, and the description's form: 10 to 250 characters, a capital first, ends with a period, only letters, digits, spaces and `.,!?'"-`). The recommended set names no `manifest.json` in any block, so ESLint skipped it; `eslint.config.mjs` now names it and reads it with the TypeScript parser.
+- `package.json`, with `depend/ban-dependencies` (the recommended set already named it, and `npm run lint` over `src` did not reach it).
+- `LICENSE` with `obsidianmd/validate-license` (a copyright line of the form `Copyright (C) 2020-2025 by Holder` must be current and not `Dynalist Inc.`). `eslint.config.mjs` reads the file as plain lines with a small parser of its own, since the rule needs line tokens. Booklet's line is `Copyright 2026 Ben Armstrong`, which is not that form, so the rule has nothing to match and reports nothing; it was checked to fire by putting `Copyright (C) 2020 by Dynalist Inc.` in a scratch copy (two warnings, year and holder) and then restoring the file.
+- `obsidianmd/prefer-active-doc` is turned on as a warning. The recommended set has it off; the bot has it on (its message is the one quoted above).
+
+Still not linted: `test/`, `e2e-tests/`, `test-vault/`, `main.js`, `node_modules/` and the root `*.mjs` build scripts. They are not plugin code, and the TypeScript project service cannot parse `.mjs` files that are outside the tsconfig (running them through gave parse errors, as in `directory-checklist-101.md` 2.3).
+
+| `npm run lint` | Errors | Warnings | Total |
+| --- | --- | --- | --- |
+| 1.0.1 source, 1.0.2 config (before the fix) | 0 | 5 | 5 |
+| 1.0.2 (after) | 0 | 4 | 4 |
+
+The 5 before: the 4 below plus `obsidianmd/prefer-active-doc` at `src/now-playing.ts:145`. `manifest.json` (with `authorUrl`), `package.json` and `LICENSE` gave no findings. The manifest rule was checked to fire by breaking a scratch copy (a missing `author`, `Obsidian` and `plugin` in the description, an unknown key: three warnings) and restoring it.
+
+**Fixed in 1.0.2.**
+
+- `manifest.json`: `"authorUrl": "https://github.com/benthepsychologist"` (a page about the author, not the plugin's repository). No `fundingUrl`: no donations are taken.
+- `README.md`: the first heading is `# Booklet`, the manifest's name. Nothing in the repository links to the old heading's anchor (searched).
+- `obsidianmd/prefer-active-doc`, `src/now-playing.ts:145`: `if (typeof document !== "undefined") this.liveOf(document);` is now `if (typeof activeDocument !== "undefined") this.liveOf(activeDocument);`. `activeDocument` is Obsidian's global for the document of the window in front, which at the moment the plugin loads is the main window, the same document as `document`. The live region is still made once per document by `liveOf`, and every later use already works from the document of the element it handles. The test DOM (`test/dom.mjs`) now defines `activeWindow` and `activeDocument` next to `window` and `document`. A search of `src/` for every other bare `document` or `window` found only `window.setTimeout` and `window.clearTimeout`, which the rule exempts on purpose (timers use `window`), and words in comments.
+
+**Left, unchanged from 1.0.1, so the four warnings are the same four:** the three `ui/sentence-case` warnings (`src/allow-card.ts:205`, `src/settings.ts:177` and `:228`) and the `settings-tab/prefer-setting-definitions` warning (`src/settings.ts:160`). Why is in the sections below. They would change words a reader sees, or (the last) need a newer Obsidian API than the 1.11.7 floor and rebuild the settings page.
+
+**Not checked.** The directory's bot may run other rules than these, or a different version of the plugin; the bot's own run on 1.0.2 is the only proof. Real Obsidian was not run for this change by the builder.
+
+## 1. The 1.0.1 record
+
+The linter is `eslint-plugin-obsidianmd` 0.4.2 (the Obsidian plugin directory's own rule set, `configs.recommended`, which also brings the type-checked typescript-eslint rules), with ESLint 9.39.5. Run it with `npm run lint` (in 1.0.1 it linted `src/`; see section 0 for the wider scope; the config is `eslint.config.mjs`). The tests, the e2e scripts and the build scripts are not linted.
 
 ## Counts
 

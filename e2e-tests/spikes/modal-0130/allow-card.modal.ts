@@ -2,7 +2,7 @@
  * SPIKE (plugin 0.13.0, lane M): the allow card built on Obsidian's own `Modal` instead of by hand. It offers what src/allow-card.ts offers
  * (same triggers, same three scopes, same callbacks to the view, same words) and drops what the Modal does for it: the keydown handler for
  * Escape, the Tab loop, the backdrop, the removal of the card, the focus-regain timers. This file is NOT part of the build; it is copied
- * over src/allow-card.ts for a measuring build only (e2e/spikes/modal-0130/README in docs/modal-0130.md). `app` is the one new option.
+ * over src/allow-card.ts for a measuring build only (e2e-tests/spikes/modal-0130/README in docs/modal-0130.md). `app` is the one new option.
  */
 import { Modal, type App } from "obsidian";
 import { alsoCovers, hostList, normaliseEntry } from "./core";

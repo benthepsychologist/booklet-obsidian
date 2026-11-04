@@ -1,6 +1,6 @@
 # Submitting Booklet to the Obsidian community directory: everything to hand
 
-> **DRAFT. NOT SENT.** Nothing has been submitted, tagged, released or pushed. This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files still say 1.0.0; the 1.0.1 release does not exist.
+> **DRAFT. NOT SENT.** Nothing has been submitted to the directory. (1.0.1 was merged, tagged and released on 2026-11-04 as a real release; 1.0.2 is not yet.) This file collects what the submission needs and what to do before it, written 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `feat/community-release`). The plugin files said 1.0.0 when it was written. **Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`): the files now say 1.0.2, which is the version to submit; the directory's bot had flagged three things in 1.0.1 (no `authorUrl`, the README's first heading, the global `document`), fixed in 1.0.2 (`docs/lint-101.md` section 0). Still a draft: nothing is submitted by this document, and the 1.0.1 and 1.0.2 steps below are the same steps with the version raised.
 
 ## 1. What the directory asks for
 
@@ -19,9 +19,9 @@ Read on 2026-11-03 through a fetch tool that returns a summary of a page, not it
 | Default branch | `main` | `.github/workflows/ci.yml` |
 | Plugin id | `booklet` | `manifest.json` |
 | Name | Booklet | `manifest.json` |
-| Author | Ben Armstrong | `manifest.json` (`authorUrl` and `fundingUrl` absent) |
-| Version | 1.0.1 at submission (the files say 1.0.0 until `npm version 1.0.1`) | `manifest.json`, `package.json` |
-| Release tag the directory will use | `1.0.1`, no leading `v`; **not yet created** | `docs/release-flow.md` |
+| Author | Ben Armstrong | `manifest.json` (`authorUrl` is `https://github.com/benthepsychologist` since 1.0.2; `fundingUrl` absent, no donations are taken) |
+| Version | 1.0.2 at submission (the files say 1.0.2 on `feat/102-scanner-fixes`, made by `npm version 1.0.2`) | `manifest.json`, `package.json` |
+| Release tag the directory will use | `1.0.2`, no leading `v`; **not yet created** | `docs/release-flow.md` |
 | minAppVersion | 1.11.7 | `manifest.json`; the evidence is `docs/directory-checklist-101.md` item 18 |
 | isDesktopOnly | false | `manifest.json` |
 | Licence | Apache-2.0 | `LICENSE`, `package.json` |
@@ -53,7 +53,7 @@ The code agrees (re-checked 2026-11-03, `docs/directory-checklist-101.md` sectio
 
 From `README.md:218-232` ("Which Obsidian"), `docs/accessibility-100.md` and `docs/floor-0130.md`:
 
-- **Obsidian 1.14.5 and 1.11.7, desktop, real app** (the Obsidian Linux build in a virtual display, driven by `e2e/plugin-check.js`, 59 checks). After the 1.0.0 fixes, on 2026-11-03: 1.14.5 passes 59 of 59; 1.11.7 passes 58 of 59, the one failure being check 10 (an uncaught `illegal access` page error thrown when a pop-out window closes, intermittent, not shown to be the plugin's; check 40 alone then passed three times of three on 1.11.7). Keyboard order and focus, the accessibility tree, contrast and 200% text were measured on both versions (`docs/accessibility-100.md`).
+- **Obsidian 1.14.5 and 1.11.7, desktop, real app** (the Obsidian Linux build in a virtual display, driven by `e2e-tests/plugin-check.js`, 59 checks). After the 1.0.0 fixes, on 2026-11-03: 1.14.5 passes 59 of 59; 1.11.7 passes 58 of 59, the one failure being check 10 (an uncaught `illegal access` page error thrown when a pop-out window closes, intermittent, not shown to be the plugin's; check 40 alone then passed three times of three on 1.11.7). Keyboard order and focus, the accessibility tree, contrast and 200% text were measured on both versions (`docs/accessibility-100.md`). **Rerun on the 1.0.2 source, 2026-11-04:** 1.14.5 passes the whole suite (all checks) and the three accessibility scripts (21 of 21, 20 of 20, and the focus ring with 0 of the plugin's own rings under 3:1 over 331 stops); 1.11.7 passes all but check 10 (the same intermittent `illegal access` page error from the pop-out window, 2 uncaught errors, no other check failed) and the same three scripts (21 of 21, 20 of 20, 0 plugin rings under 3:1 over 341 stops). The harness folder was renamed from `e2e/` to `e2e-tests/` that day (the directory scanner ignores that name, not `e2e`); one script (`phone-200-100.js`, 20 of 20 on 1.14.5) was rerun from the new folder to confirm it still works.
 - **Phone layout, by emulation only:** Obsidian's own phone mode in desktop Chromium (390 x 844, and 320 x 568 at 200% text), 20 of 20 on both versions; on 1.11.7 the 200% text scale is not applied by Obsidian, so that run measured 100% only.
 - **Unit tests:** `npm test`, 1,016 tests at the last run (1,015 pass, 1 skipped), on the plugin linter's 0 errors (`docs/lint-101.md`).
 - **A real phone.** The author (Ben Armstrong) has tried every release of the plugin by hand on an iPhone 17, 1.0.0 included (his statement, 2026-11-04; it is not a measured pass, and what was opened on the phone is not written down). Android and Mac have not been tried. The README says the same (`README.md:5`, `:230`, `:234`).
@@ -64,17 +64,17 @@ From `README.md:218-232` ("Which Obsidian"), `docs/accessibility-100.md` and `do
 ## 6. Things the draft found that Ben may want to settle before sending
 
 - **README says the plugin is not in the directory** (`README.md:281`, and the BRAT section as the way to install). That is right until it is listed; it needs an edit when it is.
-- **README says "Version 1.0.0"** (`README.md:5`). It will be one release behind after 1.0.1.
+- **README version line** (`README.md:5`) says "Version 1.0.2" on this branch; it has to be raised with each release.
 - **Bundled library not named.** `monkey-around` 3.0.0 (author PJ Eby, declared ISC) is bundled into `main.js`; the Developer policies say to comply with the licences of code used, "including required attribution in the README". The package and its upstream repository carry no LICENSE file or copyright line to copy, and the README does not name it. A one-line "Third-party code" entry would settle it (`docs/directory-checklist-101.md` item 57).
 - **Linter warnings left:** 4, none an error (`docs/lint-101.md`). The directory's automated review may not accept all four; if it reports them, they are the `youtube.com` / `https` capitalisation (3) and the settings-search API (1).
 - **LICENSE notice** is the filled Apache appendix line (`LICENSE:189`); the linter's licence rule does not read that form (`docs/directory-checklist-101.md` item 13).
 
 ## 7. Before sending (for Ben)
 
-1. Merge `feat/community-release` to `main` (CI green), then on `main`: `npm version 1.0.1`, `npm run build`, commit including `test-vault/.obsidian/plugins/booklet/`, merge. (`docs/release-flow.md` has the commands.)
-2. Optional, to try it first: tag `1.0.1-beta.1` on the branch and install it with BRAT.
-3. Tag `main` with `1.0.1` and push the tag. Wait for the Release workflow in Actions to go green.
-4. On the release page for `1.0.1`: confirm it is **not** marked Pre-release (and is marked Latest); that it carries `main.js`, `manifest.json` and `styles.css`; that the attached `manifest.json` says `"version": "1.0.1"` and `"minAppVersion": "1.11.7"`; that `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` passes on a downloaded `main.js`.
-5. Confirm `manifest.json` at the head of `main` says 1.0.1 (the directory reads it from there).
+1. Merge `feat/102-scanner-fixes` to `main` (CI green), the branch already carries 1.0.2 (`npm version 1.0.2` was run on it, and the rebuilt `test-vault/.obsidian/plugins/booklet/` copies are committed), so no version command is run again. Then tag `1.0.2` on `main`. (`docs/release-flow.md` has the commands.)
+2. Optional, to try it first: tag `1.0.2-beta.1` on the branch and install it with BRAT.
+3. Tag `main` with `1.0.2` and push the tag. Wait for the Release workflow in Actions to go green.
+4. On the release page for `1.0.2`: confirm it is **not** marked Pre-release (and is marked Latest); that it carries `main.js`, `manifest.json` and `styles.css`; that the attached `manifest.json` says `"version": "1.0.2"` and `"minAppVersion": "1.11.7"`; that `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` passes on a downloaded `main.js`.
+5. Confirm `manifest.json` at the head of `main` says 1.0.2 (the directory reads it from there).
 6. Decide the open points in section 6 (the phone check record, the README lines, the `monkey-around` line).
-7. Sign in at community.obsidian.md, link GitHub, **Plugins > New plugin**, enter the repository URL and the owner, agree to the Developer policies, **Submit**. Then read the automated review's findings; fix with a new release (1.0.2 and so on).
+7. Sign in at community.obsidian.md, link GitHub, **Plugins > New plugin**, enter the repository URL and the owner, agree to the Developer policies, **Submit**. Then read the automated review's findings; fix with a new release (1.0.3 and so on).
