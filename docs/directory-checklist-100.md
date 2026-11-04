@@ -1,5 +1,7 @@
 # Obsidian community directory checklist, Booklet plugin 1.0.0 (lane c)
 
+> **Superseded in part (2026-11-03, plugin 1.0.1 work).** `.github/workflows/release.yml` no longer publishes only pre-releases: a plain `x.y.z` tag is now a real release and `x.y.z-<suffix>` a pre-release for BRAT, and `release-check.mjs` takes both. Item 26's description of `release-check.mjs` (plain `x.y.z` only) and item 27 and the line in section 4 saying `release.yml` publishes pre-releases only describe the workflow as it was on 1.0.0. `docs/release-flow.md` is the current procedure. This file is a dated record and the rows below are kept as they were written.
+
 Checked 2026-11-03 against the worktree `100-c-directory` (branch `feat/100-c-directory`, based on
 `ff87ac8`, plugin 0.13.0). Nothing is submitted to the directory by this document; it only records
 whether the plugin would meet the rules as Obsidian publishes them today.
@@ -132,8 +134,8 @@ that is what `README.md:139` and `:87` say. PASS.
 | # | Item | Result | Evidence |
 | --- | --- | --- | --- |
 | 25 | Release carries main.js, manifest.json, styles.css; tag equals version | PASS | `.github/workflows/release.yml` publishes the three files with `gh release create`; ran `gh release view 0.13.0`: assets `main.js`, `manifest.json`, `styles.css`, tag `0.13.0` |
-| 26 | `release-check.mjs` guards the tag | PASS | `release-check.mjs:17-21`: tag must be plain x.y.z and equal manifest, package and versions. It does not check that the three files exist; the workflow's `gh release create` would fail without them. Ran with tag 0.12.0: exits 1 with three messages |
-| 27 | Directory accepts a release marked pre-release | COULD NOT CHECK | `release.yml` marks every release `--prerelease`; the fetched pages do not say whether the directory reads pre-releases. Needs checking before submitting |
+| 26 | `release-check.mjs` guards the tag | PASS | `release-check.mjs:17-21`: tag must be plain x.y.z and equal manifest, package and versions. It does not check that the three files exist; the workflow's `gh release create` would fail without them. Ran with tag 0.12.0: exits 1 with three messages **Superseded 2026-11-03: see the note at the top of this file.** |
+| 27 | Directory accepts a release marked pre-release | COULD NOT CHECK | `release.yml` marks every release `--prerelease`; the fetched pages do not say whether the directory reads pre-releases. Needs checking before submitting **Superseded 2026-11-03: see the note at the top of this file.** |
 | 28 | Built from source | PASS | `package.json` script `build`: `tsc -noEmit -skipLibCheck && node esbuild.config.mjs production`. Ran `npm run build`: no errors, wrote `main.js` (261651 bytes). `git status` afterwards showed the tree not dirty (`main.js` is ignored; the test-vault copy is unchanged), so no `git checkout` was needed |
 | 29 | Sample code and placeholder names removed | PASS | ran `grep -rnE "MyPlugin\|SampleModal\|SampleSettingTab\|Sample\|Hello" src`: no hits; class is `BookletPlugin` (`src/main.ts:14`) |
 
@@ -173,6 +175,6 @@ that is what `README.md:139` and `:87` say. PASS.
 - `README.md:5` says "Version 0.12.0" and `README.md:129` says "This is Booklet plugin 0.12.0", but
   `manifest.json` and `package.json` say 0.13.0. Stale; not fixed here.
 - `LICENSE:189` still holds the unfilled Apache template line (see item 13).
-- `release.yml` publishes pre-releases only (item 27).
+- `release.yml` publishes pre-releases only (item 27). Superseded 2026-11-03: see the note at the top of this file.
 - `node_modules` shows as untracked in this worktree because `.gitignore` has `node_modules/`, which
   does not match a link. Not committed.

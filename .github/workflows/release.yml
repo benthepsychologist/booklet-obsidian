@@ -1,7 +1,12 @@
-# Builds the plugin when a version tag is pushed and publishes it as a GitHub pre-release: main.js,
-# manifest.json and styles.css attached, with a build-provenance attestation, the shape BRAT installs
-# from and Obsidian's directory reads (docs.obsidian.md, "Release your plugin with GitHub Actions").
-# The tag must be on main and be the version in package.json, manifest.json and versions.json.
+# Builds the plugin when a version tag is pushed and publishes it on GitHub: main.js, manifest.json and
+# styles.css attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's
+# directory reads (docs.obsidian.md, "Release your plugin with GitHub Actions").
+#   - A plain x.y.z tag (1.0.1) is a REAL release, marked latest. It must be on main, and be the version in
+#     package.json, manifest.json and versions.json. This is the one the directory reads.
+#   - A tag x.y.z-<suffix> (1.0.2-beta.1) is a PRE-RELEASE, for testing in BRAT before the real release.
+#     It may be on any branch; its x.y.z must be the version in those three files. GitHub's "latest release"
+#     skips pre-releases, so a pre-release never disturbs the directory.
+# release-check.mjs decides which, and says so in its `kind` output.
 name: Release
 
 on:
@@ -28,11 +33,16 @@ jobs:
           node-version: "22.x"
           package-manager-cache: false
 
-      - name: The tag is the version, and it is on main
+      - name: The tag is the version
+        id: check
+        run: node release-check.mjs "$GITHUB_REF_NAME"
+
+      # A real release comes from main. A pre-release may be on any branch, so that a branch can be tried in BRAT before it is merged.
+      - name: A real release is on main
+        if: steps.check.outputs.kind == 'release'
         run: |
-          node release-check.mjs "$GITHUB_REF_NAME"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main || {
-            echo "release: $GITHUB_REF_NAME is not on main"
+            echo "release: $GITHUB_REF_NAME is a real release and is not on main"
             exit 1
           }
 
@@ -51,9 +61,18 @@ jobs:
             manifest.json
             styles.css
 
-      - name: Publish the pre-release
+      - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          KIND: ${{ steps.check.outputs.kind }}
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --prerelease --generate-notes \
+          if [ "$KIND" = "prerelease" ]; then
+            flag="--prerelease"
+          elif [ "$KIND" = "release" ]; then
+            flag="--latest"
+          else
+            echo "release: no kind from the check ($KIND)"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" "$flag" --generate-notes \
             main.js manifest.json styles.css

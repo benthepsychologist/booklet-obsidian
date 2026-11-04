@@ -1,5 +1,7 @@
 # Releasing Booklet 1.0.0: the steps, from the repository as it is
 
+> **Superseded in part (2026-11-03).** The workflow no longer publishes only pre-releases: a plain `x.y.z` tag is now a real release and `x.y.z-<suffix>` is a pre-release for BRAT. `docs/release-flow.md` is the current procedure. The text below is the 1.0.0 record as it was written, and its "PRE-RELEASE" statements and open question describe the workflow before that change.
+
 Written 2026-11-03 from `package.json`, `version-bump.mjs`, `release-check.mjs`, `.github/workflows/release.yml`, `manifest.json`, `versions.json`, `.npmrc` and the README's "Releasing" and "Install a test build with BRAT" sections. Nothing here has been run: no bump, no tag, no release.
 
 ## What a release is

@@ -320,7 +320,7 @@ export function drawListen(host: QuestionHost, card: HTMLElement, t: Target, q: 
 		const on = answeredOf(q, v);
 		const next = listenNext(v, on ? "untick" : "tick", {}, q.left);
 		if (!next) return;
-		host.answer(t, q, holdsSomething(next) ? (next as AnswerValue) : undefined);
+		host.answer(t, q, holdsSomething(next) ? next : undefined);
 		said.setText(on ? "Marked not done" : "Marked done");
 	});
 	return box;

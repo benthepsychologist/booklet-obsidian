@@ -2,7 +2,7 @@
 
 An Obsidian plugin for [Booklet](https://github.com/benthepsychologist/booklet) notes. A Markdown note whose front matter says `booklet: "0.18"` opens in a view of its own, drawn with Obsidian's own Markdown renderer, buttons, text fields and theme. The answers given there are written into the note's records section, the `%%` … `%%` block at the end of the file, and nowhere else. Everything stays in the note: you can read it, edit it as Markdown, sync it and search it like any other note.
 
-Version 1.0.0. It reads format 0.18 (`SPEC.md` in the Booklet repository). A note marked with any 0.x version, earlier or later, opens as it is, and its marker alone never produces a notice. The view says something only when the note holds a part it does not read; that notice is described under *What it does not draw yet*. It is not desktop-only: 0.1.0 to 0.3.0 have been used on an iPhone, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
+Version 1.0.1. It reads format 0.18 (`SPEC.md` in the Booklet repository). A note marked with any 0.x version, earlier or later, opens as it is, and its marker alone never produces a notice. The view says something only when the note holds a part it does not read; that notice is described under *What it does not draw yet*. It is not desktop-only: every release has been tried by the author on an iPhone 17, and each build is checked under Obsidian's own mobile emulation and at a phone's width.
 
 ## What it draws
 
@@ -227,11 +227,11 @@ After the 1.0.0 fixes (lanes E1 and E2, and the `e2e/` updates of lane F) the wh
 
 **Not tested.**
 - **Android.** It has not been tried.
-- **A real phone.** The suite runs in desktop Obsidian in a virtual display, with Obsidian's own phone emulation for the phone layout. An iPhone was used for 0.1.0 to 0.3.0 and for nothing since.
+- **A real phone.** The suite runs in desktop Obsidian in a virtual display, with Obsidian's own phone emulation for the phone layout. The author has tried every release by hand on an iPhone 17, which is not a measured pass: no layout figures were taken on the phone itself.
 - **Speech.** No screen reader has been listened to by the test harness; see *Accessibility* below.
 - **Obsidian releases other than 1.11.7 and 1.14.5.** Those two are the releases the 1.0.0 pass ran on.
 - **Themes other than Obsidian's default light and dark.** A community theme can change every colour figure in *Accessibility*.
-It is not desktop-only: it has been used on an iPhone (0.1.0 to 0.3.0) and every build is checked under Obsidian's own mobile emulation and at a phone's width. **Android has not been tried.**
+It is not desktop-only: every release has been tried by the author on an iPhone 17, and every build is checked under Obsidian's own mobile emulation and at a phone's width. **Android has not been tried.**
 
 ## Accessibility
 
@@ -278,10 +278,10 @@ To use it in a vault of your own, install it with BRAT (below), or copy `main.js
 
 ## Install a test build with BRAT
 
-Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository, which BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs and updates; Obsidian's developer docs recommend it for testing a plugin before it is listed.
+Booklet is not in Obsidian's Community plugins directory yet. Its test builds are GitHub pre-releases of this repository (tags like `1.0.2-beta.1`; see Releasing), and its real releases are plain `x.y.z` releases. BRAT (Beta Reviewers Auto-update Tool, a plugin in the directory) installs both and updates them; Obsidian's developer docs recommend it for testing a plugin before it is listed.
 
 1. In *Settings → Community plugins*, browse for **BRAT**, install it and turn it on.
-2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release; turn Booklet on under *Community plugins* if BRAT has not.
+2. In BRAT, add a beta plugin and give it the repository `benthepsychologist/booklet-obsidian`. BRAT installs the newest release or pre-release by version number; turn Booklet on under *Community plugins* if BRAT has not.
 3. To get a later build, check for updates in BRAT.
 
 If the earlier "Booklet (spike)" plugin is in the vault, turn it off first: both open booklet notes.
@@ -292,6 +292,7 @@ If the earlier "Booklet (spike)" plugin is in the vault, turn it off first: both
 npm install
 npm run build    # type-checks, builds main.js, copies main.js, manifest.json and styles.css into test-vault/.obsidian/plugins/booklet/
 npm test         # bundles src/core and src/view.ts with esbuild, then runs node --test over test/*.test.mjs
+npm run lint     # the Obsidian directory's linter (eslint-plugin-obsidianmd) over src/; see docs/lint-101.md for what it finds and what is left
 ```
 
 `npm test` runs the reader, the records writer, drafts and kept entries, the JSON edits, and a check that the plugin uses no HTML sinks, no inline styles and no Node or Electron module. It runs the two widget engines of the reference renderer (`booklet.html`, taken from the Booklet repository as it is) step by step beside the plugin's, and checks that both store the same answer after every step. It also runs the view itself over a jsdom document, with the few parts of Obsidian's API it uses stubbed (`test/obsidian-stub.mjs`), to check that a change to the note arriving while a field is being edited leaves that field and what was typed in it alone. The stub also holds an in-memory `data.json`, a settings page and its `Setting` rows, a renderer that draws pictures and media, and (in `test/helpers.mjs`) a fake media element, so the allow list, the settings and `listen` can be tested without Obsidian; its top comment names each. Its corpus test goes over every booklet example in the Booklet repository, every kit starter, every test-vault note and the listen demo's clean note: it answers every question of the eight kinds, every widget and every question on a shared list, finalizes every repeating activity (and finishes a daily one twice in a day), clears every answer, and after each step checks that nothing outside the records region changed, that every record it did not need to change is byte for byte the same, and that `lint-booklet.py` passes on the written file. The corpus is found through these environment variables; a folder that is not there is a skipped test, with a message, not a failure:
@@ -327,17 +328,17 @@ CI does not run the real-Obsidian suite (`e2e/`): it needs the Obsidian binary a
 
 ## Releasing
 
-Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. Until Booklet is listed, every release is marked a pre-release, and nothing is submitted to the directory from here. `docs/release-checklist-100.md` is the maintainer's step list for 1.0.0 (which files carry the version, what `release-check.mjs` checks, what to look at on the release page, and the open question whether the directory accepts a release marked pre-release).
+Every build is a GitHub release made by `.github/workflows/release.yml` when a version tag is pushed: `main.js`, `manifest.json` and `styles.css` attached, with a build-provenance attestation, the shape BRAT installs from and Obsidian's directory reads. A plain `x.y.z` tag makes a real release (marked latest, and it must be on `main`); a tag `x.y.z-<suffix>` such as `1.0.2-beta.1` makes a pre-release, for trying a build in BRAT before the real one (it may be on any branch). Nothing is submitted to the directory from here. `docs/release-flow.md` is the maintainer's step list for both (which files carry the version, what `release-check.mjs` checks, what to look at on the release page).
 
-1. **Set the version** on the branch that carries the change: `npm version 0.2.0`. npm writes it into `package.json`, and `version-bump.mjs` writes it into `manifest.json` and adds it to `versions.json` with the manifest's `minAppVersion`; `.npmrc` stops npm from committing or tagging. Versions are plain `x.y.z`: Obsidian does not order `0.2.0-beta.1` the way semver does, and its directory takes no other kind.
+1. **Set the version** on the branch that carries the change: `npm version 1.0.1`. npm writes it into `package.json`, and `version-bump.mjs` writes it into `manifest.json` and adds it to `versions.json` with the manifest's `minAppVersion`; `.npmrc` stops npm from committing or tagging. The version in the three files is always a plain `x.y.z`: Obsidian's directory takes no other kind. A pre-release is a tag with a suffix on top of that version (`1.0.1-beta.1`); the suffix is in no file.
 2. **Test and merge:** `npm test` and the real-Obsidian check (`e2e/`), then merge to `main`.
 3. **Tag `main` and push the tag:**
    ```
    git checkout main && git pull --ff-only
-   git tag -a 0.2.0 -m 0.2.0
-   git push origin 0.2.0
+   git tag -a 1.0.1 -m 1.0.1
+   git push origin 1.0.1
    ```
-4. **The workflow** refuses a tag that is not on `main`, is not a plain `x.y.z`, or is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`). Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
+4. **The workflow** refuses a tag that is not a plain `x.y.z` or `x.y.z-<suffix>`, whose `x.y.z` is not the version in `package.json`, `manifest.json` and `versions.json` (`release-check.mjs`), or, for a plain `x.y.z`, that is not on `main`. Then it builds, runs `npm test` (the corpus tests skip there, with no Booklet repository on the runner), attests the three files and publishes them: a plain `x.y.z` as a real release, `x.y.z-<suffix>` as a pre-release. `gh attestation verify main.js --repo benthepsychologist/booklet-obsidian` checks a downloaded `main.js` against its attestation.
 
 Once Booklet is listed, the directory takes every new release straight from GitHub, so a release is then a release to everyone.
 
@@ -438,3 +439,5 @@ SPEC 0.18 section 3 defines the page line and the tree (and `CHANGES.md` says wh
 ## Licence
 
 Apache-2.0. See `LICENSE`.
+
+**Third-party code.** One library is bundled into `main.js`: [monkey-around](https://github.com/pjeby/monkey-around) 3.0.0 by PJ Eby, declared ISC in its package. It is used in `src/switch.ts` to open a Booklet note in its own view. Its package carries no separate licence file or copyright line to reproduce here.

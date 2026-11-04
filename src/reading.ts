@@ -181,7 +181,7 @@ export function drawMarks(host: ReadingHost, el: HTMLElement, ids: readonly stri
 	for (let n = walker.nextNode(); n; n = walker.nextNode()) if ((n as Text).data.includes(MARK_OPEN) && !(n.parentElement?.closest("code, pre"))) texts.push(n as Text);
 	for (const t of texts) {
 		const parts = t.data.split(TOKEN);
-		const frag = doc.createDocumentFragment();
+		const frag = doc.win.createFragment();
 		parts.forEach((part, n) => {
 			if (n % 2 === 0) {
 				if (part) frag.appendChild(doc.createTextNode(part));
@@ -192,7 +192,7 @@ export function drawMarks(host: ReadingHost, el: HTMLElement, ids: readonly stri
 			const num = cite?.numbers.get(id);
 			// a mark where there are no sources to number it (the booklet's opening, a title) is left out
 			if (!cite) return;
-			const sup = doc.createElement("sup");
+			const sup = doc.win.createEl("sup");
 			sup.className = "booklet-cite";
 			if (!note || num === undefined) {
 				const bad = sup.createSpan({ cls: "booklet-cite-broken", text: `[?${id}]` });
@@ -236,7 +236,7 @@ function toggle(host: ReadingHost, mark: HTMLElement, note: Note, num: number, p
 	if (was) return;
 	const block = mark.closest("p, li, blockquote, td, th, h1, h2, h3, h4, h5, h6") ?? mark.parentElement;
 	if (!block) return;
-	const el = mark.ownerDocument.createElement("div");
+	const el = mark.ownerDocument.win.createDiv();
 	el.className = "booklet-cite-panel";
 	el.setAttribute("role", "region");
 	el.setAttribute("aria-label", `Source ${num}`);
@@ -244,9 +244,9 @@ function toggle(host: ReadingHost, mark: HTMLElement, note: Note, num: number, p
 	if (block.matches("li")) block.appendChild(el);
 	else if (block.matches("td, th") && block.closest("tr")) {
 		const tr = block.closest("tr") as HTMLTableRowElement;
-		put = mark.ownerDocument.createElement("tr");
+		put = mark.ownerDocument.win.createEl("tr");
 		put.className = "booklet-cite-row";
-		put.appendChild(mark.ownerDocument.createElement("td")).setAttribute("colspan", String(tr.children.length));
+		put.appendChild(mark.ownerDocument.win.createEl("td")).setAttribute("colspan", String(tr.children.length));
 		(put.firstElementChild as Element).appendChild(el);
 		tr.insertAdjacentElement("afterend", put);
 	} else block.insertAdjacentElement("afterend", el);

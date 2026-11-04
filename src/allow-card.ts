@@ -131,7 +131,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 				answered = true;
 				close(n !== 0);
 			}).setAttribute("aria-describedby", did);
-			row.createEl("span", { cls: "booklet-allow-said", text: said, attr: { id: did } });
+			row.createSpan({ cls: "booklet-allow-said", text: said, attr: { id: did } });
 		});
 		notNow = button(box.createDiv({ cls: "booklet-allow-choice" }), "Not now", null, () => close());
 	} else if (req?.kind === "declared") {
@@ -140,7 +140,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 		for (const host of req.hosts) {
 			const row = box.createDiv({ cls: "booklet-allow-choice booklet-allow-declared" });
 			row.createEl("strong", { text: host });
-			row.createEl("span", { cls: "booklet-allow-said", text: cost(host) });
+			row.createSpan({ cls: "booklet-allow-said", text: cost(host) });
 			// the buttons say their own words and the site after them, so the name holds what is shown ("Allow for this note: media.example.org")
 			const done = (scope: string) => {
 				answered = true;
@@ -184,7 +184,7 @@ export function openAllowCard(o: CardOptions): AllowCard {
 				box.checked = has(entry);
 				label.createSpan({ text: entry });
 				const more = covers(entry);
-				if (more) li.createEl("span", { cls: "booklet-allow-covers", text: more });
+				if (more) li.createSpan({ cls: "booklet-allow-covers", text: more });
 				box.addEventListener("change", () => {
 					if (box.checked) add(entry);
 					else remove(entry);

@@ -56,7 +56,7 @@ export class ListenWriter {
 			// the promise always settles: the view says when the write landed and when it could not be made (a block it cannot write into)
 			return new Promise<boolean>((done) => {
 				try {
-					v.write(holdsSomething(next) ? (next as AnswerValue) : undefined, () => done(true), () => done(false));
+					v.write(holdsSomething(next) ? next : undefined, () => done(true), () => done(false));
 				} catch {
 					done(false);
 				}
@@ -68,7 +68,7 @@ export class ListenWriter {
 		const change = (text: string): string => {
 			const a = parseBooklet(text).records.answers[scope];
 			const next = listenNext(a && Object.prototype.hasOwnProperty.call(a, id) ? a[id] : undefined, ev, at, left);
-			return next === null ? text : setAnswer(text, scope, id, holdsSomething(next) ? (next as AnswerValue) : undefined);
+			return next === null ? text : setAnswer(text, scope, id, holdsSomething(next) ? next : undefined);
 		};
 		try {
 			const md = markdownViewOf(this.deps.app, path);
@@ -86,7 +86,7 @@ export class ListenWriter {
 						return fresh;
 					}
 				});
-				if (failure) throw failure;
+				if (failure) throw failure instanceof Error ? failure : new Error(typeof failure === "string" ? failure : "the change was not made");
 			}
 			return true;
 		} catch (e) {

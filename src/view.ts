@@ -640,7 +640,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			}
 			const name = /^[a-z][a-z0-9+.-]*:/i.test(href) ? null : moduleLinkName(href);
 			if (name === null || moduleNamed(nav, name)) continue;
-			const chip = a.ownerDocument.createElement("span");
+			const chip = a.ownerDocument.win.createSpan();
 			chip.className = "booklet-module-chip";
 			chip.textContent = `${a.textContent ?? name} \u00b7 not in this booklet`;
 			a.replaceWith(chip);
