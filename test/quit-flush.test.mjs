@@ -2,7 +2,7 @@
  * What a hard stop loses (a crash, a kill, a power cut), and what a normal close saves. Words typed in a text field are written
  * TYPING_PAUSE_MS (700 ms) after the first key not yet written, whether or not the reader keeps typing: so a stop loses at most
  * the last 700 ms, never a whole paragraph typed without a pause. Closing the pane, opening another note in it and the app's
- * quit event write what is waiting at once. The same flows with a real process killed are check 38 of e2e/plugin-check.js.
+ * quit event write what is waiting at once. The same flows with a real process killed are check 38 of e2e-tests/plugin-check.js.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

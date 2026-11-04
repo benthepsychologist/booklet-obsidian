@@ -103,7 +103,7 @@ export function assertOutsideUnchanged(orig, next, what = "") {
  * The errors the reference linter is expected to report on a test-vault note, by its file name, and no others. The
  * format 0.17 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
  * cells, which the 0.15 linter reported, are format 0.16's. Every check that lints a note expects exactly these
- * (e2e/plugin-check.js keeps the same list).
+ * (e2e-tests/plugin-check.js keeps the same list).
  */
 export const EXPECTED_LINT = {};
 

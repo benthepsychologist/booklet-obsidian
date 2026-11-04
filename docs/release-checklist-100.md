@@ -31,7 +31,7 @@ A release is made by pushing a plain `x.y.z` tag. The workflow `.github/workflow
    ```
    The `version` script in `package.json` is `node version-bump.mjs && git add manifest.json versions.json`. `npm version` writes `package.json` (and the lockfile), then runs `version-bump.mjs`, which reads the new version from `npm_package_version`, refuses anything that is not a plain `x.y.z`, writes it into `manifest.json` and adds `"1.0.0": "<minAppVersion>"` to `versions.json`. `.npmrc` has `git-tag-version=false`, so npm makes no commit and no tag; commit the changed files yourself.
 3. **Rebuild the vault copies and commit them:** `npm run build` (it type-checks, then runs `node esbuild.config.mjs production`, and copies `main.js`, `manifest.json` and `styles.css` into `test-vault/.obsidian/plugins/booklet/`). CI's last step fails if those copies differ from a fresh build, and the `manifest.json` copy now has the new version.
-4. **Test:** `npm test`, and the real-Obsidian suite (`e2e/plugin-check.js`, 59 checks; `e2e/README.md`) on 1.14.5 and 1.11.7 if the code changed since the last full run. Merge to `main` once CI (`.github/workflows/ci.yml`) is green.
+4. **Test:** `npm test`, and the real-Obsidian suite (`e2e-tests/plugin-check.js`, 59 checks; `e2e-tests/README.md`) on 1.14.5 and 1.11.7 if the code changed since the last full run. Merge to `main` once CI (`.github/workflows/ci.yml`) is green.
 5. **Check before tagging, by hand:** `node release-check.mjs 1.0.0` (below) should print `release-check: 1.0.0 is the version everywhere`. It is the same check the workflow runs first.
 6. **Tag `main` and push the tag:**
    ```

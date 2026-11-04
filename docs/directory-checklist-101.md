@@ -4,7 +4,7 @@ Checked 2026-11-03 in the worktree `/workspace/booklet-wt/community` (branch `fe
 
 **Updated 2026-11-04 for 1.0.2** (branch `feat/102-scanner-fixes`, worktree `/workspace/booklet-wt/c102`; the files now say 1.0.2). The directory's bot found three things in 1.0.1: no `authorUrl`, a README heading that was not the plugin's name, and the global `document` in `src/now-playing.ts`. Rows 21 (authorUrl), 16 (version), 48 (the linter run, now over the whole repository root) and 49 (the `prefer-active-doc` grep) were re-checked and changed; section 2.3 and the item-13 paragraph say what the wider lint now does. Everything else is as checked on 2026-11-03 and was not re-run for 1.0.2. `docs/lint-101.md` section 0 has the detail. Not submitted to the directory by this document either.
 
-Evidence form: `file:line` was opened and read; "ran" means the command was run in this worktree on 2026-11-03. `src/`, `test-vault/` and `e2e/` were only read (a real-Obsidian run was using them), so the build was not re-run here (item 28).
+Evidence form: `file:line` was opened and read; "ran" means the command was run in this worktree on 2026-11-03. `src/`, `test-vault/` and `e2e-tests/` were only read (a real-Obsidian run was using them), so the build was not re-run here (item 28).
 
 ## 1. Result in one line
 
@@ -35,14 +35,14 @@ Item 13 in detail. The notice sits in the appendix block ("How to apply the Apac
 
 - `.github/workflows/release.yml` now publishes a plain `x.y.z` tag as a normal release (`--latest`, not `--prerelease`), after `release-check.mjs` has confirmed the tag is the version in `package.json`, `manifest.json` and `versions.json` and the tag is on `main`; an `x.y.z-<suffix>` tag is a pre-release for BRAT. `docs/release-flow.md` has the steps. Tested: `test/release-check.test.mjs` (11 tests). Ran `node release-check.mjs`: `1.0.0` "is the version everywhere (a real release)"; `1.0.0-beta.1` "is a pre-release of 1.0.0"; `1.0.1` refused (manifest, package and versions still say 1.0.0); `v1.0.0` refused.
 - So the flow the directory reads (a release whose tag equals the manifest version, with `main.js`, `manifest.json`, `styles.css` attached, not marked pre-release) is in place: PASS in the workflow sense.
-- **The real release does not exist yet.** `gh release view 1.0.0` shows `isPrerelease: true` with the three assets, and `gh release list` shows every release to date (0.10.0 to 1.0.0) as a pre-release. The 1.0.1 release exists only when Ben tags it.
+- **The real release does not exist yet.** `gh release view 1.0.0` shows `isPrerelease: true` with the three assets, and `gh release list` shows every release to date (0.10.0 to 1.0.0) as a pre-release. *(As of 2026-11-03.)* The 1.0.1 real release was tagged and published the next day, 2026-11-04, as Latest, not a pre-release.
 - **Not checked:** that the directory's reader of releases picks the latest non-pre-release one (the Submit page says installs pull the three files "from the GitHub release whose tag matches the manifest version"; it does not say what it does with pre-releases); that the workflow runs end to end on GitHub (the `if:` condition, the `kind` output and `gh release create --latest` are read, not run).
 
 ### 2.3 Item 48: the linter
 
 Ran `npm run lint` (1.0.1: `eslint src`; 1.0.2: `eslint .`, `eslint-plugin-obsidianmd` 0.4.2 recommended set plus `prefer-active-doc`, ESLint 9.39.5): **`✖ 4 problems (0 errors, 4 warnings)`** on both. They are the 3 `ui/sentence-case` warnings (`allow-card.ts:205`, `settings.ts:177` and `:228`: the rule wants `youtube.com` as `YouTube.com`, `https` as `HTTPS`, and button names `Play` / `Allow list` lowercased) and 1 `settings-tab/prefer-setting-definitions` (`settings.ts:160`). Each is explained, with the reason it was left, in `docs/lint-101.md`. The first run on 1.0.0 had 5 errors and 26 warnings.
 
-What this covers and does not (1.0.2): `npm run lint` lints the repository root: `src/`, `manifest.json` (`validate-manifest`), `package.json` and `LICENSE` (`validate-license`), and has `prefer-active-doc` on (the 1.0.1 run linted `src/` only, plus `package.json` by hand). The test, e2e and build scripts (`test/`, `e2e/`, root `*.mjs`) are not part of the plugin and were left out; run through the same rule set they give parse errors and Node-global warnings (260 errors and warnings in `e2e/`, 88 in `test/`, ran once and not kept). Whether the directory's tooling reads those files is not known.
+What this covers and does not (1.0.2): `npm run lint` lints the repository root: `src/`, `manifest.json` (`validate-manifest`), `package.json` and `LICENSE` (`validate-license`), and has `prefer-active-doc` on (the 1.0.1 run linted `src/` only, plus `package.json` by hand). The test, e2e and build scripts (`test/`, `e2e-tests/`, root `*.mjs`) are not part of the plugin and were left out; run through the same rule set they give parse errors and Node-global warnings (260 errors and warnings in `e2e-tests/`, 88 in `test/`, ran once and not kept). Whether the directory's tooling reads those files is not known.
 
 ### 2.4 Item 49: the greps, re-run over `src/*.ts`
 
@@ -104,7 +104,7 @@ Search: `grep -rnE "fetch\(|XMLHttpRequest|requestUrl|WebSocket|EventSource|send
 | 22 | fundingUrl | N/A | absent; the rule says to leave it out if no donations are taken |
 | 23 | isDesktopOnly matches the code | PASS | `false`; no Node or Electron import (item 53), `Platform` unused |
 | 24 | versions.json valid | PASS | 15 entries, `x.y.z` to a minimum version; `1.0.0` maps to `1.11.7`, same as the manifest (enforced by `release-check.mjs`) |
-| 25 | Release carries main.js, manifest.json, styles.css; tag equals version | PASS | `release.yml` attaches the three files; ran `gh release view 1.0.0`: assets `main.js`, `manifest.json`, `styles.css`, tag `1.0.0` (marked pre-release; the 1.0.1 real release does not exist yet) |
+| 25 | Release carries main.js, manifest.json, styles.css; tag equals version | PASS | `release.yml` attaches the three files; ran `gh release view 1.0.0`: assets `main.js`, `manifest.json`, `styles.css`, tag `1.0.0` (marked pre-release; checked 2026-11-03, before 1.0.1 was released as a real release on 2026-11-04) |
 | 26 | `release-check.mjs` guards the tag | PASS | now accepts `x.y.z` (a real release) and `x.y.z-<suffix>` (a pre-release), refuses leading zeros, a leading `v` and anything else; the `x.y.z` must be the version in the three files; tests in `test/release-check.test.mjs` |
 | 27 | Directory accepts the release | PASS | 2.2 |
 | 28 | Built from source | PASS | `package.json` script `build` = `tsc -noEmit -skipLibCheck && node esbuild.config.mjs production`. Ran `npx tsc -noEmit -skipLibCheck` now: no errors. `npm run build` was last run before the lint commit (`16a9187`) and left `git status` clean; not re-run here because it rewrites `test-vault/`. CI (`.github/workflows/ci.yml`) diffs the committed test-vault copies against a fresh build |
@@ -163,9 +163,9 @@ No rule that made a row of 100 pass now makes it fail.
 
 ## 7. Still not checked
 
-- That the directory's own review tooling finds nothing more than the plugin linter (it may run other rules, or other versions of them; 1.0.2 lints the repository root but still not `test/`, `e2e/` or the root `*.mjs` scripts).
-- That the real 1.0.1 release workflow runs end to end on GitHub and produces a non-pre-release (it has not run).
+- That the directory's own review tooling finds nothing more than the plugin linter (it may run other rules, or other versions of them; 1.0.2 lints the repository root but still not `test/`, `e2e-tests/` or the root `*.mjs` scripts).
+- That the real release workflow runs end to end on GitHub and produces a non-pre-release (checked 2026-11-04: it ran for tag 1.0.1 and published a non-pre-release Latest with the three files; the attestation was not confirmed).
 - That Obsidian's directory ignores pre-releases when it picks a version.
 - The pull-request template route (`obsidian-releases`) is no longer how the Submit page says to submit; whether the old route still works is not known.
-- The real-Obsidian suite (`e2e/`) was not re-run on the 1.0.1 source for this document; the 1.0.0 runs are in `README.md:222-226`.
+- The real-Obsidian suite (`e2e-tests/`) was not re-run on the 1.0.1 source for this document (it was run on the 1.0.1 source on 2026-11-03 before the release, and is run on the 1.0.2 source before it is merged); the 1.0.0 runs are in `README.md:222-226`.
 - Android, a real phone and a real screen reader (`README.md:229-231`).

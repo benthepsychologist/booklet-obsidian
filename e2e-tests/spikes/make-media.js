@@ -1,6 +1,6 @@
 // Records the short media files the other spikes need (clip.webm, clip.mp4, sound.m4a, sound.webm, sound.mp3) into --media <folder>.
 // Uses the app's own MediaRecorder, so nothing is installed. Run once; the other spikes take --media <that folder>.
-//   cd e2e/spikes && PLAYWRIGHT=<node_modules> node make-media.js --obsidian <binary> --out <dir> --media <folder>
+//   cd e2e-tests/spikes && PLAYWRIGHT=<node_modules> node make-media.js --obsidian <binary> --out <dir> --media <folder>
 const L = require("./lib");
 (async () => {
 	const o = L.args(); if (!o.media) { console.error("need --media <folder>"); process.exit(2); }

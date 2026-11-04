@@ -10,12 +10,12 @@ This document is the measurement and a recommendation. Nothing in `src/` changed
 
 ## 2. How it was measured
 
-- **Two cards.** The shipped card (`hand`), and the same card written on `Modal` (`modal`: `e2e/spikes/modal-0130/allow-card.modal.ts`, 287 lines against 280). The variant keeps the same triggers (the Allow list button, a press on media, a booklet that names sites), the same three scopes, the same words and the same callbacks to the view. It needs one new option, `app`, which a one-line patch to `view.ts` supplies (`view-app.patch`, applied only while building).
+- **Two cards.** The shipped card (`hand`), and the same card written on `Modal` (`modal`: `e2e-tests/spikes/modal-0130/allow-card.modal.ts`, 287 lines against 280). The variant keeps the same triggers (the Allow list button, a press on media, a booklet that names sites), the same three scopes, the same words and the same callbacks to the view. It needs one new option, `app`, which a one-line patch to `view.ts` supplies (`view-app.patch`, applied only while building).
 - **Three more builds** to separate causes: `modal-plain` (no role or aria attributes added: what `Modal` exposes by itself), `modal-regain` (the variant plus the hand-built card's focus-regain timers) and `bare` (a plain `new Modal(app)` with a few buttons, a box and a text field, no plugin).
-- **Real Obsidian**, official builds 1.14.5 and 1.8.10 (the declared minimum), driven over the debugging port (`e2e/spikes/modal-0130/measure.js`). Desktop window (1024x800) and phone (`app.emulateMobile(true)` with the device override at 390x844 and touch on; it exists on both versions), each in light and dark: four passes per build and version. The made-up vault has one long booklet, and one booklet for each way the card opens by itself.
+- **Real Obsidian**, official builds 1.14.5 and 1.8.10 (the declared minimum), driven over the debugging port (`e2e-tests/spikes/modal-0130/measure.js`). Desktop window (1024x800) and phone (`app.emulateMobile(true)` with the device override at 390x844 and touch on; it exists on both versions), each in light and dark: four passes per build and version. The made-up vault has one long booklet, and one booklet for each way the card opens by itself.
 - **Real keys and clicks** (Playwright's keyboard and mouse). The accessibility tree is Chrome's own (`Accessibility.getFullAXTree`): what a screen reader is given, not speech.
 - **Light and dark gave the same verdicts on every row.** Counts differ only where a list had grown by a row.
-- Raw numbers: `e2e/spikes/modal-0130/results/*.json`. `asis-*` are the first run of the variant, before it put focus back on Not now after `open()` (see 4.1). Rebuild and rerun: `build-variants.sh`, then `run-all.sh`.
+- Raw numbers: `e2e-tests/spikes/modal-0130/results/*.json`. `asis-*` are the first run of the variant, before it put focus back on Not now after `open()` (see 4.1). Rebuild and rerun: `build-variants.sh`, then `run-all.sh`.
 
 ## 3. The numbers
 

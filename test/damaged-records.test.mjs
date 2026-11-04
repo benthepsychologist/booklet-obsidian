@@ -2,7 +2,7 @@
  * Damaged and duplicated records (SPEC section 12: "parse each fenced record independently and skip, count and report any it cannot
  * read"). A record that is not JSON, not an object, or has the wrong shape is skipped, counted and kept as written; a record written
  * twice is read as the spec reads two blocks of one activity (merged in file order); and no write the plugin makes ever changes a
- * byte of either. The same notes, in the real app, are check 35 of e2e/plugin-check.js.
+ * byte of either. The same notes, in the real app, are check 35 of e2e-tests/plugin-check.js.
  */
 import test from "node:test";
 import assert from "node:assert/strict";

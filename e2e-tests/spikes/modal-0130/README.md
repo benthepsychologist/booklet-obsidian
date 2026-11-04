@@ -10,5 +10,5 @@ The write-up is `docs/modal-0130.md`. Nothing here ships.
 
 ```
 PLAYWRIGHT=<node_modules path> bash build-variants.sh $OUT/plugins     # from the worktree root
-PLAYWRIGHT=<node_modules path> bash e2e/spikes/modal-0130/run-all.sh $OUT/plugins <folder with obsidian-1.14.5/ and obsidian-1.8.10/> $OUT/res
+PLAYWRIGHT=<node_modules path> bash e2e-tests/spikes/modal-0130/run-all.sh $OUT/plugins <folder with obsidian-1.14.5/ and obsidian-1.8.10/> $OUT/res
 ```

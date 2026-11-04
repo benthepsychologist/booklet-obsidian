@@ -35,7 +35,7 @@ const plainText = {
 };
 
 export default defineConfig([
-	{ ignores: ["main.js", "node_modules/**", "test/**", "e2e/**", "test-vault/**", "*.mjs"] },
+	{ ignores: ["main.js", "node_modules/**", "test/**", "e2e-tests/**", "test-vault/**", "*.mjs"] },
 	...obsidianmd.configs.recommended,
 	{
 		rules: { "obsidianmd/prefer-active-doc": "warn" },

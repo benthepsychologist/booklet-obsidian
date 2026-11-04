@@ -14,7 +14,7 @@ The directory's bot found three things in 1.0.1 that `npm run lint` did not: the
 - `LICENSE` with `obsidianmd/validate-license` (a copyright line of the form `Copyright (C) 2020-2025 by Holder` must be current and not `Dynalist Inc.`). `eslint.config.mjs` reads the file as plain lines with a small parser of its own, since the rule needs line tokens. Booklet's line is `Copyright 2026 Ben Armstrong`, which is not that form, so the rule has nothing to match and reports nothing; it was checked to fire by putting `Copyright (C) 2020 by Dynalist Inc.` in a scratch copy (two warnings, year and holder) and then restoring the file.
 - `obsidianmd/prefer-active-doc` is turned on as a warning. The recommended set has it off; the bot has it on (its message is the one quoted above).
 
-Still not linted: `test/`, `e2e/`, `test-vault/`, `main.js`, `node_modules/` and the root `*.mjs` build scripts. They are not plugin code, and the TypeScript project service cannot parse `.mjs` files that are outside the tsconfig (running them through gave parse errors, as in `directory-checklist-101.md` 2.3).
+Still not linted: `test/`, `e2e-tests/`, `test-vault/`, `main.js`, `node_modules/` and the root `*.mjs` build scripts. They are not plugin code, and the TypeScript project service cannot parse `.mjs` files that are outside the tsconfig (running them through gave parse errors, as in `directory-checklist-101.md` 2.3).
 
 | `npm run lint` | Errors | Warnings | Total |
 | --- | --- | --- | --- |

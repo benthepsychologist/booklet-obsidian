@@ -40,7 +40,7 @@ On the branch you want to try (it need not be merged). Say the next real release
 
 ## Cut the real release
 
-1. On the branch that carries the change: `npm version 1.0.1` (plain `x.y.z`; `version-bump.mjs` refuses anything else), `npm run build`, commit including the test-vault copies, `npm test`, and the real-Obsidian suite (`e2e/`) if the code changed since its last full run.
+1. On the branch that carries the change: `npm version 1.0.1` (plain `x.y.z`; `version-bump.mjs` refuses anything else), `npm run build`, commit including the test-vault copies, `npm test`, and the real-Obsidian suite (`e2e-tests/`) if the code changed since its last full run.
 2. Merge to `main` by pull request with CI green.
 3. Check, then tag `main` and push the tag:
    ```
