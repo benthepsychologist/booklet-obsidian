@@ -294,12 +294,15 @@
 /* the cards: raised, roomy, the picture tile first */
 .booklet-view[data-booklet-look^="paper"] .booklet-cards {
 	display: grid;
+	/* one column that may be narrower than its content, so a long card never widens the view at a large text size */
+	grid-template-columns: minmax(0, 1fr);
 	gap: var(--size-4-3);
 	margin: var(--size-4-4) 0 var(--size-4-6);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-cards > li {
 	margin: 0;
+	min-width: 0;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
@@ -724,6 +727,13 @@
 .booklet-view[data-booklet-look^="paper"] .booklet-continue-button {
 	padding: 0.6rem 1.4rem;
 	font-weight: 600;
+}
+
+/* the media Play button: its side padding is in px, not rem, so it does not double at 200% text and push the row sideways on a phone;
+   a long label breaks anywhere rather than scroll */
+.booklet-view[data-booklet-look^="paper"] .booklet-media-play {
+	padding-inline: var(--size-4-4);
+	overflow-wrap: anywhere;
 }
 
 /* the delete of a kept entry and its confirmation: visible, and amber rather than red (the confirmation says what it does in words) */
@@ -1298,6 +1308,18 @@
 
 	.booklet-view[data-booklet-look^="paper"] .booklet-pager {
 		margin-top: var(--size-4-6);
+	}
+}
+
+/* a very narrow view (a phone at 200% text is about 195 CSS px wide): the card row gives its words the room, no chevron, a tighter gap */
+@media (max-width: 320px) {
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
+		gap: var(--size-4-2);
+		padding: var(--size-4-2);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-chevron {
+		display: none;
 	}
 }
 
