@@ -47,7 +47,11 @@ function pairs() {
   for (const a of ACCENTS) add(a, `${a}-wash`, "text", `${a} text on ${a}-wash`);
   for (const a of ACCENTS) add(a, "card", "text", `${a} text on card`);
   add("ink", "yes-wash", "text"); add("ink", "hmm-wash", "text");
-  add("yes", "yes-wash", "text"); add("hmm", "hmm-wash", "text");
+  add("yes", "yes-wash", "text", "yes text on yes-wash"); add("hmm", "hmm-wash", "text", "hmm text on hmm-wash");
+  // Feedback (right / not quite): the feedback colour is a control boundary on the card (3:1); the vivid tile is a graphical object
+  // (left edge, option border, dashed answer line, mark badge) against card and paper (3:1) and carries no text.
+  add("yes", "card", "ui", "yes boundary on card"); add("hmm", "card", "ui", "hmm boundary on card");
+  for (const f of ["yes", "hmm"]) { add(`${f}-tile`, "card", "ui", `${f}-tile (graphic) on card`); add(`${f}-tile`, "paper", "ui", `${f}-tile (graphic) on paper`); }
   add("focus", "paper", "ui", "focus ring on paper"); add("focus", "card", "ui", "focus ring on card");
   for (const a of ["brand", ...ACCENTS]) add(a, "card", "ui", `${a} boundary on card`);
   add("edge", "paper", "ui", "edge (control boundary) on paper"); add("edge", "card", "ui", "edge (control boundary) on card");

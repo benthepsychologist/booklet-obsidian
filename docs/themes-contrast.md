@@ -1,6 +1,6 @@
 # Themes: contrast results for the paper looks
 
-Generated 2026-11-05 (colour pass the same day) by `node scripts/contrast.mjs --markdown` from `themes/tokens-paper-light.css` and
+Generated 2026-11-05 (colour pass and feedback pass the same day) by `node scripts/contrast.mjs --markdown` from `themes/tokens-paper-light.css` and
 `themes/tokens-paper-dark.css` (WCAG 2.x contrast ratio). Text pairs need 4.5:1, focus ring and accent boundaries 3:1,
 rules are decorative and only reported. Every required pair passes in both looks; the script exits 0.
 
@@ -71,6 +71,27 @@ Tiles now: light brand #8FD3DA, sky #A3CDF0, sage #A0DAB5, sun #F8D072, rose #F6
 sky #2D669A, sage #217343, sun #7E5F14, rose #AA3155, lilac #5E49B8.
 
 
+## Feedback pass (2026-11-05): the right and not-quite states
+
+Ben's feedback on the colour pass: the question and reply highlighting (right, not quite, the dashed answer line) needed the same lift.
+Two new tokens, `--bk-yes-tile` and `--bk-hmm-tile`, are the vivid feedback fills for decoration with no text on them: the answered
+question's left edge, the reply's 6px left edge, the border of the right and not-quite options and the 2px dashed line on the answer.
+Each is a graphical object and needs 3:1 on card and on paper. In light that makes them mid-dark (a pastel cannot reach 3:1), unlike the
+accent tiles. The text-safe `--bk-yes`/`--bk-hmm` also gain a "boundary on card" row (3:1). Feedback is still informative: green is
+"right", amber is "not quite", never red, and the shape and words (solid tinted pick, dashed answer, the check and x, "The answer",
+"Not quite") say it as well as the colour.
+
+| token | before | now |
+| --- | --- | --- |
+| light yes-wash / hmm-wash | #E1F1E7 / #F8EBD0 | #D4F5E1 / #FBEAC2 (more saturated, no lower a luminance, so the text-safe yes and hmm stay at 4.5:1) |
+| light yes-tile / hmm-tile | none | #229A56 / #BC7D05 |
+| dark yes / hmm | #7FE0A8 / #F5C45A | #92F5BB / #FFDB74 |
+| dark yes-wash / hmm-wash | #1F4631 / #4A3A16 | #1B6B3F / #775710 |
+| dark yes-tile / hmm-tile | none | #34C971 / #F2B01E |
+
+Thicker marks: the right and not-quite options are a 2px edge (was 1.5px) and bold, the answer is a 2px dashed line (was 1.5px), the
+reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 700 and its icon is 1.1em with a 3px stroke.
+
 ## Tables
 
 ### paper-light
@@ -106,10 +127,16 @@ sky #2D669A, sage #217343, sun #7E5F14, rose #AA3155, lilac #5E49B8.
 | sun text on card | #93650D | #FEFDFB | 5.03 | 4.5 | pass |
 | rose text on card | #A74962 | #FEFDFB | 5.48 | 4.5 | pass |
 | lilac text on card | #6E5DAC | #FEFDFB | 5.40 | 4.5 | pass |
-| ink on yes-wash | #24323A | #E1F1E7 | 11.26 | 4.5 | pass |
-| ink on hmm-wash | #24323A | #F8EBD0 | 11.17 | 4.5 | pass |
-| yes on yes-wash | #2E7952 | #E1F1E7 | 4.51 | 4.5 | pass |
-| hmm on hmm-wash | #8E6211 | #F8EBD0 | 4.55 | 4.5 | pass |
+| ink on yes-wash | #24323A | #D4F5E1 | 11.27 | 4.5 | pass |
+| ink on hmm-wash | #24323A | #FBEAC2 | 11.08 | 4.5 | pass |
+| yes text on yes-wash | #2E7952 | #D4F5E1 | 4.52 | 4.5 | pass |
+| hmm text on hmm-wash | #8E6211 | #FBEAC2 | 4.52 | 4.5 | pass |
+| yes boundary on card | #2E7952 | #FEFDFB | 5.20 | 3 | pass |
+| hmm boundary on card | #8E6211 | #FEFDFB | 5.29 | 3 | pass |
+| yes-tile (graphic) on card | #229A56 | #FEFDFB | 3.55 | 3 | pass |
+| yes-tile (graphic) on paper | #229A56 | #F8F6F1 | 3.34 | 3 | pass |
+| hmm-tile (graphic) on card | #BC7D05 | #FEFDFB | 3.40 | 3 | pass |
+| hmm-tile (graphic) on paper | #BC7D05 | #F8F6F1 | 3.20 | 3 | pass |
 | focus ring on paper | #1E5E6B | #F8F6F1 | 6.78 | 3 | pass |
 | focus ring on card | #1E5E6B | #FEFDFB | 7.20 | 3 | pass |
 | brand boundary on card | #1E5E6B | #FEFDFB | 7.20 | 3 | pass |
@@ -174,10 +201,16 @@ sky #2D669A, sage #217343, sun #7E5F14, rose #AA3155, lilac #5E49B8.
 | sun text on card | #FFC845 | #212B33 | 9.33 | 4.5 | pass |
 | rose text on card | #FF95B4 | #212B33 | 7.00 | 4.5 | pass |
 | lilac text on card | #BCA8FF | #212B33 | 6.98 | 4.5 | pass |
-| ink on yes-wash | #E8E4DB | #1F4631 | 8.36 | 4.5 | pass |
-| ink on hmm-wash | #E8E4DB | #4A3A16 | 8.67 | 4.5 | pass |
-| yes on yes-wash | #7FE0A8 | #1F4631 | 6.64 | 4.5 | pass |
-| hmm on hmm-wash | #F5C45A | #4A3A16 | 6.77 | 4.5 | pass |
+| ink on yes-wash | #E8E4DB | #1B6B3F | 5.14 | 4.5 | pass |
+| ink on hmm-wash | #E8E4DB | #775710 | 5.25 | 4.5 | pass |
+| yes text on yes-wash | #92F5BB | #1B6B3F | 4.97 | 4.5 | pass |
+| hmm text on hmm-wash | #FFDB74 | #775710 | 4.96 | 4.5 | pass |
+| yes boundary on card | #92F5BB | #212B33 | 10.97 | 3 | pass |
+| hmm boundary on card | #FFDB74 | #212B33 | 10.72 | 3 | pass |
+| yes-tile (graphic) on card | #34C971 | #212B33 | 6.68 | 3 | pass |
+| yes-tile (graphic) on paper | #34C971 | #182027 | 7.64 | 3 | pass |
+| hmm-tile (graphic) on card | #F2B01E | #212B33 | 7.55 | 3 | pass |
+| hmm-tile (graphic) on paper | #F2B01E | #182027 | 8.63 | 3 | pass |
 | focus ring on paper | #F2B544 | #182027 | 9.00 | 3 | pass |
 | focus ring on card | #F2B544 | #212B33 | 7.87 | 3 | pass |
 | brand boundary on card | #55D0E8 | #212B33 | 7.94 | 3 | pass |

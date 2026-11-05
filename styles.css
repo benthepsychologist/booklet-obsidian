@@ -3097,10 +3097,15 @@
   /* Feedback: "matches" is green, "another pick" is amber and never red. */
   /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-yes: #2E7952;
-  --bk-yes-wash: #E1F1E7;
+  /* Feedback pass: the wash is more saturated at no lower a luminance (it was #E1F1E7), so yes text on it stays at 4.5:1. */
+  --bk-yes-wash: #D4F5E1;
+  /* Tile: the vivid feedback colour for decoration with NO text on it (answered edge, reply edge, option border, dashed answer line). Dark enough for 3:1 on card and paper. */
+  --bk-yes-tile: #229A56;
   /* palette.md had #9A6A12; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-hmm: #8E6211;
-  --bk-hmm-wash: #F8EBD0;
+  /* Feedback pass: more saturated at no lower a luminance (it was #F8EBD0), so hmm text on it stays at 4.5:1. */
+  --bk-hmm-wash: #FBEAC2;
+  --bk-hmm-tile: #BC7D05;
 
   /* Shape: three corner radii; a soft, wide, low-opacity shadow lifts cards off the paper. */
   --bk-r-lg: 22px;
@@ -3174,10 +3179,13 @@
   --bk-lilac-tile: #5E49B8;
 
   /* Feedback as deep tints with light text colours; "another pick" stays amber, never red. */
-  --bk-yes: #7FE0A8;
-  --bk-yes-wash: #1F4631;
-  --bk-hmm: #F5C45A;
-  --bk-hmm-wash: #4A3A16;
+  /* Feedback pass: more chroma and lightness (were #7FE0A8 / #1F4631 and #F5C45A / #4A3A16). The tile is the vivid decoration fill, no text on it, 3:1 on card and paper. */
+  --bk-yes: #92F5BB;
+  --bk-yes-wash: #1B6B3F;
+  --bk-yes-tile: #34C971;
+  --bk-hmm: #FFDB74;
+  --bk-hmm-wash: #775710;
+  --bk-hmm-tile: #F2B01E;
 
   /* Shape is the same as in light. */
   --bk-r-lg: 22px;
@@ -3666,11 +3674,11 @@
 
 /* answered: a block edge in the feedback colours, never red (the base sheet uses green and orange; here "matches" and "another pick") */
 .booklet-view[data-booklet-look^="paper"] .booklet-question.booklet-answered-right {
-	border-inline-start-color: var(--bk-yes);
+	border-inline-start-color: var(--bk-yes-tile);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-question.booklet-answered-wrong {
-	border-inline-start-color: var(--bk-hmm);
+	border-inline-start-color: var(--bk-hmm-tile);
 }
 
 /* the prompt: the question in the heading face, no rule under it (the sheet is the frame) */
@@ -3762,24 +3770,29 @@
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-right,
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-right:hover {
 	background-color: var(--bk-yes-wash);
-	border-color: var(--bk-yes);
-	box-shadow: none;
+	border-color: var(--bk-yes-tile);
+	/* 1.5px border + 0.5px inset = a 2px edge, in the vivid feedback tile (a graphic, no text on it) */
+	box-shadow: inset 0 0 0 0.5px var(--bk-yes-tile);
 	color: var(--bk-ink);
+	font-weight: 600;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-wrong,
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-wrong:hover {
 	background-color: var(--bk-hmm-wash);
-	border-color: var(--bk-hmm);
-	box-shadow: none;
+	border-color: var(--bk-hmm-tile);
+	box-shadow: inset 0 0 0 0.5px var(--bk-hmm-tile);
 	color: var(--bk-ink);
+	font-weight: 600;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-answer,
 .booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-answer:hover {
 	background-color: transparent;
-	border: 1.5px dashed var(--bk-yes);
+	/* the answer is the reader's missed or unpicked option: a heavier 2px dashed line, apart from a pick (solid, tinted) by shape, the ✓ and the words "The answer" */
+	border: 2px dashed var(--bk-yes-tile);
 	box-shadow: none;
+	font-weight: 600;
 	color: var(--bk-ink);
 }
 
@@ -3792,10 +3805,16 @@
 /* the mark itself: its words in ink (the icon carries the colour), so the contrast is the token's */
 .booklet-view[data-booklet-look^="paper"] .booklet-mark {
 	color: var(--bk-ink);
-	font-size: 0.8rem;
+	font-size: 0.9rem;
+	font-weight: 700;
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-choice.booklet-right .booklet-mark-icon {
+.booklet-view[data-booklet-look^="paper"] .booklet-mark-icon {
+	--icon-size: 1.1em;
+	--icon-stroke: 3px;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-choice:is(.booklet-right, .booklet-answer) .booklet-mark-icon {
 	color: var(--bk-yes);
 }
 
@@ -3928,7 +3947,7 @@
 .booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning,
 .booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover {
 	background-color: var(--bk-hmm-wash);
-	border-color: var(--bk-hmm);
+	border-color: var(--bk-hmm-tile);
 	color: var(--bk-ink);
 	font-weight: 600;
 }
@@ -3939,7 +3958,7 @@
 
 /* ---------- 9. replies, the live line, the finish block ---------- */
 
-/* a reply: a tinted block in the question's colour (matches: green, another pick: amber), no left rule */
+/* a reply: a tinted block in the question's colour (matches: green, another pick: amber); once the question is answered it takes a 6px left edge in the vivid feedback tile */
 .booklet-view[data-booklet-look^="paper"] .booklet-reply {
 	margin-top: var(--size-4-3);
 	padding: var(--size-4-3) var(--size-4-4);
@@ -3951,10 +3970,12 @@
 
 .booklet-view[data-booklet-look^="paper"] .booklet-answered-right .booklet-reply {
 	background-color: var(--bk-yes-wash);
+	border-inline-start: 6px solid var(--bk-yes-tile);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-answered-wrong .booklet-reply {
 	background-color: var(--bk-hmm-wash);
+	border-inline-start: 6px solid var(--bk-hmm-tile);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-live {
@@ -4079,7 +4100,7 @@
 /* the problems block: a tinted amber sheet with ink on it, informative, never red */
 .booklet-view[data-booklet-look^="paper"] .booklet-problems {
 	padding: var(--size-4-3) var(--size-4-4);
-	border-color: var(--bk-hmm);
+	border-color: var(--bk-hmm-tile);
 	border-radius: var(--bk-r-md);
 	background-color: var(--bk-hmm-wash);
 	color: var(--bk-ink);
@@ -4102,7 +4123,7 @@
 
 .booklet-view[data-booklet-look^="paper"] .booklet-kept-note {
 	border-radius: 0 var(--bk-r-sm) var(--bk-r-sm) 0;
-	border-left-color: var(--bk-hmm);
+	border-left-color: var(--bk-hmm-tile);
 	color: var(--bk-ink);
 }
 

@@ -116,6 +116,7 @@ const SCREENS = [
   { name: "kinds", note: "Every kind", screen: "activity:/kinds" },
   { name: "reading", note: "Reading and steps", screen: "activity:/sources" },
   { name: "quiz", note: "Study quiz", screen: "activity:/marked", act: "pick" },
+  { name: "quiz-multi", note: "Study quiz", screen: "activity:/marked", act: "multi", scrollTo: ".booklet-question[data-booklet-q='primaries']" },
   { name: "kept", note: "Kept records", screen: "activity:walks/walk-log", act: "entries" },
   { name: "daily", note: "Daily tracker", screen: "activity:/evening-log", act: "entries" },
   { name: "pages-menu", note: "Learning to sketch", screen: "activity:basics/light", act: "menu" },
@@ -150,6 +151,15 @@ const ACTS = {
   pick: async o => {   // press the wrong option of the first question so its feedback shows
     const done = await o.evaluate(() => !!document.querySelector(".booklet-question[data-booklet-q='flyer'].booklet-answered-wrong, .booklet-question[data-booklet-q='flyer'].booklet-answered-right"));
     if (!done) { await o.page.locator(BOOK + " .booklet-question[data-booklet-q='flyer'] .booklet-choice", { hasText: "A penguin" }).first().click(); await o.page.waitForSelector(BOOK + " .booklet-question[data-booklet-q='flyer'][class*='booklet-answered']", { timeout: 6000 }); }
+  },
+  multi: async o => {   // answer the multi-choice question with the right set and press Check, so the right and the missed states show
+    const q = BOOK + " .booklet-question[data-booklet-q='primaries']";
+    for (const w of ["Red", "Blue", "Yellow"]) {
+      const on = await o.evaluate(w => { const c = [...document.querySelectorAll(".booklet-question[data-booklet-q='primaries'] .booklet-choice")].find(x => x.textContent.includes(w)); return c && (c.getAttribute("aria-pressed") === "true" || c.getAttribute("aria-checked") === "true" || c.classList.contains("booklet-picked")); }, w);
+      if (!on) await o.page.locator(q + " .booklet-choice", { hasText: w }).first().click();
+    }
+    await o.page.locator(q + " button", { hasText: "Check" }).first().click().catch(() => {});
+    await quiet(o);
   },
   entries: async o => {   // the kept-entries list open
     await o.evaluate(() => { const b = document.querySelector(".booklet-entries-title"); if (b && b.getAttribute("aria-expanded") !== "true") b.click(); });
@@ -201,6 +211,7 @@ async function applyLook(o, look) {
           if (await o.evaluate(() => !!document.querySelector(".booklet-allow-card"))) await o.evaluate(() => { const b = [...document.querySelectorAll(".booklet-allow-card button")].find(x => x.textContent === "Not now"); b && b.click(); });
           if (sc.act) { await ACTS[sc.act](o); await quiet(o); }
           await o.evaluate(() => { for (const e of document.querySelectorAll(".booklet-view, .workspace-leaf-content[data-type='booklet'] .view-content")) e.scrollTop = 0; });
+          if (sc.scrollTo) { await o.evaluate(sel => { const q = document.querySelector(sel); if (q) q.scrollIntoView({ block: "start" }); }, sc.scrollTo); await new Promise(r => setTimeout(r, 200)); }
         } catch (e) {
           for (const look of LOOKS) fact(false, `${sc.name}-${look}-${size}: could not reach the screen: ${String(e.message).split("\n")[0]}`);
           lastNote = null; continue;

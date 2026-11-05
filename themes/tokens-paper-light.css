@@ -48,10 +48,15 @@
   /* Feedback: "matches" is green, "another pick" is amber and never red. */
   /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-yes: #2E7952;
-  --bk-yes-wash: #E1F1E7;
+  /* Feedback pass: the wash is more saturated at no lower a luminance (it was #E1F1E7), so yes text on it stays at 4.5:1. */
+  --bk-yes-wash: #D4F5E1;
+  /* Tile: the vivid feedback colour for decoration with NO text on it (answered edge, reply edge, option border, dashed answer line). Dark enough for 3:1 on card and paper. */
+  --bk-yes-tile: #229A56;
   /* palette.md had #9A6A12; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-hmm: #8E6211;
-  --bk-hmm-wash: #F8EBD0;
+  /* Feedback pass: more saturated at no lower a luminance (it was #F8EBD0), so hmm text on it stays at 4.5:1. */
+  --bk-hmm-wash: #FBEAC2;
+  --bk-hmm-tile: #BC7D05;
 
   /* Shape: three corner radii; a soft, wide, low-opacity shadow lifts cards off the paper. */
   --bk-r-lg: 22px;

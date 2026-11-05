@@ -27,7 +27,8 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 | `--bk-sky`, `--bk-sage`, `--bk-sun`, `--bk-rose`, `--bk-lilac` | five accents |
 | `--bk-sky-wash`, `--bk-sage-wash`, `--bk-sun-wash`, `--bk-rose-wash`, `--bk-lilac-wash` | their soft tints (quiet panels, hovers, chips) |
 | `--bk-sky-tile`, `--bk-sage-tile`, `--bk-sun-tile`, `--bk-rose-tile`, `--bk-lilac-tile` | their vivid fills, clearly more saturated than the washes (light: brighter pastel; dark: deep rich colour). Same rule as `--bk-brand-tile`: decoration only, ink 4.5:1 and the accent's own drawing 3:1 on it, no accent-coloured words |
-| `--bk-yes`, `--bk-yes-wash`, `--bk-hmm`, `--bk-hmm-wash` | feedback "matches" and "another pick" (amber, never red) |
+| `--bk-yes`, `--bk-yes-wash`, `--bk-hmm`, `--bk-hmm-wash` | feedback "matches" and "another pick" (amber, never red). `--bk-yes`/`--bk-hmm` are text-safe on their wash (4.5:1) and a boundary on card (3:1); the wash takes ink at 4.5:1 |
+| `--bk-yes-tile`, `--bk-hmm-tile` | the feedback colours' vivid fills, decoration only, NO text on them (answered edge, reply edge, the right and incorrect option's border, the dashed answer line): 3:1 on card and on paper in both looks |
 | `--bk-r-lg`, `--bk-r-md`, `--bk-r-sm` | corner radii (22px, 14px, 10px) |
 | `--bk-shadow` | card shadow (soft; none or a hairline in dark) |
 | `--bk-font-head`, `--bk-font-body` | Lexend, Atkinson Hyperlegible, each with a system fallback |
