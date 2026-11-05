@@ -733,7 +733,7 @@ test("keepAlive: the plugin's own players held in the bar are not torn down with
 });
 
 test("no animation or transition in the bar's style: nothing to turn off under reduced motion", () => {
-	const css = fs.readFileSync(`${ROOT}/styles.css`, "utf8");
+	const css = fs.readFileSync(`${ROOT}/styles.base.css`, "utf8");
 	const at = css.indexOf("Now playing (src/now-playing.ts)");
 	assert.ok(at > 0);
 	const block = css.slice(at);

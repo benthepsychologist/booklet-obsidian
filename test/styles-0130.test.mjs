@@ -99,14 +99,16 @@ function lint(css) {
 	return faults;
 }
 
+// These guards read styles.base.css, the Obsidian look's own rules: the Paper looks (themes/) deliberately carry colours,
+// fonts and motion of their own, and are guarded by test/themes.test.mjs.
 test("the stylesheet has none of what the look rules out", () => {
-	const css = readFileSync(join(ROOT, "styles.css"), "utf8");
+	const css = readFileSync(join(ROOT, "styles.base.css"), "utf8");
 	assert.ok(css.length > 10000, "the stylesheet was read");
 	assert.deepEqual(lint(css), []);
 });
 
 test("the stylesheet's colour mixes sit in @supports, after a plain fill or border", () => {
-	const { decls } = read(readFileSync(join(ROOT, "styles.css"), "utf8"));
+	const { decls } = read(readFileSync(join(ROOT, "styles.base.css"), "utf8"));
 	const mixed = decls.filter((d) => /color-mix\(/.test(d.value));
 	assert.ok(mixed.length >= 15, `the stylesheet mixes colours (${mixed.length})`);
 	for (const d of mixed) assert.ok(d.at.some((a) => a.startsWith("@supports")), `${d.selector} { ${d.prop} } mixes a colour outside @supports`);
@@ -160,7 +162,7 @@ test("the checker lets through what the look is made of", () => {
 });
 
 test("a look's variables are set once, on the view, and the sheet, group and block rules use them", () => {
-	const css = readFileSync(join(ROOT, "styles.css"), "utf8");
+	const css = readFileSync(join(ROOT, "styles.base.css"), "utf8");
 	const { decls } = read(css);
 	const defaults = {
 		"--booklet-card-bg": "var(--background-secondary)",

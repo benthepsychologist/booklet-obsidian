@@ -31,6 +31,8 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 | `--bk-body-size`, `--bk-body-leading` | 1.0625rem, 1.65 |
 | `--bk-spot`, `--bk-spot-art` | size of a card's picture tile (4.6rem) and its drawing (3.4rem); smaller on a phone |
 
+`--bk-on-brand` is dark in paper-dark (light text fails on the lifted fills); always use it for text on a brand or accent fill.
+
 structure.css sets `--bk-accent` and `--bk-accent-wash` on each card or section from the booklet's colour name
 (`.booklet-colour-warm|green|amber|teal|slate|blue|purple`; map them onto the five accents and the brand; document the map in
 the file) and defaults them to `--bk-brand` and `--bk-brand-wash`. Components use `--bk-accent` and `--bk-accent-wash`.

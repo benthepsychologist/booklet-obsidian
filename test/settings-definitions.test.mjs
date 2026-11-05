@@ -6,7 +6,8 @@
  * how Obsidian lays the entry and the page out, or what its search looks in: that is measured in the real app
  * (e2e-tests/settings-search-103.js, and checks 50 and 58 of plugin-check.js). The first design here drew three `render` rows and put
  * the list, the error line and the status message beside them as sibling divs; Obsidian 1.14.5 drops such siblings, and the stub
- * (which cannot) had let it pass.
+ * (which cannot) had let it pass. Besides that entry the tab gives the Booklet look row (a `render` definition, tested in test/look.test.mjs);
+ * `entries` below leaves it out, so these tests read as they did.
  */
 import { window as w, click, words, typeInto, press } from "./dom.mjs";
 import test from "node:test";
@@ -16,6 +17,8 @@ const { BookletSettingTab, MediaAllows } = await import("./.build/media.mjs");
 const { Notice, Setting, PluginSettingTab } = await import("./obsidian-stub.mjs");
 
 const doc = w.document;
+/** The entries the tab gives besides the look row: the one navigable entry, whose page is the allow list. */
+const entries = (t) => t.getSettingDefinitions().filter((d) => !d.render);
 const btn = (el, text) => Array.from(el.querySelectorAll("button")).find((b) => words(b) === text);
 const liveOf = (el) => el.querySelector('[role="status"][aria-live="polite"]');
 const remove = (el, host) => el.querySelector(`button[aria-label="Remove ${host}"]`);
@@ -30,9 +33,11 @@ function page(how, raw = null) {
 	doc.body.appendChild(t.containerEl);
 	if (how === "old") {
 		t.display();
+		// the Booklet look row sits above the allow list's rows; these tests are about the list, and the look row has test/look.test.mjs
+		t.containerEl.querySelector(".booklet-look-row")?.remove();
 		return { media, t, el: t.containerEl, done: () => (t.hide(), t.containerEl.remove()) };
 	}
-	const defs = t.getSettingDefinitions();
+	const defs = entries(t);
 	assert.equal(defs.length, 1, "one entry");
 	assert.equal(defs[0].type, "page");
 	const p = defs[0].page();
@@ -73,7 +78,7 @@ function walk(s) {
 
 test("getSettingDefinitions gives one entry, and the words a reader would search for are in its name (the search looks in the name only)", () => {
 	const { t, done } = page("old");
-	const defs = t.getSettingDefinitions();
+	const defs = entries(t);
 	assert.equal(defs.length, 1);
 	const d = defs[0];
 	assert.equal(d.type, "page");
@@ -188,7 +193,7 @@ test("a change made elsewhere redraws only the list on the page, and the page's 
 test("each time the entry is opened it is a new page, and the one left listens to nothing", () => {
 	const media = new MediaAllows({ allowedMediaHosts: ["a.example.org"] }, () => {});
 	const t = new BookletSettingTab({}, {}, media);
-	const def = t.getSettingDefinitions()[0];
+	const def = entries(t)[0];
 	const one = def.page();
 	one.display();
 	one.hide();
@@ -213,7 +218,7 @@ test("each time the entry is opened it is a new page, and the one left listens t
 test("a page drawn again without being hidden does not keep the first draw's listeners", () => {
 	const media = new MediaAllows({ allowedMediaHosts: ["a.example.org"] }, () => {});
 	const t = new BookletSettingTab({}, {}, media);
-	const p = t.getSettingDefinitions()[0].page();
+	const p = entries(t)[0].page();
 	p.display();
 	const once = media.listeners.size;
 	p.display();
@@ -250,7 +255,7 @@ test("before 1.13 the tab is display() alone: the definitions are empty, nothing
 		assert.ok(b.el.classList.contains("booklet-settings"));
 		b.done();
 		globalThis.__bookletStubApiVersion = "1.13.0";
-		assert.equal(a.t.getSettingDefinitions().length, 1, "1.13.0 is the first that has them");
+		assert.equal(entries(a.t).length, 1, "1.13.0 is the first that has them");
 	} finally {
 		delete globalThis.__bookletStubApiVersion;
 	}

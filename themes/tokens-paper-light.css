@@ -1,0 +1,69 @@
+/* Paper and petrol, light. Tokens only: structure.css, pictures.css and fonts.css use them.
+   Hexes come from the reference palette (design/obsidian-themes/reference-btp-explorable/palette.md); the seven that
+   failed WCAG as text (five accents, yes, hmm) and the focus ring were moved, each with its original in a comment. scripts/contrast.mjs reads this file; keep every colour a literal 6-digit hex on one line. */
+.booklet-view[data-booklet-look="paper-light"] {
+  /* Surfaces and text: paper is warm off-white, never pure white; card is a half-step lighter. */
+  --bk-paper: #F8F6F1;
+  --bk-card: #FEFDFB;
+  --bk-ink: #24323A;
+  --bk-ink-soft: #56646B;
+  --bk-rule: #E4E0D6;
+
+  /* Petrol, the brand: primary buttons, links, selected state. Deep is the hover on primary. */
+  --bk-brand: #1E5E6B;
+  --bk-brand-deep: #15464F;
+  --bk-brand-wash: #E4EFEF;
+  --bk-on-brand: #FFFFFF;
+
+  /* Focus ring: needs 3:1 against paper and card. */
+  /* palette.md had #F2B544 (sun-bright), only 1.7:1 on paper; the ring is petrol, the brand value, 6.8:1 on paper. */
+  --bk-focus: #1E5E6B;
+
+  /* Five accents and their washes. Colour on screen comes from washes; the full accent is for small marks. */
+  /* palette.md had #3F7FB5; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-sky: #376F9E;
+  --bk-sky-wash: #E3EEF7;
+  /* palette.md had #4F8C6B; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-sage: #427559;
+  --bk-sage-wash: #E2F0E7;
+  /* palette.md had #C98A12; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-sun: #93650D;
+  --bk-sun-wash: #FBF0D6;
+  /* palette.md had #BF5470; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-rose: #A74962;
+  --bk-rose-wash: #F9E3E8;
+  /* palette.md had #7462B5; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-lilac: #6E5DAC;
+  --bk-lilac-wash: #ECE8F6;
+
+  /* Feedback: "matches" is green, "another pick" is amber and never red. */
+  /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-yes: #2E7952;
+  --bk-yes-wash: #E1F1E7;
+  /* palette.md had #9A6A12; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
+  --bk-hmm: #8E6211;
+  --bk-hmm-wash: #F8EBD0;
+
+  /* Shape: three corner radii; a soft, wide, low-opacity shadow lifts cards off the paper. */
+  --bk-r-lg: 22px;
+  --bk-r-md: 14px;
+  --bk-r-sm: 10px;
+  --bk-shadow: 0 1px 2px rgba(36, 50, 58, 0.06), 0 8px 24px rgba(36, 50, 58, 0.08);
+
+  /* Type: another lane embeds the font files; here we only name families and fallbacks. */
+  --bk-font-head: "Lexend", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-body-size: 1.0625rem;
+  --bk-body-leading: 1.65;
+
+  /* Picture tile and the drawing inside it; both shrink on a phone (override below). */
+  --bk-spot: 4.6rem;
+  --bk-spot-art: 3.4rem;
+}
+
+@media (max-width: 560px) {
+  .booklet-view[data-booklet-look="paper-light"] {
+    --bk-spot: 3.4rem;
+    --bk-spot-art: 2.5rem;
+  }
+}

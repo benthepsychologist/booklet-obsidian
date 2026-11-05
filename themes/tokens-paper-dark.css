@@ -1,0 +1,65 @@
+/* Paper and petrol, dark: the night sibling of the light look, designed rather than inverted.
+   Same hue relationships, so a section's colour is recognisably the same colour in both looks.
+   scripts/contrast.mjs reads this file; keep every colour a literal 6-digit hex on one line. */
+.booklet-view[data-booklet-look="paper-dark"] {
+  /* Surfaces: deep warm blue-grey (a lamp-lit slate, not black, not neutral grey); cards sit a step lighter. */
+  --bk-paper: #182027;
+  --bk-card: #212b33;
+  /* Ink is warm off-white, never pure white, so long reading does not glare. Soft ink is a cool-neutral mid tone. */
+  --bk-ink: #E8E4DB;
+  --bk-ink-soft: #AAB5BA;
+  /* A hairline a few steps off the card; it also stands in for the shadow (see --bk-shadow). */
+  --bk-rule: #3a4852;
+
+  /* Petrol lifted to a readable teal: it is the link colour on dark paper, and a fill that takes DARK text.
+     Deep is the hover on primary; on dark it goes lighter, because darker would sink into the card. */
+  --bk-brand: #5FB4C4;
+  --bk-brand-deep: #86CAD6;
+  --bk-brand-wash: #1D3A41;
+  /* Dark text on the lifted fills (brand and accents): light-on-pastel would fail, dark-on-pastel reads well. */
+  --bk-on-brand: #0F191E;
+
+  /* The same warm sun as the light look; it already stands out on a dark surface. */
+  --bk-focus: #F2B544;
+
+  /* Accents lifted in lightness (hue kept) so they read as text and as boundaries on the dark card.
+     Washes are deep, desaturated tints of the same hue, a little lighter than the card so a tinted panel still shows. */
+  --bk-sky: #7DB5E8;
+  --bk-sky-wash: #1F3345;
+  --bk-sage: #7CC79B;
+  --bk-sage-wash: #1F3A2D;
+  --bk-sun: #E3B04A;
+  --bk-sun-wash: #3A3120;
+  --bk-rose: #E88FA8;
+  --bk-rose-wash: #3F2630;
+  --bk-lilac: #AB9DE4;
+  --bk-lilac-wash: #2D2A45;
+
+  /* Feedback as deep tints with light text colours; "another pick" stays amber, never red. */
+  --bk-yes: #7FD3A2;
+  --bk-yes-wash: #1D3A2B;
+  --bk-hmm: #E8B85C;
+  --bk-hmm-wash: #3B2F18;
+
+  /* Shape is the same as in light. */
+  --bk-r-lg: 22px;
+  --bk-r-md: 14px;
+  --bk-r-sm: 10px;
+  /* A drop shadow is invisible on a dark surface, so a one-pixel ring in the rule colour does its job. */
+  --bk-shadow: 0 0 0 1px var(--bk-rule);
+
+  --bk-font-head: "Lexend", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-body-size: 1.0625rem;
+  --bk-body-leading: 1.65;
+
+  --bk-spot: 4.6rem;
+  --bk-spot-art: 3.4rem;
+}
+
+@media (max-width: 560px) {
+  .booklet-view[data-booklet-look="paper-dark"] {
+    --bk-spot: 3.4rem;
+    --bk-spot-art: 2.5rem;
+  }
+}
