@@ -12,7 +12,9 @@ export const PARTS = [
 ];
 
 export function buildStyles() {
-	const out = PARTS.filter((p) => existsSync(p))
+	// every part is required: a missing one is an error, never a silently thinner sheet
+	for (const p of PARTS) if (!existsSync(p)) throw new Error(`build-styles: part ${p} is missing`);
+	const out = PARTS
 		.map((p) => (p === "styles.base.css" ? readFileSync(p, "utf8") : `\n/* ===== ${p} ===== */\n` + readFileSync(p, "utf8")))
 		.join("");
 	writeFileSync("styles.css", out);

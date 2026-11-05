@@ -18,12 +18,15 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 | `--bk-paper` | the view's background (warm off-white; deep warm ink in dark) |
 | `--bk-card` | card and sheet surfaces, a step off the paper |
 | `--bk-ink`, `--bk-ink-soft` | text, secondary text |
-| `--bk-rule` | borders and dividers |
+| `--bk-rule` | dividers and card edges (decorative, not a control boundary) |
+| `--bk-edge` | a control's boundary (option pill, secondary button): at least 3:1 on `--bk-card` and `--bk-paper` |
 | `--bk-brand`, `--bk-brand-deep`, `--bk-brand-wash` | petrol: primary buttons, links, selected state |
+| `--bk-brand-tile` | petrol's vivid fill for decoration (picture tile, number pill, chevron disc, selected-option fill, progress dots); only ink or the brand line drawing sits on it, never brand-coloured words; ink on it 4.5:1, brand drawing on it 3:1 |
 | `--bk-on-brand` | text on a brand or accent fill |
 | `--bk-focus` | the focus ring colour |
 | `--bk-sky`, `--bk-sage`, `--bk-sun`, `--bk-rose`, `--bk-lilac` | five accents |
-| `--bk-sky-wash`, `--bk-sage-wash`, `--bk-sun-wash`, `--bk-rose-wash`, `--bk-lilac-wash` | their soft tints |
+| `--bk-sky-wash`, `--bk-sage-wash`, `--bk-sun-wash`, `--bk-rose-wash`, `--bk-lilac-wash` | their soft tints (quiet panels, hovers, chips) |
+| `--bk-sky-tile`, `--bk-sage-tile`, `--bk-sun-tile`, `--bk-rose-tile`, `--bk-lilac-tile` | their vivid fills, clearly more saturated than the washes (light: brighter pastel; dark: deep rich colour). Same rule as `--bk-brand-tile`: decoration only, ink 4.5:1 and the accent's own drawing 3:1 on it, no accent-coloured words |
 | `--bk-yes`, `--bk-yes-wash`, `--bk-hmm`, `--bk-hmm-wash` | feedback "matches" and "another pick" (amber, never red) |
 | `--bk-r-lg`, `--bk-r-md`, `--bk-r-sm` | corner radii (22px, 14px, 10px) |
 | `--bk-shadow` | card shadow (soft; none or a hairline in dark) |
@@ -33,9 +36,9 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 
 `--bk-on-brand` is dark in paper-dark (light text fails on the lifted fills); always use it for text on a brand or accent fill.
 
-structure.css sets `--bk-accent` and `--bk-accent-wash` on each card or section from the booklet's colour name
+structure.css sets `--bk-accent`, `--bk-accent-wash` and `--bk-accent-tile` on each card or section from the booklet's colour name
 (`.booklet-colour-warm|green|amber|teal|slate|blue|purple`; map them onto the five accents and the brand; document the map in
-the file) and defaults them to `--bk-brand` and `--bk-brand-wash`. Components use `--bk-accent` and `--bk-accent-wash`.
+the file) and defaults them to `--bk-brand`, `--bk-brand-wash` and `--bk-brand-tile`. Components use `--bk-accent`, `--bk-accent-wash` (quiet) and `--bk-accent-tile` (vivid decoration).
 
 ## Files and who owns them
 

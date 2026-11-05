@@ -2,7 +2,7 @@
    and they must never reach outside the booklet view or be on in the Obsidian look. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -13,6 +13,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("the theme parts exist", () => {
 	for (const f of ["fonts.css", "tokens-paper-light.css", "tokens-paper-dark.css", "structure.css", "pictures.css"]) assert.ok(parts.includes(f), f);
+});
+
+test("every part in PARTS exists", async () => {
+	const { PARTS } = await import(join(ROOT, "scripts", "build-styles.mjs"));
+	for (const p of PARTS) assert.ok(existsSync(join(ROOT, p)), `${p} is in PARTS but does not exist`);
 });
 
 test("styles.css is the base sheet plus the parts, as the build script makes it", async () => {

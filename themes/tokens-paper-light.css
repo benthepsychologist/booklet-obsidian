@@ -8,11 +8,15 @@
   --bk-ink: #24323A;
   --bk-ink-soft: #56646B;
   --bk-rule: #E4E0D6;
+  /* A control's boundary (option pill, secondary button): a soft blue-grey, at least 3:1 on card and on paper (WCAG 1.4.11). --bk-rule stays for dividers and card edges, which are not controls. */
+  --bk-edge: #878C8E;
 
   /* Petrol, the brand: primary buttons, links, selected state. Deep is the hover on primary. */
   --bk-brand: #1E5E6B;
   --bk-brand-deep: #15464F;
-  --bk-brand-wash: #E4EFEF;
+  --bk-brand-wash: #DDEFEF;
+  /* Tile: the stronger tint for picture tiles, number pills, chevron discs, selected-state fills and progress dots. Decoration with ink or an accent line drawing on it, never an accent word. */
+  --bk-brand-tile: #8FD3DA;
   --bk-on-brand: #FFFFFF;
 
   /* Focus ring: needs 3:1 against paper and card. */
@@ -23,18 +27,23 @@
   /* palette.md had #3F7FB5; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-sky: #376F9E;
   --bk-sky-wash: #E3EEF7;
+  --bk-sky-tile: #A3CDF0;
   /* palette.md had #4F8C6B; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-sage: #427559;
   --bk-sage-wash: #E2F0E7;
+  --bk-sage-tile: #A0DAB5;
   /* palette.md had #C98A12; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-sun: #93650D;
   --bk-sun-wash: #FBF0D6;
+  --bk-sun-tile: #F8D072;
   /* palette.md had #BF5470; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-rose: #A74962;
   --bk-rose-wash: #F9E3E8;
+  --bk-rose-tile: #F6AFC2;
   /* palette.md had #7462B5; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-lilac: #6E5DAC;
   --bk-lilac-wash: #ECE8F6;
+  --bk-lilac-tile: #C9BCF2;
 
   /* Feedback: "matches" is green, "another pick" is amber and never red. */
   /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */

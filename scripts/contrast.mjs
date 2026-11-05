@@ -50,6 +50,13 @@ function pairs() {
   add("yes", "yes-wash", "text"); add("hmm", "hmm-wash", "text");
   add("focus", "paper", "ui", "focus ring on paper"); add("focus", "card", "ui", "focus ring on card");
   for (const a of ["brand", ...ACCENTS]) add(a, "card", "ui", `${a} boundary on card`);
+  add("edge", "paper", "ui", "edge (control boundary) on paper"); add("edge", "card", "ui", "edge (control boundary) on card");
+  // Tiles: vivid decoration fills (picture tile, number pill, chevron disc, selected-state fill, progress dot).
+  // Ink is the only text on a tile (the number in a pill, an option's words), so it needs 4.5; the accent drawn on its own tile
+  // (a line icon or spot drawing) is a graphical object and needs 3. A tile is never a text colour.
+  for (const a of ["brand", ...ACCENTS]) add("ink", `${a}-tile`, "text", `ink on ${a}-tile`);
+  for (const a of ["brand", ...ACCENTS]) add(a, `${a}-tile`, "ui", `${a} glyph on ${a}-tile`);
+  for (const a of ["brand", ...ACCENTS]) add(`${a}-tile`, "card", "info", `${a}-tile on card (decorative)`);
   add("rule", "paper", "info", "rule on paper (decorative)"); add("rule", "card", "info", "rule on card (decorative)");
   return p;
 }
