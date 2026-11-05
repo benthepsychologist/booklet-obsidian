@@ -9,11 +9,13 @@ import esbuild from "esbuild";
 import process from "node:process";
 import { copyFileSync, mkdirSync } from "node:fs";
 import { pluginOptions } from "./build-options.mjs";
+import { buildStyles } from "./scripts/build-styles.mjs";
 
 const prod = process.argv[2] === "production";
 const VAULT_PLUGIN = "test-vault/.obsidian/plugins/booklet";
 
 function copyIntoVault() {
+	buildStyles();
 	mkdirSync(VAULT_PLUGIN, { recursive: true });
 	for (const f of ["main.js", "manifest.json", "styles.css"]) copyFileSync(f, `${VAULT_PLUGIN}/${f}`);
 	console.log(`copied main.js, manifest.json and styles.css into ${VAULT_PLUGIN}/`);
