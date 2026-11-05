@@ -45,6 +45,11 @@
   --bk-lilac-wash: #ECE8F6;
   --bk-lilac-tile: #C9BCF2;
 
+  /* Slate, the quiet neutral for a reading block of no colour (law, quote): a clean cool grey, not a mix of ink into paper. Same rules as the accents. */
+  --bk-slate: #4B5A63;
+  --bk-slate-wash: #ECEEEF;
+  --bk-slate-tile: #C3CCD2;
+
   /* Feedback: "matches" is green, "another pick" is amber and never red. */
   /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-yes: #2E7952;

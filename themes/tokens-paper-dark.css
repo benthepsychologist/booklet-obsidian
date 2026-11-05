@@ -44,6 +44,11 @@
   --bk-lilac-wash: #353057;
   --bk-lilac-tile: #5E49B8;
 
+  /* Slate, the quiet neutral for a reading block of no colour (law, quote): a clean cool grey a step lighter than the card. */
+  --bk-slate: #BAC6CC;
+  --bk-slate-wash: #2D3A45;
+  --bk-slate-tile: #4C5E6B;
+
   /* Feedback as deep tints with light text colours; "another pick" stays amber, never red. */
   /* Feedback pass: more chroma and lightness (were #7FE0A8 / #1F4631 and #F5C45A / #4A3A16). The tile is the vivid decoration fill, no text on it, 3:1 on card and paper. */
   --bk-yes: #92F5BB;

@@ -14,7 +14,7 @@ const LOOKS = [
   { name: "paper-light", file: "themes/tokens-paper-light.css" },
   { name: "paper-dark", file: "themes/tokens-paper-dark.css" },
 ];
-const ACCENTS = ["sky", "sage", "sun", "rose", "lilac"];
+const ACCENTS = ["sky", "sage", "sun", "rose", "lilac", "slate"];
 
 function readTokens(file) {
   const css = readFileSync(join(root, file), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");

@@ -115,6 +115,9 @@ const SCREENS = [
   { name: "sketch-module", note: "Learning to sketch", screen: "module:basics" },
   { name: "kinds", note: "Every kind", screen: "activity:/kinds" },
   { name: "reading", note: "Reading and steps", screen: "activity:/sources" },
+  { name: "reading-steps", note: "Reading and steps", screen: "activity:/lesson", act: "step-next", scrollTo: ".booklet-steps-head" },
+  { name: "reading-source", note: "Reading and steps", screen: "activity:/sources", act: "cite", scrollTo: ".booklet-cite-panel" },
+  { name: "reading-done", note: "Reading and steps", screen: "activity:/lesson", act: "step-answered", scrollTo: ".booklet-steps-head" },
   { name: "quiz", note: "Study quiz", screen: "activity:/marked", act: "pick" },
   { name: "quiz-multi", note: "Study quiz", screen: "activity:/marked", act: "multi", scrollTo: ".booklet-question[data-booklet-q='primaries']" },
   { name: "kept", note: "Kept records", screen: "activity:walks/walk-log", act: "entries" },
@@ -160,6 +163,27 @@ const ACTS = {
     }
     await o.page.locator(q + " button", { hasText: "Check" }).first().click().catch(() => {});
     await quiet(o);
+  },
+  "step-next": async o => {   // one step at a time, answer step one, then press Next so step two shows with step one done
+    const one = await o.evaluate(() => !!document.querySelector(".booklet-steps-head"));
+    if (!one) { await o.page.locator(BOOK + " .booklet-steps-choice button", { hasText: "One at a time" }).first().click(); await o.page.waitForSelector(BOOK + " .booklet-steps-head", { timeout: 6000 }); await quiet(o); }
+    const q = BOOK + " .booklet-step[data-booklet-step='1'] .booklet-question";
+    const on = await o.evaluate(() => !!document.querySelector(".booklet-step[data-booklet-step='1'] .booklet-question[class*='booklet-answered']"));
+    if (!on) { await o.page.locator(q + " .booklet-choice", { hasText: "The moon" }).first().click().catch(() => {}); await quiet(o); }
+    const at = await o.evaluate(() => { const s = document.querySelector(".booklet-step:not([hidden])"); return s && s.getAttribute("data-booklet-step"); });
+    if (at === "1") { await o.page.locator(BOOK + " .booklet-pager button", { hasText: "Next" }).first().click(); await quiet(o); }
+  },
+  cite: async o => {   // the first source number pressed, so its panel (with the verified badge) shows
+    const open = await o.evaluate(() => !!document.querySelector(".booklet-cite-panel"));
+    if (!open) { await o.page.locator(BOOK + " .booklet-cite-mark").first().click(); await o.page.waitForSelector(BOOK + " .booklet-cite-panel", { timeout: 6000 }); }
+  },
+  "step-answered": async o => {   // one step at a time, step one answered and left on show, so its card is a done step
+    const one = await o.evaluate(() => !!document.querySelector(".booklet-steps-head"));
+    if (!one) { await o.page.locator(BOOK + " .booklet-steps-choice button", { hasText: "One at a time" }).first().click(); await o.page.waitForSelector(BOOK + " .booklet-steps-head", { timeout: 6000 }); await quiet(o); }
+    const step = await o.evaluate(() => { const s = document.querySelector(".booklet-step:not([hidden])"); return s && s.getAttribute("data-booklet-step"); });
+    if (step !== "1") { await o.page.locator(BOOK + " .booklet-pager button", { hasText: "Back" }).first().click(); await quiet(o); }
+    const done = await o.evaluate(() => !!document.querySelector(".booklet-step[data-booklet-step='1'] .booklet-question[class*='booklet-answered']"));
+    if (!done) { await o.page.locator(BOOK + " .booklet-step[data-booklet-step='1'] .booklet-choice", { hasText: "The moon" }).first().click(); await quiet(o); }
   },
   entries: async o => {   // the kept-entries list open
     await o.evaluate(() => { const b = document.querySelector(".booklet-entries-title"); if (b && b.getAttribute("aria-expanded") !== "true") b.click(); });
@@ -211,7 +235,7 @@ async function applyLook(o, look) {
           if (await o.evaluate(() => !!document.querySelector(".booklet-allow-card"))) await o.evaluate(() => { const b = [...document.querySelectorAll(".booklet-allow-card button")].find(x => x.textContent === "Not now"); b && b.click(); });
           if (sc.act) { await ACTS[sc.act](o); await quiet(o); }
           await o.evaluate(() => { for (const e of document.querySelectorAll(".booklet-view, .workspace-leaf-content[data-type='booklet'] .view-content")) e.scrollTop = 0; });
-          if (sc.scrollTo) { await o.evaluate(sel => { const q = document.querySelector(sel); if (q) q.scrollIntoView({ block: "start" }); }, sc.scrollTo); await new Promise(r => setTimeout(r, 200)); }
+          if (sc.scrollTo) { await o.evaluate(sel => { const q = document.querySelector(sel); if (!q) return; q.scrollIntoView({ block: "start" }); for (let e = q.parentElement; e; e = e.parentElement) { const own = e.matches(".booklet-view, .view-content"); if (!own && e.scrollTop) e.scrollTop = 0; if (own && e.scrollTop > 120) e.scrollTop -= 120; } }, sc.scrollTo); await new Promise(r => setTimeout(r, 200)); }
         } catch (e) {
           for (const look of LOOKS) fact(false, `${sc.name}-${look}-${size}: could not reach the screen: ${String(e.message).split("\n")[0]}`);
           lastNote = null; continue;

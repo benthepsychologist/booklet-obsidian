@@ -27,6 +27,7 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 | `--bk-sky`, `--bk-sage`, `--bk-sun`, `--bk-rose`, `--bk-lilac` | five accents |
 | `--bk-sky-wash`, `--bk-sage-wash`, `--bk-sun-wash`, `--bk-rose-wash`, `--bk-lilac-wash` | their soft tints (quiet panels, hovers, chips) |
 | `--bk-sky-tile`, `--bk-sage-tile`, `--bk-sun-tile`, `--bk-rose-tile`, `--bk-lilac-tile` | their vivid fills, clearly more saturated than the washes (light: brighter pastel; dark: deep rich colour). Same rule as `--bk-brand-tile`: decoration only, ink 4.5:1 and the accent's own drawing 3:1 on it, no accent-coloured words |
+| `--bk-slate`, `--bk-slate-wash`, `--bk-slate-tile` | the quiet neutral (a clean cool grey) for a reading block or note of no colour (law, quote, the `slate` colour name). Same three roles and the same checks as an accent (text on wash 4.5:1, glyph on tile 3:1, ink on tile 4.5:1) |
 | `--bk-yes`, `--bk-yes-wash`, `--bk-hmm`, `--bk-hmm-wash` | feedback "matches" and "another pick" (amber, never red). `--bk-yes`/`--bk-hmm` are text-safe on their wash (4.5:1) and a boundary on card (3:1); the wash takes ink at 4.5:1 |
 | `--bk-yes-tile`, `--bk-hmm-tile` | the feedback colours' vivid fills, decoration only, NO text on them (answered edge, reply edge, the right and incorrect option's border, the dashed answer line): 3:1 on card and on paper in both looks |
 | `--bk-r-lg`, `--bk-r-md`, `--bk-r-sm` | corner radii (22px, 14px, 10px) |
@@ -38,7 +39,7 @@ Motion (transition, animation, transform on hover or press) only inside `@media 
 `--bk-on-brand` is dark in paper-dark (light text fails on the lifted fills); always use it for text on a brand or accent fill.
 
 structure.css sets `--bk-accent`, `--bk-accent-wash` and `--bk-accent-tile` on each card or section from the booklet's colour name
-(`.booklet-colour-warm|green|amber|teal|slate|blue|purple`; map them onto the five accents and the brand; document the map in
+(`.booklet-colour-warm|green|amber|teal|slate|blue|purple`; map them onto the five accents, the slate neutral and the brand; document the map in
 the file) and defaults them to `--bk-brand`, `--bk-brand-wash` and `--bk-brand-tile`. Components use `--bk-accent`, `--bk-accent-wash` (quiet) and `--bk-accent-tile` (vivid decoration).
 
 ## Files and who owns them

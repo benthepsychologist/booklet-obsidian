@@ -3094,6 +3094,11 @@
   --bk-lilac-wash: #ECE8F6;
   --bk-lilac-tile: #C9BCF2;
 
+  /* Slate, the quiet neutral for a reading block of no colour (law, quote): a clean cool grey, not a mix of ink into paper. Same rules as the accents. */
+  --bk-slate: #4B5A63;
+  --bk-slate-wash: #ECEEEF;
+  --bk-slate-tile: #C3CCD2;
+
   /* Feedback: "matches" is green, "another pick" is amber and never red. */
   /* palette.md had #2F7D55; darkened to reach 4.5:1 as text on its wash and on card (and 3:1 as a boundary). */
   --bk-yes: #2E7952;
@@ -3178,6 +3183,11 @@
   --bk-lilac-wash: #353057;
   --bk-lilac-tile: #5E49B8;
 
+  /* Slate, the quiet neutral for a reading block of no colour (law, quote): a clean cool grey a step lighter than the card. */
+  --bk-slate: #BAC6CC;
+  --bk-slate-wash: #2D3A45;
+  --bk-slate-tile: #4C5E6B;
+
   /* Feedback as deep tints with light text colours; "another pick" stays amber, never red. */
   /* Feedback pass: more chroma and lightness (were #7FE0A8 / #1F4631 and #F5C45A / #4A3A16). The tile is the vivid decoration fill, no text on it, 3:1 on card and paper. */
   --bk-yes: #92F5BB;
@@ -3228,7 +3238,7 @@
  *  - the "obsidian" look has no rule here at all, because none of these selectors matches it.
  *
  * Order: 1 accent scope, 2 the view and Obsidian's variables, 3 type, 4 screens and cards, 5 tabs and pager, 6 questions and
- * options, 7 fields, 8 buttons, 9 replies and finish, 10 entries and fold, 11 panels, notes, notices, 12 data views and charts,
+ * options, 7 fields, 8 buttons, 9 replies, finish and steps, 10 entries and fold, 11 panels, notes, reading blocks, sources, notices, 12 data views and charts,
  * 13 focus, 14 phone, 15 motion.
  */
 
@@ -3246,7 +3256,7 @@
    brand, so the names are mapped, not matched one to one:
      warm   -> rose            green  -> sage         amber -> sun
      teal   -> brand (petrol)  blue   -> sky          purple -> lilac
-     slate  -> ink-soft on a --bk-rule wash (the quiet neutral; the accents have none)
+     slate  -> --bk-slate on --bk-slate-wash and --bk-slate-tile (the quiet neutral, a clean cool grey)
    --bk-accent-tile is the vivid fill for decoration (picture tile, number pill, chevron disc, selected option, progress dots): ink or the
    accent's own line drawing sits on it, never accent-coloured words. The wash stays for quiet panels and hovers.
    --booklet-tone is the base sheet's own name for the same colour (a cell's top band, a note's edge), so it follows. */
@@ -3293,10 +3303,10 @@
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-colour-slate {
-	--bk-accent: var(--bk-ink-soft);
-	--bk-accent-wash: var(--bk-rule);
-	--bk-accent-tile: var(--bk-rule);
-	--booklet-tone: var(--bk-ink-soft);
+	--bk-accent: var(--bk-slate);
+	--bk-accent-wash: var(--bk-slate-wash);
+	--bk-accent-tile: var(--bk-slate-tile);
+	--booklet-tone: var(--bk-slate);
 }
 
 /* Where a booklet names no colour (a list of cards never does), the five accents take the cards in turn, so a home is not one
@@ -3995,28 +4005,170 @@
 	border-top: 1px dashed var(--bk-rule);
 }
 
-/* steps: the dots fill in the section's colour; the counter is a small pill */
+/* ---------- 9b. steps (after replies, before entries) ----------
+   A step is a raised card with a 6px edge in its colour. The steps take the five accents in turn (the same order as the home cards), and the dots and the
+   count pill take the colour of the step they stand for or show. The first group of rules sets the accent, the rest only use it. */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 2),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 1) {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 3),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 2) {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 4),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 3) {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 4) {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 1),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n) {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+/* the count pill takes the colour of the step on show (up to ten steps; after that it stays the brand) */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="1"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="6"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="2"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="7"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="3"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="8"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="4"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="9"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="5"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="10"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-head {
+	gap: var(--size-4-4);
+	margin-bottom: var(--size-4-4);
+}
+
+/* the count: a vivid pill like a card's number, ink on the tile */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-progress {
+	padding: 0.15rem 0.9rem;
+	border-radius: 999px;
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-head);
+	font-size: 0.9rem;
+	font-weight: 700;
+	line-height: 1.6;
+}
+
+/* the dots: 14px, so they read at a glance. Not yet done: an empty ring. Done: the step's tile fill, its accent ring and a check (so it is never colour alone).
+   The current one is ringed in ink, set off from its fill. */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots {
+	gap: 0.6rem;
+}
+
 .booklet-view[data-booklet-look^="paper"] .booklet-steps-dot {
-	width: var(--size-4-3);
-	height: var(--size-4-3);
-	border-color: var(--bk-ink-soft);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 1.05rem;
+	height: 1.05rem;
+	border: 2px solid var(--bk-edge);
+	background-color: var(--bk-card);
+	color: var(--bk-ink);
+	font-size: 0.65rem;
+	font-weight: 800;
+	line-height: 1;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-done {
-	background-color: var(--bk-accent);
+	background-color: var(--bk-accent-tile);
 	border-color: var(--bk-accent);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-current {
-	outline-color: var(--bk-ink);
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-done::before {
+	content: "✓" / "";
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps-progress {
-	padding: 0 var(--size-4-3);
-	border-radius: 999px;
-	background-color: var(--bk-accent-wash);
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-current {
+	outline: 2px solid var(--bk-ink);
+	outline-offset: 2px;
+}
+
+/* the step: a raised card, a 6px edge in its colour, a hairline in its tile, and its title in the head face */
+.booklet-view[data-booklet-look^="paper"] .booklet-step > .booklet-group {
+	margin-top: 0;
+	border-color: var(--bk-accent-tile);
+	border-inline-start: 6px solid var(--bk-accent);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step > .booklet-group > .booklet-group-title {
+	font-family: var(--bk-font-head);
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+/* a done step carries a check in a small tile at the end of its title (hidden from a screen reader: the status line and the answers say the rest) */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(1).is-done) > .booklet-step[data-booklet-step="1"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(2).is-done) > .booklet-step[data-booklet-step="2"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(3).is-done) > .booklet-step[data-booklet-step="3"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(4).is-done) > .booklet-step[data-booklet-step="4"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(5).is-done) > .booklet-step[data-booklet-step="5"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(6).is-done) > .booklet-step[data-booklet-step="6"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(7).is-done) > .booklet-step[data-booklet-step="7"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(8).is-done) > .booklet-step[data-booklet-step="8"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(9).is-done) > .booklet-step[data-booklet-step="9"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(10).is-done) > .booklet-step[data-booklet-step="10"] .booklet-group-title::after {
+	content: "✓" / "";
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.7rem;
+	height: 1.7rem;
+	border-radius: 50%;
+	background-color: var(--bk-accent-tile);
 	color: var(--bk-ink);
-	font-weight: 600;
+	font-size: 0.95rem;
+	font-weight: 800;
 }
 
 /* ---------- 10. kept entries ---------- */
@@ -4068,33 +4220,178 @@
 	background-color: var(--bk-card);
 }
 
+/* a note under a widget: a tinted block in its colour, a straight 6px edge, its label in the head face */
 .booklet-view[data-booklet-look^="paper"] .booklet-note {
-	border-inline-start-width: var(--size-2-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-inline-start: 6px solid var(--bk-accent);
+	border-radius: 0 var(--bk-r-sm) var(--bk-r-sm) 0;
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
 }
 
-/* a reading block (a callout): one straight bar on the inline start, square at that side and rounded on the other. The format's three own kinds
-   (diff, law, opinion) draw a dashed, double or dotted edge in the base sheet; on a rounded block those curve and double up, so here the edge is solid
-   and the kind is still told by its picture and its title. Law (slate) is a clean light neutral wash, not a mix of ink into paper. */
-.booklet-view[data-booklet-look^="paper"] .callout {
+.booklet-view[data-booklet-look^="paper"] .booklet-note strong {
+	font-family: var(--bk-font-head);
+	color: var(--bk-accent);
+}
+
+/* A reading block (a callout). Each kind keeps its own colour, mapped onto the five accents and the slate neutral (the format's three kinds and
+   Obsidian's own types):
+     brand  -> diff, tip, hint, important, and any kind not named below
+     sky    -> note, info, todo, abstract, summary, tldr
+     sage   -> success, check, done
+     sun    -> question, help, faq, warning, caution, attention
+     rose   -> opinion, failure, fail, missing, danger, error, bug
+     lilac  -> example
+     slate  -> law, quote, cite
+   The block is a clean wash of that colour with ink on it, a straight 6px edge on the inline start in the colour (square there, rounded on the other side;
+   the format's dashed, double and dotted edges curve and double up on a rounded block, so the edge is solid and the picture and the title tell the kind),
+   a hairline in the tile, a title in the colour, and the picture in a small vivid tile as the home cards have. */
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] {
+	--bk-accent: var(--bk-brand);
+	--bk-accent-wash: var(--bk-brand-wash);
+	--bk-accent-tile: var(--bk-brand-tile);
+	--booklet-callout-colour: var(--bk-accent);
+	padding: var(--size-4-3) var(--size-4-4) var(--size-4-3) var(--size-4-4);
+	border-style: solid;
+	border-width: 1px;
+	border-color: var(--bk-accent-tile);
+	border-inline-start: 6px solid var(--bk-accent);
 	border-radius: var(--bk-r-md);
 	border-start-start-radius: 0;
 	border-end-start-radius: 0;
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
+	box-shadow: var(--bk-shadow);
 }
 
-.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="diff"], [data-callout="law"], [data-callout="opinion"]) {
-	border-inline-start-style: solid;
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="note"], [data-callout="info"], [data-callout="todo"], [data-callout="abstract"], [data-callout="summary"], [data-callout="tldr"]) {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
 }
 
-.booklet-view[data-booklet-look^="paper"] .callout[data-callout="law"] {
-	background-color: var(--bk-card);
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="success"], [data-callout="check"], [data-callout="done"]) {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
 }
 
-@supports (color: color-mix(in srgb, red, blue)) {
-	.booklet-view[data-booklet-look^="paper"] .callout[data-callout="law"] {
-		background-color: color-mix(in srgb, var(--bk-ink-soft) 7%, var(--bk-card));
-		border-block-color: var(--bk-rule);
-		border-inline-end-color: var(--bk-rule);
-	}
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="question"], [data-callout="help"], [data-callout="faq"], [data-callout="warning"], [data-callout="caution"], [data-callout="attention"]) {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="opinion"], [data-callout="failure"], [data-callout="fail"], [data-callout="missing"], [data-callout="danger"], [data-callout="error"], [data-callout="bug"]) {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="example"]) {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="law"], [data-callout="quote"], [data-callout="cite"]) {
+	--bk-accent: var(--bk-slate);
+	--bk-accent-wash: var(--bk-slate-wash);
+	--bk-accent-tile: var(--bk-slate-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-title {
+	align-items: center;
+	gap: var(--size-4-3);
+	color: var(--bk-accent);
+	font-family: var(--bk-font-head);
+	font-weight: 700;
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-title-inner {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+
+/* the picture sits in a small vivid tile, as a card's does; the line is the section colour, drawn heavier */
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-icon {
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-icon svg {
+	width: 1.2rem;
+	height: 1.2rem;
+	color: var(--bk-accent);
+	stroke-width: 2.25;
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-fold {
+	color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-content {
+	color: var(--bk-ink);
+}
+
+/* ---------- 11b. sources: the number, the panel, the verified badge ---------- */
+
+/* a source number is a small pill in the petrol tile with ink on it (checked in scripts/contrast.mjs); open or hovered it is the primary fill */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark {
+	padding: 0 0.45em;
+	border-radius: 999px;
+	background-color: var(--bk-brand-tile);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-head);
+	font-size: 0.78em;
+	font-weight: 700;
+	line-height: 1.6;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark[aria-expanded="true"] {
+	background-color: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* the panel: a card with a 6px petrol edge on the inline start, square there, a hairline in the tile on the rest */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-panel {
+	border-color: var(--bk-brand-tile);
+	border-inline-start: 6px solid var(--bk-brand);
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+	box-shadow: var(--bk-shadow);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-source cite {
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-quote {
+	border-inline-start: 4px solid var(--bk-brand-tile);
+	color: var(--bk-ink);
+}
+
+/* the verified badge: a pill on the feedback green's wash, ink words, the check in the green (4.5:1 on that wash) */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-badge {
+	padding: 0.1rem 0.8rem 0.1rem 0.6rem;
+	border: 1px solid var(--bk-yes-tile);
+	border-radius: 999px;
+	background-color: var(--bk-yes-wash);
+	color: var(--bk-ink);
+	font-size: 0.9rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-badge-icon {
+	display: inline-flex;
+	color: var(--bk-yes);
 }
 
 /* the problems block: a tinted amber sheet with ink on it, informative, never red */

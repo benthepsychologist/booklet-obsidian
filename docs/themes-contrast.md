@@ -92,6 +92,21 @@ accent tiles. The text-safe `--bk-yes`/`--bk-hmm` also gain a "boundary on card"
 Thicker marks: the right and not-quite options are a 2px edge (was 1.5px) and bold, the answer is a 2px dashed line (was 1.5px), the
 reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 700 and its icon is 1.1em with a 3px stroke.
 
+## Reading pass (2026-11-05): reading blocks, steps and sources
+
+Ben's feedback: the reading page with steps was the last screen with tired colours. One new family of tokens, `--bk-slate`, `--bk-slate-wash` and
+`--bk-slate-tile`, is the quiet neutral (a clean cool grey) for law, quote and the `slate` colour name; it is checked like an accent (text on
+its wash 4.5:1, its glyph on its tile 3:1, ink on its tile 4.5:1, its text on card 4.5:1). Nothing else is new: a reading block is a wash with ink on
+it, a 6px edge and a title in the accent (text on wash, already checked), and its picture sits in a tile (glyph on tile, already checked). The steps'
+count pill and done dots use ink on the tile (4.5:1, checked) and the dot ring and the page edge use the accent. The source number is ink on the
+petrol tile (checked); the verified badge is ink on `--bk-yes-wash` with the check in `--bk-yes` (4.5:1 on that wash, checked).
+
+| token | light | dark |
+| --- | --- | --- |
+| slate | #4B5A63 | #BAC6CC |
+| slate-wash | #ECEEEF | #2D3A45 |
+| slate-tile | #C3CCD2 | #4C5E6B |
+
 ## Tables
 
 ### paper-light
@@ -112,21 +127,25 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | ink on sun-wash | #24323A | #FBF0D6 | 11.64 | 4.5 | pass |
 | ink on rose-wash | #24323A | #F9E3E8 | 10.79 | 4.5 | pass |
 | ink on lilac-wash | #24323A | #ECE8F6 | 10.95 | 4.5 | pass |
+| ink on slate-wash | #24323A | #ECEEEF | 11.33 | 4.5 | pass |
 | ink-soft on sky-wash | #56646B | #E3EEF7 | 5.20 | 4.5 | pass |
 | ink-soft on sage-wash | #56646B | #E2F0E7 | 5.20 | 4.5 | pass |
 | ink-soft on sun-wash | #56646B | #FBF0D6 | 5.40 | 4.5 | pass |
 | ink-soft on rose-wash | #56646B | #F9E3E8 | 5.01 | 4.5 | pass |
 | ink-soft on lilac-wash | #56646B | #ECE8F6 | 5.08 | 4.5 | pass |
+| ink-soft on slate-wash | #56646B | #ECEEEF | 5.26 | 4.5 | pass |
 | sky text on sky-wash | #376F9E | #E3EEF7 | 4.54 | 4.5 | pass |
 | sage text on sage-wash | #427559 | #E2F0E7 | 4.55 | 4.5 | pass |
 | sun text on sun-wash | #93650D | #FBF0D6 | 4.51 | 4.5 | pass |
 | rose text on rose-wash | #A74962 | #F9E3E8 | 4.55 | 4.5 | pass |
 | lilac text on lilac-wash | #6E5DAC | #ECE8F6 | 4.56 | 4.5 | pass |
+| slate text on slate-wash | #4B5A63 | #ECEEEF | 6.13 | 4.5 | pass |
 | sky text on card | #376F9E | #FEFDFB | 5.26 | 4.5 | pass |
 | sage text on card | #427559 | #FEFDFB | 5.27 | 4.5 | pass |
 | sun text on card | #93650D | #FEFDFB | 5.03 | 4.5 | pass |
 | rose text on card | #A74962 | #FEFDFB | 5.48 | 4.5 | pass |
 | lilac text on card | #6E5DAC | #FEFDFB | 5.40 | 4.5 | pass |
+| slate text on card | #4B5A63 | #FEFDFB | 7.02 | 4.5 | pass |
 | ink on yes-wash | #24323A | #D4F5E1 | 11.27 | 4.5 | pass |
 | ink on hmm-wash | #24323A | #FBEAC2 | 11.08 | 4.5 | pass |
 | yes text on yes-wash | #2E7952 | #D4F5E1 | 4.52 | 4.5 | pass |
@@ -145,6 +164,7 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | sun boundary on card | #93650D | #FEFDFB | 5.03 | 3 | pass |
 | rose boundary on card | #A74962 | #FEFDFB | 5.48 | 3 | pass |
 | lilac boundary on card | #6E5DAC | #FEFDFB | 5.40 | 3 | pass |
+| slate boundary on card | #4B5A63 | #FEFDFB | 7.02 | 3 | pass |
 | edge (control boundary) on paper | #878C8E | #F8F6F1 | 3.15 | 3 | pass |
 | edge (control boundary) on card | #878C8E | #FEFDFB | 3.35 | 3 | pass |
 | ink on brand-tile | #24323A | #8FD3DA | 7.85 | 4.5 | pass |
@@ -153,18 +173,21 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | ink on sun-tile | #24323A | #F8D072 | 8.95 | 4.5 | pass |
 | ink on rose-tile | #24323A | #F6AFC2 | 7.43 | 4.5 | pass |
 | ink on lilac-tile | #24323A | #C9BCF2 | 7.51 | 4.5 | pass |
+| ink on slate-tile | #24323A | #C3CCD2 | 8.09 | 4.5 | pass |
 | brand glyph on brand-tile | #1E5E6B | #8FD3DA | 4.36 | 3 | pass |
 | sky glyph on sky-tile | #376F9E | #A3CDF0 | 3.19 | 3 | pass |
 | sage glyph on sage-tile | #427559 | #A0DAB5 | 3.36 | 3 | pass |
 | sun glyph on sun-tile | #93650D | #F8D072 | 3.47 | 3 | pass |
 | rose glyph on rose-tile | #A74962 | #F6AFC2 | 3.14 | 3 | pass |
 | lilac glyph on lilac-tile | #6E5DAC | #C9BCF2 | 3.13 | 3 | pass |
+| slate glyph on slate-tile | #4B5A63 | #C3CCD2 | 4.38 | 3 | pass |
 | brand-tile on card (decorative) | #8FD3DA | #FEFDFB | 1.65 | - | info |
 | sky-tile on card (decorative) | #A3CDF0 | #FEFDFB | 1.65 | - | info |
 | sage-tile on card (decorative) | #A0DAB5 | #FEFDFB | 1.57 | - | info |
 | sun-tile on card (decorative) | #F8D072 | #FEFDFB | 1.45 | - | info |
 | rose-tile on card (decorative) | #F6AFC2 | #FEFDFB | 1.75 | - | info |
 | lilac-tile on card (decorative) | #C9BCF2 | #FEFDFB | 1.73 | - | info |
+| slate-tile on card (decorative) | #C3CCD2 | #FEFDFB | 1.60 | - | info |
 | rule on paper (decorative) | #E4E0D6 | #F8F6F1 | 1.22 | - | info |
 | rule on card (decorative) | #E4E0D6 | #FEFDFB | 1.30 | - | info |
 
@@ -186,21 +209,25 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | ink on sun-wash | #E8E4DB | #46391A | 8.90 | 4.5 | pass |
 | ink on rose-wash | #E8E4DB | #4C2536 | 10.18 | 4.5 | pass |
 | ink on lilac-wash | #E8E4DB | #353057 | 9.67 | 4.5 | pass |
+| ink on slate-wash | #E8E4DB | #2D3A45 | 9.18 | 4.5 | pass |
 | ink-soft on sky-wash | #AAB5BA | #1F3A57 | 5.57 | 4.5 | pass |
 | ink-soft on sage-wash | #AAB5BA | #1F4531 | 5.13 | 4.5 | pass |
 | ink-soft on sun-wash | #AAB5BA | #46391A | 5.39 | 4.5 | pass |
 | ink-soft on rose-wash | #AAB5BA | #4C2536 | 6.17 | 4.5 | pass |
 | ink-soft on lilac-wash | #AAB5BA | #353057 | 5.86 | 4.5 | pass |
+| ink-soft on slate-wash | #AAB5BA | #2D3A45 | 5.56 | 4.5 | pass |
 | sky text on sky-wash | #7CC0FF | #1F3A57 | 6.02 | 4.5 | pass |
 | sage text on sage-wash | #78DDA2 | #1F4531 | 6.48 | 4.5 | pass |
 | sun text on sun-wash | #FFC845 | #46391A | 7.31 | 4.5 | pass |
 | rose text on rose-wash | #FF95B4 | #4C2536 | 6.28 | 4.5 | pass |
 | lilac text on lilac-wash | #BCA8FF | #353057 | 5.95 | 4.5 | pass |
+| slate text on slate-wash | #BAC6CC | #2D3A45 | 6.68 | 4.5 | pass |
 | sky text on card | #7CC0FF | #212B33 | 7.44 | 4.5 | pass |
 | sage text on card | #78DDA2 | #212B33 | 8.69 | 4.5 | pass |
 | sun text on card | #FFC845 | #212B33 | 9.33 | 4.5 | pass |
 | rose text on card | #FF95B4 | #212B33 | 7.00 | 4.5 | pass |
 | lilac text on card | #BCA8FF | #212B33 | 6.98 | 4.5 | pass |
+| slate text on card | #BAC6CC | #212B33 | 8.26 | 4.5 | pass |
 | ink on yes-wash | #E8E4DB | #1B6B3F | 5.14 | 4.5 | pass |
 | ink on hmm-wash | #E8E4DB | #775710 | 5.25 | 4.5 | pass |
 | yes text on yes-wash | #92F5BB | #1B6B3F | 4.97 | 4.5 | pass |
@@ -219,6 +246,7 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | sun boundary on card | #FFC845 | #212B33 | 9.33 | 3 | pass |
 | rose boundary on card | #FF95B4 | #212B33 | 7.00 | 3 | pass |
 | lilac boundary on card | #BCA8FF | #212B33 | 6.98 | 3 | pass |
+| slate boundary on card | #BAC6CC | #212B33 | 8.26 | 3 | pass |
 | edge (control boundary) on paper | #6B7A83 | #182027 | 3.72 | 3 | pass |
 | edge (control boundary) on card | #6B7A83 | #212B33 | 3.25 | 3 | pass |
 | ink on brand-tile | #E8E4DB | #246C7B | 4.72 | 4.5 | pass |
@@ -227,19 +255,20 @@ reply has a 6px edge in the feedback tile, the mark label is 0.9rem at weight 70
 | ink on sun-tile | #E8E4DB | #7E5F14 | 4.68 | 4.5 | pass |
 | ink on rose-tile | #E8E4DB | #AA3155 | 5.05 | 4.5 | pass |
 | ink on lilac-tile | #E8E4DB | #5E49B8 | 5.30 | 4.5 | pass |
+| ink on slate-tile | #E8E4DB | #4C5E6B | 5.30 | 4.5 | pass |
 | brand glyph on brand-tile | #55D0E8 | #246C7B | 3.30 | 3 | pass |
 | sky glyph on sky-tile | #7CC0FF | #2D669A | 3.12 | 3 | pass |
 | sage glyph on sage-tile | #78DDA2 | #217343 | 3.52 | 3 | pass |
 | sun glyph on sun-tile | #FFC845 | #7E5F14 | 3.85 | 3 | pass |
 | rose glyph on rose-tile | #FF95B4 | #AA3155 | 3.11 | 3 | pass |
 | lilac glyph on lilac-tile | #BCA8FF | #5E49B8 | 3.26 | 3 | pass |
+| slate glyph on slate-tile | #BAC6CC | #4C5E6B | 3.86 | 3 | pass |
 | brand-tile on card (decorative) | #246C7B | #212B33 | 2.40 | - | info |
 | sky-tile on card (decorative) | #2D669A | #212B33 | 2.39 | - | info |
 | sage-tile on card (decorative) | #217343 | #212B33 | 2.47 | - | info |
 | sun-tile on card (decorative) | #7E5F14 | #212B33 | 2.42 | - | info |
 | rose-tile on card (decorative) | #AA3155 | #212B33 | 2.25 | - | info |
 | lilac-tile on card (decorative) | #5E49B8 | #212B33 | 2.14 | - | info |
+| slate-tile on card (decorative) | #4C5E6B | #212B33 | 2.14 | - | info |
 | rule on paper (decorative) | #3A4852 | #182027 | 1.75 | - | info |
 | rule on card (decorative) | #3A4852 | #212B33 | 1.53 | - | info |
-
-Result: all required pairs pass in both looks.
