@@ -45,7 +45,10 @@ module.exports = function dashboardChecks(env) {
           await scheme(o, sch);
           const b = await o.evaluate(sel => {
             const root = document.querySelector(sel), qs = [...root.querySelectorAll(".booklet-query")];
-            const probe = (cssColor) => { const e = document.createElement("span"); e.style.color = cssColor; document.body.appendChild(e); const v = getComputedStyle(e).color; e.remove(); return v; };
+            // the look (data-booklet-look on .booklet-view) decides what a bar is wanted in: Obsidian's own variable, or the Paper token (the feedback pair
+            // for good and warn; "bad" keeps Obsidian's red in the Paper looks on purpose, see structure.css). The probe sits inside the view so the tokens resolve.
+            const viewEl = root.querySelector(".booklet-view") || document.querySelector(".booklet-view"), look = (viewEl && viewEl.getAttribute("data-booklet-look")) || "obsidian", paper = /^paper/.test(look);
+            const probe = (cssColor) => { const e = document.createElement("span"); e.style.color = cssColor; (viewEl || document.body).appendChild(e); const v = getComputedStyle(e).color; e.remove(); return v; };
             const one = (box) => {
               const chart = box.querySelector(".booklet-ch-bars"), lab = chart && box.querySelector("#" + chart.getAttribute("aria-labelledby"));
               const rects = [...box.querySelectorAll("rect.booklet-ch-bar")];
@@ -54,13 +57,13 @@ module.exports = function dashboardChecks(env) {
                 fills: rects.map(r => getComputedStyle(r).fill), tones: rects.map(r => (r.getAttribute("class").match(/booklet-tone-(\w+)/) || [])[1] || ""),
                 fold: (() => { const d = box.querySelector("details.booklet-ch-nums"); return d ? { open: d.open, rows: d.querySelectorAll("tbody tr").length, head: d.querySelector("summary").textContent } : null; })() };
             };
-            return { first: one(qs[0]), long: one(qs[1]), picks: one(qs[2]), green: probe("var(--color-green)"), red: probe("var(--color-red)"), orange: probe("var(--color-orange)"), accent: probe("var(--interactive-accent)") };
+            return { first: one(qs[0]), long: one(qs[1]), picks: one(qs[2]), green: probe(paper ? "var(--bk-yes)" : "var(--color-green)"), red: probe("var(--color-red)"), orange: probe(paper ? "var(--bk-hmm)" : "var(--color-orange)"), accent: probe("var(--interactive-accent)"), look };
           }, BOOK);
           const f = b.first;
           c.ok(f.chart && f.rows === 7 && f.rects >= 6 && /^Bar chart, 7 bars/.test(f.name || "") && f.nameHidden, `[${where} ${sch}] seven kept days as seven bars, the chart named by hidden text: ${f.name}`);
           c.ok(f.zero && f.svgAria === 0 && f.styled === 0, `[${where} ${sch}] every bar starts at zero, no aria-label on an svg, no inline style: zero ${f.zero}, svg aria-label ${f.svgAria}, style ${f.styled}`);
           const byTone = t => f.fills[f.tones.indexOf(t)];
-          c.ok(f.tones.includes("good") && f.tones.includes("bad") && byTone("good") === b.green && byTone("bad") === b.red && (!f.tones.includes("warn") || byTone("warn") === b.orange), `[${where} ${sch}] a bar's colour is Obsidian's: good ${byTone("good")} = ${b.green}, bad ${byTone("bad")} = ${b.red}`);
+          c.ok(f.tones.includes("good") && f.tones.includes("bad") && byTone("good") === b.green && byTone("bad") === b.red && (!f.tones.includes("warn") || byTone("warn") === b.orange), `[${where} ${sch}] a bar's colour is the look's (${b.look}: ${/^paper/.test(b.look) ? "--bk-yes" : "Obsidian's green"}): good ${byTone("good")} = ${b.green}, bad ${byTone("bad")} = ${b.red}`);
           c.ok(f.fold && f.fold.open === false && f.fold.rows === 7 && f.fold.head === "Show the numbers", `[${where} ${sch}] the numbers are under a closed fold of 7 rows: ${JSON.stringify(f.fold)}`);
           c.ok(b.long.rows === 12 && b.picks.rows === 3, `[${where} ${sch}] twelve jobs from a data block and three tools from an each-pick: ${b.long.rows}, ${b.picks.rows}`);
           await shot(o, `charts-bars-${where}-${sch}`);
@@ -133,14 +136,16 @@ module.exports = function dashboardChecks(env) {
           const d = await o.evaluate(sel => {
             const qs = [...document.querySelectorAll(sel + " .booklet-query")], t = e => e.textContent.replace(/\s+/g, " ").trim();
             const list = qs[0], table = qs[1], cards = qs[2], tiles = qs[3], tree = qs[4], picks = qs[5], none = qs[6];
-            const probe = (cssColor) => { const e = document.createElement("span"); e.style.color = cssColor; document.body.appendChild(e); const v = getComputedStyle(e).color; e.remove(); return v; };
+            // the look decides what a pill's tone is wanted in: Obsidian's orange, or the Paper look's --bk-hmm (probe inside the view so the token resolves)
+            const viewEl = document.querySelector(sel + " .booklet-view") || document.querySelector(".booklet-view"), look = (viewEl && viewEl.getAttribute("data-booklet-look")) || "obsidian", paper = /^paper/.test(look);
+            const probe = (cssColor) => { const e = document.createElement("span"); e.style.color = cssColor; (viewEl || document.body).appendChild(e); const v = getComputedStyle(e).color; e.remove(); return v; };
             const pill = list.querySelector(".booklet-q-pill.booklet-tone-warn");
             return {
               views: qs.map(x => x.getAttribute("data-booklet-view")),
               groups: [...list.querySelectorAll(".booklet-q-group")].map(t),
               icons: list.querySelectorAll(".booklet-q-icon svg").length, rows: list.querySelectorAll("li.booklet-q-row").length,
               pills: [...list.querySelectorAll("li.booklet-q-row")[0].querySelectorAll(".booklet-q-pill")].map(t),
-              pillColour: pill && getComputedStyle(pill).borderTopColor, warn: probe("var(--color-orange)"),
+              pillColour: pill && getComputedStyle(pill).borderTopColor, warn: probe(paper ? "var(--bk-hmm)" : "var(--color-orange)"), look,
               toneWords: /\(Needs a look\)/.test(t(list)), ext: [...list.querySelectorAll("a.external-link")].map(a => [a.getAttribute("href"), a.getAttribute("rel"), a.getAttribute("target")]),
               js: [...document.querySelectorAll(sel + " a")].filter(a => /^javascript:/i.test(a.getAttribute("href") || "")).length,
               head: [...table.querySelectorAll("thead th")].map(t), numeric: table.querySelectorAll("th.booklet-q-num").length, sortBtns: table.querySelectorAll("th button").length,
@@ -152,7 +157,7 @@ module.exports = function dashboardChecks(env) {
           c.ok(d.views.join() === "list,table,cards,tiles,list,tiles,list", `[${where} ${sch}] the seven queries draw as list, table, cards, tiles, a nested list, tiles, and the empty one: ${d.views}`);
           c.ok(d.groups.join("|") === "March2 rows|April3 rows|May3 rows|June4 rows" && d.rows === 12, `[${where} ${sch}] the list is grouped by month with counts: ${d.groups}`);
           c.ok(d.icons >= 9 && d.icons < 12, `[${where} ${sch}] an icon drawn by its bare name in ${d.icons} of 12 rows (a name that is not an icon, and a row with none, draw nothing)`);
-          c.ok(d.pills.join() === "open,blocked" && d.toneWords && d.pillColour === d.warn, `[${where} ${sch}] a list of values is two pills, a tone coloured as Obsidian's and said in words: ${d.pills}, ${d.pillColour} = ${d.warn}`);
+          c.ok(d.pills.join() === "open,blocked" && d.toneWords && d.pillColour === d.warn, `[${where} ${sch}] a list of values is two pills, a tone coloured as the look does (${d.look}: ${/^paper/.test(d.look) ? "--bk-hmm" : "Obsidian's orange"}) and said in words: ${d.pills}, ${d.pillColour} = ${d.warn}`);
           c.ok(d.ext.length === 1 && d.ext[0][0] === "https://example.org/dig" && /noopener/.test(d.ext[0][1]) && d.js === 0, `[${where} ${sch}] a web link opens outside with noopener, and a javascript: link is not a link: ${JSON.stringify(d.ext)}, ${d.js}`);
           c.ok(d.head.slice(0, 2).join() === "Job,State" && d.numeric >= 1 && d.sortBtns === 4, `[${where} ${sch}] the table's headings are the declared labels, hours set right, and (twelve rows) sortable: ${d.head}`);
           c.ok(d.cards === 4 && d.tiles === 6 && d.details === 3 && d.open === 0 && d.picks.length === 3 && /Spade/.test(d.picks[0]) && d.none === "No rows in this block.", `[${where} ${sch}] cards 4, tiles 6, the nested list has ${d.details} parents all shut, tiles of the tools: ${d.picks.length}, the empty words: ${d.none}`);

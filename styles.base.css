@@ -1,0 +1,2816 @@
+/*
+ * Booklet. Every rule uses Obsidian's own CSS variables, so the view follows the theme,
+ * light and dark, and any community theme. Colours and fonts are the theme's: the rules here
+ * only lay the view out and keep it legible. Every class starts with booklet-.
+ *
+ * A look is made of Obsidian's variables only: no colour, shadow or font of our own. Where a tint is mixed from a
+ * theme colour (color-mix), a plain fill or border is declared first and the mix sits in @supports, so an Obsidian
+ * that cannot mix draws the plain one.
+ */
+
+/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view */
+.booklet-view {
+	--booklet-card-bg: var(--background-secondary);
+	--booklet-card-border: var(--background-modifier-border);
+	--booklet-card-radius: var(--radius-l);
+	--booklet-card-pad: var(--size-4-4);
+	--booklet-block-edge: var(--size-2-3);
+}
+
+/* the probe callout drawn for a moment to read Obsidian's callout colour (see calloutColourIsTriplet in reading.ts) */
+.booklet-probe {
+	display: none;
+}
+
+.booklet-page {
+	max-width: var(--file-line-width);
+	margin: 0 auto;
+	/* room at the foot, so the status bar (and a phone's toolbar) does not cover the last card */
+	padding: var(--size-4-4) var(--size-4-3) calc(var(--size-4-12) * 3);
+}
+
+/* Obsidian sets user-select: none on body, which the view inherits: prose can be selected and copied */
+.booklet-page {
+	user-select: text;
+	-webkit-user-select: text;
+}
+
+/* an activity's screen is the page itself: no frame around it */
+.booklet-card {
+	margin-bottom: var(--size-4-4);
+}
+
+.booklet-card-title p,
+.booklet-prompt p,
+.booklet-words p,
+.booklet-pagetitle p,
+.booklet-tab p {
+	margin: 0;
+}
+
+.booklet-tab {
+	font-size: var(--h3-size);
+	font-weight: var(--h3-weight);
+	color: var(--h3-color);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding-top: var(--size-4-3);
+	margin-top: var(--size-4-4);
+}
+
+/* a named page's title, at the head of each of its parts; a heading a move lands on */
+.booklet-pagetitle {
+	font-size: var(--h3-size);
+	font-weight: var(--h3-weight);
+	color: var(--h3-color);
+	line-height: var(--h3-line-height, 1.3);
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-pagetitle:focus:not(:focus-visible) {
+	outline: none;
+}
+
+.booklet-question {
+	margin: var(--size-4-5) 0;
+}
+
+/* a question is a sheet: a fill, a hairline, a radius and room inside */
+.booklet-question,
+.booklet-group {
+	background-color: var(--booklet-card-bg);
+	border: var(--border-width) solid var(--booklet-card-border);
+	border-radius: var(--booklet-card-radius);
+}
+
+.booklet-question {
+	padding: var(--booklet-card-pad);
+}
+
+/* an answered question: its sheet takes an edge from what the code found (see booklet-answered-right and -wrong in questions.ts) */
+.booklet-view .booklet-question.booklet-answered-right {
+	border-inline-start: var(--booklet-block-edge) solid var(--color-green);
+}
+
+.booklet-view .booklet-question.booklet-answered-wrong {
+	border-inline-start: var(--booklet-block-edge) solid var(--color-orange);
+}
+
+/* a question inside a group or a callout sits on that sheet: no second sheet, and no edge of its own */
+.booklet-view .booklet-group-body .booklet-question,
+.booklet-view .callout .booklet-question {
+	background-color: transparent;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	margin: var(--size-4-3) 0 0;
+}
+
+.booklet-question > .booklet-prompt {
+	font-weight: var(--font-semibold);
+	font-size: var(--h3-size);
+	border-bottom: var(--border-width) solid var(--booklet-card-border);
+	padding-bottom: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+/* the theme's muted text on a sheet's fill can fall under 4.5:1 (Minimal, light); a fifth of the normal text colour mixed in
+   keeps it a muted grey and lifts it clear of that */
+.booklet-help {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-2);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-help {
+		color: color-mix(in srgb, var(--text-muted) 80%, var(--text-normal));
+	}
+}
+
+.booklet-help p {
+	margin: 0 0 var(--size-4-1);
+}
+
+.booklet-choices {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+}
+
+.booklet-choices .booklet-choice {
+	height: auto;
+	min-height: var(--input-height);
+	padding: var(--size-4-2) var(--size-4-3);
+	text-align: start;
+	white-space: normal;
+	line-height: var(--line-height-tight);
+}
+
+/* the choices of a choice question stack as answer rows; a multi and a scale keep their rows */
+.booklet-kind-choice .booklet-choices {
+	flex-direction: column;
+}
+
+.booklet-kind-choice .booklet-choices .booklet-choice {
+	width: 100%;
+	justify-content: flex-start;
+}
+
+.booklet-kind-choice .booklet-choice .booklet-mark {
+	margin-inline-start: auto;
+}
+
+/* a button on a sheet takes the page's own colour, so it stands off the sheet (on a phone the theme's button is as grey as the sheet);
+   a pressed or marked answer keeps its own look */
+.booklet-question .booklet-choice:not(.is-selected):not(.booklet-answer) {
+	background-color: var(--background-primary);
+}
+
+.booklet-question .booklet-choice:not(.is-selected):not(.booklet-answer):hover {
+	background-color: var(--interactive-hover);
+}
+
+.booklet-scale .booklet-choice {
+	flex-direction: column;
+	align-items: center;
+	text-align: center;
+	min-width: calc(var(--input-height) * 2);
+}
+
+.booklet-number {
+	font-weight: var(--font-bold);
+	font-variant-numeric: tabular-nums;
+}
+
+/* a link in an option's words is drawn as words: the button is what a press acts on */
+.booklet-words a {
+	pointer-events: none;
+	color: inherit;
+	text-decoration: none;
+}
+
+.booklet-text {
+	width: 100%;
+}
+
+/* a text field inside a card in a dark theme: the theme's stronger border, so the box can be seen */
+.theme-dark .booklet-view .booklet-text {
+	border-color: var(--background-modifier-border-focus);
+}
+
+.booklet-number-field {
+	max-width: 12em;
+}
+
+.booklet-field-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-field-row .booklet-text {
+	flex: 1 1 12em;
+	width: auto;
+}
+
+.booklet-field-row .booklet-date-field {
+	flex: 0 1 14em;
+	/* a date field's own least width is wider than a phone at a large zoom has */
+	min-width: 0;
+}
+
+.booklet-lines {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+/* the reader's own options sit in the same row as the listed ones */
+.booklet-own-picks {
+	display: contents;
+}
+
+.booklet-own {
+	flex-direction: row;
+	align-items: center;
+	gap: var(--size-4-1);
+}
+
+.booklet-own-x {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-own-row {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-replies:empty {
+	display: none;
+}
+
+.booklet-reply {
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border-focus);
+	padding: var(--size-4-1) var(--size-4-3);
+	margin-top: var(--size-4-2);
+}
+
+/* a question that marks a correct option (`[x]`): right, not quite and the answer, each a colour, a shape and a word */
+.booklet-mark {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	margin-inline-start: var(--size-4-2);
+	font-size: var(--font-smaller);
+	font-weight: var(--font-bold);
+}
+
+.booklet-mark-icon {
+	display: inline-flex;
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-choices .booklet-choice.booklet-right,
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: var(--background-primary);
+	box-shadow: inset 0 0 0 2px var(--color-green);
+	color: var(--text-normal);
+}
+
+.booklet-choices .booklet-choice.booklet-answer {
+	background-color: transparent;
+	box-shadow: none;
+	outline: 2px dashed var(--color-green);
+	outline-offset: -2px;
+}
+
+.booklet-choices .booklet-choice.booklet-wrong {
+	background-color: var(--background-primary);
+	box-shadow: inset 0 0 0 2px var(--color-orange);
+	color: var(--text-normal);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-choices .booklet-choice.booklet-right {
+		background-color: color-mix(in srgb, var(--color-green) 18%, transparent);
+	}
+
+	.booklet-choices .booklet-choice.booklet-wrong {
+		background-color: color-mix(in srgb, var(--color-orange) 18%, transparent);
+	}
+}
+
+.booklet-acts {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-live {
+	margin-top: var(--size-4-2);
+	font-weight: var(--font-medium);
+}
+
+.booklet-live:empty {
+	display: none;
+}
+
+.booklet-reply-line p,
+.booklet-inline p,
+.booklet-entry dt p {
+	margin: 0;
+}
+
+.booklet-inline,
+.booklet-inline p {
+	display: inline;
+}
+
+.booklet-seed:empty {
+	display: none;
+}
+
+.booklet-finish {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+	margin-top: var(--size-4-6);
+}
+
+.booklet-finish .booklet-muted {
+	flex: 1 1 14em;
+}
+
+.booklet-entries {
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	margin-top: var(--size-4-5);
+	padding-top: var(--size-4-3);
+}
+
+.booklet-entries-title {
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-4-2);
+}
+
+/* the fold: the heading is a flat button, with Obsidian's chevron before its words */
+.booklet-entries .booklet-fold {
+	display: flex;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--size-4-2);
+	width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	padding: 0 var(--size-4-1);
+	background-color: transparent;
+	box-shadow: none;
+	text-align: start;
+	cursor: pointer;
+	/* Obsidian's buttons keep to one line; at a large zoom the heading wraps instead of running out of the view */
+	white-space: normal;
+}
+
+.booklet-entries .booklet-fold:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+/* the rule above takes Obsidian's ring away with the button's shadow: a key that reaches the fold shows one */
+.booklet-entries .booklet-fold:focus-visible {
+	box-shadow: 0 0 0 2px var(--text-normal);
+}
+
+.booklet-fold-chevron {
+	display: inline-flex;
+	color: var(--text-muted);
+}
+
+.booklet-entry {
+	padding: var(--size-4-2) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-entry:last-of-type {
+	border-bottom: none;
+}
+
+.booklet-entry-when {
+	font-weight: var(--font-semibold);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-entry dl {
+	display: grid;
+	grid-template-columns: minmax(8em, max-content) 1fr;
+	gap: var(--size-4-1) var(--size-4-3);
+	margin: var(--size-4-1) 0 0;
+}
+
+.booklet-entry dt {
+	color: var(--text-muted);
+}
+
+.booklet-entry dd {
+	margin: 0;
+}
+
+.booklet-entry dd ul {
+	margin: 0;
+	padding-inline-start: var(--size-4-4);
+}
+
+.booklet-more {
+	margin-top: var(--size-4-2);
+	/* the words wrap at a large zoom, and the button grows with them */
+	white-space: normal;
+	height: auto;
+	min-height: var(--input-height);
+}
+
+/* on a phone, every control is a full touch target, and an entry's answers sit under their questions */
+.is-mobile .booklet-view button,
+.is-mobile .booklet-view .booklet-text {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+}
+
+.is-phone .booklet-entry dl {
+	grid-template-columns: 1fr;
+}
+
+.is-phone .booklet-entry dd {
+	margin-bottom: var(--size-4-1);
+}
+
+/* ---- openings: the booklet's own, and a module's above its first activity (each drawn under its screen's title) ---- */
+
+.booklet-opening {
+	margin: 0 0 var(--size-4-6);
+}
+
+/* ---- widgets ---- */
+
+/*
+ * A colour name in widget data (SPEC section 7) is drawn in the theme's own colours: each name is one of
+ * Obsidian's colour variables, which every theme sets for light and dark.
+ *   warm  -> --color-red     the colour of Obsidian's --text-error, as warm is the colour of the tone bad
+ *   green -> --color-green   the colour of --text-success, as green is the colour of the tone good
+ *   amber -> --color-orange  the colour of --text-warning, as amber is the colour of the tone warn
+ *   teal  -> --color-cyan    Obsidian's blue-green; teal has no tone
+ *   blue  -> --color-blue    a colour name from format 0.16; blue has no tone
+ *   purple -> --color-purple a colour name from format 0.16; purple has no tone
+ *   slate -> --text-muted, on a wash of --text-normal (the theme's text colour): Obsidian has no
+ *            blue-grey, and its own muted grey is the nearest neutral; slate has no tone
+ * A cell is a pale wash of its colour with a band of the full colour at its top; its words stay in the
+ * theme's text colour, so they read the same in every theme.
+ */
+.booklet-colour-warm {
+	--booklet-tone: var(--color-red);
+}
+
+.booklet-colour-green {
+	--booklet-tone: var(--color-green);
+}
+
+.booklet-colour-amber {
+	--booklet-tone: var(--color-orange);
+}
+
+.booklet-colour-teal {
+	--booklet-tone: var(--color-cyan);
+}
+
+.booklet-colour-slate {
+	--booklet-tone: var(--text-muted);
+	--booklet-tone-wash: var(--text-normal);
+}
+
+.booklet-colour-blue {
+	--booklet-tone: var(--color-blue);
+}
+
+.booklet-colour-purple {
+	--booklet-tone: var(--color-purple);
+}
+
+/* the edge labels around the cells: top and bottom across, left and right read upwards and downwards */
+.booklet-grid {
+	container-type: inline-size;
+	display: grid;
+	grid-template-columns: auto minmax(0, 1fr) auto;
+	grid-template-rows: auto auto auto;
+	gap: var(--size-4-1);
+	align-items: center;
+}
+
+.booklet-axis {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+	line-height: var(--line-height-tight);
+}
+
+.booklet-axis-none {
+	display: none;
+}
+
+.booklet-axis-top {
+	grid-column: 2;
+	grid-row: 1;
+}
+
+.booklet-axis-bottom {
+	grid-column: 2;
+	grid-row: 3;
+}
+
+.booklet-axis-left,
+.booklet-axis-right {
+	grid-row: 2;
+	writing-mode: vertical-rl;
+}
+
+.booklet-axis-left {
+	grid-column: 1;
+	transform: rotate(180deg);
+}
+
+.booklet-axis-right {
+	grid-column: 3;
+}
+
+.booklet-cells {
+	grid-column: 2;
+	grid-row: 2;
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: var(--size-4-2);
+}
+
+/* a cell's words and controls need about 6em; the edge labels and gaps take about 3em of the grid, so a grid narrower than 15em
+   (a phone's width at 200% zoom) stacks its cells, one to a row, and a wider one keeps two columns */
+@container (width < 15em) {
+	.booklet-cells {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+
+/* a cell with no colour name has the theme's focus border for its band (the colour classes above set the tone) */
+.booklet-cell {
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-top: var(--size-4-1) solid var(--booklet-tone, var(--background-modifier-border-focus));
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2);
+	min-width: 0;
+}
+
+/* a coloured cell: a wash of its colour (a plain sheet fill where the wash cannot be mixed) */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-cell[class*="booklet-colour-"] {
+		background-color: color-mix(in srgb, var(--booklet-tone-wash, var(--booklet-tone)) 12%, transparent);
+	}
+
+	.booklet-cell.booklet-colour-slate {
+		background-color: color-mix(in srgb, var(--booklet-tone-wash) 7%, transparent);
+	}
+}
+
+.booklet-cell-name {
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	margin-bottom: var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.booklet-cell .booklet-choices {
+	gap: var(--size-4-1);
+}
+
+.booklet-cell .booklet-text {
+	min-width: 0;
+}
+
+.booklet-cell .booklet-field-row .booklet-text {
+	flex: 1 1 6em;
+	text-overflow: ellipsis;
+}
+
+/* on a phone the two columns of cells keep their places (the edge labels mean nothing otherwise), with less room
+   taken around them */
+.is-phone .booklet-cells {
+	gap: var(--size-4-1);
+}
+
+.is-phone .booklet-cell {
+	padding: var(--size-4-1) var(--size-4-1) var(--size-4-2);
+}
+
+.booklet-word {
+	display: inline-block;
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-s);
+	padding: var(--size-2-1) var(--size-4-2);
+	background-color: var(--background-primary);
+}
+
+.booklet-notes {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin-top: var(--size-4-3);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-note {
+	border-inline-start: var(--size-4-1) solid var(--booklet-tone, var(--background-modifier-border-focus));
+	padding-inline-start: var(--size-4-2);
+}
+
+.booklet-place .booklet-count:not(:empty) {
+	font-variant-numeric: tabular-nums;
+	font-size: var(--font-ui-smaller);
+	border-radius: var(--radius-s);
+	padding: 0 var(--size-4-1);
+	background-color: var(--background-modifier-hover);
+	margin-inline-start: var(--size-4-1);
+}
+
+/* a place that holds words, and is not the one open, is marked by its border */
+.booklet-place.booklet-marked:not(.mod-cta) {
+	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
+}
+
+.booklet-panel {
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-3);
+	margin-top: var(--size-4-3);
+}
+
+.booklet-panel-title {
+	font-weight: var(--font-semibold);
+	font-size: var(--h4-size);
+}
+
+.booklet-sense-group {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-sense-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-1);
+}
+
+.booklet-own-words:not(:empty) {
+	margin-top: var(--size-4-3);
+}
+
+/* the reader's earlier words, offered again: a group of its own under a body widget's place and under a lines
+   question's fields, named "Earlier words" */
+.booklet-earlier {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-earlier-none {
+	display: none;
+}
+
+.booklet-earlier-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-bottom: var(--size-4-1);
+}
+
+/* an earlier word, here or among a question's own options, is shortened to two lines on screen; its full words
+   are its button's name, and a press takes the full words */
+.booklet-earlier-word .booklet-words {
+	display: -webkit-box;
+	-webkit-box-orient: vertical;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
+.booklet-panel-foot {
+	margin-top: var(--size-4-3);
+}
+
+.booklet-summary:not(:empty) {
+	margin-top: var(--size-4-3);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+}
+
+.booklet-summary-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-1) var(--size-4-2);
+}
+
+.booklet-summary-words {
+	flex: 1 1 10em;
+	overflow-wrap: anywhere;
+}
+
+.booklet-link {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-summary-x {
+	--icon-size: var(--icon-xs);
+}
+
+.booklet-long {
+	min-height: calc(var(--input-height) * 3);
+	resize: vertical;
+}
+
+.booklet-unsupported {
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
+	margin: var(--size-4-4) 0;
+}
+
+.booklet-muted {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin: var(--size-4-1) 0;
+}
+
+.booklet-problems {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
+	margin-bottom: var(--size-4-4);
+}
+
+.booklet-problems summary {
+	cursor: var(--cursor);
+}
+
+/* the notice that opens the list: a few sentences and the parts of the note that are not read */
+.booklet-problems .booklet-notice p {
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-problems .booklet-notice > ul {
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-refusal {
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	padding: var(--size-4-4);
+}
+
+/* an answer of the wrong shape for its question: kept as written, and said, with what the note holds */
+.booklet-kept-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	border-left: var(--size-2-1) solid var(--color-orange);
+	padding: var(--size-2-2) var(--size-4-2);
+	margin: var(--size-4-1) 0 var(--size-4-2);
+	overflow-wrap: anywhere;
+}
+
+.booklet-kept-note code,
+.booklet-entry dd code {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.booklet-none {
+	display: none;
+}
+
+/* a question asked for each pick (each:): one copy for each pick, under a subheading in the pick's words */
+.booklet-each-none {
+	display: none;
+}
+
+.booklet-copies {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-4);
+}
+
+.booklet-copy {
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+	padding-inline-start: var(--size-4-3);
+}
+
+.booklet-pick-head {
+	font-weight: var(--font-medium);
+	color: var(--text-normal);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pick-head p {
+	display: inline;
+	margin: 0;
+}
+
+/* a copy whose pick was taken back while the reader was in it: it goes when they leave it */
+.booklet-copy-gone {
+	opacity: 0.6;
+}
+
+/* a matrix question: its items by one shared set of anchors. A grid of rows where each item's words and the anchors fit
+   side by side, else every item a single-choice question of its own, under the matrix's words held at the top while they scroll */
+.booklet-mxwrap {
+	--booklet-mx-text: 12rem;
+	position: relative;
+}
+
+/* the measuring box: no size at all, and what it holds is clipped, so it can never make the page wider or scroll it */
+.booklet-mxprobebox {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: 0;
+	height: 0;
+	overflow: hidden;
+	visibility: hidden;
+	pointer-events: none;
+}
+
+.booklet-mxprobe {
+	position: absolute;
+	inset-inline-start: 0;
+	top: 0;
+	width: max-content;
+	display: flex;
+	gap: var(--size-4-2);
+	white-space: nowrap;
+	padding-inline-start: calc(var(--booklet-mx-text) + var(--size-4-4));
+}
+
+.booklet-mxprobe-anchor {
+	box-sizing: border-box;
+	min-width: 44px;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid transparent;
+	text-align: center;
+}
+
+.booklet-mxitem {
+	display: grid;
+	grid-template-columns: minmax(var(--booklet-mx-text), 1fr) auto;
+	align-items: center;
+	gap: var(--size-4-1) var(--size-4-4);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding: var(--size-4-2) 0;
+}
+
+.booklet-mxwords {
+	min-width: 0;
+}
+
+.booklet-mxwords p {
+	margin: 0;
+}
+
+.booklet-mxopts {
+	flex-wrap: nowrap;
+	justify-content: flex-end;
+}
+
+.booklet-mx-stacked .booklet-mxitem {
+	grid-template-columns: minmax(0, 1fr);
+	border-top: 0;
+	padding: var(--size-4-1) 0 var(--size-4-3);
+}
+
+.booklet-mx-stacked .booklet-mxwords {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-mx-stacked .booklet-mxopts {
+	flex-wrap: wrap;
+	justify-content: flex-start;
+}
+
+/* the matrix's own words, held while its items scroll under them, as far as the matrix goes (SPEC section 5) */
+.booklet-question.booklet-mx-stacked > .booklet-prompt {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background-color: var(--booklet-card-bg);
+	margin: 0 0 var(--size-4-1);
+	padding: var(--size-4-2) 0 var(--size-4-2) var(--size-4-3);
+	border-inline-start: var(--size-2-1) solid var(--background-modifier-border);
+}
+
+/* a window too short to give the items room under a held stem (a phone on its side): the stem scrolls with them */
+@media (max-height: 360px) {
+	.booklet-question.booklet-mx-stacked > .booklet-prompt {
+		position: static;
+	}
+}
+
+/* ---- queries: kept entries and summaries drawn as a table, a list, tiles or cards (SPEC section 6) ---- */
+
+.booklet-query {
+	margin: var(--size-4-3) 0 var(--size-4-4);
+}
+
+/* words said to a screen reader only: a tone, a list row's field names */
+.booklet-sr {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+/* a tone: good, warn or bad, in the theme's success, warning and error colours */
+.booklet-tone-good {
+	--booklet-q-tone: var(--color-green);
+}
+
+.booklet-tone-warn {
+	--booklet-q-tone: var(--color-orange);
+}
+
+.booklet-tone-bad {
+	--booklet-q-tone: var(--color-red);
+}
+
+.booklet-q-value.booklet-tone-good,
+.booklet-q-value.booklet-tone-warn,
+.booklet-q-value.booklet-tone-bad {
+	color: var(--booklet-q-tone);
+}
+
+.booklet-q-group {
+	font-weight: var(--font-semibold);
+	margin: var(--size-4-3) 0 var(--size-4-1);
+}
+
+.booklet-q-count {
+	color: var(--text-muted);
+	font-weight: var(--font-normal);
+	font-size: var(--font-ui-small);
+	margin-inline-start: var(--size-4-2);
+}
+
+.booklet-q-badges {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.booklet-q-pill {
+	display: inline-block;
+	font-size: var(--font-ui-smaller);
+	line-height: 1.4;
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-l);
+	border: var(--border-width) solid var(--background-modifier-border);
+	background-color: var(--background-secondary);
+}
+
+.booklet-q-pill.booklet-tone-good,
+.booklet-q-pill.booklet-tone-warn,
+.booklet-q-pill.booklet-tone-bad {
+	border-color: var(--booklet-q-tone);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-q-pill.booklet-tone-good,
+	.booklet-q-pill.booklet-tone-warn,
+	.booklet-q-pill.booklet-tone-bad {
+		background-color: color-mix(in srgb, var(--booklet-q-tone) 12%, transparent);
+	}
+}
+
+.booklet-q-icon {
+	display: inline-flex;
+	vertical-align: middle;
+	margin-inline-end: var(--size-4-1);
+	color: var(--text-muted);
+}
+
+.booklet-q-icon svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+/* a table: scrolls across inside the card when it is wider than the page, never the page itself */
+.booklet-q-wrap {
+	overflow-x: auto;
+	max-width: 100%;
+}
+
+.booklet-q-table {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-q-table th,
+.booklet-q-table td {
+	text-align: start;
+	vertical-align: top;
+	padding: var(--size-4-1) var(--size-4-2);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-q-table thead th {
+	color: var(--text-muted);
+	font-weight: var(--font-semibold);
+	white-space: nowrap;
+}
+
+.booklet-q-table .booklet-q-short {
+	white-space: nowrap;
+}
+
+.booklet-q-table .booklet-q-num {
+	text-align: end;
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-q-grouprow th {
+	font-weight: var(--font-semibold);
+	background-color: var(--background-secondary);
+}
+
+.booklet-q-lines {
+	margin: 0;
+	padding-inline-start: var(--size-4-4);
+}
+
+.booklet-q-table .booklet-q-lines {
+	padding-inline-start: var(--size-4-3);
+}
+
+/* a list: one line per row, the note beneath (a list and tiles are lists with no bullets) */
+.booklet-q-list,
+.booklet-q-tiles {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-q-row {
+	padding: var(--size-4-1) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-q-row:last-child {
+	border-bottom: none;
+}
+
+.booklet-q-line {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-2) var(--size-4-2);
+}
+
+.booklet-q-label {
+	font-weight: var(--font-medium);
+}
+
+.booklet-q-extras {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2) var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-q-line .booklet-q-value {
+	margin-inline-start: auto;
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-q-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* tiles: a big value over a label; with no value anywhere, a strip of pills */
+.booklet-q-tiles {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(9em, 1fr));
+	gap: var(--size-4-2);
+}
+
+.booklet-q-tile {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+}
+
+.booklet-q-tile.booklet-tone-good,
+.booklet-q-tile.booklet-tone-warn,
+.booklet-q-tile.booklet-tone-bad {
+	border-color: var(--booklet-q-tone);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-q-tile.booklet-tone-good,
+	.booklet-q-tile.booklet-tone-warn,
+	.booklet-q-tile.booklet-tone-bad {
+		background-color: color-mix(in srgb, var(--booklet-q-tone) 8%, transparent);
+	}
+}
+
+.booklet-q-big {
+	font-size: var(--h3-size);
+	font-weight: var(--font-semibold);
+	line-height: var(--line-height-tight);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-q-pills {
+	display: flex;
+	flex-wrap: wrap;
+}
+
+.booklet-q-pills .booklet-q-tile {
+	flex-direction: row;
+	align-items: baseline;
+	padding: var(--size-2-2) var(--size-4-3);
+	border-radius: var(--radius-l);
+}
+
+/* cards: a kept entry as a dated card (the entries' own look: the .booklet-entry rules above, a phone's among them), a summary row led by its label */
+.booklet-q-cards > .booklet-q-card:not(.booklet-entry) {
+	padding: var(--size-4-2) var(--size-4-3);
+	margin-bottom: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background-color: var(--background-primary);
+}
+
+.booklet-q-card.booklet-tone-good,
+.booklet-q-card.booklet-tone-warn,
+.booklet-q-card.booklet-tone-bad {
+	border-inline-start: var(--size-2-2) solid var(--booklet-q-tone);
+}
+
+.booklet-q-card-title {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-q-cards .booklet-q-card .booklet-q-big {
+	margin-top: var(--size-2-2);
+}
+
+/* on a phone, a table's cells sit closer, so its columns fit the card's width more often */
+.is-phone .booklet-q-table th,
+.is-phone .booklet-q-table td {
+	padding: var(--size-2-2) var(--size-2-3);
+}
+
+/* a data block's card: a line for every field that plays no role, as a kept entry's card has them */
+.booklet-q-card:not(.booklet-entry) dl {
+	display: grid;
+	grid-template-columns: minmax(6em, max-content) 1fr;
+	gap: var(--size-2-1) var(--size-4-3);
+	margin: var(--size-4-1) 0 0;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-q-card:not(.booklet-entry) dt {
+	color: var(--text-muted);
+}
+
+.booklet-q-card:not(.booklet-entry) dd {
+	margin: 0;
+}
+
+.is-phone .booklet-q-card:not(.booklet-entry) dl {
+	grid-template-columns: 1fr;
+}
+
+/* a nested list: a row with children is a details, shut until the reader opens it (Obsidian draws its own triangle) */
+.booklet-q-tree details > summary {
+	cursor: pointer;
+	list-style-position: outside;
+}
+
+.booklet-q-tree .booklet-q-list {
+	margin-inline-start: var(--size-4-5);
+}
+
+.booklet-q-tree {
+	padding-inline-start: var(--size-4-5);
+}
+
+.booklet-q-node {
+	list-style: none;
+}
+
+/* ---- charts (0.9.0): bars and a line, plain svg that reads Obsidian's own variables, so light and dark and the reader's theme recolour it ---- */
+
+.booklet-ch {
+	/* a bar is the accent; a tone is the theme's green, orange or red; a line is one of the theme's named colours, with its own dash and marker too */
+	--booklet-ch-bar: var(--interactive-accent);
+	container-type: inline-size;
+	margin: 0 0 var(--size-4-3);
+	min-width: 0;
+}
+
+.booklet-ch-barlist {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-ch-row {
+	display: grid;
+	grid-template-columns: minmax(6rem, 30%) minmax(0, 1fr) auto;
+	align-items: center;
+	gap: var(--size-2-1) var(--size-4-3);
+	padding: var(--size-4-1) 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-ch-row:last-child {
+	border-bottom: 0;
+}
+
+.booklet-ch-l {
+	font-weight: var(--font-semibold);
+	overflow-wrap: anywhere;
+	min-width: 0;
+}
+
+.booklet-ch-v {
+	font-variant-numeric: tabular-nums;
+	font-weight: var(--font-semibold);
+	text-align: end;
+	min-width: 2.5rem;
+}
+
+.booklet-ch-track {
+	display: block;
+	width: 100%;
+	height: 1.15rem;
+	background: var(--background-secondary);
+	border-radius: var(--radius-s);
+}
+
+.booklet-ch-bar {
+	fill: var(--booklet-ch-bar);
+}
+
+.booklet-ch-bar.booklet-tone-good,
+.booklet-ch-bar.booklet-tone-warn,
+.booklet-ch-bar.booklet-tone-bad {
+	fill: var(--booklet-q-tone);
+}
+
+.booklet-ch-zero {
+	stroke: var(--text-muted);
+	stroke-width: 1;
+	vector-effect: non-scaling-stroke;
+}
+
+/* on a narrow box the label and the value share a line and the track goes under them, across */
+@container (max-width: 30rem) {
+	.booklet-ch-row {
+		grid-template-columns: minmax(0, 1fr) auto;
+	}
+
+	.booklet-ch-row .booklet-ch-track {
+		grid-column: 1 / -1;
+		grid-row: 2;
+	}
+
+	.booklet-ch-row .booklet-ch-v {
+		grid-column: 2;
+		grid-row: 1;
+	}
+}
+
+.booklet-ch-note,
+.booklet-ch-cannot {
+	margin: var(--size-4-2) 0 0;
+}
+
+.booklet-ch-plot {
+	width: 100%;
+	min-width: 0;
+}
+
+.booklet-ch-svg {
+	display: block;
+	/* drawn at least 240 wide; a box narrower than that (a phone at a large zoom) scales it down, keeping its shape, so it does not push the page sideways */
+	max-width: 100%;
+	height: auto;
+	overflow: visible;
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.booklet-ch-svg:focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 2px;
+}
+
+.booklet-ch-grid {
+	stroke: var(--background-modifier-border);
+	stroke-width: 1;
+}
+
+.booklet-ch-axis {
+	stroke: var(--text-muted);
+	stroke-width: 1;
+}
+
+.booklet-ch-tick {
+	fill: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-ch-path {
+	fill: none;
+	stroke-width: 2.25;
+	stroke-linejoin: round;
+	stroke-linecap: round;
+}
+
+.booklet-ch-pt {
+	stroke-width: 1;
+}
+
+.booklet-ch-pt.is-active {
+	stroke: var(--text-normal);
+	stroke-width: 2;
+}
+
+/* a line's colour and dash: both on the line and its legend sample; a marker takes the colour as its fill (and as its outline) */
+.booklet-ch-path,
+.booklet-ch-pt {
+	stroke: var(--booklet-ch-c);
+}
+
+.booklet-ch-pt {
+	fill: var(--booklet-ch-c);
+}
+
+.booklet-ch-s0 {
+	--booklet-ch-c: var(--color-blue);
+}
+
+.booklet-ch-s1 {
+	--booklet-ch-c: var(--color-orange);
+	stroke-dasharray: 7 4;
+}
+
+.booklet-ch-s2 {
+	--booklet-ch-c: var(--color-purple);
+	stroke-dasharray: 2 4;
+}
+
+.booklet-ch-s3 {
+	--booklet-ch-c: var(--color-cyan);
+	stroke-dasharray: 9 3 2 3;
+}
+
+.booklet-ch-s4 {
+	--booklet-ch-c: var(--color-pink);
+}
+
+.booklet-ch-s5 {
+	--booklet-ch-c: var(--color-green);
+	stroke-dasharray: 4 2;
+}
+
+/* a marker has its colour as a fill and no dash */
+.booklet-ch-pt {
+	stroke-dasharray: none;
+}
+
+.booklet-ch-guide {
+	stroke: var(--text-faint);
+	stroke-width: 1;
+	stroke-dasharray: 3 3;
+}
+
+.booklet-ch-guide.is-off {
+	display: none;
+}
+
+.booklet-ch-hit {
+	fill: transparent;
+	cursor: pointer;
+}
+
+.booklet-ch-legend {
+	list-style: none;
+	margin: 0 0 var(--size-4-2);
+	padding: 0;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-1) var(--size-4-4);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-ch-legend li {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-ch-sw {
+	flex: none;
+}
+
+.booklet-ch-readout {
+	min-height: 1.5em;
+	margin-top: var(--size-4-2);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-ch-nums {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-ch-nums summary {
+	cursor: pointer;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	min-height: 1.6rem;
+}
+
+.is-mobile .booklet-ch-nums summary {
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+}
+
+/* ---- sort and filter, above a view of 9 rows or more (0.9.0) ---- */
+
+.booklet-qc {
+	margin: 0 0 var(--size-4-2);
+}
+
+.booklet-qc-toggle {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: auto;
+	height: auto;
+	padding: var(--size-2-2) var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-qc-icon,
+.booklet-q-sort-icon {
+	display: inline-flex;
+}
+
+.booklet-qc-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-1);
+	padding: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.booklet-qc-bar[hidden] {
+	display: none;
+}
+
+.booklet-qc-search {
+	flex: 1 1 12rem;
+	min-width: 0;
+}
+
+.booklet-qc-search input {
+	width: 100%;
+}
+
+.booklet-qc-search .search-input-clear-button.is-visible {
+	display: block;
+}
+
+.booklet-qc-sort {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-1);
+	flex: 0 1 auto;
+}
+
+.booklet-qc-count {
+	flex: 1 0 100%;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-qc-clear[hidden] {
+	display: none;
+}
+
+.is-mobile .booklet-qc-bar select,
+.is-mobile .booklet-qc-bar input {
+	min-height: 44px;
+}
+
+/* a table heading that sorts is a button that looks like the heading.
+   This was `all: unset`. It is now the properties that reset did something to on a button: the ones a browser's own button
+   style and Obsidian's `button` rules (1.14.5: border, padding, height, border-radius, font, white-space, transition,
+   user-select and justify-content on `button` itself) set. Those that are inherited are inherited from the heading, as `all: unset`
+   gave; the others are put back to their start value. (Obsidian's `button:not(.clickable-icon)` rules for colour, background and
+   shadow are stronger than a class, so they won over `all: unset` too and still do.) */
+.booklet-q-sort {
+	appearance: none;
+	background: none;
+	border: 0;
+	border-radius: 0;
+	box-shadow: none;
+	corner-shape: initial;
+	margin: 0;
+	padding: 0;
+	width: auto;
+	height: auto;
+	min-width: auto;
+	min-height: auto;
+	outline: none;
+	transition: none;
+	user-select: auto;
+	justify-content: normal;
+	font: inherit;
+	letter-spacing: inherit;
+	word-spacing: inherit;
+	text-align: inherit;
+	text-indent: inherit;
+	text-shadow: inherit;
+	text-transform: inherit;
+	white-space: inherit;
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-2);
+	cursor: pointer;
+	font-weight: inherit;
+	color: inherit;
+	box-sizing: border-box;
+}
+
+.booklet-q-sort:hover,
+.booklet-q-sort.is-sorted {
+	color: var(--text-accent);
+}
+
+.booklet-q-sort:focus-visible {
+	outline: 2px solid var(--text-normal);
+	border-radius: var(--radius-s);
+}
+
+.booklet-q-sort-icon svg {
+	width: 0.9em;
+	height: 0.9em;
+}
+
+/* ---- deleting a kept entry, asked in place (0.9.0) ---- */
+
+.booklet-entry-foot,
+.booklet-entry-ask {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-entry-foot {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-entry-ask[hidden],
+.booklet-entry-foot button[hidden] {
+	display: none;
+}
+
+/* Obsidian's warning button is white on a bright red (3.5:1 in a dark theme, 4.2:1 in a light one), and on a phone its red words on the pale button read 3.9:1 in a light one;
+   a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces).
+   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. */
+.booklet-view .booklet-entry-ask button.mod-warning,
+.booklet-view .booklet-entry-ask button.mod-warning:hover {
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.theme-light .booklet-view .booklet-entry-ask button.mod-warning,
+	.theme-light .booklet-view .booklet-entry-ask button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
+	}
+
+	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning,
+	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
+	}
+}
+
+.booklet-entry-ask-text {
+	color: var(--text-error);
+	font-weight: var(--font-semibold);
+}
+
+/* the theme's error red on a light page reads 4.2:1; darkened with the theme's text colour it reads 5.0:1 or more (a dark page is already 4.9:1 or more, and darkening would lower it) */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.theme-light .booklet-entry-ask-text {
+		color: color-mix(in srgb, var(--text-error) 85%, var(--text-normal));
+	}
+}
+
+.booklet-entry-delete {
+	background: transparent;
+	color: var(--text-error);
+	box-shadow: none;
+	border: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-entry-delete:hover {
+	background: var(--background-modifier-hover);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-entry-delete:hover {
+		background: color-mix(in srgb, var(--color-red) 10%, transparent);
+	}
+}
+
+/* ---- screens and moves (0.6.0): home, a module, an activity, one screen at a time ---- */
+
+/* the trail: from the booklet down, each step above the screen a link */
+.booklet-trail {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-1) var(--size-4-2);
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+	margin-bottom: var(--size-4-4);
+}
+
+.booklet-trail-link {
+	color: var(--text-muted);
+	text-decoration: none;
+}
+
+.booklet-trail-link:hover {
+	color: var(--text-normal);
+	text-decoration: underline;
+}
+
+/* the slash after a crumb belongs to it, so a wrapped trail never starts a line with one */
+.booklet-trail-link::after {
+	content: "/";
+	color: var(--text-faint);
+	margin-left: var(--size-4-2);
+}
+
+/* the slash is a look, not a word: with a text alternative of nothing a screen reader reads the link, not "link slash". A browser that does not know the form skips this block and keeps the plain slash above; it is a block of its own so that no rule holds two `content` lines */
+@supports (content: "/" / "") {
+	.booklet-trail-link::after {
+		content: "/" / "";
+	}
+}
+
+.booklet-trail-here {
+	color: var(--text-normal);
+}
+
+/* a screen's head: a picture beside the title, the title at the size of Obsidian's own note title */
+.booklet-screenhead {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin-bottom: var(--size-4-3);
+}
+
+.booklet-screentitle {
+	font-size: var(--inline-title-size, var(--h1-size));
+	font-weight: var(--inline-title-weight, var(--h1-weight));
+	color: var(--inline-title-color, var(--h1-color));
+	line-height: var(--line-height-tight);
+	margin: 0;
+}
+
+/* the home title is rendered Markdown with no inline wrapper, so its paragraph needs this one */
+.booklet-screentitle p {
+	margin: 0;
+}
+
+/* an opening: its first paragraph larger, the rest at the body size */
+.booklet-opening > p:first-child {
+	font-size: calc(var(--font-text-size, 16px) * 1.15);
+	color: var(--text-normal);
+}
+
+.booklet-meta {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin: 0 0 var(--size-4-3);
+}
+
+/* a picture: a tile of Obsidian's own icon or an emoji */
+.booklet-pic {
+	flex: 0 0 auto;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-8);
+	height: var(--size-4-8);
+	border-radius: var(--radius-m);
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+.booklet-pic svg {
+	width: var(--icon-l, 20px);
+	height: var(--icon-l, 20px);
+}
+
+.booklet-pic-emoji {
+	font-size: var(--font-ui-large);
+	line-height: 1;
+}
+
+.booklet-pic-big {
+	width: var(--size-4-12);
+	height: var(--size-4-12);
+}
+
+.booklet-pic-big svg {
+	width: var(--icon-xl, 24px);
+	height: var(--icon-xl, 24px);
+}
+
+.booklet-pic-big.booklet-pic-emoji {
+	font-size: var(--font-ui-larger, 24px);
+}
+
+.booklet-pic-none {
+	background: none;
+}
+
+/* the cards: one row each, the number before the title, the whole row a link */
+.booklet-cards {
+	list-style: none;
+	margin: var(--size-4-3) 0 var(--size-4-4);
+	padding: 0;
+}
+
+.booklet-cards > li {
+	margin: 0 0 var(--size-4-2);
+	padding: 0;
+}
+
+.booklet-cardrow {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	padding: var(--size-4-4) var(--size-4-5);
+	background-color: var(--background-primary-alt);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	cursor: pointer;
+}
+
+.booklet-cardrow:hover {
+	border-color: var(--background-modifier-border-hover);
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-cardrow:focus-visible {
+	box-shadow: 0 0 0 2px var(--text-normal);
+	outline: none;
+}
+
+.booklet-cardtext {
+	flex: 1 1 auto;
+	min-width: 0;
+	/* a long word in a title breaks rather than push the roomier card past the screen at 200% text */
+	overflow-wrap: anywhere;
+}
+
+.booklet-cardtitle {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	font-size: var(--h3-size);
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.booklet-num {
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+}
+
+.booklet-blurb {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin-top: var(--size-2-1);
+}
+
+.booklet-status {
+	/* the muted text colour, not the faint one: the faint colour is under 3:1 on the theme's background, too little for words */
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	margin-top: var(--size-2-1);
+}
+
+.booklet-chevron {
+	flex: 0 0 auto;
+	color: var(--text-faint);
+	display: flex;
+}
+
+/* the tab bar: Obsidian's buttons, wrapping onto another row when they do not fit */
+.booklet-tabbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin: var(--size-4-3) 0 var(--size-4-4);
+}
+
+.booklet-tabbtn {
+	height: auto;
+	min-height: var(--input-height);
+	max-width: 100%;
+	white-space: normal;
+	text-align: start;
+}
+
+/* the pager: after the page, not pinned */
+.booklet-pager {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	flex-wrap: wrap;
+	gap: var(--size-4-3);
+	margin: var(--size-4-6) 0 var(--size-4-4);
+	/* the pager sits on a strip */
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-pager button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	/* a long title wraps inside its button instead of running past the screen */
+	height: auto;
+	min-height: var(--input-height);
+	max-width: 100%;
+	white-space: normal;
+	text-align: start;
+	padding-block: var(--size-4-2);
+}
+
+.booklet-pager button > span:not(.booklet-pager-icon) {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.booklet-pager-at {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-pager-gap {
+	flex: 1 1 0;
+}
+
+.booklet-pager-icon {
+	display: inline-flex;
+}
+
+/* a module's terms: quiet, closed until opened */
+.booklet-notice {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	margin: var(--size-4-6) 0 var(--size-4-4);
+}
+
+.booklet-notice summary {
+	cursor: pointer;
+}
+
+.booklet-notice dt {
+	font-weight: var(--font-semibold);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-notice dd {
+	margin: 0;
+}
+
+/* a link to a module this booklet does not hold: its words, and why it leads nowhere */
+.booklet-module-chip {
+	color: var(--text-muted);
+	background-color: var(--background-secondary);
+	border-radius: var(--radius-s);
+	padding: 0 var(--size-2-3);
+}
+
+/*
+ * The "Pages" button of a tab's tree, and the panel it opens: the tree and its search. The button stands on the left of the page area. On a
+ * wide pane the open panel is a column beside the page; on a narrow pane and on a phone it is a drawer over the page, under the button, with a
+ * Close button. The panel scrolls inside itself, so a tree of a hundred pages never lengthens the page. Obsidian's own variables only.
+ */
+.booklet-pagearea {
+	position: relative;
+	container: booklet-pagearea / inline-size;
+	margin: 0 0 var(--size-4-4);
+}
+
+.booklet-pagenav {
+	margin-bottom: var(--size-4-3);
+}
+
+.booklet-pagemain {
+	min-width: 0;
+}
+
+.booklet-pagemenu {
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	max-height: 60vh;
+	margin-top: var(--size-4-2);
+	background-color: var(--background-primary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	padding: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-pagemenu[hidden] {
+	display: none;
+}
+
+.booklet-pagemenu:focus {
+	outline: none;
+}
+
+/* the drawer: over the page, under the button */
+.booklet-pagemenu {
+	position: absolute;
+	z-index: var(--layer-popover, 30);
+	left: 0;
+	width: min(100%, 24rem);
+}
+
+.booklet-pagemenu-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-pagesearch {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-pagemenu-close {
+	flex: none;
+}
+
+/* a deep tree scrolls inside its panel, not the page */
+.booklet-pagelist {
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: auto;
+	overscroll-behavior: contain;
+	overflow-wrap: anywhere;
+}
+
+/* a phone's bottom bar covers the foot of the window: keep the drawer clear of it */
+.is-phone .booklet-pagemenu {
+	max-height: 45vh;
+}
+
+/* a wide pane, not a phone: the open panel is a column beside the page */
+@container booklet-pagearea (min-width: 40rem) {
+	body:not(.is-phone) .booklet-pageframe.is-open {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--size-4-4);
+	}
+
+	body:not(.is-phone) .booklet-pageframe.is-open .booklet-pagenav {
+		flex: 0 0 min(18rem, 35%);
+		min-width: 0;
+	}
+
+	body:not(.is-phone) .booklet-pageframe.is-open .booklet-pagemain {
+		flex: 1 1 0;
+	}
+
+	body:not(.is-phone) .booklet-pagemenu {
+		position: static;
+		width: auto;
+	}
+
+	body:not(.is-phone) .booklet-pagemenu-close {
+		display: none;
+	}
+}
+
+/* the labels the tree adds ("Pages under this one", "Mentioned on") stand off the text above them as a section label does */
+.booklet-treelabel {
+	margin-top: var(--size-4-5);
+}
+
+.booklet-pagelist ul,
+.booklet-mentioned {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-pagelist li > ul {
+	padding-left: var(--size-4-4);
+	border-left: var(--border-width) solid var(--background-modifier-border);
+	margin-left: var(--size-2-3);
+}
+
+.booklet-pagelink {
+	display: flex;
+	align-items: center;
+	/* a target of at least 24 CSS px (WCAG 2.2, 2.5.8): the tree's rows are close together */
+	min-height: 24px;
+	padding: var(--size-2-1) var(--size-2-3);
+	border-radius: var(--radius-s);
+	color: var(--text-normal);
+	text-decoration: none;
+	cursor: pointer;
+}
+
+.booklet-pagelink:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-pagelink.is-active {
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-mentioned {
+	margin-bottom: var(--size-4-4);
+}
+
+/* touch: every control at least 44 px tall (Obsidian's own phone mode is the measure) */
+.is-mobile .booklet-tabbtn,
+.is-mobile .booklet-pager button,
+.is-mobile .booklet-entries .booklet-fold,
+.is-mobile .booklet-pagesbtn,
+.is-mobile .booklet-pagemenu-close,
+.is-mobile .booklet-pagesearch input[type="search"],
+.is-mobile .booklet-pagelink,
+.is-mobile .booklet-cardrow {
+	min-height: 44px;
+}
+
+/* ---- reading kinds, groups and callouts that hold questions, rows, steps and sources (0.7.0) ---- */
+
+/*
+ * Reading blocks. A block is tinted with its own colour, edged on the inline start in that colour at full strength, and has a hairline of it
+ * on its other sides. Obsidian gives a callout's colour as a plain colour (1.14.5) or as an `r, g, b` triplet drawn `rgb(var(--callout-color))` (1.8.10);
+ * the view says which with the class booklet-callout-triplet (calloutColourIsTriplet in reading.ts), and --booklet-callout-colour is the colour
+ * in either format. The format's own kinds (diff, law, opinion) set --booklet-callout-colour from a theme colour directly.
+ */
+.booklet-view .callout {
+	--booklet-callout-colour: var(--callout-color);
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-inline-start: var(--booklet-block-edge) solid var(--booklet-callout-colour);
+	border-radius: var(--booklet-card-radius);
+}
+
+.booklet-view.booklet-callout-triplet .callout {
+	--booklet-callout-colour: rgb(var(--callout-color));
+}
+
+/* a callout's title (Obsidian's own, drawn in the plugin's view only) is a row of picture, words and fold arrow that does not wrap: at 200% text on a
+   320 px phone a folded "Transcript" is wider than its box and the arrow lands past the window. The row may wrap, which it does only when it must. */
+.booklet-view .callout-title {
+	flex-wrap: wrap;
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-view .callout {
+		background-color: color-mix(in srgb, var(--booklet-callout-colour) 10%, var(--background-primary));
+		border-block-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
+		border-inline-end-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
+	}
+}
+
+/* the format's own reading kinds, in the reference renderer's colours and pictures (diff: petrol, git-compare, dashed; law: slate, scale, double; opinion: rose, message-circle, dotted).
+   Their own edge is the dashed, double or dotted line; their words stay in the theme's text colour, and their picture takes the kind's colour. */
+.booklet-view .callout[data-callout="diff"] .callout-title,
+.booklet-view .callout[data-callout="law"] .callout-title,
+.booklet-view .callout[data-callout="opinion"] .callout-title {
+	color: var(--text-normal);
+}
+
+.booklet-view .callout[data-callout="diff"] .callout-icon svg,
+.booklet-view .callout[data-callout="law"] .callout-icon svg,
+.booklet-view .callout[data-callout="opinion"] .callout-icon svg {
+	color: var(--booklet-callout-colour);
+}
+
+.booklet-view .callout[data-callout="diff"] {
+	--booklet-callout-colour: var(--color-cyan);
+	--callout-icon: lucide-git-compare;
+	border-inline-start: var(--size-4-1) dashed var(--booklet-callout-colour);
+}
+
+.booklet-view .callout[data-callout="law"] {
+	--booklet-callout-colour: var(--text-normal);
+	--callout-icon: lucide-scale;
+	border-inline-start: var(--size-4-1) double var(--booklet-callout-colour);
+}
+
+.booklet-view .callout[data-callout="opinion"] {
+	--booklet-callout-colour: var(--color-pink);
+	--callout-icon: lucide-message-circle;
+	border-inline-start: var(--size-4-1) dotted var(--booklet-callout-colour);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-view .callout[data-callout="diff"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
+	}
+
+	.booklet-view .callout[data-callout="law"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 60%, transparent);
+	}
+
+	.booklet-view .callout[data-callout="opinion"] {
+		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
+	}
+}
+
+/* a group: a titled sheet (the look of a question's sheet), a fold when written `[!group]-` */
+.booklet-group {
+	margin: var(--size-4-5) 0;
+}
+
+.booklet-group-title {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	padding: var(--booklet-card-pad);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-group.is-foldable > .booklet-group-title {
+	cursor: pointer;
+}
+
+.booklet-group.is-foldable > .booklet-group-title:hover {
+	background-color: var(--background-modifier-hover);
+}
+
+.booklet-group-words {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-group-words > :first-child,
+.booklet-group-words p {
+	margin: 0;
+}
+
+.booklet-group-body {
+	padding: 0 var(--booklet-card-pad) var(--booklet-card-pad);
+}
+
+.booklet-group-body > :first-child {
+	margin-top: 0;
+}
+
+.booklet-callout .callout-content > .booklet-question:first-child {
+	margin-top: 0;
+}
+
+/* a row: its cells side by side where there is room, one under another where there is not */
+.booklet-row {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+	gap: var(--size-4-3) var(--size-4-6);
+	margin: var(--size-4-4) 0;
+}
+
+.booklet-rowcell {
+	min-width: 0;
+}
+
+.booklet-rowcell > :first-child {
+	margin-top: 0;
+}
+
+.booklet-rowcell > :last-child {
+	margin-bottom: 0;
+}
+
+/* steps: the choice between one at a time and all at once, then a step at a time */
+.booklet-steps-choice {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	margin: 0 0 var(--size-4-3);
+}
+
+.booklet-steps-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	margin: 0 0 var(--size-4-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-steps-dots {
+	display: inline-flex;
+	gap: var(--size-2-3);
+}
+
+.booklet-steps-dot {
+	width: var(--size-4-2);
+	height: var(--size-4-2);
+	border-radius: 50%;
+	border: var(--border-width) solid var(--text-muted);
+}
+
+.booklet-steps-dot.is-done {
+	background-color: var(--interactive-accent);
+	border-color: var(--interactive-accent);
+}
+
+.booklet-steps-dot.is-current {
+	outline: var(--border-width) solid var(--text-normal);
+	outline-offset: var(--size-2-1);
+}
+
+.booklet-step:focus {
+	outline: none;
+}
+
+.booklet-step:focus-visible {
+	outline: var(--border-width) solid var(--text-normal);
+	outline-offset: var(--size-2-2);
+}
+
+/* sources: a numbered mark in the text, and what it leads to opened under its paragraph */
+.booklet-cite {
+	margin: 0 0.1em;
+	line-height: 0;
+}
+
+.booklet-cite-mark {
+	position: relative;
+	display: inline;
+	height: auto;
+	padding: 0 0.2em;
+	background: none;
+	border: none;
+	box-shadow: none;
+	color: var(--link-color);
+	font-size: inherit;
+	font-weight: var(--font-semibold);
+	cursor: pointer;
+}
+
+.booklet-cite-mark:hover,
+.booklet-cite-mark[aria-expanded="true"] {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-radius: var(--radius-s);
+}
+
+/* an inline number in a line of words: the phone's 44px control height would stretch its line, so its touch area is the square below */
+.is-mobile .booklet-view button.booklet-cite-mark {
+	min-height: 0;
+}
+
+/* a touch target well past the number's own size */
+.booklet-cite-mark::after {
+	content: "";
+	position: absolute;
+	inset: -0.8em -0.4em;
+}
+
+/* on the phone the touch area is a 44px square about the number, as a finger needs, and still does not stretch its line */
+.is-mobile .booklet-view button.booklet-cite-mark::after {
+	inset: auto;
+	top: 50%;
+	left: 50%;
+	width: max(44px, 100%);
+	height: 44px;
+	transform: translate(-50%, -50%);
+}
+
+/* a source opened from a table cell stands in a row of its own, across the table */
+.booklet-cite-row > td {
+	padding: 0;
+	border: none;
+}
+
+.booklet-cite-broken {
+	color: var(--text-error);
+	border: var(--border-width) dashed var(--text-error);
+	border-radius: var(--radius-s);
+	padding: 0 0.2em;
+	font-size: 0.8em;
+	white-space: nowrap;
+}
+
+.booklet-cite-panel {
+	margin: var(--size-4-2) 0 var(--size-4-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	background-color: var(--background-secondary);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-medium);
+}
+
+.booklet-cite-source cite {
+	font-style: italic;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-cite-page {
+	color: var(--text-muted);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-cite-quote {
+	margin: var(--size-4-2) 0;
+	padding: 0 0 0 var(--size-4-3);
+	border-left: var(--size-2-2) solid var(--interactive-accent);
+}
+
+.booklet-cite-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-3);
+	color: var(--color-green);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-cite-close {
+	margin-top: var(--size-4-2);
+}
+
+.is-mobile .booklet-group.is-foldable > .booklet-group-title,
+.is-mobile .booklet-callout.is-collapsible > .callout-title {
+	min-height: 44px;
+}
+
+/* a screen's title and a page take focus after a move so a keyboard reader starts there; they are not controls, so they show no ring (the page title is the exception: it shows a ring after a keyboard move, so a keyboard reader sees where focus went; see `.booklet-pagetitle:focus:not(:focus-visible)` above) */
+.booklet-view .booklet-screentitle:focus,
+.booklet-view .booklet-pagebody:focus {
+	outline: none;
+}
+
+/* a link, a heading that works as a button (a folded group's) and a disclosure draw a ring when a key reaches them: Obsidian draws none on these.
+   :where() keeps this at the lowest weight, so a control with a ring of its own (a card, a chart) keeps it. */
+:where(.booklet-view) :where(a, [role="button"], [role="link"], summary):focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 2px;
+}
+
+/* The ring on the plugin's own controls. Obsidian's is the theme's pale focus border: 1.9 to 1 against white, 1.5 to 1 against a tinted card, 2.3 to 1
+   in the dark theme, where a keyboard reader needs 3 to 1. An outline in the text colour is 12 to 1 or more on every surface the plugin draws, in either
+   theme, and it is Obsidian's own variable, so a theme that changes its colours changes the ring with them. It stands off the control (3 px, past the pale
+   ring Obsidian keeps), which makes a double ring: the pale one against the control, the strong one against the page. Obsidian's ring on its own controls
+   elsewhere (its settings and menus) is not touched. */
+.booklet-view :is(button, input, textarea, select, audio, video):focus-visible,
+.booklet-allow :is(button, input, textarea, select):focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 3px;
+}
+
+/* with less motion asked for, nothing in the view fades or slides, the plugin's links and Obsidian's own icons and buttons in it alike */
+/* These were `!important`. Obsidian's own rules for its icons and buttons are more specific than `.booklet-view *` (0,1,0), so the class is
+   written five times: `.booklet-view` on its own is then (0,5,0), `.booklet-view *` the same, and `*::before` and `*::after` (0,5,1). A scan of
+   Obsidian 1.14.5's style sheet for rules that set a transition, an animation or scroll-behavior found none that can reach inside a view above
+   (0,4,1): the few at (0,5,0) and up are for its side drawer, its canvas and its loading header. The plugin sets none of its own, apart from the
+   sort button's `transition: none`. So these win without a flag, and a tie goes to the later sheet, which is the plugin's. The repeats mean nothing else. */
+@media (prefers-reduced-motion: reduce) {
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::before,
+	.booklet-view.booklet-view.booklet-view.booklet-view.booklet-view *::after {
+		transition: none;
+		animation: none;
+		scroll-behavior: auto;
+	}
+}
+
+/* ---- media: slots, players, the host after a link, the Allow list button and the allow card ---- */
+
+.booklet-toolbar {
+	display: flex;
+	justify-content: flex-end;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-media-slot {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-1);
+	margin: var(--size-4-2) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-media-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-media-play {
+	/* the words wrap at a large zoom, and the button grows with them */
+	white-space: normal;
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	text-align: start;
+}
+
+/* a link is a touch target too: the whole line is the hit area, and its words wrap at a large text size */
+.is-mobile .booklet-media-slot a.external-link {
+	display: inline-flex;
+	align-items: center;
+	min-height: 44px;
+	/* Obsidian draws its small arrow at the top right of the link's box; the box is taller now, so the arrow follows the words */
+	background-position: right center;
+}
+
+.booklet-media-host,
+.booklet-link-host {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+	/* a service names its hosts ("YouTube (youtube.com, releases.obsidian.md)"): at a large text size they wrap, not run past the slot */
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+.booklet-media-slot audio,
+.booklet-media-slot video {
+	width: 100%;
+	max-width: 100%;
+}
+
+.booklet-media-frame {
+	width: 100%;
+	border: 0;
+}
+
+.booklet-media-frame.is-video {
+	aspect-ratio: 16 / 9;
+}
+
+.booklet-media-frame.is-audio {
+	height: 152px;
+}
+
+/* the frame Obsidian draws itself for a YouTube address (media-view.ts) */
+.booklet-media-native iframe {
+	max-width: 100%;
+}
+
+.booklet-media-live:empty {
+	display: none;
+}
+
+.booklet-allow-card {
+	max-height: 85vh;
+	overflow-y: auto;
+}
+
+/* On a phone the card is the window less a margin, and at a large text size its headings are the dialog's own size: the part that scrolls was
+   about a half of the window, and the last line in view was cut by the Close footer's edge. The footer sits below the part that scrolls
+   (nothing lies under it); a rule above it says where the scrolling part ends. */
+.is-phone .booklet-allow-card {
+	max-height: calc(100dvh - var(--size-4-8));
+}
+
+.booklet-allow-card h3 {
+	font-size: var(--font-ui-large);
+	margin: var(--size-4-3) 0 var(--size-4-1);
+}
+
+.booklet-allow-card .modal-button-container {
+	border-top: var(--border-width) solid var(--background-modifier-border);
+	padding-top: var(--size-4-3);
+}
+
+.booklet-allow-btn-choice {
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+	/* the words wrap at a large text size, and the button grows with them */
+	height: auto;
+	white-space: normal;
+}
+
+/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": the card's title is words the reader needs (a site's name), so it wraps */
+.booklet-allow .booklet-allow-card .modal-title {
+	max-width: none;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+.booklet-allow-choice {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-allow-said,
+.booklet-allow-covers,
+.booklet-allow-hint {
+	color: var(--text-muted);
+	font-size: var(--font-smaller);
+}
+
+.booklet-allow-covers {
+	margin-inline-start: var(--size-4-6);
+}
+
+.booklet-allow-list {
+	list-style: none;
+	margin: 0 0 var(--size-4-3);
+	padding: 0;
+}
+
+.booklet-allow-row {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-height: 44px;
+}
+
+/* a site's name has no break in it: at a large text size it wraps inside the card, not past it */
+.booklet-allow-row > span,
+.booklet-allow-said,
+.booklet-allow-covers,
+.booklet-allow-hint {
+	min-width: 0;
+	overflow-wrap: anywhere;
+}
+
+/* the settings page: the same, and Obsidian's ellipsis on a name or a description is dropped, as the words matter */
+.booklet-settings .setting-item-name,
+.booklet-settings .setting-item-description {
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+}
+
+/* a button's words wrap at a large text size, and the button grows with them */
+.booklet-settings .setting-item-control button {
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	white-space: normal;
+}
+
+.booklet-allow-add input[type="text"] {
+	width: 100%;
+	min-height: max(44px, var(--input-height));
+}
+
+.booklet-allow-error {
+	color: var(--text-error);
+	min-height: 1.5em;
+}
+
+.booklet-view .booklet-allow-btn {
+	min-height: max(44px, var(--input-height));
+	height: auto;
+	white-space: normal;
+}
+
+/* the card sits in the window, outside the view, so the view's rule for less motion does not reach it */
+/* (no `!important`, for the reason given at the view's rule: the class five times makes this (0,5,0), and (0,5,1) for the pseudo-elements) */
+@media (prefers-reduced-motion: reduce) {
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::before,
+	.booklet-allow.booklet-allow.booklet-allow.booklet-allow.booklet-allow *::after {
+		transition: none;
+		animation: none;
+	}
+}
+
+/* ---- 0.12.0: the listen question and Continue (src/listen-view.ts, view.ts drawContinue) ---- */
+
+/* the media sits where the author wrote it, under the prompt; Obsidian's own player is drawn at the width of the page */
+.booklet-listen-media audio,
+.booklet-listen-media video {
+	display: block;
+	max-width: 100%;
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-listen-media audio {
+	width: 100%;
+}
+
+/* the "Done" box and where the reader left off, on one line that wraps at a large zoom */
+.booklet-listen-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-listen-tick {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+}
+
+.booklet-listen-tick.is-selected {
+	/* pressed is told by a check mark and weight as well as by Obsidian's call-to-action colour */
+	font-weight: var(--font-bold, 600);
+}
+
+.booklet-listen-check {
+	margin-inline-end: var(--size-4-1);
+}
+
+.booklet-listen-where:empty {
+	display: none;
+}
+
+/* Continue: one button above the cards, named for where it leads; its words wrap rather than run off a narrow pane */
+.booklet-continue:empty {
+	display: none;
+}
+
+.booklet-continue {
+	margin: var(--size-4-3) 0;
+}
+
+.booklet-continue-button {
+	height: auto;
+	min-height: max(44px, var(--input-height));
+	max-width: 100%;
+	padding: var(--size-4-2) var(--size-4-4);
+	white-space: normal;
+	text-align: start;
+	line-height: var(--line-height-tight);
+}
+
+/* a prompt that Continue led to takes focus so a keyboard or screen reader reader starts there; it is not a control, so a press of the mouse shows no ring, but a key does */
+.booklet-prompt:focus:not(:focus-visible) {
+	outline: none;
+}
+
+/* after a key press led here, a ring shows where focus went (the same ring as a link's) */
+.booklet-prompt:focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 2px;
+}
+
+/*
+ * Now playing (src/now-playing.ts): the bar a playing audio or video is lifted into so that it plays on through a page move and a close. It is a
+ * child of the window's body, fixed at the bottom, above the status bar and below Obsidian's modals, menus and notices. Nothing in it is animated.
+ */
+.booklet-nowplaying {
+	position: fixed;
+	inset-inline: 0;
+	bottom: 0;
+	z-index: var(--layer-popover, 30);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-4);
+	/* clear of a phone's bottom safe area: Obsidian's own variable reads env(safe-area-inset-bottom) and is also set when it emulates a phone */
+	padding-bottom: calc(var(--size-4-2) + var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
+	background: var(--background-secondary);
+	border-top: 1px solid var(--background-modifier-border);
+	/* at a large text size the bar never takes more than this much of the window: what is taller scrolls inside it */
+	max-height: 45vh;
+	overflow-y: auto;
+}
+
+/* on a phone the bar stands above Obsidian's own bottom bar (its back, search, new tab, tabs and menu buttons), not over it; the safe area is that bar's */
+.is-phone:not(.is-hidden-nav) .booklet-nowplaying {
+	bottom: var(--navbar-height, 0px);
+	padding-bottom: var(--size-4-2);
+}
+
+.is-phone.is-floating-nav:not(.is-hidden-nav) .booklet-nowplaying {
+	bottom: calc(var(--navbar-height, 0px) + var(--navbar-bottom-offset, 0px));
+}
+
+/* the page keeps its last lines above the bar. The bar's height grows with the text (it is 152px at the normal size and 266px at 200% on a phone, and it stops at 45vh), so the room is in em */
+.booklet-has-nowplaying .booklet-view {
+	padding-bottom: calc(10em + var(--size-4-4));
+}
+
+.booklet-nowplaying-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-nowplaying-label {
+	flex: 1 1 12em;
+	min-width: 0;
+	overflow-wrap: anywhere;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-nowplaying audio,
+.booklet-nowplaying video {
+	flex: 2 1 16em;
+	min-width: 0;
+	max-width: 100%;
+}
+
+.booklet-nowplaying video {
+	max-height: 30vh;
+}
+
+.booklet-nowplaying button {
+	/* 44px: the smallest touch target the iOS and Android guidelines advise */
+	min-height: max(44px, var(--input-height));
+	min-width: 44px;
+	/* the bar's own colour is the button's, so a button is drawn against it */
+	background: var(--background-primary);
+}
+
+/* Obsidian draws every audio at 42px; on a phone the controls get the room the browser gives them by default (54px), so their buttons are not squeezed */
+.is-mobile .booklet-nowplaying audio,
+.is-mobile .booklet-listen-media audio {
+	height: 54px;
+}
+
+.booklet-nowplaying button:focus-visible,
+.booklet-nowplaying audio:focus-visible,
+.booklet-nowplaying video:focus-visible {
+	outline: 2px solid var(--interactive-accent);
+	outline-offset: 2px;
+}
+
+/* what stands in the page where the player was lifted from; it is read, not operated */
+.booklet-nowplaying-here {
+	display: block;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-nowplaying-here:focus {
+	outline: none;
+}
+
+/* the settings page's one write-in: Obsidian's input is 40px high on a phone before 1.11 */
+.booklet-settings .setting-item-control input[type="text"] {
+	min-height: max(44px, var(--input-height));
+}
+
+/* a hint in a box is text and is read: Obsidian's faint grey (2.3 to 1 on white in its default theme) gives way to the muted text colour (6.8 to 1) */
+.booklet-view input::placeholder,
+.booklet-view textarea::placeholder,
+.booklet-view .search-input-container input::placeholder,
+.booklet-allow-card input::placeholder,
+.booklet-settings input::placeholder {
+	color: var(--text-muted);
+	opacity: 1;
+}

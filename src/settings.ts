@@ -6,6 +6,7 @@
  */
 import { Notice, PluginSettingTab, Setting, SettingPage, requireApiVersion, type App, type Plugin, type SettingDefinitionItem } from "obsidian";
 import { SUGGESTED_HOSTS, alsoCovers, hostList, normaliseEntry, type Allows, type EntryResult } from "./core";
+import { LOOKS, LOOK_LABELS, isLook, resolveLook, type Look } from "./look";
 
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
@@ -27,6 +28,9 @@ export class MediaAllows {
 	/** Whatever else the data file holds is written back as it was. No prototype, so that a key called `__proto__` is a key like any other and is kept. */
 	private extra: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
 	private listeners = new Set<() => void>();
+	/** The look the reader chose in the settings, if she has (look.ts); nothing until she does. */
+	private lookChoice: Look | undefined;
+	private lookListeners = new Set<() => void>();
 	private saving: Promise<void> = Promise.resolve();
 	private snapshot: Allows | null = null;
 
@@ -36,7 +40,9 @@ export class MediaAllows {
 		private readonly save: (data: Record<string, unknown>) => Promise<void> | void,
 	) {
 		const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
-		for (const [k, v] of Object.entries(o)) if (k !== "allowedMediaHosts" && k !== "noteAllows") this.extra[k] = v;
+		// a saved look that is not one of ours is not a choice: it is kept as it was, and never used
+		if (isLook(o["look"])) this.lookChoice = o["look"];
+		for (const [k, v] of Object.entries(o)) if (k !== "allowedMediaHosts" && k !== "noteAllows" && !(k === "look" && this.lookChoice)) this.extra[k] = v;
 		this.vault = entriesOf(o["allowedMediaHosts"]);
 		const notes = o["noteAllows"];
 		if (notes && typeof notes === "object" && !Array.isArray(notes))
@@ -66,7 +72,7 @@ export class MediaAllows {
 
 	/** What data.json holds. */
 	toData(): Record<string, unknown> {
-		return { ...this.extra, allowedMediaHosts: [...this.vault], noteAllows: Object.fromEntries(Object.entries(this.notes).map(([k, v]) => [k, [...v]])) };
+		return { ...this.extra, ...(this.lookChoice ? { look: this.lookChoice } : {}), allowedMediaHosts: [...this.vault], noteAllows: Object.fromEntries(Object.entries(this.notes).map(([k, v]) => [k, [...v]])) };
 	}
 
 	/** Tells `cb` after every change, from the card, the settings page or a rename; gives back what stops it. */
@@ -75,12 +81,41 @@ export class MediaAllows {
 		return () => void this.listeners.delete(cb);
 	}
 
-	private changed(): void {
-		this.snapshot = null;
+	private persist(): void {
 		const data = this.toData();
 		this.saving = this.saving.then(() => this.save(data)).catch(() => {
 			// a list that cannot be saved is still in force for this session
 		});
+	}
+
+	/** The look the reader chose in the settings; undefined until she chooses (the default then follows Obsidian's light or dark: look.ts). */
+	look(): Look | undefined {
+		return this.lookChoice;
+	}
+
+	/** She chose a look in the settings: it is kept, and every open booklet is told, so that all of them change at once. */
+	setLook(look: Look): void {
+		if (this.lookChoice === look) return;
+		this.lookChoice = look;
+		this.persist();
+		for (const cb of [...this.lookListeners]) {
+			try {
+				cb();
+			} catch {
+				// one listener's mistake does not stop the others hearing it
+			}
+		}
+	}
+
+	/** Tells `cb` after the look changes in the settings; gives back what stops it. */
+	onLookChange(cb: () => void): () => void {
+		this.lookListeners.add(cb);
+		return () => void this.lookListeners.delete(cb);
+	}
+
+	private changed(): void {
+		this.snapshot = null;
+		this.persist();
 		for (const cb of [...this.listeners]) {
 			try {
 				cb();
@@ -154,6 +189,28 @@ export class MediaAllows {
 		this.changed();
 		return fresh.length;
 	}
+}
+
+const LOOK_NAME = "Booklet look";
+const LOOK_DESC = "Paper and petrol draws Booklet notes in its own colours, fonts and pictures. Obsidian uses your Obsidian theme, as before.";
+
+/**
+ * The look row, drawn into a row that the caller makes, as the rows of the allow list are: `display()` does it on Obsidian before
+ * 1.13, and the definition's `render` on 1.13 and later. Until the reader chooses, the dropdown shows the look she has now: Paper and
+ * petrol in the variant that matches Obsidian's mode. Choosing is kept and changes every open booklet at once.
+ */
+function drawLookRow(row: Setting, allows: MediaAllows): void {
+	row.setName(LOOK_NAME)
+		.setDesc(LOOK_DESC)
+		.addDropdown((d) => {
+			for (const look of LOOKS) d.addOption(look, LOOK_LABELS[look]);
+			d.setValue(resolveLook(allows.look(), row.settingEl.ownerDocument.body.classList.contains("theme-dark")));
+			d.onChange((v) => {
+				if (isLook(v)) allows.setLook(v);
+			});
+			d.selectEl.setAttribute("aria-label", LOOK_NAME);
+		});
+	row.settingEl.addClass("booklet-look-row");
 }
 
 const INTRO =
@@ -356,6 +413,12 @@ export class BookletSettingTab extends PluginSettingTab {
 		if (!requireApiVersion("1.13.0")) return [];
 		return [
 			{
+				// the look row is drawn by the same code as display()'s; the settings search finds it by this name
+				name: LOOK_NAME,
+				desc: LOOK_DESC,
+				render: (row) => drawLookRow(row, this.allows),
+			},
+			{
 				type: "page",
 				name: PAGE_NAME,
 				desc: PAGE_DESC,
@@ -370,6 +433,7 @@ export class BookletSettingTab extends PluginSettingTab {
 		this.disposePages();
 		containerEl.empty();
 		containerEl.addClass("booklet-settings");
+		drawLookRow(new Setting(containerEl), this.allows);
 		drawRows(this.newPage(), containerEl);
 	}
 

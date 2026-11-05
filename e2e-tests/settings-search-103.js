@@ -59,7 +59,8 @@ const env = { launch, opt: { obsidian: opt.obsidian }, WORK, consoleReport, sess
 const { withMedia } = require("./media-lib")(env);
 
 const QUERIES = [
-  { q: "allow", gated: true }, { q: "site", gated: true }, { q: "suggested", gated: true },
+  { q: "allow", gated: true, entry: /Allowed media sites/ }, { q: "site", gated: true, entry: /Allowed media sites/ },
+  { q: "suggested", gated: true, entry: /Allowed media sites/ }, { q: "look", gated: true, entry: /Booklet look/ },
   { q: "media", gated: false }, { q: "booklet", gated: false },
 ];
 const ADDED = "example.org";
@@ -94,7 +95,7 @@ const RESULTS = () => {
     sub: flat((g.querySelector(".setting-search-result-tab-sublabel") || {}).textContent),
     items: [...g.querySelectorAll(".setting-search-result-item")].map(i => flat(i.textContent)),
   }));
-  const ours = /Allowed media sites|Allowed sites|Add a site|Suggested services/;
+  const ours = /Allowed media sites|Allowed sites|Add a site|Suggested services|Booklet look/;
   const plugin = groups.filter(g => g.sub === "Booklet" || ours.test(g.label) || g.items.some(t => ours.test(t)));
   return { groups, plugin, text: flat((document.querySelector(".setting-search-results") || {}).innerText).slice(0, 300) };
 };
@@ -139,9 +140,11 @@ const MARK_SEARCH = () => {
     const closeSettings = async () => { await o.evaluate(() => { app.setting.close && app.setting.close(); }); await sleep(500); await o.page.bringToFront().catch(() => {}); };
 
     // what the plugin itself decided: does its tab give setting definitions here?
-    const defs = await o.evaluate(() => { try { const t = (app.setting.pluginTabs || []).find(x => x.id === "booklet"); return t && t.getSettingDefinitions ? t.getSettingDefinitions().length : null; } catch (e) { return "error: " + e.message; } });
+    const defs = await o.evaluate(() => { try { const t = (app.setting.pluginTabs || []).find(x => x.id === "booklet"); return t && t.getSettingDefinitions ? t.getSettingDefinitions().map(d => d.name) : null; } catch (e) { return "error: " + e.message; } });
     result.definitions = defs;
-    fact(declarative ? defs === 1 : (defs === 0 || defs === null), `the Booklet tab offers ${declarative ? "1 setting definition (the page entry)" : "no setting definitions"} on ${version} (it offers ${defs})`);
+    // 1.13+: two definitions, in this order: the 'Booklet look' row, then the allow-list page entry (src/settings.ts getSettingDefinitions)
+    const defsOk = declarative ? Array.isArray(defs) && defs.length === 2 && defs[0] === "Booklet look" && defs[1] === "Allowed media sites and suggested services" : (Array.isArray(defs) ? defs.length === 0 : defs === null);
+    fact(defsOk, `the Booklet tab offers ${declarative ? "2 setting definitions (the 'Booklet look' row, then the 'Allowed media sites and suggested services' page entry)" : "no setting definitions"} on ${version} (it offers ${JSON.stringify(defs)})`);
 
     // ---- 1. the search ----
     let sp = await openSettings(null);
@@ -154,19 +157,20 @@ const MARK_SEARCH = () => {
     if (mk.found) {
       const box = sp.locator("[data-e2e-search]").first();
       let n = 0;
-      for (const { q, gated } of QUERIES) {
+      for (const { q, gated, entry } of QUERIES) {
         n++;
         await box.click();
         await sp.keyboard.press("Control+A"); await sp.keyboard.press("Backspace"); await sleep(250);
         await sp.keyboard.type(q, { delay: 40 });
         await sleep(900);
         const r = await sp.evaluate(RESULTS);
-        const found = r.plugin.length > 0;
+        // an entry told by its own name when the query has one ('look' must find the look row, the others the allow-list entry)
+        const found = entry ? r.plugin.some(g => entry.test(g.label) || g.items.some(t => entry.test(t))) : r.plugin.length > 0;
         result.queries[q] = { found, plugin: r.plugin, groups: r.groups.map(g => g.label + (g.sub ? " / " + g.sub : "")), text: r.text };
         await shot(sp, `${String(n).padStart(2, "0")}-search-${q}`);
         say(`INFO '${q}': the plugin is listed: ${found}; the search lists ${r.groups.length} group(s): ${JSON.stringify(r.groups.map(g => g.label + (g.sub ? " / " + g.sub : "")).slice(0, 12))}`);
         for (const g of r.plugin) say(`INFO '${q}' the plugin's result: ${JSON.stringify(g)}`);
-        if (gated) fact(found === declarative, `search '${q}' ${declarative ? "finds" : "does not find"} the Booklet entry on ${version} (listed: ${found})`);
+        if (gated) fact(found === declarative, `search '${q}' ${declarative ? "finds" : "does not find"} the ${entry ? "'" + String(entry).slice(1, -1) + "' entry" : "Booklet entry"} on ${version} (listed: ${found})`);
         else say(`INFO search '${q}' (no expectation): ${found ? "finds" : "does not find"} the Booklet entry`);
         if (q === "suggested" && declarative && found) {
           // pressing the result opens the entry's page

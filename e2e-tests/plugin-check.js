@@ -1002,11 +1002,18 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
     const d = await o.evaluate(sel => {
       const v = document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-page"), card = document.querySelector(sel);
       const [pl, gr] = card.querySelectorAll(".booklet-kind-widget");
-      const probe = document.body.createDiv(), colour = v => { probe.style.color = "var(" + v + ")"; return getComputedStyle(probe).color; };
-      const VARS = { warm: "--color-red", green: "--color-green", amber: "--color-orange", teal: "--color-cyan", slate: "--text-muted", blue: "--color-blue", purple: "--color-purple" };
+      // the colour a cell's band is wanted in depends on the look (the attribute data-booklet-look on .booklet-view): the Obsidian look takes the
+      // theme's own variables, a Paper look the token its colour name maps to (structure.css: warm rose, green sage, amber sun, teal brand,
+      // slate slate, blue sky, purple lilac). The probe sits inside the view so the look's tokens resolve for it.
+      const viewEl = document.querySelector(".workspace-leaf-content[data-type='booklet'] .booklet-view") || document.querySelector(".booklet-view");
+      const look = viewEl ? viewEl.getAttribute("data-booklet-look") || "obsidian" : "obsidian", paper = /^paper/.test(look);
+      const probe = (viewEl || document.body).createDiv(), colour = v => { probe.style.color = "var(" + v + ")"; return getComputedStyle(probe).color; };
+      const VARS = paper ? { warm: "--bk-rose", green: "--bk-sage", amber: "--bk-sun", teal: "--bk-brand", slate: "--bk-slate", blue: "--bk-sky", purple: "--bk-lilac" }
+        : { warm: "--color-red", green: "--color-green", amber: "--color-orange", teal: "--color-cyan", slate: "--text-muted", blue: "--color-blue", purple: "--color-purple" };
       const cells = [...gr.querySelectorAll(".booklet-cell")].map(x => { const name = [...x.classList].find(k => k.startsWith("booklet-colour-")).slice(15), cs = getComputedStyle(x); return { id: x.getAttribute("data-booklet-cell"), name, band: cs.borderTopColor, wanted: colour(VARS[name]), wash: cs.backgroundColor, items: [...x.querySelectorAll("button.booklet-item")].map(b => b.textContent), field: !!x.querySelector(".booklet-own-row input") }; });
       probe.remove();
       return {
+        look,
         openings: [card.textContent.replace(/\s+/g, " ").includes("Take a moment. There are no right answers here.")],
         axes: [...gr.querySelectorAll(".booklet-axis")].map(x => x.textContent), cells,
         places: [...pl.querySelectorAll("button.booklet-place")].map(b => b.textContent),
@@ -1020,7 +1027,7 @@ async function checkinFlow(c, o, vault, tag, route, typeInMd) {
     c.info(tag + ": drawn " + JSON.stringify(d));
     say(d.openings[0] === true, "the activity's own opening text is drawn on its screen (the booklet's and the module's are on the home and module screens, checked in check 16): " + JSON.stringify(d.openings));
     say(same(d.axes, ["more energy", "less pleasant", "more pleasant", "less energy"]), "the grid's four edge labels: " + JSON.stringify(d.axes));
-    say(same(d.cells.map(x => x.id + " " + x.name), ["agitating warm", "invigorating green", "draining blue", "soothing purple"]) && d.cells.every(x => x.band === x.wanted && x.field && x.items.length === 2), "each cell has its colour name's band in the theme's colour, two items to press and a field of its own: " + JSON.stringify(d.cells.map(x => x.name + " band " + x.band + " (" + x.wanted + " wanted)")));
+    say(same(d.cells.map(x => x.id + " " + x.name), ["agitating warm", "invigorating green", "draining blue", "soothing purple"]) && d.cells.every(x => x.band === x.wanted && x.field && x.items.length === 2), "each cell has its colour name's band in the theme's colour (the look '" + d.look + "': " + (/^paper/.test(d.look) ? "the Paper token of its name" : "Obsidian's variable") + "), two items to press and a field of its own: " + JSON.stringify(d.cells.map(x => x.name + " band " + x.band + " (" + x.wanted + " wanted)")));
     say(new Set(d.cells.map(x => x.wash)).size === 4, "the four cells' washes differ: " + JSON.stringify(d.cells.map(x => x.wash)));
     say(d.places.length === 11 && d.places[0] === "Head" && d.figures === 0 && d.panel === "Press a place above to begin.", "the places are 11 buttons, no figure is drawn (" + d.figures + "), and the panel waits for a place: " + JSON.stringify(d.panel));
     say(!d.unsupported.length && same(d.where, ["At home", "At work", "Outdoors", "Travelling"]), "nothing in the card says not yet supported, and the shared list's options are drawn: " + JSON.stringify(d.where));

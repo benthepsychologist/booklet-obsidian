@@ -1,0 +1,63 @@
+/* The picture tile of a card, in the paper looks. Part of the pictures lane (docs: themes/CONTRACT.md).
+   drawPicture (src/screens.ts) puts a flat spot drawing (src/spots.ts, 24 of them, from the reference renderer; Apache-2.0)
+   in the tile beside the line icon. The Obsidian look shows only the line icon, as it always did; a paper look shows the
+   spot and hides the line icon where there is a spot, and keeps the line icon (in the accent) where there is none.
+   The tile's own size, fill and corners are structure.css's. A spot's shapes take a class (a accent fill, w card fill,
+   s sun fill, p brand fill, l accent stroke, lw card stroke, "w l" card fill with accent outline, "l s" sun stroke). */
+
+/* the spot is part of the tile, but nothing shows it unless a paper look does */
+.booklet-spot {
+	display: none;
+}
+
+/* a tile with no spot: its line icon (or emoji) in the accent */
+.booklet-view[data-booklet-look^="paper"] .booklet-pic:not(.booklet-pic-spot) {
+	color: var(--bk-accent, var(--bk-brand));
+}
+
+/* a tile with a spot: the spot, sized by --bk-spot-art, and no line icon */
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-spot > svg:not(.booklet-spot) {
+	display: none;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-spot > .booklet-spot {
+	display: block;
+	flex: none;
+	width: var(--bk-spot-art, 3.4rem);
+	height: var(--bk-spot-art, 3.4rem);
+}
+
+/* the drawing's colours, from the card it sits on */
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .a {
+	fill: var(--bk-accent, var(--bk-brand));
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .w {
+	fill: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .s {
+	fill: var(--bk-sun);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .p {
+	fill: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .l {
+	stroke: var(--bk-accent, var(--bk-brand));
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .lw {
+	stroke: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .l.s {
+	stroke: var(--bk-sun);
+}
+
+/* a stroke-only shape has no fill (a stroke that also takes "w" keeps its card fill) */
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .l:not(.w),
+.booklet-view[data-booklet-look^="paper"] .booklet-spot .lw:not(.w) {
+	fill: none;
+}

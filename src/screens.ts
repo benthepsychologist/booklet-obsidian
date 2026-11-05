@@ -7,6 +7,7 @@
 import { setIcon } from "obsidian";
 import { inlineMd, linkless, plainText, type Place } from "./core";
 import { BOOKLET_ICONS } from "./booklet-icons";
+import { drawSpot, spotFor } from "./spots";
 
 /** What these parts need from the view. */
 export interface ScreenHost {
@@ -63,13 +64,22 @@ export function drawTrail(host: ScreenHost, page: HTMLElement, crumbs: Crumb[], 
 /**
  * A card's picture (SPEC section 3): the line's `icon:` if it is a name in Booklet's set, drawn from Obsidian's Lucide by
  * its prefixed id (a bare name can be another plugin's icon or an older alias), else a leading emoji. A name outside the
- * set, or one Obsidian cannot draw, is no picture: the card shows its number. Returns whether a picture was drawn.
+ * set, or one Obsidian cannot draw, is no picture: the card shows its number. Returns whether a picture was drawn. A name that also has a spot
+ * drawing (src/spots.ts) gets it as well, in the tile as `.booklet-spot` (hidden unless a paper look shows it, themes/pictures.css).
  */
 export function drawPicture(into: HTMLElement, icon: string | null, emoji: string | null, big = false): boolean {
 	const tile = into.createDiv({ cls: big ? "booklet-pic booklet-pic-big" : "booklet-pic", attr: { "aria-hidden": "true" } });
 	if (icon && BOOKLET_ICONS.has(icon)) {
 		setIcon(tile, "lucide-" + icon);
-		if (tile.querySelector("svg")) return true;
+		if (tile.querySelector("svg")) {
+			// a name that has a spot drawing gets it too, beside the line icon; the stylesheet shows one of them (a look that shows the spot hides the line)
+			const spot = spotFor(icon);
+			if (spot) {
+				tile.addClass("booklet-pic-spot");
+				drawSpot(tile, spot);
+			}
+			return true;
+		}
 	}
 	if (emoji) {
 		tile.setText(emoji);

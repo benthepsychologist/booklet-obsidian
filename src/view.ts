@@ -110,6 +110,7 @@ import { mountQuery } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
+import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
 import type { LeafMode } from "./switch";
 
@@ -306,6 +307,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		});
 	}
 
+	/** What this view's menu chose for this view alone (look.ts): kept while the view lives, never saved. */
+	private viewLook: ViewLook;
+
 	override onload(): void {
 		super.onload();
 		this.addAction("file-text", "Show Markdown", () => void this.host.setMode(this.leaf, "markdown"));
@@ -372,6 +376,18 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (leaf === this.leaf) later();
 			}),
 		);
+		// Obsidian's theme or its light and dark mode changed: a reader who has not chosen a look gets the matching one
+		this.registerEvent(this.app.workspace.on("css-change", () => this.applyLook()));
+	}
+
+	/** Is the Obsidian this view is in dark? Asked of the view's own document, since a pop-out window has one of its own. */
+	private isDark(): boolean {
+		return this.contentEl.ownerDocument.body.classList.contains("theme-dark");
+	}
+
+	/** Puts the look this view is drawn in on its root, for the CSS to read (look.ts); done at each draw, and when the look changes without one. */
+	applyLook(): void {
+		this.contentEl.setAttribute("data-booklet-look", resolveLook(this.host.media.look(), this.isDark(), this.viewLook));
 	}
 
 	/**
@@ -746,6 +762,18 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				.setSection("pane")
 				.onClick(() => void this.host.setMode(this.leaf, "markdown")),
 		);
+		// this view only: in a paper look the item goes to Obsidian's, in Obsidian's it goes to the Booklet look
+		const inPaper = resolveLook(this.host.media.look(), this.isDark(), this.viewLook) !== "obsidian";
+		menu.addItem((item) =>
+			item
+				.setTitle(inPaper ? "Use Obsidian's look in this view" : "Use the Booklet look in this view")
+				.setIcon("palette")
+				.setSection("pane")
+				.onClick(() => {
+					this.viewLook = flipViewLook(this.host.media.look(), this.isDark(), this.viewLook);
+					this.applyLook();
+				}),
+		);
 		super.onPaneMenu(menu, source);
 	}
 
@@ -1051,6 +1079,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const root = this.contentEl;
 		root.empty();
 		root.addClass("booklet-view");
+		this.applyLook();
 		// which format this Obsidian gives a callout's colour in; asked once, as it does not change while the view is open
 		this.tripletCallouts ??= calloutColourIsTriplet(root);
 		root.toggleClass("booklet-callout-triplet", this.tripletCallouts);

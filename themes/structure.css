@@ -1,0 +1,1378 @@
+/* Paper and petrol: the structure of the two paper looks (themes/CONTRACT.md).
+ *
+ * What this file does: it makes Booklet's own view read like the explorable article (warm paper under lighter raised cards, one
+ * soft colour per section, a big tinted picture tile, 22px corners, pill-shaped options, tinted feedback, generous air) WITHOUT
+ * changing the page's structure or behaviour. It restyles; it never moves a thing from one place to another.
+ *
+ * Rules of this file, kept here so the next editor does not have to find them in the contract:
+ *  - every selector begins `.booklet-view[data-booklet-look^="paper"]`. The attribute selector lifts every rule one class above the
+ *    base sheet's `.booklet-*` rules, so none of them needs a priority flag. Base rules at a higher weight (a nested question's reset, the
+ *    answered edge, the choice states, the focus ring) are met by writing the selector with as many classes as the one it answers.
+ *  - colour, radius, shadow, font and size come from the --bk-* tokens only (themes/tokens-paper-*.css). No hex here.
+ *  - motion (transition, a lift or a press) is all in one block at the end, inside prefers-reduced-motion: no-preference.
+ *  - nothing the Obsidian directory's CSS check flags: no reset-everything shorthand, no layout-erasing display value, no
+ *    first-line offset, no imports, no network address.
+ *  - the "obsidian" look has no rule here at all, because none of these selectors matches it.
+ *
+ * Order: 1 accent scope, 2 the view and Obsidian's variables, 3 type, 4 screens and cards, 5 tabs and pager, 6 questions and
+ * options, 7 fields, 8 buttons, 9 replies, finish and steps, 10 entries and fold, 11 panels, notes, reading blocks, sources, notices, 12 data views and charts,
+ * 13 focus, 14 phone, 15 motion.
+ */
+
+/* ---------- 1. the accent: one colour for a section, a card or a widget ---------- */
+
+/* Default: the brand. Anything below that sets --bk-accent / --bk-accent-wash / --bk-accent-tile on itself changes the colour of everything inside it
+   (a card's picture tile, its number, a selected option, the reply under a question). */
+.booklet-view[data-booklet-look^="paper"] {
+	--bk-accent: var(--bk-brand);
+	--bk-accent-wash: var(--bk-brand-wash);
+	--bk-accent-tile: var(--bk-brand-tile);
+}
+
+/* A colour name in the booklet's data (SPEC section 7: a widget cell, a note) is one of seven; the paper looks have five accents and the
+   brand, so the names are mapped, not matched one to one:
+     warm   -> rose            green  -> sage         amber -> sun
+     teal   -> brand (petrol)  blue   -> sky          purple -> lilac
+     slate  -> --bk-slate on --bk-slate-wash and --bk-slate-tile (the quiet neutral, a clean cool grey)
+   --bk-accent-tile is the vivid fill for decoration (picture tile, number pill, chevron disc, selected option, progress dots): ink or the
+   accent's own line drawing sits on it, never accent-coloured words. The wash stays for quiet panels and hovers.
+   --booklet-tone is the base sheet's own name for the same colour (a cell's top band, a note's edge), so it follows. */
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-warm {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+	--booklet-tone: var(--bk-rose);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-green {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+	--booklet-tone: var(--bk-sage);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-amber {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+	--booklet-tone: var(--bk-sun);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-teal {
+	--bk-accent: var(--bk-brand);
+	--bk-accent-wash: var(--bk-brand-wash);
+	--bk-accent-tile: var(--bk-brand-tile);
+	--booklet-tone: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-blue {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+	--booklet-tone: var(--bk-sky);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-purple {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+	--booklet-tone: var(--bk-lilac);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-colour-slate {
+	--bk-accent: var(--bk-slate);
+	--bk-accent-wash: var(--bk-slate-wash);
+	--bk-accent-tile: var(--bk-slate-tile);
+	--booklet-tone: var(--bk-slate);
+}
+
+/* Where a booklet names no colour (a list of cards never does), the five accents take the cards in turn, so a home is not one
+   colour. It is the position in the list, so a card keeps its colour as long as the list keeps its order. */
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li:nth-child(5n + 1) {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li:nth-child(5n + 2) {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li:nth-child(5n + 3) {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li:nth-child(5n + 4) {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li:nth-child(5n) {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+/* A cell with a colour name takes its wash (the base sheet mixes one from Obsidian's colour; here the token is the wash). */
+.booklet-view[data-booklet-look^="paper"] .booklet-cell {
+	background-color: var(--bk-card);
+	border-radius: var(--bk-r-md);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cell[class*="booklet-colour-"] {
+	background-color: var(--bk-accent-wash);
+}
+
+/* ---------- 2. the view: paper, and Obsidian's variables pointed at the tokens ---------- */
+
+/* The view fills the pane, so painting it paints the pane. */
+.booklet-view[data-booklet-look^="paper"] {
+	background-color: var(--bk-paper);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-body);
+	font-size: var(--bk-body-size);
+	line-height: var(--bk-body-leading);
+	/* the base sheet's five look variables (it made them for exactly this): questions, groups and callouts are sheets on the token surface */
+	--booklet-card-bg: var(--bk-card);
+	--booklet-card-border: var(--bk-rule);
+	--booklet-card-radius: var(--bk-r-lg);
+	--booklet-card-pad: var(--size-4-5);
+	--booklet-block-edge: var(--size-2-3); /* the card and question's left bar: 6px (was 4px) */
+	/* The base sheet draws every colour from Obsidian's variables. Setting them here, on the view only, makes the charts, tables, the matrix,
+	   callouts, inputs and Obsidian's own rendered Markdown take the paper colours without a rule for each. Only token values are used.
+	   --interactive-accent is the brand, so --text-on-accent is the text on the brand (the citation number's hover fill is the pair); the theme's red is left alone. */
+	--background-primary: var(--bk-paper);
+	--background-primary-alt: var(--bk-card);
+	--background-secondary: var(--bk-card);
+	--background-secondary-alt: var(--bk-paper);
+	--text-on-accent: var(--bk-on-brand);
+	--background-modifier-border: var(--bk-rule);
+	--background-modifier-border-hover: var(--bk-ink-soft);
+	--background-modifier-border-focus: var(--bk-brand);
+	--background-modifier-hover: var(--bk-brand-wash);
+	--background-modifier-active-hover: var(--bk-brand-wash);
+	--background-modifier-form-field: var(--bk-paper);
+	--text-normal: var(--bk-ink);
+	--text-muted: var(--bk-ink-soft);
+	--text-faint: var(--bk-ink-soft);
+	--text-accent: var(--bk-brand);
+	--text-accent-hover: var(--bk-brand-deep);
+	--link-color: var(--bk-brand);
+	--link-color-hover: var(--bk-brand-deep);
+	--link-external-color: var(--bk-brand);
+	--link-external-color-hover: var(--bk-brand-deep);
+	--interactive-accent: var(--bk-brand);
+	--interactive-accent-hover: var(--bk-brand-deep);
+	--interactive-normal: var(--bk-card);
+	--interactive-hover: var(--bk-brand-wash);
+	--h1-color: var(--bk-ink);
+	--h2-color: var(--bk-ink);
+	--h3-color: var(--bk-ink);
+	--h4-color: var(--bk-ink);
+	--h5-color: var(--bk-ink);
+	--h6-color: var(--bk-ink);
+}
+
+/* a light paper in a dark Obsidian, or the other way about: the browser's own controls (a date field, a scrollbar) follow the paper */
+.booklet-view[data-booklet-look="paper-light"] {
+	color-scheme: light;
+}
+
+.booklet-view[data-booklet-look="paper-dark"] {
+	color-scheme: dark;
+}
+
+/* the page: the explorable's measure (about 46rem) and more air above */
+.booklet-view[data-booklet-look^="paper"] .booklet-page {
+	max-width: max(var(--file-line-width), 46rem);
+	padding-top: var(--size-4-8);
+}
+
+/* ---------- 3. type ---------- */
+
+/* headings in the heading face; everything else in the body face set on the view */
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-screentitle, .booklet-pagetitle, .booklet-tab, .booklet-cardtitle, .booklet-prompt, .booklet-group-title, .booklet-panel-title, .booklet-entries-title, .booklet-q-group, .booklet-live, .booklet-q-big, .booklet-pick-head, .booklet-trail) {
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .markdown-rendered :is(h1, h2, h3, h4, h5, h6) {
+	font-family: var(--bk-font-head);
+	font-weight: 600;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-screentitle {
+	font-size: clamp(1.8rem, 5vw, 2.45rem);
+	font-weight: 600;
+	line-height: 1.2;
+	letter-spacing: -0.01em;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pagetitle {
+	font-size: 1.5rem;
+	font-weight: 600;
+	line-height: 1.25;
+	letter-spacing: -0.01em;
+	color: var(--bk-ink);
+	margin-bottom: var(--size-4-3);
+}
+
+/* the first paragraph of an opening is the lede: larger, at the body's own scale rather than Obsidian's fixed pixels */
+.booklet-view[data-booklet-look^="paper"] .booklet-opening > p:first-child {
+	font-size: calc(var(--bk-body-size) * 1.15);
+	line-height: 1.5;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-meta,
+.booklet-view[data-booklet-look^="paper"] .booklet-muted,
+.booklet-view[data-booklet-look^="paper"] .booklet-help {
+	font-size: 0.9rem;
+	line-height: 1.5;
+}
+
+/* ---------- 4. screens: the trail, the head, the cards ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-trail {
+	font-size: 0.9rem;
+	gap: var(--size-2-1) var(--size-4-2);
+	margin-bottom: var(--size-4-5);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-trail-link:hover {
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-screenhead {
+	gap: var(--size-4-4);
+	margin-bottom: var(--size-4-4);
+}
+
+/* The picture tile: a big soft square in the section's wash, the drawing in the section's colour. The size and the drawing's size are tokens
+   (smaller on a phone). The pictures lane draws what is inside; an Obsidian icon (svg.svg-icon, a card with an `icon:`) is drawn smaller
+   than a drawing, because its stroke does not shrink with it. */
+.booklet-view[data-booklet-look^="paper"] .booklet-pic,
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-big {
+	width: var(--bk-spot);
+	height: var(--bk-spot);
+	border-radius: var(--bk-r-md);
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pic.booklet-pic-none {
+	background: none;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pic svg,
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-big svg {
+	width: var(--bk-spot-art);
+	height: var(--bk-spot-art);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pic svg.svg-icon,
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-big svg.svg-icon {
+	width: calc(var(--bk-spot-art) * 0.55);
+	height: calc(var(--bk-spot-art) * 0.55);
+	/* a heavier line so the glyph holds its own on the vivid tile (Obsidian's default is 1.75) */
+	stroke-width: 2.25;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pic.booklet-pic-emoji,
+.booklet-view[data-booklet-look^="paper"] .booklet-pic-big.booklet-pic-emoji {
+	font-size: calc(var(--bk-spot-art) * 0.62);
+}
+
+/* the cards: raised, roomy, the picture tile first */
+.booklet-view[data-booklet-look^="paper"] .booklet-cards {
+	display: grid;
+	/* one column that may be narrower than its content, so a long card never widens the view at a large text size */
+	grid-template-columns: minmax(0, 1fr);
+	gap: var(--size-4-3);
+	margin: var(--size-4-4) 0 var(--size-4-6);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cards > li {
+	margin: 0;
+	min-width: 0;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
+	gap: var(--size-4-4);
+	padding: var(--size-4-3) var(--size-4-4);
+	min-height: 44px;
+	background-color: var(--bk-card);
+	border: 1px solid var(--bk-rule);
+	border-radius: var(--bk-r-lg);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cardrow:hover {
+	background-color: var(--bk-card);
+	border-color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cardtitle {
+	/* the number stays beside the first line of the title: the words wrap inside their own box, the number does not drop to a line of its own */
+	flex-wrap: nowrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-2);
+	font-size: 1.3rem;
+	font-weight: 600;
+	line-height: 1.2;
+	color: var(--bk-ink);
+}
+
+/* the number is a small pill in the section's tile colour with ink on it: the colour is a mark, the number is read in ink (accent text on its
+   own wash does not always reach 4.5:1) */
+.booklet-view[data-booklet-look^="paper"] .booklet-cardtitle-words {
+	min-width: 0;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-num {
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: 1.7rem;
+	padding: 0 0.5rem;
+	border-radius: 999px;
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-ink);
+	font-size: 0.85rem;
+	font-weight: 700;
+	line-height: 1.7;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-blurb {
+	margin-top: var(--size-2-3);
+	font-size: 0.98rem;
+	line-height: 1.45;
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-status {
+	margin-top: var(--size-2-3);
+	font-size: 0.85rem;
+	font-weight: 600;
+	color: var(--bk-ink-soft);
+}
+
+/* the chevron is a small disc in the tile colour, with ink on it */
+.booklet-view[data-booklet-look^="paper"] .booklet-chevron {
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: 50%;
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-ink);
+}
+
+/* ---------- 5. tabs, the page's title and menu, the pager ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-tabbar {
+	gap: var(--size-4-2);
+	margin: var(--size-4-4) 0 var(--size-4-5);
+}
+
+/* a heading above a tab's own content */
+.booklet-view[data-booklet-look^="paper"] .booklet-tab {
+	font-size: 1.2rem;
+	font-weight: 600;
+	border-top-color: var(--bk-rule);
+	padding-top: var(--size-4-4);
+	margin-top: var(--size-4-6);
+}
+
+/* the Pages panel */
+.booklet-view[data-booklet-look^="paper"] .booklet-pagemenu {
+	background-color: var(--bk-card);
+	border-radius: var(--bk-r-md);
+	box-shadow: var(--bk-shadow);
+	padding: var(--size-4-3) var(--size-4-4);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pagelink {
+	border-radius: var(--bk-r-sm);
+	padding: var(--size-2-3) var(--size-4-2);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pagelink.is-active {
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pagelist li > ul {
+	border-left-color: var(--bk-rule);
+}
+
+/* the pager: not a grey strip but a dashed rule over a row of two pills, as the explorable ends a section */
+.booklet-view[data-booklet-look^="paper"] .booklet-pager {
+	background-color: transparent;
+	border-top: 1px dashed var(--bk-rule);
+	border-radius: 0;
+	padding: var(--size-4-4) 0 0;
+	margin-top: var(--size-4-8);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pager-at {
+	font-size: 0.9rem;
+	font-weight: 600;
+	color: var(--bk-ink-soft);
+}
+
+/* "About this module": a quiet disclosure with a full-size touch target */
+.booklet-view[data-booklet-look^="paper"] .booklet-notice {
+	font-size: 0.9rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-notice summary {
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+}
+
+/* ---------- 6. questions and their options ---------- */
+
+/* a question is a raised sheet; the sheet's fill, edge, radius and room are the view's variables set above */
+.booklet-view[data-booklet-look^="paper"] .booklet-question,
+.booklet-view[data-booklet-look^="paper"] .booklet-group {
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question {
+	margin: var(--size-4-6) 0;
+}
+
+/* a question inside a group or a callout sits on that sheet: no second shadow, and the margin the base sheet gives it */
+.booklet-view[data-booklet-look^="paper"] .booklet-group-body .booklet-question,
+.booklet-view[data-booklet-look^="paper"] .callout .booklet-question {
+	box-shadow: none;
+	margin: var(--size-4-3) 0 0;
+}
+
+/* answered: a block edge in the feedback colours, never red (the base sheet uses green and orange; here "matches" and "another pick") */
+.booklet-view[data-booklet-look^="paper"] .booklet-question.booklet-answered-right {
+	border-inline-start-color: var(--bk-yes-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question.booklet-answered-wrong {
+	border-inline-start-color: var(--bk-hmm-tile);
+}
+
+/* the prompt: the question in the heading face, no rule under it (the sheet is the frame) */
+.booklet-view[data-booklet-look^="paper"] .booklet-question > .booklet-prompt {
+	font-size: 1.15rem;
+	font-weight: 500;
+	line-height: 1.4;
+	border-bottom: 0;
+	padding-bottom: 0;
+	margin-bottom: var(--size-4-3);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-group-title {
+	font-size: 1.05rem;
+	border-radius: var(--bk-r-md);
+}
+
+/* the options: pills. A single-choice question stacks its options as full rows (below); a multi-choice and a scale keep their rows. */
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice {
+	min-height: 44px;
+	padding: 0.55rem 1.1rem;
+	border: 1.5px solid var(--bk-edge);
+	border-radius: 999px;
+	background-color: var(--bk-paper);
+	color: var(--bk-ink);
+	box-shadow: none;
+	font-family: var(--bk-font-body);
+	font-size: 1rem;
+	line-height: 1.35;
+	cursor: pointer;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice:hover {
+	background-color: var(--bk-accent-wash);
+	border-color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-kind-choice .booklet-choices .booklet-choice {
+	border-radius: var(--bk-r-md);
+	padding: 0.7rem 1rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-scale .booklet-choice {
+	position: relative;
+	border-radius: var(--bk-r-md);
+	padding: 0.55rem 0.6rem;
+}
+
+/* selected: the section's tile colour (ink on it, checked in scripts/contrast.mjs), a 2px accent edge, heavier words and (for a choice or a multi) a check mark, so the state is never colour alone */
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.is-selected,
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.is-selected:hover {
+	background-color: var(--bk-accent-tile);
+	border-color: var(--bk-accent);
+	/* 1.5px border + 0.5px inset = a 2px edge */
+	box-shadow: inset 0 0 0 0.5px var(--bk-accent);
+	color: var(--bk-ink);
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-kind-choice, .booklet-kind-multi) .booklet-choice.is-selected:not(.booklet-right, .booklet-wrong)::before {
+	content: "✓";
+	margin-inline-end: 0.5rem;
+	font-weight: 700;
+}
+
+/* a scale cell is small and centred: the check sits above the number as a quiet mark, so the cell keeps its size and the pick is not colour alone */
+.booklet-view[data-booklet-look^="paper"] .booklet-scale .booklet-choice.is-selected::after {
+	content: "✓";
+	position: absolute;
+	inset-block-start: 1px;
+	inset-inline-end: 4px;
+	font-size: 0.7rem;
+	font-weight: 700;
+	line-height: 1;
+}
+
+/* the check is a look, not a word: an empty text alternative where the browser has the form, as the trail's slash does */
+@supports (content: "✓" / "") {
+	.booklet-view[data-booklet-look^="paper"] .booklet-scale .booklet-choice.is-selected::after {
+		content: "✓" / "";
+	}
+
+	.booklet-view[data-booklet-look^="paper"] :is(.booklet-kind-choice, .booklet-kind-multi) .booklet-choice.is-selected:not(.booklet-right, .booklet-wrong)::before {
+		content: "✓" / "";
+	}
+}
+
+/* marked after Check: right, not quite, the answer. Informative, never red: "matches" is green, "another pick" amber. */
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-right,
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-right:hover {
+	background-color: var(--bk-yes-wash);
+	border-color: var(--bk-yes-tile);
+	/* 1.5px border + 0.5px inset = a 2px edge, in the vivid feedback tile (a graphic, no text on it) */
+	box-shadow: inset 0 0 0 0.5px var(--bk-yes-tile);
+	color: var(--bk-ink);
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-wrong,
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-wrong:hover {
+	background-color: var(--bk-hmm-wash);
+	border-color: var(--bk-hmm-tile);
+	box-shadow: inset 0 0 0 0.5px var(--bk-hmm-tile);
+	color: var(--bk-ink);
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-answer,
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-answer:hover {
+	background-color: transparent;
+	/* the answer is the reader's missed or unpicked option: a heavier 2px dashed line, apart from a pick (solid, tinted) by shape, the ✓ and the words "The answer" */
+	border: 2px dashed var(--bk-yes-tile);
+	box-shadow: none;
+	font-weight: 600;
+	color: var(--bk-ink);
+}
+
+/* the base sheet draws the answer as a dashed outline; here it is a dashed border, so the outline is cleared, but never while the option has
+   keyboard focus (the ring in section 13 must win there, hovered or not) */
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-answer:not(:focus-visible) {
+	outline: none;
+}
+
+/* the mark itself: its words in ink (the icon carries the colour), so the contrast is the token's */
+.booklet-view[data-booklet-look^="paper"] .booklet-mark {
+	color: var(--bk-ink);
+	font-size: 0.9rem;
+	font-weight: 700;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-mark-icon {
+	--icon-size: 1.1em;
+	--icon-stroke: 3px;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-choice:is(.booklet-right, .booklet-answer) .booklet-mark-icon {
+	color: var(--bk-yes);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-choice.booklet-wrong .booklet-mark-icon {
+	color: var(--bk-hmm);
+}
+
+/* a number on a scale: in the heading face */
+.booklet-view[data-booklet-look^="paper"] .booklet-number {
+	font-family: var(--bk-font-head);
+}
+
+/* the reader's own picks are the same pills with a small x, a dashed edge saying they are the reader's */
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-own {
+	border-style: dashed;
+	gap: var(--size-4-2);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice.booklet-own.is-selected {
+	border-style: solid;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-own-row {
+	margin-top: var(--size-4-3);
+}
+
+/* a word chip (a pick shown as words in a widget or a summary) */
+.booklet-view[data-booklet-look^="paper"] .booklet-word {
+	border-color: transparent;
+	border-radius: 999px;
+	background-color: var(--bk-accent-wash);
+	padding: var(--size-2-2) var(--size-4-3);
+}
+
+/* ---------- 7. fields ---------- */
+
+/* a text, number, date or lines field: an inset on the sheet, with a border that can be seen (the base sheet kept a stronger one for dark) */
+.booklet-view[data-booklet-look^="paper"] input.booklet-text,
+.booklet-view[data-booklet-look^="paper"] textarea.booklet-text {
+	box-sizing: border-box;
+	min-height: 44px;
+	padding: 0.55rem 0.8rem;
+	border: 1.5px solid var(--bk-ink-soft);
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-paper);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-body);
+	font-size: 1rem;
+	line-height: 1.4;
+	box-shadow: none;
+}
+
+.booklet-view[data-booklet-look^="paper"] input.booklet-text:focus,
+.booklet-view[data-booklet-look^="paper"] textarea.booklet-text:focus {
+	border-color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-long {
+	min-height: calc(var(--input-height) * 4);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-qc-bar {
+	border-radius: var(--bk-r-md);
+	background-color: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-qc-bar :is(input, select),
+.booklet-view[data-booklet-look^="paper"] .booklet-pagesearch input {
+	border-radius: var(--bk-r-sm);
+	font-family: var(--bk-font-body);
+	color: var(--bk-ink);
+}
+
+/* ---------- 8. buttons: secondary is a pill with a rule border, primary is the brand fill ---------- */
+
+/* Every button but the three that are drawn as words (a source number, a sortable table heading, the fold) and Obsidian's icon buttons.
+   :where() keeps the exclusions out of the weight, so a component rule below needs no more than a class or two to answer this one. */
+.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+	min-height: 44px;
+	padding: 0.45rem 1.1rem;
+	border: 1.5px solid var(--bk-edge);
+	border-radius: 999px;
+	background-color: var(--bk-card);
+	color: var(--bk-ink);
+	box-shadow: none;
+	font-family: var(--bk-font-head);
+	font-size: 0.92rem;
+	font-weight: 500;
+	cursor: pointer;
+}
+
+.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):hover {
+	background-color: var(--bk-brand-wash);
+	border-color: var(--bk-brand);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+	background-color: var(--bk-brand);
+	border-color: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):hover {
+	background-color: var(--bk-brand-deep);
+	border-color: var(--bk-brand-deep);
+	color: var(--bk-on-brand);
+}
+
+/* the tab strip: the same pills; the open tab is the primary fill (it is also aria-selected, so it is not colour alone) */
+.booklet-view[data-booklet-look^="paper"] .booklet-tabbtn {
+	padding: 0.5rem 1.2rem;
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-pager button {
+	padding-inline: 1.2rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-continue-button {
+	padding: 0.6rem 1.4rem;
+	font-weight: 600;
+}
+
+/* the media Play button: its side padding is in px, not rem, so it does not double at 200% text and push the row sideways on a phone;
+   a long label breaks anywhere rather than scroll */
+.booklet-view[data-booklet-look^="paper"] .booklet-media-play {
+	padding-inline: var(--size-4-4);
+	overflow-wrap: anywhere;
+}
+
+/* the delete of a kept entry and its confirmation: visible, and amber rather than red (the confirmation says what it does in words) */
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-delete {
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning,
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover {
+	background-color: var(--bk-hmm-wash);
+	border-color: var(--bk-hmm-tile);
+	color: var(--bk-ink);
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask-text {
+	color: var(--bk-ink);
+}
+
+/* ---------- 9. replies, the live line, the finish block ---------- */
+
+/* a reply: a tinted block in the question's colour (matches: green, another pick: amber); once the question is answered it takes a 6px left edge in the vivid feedback tile */
+.booklet-view[data-booklet-look^="paper"] .booklet-reply {
+	margin-top: var(--size-4-3);
+	padding: var(--size-4-3) var(--size-4-4);
+	border-inline-start: 0;
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-answered-right .booklet-reply {
+	background-color: var(--bk-yes-wash);
+	border-inline-start: 6px solid var(--bk-yes-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-answered-wrong .booklet-reply {
+	background-color: var(--bk-hmm-wash);
+	border-inline-start: 6px solid var(--bk-hmm-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-live {
+	font-size: 0.95rem;
+	font-weight: 600;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-acts {
+	margin-top: var(--size-4-4);
+}
+
+/* the finish: a dashed rule, then the button and what it does */
+.booklet-view[data-booklet-look^="paper"] .booklet-finish {
+	margin-top: var(--size-4-6);
+	padding-top: var(--size-4-4);
+	border-top: 1px dashed var(--bk-rule);
+}
+
+/* ---------- 9b. steps (after replies, before entries) ----------
+   A step is a raised card with a 6px edge in its colour. The steps take the five accents in turn (the same order as the home cards), and the dots and the
+   count pill take the colour of the step they stand for or show. The first group of rules sets the accent, the rest only use it. */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 2),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 1) {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 3),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 2) {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 4),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 3) {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n + 4) {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step:nth-child(5n + 1),
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots > .booklet-steps-dot:nth-child(5n) {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+/* the count pill takes the colour of the step on show (up to ten steps; after that it stays the brand) */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="1"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="6"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="2"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="7"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="3"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="8"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="4"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="9"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="5"]:not([hidden])) .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="10"]:not([hidden])) .booklet-steps-progress {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-head {
+	gap: var(--size-4-4);
+	margin-bottom: var(--size-4-4);
+}
+
+/* the count: a vivid pill like a card's number, ink on the tile */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-progress {
+	padding: 0.15rem 0.9rem;
+	border-radius: 999px;
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-head);
+	font-size: 0.9rem;
+	font-weight: 700;
+	line-height: 1.6;
+}
+
+/* the dots: 14px, so they read at a glance. Not yet done: an empty ring. Done: the step's tile fill, its accent ring and a check (so it is never colour alone).
+   The current one is ringed in ink, set off from its fill. */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dots {
+	gap: 0.6rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	box-sizing: border-box;
+	width: 1.05rem;
+	height: 1.05rem;
+	border: 2px solid var(--bk-edge);
+	background-color: var(--bk-card);
+	color: var(--bk-ink);
+	font-size: 0.65rem;
+	font-weight: 800;
+	line-height: 1;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-done {
+	background-color: var(--bk-accent-tile);
+	border-color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-done::before {
+	content: "✓" / "";
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot.is-current {
+	outline: 2px solid var(--bk-ink);
+	outline-offset: 2px;
+}
+
+/* the step: a raised card, a 6px edge in its colour, a hairline in its tile, and its title in the head face */
+.booklet-view[data-booklet-look^="paper"] .booklet-step > .booklet-group {
+	margin-top: 0;
+	border-color: var(--bk-accent-tile);
+	border-inline-start: 6px solid var(--bk-accent);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-step > .booklet-group > .booklet-group-title {
+	font-family: var(--bk-font-head);
+	font-size: 1.1rem;
+	font-weight: 700;
+}
+
+/* a done step carries a check in a small tile at the end of its title (hidden from a screen reader: the status line and the answers say the rest) */
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(1).is-done) > .booklet-step[data-booklet-step="1"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(2).is-done) > .booklet-step[data-booklet-step="2"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(3).is-done) > .booklet-step[data-booklet-step="3"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(4).is-done) > .booklet-step[data-booklet-step="4"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(5).is-done) > .booklet-step[data-booklet-step="5"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(6).is-done) > .booklet-step[data-booklet-step="6"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(7).is-done) > .booklet-step[data-booklet-step="7"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(8).is-done) > .booklet-step[data-booklet-step="8"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(9).is-done) > .booklet-step[data-booklet-step="9"] .booklet-group-title::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(10).is-done) > .booklet-step[data-booklet-step="10"] .booklet-group-title::after {
+	content: "✓" / "";
+	flex: none;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 1.7rem;
+	height: 1.7rem;
+	border-radius: 50%;
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-ink);
+	font-size: 0.95rem;
+	font-weight: 800;
+}
+
+/* ---------- 10. kept entries ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-entries {
+	border-top: 1px dashed var(--bk-rule);
+	margin-top: var(--size-4-6);
+	padding-top: var(--size-4-4);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-entries .booklet-fold {
+	border-radius: var(--bk-r-sm);
+	font-weight: 600;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-fold-chevron {
+	color: var(--bk-ink-soft);
+}
+
+/* each kept entry is a small card of its own */
+.booklet-view[data-booklet-look^="paper"] .booklet-entry {
+	margin-bottom: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-4);
+	border: 1px solid var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background-color: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-when {
+	font-family: var(--bk-font-head);
+}
+
+/* ---------- 11. panels, notes, notices, media ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-panel,
+.booklet-view[data-booklet-look^="paper"] .booklet-media-slot,
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-panel,
+.booklet-view[data-booklet-look^="paper"] .booklet-unsupported {
+	border-radius: var(--bk-r-md);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-panel {
+	background-color: var(--bk-paper);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-media-slot,
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-panel {
+	background-color: var(--bk-card);
+}
+
+/* a note under a widget: a tinted block in its colour, a straight 6px edge, its label in the head face */
+.booklet-view[data-booklet-look^="paper"] .booklet-note {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-inline-start: 6px solid var(--bk-accent);
+	border-radius: 0 var(--bk-r-sm) var(--bk-r-sm) 0;
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-note strong {
+	font-family: var(--bk-font-head);
+	color: var(--bk-accent);
+}
+
+/* A reading block (a callout). Each kind keeps its own colour, mapped onto the five accents and the slate neutral (the format's three kinds and
+   Obsidian's own types):
+     brand  -> diff, tip, hint, important, and any kind not named below
+     sky    -> note, info, todo, abstract, summary, tldr
+     sage   -> success, check, done
+     sun    -> question, help, faq, warning, caution, attention
+     rose   -> opinion, failure, fail, missing, danger, error, bug
+     lilac  -> example
+     slate  -> law, quote, cite
+   The block is a clean wash of that colour with ink on it, a straight 6px edge on the inline start in the colour (square there, rounded on the other side;
+   the format's dashed, double and dotted edges curve and double up on a rounded block, so the edge is solid and the picture and the title tell the kind),
+   a hairline in the tile, a title in the colour, and the picture in a small vivid tile as the home cards have. */
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] {
+	--bk-accent: var(--bk-brand);
+	--bk-accent-wash: var(--bk-brand-wash);
+	--bk-accent-tile: var(--bk-brand-tile);
+	--booklet-callout-colour: var(--bk-accent);
+	padding: var(--size-4-3) var(--size-4-4) var(--size-4-3) var(--size-4-4);
+	border-style: solid;
+	border-width: 1px;
+	border-color: var(--bk-accent-tile);
+	border-inline-start: 6px solid var(--bk-accent);
+	border-radius: var(--bk-r-md);
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+	background-color: var(--bk-accent-wash);
+	color: var(--bk-ink);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="note"], [data-callout="info"], [data-callout="todo"], [data-callout="abstract"], [data-callout="summary"], [data-callout="tldr"]) {
+	--bk-accent: var(--bk-sky);
+	--bk-accent-wash: var(--bk-sky-wash);
+	--bk-accent-tile: var(--bk-sky-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="success"], [data-callout="check"], [data-callout="done"]) {
+	--bk-accent: var(--bk-sage);
+	--bk-accent-wash: var(--bk-sage-wash);
+	--bk-accent-tile: var(--bk-sage-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="question"], [data-callout="help"], [data-callout="faq"], [data-callout="warning"], [data-callout="caution"], [data-callout="attention"]) {
+	--bk-accent: var(--bk-sun);
+	--bk-accent-wash: var(--bk-sun-wash);
+	--bk-accent-tile: var(--bk-sun-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="opinion"], [data-callout="failure"], [data-callout="fail"], [data-callout="missing"], [data-callout="danger"], [data-callout="error"], [data-callout="bug"]) {
+	--bk-accent: var(--bk-rose);
+	--bk-accent-wash: var(--bk-rose-wash);
+	--bk-accent-tile: var(--bk-rose-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="example"]) {
+	--bk-accent: var(--bk-lilac);
+	--bk-accent-wash: var(--bk-lilac-wash);
+	--bk-accent-tile: var(--bk-lilac-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout:is([data-callout="law"], [data-callout="quote"], [data-callout="cite"]) {
+	--bk-accent: var(--bk-slate);
+	--bk-accent-wash: var(--bk-slate-wash);
+	--bk-accent-tile: var(--bk-slate-tile);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-title {
+	align-items: center;
+	gap: var(--size-4-3);
+	color: var(--bk-accent);
+	font-family: var(--bk-font-head);
+	font-weight: 700;
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-title-inner {
+	flex: 1 1 10rem;
+	min-width: 0;
+}
+
+/* the picture sits in a small vivid tile, as a card's does; the line is the section colour, drawn heavier */
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-icon {
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: 2rem;
+	height: 2rem;
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-accent-tile);
+	color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-icon svg {
+	width: 1.2rem;
+	height: 1.2rem;
+	color: var(--bk-accent);
+	stroke-width: 2.25;
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-fold {
+	color: var(--bk-accent);
+}
+
+.booklet-view[data-booklet-look^="paper"] .callout[data-callout] .callout-content {
+	color: var(--bk-ink);
+}
+
+/* ---------- 11b. sources: the number, the panel, the verified badge ---------- */
+
+/* a source number is a small pill in the petrol tile with ink on it (checked in scripts/contrast.mjs); open or hovered it is the primary fill */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark {
+	padding: 0 0.45em;
+	border-radius: 999px;
+	background-color: var(--bk-brand-tile);
+	color: var(--bk-ink);
+	font-family: var(--bk-font-head);
+	font-size: 0.78em;
+	font-weight: 700;
+	line-height: 1.6;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-mark[aria-expanded="true"] {
+	background-color: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* the panel: a card with a 6px petrol edge on the inline start, square there, a hairline in the tile on the rest */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-panel {
+	border-color: var(--bk-brand-tile);
+	border-inline-start: 6px solid var(--bk-brand);
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+	box-shadow: var(--bk-shadow);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-source cite {
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-quote {
+	border-inline-start: 4px solid var(--bk-brand-tile);
+	color: var(--bk-ink);
+}
+
+/* the verified badge: a pill on the feedback green's wash, ink words, the check in the green (4.5:1 on that wash) */
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-badge {
+	padding: 0.1rem 0.8rem 0.1rem 0.6rem;
+	border: 1px solid var(--bk-yes-tile);
+	border-radius: 999px;
+	background-color: var(--bk-yes-wash);
+	color: var(--bk-ink);
+	font-size: 0.9rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-cite-badge-icon {
+	display: inline-flex;
+	color: var(--bk-yes);
+}
+
+/* the problems block: a tinted amber sheet with ink on it, informative, never red */
+.booklet-view[data-booklet-look^="paper"] .booklet-problems {
+	padding: var(--size-4-3) var(--size-4-4);
+	border-color: var(--bk-hmm-tile);
+	border-radius: var(--bk-r-md);
+	background-color: var(--bk-hmm-wash);
+	color: var(--bk-ink);
+	font-size: 0.95rem;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-problems summary {
+	min-height: 44px;
+	display: flex;
+	align-items: center;
+	font-weight: 600;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-refusal {
+	background-color: var(--bk-card);
+	border-radius: var(--bk-r-lg);
+	box-shadow: var(--bk-shadow);
+	padding: var(--size-4-5);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-kept-note {
+	border-radius: 0 var(--bk-r-sm) var(--bk-r-sm) 0;
+	border-left-color: var(--bk-hmm-tile);
+	color: var(--bk-ink);
+}
+
+/* ---------- 12. data views and charts: legible, in the paper colours; not redesigned ---------- */
+
+/* a tone is the feedback pair (the matching and the other-pick colours); "bad" keeps Obsidian's own red, which the author chose */
+.booklet-view[data-booklet-look^="paper"] .booklet-tone-good {
+	--booklet-q-tone: var(--bk-yes);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-tone-warn {
+	--booklet-q-tone: var(--bk-hmm);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-q-tile,
+.booklet-view[data-booklet-look^="paper"] .booklet-q-cards > .booklet-q-card:not(.booklet-entry) {
+	border-radius: var(--bk-r-md);
+	background-color: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-q-grouprow th {
+	background-color: var(--bk-brand-wash);
+}
+
+/* a chart's bar and lines take the palette: the brand first, then the accents in a fixed order (each line also keeps its own dash and marker) */
+.booklet-view[data-booklet-look^="paper"] .booklet-ch {
+	--booklet-ch-bar: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-track {
+	background: var(--bk-brand-wash);
+	border-radius: var(--bk-r-sm);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s0 {
+	--booklet-ch-c: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s1 {
+	--booklet-ch-c: var(--bk-sun);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s2 {
+	--booklet-ch-c: var(--bk-lilac);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s3 {
+	--booklet-ch-c: var(--bk-sky);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s4 {
+	--booklet-ch-c: var(--bk-rose);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-ch-s5 {
+	--booklet-ch-c: var(--bk-sage);
+}
+
+/* ---------- 13. focus: a clear ring, 3px, off the control ---------- */
+
+/* The base sheet draws a text-colour ring. Here the ring is the token's, 3px and standing off the control. The base's own widest
+   selectors (a card, a choice with a state) are named so this answers them; these are the last rules of the sheet that draw a ring. */
+.booklet-view[data-booklet-look^="paper"] :is(button, input, textarea, select, summary, a, [role="button"], [role="link"], .booklet-ch-svg):focus-visible,
+.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice:focus-visible,
+.booklet-view[data-booklet-look^="paper"] .booklet-cardrow:focus-visible {
+	outline: 3px solid var(--bk-focus);
+	outline-offset: 3px;
+}
+
+/* ---------- 14. a phone ---------- */
+
+@media (max-width: 560px) {
+	.booklet-view[data-booklet-look^="paper"] .booklet-page {
+		padding-top: var(--size-4-4);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
+		gap: var(--size-4-3);
+		padding: var(--size-4-3);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardtitle {
+		font-size: 1.15rem;
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-pagetitle {
+		font-size: 1.3rem;
+	}
+
+	/* the sheets get less side room, so the words keep theirs */
+	.booklet-view[data-booklet-look^="paper"] {
+		--booklet-card-pad: var(--size-4-4);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-entry {
+		padding: var(--size-4-3);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-pager {
+		margin-top: var(--size-4-6);
+	}
+}
+
+/* a very narrow view (a phone at 200% text is about 195 CSS px wide): the card row gives its words the room, no chevron, a tighter gap */
+@media (max-width: 320px) {
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
+		gap: var(--size-4-2);
+		padding: var(--size-4-2);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-chevron {
+		display: none;
+	}
+}
+
+/* ---------- 15. motion: small, tasteful, and only for a reader who has not asked for less ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+	/* a card lifts 1px when it is pointed at; its chevron moves a little to say "this way" */
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow {
+		transition:
+			transform 0.15s ease,
+			border-color 0.15s ease,
+			box-shadow 0.15s ease;
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow:hover {
+		transform: translateY(-1px);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-chevron {
+		transition: transform 0.15s ease;
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-cardrow:hover .booklet-chevron {
+		transform: translateX(2px);
+	}
+
+	/* an option takes its colour smoothly and gives a little under a press */
+	.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice {
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease,
+			transform 0.1s ease;
+	}
+
+	.booklet-view[data-booklet-look^="paper"] .booklet-question .booklet-choice:active {
+		transform: scale(0.98);
+	}
+
+	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+		transition:
+			background-color 0.15s ease,
+			border-color 0.15s ease,
+			transform 0.1s ease;
+	}
+
+	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):active {
+		transform: translateY(1px);
+	}
+
+	/* the steps' dots fill in, not blink */
+	.booklet-view[data-booklet-look^="paper"] .booklet-steps-dot {
+		transition:
+			background-color 0.25s ease,
+			border-color 0.25s ease;
+	}
+}

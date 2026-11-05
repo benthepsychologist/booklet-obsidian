@@ -46,6 +46,12 @@ export default class BookletPlugin extends Plugin {
 				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) if (leaf.view instanceof BookletView) leaf.view.redrawSoon();
 			}),
 		);
+		// the look chosen in the settings changed: every open booklet takes it at once, with no new drawing
+		this.register(
+			this.media.onLookChange(() => {
+				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) if (leaf.view instanceof BookletView) leaf.view.applyLook();
+			}),
+		);
 		this.registerView(VIEW_TYPE, (leaf) => new BookletView(leaf, this));
 		installViewSwitch(this, VIEW_TYPE);
 

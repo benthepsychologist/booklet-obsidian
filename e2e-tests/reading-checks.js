@@ -32,8 +32,11 @@ module.exports = function readingChecks(env) {
   const kindLook = (o, kind) => o.evaluate(([sel, kind]) => {
     const c = document.querySelector(sel + " .callout[data-callout='" + kind + "']");
     if (!c) return null;
-    const s = getComputedStyle(c), icon = c.querySelector(".callout-icon svg");
-    return { style: s.borderLeftStyle, width: s.borderLeftWidth, colour: s.getPropertyValue("--booklet-callout-colour").trim(), icon: icon ? [...icon.classList].filter(k => /^lucide-/.test(k)).join() : "", title: (c.querySelector(".callout-title-inner") || {}).textContent, bg: s.backgroundColor };
+    const s = getComputedStyle(c), icon = c.querySelector(".callout-icon svg"), tile = c.querySelector(".callout-icon"), titleEl = c.querySelector(".callout-title-inner");
+    const view = document.querySelector(sel + " .booklet-view") || document.querySelector(".booklet-view");
+    const ts = tile && getComputedStyle(tile), tt = titleEl && getComputedStyle(titleEl), tr = titleEl && titleEl.getBoundingClientRect();
+    return { look: (view && view.getAttribute("data-booklet-look")) || "obsidian", style: s.borderLeftStyle, width: s.borderLeftWidth, colour: s.getPropertyValue("--booklet-callout-colour").trim(), icon: icon ? [...icon.classList].filter(k => /^lucide-/.test(k)).join() : "", title: (c.querySelector(".callout-title-inner") || {}).textContent, bg: s.backgroundColor,
+      svg: icon ? icon.innerHTML.replace(/\s+/g, " ").trim() : "", tileBg: ts ? ts.backgroundColor : "", titleShown: !!(titleEl && tr.width > 0 && tr.height > 0 && tt.visibility !== "hidden" && tt.display !== "none" && (titleEl.textContent || "").trim()) };
   }, [BOOK, kind]);
 
   async function check25() {
@@ -47,8 +50,18 @@ module.exports = function readingChecks(env) {
       const looks = {};
       for (const [k, style, icon] of [["diff", "dashed", "lucide-git-compare"], ["law", "double", "lucide-scale"], ["opinion", "dotted", "lucide-message-circle"]]) {
         looks[k] = await kindLook(o, k);
-        c.ok(looks[k] && looks[k].style === style && looks[k].icon.includes(icon) && parseFloat(looks[k].width) >= 3 && looks[k].colour !== "", k + " is drawn in its own border (" + style + "), picture (" + icon + ") and colour: " + JSON.stringify(looks[k]));
+        if (looks[k] && /^paper/.test(looks[k].look)) {
+          // The Paper looks redefine the non-colour cue on purpose: the block keeps a straight solid edge (the dashed, double and dotted edges looked muddy
+          // on the rounded block), and the kind is told by its own picture in a tile and by its title. So here the cue is: a solid edge of 3px or more, the
+          // kind's own picture (the lucide icon), drawn in a tile with a fill, and a visible title. The three pictures being different from each other is
+          // checked once, below. The Obsidian look keeps the dashed, double and dotted edges (the branch after this one).
+          const L = looks[k];
+          c.ok(L.style === "solid" && parseFloat(L.width) >= 3 && L.icon.includes(icon) && L.svg !== "" && L.tileBg !== "" && L.tileBg !== "rgba(0, 0, 0, 0)" && L.titleShown && L.colour !== "", k + " (the " + L.look + " look) is drawn with a solid edge, its own picture (" + icon + ") in a filled tile, a visible title and its own colour: " + JSON.stringify(L));
+        } else {
+          c.ok(looks[k] && looks[k].style === style && looks[k].icon.includes(icon) && parseFloat(looks[k].width) >= 3 && looks[k].colour !== "", k + " is drawn in its own border (" + style + "), picture (" + icon + ") and colour: " + JSON.stringify(looks[k]));
+        }
       }
+      if (/^paper/.test(looks.diff.look)) c.ok(new Set([looks.diff.svg, looks.law.svg, looks.opinion.svg]).size === 3 && new Set([looks.diff.icon, looks.law.icon, looks.opinion.icon]).size === 3, "in the " + looks.diff.look + " look the kinds are told apart by three different pictures (the non-colour cue): " + [looks.diff.icon, looks.law.icon, looks.opinion.icon].join(" | "));
       c.ok(new Set([looks.diff.colour, looks.law.colour, looks.opinion.colour]).size === 3, "the three have three colours: " + [looks.diff.colour, looks.law.colour, looks.opinion.colour].join(" | "));
       c.ok(looks.diff.title === "Your guide says the tide turns every six hours", "a callout's title is the title as written: " + looks.diff.title);
       for (const [k, sel] of [["diff", "diff"], ["law", "law"], ["opinion", "opinion"]]) {

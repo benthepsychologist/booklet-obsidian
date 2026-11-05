@@ -149,6 +149,10 @@ class StubComponent {
 		this.buttonEl = document.createElement("button");
 		this._log = log;
 	}
+	/** A dropdown's select element (Obsidian's DropdownComponent has it by this name). */
+	get selectEl() {
+		return this.inputEl;
+	}
 	_note(method, args) {
 		this.calls.push({ method, args });
 		this._log(this.kind + "." + method, args);
@@ -188,10 +192,12 @@ class StubComponent {
 	}
 	addOption(value, label) {
 		this.options = { ...(this.options ?? {}), [value]: label };
+		if (this.kind === "dropdown") this.inputEl.appendChild(Object.assign(document.createElement("option"), { value, textContent: label }));
 		return this._note("addOption", [value, label]);
 	}
 	addOptions(o) {
 		this.options = { ...(this.options ?? {}), ...o };
+		if (this.kind === "dropdown") for (const [value, label] of Object.entries(o)) this.inputEl.appendChild(Object.assign(document.createElement("option"), { value, textContent: label }));
 		return this._note("addOptions", [o]);
 	}
 	/** The handler also hears the element itself, as in Obsidian: typing in the box (an input event) or pressing the button (a click). */

@@ -1,0 +1,82 @@
+/* Paper and petrol, dark: the night sibling of the light look, designed rather than inverted.
+   Same hue relationships, so a section's colour is recognisably the same colour in both looks.
+   scripts/contrast.mjs reads this file; keep every colour a literal 6-digit hex on one line. */
+.booklet-view[data-booklet-look="paper-dark"] {
+  /* Surfaces: deep warm blue-grey (a lamp-lit slate, not black, not neutral grey); cards sit a step lighter. */
+  --bk-paper: #182027;
+  --bk-card: #212b33;
+  /* Ink is warm off-white, never pure white, so long reading does not glare. Soft ink is a cool-neutral mid tone. */
+  --bk-ink: #E8E4DB;
+  --bk-ink-soft: #AAB5BA;
+  /* A hairline a few steps off the card; it also stands in for the shadow (see --bk-shadow). */
+  --bk-rule: #3a4852;
+  /* A control's boundary (option pill, secondary button): a quiet blue-grey, at least 3:1 on card and on paper (WCAG 1.4.11). --bk-rule stays for dividers and card edges. */
+  --bk-edge: #6B7A83;
+
+  /* Petrol lifted to a readable teal: it is the link colour on dark paper, and a fill that takes DARK text.
+     Deep is the hover on primary; on dark it goes lighter, because darker would sink into the card. */
+  --bk-brand: #55D0E8;
+  --bk-brand-deep: #86E0F0;
+  --bk-brand-wash: #1A4550;
+  /* Tile: a deep saturated fill for picture tiles, number pills, chevron discs, selected-state fills and progress dots. Light ink or the bright accent line drawing sits on it, never an accent word. */
+  --bk-brand-tile: #246C7B;
+  /* Dark text on the lifted fills (brand and accents): light-on-pastel would fail, dark-on-pastel reads well. */
+  --bk-on-brand: #0F191E;
+
+  /* The same warm sun as the light look; it already stands out on a dark surface. */
+  --bk-focus: #F2B544;
+
+  /* Accents lifted in lightness (hue kept) so they read as text and as boundaries on the dark card.
+     Washes are deep, desaturated tints of the same hue, a little lighter than the card so a tinted panel still shows. */
+  --bk-sky: #7CC0FF;
+  --bk-sky-wash: #1F3A57;
+  --bk-sky-tile: #2D669A;
+  --bk-sage: #78DDA2;
+  --bk-sage-wash: #1F4531;
+  --bk-sage-tile: #217343;
+  --bk-sun: #FFC845;
+  --bk-sun-wash: #46391A;
+  --bk-sun-tile: #7E5F14;
+  --bk-rose: #FF95B4;
+  --bk-rose-wash: #4C2536;
+  --bk-rose-tile: #AA3155;
+  --bk-lilac: #BCA8FF;
+  --bk-lilac-wash: #353057;
+  --bk-lilac-tile: #5E49B8;
+
+  /* Slate, the quiet neutral for a reading block of no colour (law, quote): a clean cool grey a step lighter than the card. */
+  --bk-slate: #BAC6CC;
+  --bk-slate-wash: #2D3A45;
+  --bk-slate-tile: #4C5E6B;
+
+  /* Feedback as deep tints with light text colours; "another pick" stays amber, never red. */
+  /* Feedback pass: more chroma and lightness (were #7FE0A8 / #1F4631 and #F5C45A / #4A3A16). The tile is the vivid decoration fill, no text on it, 3:1 on card and paper. */
+  --bk-yes: #92F5BB;
+  --bk-yes-wash: #1B6B3F;
+  --bk-yes-tile: #34C971;
+  --bk-hmm: #FFDB74;
+  --bk-hmm-wash: #775710;
+  --bk-hmm-tile: #F2B01E;
+
+  /* Shape is the same as in light. */
+  --bk-r-lg: 22px;
+  --bk-r-md: 14px;
+  --bk-r-sm: 10px;
+  /* A drop shadow is invisible on a dark surface, so a one-pixel ring in the rule colour does its job. */
+  --bk-shadow: 0 0 0 1px var(--bk-rule);
+
+  --bk-font-head: "Lexend", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-font-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --bk-body-size: 1.0625rem;
+  --bk-body-leading: 1.65;
+
+  --bk-spot: 4.6rem;
+  --bk-spot-art: 3.4rem;
+}
+
+@media (max-width: 560px) {
+  .booklet-view[data-booklet-look="paper-dark"] {
+    --bk-spot: 3.4rem;
+    --bk-spot-art: 2.5rem;
+  }
+}
