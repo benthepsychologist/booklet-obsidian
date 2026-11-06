@@ -23,6 +23,23 @@ Both kinds are built and tested the same way (`npm ci`, `npm run build`, `npm te
 - **BRAT and the pre-release.** BRAT's developer guide (`github.com/TfTHacker/obsidian42-brat`, `BRAT-DEVELOPER-GUIDE.md`, fetched 2026-11-03) says: for latest-version tracking BRAT downloads "the latest available release or pre-release, prioritizing by semantic version number"; a frozen install downloads the exact version "regardless of whether it's marked as a pre-release"; if the release tag and `manifest.json` disagree, BRAT treats the tag as correct and overrides the manifest's version to match; and from BRAT v1.1.0 on it ignores a `manifest-beta.json` in the repository root. So this repository needs no `manifest-beta.json` and has none. By semver `1.0.2-beta.1` is below `1.0.2`, so a vault on the pre-release is offered the real `1.0.2` when it is published, and the next test build of the same version has to be `1.0.2-beta.2`, not a re-used tag.
 - **A real release must be on main** (the same guard as before), so nothing reaches the directory that was not merged. A pre-release may be on any branch, so a branch can be tried in BRAT before it is merged. Anyone who can push a tag could already publish a release; the pre-release path adds no new permission.
 
+## When to try a pre-release in BRAT first
+
+Ben, 2026-11-06, on 1.1.1: *"merge 28 and tag 1.1.1 and write that rule into docs/release-flow.md yes."* The rule is set by what the release touches, because the test suite and a BRAT install see different things.
+
+**What the suite sees.** The real desktop app on 1.14.5 and 1.11.7, the 59 checks of `e2e-tests/plugin-check.js`, the accessibility scripts, and before and after screenshots that can be compared byte for byte. For a change that only moves how something is drawn, that is stronger evidence than one install on one device.
+
+**What it does not see.**
+- **Phones.** Everything runs as desktop Obsidian under a virtual display, and phone mode is emulated (`docs/floor-0130.md`). Android has never been tried. Real touch, the on-screen keyboard and the real safe area are outside the suite.
+- **A real vault.** The suite uses made-up vaults and the stock look, not a synced vault, community themes or snippets.
+- **The install.** The release workflow builds, tests and attests the files, but only a BRAT install exercises "someone installs this release into a vault".
+
+**Skip the BRAT round** when all of these hold: the change is a patch or a small minor, the whole suite passes (the known intermittent check 10 on 1.11.7 aside, see `docs/floor-0130.md`), before and after screenshots show no change or only a change that is explained, nothing touches layout on a phone, and no new Obsidian API is used. 1.1.1 (the `:has` selectors) is the example.
+
+**Do the BRAT round first** (a pre-release, `x.y.z-beta.1`, below) when the release has any of these: a new look or theme, a new feature, a layout change that reaches a phone, media or audio, a new Obsidian API, a change to `minAppVersion`, or a change to the release workflow. 1.1.0 (the first themes) is the example.
+
+**Review the rule.** After the first few releases that skip BRAT, check it. If one of them ships a phone or install problem that the suite could not see, put BRAT back for minor releases.
+
 ## Cut a pre-release for BRAT
 
 On the branch you want to try (it need not be merged). Say the next real release will be 1.0.2:
