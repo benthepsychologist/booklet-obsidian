@@ -4055,36 +4055,36 @@
 }
 
 /* the count pill takes the colour of the step on show (up to ten steps; after that it stays the brand) */
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="1"]:not([hidden])) .booklet-steps-progress,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="6"]:not([hidden])) .booklet-steps-progress {
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="1"] .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="6"] .booklet-steps-progress {
 	--bk-accent: var(--bk-sky);
 	--bk-accent-wash: var(--bk-sky-wash);
 	--bk-accent-tile: var(--bk-sky-tile);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="2"]:not([hidden])) .booklet-steps-progress,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="7"]:not([hidden])) .booklet-steps-progress {
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="2"] .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="7"] .booklet-steps-progress {
 	--bk-accent: var(--bk-sage);
 	--bk-accent-wash: var(--bk-sage-wash);
 	--bk-accent-tile: var(--bk-sage-tile);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="3"]:not([hidden])) .booklet-steps-progress,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="8"]:not([hidden])) .booklet-steps-progress {
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="3"] .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="8"] .booklet-steps-progress {
 	--bk-accent: var(--bk-sun);
 	--bk-accent-wash: var(--bk-sun-wash);
 	--bk-accent-tile: var(--bk-sun-tile);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="4"]:not([hidden])) .booklet-steps-progress,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="9"]:not([hidden])) .booklet-steps-progress {
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="4"] .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="9"] .booklet-steps-progress {
 	--bk-accent: var(--bk-rose);
 	--bk-accent-wash: var(--bk-rose-wash);
 	--bk-accent-tile: var(--bk-rose-tile);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="5"]:not([hidden])) .booklet-steps-progress,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(> .booklet-step[data-booklet-step="10"]:not([hidden])) .booklet-steps-progress {
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="5"] .booklet-steps-progress,
+.booklet-view[data-booklet-look^="paper"] .booklet-steps[data-booklet-at="10"] .booklet-steps-progress {
 	--bk-accent: var(--bk-lilac);
 	--bk-accent-wash: var(--bk-lilac-wash);
 	--bk-accent-tile: var(--bk-lilac-tile);
@@ -4157,16 +4157,7 @@
 }
 
 /* a done step carries a check in a small tile at the end of its title (hidden from a screen reader: the status line and the answers say the rest) */
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(1).is-done) > .booklet-step[data-booklet-step="1"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(2).is-done) > .booklet-step[data-booklet-step="2"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(3).is-done) > .booklet-step[data-booklet-step="3"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(4).is-done) > .booklet-step[data-booklet-step="4"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(5).is-done) > .booklet-step[data-booklet-step="5"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(6).is-done) > .booklet-step[data-booklet-step="6"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(7).is-done) > .booklet-step[data-booklet-step="7"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(8).is-done) > .booklet-step[data-booklet-step="8"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(9).is-done) > .booklet-step[data-booklet-step="9"] .booklet-group-title::after,
-.booklet-view[data-booklet-look^="paper"] .booklet-steps:has(.booklet-steps-dot:nth-child(10).is-done) > .booklet-step[data-booklet-step="10"] .booklet-group-title::after {
+.booklet-view[data-booklet-look^="paper"] .booklet-step.is-done .booklet-group-title::after {
 	content: "✓" / "";
 	flex: none;
 	display: inline-flex;

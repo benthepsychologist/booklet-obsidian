@@ -120,7 +120,12 @@ export function drawSteps(into: HTMLElement, steps: readonly Step[], at: number,
 	let shown = at;
 	const show = (now: number) => {
 		shown = Math.max(0, Math.min(steps.length - 1, now));
-		boxes.forEach((b, i) => b.toggleAttribute("hidden", i !== shown));
+		boxes.forEach((b, i) => {
+			b.toggleAttribute("hidden", i !== shown);
+			b.toggleClass("is-done", done(i));
+		});
+		// the step on show, counted from 1 as data-booklet-step is, for the stylesheet to colour the count by
+		holder.setAttr("data-booklet-at", String(shown + 1));
 		// set only when it changes: a status line read out again on every answer is noise to a screen reader
 		const line = `Step ${shown + 1} of ${steps.length}`;
 		if (progress.textContent !== line) progress.setText(line);
