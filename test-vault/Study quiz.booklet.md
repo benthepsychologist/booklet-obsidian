@@ -1,5 +1,5 @@
 ---
-booklet: "0.18"
+booklet: "0.19"
 id: booklet-test/study-quiz
 title: Study quiz
 lang: en

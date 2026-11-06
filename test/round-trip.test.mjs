@@ -15,7 +15,7 @@ const HEADER = core.RECORDS_HEADER;
 function note({ eol = "\n", bom = false, finalNewline = true, words = "" } = {}) {
 	const lines = [
 		"---",
-		'booklet: "0.18"',
+		'booklet: "0.19"',
 		"id: test/round-trip",
 		`title: Round trip ${words}`.trimEnd(),
 		"lang: en",
@@ -215,7 +215,7 @@ test("CRLF: a block written into a note with CRLF endings, in every part, has CR
 function course({ eol = "\n", records = "" } = {}) {
 	const lines = [
 		"---",
-		'booklet: "0.18"',
+		'booklet: "0.19"',
 		"id: test/course",
 		"title: A made-up course",
 		"lang: en",

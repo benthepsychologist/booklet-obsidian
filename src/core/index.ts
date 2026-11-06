@@ -24,3 +24,4 @@ export * from "./media";
 export * from "./allow";
 export * from "./services";
 export * from "./gate";
+export * from "./copy";

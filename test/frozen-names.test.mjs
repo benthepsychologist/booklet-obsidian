@@ -100,7 +100,7 @@ test("the README lists the names that stay put", () => {
 
 /* ---- a saved pane is read tolerantly ---- */
 
-const TWO = `---\nbooklet: "0.18"\ntitle: Two\n---\n\n> [!activity|a] A\n\n> [!tab|t1] One\n\n> [!page|p1] First\n\nWords.\n\n***\n\nMore.\n\n> [!page|p2] Second\n\nOther words.\n\n> [!tab|t2] Two\n\nTwo words.\n\n> [!activity|b] B\n\nB words.\n`;
+const TWO = `---\nbooklet: "0.19"\ntitle: Two\n---\n\n> [!activity|a] A\n\n> [!tab|t1] One\n\n> [!page|p1] First\n\nWords.\n\n***\n\nMore.\n\n> [!page|p2] Second\n\nOther words.\n\n> [!tab|t2] Two\n\nTwo words.\n\n> [!activity|b] B\n\nB words.\n`;
 
 /** [name, saved state, the screen the pane opens on]: a state this release did not write opens the home screen (the note has two activities). */
 const BAD = [

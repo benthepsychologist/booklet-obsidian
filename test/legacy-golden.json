@@ -4,9 +4,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
@@ -185,7 +185,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -295,7 +297,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -376,7 +380,9 @@
         "each": "feelings",
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -422,7 +428,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -447,7 +455,9 @@
         "each": null,
         "earlier": 12,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -779,6 +789,20 @@
       "line": 120
      }
     ],
+    "blocks": [
+     {
+      "id": "body-places",
+      "module": "day-check",
+      "line": 56,
+      "text": "{ \"engine\": \"svg-regions\",\n  \"regions\": [\n    { \"id\": \"head\", \"label\": \"Head\" },\n    { \"id\": \"jaw\", \"label\": \"Jaw\" },\n    { \"id\": \"neck\", \"label\": \"Neck\" },\n    { \"id\": \"shoulders\", \"label\": \"Shoulders\" },\n    { \"id\": \"chest\", \"label\": \"Chest\" },\n    { \"id\": \"arms\", \"label\": \"Arms\" },\n    { \"id\": \"hands\", \"label\": \"Hands\" },\n    { \"id\": \"stomach\", \"label\": \"Stomach\" },\n    { \"id\": \"back\", \"label\": \"Back\" },\n    { \"id\": \"legs\", \"label\": \"Legs\" },\n    { \"id\": \"feet\", \"label\": \"Feet\" } ],\n  \"senses\": [\n    { \"id\": \"temperature\", \"label\": \"Temperature\", \"words\": [\n      { \"id\": \"warm\", \"label\": \"Warm\" },\n      { \"id\": \"cool\", \"label\": \"Cool\" } ] },\n    { \"id\": \"pressure\", \"label\": \"Pressure\", \"words\": [\n      { \"id\": \"tight\", \"label\": \"Tight\" },\n      { \"id\": \"heavy\", \"label\": \"Heavy\" },\n      { \"id\": \"loose\", \"label\": \"Loose\" } ] },\n    { \"id\": \"movement\", \"label\": \"Movement\", \"words\": [\n      { \"id\": \"tingling\", \"label\": \"Tingling\" },\n      { \"id\": \"restless\", \"label\": \"Restless\" },\n      { \"id\": \"still\", \"label\": \"Still\" } ] } ],\n  \"chips\": [\"head\", \"jaw\", \"neck\", \"shoulders\", \"chest\", \"arms\", \"hands\", \"stomach\", \"back\", \"legs\", \"feet\"],\n  \"copy\": {\n    \"h\": \"Places\",\n    \"p\": \"Press a place, then say what it is like there.\",\n    \"pick\": \"Press any words that fit, or add words of your own.\",\n    \"clear\": \"Clear this place\",\n    \"none\": \"Press a place above to begin.\" } }"
+     },
+     {
+      "id": "feelings-grid",
+      "module": "day-check",
+      "line": 92,
+      "text": "{ \"engine\": \"grid-select\",\n  \"axes\": { \"top\": \"more energy\", \"bottom\": \"less energy\", \"left\": \"less pleasant\", \"right\": \"more pleasant\" },\n  \"cells\": [\n    { \"id\": \"agitating\", \"label\": \"Agitating\", \"note\": \"Lots of energy, and not pleasant.\", \"color\": \"warm\" },\n    { \"id\": \"invigorating\", \"label\": \"Invigorating\", \"note\": \"Lots of energy, and pleasant.\", \"color\": \"green\" },\n    { \"id\": \"draining\", \"label\": \"Draining\", \"note\": \"Little energy, and not pleasant.\", \"color\": \"blue\" },\n    { \"id\": \"soothing\", \"label\": \"Soothing\", \"note\": \"Little energy, and pleasant.\", \"color\": \"purple\" }\n  ],\n  \"items\": [\n    { \"id\": \"rushed\", \"cell\": \"agitating\", \"label\": \"Rushed\" },\n    { \"id\": \"tense\", \"cell\": \"agitating\", \"label\": \"Tense\" },\n    { \"id\": \"lively\", \"cell\": \"invigorating\", \"label\": \"Lively\" },\n    { \"id\": \"cheerful\", \"cell\": \"invigorating\", \"label\": \"Cheerful\" },\n    { \"id\": \"flat\", \"cell\": \"draining\", \"label\": \"Flat\" },\n    { \"id\": \"tired\", \"cell\": \"draining\", \"label\": \"Tired\" },\n    { \"id\": \"settled\", \"cell\": \"soothing\", \"label\": \"Settled\" },\n    { \"id\": \"content\", \"cell\": \"soothing\", \"label\": \"Content\" } ],\n  \"copy\": { \"h\": \"Four kinds of feeling\", \"p\": \"Press the words that fit, in any of the four.\" } }"
+     }
+    ],
     "notes": [],
     "records": {
      "regions": [],
@@ -983,7 +1007,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1093,7 +1119,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1174,7 +1202,9 @@
            "each": "feelings",
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1220,7 +1250,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1245,7 +1277,9 @@
            "each": null,
            "earlier": 12,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -1408,9 +1442,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
@@ -1473,7 +1507,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -1515,7 +1551,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -1540,7 +1578,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -1565,7 +1605,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -1590,7 +1632,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      }
@@ -1600,6 +1644,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [
@@ -1760,7 +1805,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1802,7 +1849,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1827,7 +1876,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1852,7 +1903,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -1877,7 +1930,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -1935,9 +1990,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
@@ -2000,7 +2055,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2046,7 +2103,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2071,7 +2130,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      }
@@ -2081,6 +2142,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -2175,7 +2237,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -2221,7 +2285,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -2246,7 +2312,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -2304,9 +2372,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
@@ -2371,7 +2439,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2412,7 +2482,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2450,7 +2522,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2475,7 +2549,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2500,7 +2576,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2525,7 +2603,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2550,7 +2630,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -2607,7 +2689,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -2687,7 +2771,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -2744,7 +2830,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout",
@@ -2776,7 +2864,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -2830,7 +2920,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "query",
@@ -2926,6 +3018,14 @@
        "Triangle"
       ],
       "line": 42
+     }
+    ],
+    "blocks": [
+     {
+      "id": "boxes",
+      "module": null,
+      "line": 52,
+      "text": "{ \"engine\": \"grid-select\",\n  \"axes\": { \"top\": \"taller\", \"bottom\": \"shorter\", \"left\": \"narrower\", \"right\": \"wider\" },\n  \"cells\": [\n    { \"id\": \"tall-narrow\", \"label\": \"Tall and narrow\", \"note\": \"Like a chimney.\", \"color\": \"warm\" },\n    { \"id\": \"tall-wide\", \"label\": \"Tall and wide\", \"note\": \"Like a wardrobe.\", \"color\": \"green\" },\n    { \"id\": \"short-narrow\", \"label\": \"Short and narrow\", \"note\": \"Like a brick.\", \"color\": \"amber\" },\n    { \"id\": \"short-wide\", \"label\": \"Short and wide\", \"note\": \"Like a bench.\", \"color\": \"teal\" }\n  ],\n  \"items\": [\n    { \"id\": \"red-box\", \"cell\": \"tall-wide\", \"label\": \"The red box\" },\n    { \"id\": \"blue-box\", \"cell\": \"short-narrow\", \"label\": \"The blue box\" } ],\n  \"copy\": { \"h\": \"Boxes\", \"p\": \"Pick the cell each box fits.\" } }"
      }
     ],
     "notes": [],
@@ -3027,7 +3127,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3068,7 +3170,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3106,7 +3210,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3131,7 +3237,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3156,7 +3264,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3181,7 +3291,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3206,7 +3318,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -3278,7 +3392,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -3358,7 +3474,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -3424,7 +3542,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout",
@@ -3456,7 +3576,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -3534,7 +3656,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "query",
@@ -3675,9 +3799,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
@@ -3747,7 +3871,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -3772,7 +3898,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -3821,7 +3949,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -3846,7 +3976,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -3895,7 +4027,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      }
@@ -3905,6 +4039,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [
@@ -4112,7 +4247,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -4137,7 +4274,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -4201,7 +4340,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -4226,7 +4367,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -4290,7 +4433,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -4389,9 +4534,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "nav-proto/sketching",
      "title": "Learning to sketch",
      "lang": "en"
@@ -4462,7 +4607,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -4516,7 +4663,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "prose",
@@ -4546,7 +4695,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -4608,7 +4759,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "prose",
@@ -4648,7 +4801,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -4726,7 +4881,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -4764,7 +4921,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -4879,6 +5038,7 @@
     ],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -5031,7 +5191,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -5107,7 +5269,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ],
          [
@@ -5139,7 +5303,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -5212,7 +5378,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ],
          [
@@ -5257,7 +5425,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -5353,7 +5523,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -5391,7 +5563,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -5828,9 +6002,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
@@ -5900,7 +6074,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -5949,7 +6125,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "row",
@@ -6020,7 +6198,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6073,7 +6253,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -6098,7 +6280,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6153,7 +6337,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6204,7 +6390,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6276,7 +6464,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6321,7 +6511,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "callout-end"
@@ -6351,6 +6543,7 @@
     ],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [
      {
       "id": "atlas-12",
@@ -6477,7 +6670,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6541,7 +6736,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "row",
@@ -6627,7 +6824,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6680,7 +6879,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -6705,7 +6906,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6760,7 +6963,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6826,7 +7031,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6913,7 +7120,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -6958,7 +7167,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "callout-end"
@@ -7097,9 +7308,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.18",
+    "marker": "0.19",
     "frontMatter": {
-     "booklet": "0.18",
+     "booklet": "0.19",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
@@ -7168,7 +7379,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7223,7 +7436,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7261,7 +7476,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -7314,7 +7531,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      },
@@ -7366,7 +7585,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7406,7 +7627,9 @@
         "each": "crops",
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7444,7 +7667,9 @@
         "each": "crops",
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7469,7 +7694,9 @@
         "each": "crops",
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "question",
@@ -7510,7 +7737,9 @@
         "each": "crops",
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        }
       ]
      }
@@ -7527,6 +7756,7 @@
     ],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -7629,7 +7859,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -7684,7 +7916,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -7722,7 +7956,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -7790,7 +8026,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -7857,7 +8095,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -7897,7 +8137,9 @@
            "each": "crops",
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -7935,7 +8177,9 @@
            "each": "crops",
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -7960,7 +8204,9 @@
            "each": "crops",
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "question",
@@ -8001,7 +8247,9 @@
            "each": "crops",
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -8155,7 +8403,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "prose",
@@ -8180,6 +8430,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -8279,7 +8530,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           }
          ]
         ]
@@ -8458,7 +8711,9 @@
         "each": null,
         "earlier": null,
         "media": null,
-        "left": 120
+        "left": 120,
+        "hint": null,
+        "solution": null
        },
        {
         "type": "row",
@@ -8499,6 +8754,7 @@
     "openings": [],
     "widgets": [],
     "menus": [],
+    "blocks": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -8598,7 +8854,9 @@
            "each": null,
            "earlier": null,
            "media": null,
-           "left": 120
+           "left": 120,
+           "hint": null,
+           "solution": null
           },
           {
            "type": "row",
@@ -8648,7 +8906,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "8c167897d6f7e6922b695d4e3582a46df5e63df76d74d636379ba9a3ff62fb18",
+    "sha": "64164f850eb816662ac51c99594a99fd99cadcc05f7ab1edc5cd4c97354a746d",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8660,7 +8918,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "10458466adb65b60d91eeb8314dac29604dff65f217a38412079d26e1042c98f",
+    "sha": "8ee2f07591eeafb8d62a32aed7b56102608e6f451e721961a817aca4d8fe911d",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

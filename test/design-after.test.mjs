@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { click, openView } from "./dom.mjs";
 import { core, norm, assertOutsideUnchanged, lint, pythonAvailable } from "./helpers.mjs";
 
-const HEAD = `---\nbooklet: "0.18"\ntitle: Garden notes\n---\n`;
+const HEAD = `---\nbooklet: "0.19"\ntitle: Garden notes\n---\n`;
 const BEFORE =
 	`${HEAD}\n> [!activity|bed] The bed\n\n> [!choice|soil] What is the soil?\n- [ ] Clay\n- [ ] Sand\n\n> [!text|note] A note about the bed\n\nWords before the records.\n\n`;
 const REGION = `%%\n${core.RECORDS_HEADER}\n\n\`\`\`booklet answers\n{"soil": 1}\n\`\`\`\n%%\n`;

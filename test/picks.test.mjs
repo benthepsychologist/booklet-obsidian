@@ -10,7 +10,7 @@ import { core, DRAWN, fence, keepDays, rowsOf } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
-const fm = `---\nbooklet: "0.18"\ntitle: Tools\n---\n`;
+const fm = `---\nbooklet: "0.19"\ntitle: Tools\n---\n`;
 
 const NOTE = (queries) => `${fm}
 > [!activity|log repeat] Log

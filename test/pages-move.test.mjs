@@ -205,7 +205,7 @@ test("a note with no page line saves a place with no page key", async () => {
 /* ---- the end of a tab, and links ---- */
 
 const HARBOUR = `---
-booklet: "0.18"
+booklet: "0.19"
 title: Harbour
 ---
 
@@ -344,7 +344,7 @@ test("moving through the wiki writes nothing: the page on show is never written 
 });
 
 test("the pager and the trail name a page by its title without the leading emoji (the picture), as an activity's is; the page itself heads with the title as written", async () => {
-	const text = `---\nbooklet: "0.18"\ntitle: Waves\n---\n\n> [!activity|w] Waves\n\n> [!page|a] 🌊 Big waves\n\nOne.\n\n> [!page|b parent:a] 🌀 Small waves\n\nTwo.\n\n> [!page|c parent:b] 🪨 Ripples\n\nThree.\n`;
+	const text = `---\nbooklet: "0.19"\ntitle: Waves\n---\n\n> [!activity|w] Waves\n\n> [!page|a] 🌊 Big waves\n\nOne.\n\n> [!page|b parent:a] 🌀 Small waves\n\nTwo.\n\n> [!page|c parent:b] 🪨 Ripples\n\nThree.\n`;
 	const p = pane(text, { state: { version: 2, screen: "activity:/w", part: 0 } });
 	await p.settled();
 	assert.deepEqual(p.pageTitles(), ["🌊 Big waves"]);

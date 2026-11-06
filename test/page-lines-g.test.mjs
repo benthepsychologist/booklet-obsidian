@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { build, core } from "./helpers.mjs";
 
-const head = `---\nbooklet: "0.18"\ntitle: Made up\n---\n\n`;
+const head = `---\nbooklet: "0.19"\ntitle: Made up\n---\n\n`;
 const note = (middle, tail = "> [!page|two] Two\n\nWords two.\n") => `${head}> [!activity|a] A\n\n> [!page|one] One\n\nWords one.\n\n${middle}\n\n${tail}`;
 const titles = (text) => [...build(text).nav.byKey.values()][0].tabs[0].tree.map((p) => p.title);
 const pageSegs = (text) => core.parseBooklet(text).activities[0].segments.filter((s) => s.type === "page").map((s) => s.title);

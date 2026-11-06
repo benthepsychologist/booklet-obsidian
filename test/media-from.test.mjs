@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 
-const head = (...lines) => ["---", 'booklet: "0.18"', "id: made/up", "title: Made up", "lang: en", ...lines, "---"];
+const head = (...lines) => ["---", 'booklet: "0.19"', "id: made/up", "title: Made up", "lang: en", ...lines, "---"];
 /** `mediaFromOf` takes the lines between the two `---` lines, as the reader gives it. */
 const of = (...lines) => core.mediaFromOf(head(...lines).slice(1, -1));
 const BODY = "\n> [!activity|a] A\n\n> [!text|t] T\n";

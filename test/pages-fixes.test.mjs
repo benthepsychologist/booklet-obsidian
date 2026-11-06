@@ -11,7 +11,7 @@ import { WIKI, build, core, sha, wikiAt } from "./helpers.mjs";
 import { window as w, click, press, typeInto } from "./dom.mjs";
 import { pane, sleep } from "./pane.mjs";
 
-const head = (marker = "0.18") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
+const head = (marker = "0.19") => `---\nbooklet: "${marker}"\ntitle: Made up\n---\n\n`;
 const menu = (p) => p.el.querySelector(".booklet-pagemenu");
 const btn = (p) => p.el.querySelector(".booklet-pagesbtn");
 const isOpen = (p) => btn(p).getAttribute("aria-expanded") === "true";
@@ -23,7 +23,7 @@ const only = (nav) => [...nav.byKey.values()][0];
 /* ---- S1: a page line inside a comment, a `<pre>` or a `$$` block; what "Mentioned on" counts ---- */
 
 test("a page line inside an HTML comment, a <pre> block or a $$ block starts no page (a commented-out page does not appear); nor does a tab line there", () => {
-	for (const marker of ["0.16", "0.18"]) {
+	for (const marker of ["0.16", "0.19"]) {
 		for (const [name, wrap] of [
 			["comment", (x) => `<!--\n${x}\n-->`],
 			["pre", (x) => `<pre>\n${x}\n</pre>`],
@@ -44,7 +44,7 @@ test("a page line inside an HTML comment, a <pre> block or a $$ block starts no 
 	assert.deepEqual(only(build(after).nav).tabs[0].tree.map((p) => p.id), ["seen", "seen2", "seen3"]);
 	// a tab line in the same places is not read either (the owner's ruling: nothing commented out appears; test/hidden-structure.test.mjs has the rest)
 	for (const wrap of [(x) => `<!--\n${x}\n-->`, (x) => `<pre>\n${x}\n</pre>`, (x) => `$$\n${x}\n$$`]) {
-		const tabText = `${head("0.18")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
+		const tabText = `${head("0.19")}> [!activity|a] A\n\nFirst words.\n\n${wrap("> [!tab|hid] Hidden tab")}\n\nMore.\n`;
 		assert.equal(build(tabText).nav.byKey.get("/a").tabs.some((t) => t.id === "hid"), false);
 	}
 	// what is not a line start, or sits in a fence, stays text

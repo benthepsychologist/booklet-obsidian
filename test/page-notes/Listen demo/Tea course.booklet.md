@@ -1,5 +1,5 @@
 ---
-booklet: "0.18"
+booklet: "0.19"
 id: booklet-test/tea-course
 title: Tea in three steps
 description: A made-up three-unit course with local tones, one hosted episode, a video link and a short quiz in each unit.

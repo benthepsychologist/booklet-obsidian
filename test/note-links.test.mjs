@@ -25,7 +25,7 @@ function render(markdown, el) {
 	if (at < markdown.length) el.appendText(markdown.slice(at));
 }
 
-const TEXT = `---\nbooklet: "0.18"\ntitle: Links\n---\n\n> [!module|one] One\n\n> [!activity|a] Alpha\n\nSee [[Harbour notes]] and [[Harbour notes|the harbour]] and [[Harbour notes#Tides]] and [[Harbour notes#^b1]] and [[Folder/Boat log]] and [[#Beta]] and [[two.booklet]] and <https://example.org/page>.\n\n> [!activity|b] Beta\n\nBeta words.\n\n> [!module|one end] E\n\n> [!module|two] Two\n\n> [!activity|c] Gamma\n\nGamma words.\n\n> [!activity|d] Delta\n\nMore.\n\n> [!module|two end] E\n`;
+const TEXT = `---\nbooklet: "0.19"\ntitle: Links\n---\n\n> [!module|one] One\n\n> [!activity|a] Alpha\n\nSee [[Harbour notes]] and [[Harbour notes|the harbour]] and [[Harbour notes#Tides]] and [[Harbour notes#^b1]] and [[Folder/Boat log]] and [[#Beta]] and [[two.booklet]] and <https://example.org/page>.\n\n> [!activity|b] Beta\n\nBeta words.\n\n> [!module|one end] E\n\n> [!module|two] Two\n\n> [!activity|c] Gamma\n\nGamma words.\n\n> [!activity|d] Delta\n\nMore.\n\n> [!module|two end] E\n`;
 
 async function open() {
 	globalThis.__bookletStubRender = render;
@@ -145,7 +145,7 @@ test("the pointer over a link to a note asks for the hover preview, with the fie
 
 test("a link inside a button gets no hover preview: the press picks the option", async () => {
 	globalThis.__bookletStubRender = render;
-	const text = `---\nbooklet: "0.18"\ntitle: Links\n---\n\n> [!activity|a] Alpha\n\n> [!choice|q] Pick\n- [ ] [[Harbour notes]]\n- [ ] Other\n\nSee [[Harbour notes]].\n`;
+	const text = `---\nbooklet: "0.19"\ntitle: Links\n---\n\n> [!activity|a] Alpha\n\n> [!choice|q] Pick\n- [ ] [[Harbour notes]]\n- [ ] Other\n\nSee [[Harbour notes]].\n`;
 	const p = pane(text, { screen: "activity:/a" });
 	await p.settled();
 	const calls = [];

@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { pane } from "./pane.mjs";
 
-const note = (body) => `---\nbooklet: "0.18"\n---\n\n> [!activity|a] A\n\n${body}\n`;
+const note = (body) => `---\nbooklet: "0.19"\n---\n\n> [!activity|a] A\n\n${body}\n`;
 const open = (text) => {
 	const p = pane(text, { screen: "activity:/a" });
 	return Object.assign(p, { q: (id) => p.el.querySelector(`[data-booklet-q="${id}"]`) });
