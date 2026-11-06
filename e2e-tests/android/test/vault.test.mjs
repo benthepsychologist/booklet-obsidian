@@ -36,7 +36,7 @@ test("the notes: the screens the checks go to are in the notes", () => {
 	assert.equal(LISTEN_A2, "activity:/a2");
 	const p = pagesNote();
 	assert.equal((p.match(/\[!page\|/g) || []).length, 8);
-	assert.ok(p.startsWith('---\nbooklet: "0.18"'));
+	assert.ok(p.startsWith('---\nbooklet: "0.19"'));
 	for (const n of [l, p]) assert.ok(!/@|https?:\/\/(?!media\.android-pass\.invalid)/.test(n), "made-up content only");
 });
 
