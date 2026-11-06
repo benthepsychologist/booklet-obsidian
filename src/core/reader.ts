@@ -183,7 +183,7 @@ export interface Question {
 	left: number;
 	/**
 	 * The words of the folded `hint` and the folded `solution` callout straight after the question (the first of each; SPEC section 6, "Hints and
-	 * solutions"), with the callout's `>` marks and its title line off, else null. The view draws them as ordinary callouts; a `copy` callout names
+	 * solutions"), with the callout's `>` marks and its title line off ("" for a callout with no body), else null. The view draws them as ordinary callouts; a `copy` callout names
 	 * them `id/hint` and `id/solution` and copies these words.
 	 */
 	hint: string | null;
@@ -720,7 +720,7 @@ function readCopies(activities: readonly Activity[], blocks: readonly FencedBloc
 		act.segments = act.segments.filter((s) => {
 			if (s.type !== "copy") return true;
 			const kept = s.of.filter((word) => {
-				const t = copyTarget(act, blocks, word);
+				const t = copyTarget(act, blocks, word, activities);
 				if ("why" in t) problems.push(`Line ${s.line}: the copy line's \`${word}\` ${t.why}, so it is left out of what is copied.`);
 				return !("why" in t);
 			});
@@ -1211,10 +1211,12 @@ export function parseBooklet(text: string): Booklet {
 			if (kind === "copy") {
 				flush();
 				const k = bodyEnd(lines, i);
-				const of = (w.set["of"] ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+				const raw = w.set["of"] ?? "";
+				const of = raw.split(",").map((x) => x.trim());
 				claimId(w.id, i);
 				if (!act) problems.push(`${at(i)}: a copy line belongs in an activity, so it is not drawn.`);
-				else if (!of.length) problems.push(`${at(i)}: a copy line has no \`of:\` ids (\`of:a,b\`), so it is not drawn.`);
+				else if (!raw.trim()) problems.push(`${at(i)}: a copy line has no \`of:\` ids (\`of:a,b\`), so it is not drawn.`);
+				else if (of.some((x) => x === "")) problems.push(`${at(i)}: the copy line's \`of:${raw}\` has an empty place between its commas (\`of:a,b\`), so it is not drawn.`);
 				else act.segments.push({ type: "copy", id: w.id, label: title, of, prompt: trimBlankLines(lines.slice(i + 1, k).map(stripQuote).join("\n")), line: i + 1 });
 				i = k - 1;
 				continue;
@@ -1336,7 +1338,7 @@ export function parseBooklet(text: string): Booklet {
 				if (helping && lastQ && m[3] === "-" && lastQ[kind as "hint" | "solution"] === null) {
 					// a folded hint or solution straight after a question is that question's own: the first of each kind (SPEC section 6)
 					const body = lines.slice(i + 1, k).map(stripQuote).join("\n").trim();
-					if (body) lastQ[kind as "hint" | "solution"] = body;
+					lastQ[kind as "hint" | "solution"] = body; // an empty body is kept as "": a copy of it is the label alone
 				}
 				pushText(calloutText(i, k), i);
 				helping = false;

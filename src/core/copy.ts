@@ -12,7 +12,8 @@
  *
  * A word is a question of the copy line's own activity (its `Question:` and `My answer:` pieces), `id/solution` or `id/hint` (the question's own
  * folded callout, `Model answer:` or `Hint:`), or the id of a fenced block marked `^id` (`id:` and a line break, then the block's text). A word
- * that names none of these is left out. Plain TypeScript: nothing here imports Obsidian.
+ * that names none of these is left out. The text has no blank line or space at either end. A question's title is copied and its help lines (the
+ * body under the title) are not. A question with no title is just `Question:`. Plain TypeScript: nothing here imports Obsidian.
  */
 import { isBlank } from "./lines";
 import type { Activity, Booklet, CopySegment, FencedBlock, Question } from "./reader";
@@ -34,7 +35,12 @@ export type CopyTarget = { question: Question; part: "solution" | "hint" | null 
  * What `word` names for a copy line in `act`: a question of that activity (or its own solution or hint), else a block in the activity's module
  * (its fence and its data section) and then in the shared data section (SPEC section 4: a reference is looked up in its own module first).
  */
-export function copyTarget(act: Pick<Activity, "scope" | "segments">, blocks: readonly FencedBlock[], word: string): CopyTarget {
+export function copyTarget(
+	act: Pick<Activity, "scope" | "segments">,
+	blocks: readonly FencedBlock[],
+	word: string,
+	peers: readonly Pick<Activity, "segments">[] = [],
+): CopyTarget {
 	const m = WORD.exec(word);
 	if (!m || m[1] === undefined) return { why: "is not an id, or an id with /solution or /hint after it" };
 	const id = m[1];
@@ -43,8 +49,11 @@ export function copyTarget(act: Pick<Activity, "scope" | "segments">, blocks: re
 	if (q) {
 		if (!COPY_KINDS.includes(q.kind)) return { why: `is a ${q.kind} question, and only text, lines, choice, multi, scale, number and date questions can be copied` };
 		if (q.each) return { why: "is asked for each pick of another question, and such a question cannot be copied" };
-		if (part && !q[part]) return { why: `is a question with no ${part} folded (\`> [!${part}]-\`) straight under it, so there is nothing to copy` };
+		if (part && q[part] === null) return { why: `is a question with no ${part} folded (\`> [!${part}]-\`) straight under it` };
 		return { question: q, part };
+	}
+	if (peers.some((a) => a !== act && a.segments.some((s) => s.type === "question" && s.id === id))) {
+		return { why: "is a question of another activity, and a copy line copies from its own activity" };
 	}
 	if (part) return { why: "names no question of this activity" };
 	const own = act.scope ? blocks.find((b) => b.id === id && b.module === act.scope) : undefined;
@@ -84,7 +93,7 @@ export function answerLine(q: Question, v: unknown): string {
 	let out: string;
 	switch (q.kind) {
 		case "lines":
-			out = picks.map((x) => String(x as string).trim()).join("\n");
+			out = (Array.isArray(v) ? v : [v]).join("\n").trim(); // every line as typed (blank ones inside too); only the whole answer's ends are trimmed
 			break;
 		case "multi":
 			out = picks.map((x) => pickWords(q, x)).join("\n");
@@ -115,9 +124,9 @@ export function copyText(book: Pick<Booklet, "blocks">, act: Pick<Activity, "sco
 		const t = copyTarget(act, book.blocks, word);
 		if ("why" in t) missing.push(word);
 		else if ("block" in t) parts.push(`${t.block.id}:\n${trimBlankLines(t.block.text)}`);
-		else if (t.part === "solution") parts.push(`Model answer: ${t.question.solution ?? ""}`);
-		else if (t.part === "hint") parts.push(`Hint: ${t.question.hint ?? ""}`);
-		else parts.push(`Question: ${t.question.title.trim() || t.question.id}`, `My answer: ${answerLine(t.question, answers.answerOf(t.question))}`);
+		else if (t.part === "solution") parts.push(`Model answer: ${t.question.solution ?? ""}`.trimEnd());
+		else if (t.part === "hint") parts.push(`Hint: ${t.question.hint ?? ""}`.trimEnd());
+		else parts.push(t.question.title.trim() ? `Question: ${t.question.title.trim()}` : "Question:", `My answer: ${answerLine(t.question, answers.answerOf(t.question))}`);
 	}
 	return { text: parts.join("\n\n").trim(), missing };
 }

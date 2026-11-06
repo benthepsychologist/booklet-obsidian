@@ -1582,7 +1582,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				v = next.length ? next : undefined;
 			}
 		}
-		return shapeIssue(q, v) ? undefined : v;
+		return v;
 	}
 
 	/** The choice between one step at a time and all at once, shown where a part holds two or more groups. */

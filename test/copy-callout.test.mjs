@@ -69,8 +69,14 @@ test("a copy line needs no id of its own: `[!copy|of:a]` is read, and a lead-in 
 	assert.deepEqual(b.problems, []);
 });
 
-test("`of:` is split on commas with white space round each id, and empty items are dropped", () => {
-	assert.deepEqual(copyOf(read("> [!activity|a] A\n\n> [!text|a] A\n\n> [!text|b] B\n\n> [!copy|of:a,,b,] Copy\n")).of, ["a", "b"]);
+test("an empty item in `of:` (a,,b  a,b,  ,a) is a problem, and the whole copy line is not drawn", () => {
+	for (const of of ["a,,b", "a,b,", ",a", ",", "a,,"]) {
+		const b = read(`> [!activity|a] A\n\n> [!text|a] A\n\n> [!text|b] B\n\n> [!copy|of:${of}] Copy\n`);
+		assert.equal(copyOf(b), undefined, of);
+		assert.equal(b.problems.length, 1, `${of}: ${b.problems.join("\n")}`);
+		assert.match(b.problems[0], /^Line 14: the copy line's `of:.*` has an empty place between its commas \(`of:a,b`\), so it is not drawn\.$/, of);
+		assert.equal(b.activities[0].segments.filter((s) => s.type === "question").length, 2, `${of}: the questions are read`);
+	}
 });
 
 test("a copy line with no `of:` (or an empty one) is not drawn and is a problem with its line; the note still reads", () => {
@@ -189,9 +195,27 @@ test("a choice, a multi (a pick on each line), a scale and a number show their w
 	assert.equal(r.text, ["Question: C", "My answer: One", "Question: M", "My answer: Red\nBlue\nTeal", "Question: S", "My answer: High", "Question: N", "My answer: 7"].join("\n\n"));
 });
 
-test("a lines answer is a line each, a blank line left out, carrying on under its label", () => {
-	const r = made("> [!activity|a] A\n\n> [!lines|l] List three\n\n> [!copy|of:l] Copy\n", { l: ["tea", " ", "milk"] });
-	assert.equal(r.text, "Question: List three\n\nMy answer: tea\nmilk");
+test("a lines answer keeps every line as typed (a blank one inside too), carrying on under its label; only the answer's ends are trimmed", () => {
+	const body = "> [!activity|a] A\n\n> [!lines|l] List three\n\n> [!copy|of:l] Copy\n";
+	assert.equal(made(body, { l: ["tea", " ", "  milk "] }).text, "Question: List three\n\nMy answer: tea\n \n  milk");
+	assert.equal(made(body, { l: ["  tea", "", "milk", "  ", ""] }).text, "Question: List three\n\nMy answer: tea\n\nmilk");
+});
+
+test("a typed text or date answer is trimmed at its ends (spaces, blank lines) and keeps its inside as typed", () => {
+	const body = "> [!activity|a] A\n\n> [!text|t] T\n\n> [!date|d] D\n\n> [!copy|of:t,d] Copy\n";
+	assert.equal(made(body, { t: "\n  abc\n\n  inner  \n \n", d: " 2026-01-02 " }).text, "Question: T\n\nMy answer: abc\n\n  inner\n\nQuestion: D\n\nMy answer: 2026-01-02");
+});
+
+test("the copied text has no blank line or space at either end, and one blank line between pieces", () => {
+	const body = "> [!activity|a] A\n\n> [!text|t] T\n\n> [!solution]- S\n>\n> Model.\n>\n\n> [!copy|of:t,t/solution,t] Copy\n>\n> Lead.\n>\n";
+	const text = made(body, { t: "abc\n\n  " }).text;
+	assert.equal(text, "Lead.\n\nQuestion: T\n\nMy answer: abc\n\nModel answer: Model.\n\nQuestion: T\n\nMy answer: abc");
+	assert.equal(text, text.trim());
+});
+
+test("a question with no title is just `Question:` (no id in its place); a question's help lines are not copied", () => {
+	const body = "> [!activity|a] A\n\n> [!text|t]\n\n> [!text|u] Titled\n> Some help words.\n\n> [!copy|of:t,u] Copy\n";
+	assert.equal(made(body, { t: "x", u: "y" }).text, "Question:\n\nMy answer: x\n\nQuestion: Titled\n\nMy answer: y");
 });
 
 test("a position or an anchor the question does not list is copied as its number; an answer of the wrong shape as the JSON the file holds", () => {
@@ -222,6 +246,15 @@ test("no lead-in: the copy starts at the first piece", () => {
 	assert.equal(made("> [!activity|a] A\n\n> [!text|t] T\n\n> [!copy|of:t] Copy\n", { t: "x" }).text, "Question: T\n\nMy answer: x");
 });
 
+test("a folded solution or hint with no words is copied as its label alone, trimmed", () => {
+	const body = "> [!activity|a] A\n\n> [!text|t] T\n\n> [!hint]- Hint\n\n> [!solution]-\n\n> [!copy|of:t/solution,t/hint] Copy\n";
+	const b = read(body);
+	const q = b.activities[0].segments.find((s) => s.type === "question");
+	assert.deepEqual([q.hint, q.solution], ["", ""]);
+	assert.deepEqual(b.problems, []);
+	assert.equal(made(body).text, "Model answer:\n\nHint:");
+});
+
 test("a word that names nothing is left out and returned, and nothing throws: an unknown id, an id/solution with no solution, an id/hint of an unknown question, a word that is not an id", () => {
 	const body = "> [!activity|a] A\n\n> [!text|t] T\n\n> [!copy|of:gone,t,t/solution,nobody/hint,t/hint,/solution,a/b/c] Copy\n> Lead.\n";
 	const r = made(body, { t: "x" });
@@ -230,6 +263,8 @@ test("a word that names nothing is left out and returned, and nothing throws: an
 	const b = read(body);
 	assert.equal(b.problems.length, 6, b.problems.join("\n"));
 	assert.match(b.problems[0], /^Line 12: the copy line's `gone` names no question of this activity and no block of this module, so it is left out of what is copied\.$/);
+	assert.match(b.problems[1], /^Line 12: the copy line's `t\/solution` is a question with no solution folded \(`> \[!solution\]-`\) straight under it, so it is left out of what is copied\.$/);
+	for (const p of b.problems) assert.doesNotMatch(p, /so .*\bso\b/, `no doubled "so": ${p}`);
 });
 
 test("a copy line with nothing left to copy is said and not drawn", () => {
@@ -247,6 +282,7 @@ test("a copy line copies from its own activity: a question of another activity (
 	const r = core.copyText(book, act, act.segments.find((s) => s.type === "copy"), { answerOf: (q) => `typed ${q.id}` });
 	assert.equal(r.text, "Question: First\n\nMy answer: typed t");
 	assert.deepEqual(r.missing, ["u"]);
+	assert.match(book.problems.join("\n"), /the copy line's `u` is a question of another activity, and a copy line copies from its own activity, so it is left out of what is copied\./);
 });
 
 test("a copy line's own id is an ordinary id: used twice in a module, the note is refused as for any id", () => {
@@ -456,6 +492,17 @@ test("an answer already in the note is copied; a choice is copied as the option'
 	await until(() => written.length === 1, "the copy");
 	assert.match(written[0], /My answer: Because\./);
 	assert.match(written[0], /Question: Which pulls harder\?\n\nMy answer: The moon$/);
+});
+
+test("an answer of the wrong shape in the note is copied as the JSON the file holds it as, not as no answer", async () => {
+	const written = clipboard();
+	const text = core.setAnswer(note(ESSAY), "", "why", { odd: true });
+	const p = pane(text, { screen: "activity:essay" });
+	await p.settled();
+	click(p.el.querySelector(".booklet-clip-button"));
+	await until(() => written.length === 1, "the copy");
+	assert.match(written[0], /My answer: \{"odd":true\}\n\nHint: /);
+	assert.doesNotMatch(written[0], /no answer typed\)\n\nHint/);
 });
 
 test("a word that names nothing is said in the line, and the copy goes without it", async () => {
