@@ -1,4 +1,4 @@
-// Checks 29 to 32 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
+// Checks 29 to 32 and 61 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
 // copied into each check's own copy of the vault:
 //   29 charts (bars and a line, the numbers fold, the readout and the arrow keys),
 //   30 data blocks and the kept days in every view (icons, links, pills, a nested list, tiles of an each-pick, the empty words),
@@ -11,6 +11,7 @@ const { quiet, frames, mobile, kit } = require("./waits");
 
 module.exports = function dashboardChecks(env) {
   const { withApp, Check, BOOK, sleep, waitActiveType } = env;
+  const shot0 = (o, name) => o.screenshot(path.join(env.SHOTS, name + ".png"));
   const NOTE = "Garden dashboards.booklet.md";
   const SRC = path.join(__dirname, "..", "test", "page-notes", NOTE);
   const { shot, sha, goTo, open } = kit(env, NOTE);
@@ -160,7 +161,7 @@ module.exports = function dashboardChecks(env) {
           c.ok(d.pills.join() === "open,blocked" && d.toneWords && d.pillColour === d.warn, `[${where} ${sch}] a list of values is two pills, a tone coloured as the look does (${d.look}: ${/^paper/.test(d.look) ? "--bk-hmm" : "Obsidian's orange"}) and said in words: ${d.pills}, ${d.pillColour} = ${d.warn}`);
           c.ok(d.ext.length === 1 && d.ext[0][0] === "https://example.org/dig" && /noopener/.test(d.ext[0][1]) && d.js === 0, `[${where} ${sch}] a web link opens outside with noopener, and a javascript: link is not a link: ${JSON.stringify(d.ext)}, ${d.js}`);
           c.ok(d.head.slice(0, 2).join() === "Job,State" && d.numeric >= 1 && d.sortBtns === 4, `[${where} ${sch}] the table's headings are the declared labels, hours set right, and (twelve rows) sortable: ${d.head}`);
-          c.ok(d.cards === 4 && d.tiles === 6 && d.details === 3 && d.open === 0 && d.picks.length === 3 && /Spade/.test(d.picks[0]) && d.none === "No rows in this block.", `[${where} ${sch}] cards 4, tiles 6, the nested list has ${d.details} parents all shut, tiles of the tools: ${d.picks.length}, the empty words: ${d.none}`);
+          c.ok(d.cards === 4 && d.tiles === 6 && d.details === 1 && d.open === 0 && d.picks.length === 3 && /Spade/.test(d.picks[0]) && d.none === "No rows in this block.", `[${where} ${sch}] cards 4, tiles 6, the nested list has ${d.details} parent shut (what it opens to, its children among it, is drawn when it opens), tiles of the tools: ${d.picks.length}, the empty words: ${d.none}`);
           await shot(o, `data-${where}-${sch}`);
         }
         await scheme(o, "light");
@@ -380,5 +381,158 @@ module.exports = function dashboardChecks(env) {
     return c;
   }
 
-  return { 29: check29, 30: check30, 31: check31, 32: check32 };
+
+  /* ================= CHECK 61 ================= */
+  // Dashboards slice 1 (format 0.19): rows that open, and data files read through the vault. The made-up orchard example and a made-up
+  // garden dashboard of 462 rows at every depth (test/dashboards/, test/dashboard-fixture.mjs) are put into the check's own copy of the vault with
+  // their .json files beside them; the JSON is then changed from outside the app, as a program that writes it would.
+  async function check61() {
+    const c = new Check(61, "0.19 rows that open and data files, in the real app: a .json file beside the note read through the vault; a row opened by a real click, Enter and Space, drawn when it opens; Open all, Close all, a search and a sort keeping what the reader opened; print opens everything and folds back; the file changed outside the app is read again on return, keeping open rows and scroll; a missing file gives the quiet box; the disclosures named in the accessibility tree; nothing written to the note");
+    const ORCHARD = "orchard-dashboard.booklet.md", GARDEN = "garden-dashboard.booklet.md";
+    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    const F = await import("../test/dashboard-fixture.mjs");
+    const garden = F.make();
+    for (const where of ["desktop", "phone"]) {
+      const desk = where === "desktop";
+      await withApp("c61-" + where, async (o, vault) => {
+        fs.writeFileSync(path.join(vault, ORCHARD), fs.readFileSync(here("orchard-dashboard.booklet.md")));
+        fs.writeFileSync(path.join(vault, "orchard-dashboard.json"), fs.readFileSync(here("orchard-dashboard.json")));
+        fs.writeFileSync(path.join(vault, GARDEN), F.bookletText("garden.json"));
+        fs.writeFileSync(path.join(vault, "garden.json"), JSON.stringify(garden));
+        if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
+        const orchard = kit(env, ORCHARD), big = kit(env, GARDEN);
+        const sh0 = orchard.sha(path.join(vault, ORCHARD)), sj0 = orchard.sha(path.join(vault, "orchard-dashboard.json"));
+        // whether Obsidian tells a plugin about a change to a .json file it does not index (reported, not required)
+        await o.evaluate(() => { window.__jsonEvents = []; app.vault.on("modify", f => window.__jsonEvents.push("modify " + f.path)); app.vault.on("create", f => window.__jsonEvents.push("create " + f.path)); });
+        await orchard.open(o, ORCHARD);
+        await orchard.goTo(o, "activity:desk/orchard");
+        const qs = () => o.page.locator(BOOK + " .booklet-query");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 4 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
+        const plots = qs().nth(0);
+        c.ok((await plots.locator("tbody tr").count()) === 3, `[${where}] the plots table reads orchard-dashboard.json from the vault: ${await plots.locator("tbody tr").count()} top rows`);
+        c.ok((await plots.locator("thead th").allInnerTexts()).join("|") === "Name|Kind|Stage|Open jobs|Due|Notes for the gardener", `[${where}] its headings are the file's labels`);
+        c.ok((await plots.locator("details").count()) === 3, `[${where}] the three plots open (each has text or jobs); every disclosure is shut and nothing below is drawn: ${await plots.locator("tbody tr").count()} rows`);
+        c.ok((await qs().nth(3).locator("summary, .booklet-q-row").count()) >= 1, `[${where}] the requests list reads the same file at inbox.requests`);
+
+        // a real click opens a row: its text, then its jobs, one step in
+        await plots.locator("summary", { hasText: "Orchard" }).first().click();
+        await quiet(o);
+        const kinds = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("tbody tr")].map(r => (r.classList.contains("booklet-q-trow") ? "row" : r.classList.contains("booklet-q-trmore") ? "more" : "head") + r.getAttribute("data-depth")).join(), BOOK);
+        c.ok((await kinds()).startsWith("row0,more1,head1,row1,row1,row1,row0,row0"), `[${where}] a click opens the orchard to its text, the heading Jobs and its three jobs: ${await kinds()}`);
+        c.ok(/Eight apple trees and two pear trees\./.test(await plots.innerText()) && (await plots.locator(".booklet-q-text").first().evaluate(e => getComputedStyle(e).whiteSpace)) === "pre-wrap", `[${where}] the text is plain, its blank line kept (white-space: pre-wrap)`);
+        // the keyboard: Enter and Space on a focused summary
+        const jobSummary = plots.locator("summary", { hasText: "Prune the apple trees" });
+        await jobSummary.focus();
+        await o.page.keyboard.press("Enter");
+        await quiet(o);
+        c.ok((await plots.locator("details[data-id='j-prune']").evaluate(d => d.open)), `[${where}] Enter on a focused summary opens the job`);
+        await o.page.keyboard.press("Space");
+        await quiet(o);
+        c.ok(!(await plots.locator("details[data-id='j-prune']").evaluate(d => d.open)) && !/Borrow the tall ladder/.test(await plots.innerText()), `[${where}] Space shuts it and its steps are taken away`);
+        await o.page.keyboard.press("Space");
+        await quiet(o);
+        // the accessibility tree
+        let tree = "";
+        try { tree = await plots.ariaSnapshot(); } catch (e) { tree = "(no ariaSnapshot: " + e.message + ")"; }
+        c.info(`[${where}] the accessibility tree of the plots table: ${JSON.stringify(tree.slice(0, 900))}`);
+        c.ok(/columnheader "Name"/.test(tree) && /Orchard/.test(tree) && /Prune the apple trees/.test(tree), `[${where}] the tree has real column headings and the rows`);
+        c.ok((await plots.locator("summary").evaluateAll(a => a.every(s => s.textContent.trim().length > 0 && s.tabIndex === 0 && !s.getAttribute("role")))), `[${where}] every summary has words for a name, is in the tab order, and has no role over its own`);
+
+        // print: opens everything, folds back exactly the rows it opened
+        const openIds = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("details")].filter(d => d.open).map(d => d.getAttribute("data-id")).join(), BOOK);
+        const before = await openIds();
+        await o.evaluate(() => window.dispatchEvent(new Event("beforeprint")));
+        const during = await plots.locator("details").evaluateAll(a => a.length + ":" + a.filter(d => d.open).length);
+        c.ok(during.split(":")[0] === during.split(":")[1] && Number(during.split(":")[0]) >= 4, `[${where}] beforeprint opens every row, the jobs' steps too: ${during}`);
+        await o.evaluate(() => window.dispatchEvent(new Event("afterprint")));
+        await sleep(300);
+        c.ok((await openIds()) === before, `[${where}] afterprint folds back exactly those: open before ${before}, after ${await openIds()}`);
+
+        
+        // the file changes outside the app; the pane comes back
+        const file = path.join(vault, "orchard-dashboard.json");
+        const json = JSON.parse(fs.readFileSync(file, "utf8"));
+        json.plots.rows[0].title = "Orchard (the old one)";
+        json.plots.rows[0].jobs.push({ id: "j-new", title: "Net the cherry tree", kind: "Job", stage: "planning", due: "2026-12-05", notes: [] });
+        const events0 = await o.evaluate(() => window.__jsonEvents.length);
+        fs.writeFileSync(file, JSON.stringify(json));
+        await sleep(1500);
+        const raised = (await o.evaluate(() => window.__jsonEvents.slice())).filter(x => /orchard-dashboard\.json/.test(x));
+        c.info(`[${where}] Obsidian raised ${raised.length} vault event(s) for the .json file written from outside: ${JSON.stringify(raised)}`);
+        const openBefore = await openIds();
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => /Orchard \(the old one\)/.test(document.querySelectorAll(sel + " .booklet-query")[0].textContent), BOOK, { timeout: 8000 }).catch(() => {});
+        await quiet(o);
+        c.ok(/Orchard \(the old one\)/.test(await plots.innerText()), `[${where}] the pane coming back reads the changed file and draws the new rows`);
+        c.ok((await openIds()) === openBefore && /Net the cherry tree/.test(await plots.innerText()), `[${where}] the rows the reader had open are open, now with the new job: ${await openIds()}`);
+
+        // the file goes: the quiet box; it comes back: the rows
+        fs.renameSync(file, file + ".away");
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => /was not found/.test(document.querySelectorAll(sel + " .booklet-query")[0].textContent), BOOK, { timeout: 8000 }).catch(() => {});
+        const quietText = await qs().nth(0).locator(".booklet-q-quiet").innerText().catch(() => "");
+        c.ok(/^Data not shown: the file orchard-dashboard\.json was not found\.$/.test(quietText.trim()), `[${where}] a missing file gives the quiet box: ${JSON.stringify(quietText)}`);
+        c.ok((await qs().nth(0).locator("table, .booklet-qc").count()) === 0, `[${where}] and no table or control stands in its place`);
+        fs.renameSync(file + ".away", file);
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("tbody tr").length > 0, BOOK, { timeout: 8000 }).catch(() => {});
+        await quiet(o);
+        c.ok((await qs().nth(0).locator("tbody tr").count()) > 0, `[${where}] the file back gives the rows again`);
+
+        // each: over rows
+        const each = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-each-rows")].map(e => e.querySelector(".booklet-prompt").textContent + " / " + e.querySelector(".booklet-each-notyet").textContent + " / " + e.querySelectorAll("input,textarea,button").length), BOOK);
+        c.ok(each.length === 3 && each.every(x => /does not draw yet\. Its answers are kept as written\.\s*\/ 0$/.test(x)), `[${where}] the three questions asked for each row are a title and a line, nothing to type in: ${JSON.stringify(each)}`);
+        c.ok(orchard.sha(path.join(vault, ORCHARD)) === sh0, `[${where}] the orchard note is the same bytes`);
+
+        // the large dashboard
+        await big.open(o, GARDEN);
+        await big.goTo(o, "activity:/desk");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 3 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 15000 });
+        const list = qs().nth(1);
+        c.ok((await list.locator(".booklet-q-tree > li").count()) === 6 && (await list.locator(".booklet-q-label").count()) === 6, `[${where}] 462 rows at every depth: the list draws its six top rows while all are shut`);
+        const bar = list.locator(".booklet-qc-toggle");
+        await bar.click();
+        const t0 = Date.now();
+        await list.locator(".booklet-qc-openall").click();
+        await quiet(o);
+        const ms = Date.now() - t0;
+        c.info(`[${where}] Open all on the list of 462 rows took ${ms} ms in the real app`);
+        c.ok((await list.locator(".booklet-q-label").count()) === 462, `[${where}] Open all draws all 462 rows: ${await list.locator(".booklet-q-label").count()}`);
+        await list.locator(".booklet-qc-closeall").click();
+        await quiet(o);
+        c.ok((await list.locator(".booklet-q-label").count()) === 6, `[${where}] Close all shuts them`);
+        await list.locator(".booklet-qc-openall").click();
+        await quiet(o);
+        // a search keeps the matches with their parents, and a sort keeps the tree
+        await list.locator(".booklet-qc-search input").fill("Net the berries");
+        await sleep(400);
+        const labs = await list.locator(".booklet-q-label").count();
+        c.ok(labs > 0 && labs < 462 && (await list.locator("li.booklet-q-node > details").first().evaluate(d => d.open)), `[${where}] a search keeps ${labs} rows, each match under its parents, which stand open`);
+        await list.locator(".booklet-qc-search input").fill("");
+        await sleep(300);
+        c.ok((await list.locator(".booklet-q-label").count()) === 462, `[${where}] cleared: all 462 rows are back, open as the reader had them`);
+        // scroll kept across the file being read again
+        const sc = await o.evaluate(sel => { const v = document.querySelector(sel + " .view-content"); v.scrollTop = Math.floor((v.scrollHeight - v.clientHeight) / 2); return v.scrollTop; }, BOOK);
+        const gfile = path.join(vault, "garden.json");
+        const g2 = JSON.parse(fs.readFileSync(gfile, "utf8"));
+        g2.programmes[0].title = "Garden programme one (renamed, and a little longer)";
+        fs.writeFileSync(gfile, JSON.stringify(g2));
+        await sleep(1200);
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => /renamed, and a little longer/.test(document.querySelectorAll(sel + " .booklet-query")[1].textContent), BOOK, { timeout: 10000 }).catch(() => {});
+        await quiet(o);
+        const after = await o.evaluate(sel => document.querySelector(sel + " .view-content").scrollTop, BOOK);
+        c.ok(/renamed, and a little longer/.test(await list.innerText()), `[${where}] the changed file is read again`);
+        c.ok(sc > 500 && Math.abs(after - sc) <= 3, `[${where}] the page's scroll is kept across the redraw of 462 rows: ${sc} before, ${after} after`);
+        c.ok((await list.locator(".booklet-q-label").count()) === 462, `[${where}] and every row the reader opened is still open`);
+        c.ok(big.sha(path.join(vault, GARDEN)) !== "" && orchard.sha(path.join(vault, "orchard-dashboard.json")) !== sj0, `[${where}] the only change to a file was the one this check made to the JSON; the notes are untouched`);
+        await orchard.goTo(o, "home").catch(() => {});
+        await shot0(o, "rows-open-" + where);
+        if (!desk) { await o.page.setViewportSize({ width: 1280, height: 900 }); await mobile(o, false); }
+      });
+    }
+    return c;
+  }
+
+  return { 29: check29, 30: check30, 31: check31, 32: check32, 61: check61 };
 };
