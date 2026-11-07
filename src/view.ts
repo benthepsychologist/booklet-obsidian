@@ -14,6 +14,7 @@ import {
 	activityPlace,
 	activityStatus,
 	answerWords,
+	copyText,
 	referenceContext,
 	barTabs,
 	type CalloutBox,
@@ -87,6 +88,8 @@ import {
 	type NavModel,
 	type PagerStep,
 	type Place,
+	type CopyResult,
+	type CopySegment,
 	type Question,
 	type QuerySegment,
 	type QueryViewState,
@@ -95,6 +98,7 @@ import {
 	type ShownDraft,
 	type WordPart,
 } from "./core";
+import { drawCopy } from "./copy-view";
 import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
@@ -1553,8 +1557,32 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 						? `Not yet supported: the block "${s.kind}".`
 						: `Not yet supported: the kind "${s.kind}".`;
 				box.createEl("p", { cls: "booklet-muted", text: said });
-			} else drawQuestion(this, into, t, s, a.repeat && !a.id);
+			} else if (s.type === "copy") drawCopy(into, s, () => this.copyOf(a, s));
+			else drawQuestion(this, into, t, s, a.repeat && !a.id);
 		}
+	}
+
+	/**
+	 * What a copy callout puts on the clipboard now: the answers as the reader sees them, words typed and not written yet included. Nothing is
+	 * written: the pending words are read, not flushed.
+	 */
+	private copyOf(a: Activity, s: CopySegment): CopyResult {
+		if (!this.book) return { text: "", missing: s.of };
+		return copyText(this.book, a, s, { answerOf: (q) => this.answerNow({ scope: a.scope, activity: a }, q) });
+	}
+
+	/** A question's answer with the typing that is not written yet laid over it, as the writer will make it (whole()). */
+	private answerNow(t: Target, q: Question): unknown {
+		let v = this.heldAnswer(t, q);
+		for (const p of this.pending.values()) {
+			if (p.q.id !== q.id || !sameAct(p.t.activity, t.activity)) continue;
+			if (p.pick === undefined) v = p.value;
+			else {
+				const next = setPair(v, p.pick, p.value);
+				v = next.length ? next : undefined;
+			}
+		}
+		return v;
 	}
 
 	/** The choice between one step at a time and all at once, shown where a part holds two or more groups. */

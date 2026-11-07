@@ -66,7 +66,7 @@ const consoleReport = [], sessions = [];
 const env = { launch, opt: { obsidian: opt.obsidian }, WORK, consoleReport, sessions, SRC_VAULT, SHOTS: OUT, BOOK };
 const { withMedia } = require("./media-lib")(env);
 
-const listeningNote = ctx => `---\nbooklet: "0.18"\nid: booklet-test/reduced-motion\ntitle: Listening\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Listening and watching\n\nAllowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})\n\nBlocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n\n> [!activity|a2] Second activity\n\n> [!choice|q2] Another question?\n- [ ] Yes\n- [ ] No\n`;
+const listeningNote = ctx => `---\nbooklet: "0.19"\nid: booklet-test/reduced-motion\ntitle: Listening\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Listening and watching\n\nAllowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})\n\nBlocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n\n> [!activity|a2] Second activity\n\n> [!choice|q2] Another question?\n- [ ] Yes\n- [ ] No\n`;
 
 /* in the page: every element under the roots, and its ::before and ::after, read for the three kinds of motion */
 const MEASURE = roots => {

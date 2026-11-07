@@ -82,7 +82,7 @@ test("a kept entry finalized in the view shows in the roll-up when the reader mo
 	v.close();
 });
 
-const fm = `---\nbooklet: "0.18"\ntitle: Views\n---\n`;
+const fm = `---\nbooklet: "0.19"\ntitle: Views\n---\n`;
 const VIEWS = (queries, items) => `${fm}
 > [!activity|log repeat] Log
 

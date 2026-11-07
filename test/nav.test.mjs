@@ -6,7 +6,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { SKETCH, build, core, norm } from "./helpers.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.18"\ntitle: Learning to sketch\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.19"\ntitle: Learning to sketch\n${extra}---\n`;
 const act = (nav, key) => nav.byKey.get(key);
 
 /* ---- where a booklet opens (SPEC section 2, `start`) ---- */
@@ -147,7 +147,7 @@ test("a module's tabs: lines in its opening; an activity joins one with tab:, el
 
 test("a module's notice: the callout, or the front matter's license, copyright and source when the file's one module has none", () => {
 	const body = "\n> [!module|m] M\n\n> [!activity|a] A\n\n> [!activity|b] B\n\n> [!module|m end] E\n";
-	const fm = `---\nbooklet: "0.18"\ntitle: T\nlicense: Free to copy\ncopyright: Example Press\nsource: https://example.org/m\nversion: 3\n---\n`;
+	const fm = `---\nbooklet: "0.19"\ntitle: T\nlicense: Free to copy\ncopyright: Example Press\nsource: https://example.org/m\nversion: 3\n---\n`;
 	assert.deepEqual(norm(build(fm + body).nav.mods[0].notice), [["license", "Free to copy"], ["copyright", "Example Press"], ["source", "https://example.org/m"]]);
 	const withCallout = fm + body.replace("> [!activity|a] A", "> [!notice]\n> license: Callout wins\n> version: 1.2\n\n> [!activity|a] A");
 	assert.deepEqual(norm(build(withCallout).nav.mods[0].notice), [["license", "Callout wins"], ["version", "1.2"]]);

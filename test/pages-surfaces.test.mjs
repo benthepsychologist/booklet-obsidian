@@ -60,7 +60,7 @@ test("\"Mentioned on\": every page whose words hold a link that opens the page, 
 });
 
 const HARBOUR = `---
-booklet: "0.18"
+booklet: "0.19"
 title: Harbour
 ---
 
@@ -241,7 +241,7 @@ test("under the last part of a page come the pages under it as cards, numbered, 
 });
 
 test("an activity with a parent: on its line has no activity under it: only its pages' cards are drawn, and the other activity is a card of the module", async () => {
-	const text = `---\nbooklet: "0.18"\ntitle: Both\n---\n\n> [!module|m] M\n\n> [!activity|top] Top\n\n> [!page|a] A\n\nWords.\n\n> [!page|b parent:a] B\n\nWords.\n\n> [!activity|kid parent:top] Kid\n\nWords.\n\n> [!module|m end]\n`;
+	const text = `---\nbooklet: "0.19"\ntitle: Both\n---\n\n> [!module|m] M\n\n> [!activity|top] Top\n\n> [!page|a] A\n\nWords.\n\n> [!page|b parent:a] B\n\nWords.\n\n> [!activity|kid parent:top] Kid\n\nWords.\n\n> [!module|m end]\n`;
 	const p = pane(text, { state: { version: 2, screen: "activity:m/top", part: 0 } });
 	await p.settled();
 	assert.deepEqual(p.all(".booklet-meta").map(p.words), ["Pages under this one"], "the first page has the page under it, and no activity is under this one");

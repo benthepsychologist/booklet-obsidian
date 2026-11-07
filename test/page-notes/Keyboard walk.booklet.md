@@ -1,5 +1,5 @@
 ---
-booklet: "0.18"
+booklet: "0.19"
 id: booklet-test/keyboard-walk
 title: Keyboard walk
 lang: en
@@ -78,6 +78,9 @@ A made-up test note with one question of each kind the Booklet plugin draws, for
 > > [!choice|fold-q] Which of these is a box?
 > - [ ] A carton
 > - [ ] A cloud
+
+> [!copy|walk-copy of:thoughts,steps] Copy my words
+> A made-up lead-in for the walk.
 
 > [!activity|tally repeat] A small tally
 

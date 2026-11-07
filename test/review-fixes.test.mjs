@@ -14,7 +14,7 @@ import { core, fence } from "./helpers.mjs";
 process.env.TZ = "UTC";
 const { mountQuery } = await import("./.build/screens.mjs");
 
-const fm = `---\nbooklet: "0.18"\ntitle: T\n---\n`;
+const fm = `---\nbooklet: "0.19"\ntitle: T\n---\n`;
 const data = (rows, id) => "```booklet data\n" + (typeof rows === "string" ? rows : JSON.stringify(rows)) + "\n```\n^" + id + "\n";
 const note = (queries, blocks, extra = "") => `${fm}\n${extra}> [!activity|show] Show\n\n${queries.map(fence).join("\n\n")}\n\n> [!data] Data\n\n${blocks}`;
 const planOf = (t, i = 0) => {

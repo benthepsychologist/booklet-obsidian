@@ -9,7 +9,7 @@ import { typeInto, until } from "./dom.mjs";
 import { pane } from "./pane.mjs";
 
 const BOOK = `---
-booklet: "0.18"
+booklet: "0.19"
 title: Probe
 ---
 

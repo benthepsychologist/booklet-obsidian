@@ -16,7 +16,7 @@ const A = "today";
 
 /* ---- the setting, and the settings a kind does not take ---- */
 
-const head = (body) => `---\nbooklet: "0.18"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
+const head = (body) => `---\nbooklet: "0.19"\nid: test/settings\ntitle: Settings\nlang: en\n---\n\n${body}\n`;
 /** What the note says it could not read: the problems, then each setting a kind does not take as the notice lists it (with its line). */
 const problemsOf = (body) => {
 	const b = core.parseBooklet(head(body));

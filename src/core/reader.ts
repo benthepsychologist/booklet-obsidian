@@ -32,6 +32,7 @@ import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
 import { LISTEN_LEFT, leftValue, listenBody } from "./listen";
+import { copyTarget, trimBlankLines } from "./copy";
 
 /** A block or a menu by its id, as a module sees it: in its own module first, then a shared one (`module` null), never another module's. */
 function inScope<T extends { id: string; module: string | null }>(list: readonly T[], id: string, module: string | null): T | undefined {
@@ -50,7 +51,7 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 }
 
 /** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
-export const FORMAT_VERSION = "0.18";
+export const FORMAT_VERSION = "0.19";
 
 export interface Option {
 	text: string;
@@ -117,6 +118,17 @@ export interface Opening {
 	line: number;
 }
 
+/**
+ * A fenced block marked with a block id (`^id` on the line after it), of any language: what a `copy` line's `of:` can name (SPEC section 6, "Copy").
+ * `module` is the module whose fence or data section holds it, null for a shared one; `text` is what is written between the fences.
+ */
+export interface FencedBlock {
+	id: string;
+	module: string | null;
+	line: number;
+	text: string;
+}
+
 export interface Question {
 	type: "question";
 	kind: QuestionKind;
@@ -169,6 +181,13 @@ export interface Question {
 	media: string | null;
 	/** A listen's `left:` in whole seconds (a pause within this long of the end counts as finished): 120 when the line sets none or sets another value (reported). Every kind has it; only a listen uses it. */
 	left: number;
+	/**
+	 * The words of the folded `hint` and the folded `solution` callout straight after the question (the first of each; SPEC section 6, "Hints and
+	 * solutions"), with the callout's `>` marks and its title line off ("" for a callout with no body), else null. The view draws them as ordinary callouts; a `copy` callout names
+	 * them `id/hint` and `id/solution` and copies these words.
+	 */
+	hint: string | null;
+	solution: string | null;
 }
 
 export interface Prose {
@@ -284,7 +303,24 @@ export interface RowMark {
 	line: number;
 }
 
-export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment | CalloutStart | CalloutEnd | RowMark;
+/**
+ * A `copy` callout (SPEC section 6, "Copy"): `> [!copy|id of:a,b,c] Button label`, its `>` lines the author's lead-in words. One button
+ * that puts the lead-in and then each id named in `of:`, in that order, on the clipboard (core/copy.ts). It writes nothing.
+ */
+export interface CopySegment {
+	type: "copy";
+	/** The id written after the bar, else null. A copy button holds no answer, so nothing keeps its id. */
+	id: string | null;
+	/** The button's words: inline Markdown, "" when the line has none. */
+	label: string;
+	/** `of:`, the ids to copy, in the order written: a question's id, a block's `^id`, or `id/solution` or `id/hint`. Never empty. */
+	of: string[];
+	/** The lead-in words, as written in the note (the `>` lines under the line, their `>` off), "" when there are none. */
+	prompt: string;
+	line: number;
+}
+
+export type Segment = Question | Prose | TabHeading | PageHeading | Unsupported | QuerySegment | CopySegment | CalloutStart | CalloutEnd | RowMark;
 
 /**
  * A footnote's definition, `[^id]: …` (SPEC section 6, "Citations"), read where the file puts it and never drawn as
@@ -347,6 +383,8 @@ export interface Booklet {
 	openings: Opening[];
 	widgets: WidgetBlock[];
 	menus: MenuBlock[];
+	/** The fenced blocks that carry a block id, in file order (a widget's and a data block's among them). */
+	blocks: FencedBlock[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
 	references: ReferenceDefinition[];
@@ -491,7 +529,7 @@ const QUESTION_KINDS = new Set(["text", "lines", "widget", "choice", "multi", "s
 /** Every kind the format defines (SPEC section 4's table). */
 const KNOWN_KINDS = new Set([
 	"module", "activity", "row", "text", "lines", "scale", "matrix", "date", "menu", "hint", "solution", "data",
-	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget", "listen",
+	"records", "manifest", "notice", "group", "diff", "law", "opinion", "tab", "choice", "multi", "number", "widget", "listen", "copy",
 ]);
 
 /** The callout kinds Obsidian itself draws (and its aliases): a line of one of these is an ordinary callout, never a kind of a newer format. */
@@ -674,6 +712,25 @@ interface EachUse {
 const SOURCE_KINDS = new Set(["choice", "multi", "widget"]);
 
 /**
+ * What each copy line's `of:` names (SPEC section 6, "Copy"). A word that names nothing a copy can use is said, with the line, and is left out of the
+ * copy; a copy line with no word left is said and not drawn.
+ */
+function readCopies(activities: readonly Activity[], blocks: readonly FencedBlock[], problems: string[]): void {
+	for (const act of activities) {
+		act.segments = act.segments.filter((s) => {
+			if (s.type !== "copy") return true;
+			const kept = s.of.filter((word) => {
+				const t = copyTarget(act, blocks, word, activities);
+				if ("why" in t) problems.push(`Line ${s.line}: the copy line's \`${word}\` ${t.why}, so it is left out of what is copied.`);
+				return !("why" in t);
+			});
+			if (!kept.length) problems.push(`Line ${s.line}: a copy line with nothing left to copy is not drawn.`);
+			return kept.length > 0;
+		});
+	}
+}
+
+/**
  * `each:<id>` on a question line (SPEC section 5, "A question asked for each pick"): the question is asked
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
  * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
@@ -756,6 +813,7 @@ export function parseBooklet(text: string): Booklet {
 	const references: ReferenceDefinition[] = [];
 	const referenceTokens = referenceSource(text);
 	const widgets: WidgetBlock[] = [];
+	const blocks: FencedBlock[] = [];
 	const menus: MenuBlock[] = [];
 	const dataBlocks: DataBlock[] = [];
 	const menuUses: { q: Question; act: Activity; menu: string; module: string | null; line: number }[] = [];
@@ -843,7 +901,12 @@ export function parseBooklet(text: string): Booklet {
 		if ("bad" in r) problems.push(`${at(i)}: the data block "${id}" ${r.bad}, so no query can draw it.`);
 		else dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: r.rows, fields: r.fields });
 	};
+	/** The question a `hint` or `solution` callout read now would belong to: the one straight above it, nothing else read since. */
+	let lastQ: Question | null = null;
+	/** The callout being read is a hint or a solution: it belongs to `lastQ` or is reading, and either way what is above it does not end. */
+	let helping = false;
 	const flush = () => {
+		lastQ = null;
 		if (act && buf.some((l) => l.trim())) {
 			const md = buf.join("\n").replace(/^\n+|\n+$/g, "");
 			act.segments.push({ type: "prose", markdown: md, line: bufAt + 1 });
@@ -851,6 +914,7 @@ export function parseBooklet(text: string): Booklet {
 		buf = [];
 	};
 	const pushText = (ls: readonly string[], i: number) => {
+		if (!helping && ls.some((l) => l.trim())) lastQ = null;
 		if (!act && section === "content") {
 			// before a module's first activity, the module's opening; before the file's first module or activity
 			// line, the booklet's; text anywhere else outside every activity belongs to nothing that is drawn
@@ -944,6 +1008,7 @@ export function parseBooklet(text: string): Booklet {
 			while (n < lines.length && isBlank(lines[n])) n++;
 			const hasId = n < lines.length && BLOCK_ID_LINE.test((lines[n] ?? "").trim());
 			const last = hasId ? n : Math.min(k, lines.length - 1);
+			if (hasId) blocks.push({ id: (lines[n] ?? "").trim().slice(1), module: blockModule(), line: i + 1, text: lines.slice(i + 1, Math.min(k, lines.length)).join("\n") });
 			const info = (f[2] ?? "").trim().split(/\s+/);
 			if (/^booklet$/i.test(info[0] ?? "")) {
 				flush();
@@ -1143,6 +1208,19 @@ export function parseBooklet(text: string): Booklet {
 				i = k - 1;
 				continue;
 			}
+			if (kind === "copy") {
+				flush();
+				const k = bodyEnd(lines, i);
+				const raw = w.set["of"] ?? "";
+				const of = raw.split(",").map((x) => x.trim());
+				claimId(w.id, i);
+				if (!act) problems.push(`${at(i)}: a copy line belongs in an activity, so it is not drawn.`);
+				else if (!raw.trim()) problems.push(`${at(i)}: a copy line has no \`of:\` ids (\`of:a,b\`), so it is not drawn.`);
+				else if (of.some((x) => x === "")) problems.push(`${at(i)}: the copy line's \`of:${raw}\` has an empty place between its commas (\`of:a,b\`), so it is not drawn.`);
+				else act.segments.push({ type: "copy", id: w.id, label: title, of, prompt: trimBlankLines(lines.slice(i + 1, k).map(stripQuote).join("\n")), line: i + 1 });
+				i = k - 1;
+				continue;
+			}
 			if (kind === "menu" || QUESTION_KINDS.has(kind) || (!KNOWN_KINDS.has(kind) && hasWords)) {
 				flush();
 				const k = claimEnd(kind, lines, i);
@@ -1188,6 +1266,8 @@ export function parseBooklet(text: string): Booklet {
 						earlier: w.set["earlier"] !== undefined ? earlierValue(w.set["earlier"]) : null,
 						media: heard ? heard.media : null,
 						left,
+						hint: null,
+						solution: null,
 					};
 					if (heard) {
 						// what the view cannot play or track is kept as written and said (SPEC section 5: one question, one piece of media, answered once)
@@ -1225,7 +1305,10 @@ export function parseBooklet(text: string): Booklet {
 							drawn = false;
 						}
 					}
-					if (drawn) act.segments.push(q);
+					if (drawn) {
+						act.segments.push(q);
+						lastQ = q;
+					}
 				} else {
 					if (!w.id && QUESTION_KINDS.has(kind)) problems.push(`${at(i)}: a ${kind} question has no id, so it cannot hold an answer.`);
 					act.segments.push({ type: "unsupported", kind, id: w.id, title, line: i + 1 });
@@ -1251,7 +1334,14 @@ export function parseBooklet(text: string): Booklet {
 					for (let j = i + 1; j < k; j++) lines[j] = stripQuote(lines[j] ?? "");
 					continue;
 				}
+				helping = kind === "hint" || kind === "solution";
+				if (helping && lastQ && m[3] === "-" && lastQ[kind as "hint" | "solution"] === null) {
+					// a folded hint or solution straight after a question is that question's own: the first of each kind (SPEC section 6)
+					const body = lines.slice(i + 1, k).map(stripQuote).join("\n").trim();
+					lastQ[kind as "hint" | "solution"] = body; // an empty body is kept as "": a copy of it is the label alone
+				}
 				pushText(calloutText(i, k), i);
+				helping = false;
 				i = k - 1;
 				continue;
 			}
@@ -1298,6 +1388,7 @@ export function parseBooklet(text: string): Booklet {
 		u.q.menu = hit.id;
 	}
 	readEach(eachUses, problems);
+	readCopies(activities, blocks, problems);
 	// a widget line's block: in its own module first (its fence, then its data section), then a shared one (booklet.html widgetOf)
 	for (const a of activities)
 		for (const s of a.segments)
@@ -1344,6 +1435,7 @@ export function parseBooklet(text: string): Booklet {
 		openings,
 		widgets,
 		menus,
+		blocks,
 		notes,
 		references,
 		records,

@@ -26,7 +26,7 @@ const bundle = await esbuild.build({
 });
 const { NowPlaying, ListenWriter, drawMedia, createPlayer } = await import("data:text/javascript;base64," + Buffer.from(bundle.outputFiles[0].text).toString("base64"));
 
-const HEAD = '---\nbooklet: "0.18"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
+const HEAD = '---\nbooklet: "0.19"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
 const COURSE =
 	HEAD +
 	`

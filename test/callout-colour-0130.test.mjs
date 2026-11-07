@@ -7,7 +7,7 @@ import { openView, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const NOTE = `---\nbooklet: "0.18"\n---\n\n> [!activity|a] A\n\nSome words.\n`;
+const NOTE = `---\nbooklet: "0.19"\n---\n\n> [!activity|a] A\n\nSome words.\n`;
 
 /** The view over a note, with `colour` as the callout colour Obsidian reports for a callout of the kind `note`. */
 async function openWith(colour) {

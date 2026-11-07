@@ -8,7 +8,7 @@ import { click } from "./dom.mjs";
 import { build, core, norm } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const head = (extra = "") => `---\nbooklet: "0.18"\ntitle: A worksheet\nlang: en\n${extra}---\n`;
+const head = (extra = "") => `---\nbooklet: "0.19"\ntitle: A worksheet\nlang: en\n${extra}---\n`;
 const WORKSHEET = `${head()}\nThe first words of the worksheet.\n\n> [!choice|mood] How is the day?\n- [ ] Calm\n- [ ] Busy\n\n> [!text|why] Why?\n`;
 const PAGES = `${head()}\nThe tab's words, which are its first page.\n\n> [!page|map icon:footprints] The garden map\n\nWhere each bed is.\n\n> [!page|parent:map] Choosing a place\n\nPick one.\n\n> [!page] Thoughts as headlines\n\n> [!text|t] What do you think?\n`;
 

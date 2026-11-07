@@ -5,7 +5,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { core, norm } from "./helpers.mjs";
 
-const head = `---\nbooklet: "0.18"\ntitle: Order\n---\n`;
+const head = `---\nbooklet: "0.19"\ntitle: Order\n---\n`;
 const find = (text, words, scope = null) => {
 	const book = core.parseBooklet(text);
 	return norm(core.findHeading(core.buildNav(book, text), words, scope));

@@ -1,5 +1,5 @@
 ---
-booklet: "0.18"
+booklet: "0.19"
 id: "local/harbour-notes-pages"
 title: Harbour notes
 lang: en

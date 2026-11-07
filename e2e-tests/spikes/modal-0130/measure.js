@@ -24,7 +24,7 @@ let pass = "";
 const rec = (key, val) => { (R[pass] = R[pass] || {})[key] = val; console.log(`[${pass}] ${key}: ${typeof val === "string" ? val : JSON.stringify(val)}`); };
 
 // ---- the vault ----
-const front = (id, title, extra = "") => `---\nbooklet: "0.18"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
+const front = (id, title, extra = "") => `---\nbooklet: "0.19"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
 const filler = Array.from({ length: 40 }, (_, i) => `Paragraph ${i + 1}: a made-up line of study text, long enough to wrap on a narrow screen so the page behind the card has something to scroll.`).join("\n\n");
 const PASSES = ["desktop-light", "desktop-dark", "phone-light", "phone-dark"];
 function makeVault(dir) {

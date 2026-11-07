@@ -26,8 +26,8 @@ const consoleReport = [], sessions = [];
 const env = { launch, opt: { obsidian: opt.obsidian }, WORK, consoleReport, sessions, SRC_VAULT, SHOTS: OUT, BOOK: ".workspace-leaf-content[data-type='booklet']" };
 const { withMedia } = require("./media-lib")(env);
 
-const note = ctx => `---\nbooklet: "0.18"\nid: booklet-test/allow-settings\ntitle: Listening\nlang: en\n---\n\n> [!activity|a1] Listening and watching\n\nA clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n`;
-const declaredNote = ctx => `---\nbooklet: "0.18"\nid: booklet-test/allow-declared\ntitle: Declared\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Declared\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n`;
+const note = ctx => `---\nbooklet: "0.19"\nid: booklet-test/allow-settings\ntitle: Listening\nlang: en\n---\n\n> [!activity|a1] Listening and watching\n\nA clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n`;
+const declaredNote = ctx => `---\nbooklet: "0.19"\nid: booklet-test/allow-declared\ntitle: Declared\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Declared\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n`;
 
 const open = async (o, rel) => {
   await o.evaluate(() => { for (const l of app.workspace.getLeavesOfType("booklet")) l.detach(); });

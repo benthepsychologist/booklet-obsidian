@@ -43,7 +43,7 @@ const DATA = {
 /** A made-up note with every kind of slot the Tea course lacks: a video service not allowed and one allowed, hosted media allowed and not, an address that is not https. */
 const SLOTS = "Slots.booklet.md";
 const SLOTS_TEXT = `---
-booklet: "0.18"
+booklet: "0.19"
 id: booklet-test/slots
 title: Slots
 lang: en
