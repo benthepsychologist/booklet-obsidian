@@ -93,6 +93,6 @@ export function eachWords(act: Pick<Activity, "segments">, q: Question, entry: R
 	const src = sourceOf(act, q);
 	const plain = plainOf(q);
 	// asked for each row of a data block: the block's rows are not in the note's records, so a pair is named by its row's id
-	if (!src) return Array.isArray(v) ? v.flatMap((p) => (isPair(p) && holdsSomething(p.a) ? [{ pick: { text: String(p.pick) } as WordPart, words: answerWords(plain, p.a) }] : [])) : [];
+	if (!src) return Array.isArray(v) ? v.flatMap((p) => (isPair(p) && holdsSomething(p.a) ? [{ pick: { text: String(p.pick) }, words: answerWords(plain, p.a) }] : [])) : [];
 	return shownPairs(src, entry, q).flatMap(({ pick, pair }) => (pair && holdsSomething(pair.a) ? [{ pick: pickWordsOf(src, pick), words: answerWords(plain, pair.a) }] : []));
 }

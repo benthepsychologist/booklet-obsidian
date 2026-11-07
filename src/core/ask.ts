@@ -61,9 +61,9 @@ export type Held = { shape: "value"; value: string | number | boolean | null } |
 export function heldOf(raw: DataRow, key: string): Held {
 	const v = ownValue(raw, key);
 	if (v === undefined || childRowsOf(v)) return { shape: "none" };
-	if (Array.isArray(v)) return { shape: "list", items: v.filter((x) => x !== null && String(x).trim() !== "").map(String) };
+	if (Array.isArray(v)) return { shape: "list", items: v.filter((x): x is string | number | boolean => x !== null && typeof x !== "object" && String(x).trim() !== "").map(String) };
 	if (isRowObj(v)) return { shape: "none" };
-	return { shape: "value", value: v as string | number | boolean | null };
+	return { shape: "value", value: v };
 }
 
 /** Two values of a field are the same: nothing (null, absent, blank) is nothing; a number is its digits; words are compared with the spaces at either end off. */
