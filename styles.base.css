@@ -1220,10 +1220,19 @@
 	grid-template-columns: 1fr;
 }
 
-/* a nested list: a row with children is a details, shut until the reader opens it (Obsidian draws its own triangle) */
-.booklet-q-tree details > summary {
+/* rows that open (SPEC section 6): a row with more to show is a details, shut until the reader opens it (Obsidian draws its own triangle) */
+.booklet-q-tree details > summary,
+.booklet-q-table details > summary,
+.booklet-q-fold details > summary {
 	cursor: pointer;
 	list-style-position: outside;
+}
+
+.booklet-q-tree details > summary:focus-visible,
+.booklet-q-table details > summary:focus-visible,
+.booklet-q-fold details > summary:focus-visible {
+	outline: 2px solid var(--text-normal);
+	border-radius: var(--radius-s);
 }
 
 .booklet-q-tree .booklet-q-list {
@@ -1236,6 +1245,92 @@
 
 .booklet-q-node {
 	list-style: none;
+}
+
+/* the open part: every field that plays no role, each under its label, as plain text with its line breaks kept */
+.booklet-q-more {
+	display: grid;
+	grid-template-columns: minmax(6em, max-content) 1fr;
+	gap: var(--size-2-1) var(--size-4-3);
+	margin: var(--size-4-1) 0 var(--size-4-1);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-q-more dt {
+	color: var(--text-muted);
+}
+
+.booklet-q-more dd {
+	margin: 0;
+}
+
+.booklet-q-text {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.is-phone .booklet-q-more {
+	grid-template-columns: 1fr;
+}
+
+/* a heading over the child rows that came from one field */
+.booklet-q-ghead {
+	margin: var(--size-4-2) 0 var(--size-2-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+/* a nested table: the lead cell holds the disclosure, set in by one step for each level of the row's depth */
+.booklet-q-lead {
+	display: flex;
+	align-items: baseline;
+}
+
+.booklet-q-ind {
+	flex: 0 0 auto;
+	width: var(--size-4-4);
+}
+
+.booklet-q-lead > details,
+.booklet-q-leadtext {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-q-nocaret {
+	flex: 0 0 auto;
+	width: 1.1em;
+}
+
+.booklet-q-trmore td {
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+/* a card that folds: the title, badges, note and lines stay in sight when it is shut */
+.booklet-q-fold details > summary > * {
+	vertical-align: baseline;
+}
+
+.booklet-q-fold details > summary .booklet-q-note,
+.booklet-q-fold details > summary .booklet-q-big {
+	display: block;
+}
+
+.booklet-q-fold-body {
+	margin-top: var(--size-4-1);
+}
+
+.booklet-q-sub {
+	margin-top: var(--size-4-2);
+	margin-inline-start: var(--size-4-3);
+}
+
+/* the quiet box that stands in a view's place when its data file cannot be read */
+.booklet-q-quiet {
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
 }
 
 /* ---- charts (0.9.0): bars and a line, plain svg that reads Obsidian's own variables, so light and dark and the reader's theme recolour it ---- */

@@ -47,9 +47,9 @@ const textsOf = (p, k) => rowsOf(p).map((r) => r.cells[k]?.text);
 
 test("readDataRows: an object with rows and fields, or the list itself; a value is flat or a flat list", () => {
 	const a = core.readDataRows({ fields: { x: "X" }, rows: [{ x: 1, y: [true, null, "z"] }] });
-	assert.deepEqual(a, { rows: [{ x: 1, y: [true, null, "z"] }], fields: { x: "X" } });
-	assert.deepEqual(core.readDataRows([{ x: "a" }]), { rows: [{ x: "a" }], fields: null });
-	assert.deepEqual(core.readDataRows({ rows: [] }), { rows: [], fields: null });
+	assert.deepEqual({ ...a, fields: { ...a.fields }, edits: { ...a.edits } }, { rows: [{ x: 1, y: [true, null, "z"] }], fields: { x: "X" }, edits: {} });
+	assert.deepEqual(core.readDataRows([{ x: "a" }]), { rows: [{ x: "a" }], fields: null, edits: {} });
+	assert.deepEqual(core.readDataRows({ rows: [] }), { rows: [], fields: null, edits: {} });
 });
 
 test("readDataRows: what is not a block says why, in the reference renderer's words", () => {
@@ -58,8 +58,10 @@ test("readDataRows: what is not a block says why, in the reference renderer's wo
 	assert.match(bad("text"), /holds no list of rows/);
 	assert.match(bad([1]), /a row that is not an object/);
 	assert.match(bad([[{ a: 1 }]]), /a row that is not an object/);
-	assert.match(bad([{ a: { deep: 1 } }]), /nests deeper than a list/);
-	assert.match(bad([{ a: [[1]] }]), /nests deeper than a list/);
+	assert.equal(core.readDataRows([{ a: { deep: 1 } }]).bad, undefined, "a row that holds a row has a child (format 0.19)");
+	assert.match(bad([{ a: [[1]] }]), /a list that mixes values and rows/);
+	assert.match(bad([{ a: [1, { b: 2 }] }]), /a list that mixes values and rows/);
+	assert.match(bad([{ a: [{ b: [1, { c: 2 }] }] }]), /a list that mixes values and rows/, "at every depth");
 	assert.match(bad({ rows: [], fields: [] }), /`fields` that is not an object of labels/);
 	assert.match(bad({ rows: [], fields: { a: 1 } }), /`fields` that is not an object of labels/);
 });
@@ -67,14 +69,14 @@ test("readDataRows: what is not a block says why, in the reference renderer's wo
 test("a block that cannot be read is reported and no query can name it; the note still opens and every other block is read", () => {
 	const text = note(["from: broken", "from: nested", "from: jobs\nas: list"], [
 		["broken", "{ not json"],
-		["nested", { rows: [{ a: { b: 1 } }] }],
+		["nested", { rows: [{ a: [1, { b: 1 }] }] }],
 		["jobs", JOBS],
 	]);
 	const b = core.parseBooklet(text);
 	assert.equal(b.ok, true);
 	const said = b.problems.join("\n");
 	assert.match(said, /the data block "broken" is not JSON, so no query can draw it/);
-	assert.match(said, /the data block "nested" has a value that nests deeper than a list, so no query can draw it/);
+	assert.match(said, /the data block "nested" has a list that mixes values and rows \(a list is all values or all rows\), so no query can draw it/);
 	assert.match(said, /names "broken", which is nothing in this module/);
 	assert.equal(b.activities.find((a) => a.id === "show").segments.filter((s) => s.type === "query").length, 1, "only the query of the good block stays");
 });

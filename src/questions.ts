@@ -14,7 +14,7 @@
  * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
-import { answeredOf, earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
+import { answeredOf, earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, sourceOf, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
 import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
 import { drawListen, type Listens } from "./listen-view";
@@ -95,9 +95,28 @@ const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
  */
 export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
 	const wrong = host.wrongOf(t, q);
+	// asked for each row of a data block (SPEC section 5): its source is no question of the activity. Not drawn yet (slice 2): its title, help and a line saying so
+	if (q.each && !sourceOf(t.activity, q)) {
+		const box = drawRowsEach(host, card, q);
+		box.setAttr("data-booklet-q", q.id);
+		guardShape(host, box, t, q, !!wrong);
+		return;
+	}
 	const box = q.kind === "widget" ? drawWidget(host, card, t, q, locked || !!wrong) : q.kind === "listen" ? drawListen(host, card, t, q, locked || !!wrong) : drawCommon(host, card, t, q, locked || !!wrong);
 	box.setAttr("data-booklet-q", q.id);
 	guardShape(host, box, t, q, !!wrong);
+}
+
+/** What a question asked for each row of a data block says in its place: this plugin does not ask it yet. Its answers stay as written. */
+export const EACH_ROWS_NOT_YET = "This question is asked once for each row of a data block, which this plugin does not draw yet. Its answers are kept as written.";
+
+/** A question asked for each row of a data block: its title and help, then the line that says it is not drawn yet. Nothing here can be answered or written. */
+function drawRowsEach(host: QuestionHost, card: HTMLElement, q: Question): HTMLElement {
+	const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind} booklet-each-rows` });
+	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
+	if (q.help) host.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered" }));
+	box.createEl("p", { cls: "booklet-muted booklet-each-notyet", text: EACH_ROWS_NOT_YET });
+	return box;
 }
 
 /**

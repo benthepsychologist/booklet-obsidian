@@ -8,7 +8,8 @@
  */
 import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
-import type { DataValue } from "./data";
+import { childRowsOf, type DataRow, type DataRows, type DataValue } from "./data";
+import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
 import type { Entry } from "./records";
@@ -19,12 +20,12 @@ import { localDayOf } from "./write";
 
 /** Which keys each view reads (SPEC section 6's table of views). */
 export const VIEW_DRAWS: Record<ViewName, readonly string[]> = {
-	cards: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "link", "icon"],
-	table: ["fields", "group", "limit", "badge", "tone", "link", "icon"],
-	list: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon"],
-	tiles: ["label", "value", "note", "tone", "group", "limit", "link", "icon"],
-	bars: ["label", "value", "tone", "limit"],
-	line: ["label", "value", "fields", "limit"],
+	cards: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly"],
+	table: ["fields", "group", "limit", "parent", "badge", "tone", "link", "icon", "readonly"],
+	list: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly"],
+	tiles: ["label", "value", "note", "tone", "group", "limit", "link", "icon", "readonly"],
+	bars: ["label", "value", "tone", "limit", "readonly"],
+	line: ["label", "value", "fields", "limit", "readonly"],
 };
 
 /** The renderer's own words for a query (SPEC section 9: in the renderer's language, here English). */
@@ -40,6 +41,8 @@ export const QUERY_WORDS = {
 	answer: "Answer",
 	tone: { good: "Good", warn: "Needs a look", bad: "Needs action" } as Record<string, string>,
 	rows: (n: number) => (n === 1 ? "1 row" : `${n} rows`),
+	/** What a screen reader hears for a row that opens when its line has no words in it. */
+	row: "Row",
 	/** A chart's own words (SPEC section 6: a chart always offers its numbers as a table, and what cannot be drawn says so). */
 	chart: {
 		numbers: "Show the numbers",
@@ -65,6 +68,8 @@ export const QUERY_WORDS = {
 		ascending: "Ascending",
 		descending: "Descending",
 		clear: "Clear",
+		openAll: "Open all",
+		closeAll: "Close all",
 		nothing: "Nothing matches.",
 		shown: (n: number, of: number) => `${n} of ${of} shown`,
 	},
@@ -116,6 +121,14 @@ export interface RowSet {
 	expand: (key: string) => string[];
 	/** The question whose answer is a row's value by default (`from:` a single question), else null. */
 	valueField: string | null;
+	/**
+	 * A data block's rows at every depth, a row before its children, in the file's order (`rows` are the top rows only); with each
+	 * row's children in groups, one for each field that holds rows in that row, and the fields that hold rows in some row (`kidKeys`,
+	 * which are never a column or a line). Data sets only.
+	 */
+	all?: Row[];
+	groupsOf?: Map<Row, { key: string; rows: Row[] }[]>;
+	kidKeys?: Set<string>;
 }
 
 export interface Group {
@@ -130,14 +143,41 @@ export interface ChartSpec {
 	locale: string;
 }
 
-/** A nested list (SPEC section 6, "parent:"): rows with a `parent` that is another row's `id` stand under it. */
+/** One field of a row, shown in the row's open part under its label (SPEC section 6, "What opens"): plain text, its line breaks kept. */
+export interface MoreField {
+	key: string;
+	label: WordPart[];
+	text: string;
+}
+
+/** A row's children drawn together: those nested by `parent` first (`key` null, no heading), then one group for each field that holds rows, headed by the field's label. */
+export interface KidGroup {
+	key: string | null;
+	label: WordPart[] | null;
+	rows: Row[];
+}
+
+/**
+ * A nested view (SPEC section 6, "Rows that open"): rows with a `parent` that is another row's `id` stand under it, and so do the rows a
+ * field holds. `table`, `list` and `cards` draw it, each row opening in place.
+ */
 export interface Tree {
 	/** The top rows, in order. */
 	roots: Row[];
-	/** Each row's children, in order. */
+	/** The top rows in their groups (one group with no name unless `group:` names a field on rows that only open and do not nest). */
+	tops: Group[];
+	/** Each row's children, in order (all of its groups). */
 	kids: Map<Row, Row[]>;
+	/** Each row's children in groups, in the order they are drawn. */
+	groups: Map<Row, KidGroup[]>;
 	/** Each row's parent row, or null for a top row. */
 	up: Map<Row, Row | null>;
+	/** What remembers that a row is open: its `id`, else its place. */
+	keyOf: Map<Row, string>;
+	/** Every row, a row before its children (what a search, a count and Open all read). */
+	flat: Row[];
+	/** What a row shows when it opens besides its children: its other fields. */
+	more: (r: Row) => MoreField[];
 }
 
 export type QueryPlan =
@@ -154,11 +194,18 @@ export type QueryPlan =
 			empty: string | null;
 			/** For `bars` and `line`: what is plotted. The chart itself is made from the rows left after the reader's filter (chart.ts). */
 			chart?: ChartSpec;
-			/** For a nested `list`: the tree the rows stand in (the rows are in the order the tree is drawn). */
+			/** For a nested `table`, `list` or `cards`: the tree the rows stand in. The rows of `groups` are every row of it, in no order a view draws. */
 			tree?: Tree;
+			/** What shows is the quiet box that says why a data file was not read (SPEC section 7), and not the query's own words for no rows. */
+			quiet?: boolean;
 	  };
 
 export interface PlanOptions {
+	/**
+	 * The rows of a data block that names a file (`booklet data file.json key.path`): what the view has read, or the words for the quiet
+	 * box (data-files.ts). Left out, such a block has no rows to give and the quiet box says it could not be read.
+	 */
+	fileRows?: (block: DataBlock) => { data: DataRows } | { note: string };
 	/** The moment the page was drawn: today, for a span of days, is its date. */
 	drawn: Date;
 	/** The moment the rows are worked out (default now): an entry later than it is in no span. */
@@ -615,7 +662,8 @@ export function colsOf(set: RowSet, q: Query, view: ViewName, roles: Record<Role
 	if (set.kind === "summary") return view === "table" ? set.own : [];
 	// a question asked for each pick, named alone, is a row for each pick holding its label and its value; `fields:` has no other field to pick
 	if (set.kind === "picks") return view === "table" ? set.own : [];
-	const named = VIEW_DRAWS[view].includes("fields") ? q.fields : null;
+	// a field that holds rows is not a column or a line: its rows are drawn as children
+	const named = VIEW_DRAWS[view].includes("fields") && q.fields ? (set.kidKeys ? q.fields.filter((k) => !set.kidKeys!.has(k)) : q.fields) : null;
 	if (view === "table") return named ? named.flatMap(set.expand) : set.own;
 	// the fields that play no role: a list's extras and a data block's card lines (never `id`, the group or the parent)
 	const rest = (): string[] => {
@@ -630,19 +678,45 @@ export function colsOf(set: RowSet, q: Query, view: ViewName, roles: Record<Role
 	return [];
 }
 
-/** A data block as rows: its declared `fields` (else the first row's keys) are its columns, in order; a value that is `null` or empty is no cell. */
-function dataSet(b: DataBlock): RowSet {
-	const own = b.fields ? Object.keys(b.fields) : Object.keys(b.rows[0] ?? {});
-	const rows: Row[] = b.rows.map((r) => {
+/**
+ * A data block as rows: its declared `fields` (else the first row's keys, less the fields that hold rows) are its columns, in order; a
+ * value that is `null` or empty is no cell. Every row at every depth is a row of the set, a row before its children (`all`), found with
+ * a stack of its own so that a chain thousands deep is a file that opens. A field holds child rows in the rows where its value is a
+ * list of rows or one row, and is a plain value in a row where it is not.
+ */
+function dataSet(b: DataRows): RowSet {
+	const kidKeys = new Set<string>();
+	const all: Row[] = [];
+	const groupsOf = new Map<Row, { key: string; rows: Row[] }[]>();
+	const make = (d: DataRow): { row: Row; data: DataRow } => {
 		const cells = Object.create(null) as Record<string, Cell>;
-		for (const [k, v] of Object.entries(r)) {
-			const c = dataCell(v);
+		for (const [k, v] of Object.entries(d)) {
+			if (childRowsOf(v)) continue;
+			const c = dataCell(v as DataValue | DataValue[]);
 			if (c) cells[k] = c;
 		}
-		return { cells };
-	});
+		return { row: { cells }, data: d };
+	};
+	const top = b.rows.map(make);
+	const todo = top.slice().reverse();
+	while (todo.length) {
+		const { row, data } = todo.pop()!;
+		all.push(row);
+		const gs: { key: string; rows: Row[]; kids: { row: Row; data: DataRow }[] }[] = [];
+		for (const [k, v] of Object.entries(data)) {
+			const rs = childRowsOf(v);
+			if (!rs) continue;
+			kidKeys.add(k);
+			const kids = rs.map(make);
+			gs.push({ key: k, rows: kids.map((x) => x.row), kids });
+		}
+		if (!gs.length) continue;
+		groupsOf.set(row, gs.map((g) => ({ key: g.key, rows: g.rows })));
+		for (let i = gs.length - 1; i >= 0; i--) for (let j = gs[i]!.kids.length - 1; j >= 0; j--) todo.push(gs[i]!.kids[j]!);
+	}
+	const own = (b.fields ? Object.keys(b.fields) : Object.keys(b.rows[0] ?? {})).filter((k) => !kidKeys.has(k));
 	const named = (k: string): string => (b.fields && Object.prototype.hasOwnProperty.call(b.fields, k) ? b.fields[k]! : k);
-	return { kind: "data", rows, own, label: (k) => [{ text: named(k) }], questions: [], expand: (k) => [k], valueField: null };
+	return { kind: "data", rows: top.map((x) => x.row), own, label: (k) => [{ text: named(k) }], questions: [], expand: (k) => [k], valueField: null, all, groupsOf, kidKeys };
 }
 
 /** A data value as a cell: plain words, never Markdown; a number carries its number; a list is shown comma-separated and each member can be a pill. */
@@ -698,7 +772,22 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 	let set: RowSet;
 
 	if (src.kind === "data") {
-		set = dataSet(src.block);
+		const block = src.block;
+		let data: DataRows = block;
+		if (block.file) {
+			// the rows come from a file beside the note (SPEC section 7): what the view has read of it, or the quiet box that says why not
+			const got: { data: DataRows } | { note: string } = block.file.bad
+				? { note: DATA_WORDS.refused(block.file.name) }
+				: opts.fileRows
+					? opts.fileRows(block)
+					: { note: DATA_WORDS.failed(block.file.name) };
+			if ("note" in got) {
+				const none = dataSet({ rows: [], fields: null, edits: {} });
+				return { kind: "rows", view, set: none, groups: [], roles: rolesOf(none, [], q, view), cols: [], empty: got.note, quiet: true };
+			}
+			data = got.data;
+		}
+		set = dataSet(data);
 		return finishPlan(set, q, view, locale);
 	}
 	const a = src.act;
@@ -734,12 +823,21 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 /** The text of a cell that holds a row's `parent` or `id`, trimmed. */
 const keyText = (r: Row, k: string): string => (r.cells[k]?.text ?? "").trim();
 
+/** What nestRows works out: the top rows, each row's children, each row's parent, and every row a row before its children. */
+export interface Nested {
+	roots: Row[];
+	kids: Map<Row, Row[]>;
+	up: Map<Row, Row | null>;
+	flat: Row[];
+}
+
 /**
- * A nested list (booklet.html nestRows): rows whose `parent` is another row's `id` stand under it. The first row with an
+ * A nested view (booklet.html nestRows): rows whose `parent` is another row's `id` stand under it. The first row with an
  * id is the parent when two share one; a row whose parent is empty or no row of the list is a top row; a cycle is cut at
- * the first row met, which is then a top row; children keep the order of the rows; `limit` counts top rows.
+ * the first row met, which is then a top row; children keep the order of the rows; `limit` counts top rows. `given` is the rows a
+ * field holds, each with the row that holds it: such a row stands under that row whatever its own `parent` says.
  */
-export function nestRows(rows: readonly Row[], parentKey: string, limit: number | null): Tree & { flat: Row[] } {
+export function nestRows(rows: readonly Row[], parentKey: string, limit: number | null, given?: ReadonlyMap<Row, Row>): Nested {
 	const byId = new Map<string, Row>();
 	for (const r of rows) {
 		const i = keyText(r, "id");
@@ -747,7 +845,7 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
 	}
 	const up = new Map<Row, Row | null>();
 	for (const r of rows) {
-		const p = byId.get(keyText(r, parentKey));
+		const p = given && given.has(r) ? given.get(r) : byId.get(keyText(r, parentKey));
 		up.set(r, p && p !== r ? p : null);
 	}
 	const done = new Set<Row>();
@@ -780,6 +878,55 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
 	return { roots: top, kids, up, flat: flatTree(top, kids) };
 }
 
+/**
+ * A data set's tree, by the one rule for both ways to nest (a row's `parent`, and a field that holds rows): every row at every depth
+ * goes through nestRows. Adds each row's children in groups (rows nested by `parent` first, then one group for each field that held
+ * rows, headed by that field's label) and the key that remembers a row is open (its `id`, else its place).
+ */
+function nestData(set: RowSet, pk: string, limit: number | null): Omit<Tree, "more" | "tops"> {
+	const all = set.all ?? set.rows;
+	const groupsOf = set.groupsOf ?? new Map<Row, { key: string; rows: Row[] }[]>();
+	const given = new Map<Row, Row>();
+	const via = new Map<Row, string>();
+	for (const [parent, gs] of groupsOf) for (const g of gs) for (const c of g.rows) {
+		given.set(c, parent);
+		via.set(c, g.key);
+	}
+	const t = nestRows(all, pk, limit, given);
+	const groups = new Map<Row, KidGroup[]>();
+	for (const [parent, list] of t.kids) {
+		const by = new Map<string | null, Row[]>();
+		for (const c of list) {
+			const k = given.get(c) === parent ? (via.get(c) ?? null) : null;
+			const a = by.get(k);
+			if (a) a.push(c);
+			else by.set(k, [c]);
+		}
+		const out: KidGroup[] = [];
+		const flatKids = by.get(null);
+		if (flatKids) out.push({ key: null, label: null, rows: flatKids });
+		for (const g of groupsOf.get(parent) ?? []) {
+			const rs = by.get(g.key);
+			if (rs) out.push({ key: g.key, label: set.label(g.key), rows: rs });
+		}
+		groups.set(parent, out);
+	}
+	const keyOf = new Map<Row, string>();
+	const used = new Set<string>();
+	const st: [Row, string][] = t.roots.map((r, i): [Row, string] => [r, `\u0001${i}`]).reverse();
+	while (st.length) {
+		const [r, path] = st.pop()!;
+		const id = keyText(r, "id");
+		if (id && !used.has(id)) {
+			used.add(id);
+			keyOf.set(r, id);
+		} else keyOf.set(r, path);
+		const gs = groups.get(r) ?? [];
+		for (let i = gs.length - 1; i >= 0; i--) for (let j = gs[i]!.rows.length - 1; j >= 0; j--) st.push([gs[i]!.rows[j]!, `${path}\u0001${i}.${j}`]);
+	}
+	return { roots: t.roots, kids: t.kids, up: t.up, flat: t.flat, groups, keyOf };
+}
+
 /** A tree's rows in reading order, each parent before its children: depth first with a stack of its own, so a chain thousands deep is a note that opens, not a stack overflow. */
 export function flatTree(roots: readonly Row[], kids: ReadonlyMap<Row, readonly Row[]>): Row[] {
 	const flat: Row[] = [];
@@ -795,15 +942,45 @@ export function flatTree(roots: readonly Row[], kids: ReadonlyMap<Row, readonly 
 	return flat;
 }
 
+/**
+ * What a row shows when it opens besides its children (SPEC section 6, "What opens"): every field of that row that plays no role, is
+ * not one of the line's fields, is not `id`, the group or the `parent` field, and does not hold child rows, each under its label. The
+ * row's own keys count, whether or not `fields` was declared, at every depth; the source's own fields come first, in their order.
+ * Only a data block's rows have more to show.
+ */
+function moreOf(set: RowSet, cols: readonly string[], roles: Record<Role, string | null>, q: Query, gk: string | null): (r: Row) => MoreField[] {
+	const line = new Set(cols);
+	const skip = new Set<string>([...ROLE_NAMES.map((n) => roles[n]).filter((x): x is string => !!x), "id", q.parent ?? "parent", ...(gk ? [gk] : [])]);
+	const memo = new Map<Row, MoreField[]>();
+	return (r) => {
+		if (set.kind !== "data") return [];
+		let out = memo.get(r);
+		if (!out) {
+			out = [];
+			// a row's cell exists only for a field it holds as a plain value: a field that holds child rows in this row is no cell
+			for (const k of new Set([...set.own, ...Object.keys(r.cells)])) {
+				if (line.has(k) || skip.has(k)) continue;
+				const c = r.cells[k];
+				if (c && c.text !== "") out.push({ key: k, label: set.label(k), text: c.text });
+			}
+			memo.set(r, out);
+		}
+		return out;
+	};
+}
+
 /** Everything a plan holds after the rows are known: limit, nesting, empty, roles, the other fields, tone and groups; or, for a chart, what it plots. */
 function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): QueryPlan {
 	let rows = set.rows;
 	const chartView = view === "bars" || view === "line";
 	const pk = q.parent ?? "parent";
-	// a list whose rows carry a parent is nested, and `limit` counts its top rows
-	const nested = view === "list" && rows.some((r) => keyText(r, pk) !== "") ? nestRows(rows, pk, q.limit) : null;
+	const drawn = VIEW_DRAWS[view];
+	// a table, a list or cards whose rows carry a parent, or hold rows, is nested, and `limit` counts its top rows (kept-entry cards stay dated cards)
+	const canNest = drawn.includes("parent") && (view !== "cards" || set.kind === "data");
+	const nests = canNest && ((set.groupsOf?.size ?? 0) > 0 || rows.some((r) => keyText(r, pk) !== ""));
+	let nested: Omit<Tree, "more" | "tops"> | null = nests ? nestData(set, pk, q.limit) : null;
 	if (nested) rows = nested.flat;
-	else if (q.limit !== null && VIEW_DRAWS[view].includes("limit")) rows = rows.slice(0, q.limit);
+	else if (q.limit !== null && drawn.includes("limit")) rows = rows.slice(0, q.limit);
 	// a chart runs from the oldest to the newest: `limit` kept the newest N of the entries (newest first), and now they are turned round
 	if (chartView && set.kind === "entries") rows = [...rows].reverse();
 	const roles = rolesOf(set, rows, q, view);
@@ -819,8 +996,14 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): Quer
 		roles.badge = null;
 		roles.tone = null;
 	}
+	const gk = drawn.includes("group") && !nests ? q.group : null;
+	const more = moreOf(set, cols, roles, q, gk);
+	// a flat row with more to show than its line opens too: it is drawn by the same tree, with no children
+	if (!nested && canNest && set.kind === "data" && rows.some((r) => more(r).length)) {
+		nested = nestData(set, pk, q.limit);
+		rows = nested.flat;
+	}
 	let groups: Group[] = [{ name: null, rows }];
-	const gk = VIEW_DRAWS[view].includes("group") && !nested ? q.group : null;
 	if (gk) {
 		groups = [];
 		const at = new Map<string, Group>();
@@ -836,7 +1019,11 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): Quer
 		}
 	}
 	const plan: QueryPlan = { kind: "rows", view, set, groups, roles, cols, empty: null };
-	if (nested) plan.tree = { roots: nested.roots, kids: nested.kids, up: nested.up };
+	if (nested) {
+		// the rows of `groups` are every row of the tree, whatever the view draws; the top rows stand in `tops`, grouped when `group:` names a field
+		plan.tree = { ...nested, tops: gk ? groups : [{ name: null, rows: nested.roots }], more };
+		if (gk) plan.groups = [{ name: null, rows }];
+	}
 	return plan;
 }
 

@@ -1,0 +1,100 @@
+{
+  "plots": {
+    "fields": {
+      "title": { "label": "Name", "edit": "text" },
+      "kind": "Kind",
+      "stage": { "label": "Stage", "edit": "choice", "options": ["planning", "growing", "resting", "done"] },
+      "open": "Open jobs",
+      "due": { "label": "Due", "edit": "date" },
+      "about": { "label": "What it is", "edit": "long" },
+      "jobs": "Jobs",
+      "pickers": "Pickers",
+      "notes": "Notes for the gardener"
+    },
+    "rows": [
+      {
+        "id": "p-orchard",
+        "title": "Orchard",
+        "kind": "Orchard",
+        "stage": "growing",
+        "open": 3,
+        "due": "2026-11-20",
+        "badge": "1 decision",
+        "tone": "warn",
+        "about": "Eight apple trees and two pear trees.\n\nThe pears were planted last spring and still need stakes.",
+        "notes": [],
+        "jobs": [
+          {
+            "id": "j-prune",
+            "title": "Prune the apple trees",
+            "kind": "Job",
+            "stage": "growing",
+            "due": "2026-11-20",
+            "about": "Cut out crossing branches and open the middle of each tree.",
+            "notes": [],
+            "jobs": [
+              { "id": "j-prune-ladder", "title": "Borrow the tall ladder", "kind": "Step", "stage": "planning", "due": "2026-11-15", "notes": [] },
+              { "id": "j-prune-burn", "title": "Burn or chip the cuttings", "kind": "Step", "stage": "planning", "due": "2026-11-22", "notes": [] }
+            ]
+          },
+          { "id": "j-stakes", "title": "Stake the young pears", "kind": "Job", "stage": "planning", "due": "2026-12-01", "about": "Two stakes per tree, tied loosely.", "notes": [] },
+          { "id": "j-mulch", "title": "Mulch under every tree", "kind": "Job", "stage": "done", "due": "2026-10-30", "notes": [] }
+        ]
+      },
+      {
+        "id": "p-veg",
+        "title": "Vegetable beds",
+        "kind": "Garden",
+        "stage": "resting",
+        "open": 2,
+        "due": "2026-12-10",
+        "about": "Four raised beds beside the shed. Garlic goes in before the first hard frost.",
+        "notes": [],
+        "jobs": [
+          { "id": "j-garlic", "title": "Plant the garlic", "kind": "Job", "stage": "doing", "due": "2026-11-12", "notes": [] },
+          { "id": "j-compost", "title": "Spread the compost", "kind": "Job", "stage": "planning", "due": "2026-12-10", "notes": [] }
+        ]
+      },
+      {
+        "id": "p-shed",
+        "title": "Tool shed",
+        "kind": "Building",
+        "stage": "done",
+        "open": 0,
+        "due": "",
+        "about": "Roof mended in October.",
+        "notes": []
+      }
+    ]
+  },
+  "harvest": {
+    "fields": { "fruit": "Fruit", "kilos": "Kilos", "week": "Week" },
+    "rows": [
+      { "fruit": "Apples", "kilos": 120, "week": "2026-W40" },
+      { "fruit": "Pears", "kilos": 18, "week": "2026-W40" },
+      { "fruit": "Plums", "kilos": 9, "week": "2026-W38" }
+    ]
+  },
+  "inbox": {
+    "requests": [
+      {
+        "id": "b-ladder",
+        "title": "Buy a ladder or borrow one?",
+        "headline": "A tall ladder costs about the same as three days of hire",
+        "gate": "buy",
+        "asked": "2026-11-05",
+        "decision": [],
+        "reply": []
+      },
+      {
+        "id": "b-hens",
+        "title": "Keep hens in the orchard?",
+        "headline": "Eggs and pest control, but they scratch the mulch",
+        "gate": "plan",
+        "asked": "2026-11-03",
+        "decision": [],
+        "reply": []
+      }
+    ]
+  }
+}

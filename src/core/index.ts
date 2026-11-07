@@ -25,3 +25,4 @@ export * from "./allow";
 export * from "./services";
 export * from "./gate";
 export * from "./copy";
+export * from "./data-file";

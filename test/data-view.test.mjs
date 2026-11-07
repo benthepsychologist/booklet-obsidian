@@ -123,10 +123,11 @@ test("a nested list: a parent is a details that is shut until the reader opens i
 	assert.equal(details.getAttribute("data-id"), "p");
 	assert.equal(details.open, false);
 	assert.equal(q.querySelector(".booklet-q-tree").children.length, 3, "the top rows: Spring beds (a parent), Mend fence, Orphan job (its parent is no row)");
-	assert.deepEqual(words(details.querySelectorAll(":scope > ul .booklet-q-label")), ["Dig bed 1", "Dig bed 2"]);
+	assert.equal(details.querySelector("ul"), null, "what a row opens to is drawn when it opens, not before");
 	assert.deepEqual(words(details.querySelector("summary").querySelectorAll(".booklet-q-pill")), ["open"]);
 	details.open = true;
 	details.dispatchEvent(new details.ownerDocument.defaultView.Event("toggle"));
+	assert.deepEqual(words(details.querySelectorAll(":scope > ul .booklet-q-label")), ["Dig bed 1", "Dig bed 2"], "the children are drawn as it opens");
 	// leave the screen and come back: it is drawn again from the state the view keeps
 	v.view.go({ screen: "home", tab: null, part: 0 });
 	await v.settled();

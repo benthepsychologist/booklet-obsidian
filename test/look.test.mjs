@@ -130,7 +130,7 @@ test("a view puts the look on its root, follows the settings at once, and its me
 	const media = new MediaAllows(null, () => {});
 	const mk = (m = media) => {
 		const events = new Map();
-		const app = { workspace: { on: (name, fn) => (events.set(name, fn), { name }), trigger: () => {} }, vault: {}, metadataCache: {} };
+		const app = { workspace: { on: (name, fn) => (events.set(name, fn), { name }), trigger: () => {} }, vault: { on: () => ({}) }, metadataCache: {} };
 		const leaf = { app };
 		const view = new BookletView(leaf, { setMode: async () => {}, manifest: { version: "9.8.7" }, media: m });
 		return { view, events };
