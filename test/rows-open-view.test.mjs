@@ -766,3 +766,32 @@ test("a file with a UTF-8 byte order mark at its start is read as the file it is
 	assert.deepEqual(labels(v.queries()[0]), ["Garden", "Orchard", "Shed"]);
 	v.close();
 });
+
+test("a read that holds the same text as the last good one does not draw the query again; a different one does", async () => {
+	const v = open(fileNote(), { "dash.json": PLOTS });
+	await until(() => v.queries()[0].querySelector("details"), "the rows");
+	const first = v.queries()[0].querySelector("details");
+	const reads = v.log.reads.length;
+	v.write("dash.json", PLOTS);
+	v.events.get("modify")({ path: "dash.json" });
+	await until(() => v.log.reads.length === reads + 1, "the file to be read again");
+	await v.settled();
+	assert.equal(v.queries()[0].querySelector("details"), first, "the same rows, not drawn again");
+	v.write("dash.json", PLOTS.replace("Garden", "Gardens"));
+	v.events.get("modify")({ path: "dash.json" });
+	await until(() => labels(v.queries()[0])[0] === "Gardens", "the new rows");
+	assert.notEqual(v.queries()[0].querySelector("details"), first);
+	v.close();
+});
+
+test("the same error twice does not draw the quiet box again", async () => {
+	const v = open(fileNote(), { "dash.json": "{ not json" });
+	await until(() => /is not JSON/.test(quiet(v.queries()[0]) ?? ""), "the quiet box");
+	const box = v.queries()[0].querySelector(".booklet-q-quiet");
+	v.write("dash.json", "{ still not json");
+	v.events.get("modify")({ path: "dash.json" });
+	await until(() => v.log.reads.length === 2, "the second read");
+	await v.settled();
+	assert.equal(v.queries()[0].querySelector(".booklet-q-quiet"), box);
+	v.close();
+});

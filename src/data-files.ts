@@ -22,6 +22,8 @@ interface Entry {
 	stamp: string;
 	state: "loading" | "ok" | "error";
 	json?: unknown;
+	/** The text `json` was parsed from: a read that finds the same text again changes nothing. */
+	text?: string;
 	error?: DataFileError;
 }
 
@@ -120,7 +122,7 @@ export class DataFiles {
 		const ticket = ++this.gens;
 		e.ticket = ticket;
 		void (async () => {
-			let out: { state: "ok"; json: unknown } | { state: "error"; error: DataFileError };
+			let out: { state: "ok"; json: unknown; text: string } | { state: "error"; error: DataFileError };
 			let stamp = "";
 			try {
 				if (!a) throw new Error("no adapter");
@@ -137,7 +139,7 @@ export class DataFiles {
 						else {
 							try {
 								// a byte order mark some Windows tools write is no part of the JSON (the reference reads through fetch, which drops it)
-								out = { state: "ok", json: JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text) as unknown };
+								out = { state: "ok", json: JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text) as unknown, text };
 							} catch {
 								out = { state: "error", error: "wrong" };
 							}
@@ -154,10 +156,14 @@ export class DataFiles {
 				e.stamp = "";
 				return;
 			}
-			e.gen++;
 			e.stamp = stamp;
+			// the same text, or the same way of failing, as the last read: nothing new to draw (a generator that rewrites an identical file
+			// must not redraw every query on it, which would interrupt a selection in an open part)
+			if (out.state === "ok" ? e.state === "ok" && e.text === out.text : e.state === "error" && e.error === out.error) return;
+			e.gen++;
 			e.state = out.state;
 			e.json = out.state === "ok" ? out.json : undefined;
+			e.text = out.state === "ok" ? out.text : undefined;
 			e.error = out.state === "error" ? out.error : undefined;
 			for (const k of [...this.found.keys()]) if (k.startsWith(`${path}\n`)) this.found.delete(k);
 			this.changed();
