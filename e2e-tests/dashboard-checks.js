@@ -387,7 +387,7 @@ module.exports = function dashboardChecks(env) {
   // garden dashboard of 462 rows at every depth (test/dashboards/, test/dashboard-fixture.mjs) are put into the check's own copy of the vault with
   // their .json files beside them; the JSON is then changed from outside the app, as a program that writes it would.
   async function check61() {
-    const c = new Check(61, "0.19 rows that open and data files, in the real app: a .json file beside the note read through the vault; a row opened by a real click, Enter and Space, drawn when it opens; Open all, Close all, a search and a sort keeping what the reader opened; print opens everything and folds back; the file changed outside the app is read again on return, keeping open rows and scroll; a missing file gives the quiet box; the disclosures named in the accessibility tree; nothing written to the note");
+    const c = new Check(61, "0.19 rows that open and data files, in the real app: a .json file beside the note read through the vault; a row opened by a real click, Enter and Space, drawn when it opens; Open all, Close all, a search and a sort keeping what the reader opened; print opens everything and folds back; the file changed outside the app is read again on return, keeping open rows and scroll; a file that goes missing leaves the rows on screen, and comes back with its rows; the disclosures named in the accessibility tree; nothing written to the note");
     const ORCHARD = "orchard-dashboard.booklet.md", GARDEN = "garden-dashboard.booklet.md";
     const here = f => path.join(__dirname, "..", "test", "dashboards", f);
     const F = await import("../test/dashboard-fixture.mjs");
@@ -466,18 +466,20 @@ module.exports = function dashboardChecks(env) {
         c.ok(/Orchard \(the old one\)/.test(await plots.innerText()), `[${where}] the pane coming back reads the changed file and draws the new rows`);
         c.ok((await openIds()) === openBefore && /Net the cherry tree/.test(await plots.innerText()), `[${where}] the rows the reader had open are open, now with the new job: ${await openIds()}`);
 
-        // the file goes: the quiet box; it comes back: the rows
+        // the file goes: the rows already on screen stay (a file that cannot be read again leaves good data as it is); it comes back changed: the new rows
+        const rowsNow = await qs().nth(0).locator("tbody tr").count();
         fs.renameSync(file, file + ".away");
         await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-        await o.page.waitForFunction(sel => /was not found/.test(document.querySelectorAll(sel + " .booklet-query")[0].textContent), BOOK, { timeout: 8000 }).catch(() => {});
-        const quietText = await qs().nth(0).locator(".booklet-q-quiet").innerText().catch(() => "");
-        c.ok(/^Data not shown: the file orchard-dashboard\.json was not found\.$/.test(quietText.trim()), `[${where}] a missing file gives the quiet box: ${JSON.stringify(quietText)}`);
-        c.ok((await qs().nth(0).locator("table, .booklet-qc").count()) === 0, `[${where}] and no table or control stands in its place`);
+        await sleep(1500);
+        await quiet(o);
+        c.ok((await qs().nth(0).locator(".booklet-q-quiet").count()) === 0 && (await qs().nth(0).locator("tbody tr").count()) === rowsNow && rowsNow > 0, `[${where}] a file that is gone leaves the ${rowsNow} rows on screen and draws no quiet box`);
+        json.plots.rows[0].title = "Orchard (the file came back)";
+        fs.writeFileSync(file + ".away", JSON.stringify(json));
         fs.renameSync(file + ".away", file);
         await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
-        await o.page.waitForFunction(sel => document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("tbody tr").length > 0, BOOK, { timeout: 8000 }).catch(() => {});
+        await o.page.waitForFunction(sel => /Orchard \(the file came back\)/.test(document.querySelectorAll(sel + " .booklet-query")[0].textContent), BOOK, { timeout: 8000 }).catch(() => {});
         await quiet(o);
-        c.ok((await qs().nth(0).locator("tbody tr").count()) > 0, `[${where}] the file back gives the rows again`);
+        c.ok(/Orchard \(the file came back\)/.test(await plots.innerText()) && (await qs().nth(0).locator("tbody tr").count()) > 0, `[${where}] the file back gives its rows again`);
 
         // each: over rows
         const each = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-each-rows")].map(e => e.querySelector(".booklet-prompt").textContent + " / " + e.querySelector(".booklet-each-notyet").textContent + " / " + e.querySelectorAll("input,textarea,button").length), BOOK);
