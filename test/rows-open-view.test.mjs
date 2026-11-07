@@ -758,3 +758,11 @@ test("a file that was never read well still gets the quiet box, and is drawn whe
 	await until(() => labels(v.queries()[0]).length === 3, "the rows");
 	v.close();
 });
+
+test("a file with a UTF-8 byte order mark at its start is read as the file it is", async () => {
+	const v = open(fileNote(), { "dash.json": "\uFEFF" + PLOTS });
+	await until(() => v.queries()[0].querySelector("details") || /not JSON/.test(quiet(v.queries()[0]) ?? ""), "the read");
+	assert.equal(quiet(v.queries()[0]), undefined);
+	assert.deepEqual(labels(v.queries()[0]), ["Garden", "Orchard", "Shed"]);
+	v.close();
+});

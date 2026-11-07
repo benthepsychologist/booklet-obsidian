@@ -136,7 +136,8 @@ export class DataFiles {
 						if (text.length > DATA_FILE_MAX) out = { state: "error", error: "big" };
 						else {
 							try {
-								out = { state: "ok", json: JSON.parse(text) as unknown };
+								// a byte order mark some Windows tools write is no part of the JSON (the reference reads through fetch, which drops it)
+								out = { state: "ok", json: JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text) as unknown };
 							} catch {
 								out = { state: "error", error: "wrong" };
 							}
