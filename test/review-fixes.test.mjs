@@ -221,7 +221,9 @@ test("a nested list 3000 levels deep draws every row, with no more than 200 leve
 	const chain = Array.from({ length: 3000 }, (_, i) => ({ id: "n" + i, job: "job" + i, ...(i ? { parent: "n" + (i - 1) } : {}) }));
 	const v = open(note(["from: d\nas: list\nlabel: job"], data(chain, "d")));
 	const q = v.queries()[0];
-	assert.equal(q.querySelectorAll(".booklet-q-label").length, 3000);
+	assert.equal(q.querySelectorAll(".booklet-q-label").length, 1, "shut: only the top row is drawn");
+	click(q.querySelector(".booklet-qc-openall"));
+	assert.equal(q.querySelectorAll(".booklet-q-label").length, 3000, "Open all draws every row, with a stack of its own");
 	let deepest = 0;
 	for (const d of q.querySelectorAll("details")) {
 		let n = 0;

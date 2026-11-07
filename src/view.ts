@@ -110,7 +110,8 @@ import { keepFurthest, loadFurthest } from "./listen-store";
 import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { calloutColourIsTriplet, drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
-import { mountQuery } from "./query-controls";
+import { DataFiles } from "./data-files";
+import { mountQuery, type QueryMount } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
@@ -254,6 +255,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private menus = new Map<string, MenuState>();
 	/** What the reader has done to each query's view (the parents opened in a nested list; the sort and filter): kept for as long as the pane is open, never saved. */
 	private queryViews = new Map<string, QueryViewState>();
+	/** The data files the note's data blocks name (data-files.ts): read through the vault, read again when they change and when the pane comes back. */
+	private readonly files = new DataFiles(
+		() => this.app.vault.adapter,
+		() => (this.file ? this.file.path : null),
+		() => this.syncWidgets(),
+	);
+	/** The queries drawn, for a print to open their rows and fold them back (query-controls.ts, `printRows`). */
+	private readonly printable = new Set<{ box: HTMLElement; mount: QueryMount }>();
 	/** A step through the pane is under way (Obsidian drops a second one asked for meanwhile: a double press turns one page). */
 	private moving = false;
 	/** A tab chosen while a step was under way: made when the step has landed, so that the last move asked for is the one that lands. */
@@ -368,6 +377,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// back in use on a later day than the one drawn (the window or the app shown again, the pane made active): drawn
 		// again, so today is today. While the reader is in the middle of an answer the day it shows is kept.
 		const later = () => {
+			// the data files under the queries are looked at too: one that changed while the pane was away is read again, and the rows drawn again where they stand
+			void this.files.refresh();
 			if (this.book && localDay(new Date()) !== localDay(this.drawnAt) && !this.busy()) this.draw(false);
 		};
 		const doc = this.contentEl.ownerDocument;
@@ -380,6 +391,26 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				if (leaf === this.leaf) later();
 			}),
 		);
+		// a data file changed in the vault (a `.json` file is in the vault's index only when Obsidian is set to detect all file extensions; the check on return, above, covers the rest)
+		const touched = (file: { path: string }) => {
+			if (file.path.endsWith(".json")) this.files.touched();
+		};
+		this.registerEvent(this.app.vault.on("modify", touched));
+		this.registerEvent(this.app.vault.on("create", touched));
+		this.registerEvent(this.app.vault.on("delete", touched));
+		this.registerEvent(this.app.vault.on("rename", touched));
+		this.register(() => this.files.close());
+		// printing prints everything: every closed row of a query is opened for the paper and folded back after (query-controls.ts)
+		const printing = (on: boolean) => () => {
+			for (const q of [...this.printable]) {
+				if (!q.box.isConnected) this.printable.delete(q);
+				else q.mount.printRows(on);
+			}
+		};
+		if (doc.defaultView) {
+			this.registerDomEvent(doc.defaultView, "beforeprint", printing(true));
+			this.registerDomEvent(doc.defaultView, "afterprint", printing(false));
+		}
 		// Obsidian's theme or its light and dark mode changed: a reader who has not chosen a look gets the matching one
 		this.registerEvent(this.app.workspace.on("css-change", () => this.applyLook()));
 	}
@@ -695,6 +726,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				this.tabPart.clear();
 				this.menus.clear();
 				this.queryViews.clear();
+				this.files.reset();
 			}
 			this.draw(true);
 			return;
@@ -740,6 +772,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.drawnPlace = null;
 		this.tabPart.clear();
 		this.queryViews.clear();
+		this.files.reset();
+		this.printable.clear();
 		this.afterMove = null;
 		this.headingTo = null;
 		this.text = "";
@@ -1848,17 +1882,23 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
 		const draw = mountQuery(host, box, st);
+		this.printable.add({ box, mount: draw });
 		let sig = "";
+		let drawnOnce = false;
 		const show = () => {
 			if (!this.book) return;
 			const src = s.source;
 			const act = src && src.kind !== "data" ? src.act : null;
 			const rec = this.book.records;
-			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null);
+			// a data block that names a file: what was read of the file is part of what the rows are, so a file read again draws them again
+			const file = src && src.kind === "data" && src.block.file ? this.files.version(src.block) : "";
+			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null) + file;
 			if (now === sig) return;
 			sig = now;
 			const book = this.book;
-			draw(() => planQuery(book, s, { drawn: this.drawnAt }));
+			// drawn again over rows the reader is looking at: the rows they have open, their scroll and their focus stay where they were
+			draw(() => planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b) }), drawnOnce);
+			drawnOnce = true;
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);

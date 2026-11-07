@@ -2,12 +2,13 @@
  * A query's rows drawn (SPEC section 6): as a table, a list, tiles or cards, each by the parts its fields play (the
  * roles), from the plan the core works out (core/query.ts). Words are set as text, and the file's own inline Markdown
  * (an option, a title) through Obsidian's renderer; a value from the rows is never read as Markdown or HTML. Nothing
- * here is saved: a reader's sorting and filtering, and the parents they open in a nested list, are the view's to keep
- * for as long as the pane is open (core/view-state.ts).
+ * here is saved: a reader's sorting and filtering, and the rows they open, are the view's to keep for as long as the pane
+ * is open, on this device (core/view-state.ts). A row that opens (SPEC section 6, "Rows that open") is a native disclosure whose
+ * open part, and its child rows, are drawn when it opens, or at once if the reader had it open.
  */
 import { getIcon, setIcon } from "obsidian";
 import { drawChart } from "./charts";
-import { QUERY_WORDS, badgesOf, buildChart, linkOf, roleText, toneOf, type Cell, type Group, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type WordPart } from "./core";
+import { QUERY_WORDS, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type Group, type MoreField, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
@@ -18,6 +19,58 @@ export interface QueryHost {
 
 /** How many levels of a nested list are drawn inside one another. */
 const MAX_NEST = 200;
+/** How far in a nested table's row is set: a chain deeper than this is drawn at this depth (its real depth stays in `data-depth`). */
+const MAX_INDENT = 12;
+
+/** What a row that opens does when its disclosure opens or shuts (drawn when it opens, taken away when it shuts). */
+export interface NestHook {
+	open(): void;
+	close(): void;
+}
+/** The disclosures of one drawing, by element: the view's `toggle` listener calls these (query-controls.ts). */
+export type NestHooks = WeakMap<HTMLElement, NestHook>;
+
+/** A small stack of drawing jobs, run until none are left: a chain of rows thousands deep is drawn without a call for each level. */
+class Work {
+	private readonly jobs: (() => void)[] = [];
+	private on = false;
+	push(later: readonly (() => void)[]): void {
+		for (let i = later.length - 1; i >= 0; i--) this.jobs.push(later[i]!);
+	}
+	run(): void {
+		if (this.on) return;
+		this.on = true;
+		try {
+			while (this.jobs.length) this.jobs.pop()!();
+		} finally {
+			this.on = false;
+		}
+	}
+}
+
+/** The tree a nested view draws, with what the reader has open and the drawing's own disclosures. */
+interface Nest {
+	tree: Tree;
+	hooks: NestHooks;
+	work: Work;
+	has(r: Row): boolean;
+	isOpen(r: Row): boolean;
+	key(r: Row): string;
+}
+
+function nestOf(p: Plan, ui?: QueryUi): Nest | null {
+	const tree = p.tree;
+	if (!tree) return null;
+	const key = (r: Row): string => tree.keyOf.get(r) ?? "";
+	return {
+		tree,
+		hooks: new WeakMap(),
+		work: new Work(),
+		has: (r) => opensRow(tree, r),
+		isOpen: (r) => !!ui && (!!ui.force?.has(r) || ui.state.opens.has(key(r))),
+		key,
+	};
+}
 
 type Roles = Record<Role, string | null>;
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
@@ -115,7 +168,27 @@ export function numericColumns(rows: readonly Row[], cols: readonly string[]): S
 	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k].num !== undefined)));
 }
 
-function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void {
+/** A nameless row's name to a screen reader (a disclosure with nothing in it to read). */
+function nameIfBlank(summary: HTMLElement): void {
+	if ((summary.textContent ?? "").trim() === "") summary.createSpan({ cls: "booklet-sr", text: QUERY_WORDS.row });
+}
+
+/** A row's open part (SPEC section 6, "What opens"): its other fields, each under its label as plain text with the line breaks kept. */
+function moreInto(host: QueryHost, into: HTMLElement, m: readonly MoreField[]): void {
+	if (!m.length) return;
+	const dl = into.createEl("dl", { cls: "booklet-q-more" });
+	for (const f of m) {
+		words(host, dl.createEl("dt"), f.label);
+		dl.createEl("dd", { cls: "booklet-q-text", text: f.text });
+	}
+}
+
+/** The heading of a group of child rows, the field they came from. */
+function kidHead(host: QueryHost, into: HTMLElement, label: readonly WordPart[]): void {
+	words(host, into.createDiv({ cls: "booklet-q-ghead", attr: { role: "heading", "aria-level": "3" } }), label);
+}
+
+function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestHooks | null {
 	const { set, roles, cols } = p;
 	const all = p.groups.flatMap((g) => g.rows);
 	// a column of numbers is set to the right (worked out once for each column, not for each cell)
@@ -146,35 +219,135 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void 
 	}
 	// the first column that is not the badge leads the row: it carries the row's picture and its link
 	const leadKey = cols.find((k) => k !== roles.badge);
-	for (const g of p.groups) {
-		const body = t.createEl("tbody");
-		if (g.name !== null) {
-			const th = body.createEl("tr", { cls: "booklet-q-grouprow" }).createEl("th", { attr: { scope: "rowgroup", colspan: String(cols.length) } });
-			th.appendText(g.name || "–");
-			th.createSpan({ cls: "booklet-q-count", text: QUERY_WORDS.rows(g.rows.length) });
-		}
-		for (const r of g.rows) {
-			const tr = body.createEl("tr");
-			for (const k of cols) {
-				const td = tr.createEl("td");
-				td.toggleClass("booklet-q-num", numeric.has(k));
-				td.toggleClass("booklet-q-short", short.has(k));
-				if (k === roles.badge) {
-					const tone = toneOf(r, roles);
-					pills(td, badgesOf(r, roles), tone);
-					toneWords(td, tone);
-				} else if (k === leadKey && (roles.link || roles.icon)) {
-					iconInto(td, r, roles);
-					lead(host, td, r, roles, (el) => cellInto(host, el, r.cells[k], true));
-				} else cellInto(host, td, r.cells[k], true);
+	/** One cell's contents, in `td` or in the part of it that is the row's lead (`into`). */
+	const fill = (td: HTMLElement, into: HTMLElement, r: Row, k: string): void => {
+		td.toggleClass("booklet-q-num", numeric.has(k));
+		td.toggleClass("booklet-q-short", short.has(k));
+		if (k === roles.badge) {
+			const tone = toneOf(r, roles);
+			pills(into, badgesOf(r, roles), tone);
+			toneWords(into, tone);
+		} else if (k === leadKey && (roles.link || roles.icon)) {
+			iconInto(into, r, roles);
+			lead(host, into, r, roles, (el) => cellInto(host, el, r.cells[k], true));
+		} else cellInto(host, into, r.cells[k], true);
+	};
+	const nest = nestOf(p, ui);
+	if (!nest) {
+		for (const g of p.groups) {
+			const body = t.createEl("tbody");
+			if (g.name !== null) {
+				const th = body.createEl("tr", { cls: "booklet-q-grouprow" }).createEl("th", { attr: { scope: "rowgroup", colspan: String(cols.length) } });
+				th.appendText(g.name || "–");
+				th.createSpan({ cls: "booklet-q-count", text: QUERY_WORDS.rows(g.rows.length) });
+			}
+			for (const r of g.rows) {
+				const tr = body.createEl("tr");
+				for (const k of cols) {
+					const td = tr.createEl("td");
+					fill(td, td, r, k);
+				}
 			}
 		}
+		return null;
 	}
+	// A nested table: one body, every row a row of the same columns, a child one step in from its parent. A row that opens carries a
+	// native disclosure in its lead cell; what it opens to (its other fields, its children) is a few rows after it, drawn when it
+	// opens and taken away when it shuts. `data-depth` says how far in a row is.
+	const body = t.createEl("tbody");
+	const span = String(cols.length || 1);
+	const nlead = leadKey ?? cols[0];
+	const { tree, work } = nest;
+	const leadBox = (td: HTMLElement, depth: number): HTMLElement => {
+		const box = td.createDiv({ cls: "booklet-q-lead" });
+		for (let i = Math.min(depth, MAX_INDENT); i > 0; i--) box.createSpan({ cls: "booklet-q-ind", attr: { "aria-hidden": "true" } });
+		return box;
+	};
+	const rowJob = (r: Row, depth: number): (() => void) => () => {
+		const tr = body.createEl("tr", { cls: "booklet-q-trow", attr: { "data-depth": String(depth) } });
+		const opens = nest.has(r);
+		let details: HTMLDetailsElement | null = null;
+		for (const k of cols) {
+			const td = tr.createEl("td");
+			if (k !== nlead) {
+				fill(td, td, r, k);
+				continue;
+			}
+			const box = leadBox(td, depth);
+			if (!opens) {
+				box.createSpan({ cls: "booklet-q-nocaret", attr: { "aria-hidden": "true" } });
+				fill(td, box.createSpan({ cls: "booklet-q-leadtext" }), r, k);
+				continue;
+			}
+			details = box.createEl("details", { attr: { "data-id": nest.key(r) } });
+			details.open = nest.isOpen(r);
+			const summary = details.createEl("summary");
+			fill(td, summary, r, k);
+			nameIfBlank(summary);
+		}
+		if (!opens || !details) return;
+		const below = (): (() => void)[] => {
+			const jobs: (() => void)[] = [];
+			const m = tree.more(r);
+			if (m.length)
+				jobs.push(() => {
+					const td = body.createEl("tr", { cls: "booklet-q-trmore", attr: { "data-depth": String(depth + 1) } }).createEl("td", { attr: { colspan: span } });
+					moreInto(host, leadBox(td, depth + 1), m);
+				});
+			for (const g of tree.groups.get(r) ?? []) {
+				if (g.label)
+					jobs.push(() => {
+						const th = body.createEl("tr", { cls: "booklet-q-grouprow", attr: { "data-depth": String(depth + 1) } }).createEl("th", { attr: { scope: "rowgroup", colspan: span } });
+						words(host, leadBox(th, depth + 1), g.label!);
+					});
+				for (const c of g.rows) jobs.push(rowJob(c, depth + 1));
+			}
+			return jobs;
+		};
+		let drawn = nest.isOpen(r);
+		if (drawn) work.push(below());
+		nest.hooks.set(details, {
+			open() {
+				if (drawn) return;
+				drawn = true;
+				// the rows are made at the end of the body, in order, and moved to follow this one
+				const last = body.lastElementChild;
+				work.push(below());
+				work.run();
+				const fresh: Element[] = [];
+				for (let n = last ? last.nextElementSibling : body.firstElementChild; n; n = n.nextElementSibling) fresh.push(n);
+				tr.after(...fresh);
+			},
+			close() {
+				if (!drawn) return;
+				drawn = false;
+				for (let n = tr.nextElementSibling; n && Number(n.getAttribute("data-depth")) > depth; ) {
+					const gone = n;
+					n = n.nextElementSibling;
+					gone.remove();
+				}
+			},
+		});
+	};
+	// rows that do not nest may still be grouped, and then each group is headed as in a flat table
+	const tops: (() => void)[] = [];
+	for (const g of tree.tops) {
+		if (g.name !== null)
+			tops.push(() => {
+				const th = body.createEl("tr", { cls: "booklet-q-grouprow" }).createEl("th", { attr: { scope: "rowgroup", colspan: span } });
+				th.appendText(g.name || "–");
+				th.createSpan({ cls: "booklet-q-count", text: QUERY_WORDS.rows(g.rows.length) });
+			});
+		for (const r of g.rows) tops.push(rowJob(r, 0));
+	}
+	work.push(tops);
+	work.run();
+	return nest.hooks;
 }
 
-function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): void {
+function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestHooks | null {
 	const { set, roles, cols } = p;
-	/** One row's parts, in the element that holds it: an `li`, or the `summary` of a parent. */
+	/** One row's parts, in the element that holds it: an `li`, or the `summary` of a row that opens. */
 	const fill = (li: HTMLElement, r: Row) => {
 		const tone = toneOf(r, roles);
 		const badges = badgesOf(r, roles);
@@ -197,50 +370,77 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): vo
 		toneWords(line, tone);
 		if (roles.note && r.cells[roles.note]) cellInto(host, li.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
 	};
-	const row = (ul: HTMLElement, r: Row) => fill(ul.createEl("li", { cls: "booklet-q-row" }), r);
-	if (p.tree) {
-		// a nested list: a row with children is a native details, shut until the reader opens it (what they open is kept with the query's view, never saved)
-		const tree = p.tree;
-		// drawn with a stack of its own, not a call for each level: a chain thousands deep must not overflow the stack. Past
-		// MAX_NEST levels a parent's children are drawn in the same list as it, not inside it (a browser lays out a tree
-		// that deep very slowly, and no reader opens two hundred levels one by one).
-		const work: { ul: HTMLElement; list: readonly Row[]; at: number; depth: number }[] = [{ ul: into.createEl("ul", { cls: "booklet-q-list booklet-q-tree" }), list: tree.roots, at: 0, depth: 0 }];
-		while (work.length) {
-			const w = work[work.length - 1]!;
-			if (w.at >= w.list.length) {
-				work.pop();
-				continue;
-			}
-			const r = w.list[w.at++]!;
-			const mine = tree.kids.get(r);
-			if (!mine || !mine.length) {
-				row(w.ul, r);
-				continue;
-			}
-			if (w.depth >= MAX_NEST) {
-				row(w.ul, r);
-				work.push({ ul: w.ul, list: mine, at: 0, depth: w.depth });
-				continue;
-			}
-			const id = (r.cells["id"]?.text ?? "").trim();
-			const d = w.ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": id } });
-			d.open = !!ui && (ui.force?.has(r) || ui.state.opens.has(id));
-			if (ui)
-				d.addEventListener("toggle", () => {
-					if (ui.filtering) return;
-					if (d.open) ui.state.opens.add(id);
-					else ui.state.opens.delete(id);
-				});
-			fill(d.createEl("summary", { cls: "booklet-q-row" }), r);
-			work.push({ ul: d.createEl("ul", { cls: "booklet-q-list" }), list: mine, at: 0, depth: w.depth + 1 });
+	const row = (ul: HTMLElement, r: Row) => {
+		const li = ul.createEl("li", { cls: "booklet-q-row" });
+		fill(li, r);
+		return li;
+	};
+	const nest = nestOf(p, ui);
+	if (!nest) {
+		for (const g of p.groups) {
+			groupHead(into, g);
+			const ul = into.createEl("ul", { cls: "booklet-q-list" });
+			for (const r of g.rows) row(ul, r);
 		}
-		return;
+		return null;
 	}
-	for (const g of p.groups) {
-		groupHead(into, g);
-		const ul = into.createEl("ul", { cls: "booklet-q-list" });
-		for (const r of g.rows) row(ul, r);
+	// A nested list: a row that opens is a native details, shut until the reader opens it (what they open is kept with the query's
+	// view, on this device, and never in the note). Its open part and its child rows are drawn when it opens, or at once if it was
+	// kept open. Drawn with a stack of jobs, not a call for each level: a chain thousands deep must not overflow the stack. Past
+	// MAX_NEST levels a row's children are drawn in the same list as it, not inside it (a browser lays out a tree that deep very
+	// slowly, and no reader opens two hundred levels one by one).
+	const { tree, work } = nest;
+	const node = (ul: HTMLElement, r: Row, depth: number): (() => void) => () => {
+		if (!nest.has(r)) {
+			row(ul, r);
+			return;
+		}
+		if (depth >= MAX_NEST) {
+			const li = row(ul, r);
+			moreInto(host, li, tree.more(r));
+			work.push((tree.groups.get(r) ?? []).flatMap((g) => g.rows.map((c) => node(ul, c, depth))));
+			return;
+		}
+		const d = ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": nest.key(r) } });
+		d.open = nest.isOpen(r);
+		const summary = d.createEl("summary", { cls: "booklet-q-row" });
+		fill(summary, r);
+		nameIfBlank(summary);
+		let drawn = false;
+		const draw = (): void => {
+			if (drawn) return;
+			drawn = true;
+			moreInto(host, d, tree.more(r));
+			const jobs: (() => void)[] = [];
+			for (const g of tree.groups.get(r) ?? []) {
+				if (g.label) jobs.push(() => kidHead(host, d, g.label!));
+				jobs.push(() => {
+					const kids = d.createEl("ul", { cls: "booklet-q-list" });
+					work.push(g.rows.map((c) => node(kids, c, depth + 1)));
+				});
+			}
+			work.push(jobs);
+		};
+		nest.hooks.set(d, {
+			open() {
+				draw();
+				work.run();
+			},
+			close() {},
+		});
+		if (d.open) work.push([draw]);
+	};
+	const tops: (() => void)[] = [];
+	for (const g of tree.tops) {
+		tops.push(() => {
+			groupHead(into, g);
+			const ul = into.createEl("ul", { cls: "booklet-q-list booklet-q-tree" });
+			work.push(g.rows.map((r) => node(ul, r, 0)));
+		});
 	}
+	work.push(tops);
+	work.run();
+	return nest.hooks;
 }
 
 function tiles(host: QueryHost, into: HTMLElement, p: Plan): void {
@@ -262,36 +462,106 @@ function tiles(host: QueryHost, into: HTMLElement, p: Plan): void {
 	}
 }
 
-/** A kept entry as a dated card, its lines the questions; a summary row as a card led by its label. */
-function cards(host: QueryHost, into: HTMLElement, p: Plan): void {
+/** A kept entry as a dated card, its lines the questions; a summary row as a card led by its label; a data row that opens as a card that folds. */
+function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestHooks | null {
 	const { set, roles, cols } = p;
 	const box = into.createDiv({ cls: "booklet-q-cards" });
-	for (const g of p.groups) {
-		groupHead(box, g);
-		for (const r of g.rows) {
-			if (set.kind === "entries") entryCard(host, box, set, r, roles, cols);
-			else {
-				const tone = toneOf(r, roles);
-				const card = box.createDiv({ cls: `booklet-q-card${tone ? ` booklet-tone-${tone}` : ""}` });
-				const head = card.createDiv({ cls: "booklet-q-card-title" });
-				iconInto(head, r, roles);
-				if (roles.label && r.cells[roles.label]) lead(host, head, r, roles, (el) => cellInto(host, el, r.cells[roles.label!], false));
-				pills(card, badgesOf(r, roles), tone);
-				if (roles.value && r.cells[roles.value]) cellInto(host, card.createDiv({ cls: "booklet-q-big" }), r.cells[roles.value], false);
-				if (roles.note && r.cells[roles.note]) cellInto(host, card.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
-				// a data block's row: every field that plays no role is a line under the title, as on a kept entry's card
-				const lines = set.kind === "data" ? cols.filter((k) => r.cells[k]) : [];
-				if (lines.length) {
-					const dl = card.createEl("dl");
-					for (const k of lines) {
-						words(host, dl.createEl("dt"), set.label(k));
-						cellInto(host, dl.createEl("dd"), r.cells[k], true);
-					}
-				}
-				toneWords(card, tone);
+	const nest = nestOf(p, ui);
+	/** A data row's lines: every field that plays no role, under the title, as on a kept entry's card. */
+	const linesInto = (card: HTMLElement, r: Row): void => {
+		const lines = set.kind === "data" ? cols.filter((k) => r.cells[k]) : [];
+		if (!lines.length) return;
+		const dl = card.createEl("dl");
+		for (const k of lines) {
+			words(host, dl.createEl("dt"), set.label(k));
+			cellInto(host, dl.createEl("dd"), r.cells[k], true);
+		}
+	};
+	const plain = (at: HTMLElement, r: Row): HTMLElement => {
+		const tone = toneOf(r, roles);
+		const card = at.createDiv({ cls: `booklet-q-card${tone ? ` booklet-tone-${tone}` : ""}` });
+		const head = card.createDiv({ cls: "booklet-q-card-title" });
+		iconInto(head, r, roles);
+		if (roles.label && r.cells[roles.label]) lead(host, head, r, roles, (el) => cellInto(host, el, r.cells[roles.label!], false));
+		pills(card, badgesOf(r, roles), tone);
+		if (roles.value && r.cells[roles.value]) cellInto(host, card.createDiv({ cls: "booklet-q-big" }), r.cells[roles.value], false);
+		if (roles.note && r.cells[roles.note]) cellInto(host, card.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
+		linesInto(card, r);
+		toneWords(card, tone);
+		return card;
+	};
+	if (!nest) {
+		for (const g of p.groups) {
+			groupHead(box, g);
+			for (const r of g.rows) {
+				if (set.kind === "entries") entryCard(host, box, set, r, roles, cols);
+				else plain(box, r);
 			}
 		}
+		return null;
 	}
+	// A card that opens (SPEC section 6, "Rows that open") is a card that folds: its title, badges, value and note stay in sight, and its
+	// other lines, open part and child cards are drawn when it opens, or at once if it was kept open.
+	const { tree, work } = nest;
+	const card = (at: HTMLElement, r: Row, depth: number): (() => void) => () => {
+		if (!nest.has(r)) {
+			plain(at, r);
+			return;
+		}
+		if (depth >= MAX_NEST) {
+			const c = plain(at, r);
+			moreInto(host, c, tree.more(r));
+			work.push((tree.groups.get(r) ?? []).flatMap((g) => g.rows.map((k) => card(at, k, depth))));
+			return;
+		}
+		const tone = toneOf(r, roles);
+		const wrap = at.createDiv({ cls: `booklet-q-card booklet-q-fold${tone ? ` booklet-tone-${tone}` : ""}` });
+		const d = wrap.createEl("details", { attr: { "data-id": nest.key(r) } });
+		d.open = nest.isOpen(r);
+		const summary = d.createEl("summary");
+		const head = summary.createSpan({ cls: "booklet-q-card-title" });
+		iconInto(head, r, roles);
+		if (roles.label && r.cells[roles.label]) lead(host, head, r, roles, (el) => cellInto(host, el, r.cells[roles.label!], false));
+		pills(summary, badgesOf(r, roles), tone);
+		if (roles.value && r.cells[roles.value]) cellInto(host, summary.createSpan({ cls: "booklet-q-big" }), r.cells[roles.value], false);
+		if (roles.note && r.cells[roles.note]) cellInto(host, summary.createSpan({ cls: "booklet-q-note" }), r.cells[roles.note], false);
+		toneWords(summary, tone);
+		nameIfBlank(summary);
+		let drawn = false;
+		const draw = (): void => {
+			if (drawn) return;
+			drawn = true;
+			const body = d.createDiv({ cls: "booklet-q-fold-body" });
+			linesInto(body, r);
+			moreInto(host, body, tree.more(r));
+			const jobs: (() => void)[] = [];
+			for (const g of tree.groups.get(r) ?? []) {
+				if (g.label) jobs.push(() => kidHead(host, body, g.label!));
+				jobs.push(() => {
+					const kids = body.createDiv({ cls: "booklet-q-cards booklet-q-sub" });
+					work.push(g.rows.map((k) => card(kids, k, depth + 1)));
+				});
+			}
+			work.push(jobs);
+		};
+		nest.hooks.set(d, {
+			open() {
+				draw();
+				work.run();
+			},
+			close() {},
+		});
+		if (d.open) work.push([draw]);
+	};
+	const tops: (() => void)[] = [];
+	for (const g of tree.tops)
+		tops.push(() => {
+			groupHead(box, g);
+			work.push(g.rows.map((r) => card(box, r, 0)));
+		});
+	work.push(tops);
+	work.run();
+	return nest.hooks;
 }
 
 function entryCard(host: QueryHost, box: HTMLElement, set: RowSet, r: Row, roles: Roles, cols: readonly string[]): void {
@@ -310,14 +580,21 @@ function entryCard(host: QueryHost, box: HTMLElement, set: RowSet, r: Row, roles
 	}
 }
 
-/** Draws a query's plan into `into` (emptied first). */
-export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, ui?: QueryUi): void {
+/**
+ * Draws a query's plan into `into` (emptied first). Gives back the disclosures of a nested view (the view's `toggle` listener draws
+ * and takes away what a row opens to, query-controls.ts), or null when nothing in it opens.
+ */
+export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, ui?: QueryUi): NestHooks | null {
 	into.empty();
 	into.setAttr("data-booklet-view", p.view);
-	if (p.empty !== null) into.createEl("p", { cls: "booklet-muted booklet-q-empty", text: p.empty });
-	else if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
-	else if (p.view === "table") table(host, into, p, ui);
-	else if (p.view === "list") listView(host, into, p, ui);
+	if (p.empty !== null) {
+		into.createEl("p", { cls: `booklet-muted booklet-q-empty${p.quiet ? " booklet-q-quiet" : ""}`, text: p.empty });
+		return null;
+	}
+	if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
+	else if (p.view === "table") return table(host, into, p, ui);
+	else if (p.view === "list") return listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);
-	else cards(host, into, p);
+	else return cards(host, into, p, ui);
+	return null;
 }

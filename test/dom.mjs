@@ -137,6 +137,7 @@ export function testApp(disk, more = {}) {
 				disk.text = fn(disk.text);
 				return disk.text;
 			},
+			on: () => ({}),
 			...vault,
 		},
 		workspace: { iterateAllLeaves() {}, on: () => ({}), openLinkText: async () => {}, requestSaveLayout() {}, ...workspace },
