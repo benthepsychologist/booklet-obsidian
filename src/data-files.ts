@@ -147,6 +147,12 @@ export class DataFiles {
 				out = { state: "error", error: "failed" };
 			}
 			if (this.dead || this.files.get(path) !== e || e.ticket !== ticket) return;
+			// A read that fails leaves good data as it is (the data is not the reader's work, and a half-written file or a flicker of the
+			// disk is not news): the rows already drawn stay. Nothing is kept of the stamp, so the next look at the file reads it again.
+			if (e.state === "ok" && out.state === "error") {
+				e.stamp = "";
+				return;
+			}
 			e.gen++;
 			e.stamp = stamp;
 			e.state = out.state;

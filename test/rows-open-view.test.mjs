@@ -547,7 +547,10 @@ test("the pane coming back into view looks at the file and reads it again only i
 	assert.equal(v.log.reads.length, 2);
 	v.remove("dash.json");
 	v.back();
-	await until(() => /was not found/.test(quiet(v.queries()[0]) ?? ""), "the quiet box for a file that is gone");
+	await until(() => v.log.stats >= 4, "a look at the gone file");
+	await v.settled();
+	assert.deepEqual(labels(v.queries()[0]), ["New plot"], "a file that is gone leaves the good rows on screen");
+	assert.equal(quiet(v.queries()[0]), undefined);
 	v.write("dash.json", PLOTS);
 	v.back();
 	await until(() => labels(v.queries()[0]).length === 3, "the rows come back");
@@ -713,4 +716,45 @@ test("a card that does not open and one that does show the same lines when shut"
 	const fold = open(note(["from: d\nas: cards\nlabel: title\nfields: kind"])).queries()[0];
 	assert.deepEqual(dts(plain), ["Kind"]);
 	assert.deepEqual(dts(fold.querySelector(".booklet-q-fold")), ["Kind"], "shut, as a card with nothing to open");
+});
+
+test("a file that cannot be read again keeps the rows already on screen: half-written, not JSON, or gone", async () => {
+	const v = open(fileNote(), { "dash.json": PLOTS });
+	await until(() => v.queries()[0].querySelector("details"), "the rows");
+	press(v.queries()[0].querySelector("details"));
+	const shown = labels(v.queries()[0]);
+	assert.deepEqual(shown, ["Garden", "Beds", "Pond", "Orchard", "Shed"]);
+	const before = v.log.stats;
+	for (const [what, text] of [["half written", '{"plots":[{"id":"r0","ti'], ["not JSON", "<html>oops</html>"]]) {
+		v.write("dash.json", text);
+		v.events.get("modify")({ path: "dash.json" });
+		await until(() => v.log.reads.length >= (what === "half written" ? 2 : 3), `the ${what} file to be read`);
+		await v.settled();
+		const q = v.queries()[0];
+		assert.equal(quiet(q), undefined, `${what}: no quiet box`);
+		assert.deepEqual(labels(q), shown, `${what}: the rows stay`);
+		assert.equal(q.querySelector("details").open, true, `${what}: and the row the reader opened`);
+	}
+	v.remove("dash.json");
+	v.events.get("delete")({ path: "dash.json" });
+	await until(() => v.log.stats > before + 2, "a look at the gone file");
+	await v.settled();
+	assert.equal(quiet(v.queries()[0]), undefined, "a file that is gone: the rows stay");
+	assert.deepEqual(labels(v.queries()[0]), shown);
+	const changed = JSON.parse(PLOTS);
+	changed.plots[1].title = "Orchard (renamed)";
+	v.write("dash.json", JSON.stringify(changed));
+	v.events.get("create")({ path: "dash.json" });
+	await until(() => labels(v.queries()[0])[3] === "Orchard (renamed)", "a good file to be drawn again");
+	assert.equal(v.queries()[0].querySelector("details").open, true);
+	v.close();
+});
+
+test("a file that was never read well still gets the quiet box, and is drawn when it reads", async () => {
+	const v = open(fileNote(), { "dash.json": "{ not json" });
+	await until(() => /is not JSON/.test(quiet(v.queries()[0]) ?? ""), "the quiet box");
+	v.write("dash.json", PLOTS);
+	v.back();
+	await until(() => labels(v.queries()[0]).length === 3, "the rows");
+	v.close();
 });
