@@ -82,7 +82,8 @@ function valueFor(q, act) {
 	// a question asked for each pick (each:): a pair for every pick of its source's value, each with its kind's answer
 	if (q.each) {
 		const src = core.sourceOf(act, q);
-		const picks = src ? core.sourcePicks(src, valueFor(src, act)) : [];
+		// a question asked for each row of a data block (no question of the activity is its source): a pair for two made-up row ids
+		const picks = src ? core.sourcePicks(src, valueFor(src, act)) : ["j-stakes", "j-prune"];
 		const plain = { ...q, each: null };
 		return picks.length ? picks.map((pick, i) => ({ pick, a: i ? otherValueFor(plain) : valueFor(plain, act) })) : undefined;
 	}

@@ -23,8 +23,8 @@ export const newViewState = (): QueryViewState => ({ open: false, q: "", key: nu
 /** The rows a plan draws, counting a nested view's children. */
 export const rowCount = (p: Plan): number => p.groups.reduce((n, g) => n + g.rows.length, 0);
 
-/** Does this row of a nested view open: it has children, or more of its own fields to show than its line does. */
-export const opensRow = (t: Tree, r: Row): boolean => (t.groups.get(r)?.length ?? 0) > 0 || t.more(r).length > 0;
+/** Does this row of a nested view open: it has children, or more of its own fields to show than its line does, or a question to ask of it. */
+export const opensRow = (t: Tree, r: Row): boolean => (t.groups.get(r)?.length ?? 0) > 0 || t.more(r).length > 0 || t.asks(r).length > 0;
 
 /** Open all: every row of the nested view that opens (not only the ones a search keeps), by key. */
 export function openAllRows(p: Plan, st: QueryViewState): void {
@@ -48,7 +48,8 @@ export function shownKeys(p: Plan): string[] {
 export function sortKeys(p: Plan): { key: string; label: string }[] {
 	if (p.view === "line") return [];
 	const { roles, set } = p;
-	const keys = uniq([set.kind === "entries" ? "date" : null, roles.label, roles.value, ...p.cols.flatMap(set.expand)]);
+	// a column that holds a question asked for each row is the reader's own answers, not a field of the rows: there is nothing to sort by
+	const keys = uniq([set.kind === "entries" ? "date" : null, roles.label, roles.value, ...p.cols.flatMap(set.expand)]).filter((k) => !p.ask?.columns.has(k));
 	return keys.map((key) => ({ key, label: key === "date" ? QUERY_WORDS.controls.date : textOf(set.label(key)) }));
 }
 

@@ -296,7 +296,7 @@ test("an each: over a data block in reach reads clean and keeps its each; one th
 	assert.deepEqual(ok.problems, []);
 	const q = ok.activities[0].segments.find((s) => s.type === "question");
 	assert.equal(q.each, "d");
-	assert.ok(ok.unread.some((u) => /asked for each row of a data block is not drawn yet/.test(u.why)), "said once as not drawn yet");
+	assert.deepEqual(ok.unread, [], "nothing is left unread: a question asked for each row is drawn (format 0.19, slice 2)");
 	const bad = mk("nowhere");
 	assert.ok(bad.problems.some((p) => /no question or widget in its activity and no data block in reach/.test(p)));
 	assert.equal(bad.activities[0].segments.find((s) => s.type === "question").each, null);

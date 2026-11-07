@@ -1,4 +1,4 @@
-// Checks 29 to 32 and 61 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
+// Checks 29 to 32, 61 and 62 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
 // copied into each check's own copy of the vault:
 //   29 charts (bars and a line, the numbers fold, the readout and the arrow keys),
 //   30 data blocks and the kept days in every view (icons, links, pills, a nested list, tiles of an each-pick, the empty words),
@@ -23,6 +23,8 @@ module.exports = function dashboardChecks(env) {
     await mobile(o, on);
     await open(o, NOTE);
   };
+  // a press at the empty right end of a summary (the value on a row's line is a button of its own that edits)
+  const clickEnd = async loc => { const b = await loc.boundingBox(); await loc.click({ position: { x: Math.max(2, b.width - 3), y: Math.max(2, Math.min(b.height - 2, 6)) } }); };
   const sideways = o => o.evaluate(sel => { const v = document.querySelector(sel + " .view-content"); return v.scrollWidth - v.clientWidth; }, BOOK);
   // the text of the first match of a selector inside the first query of the note
   const textIn = (o, s) => o.evaluate(([b, s]) => document.querySelectorAll(b + " .booklet-query")[0].querySelector(s).textContent.trim(), [BOOK, s]);
@@ -410,12 +412,13 @@ module.exports = function dashboardChecks(env) {
         await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 4 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
         const plots = qs().nth(0);
         c.ok((await plots.locator("tbody tr").count()) === 3, `[${where}] the plots table reads orchard-dashboard.json from the vault: ${await plots.locator("tbody tr").count()} top rows`);
-        c.ok((await plots.locator("thead th").allInnerTexts()).join("|") === "Name|Kind|Stage|Open jobs|Due|Notes for the gardener", `[${where}] its headings are the file's labels`);
+        c.ok((await plots.locator("thead th").allInnerTexts()).join("|") === "Name|Kind|Stage|Open jobs|Due|A note for the gardener", `[${where}] its headings are the file's labels`);
         c.ok((await plots.locator("details").count()) === 3, `[${where}] the three plots open (each has text or jobs); every disclosure is shut and nothing below is drawn: ${await plots.locator("tbody tr").count()} rows`);
         c.ok((await qs().nth(3).locator("summary, .booklet-q-row").count()) >= 1, `[${where}] the requests list reads the same file at inbox.requests`);
 
         // a real click opens a row: its text, then its jobs, one step in
-        await plots.locator("summary", { hasText: "Orchard" }).first().click();
+        // (a press on the title's own value edits it, so the row is opened by the summary's empty end, where a pointer opens a row)
+        await clickEnd(plots.locator("summary", { hasText: "Orchard" }).first());
         await quiet(o);
         const kinds = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("tbody tr")].map(r => (r.classList.contains("booklet-q-trow") ? "row" : r.classList.contains("booklet-q-trmore") ? "more" : "head") + r.getAttribute("data-depth")).join(), BOOK);
         c.ok((await kinds()).startsWith("row0,more1,head1,row1,row1,row1,row0,row0"), `[${where}] a click opens the orchard to its text, the heading Jobs and its three jobs: ${await kinds()}`);
@@ -481,9 +484,9 @@ module.exports = function dashboardChecks(env) {
         await quiet(o);
         c.ok(/Orchard \(the file came back\)/.test(await plots.innerText()) && (await qs().nth(0).locator("tbody tr").count()) > 0, `[${where}] the file back gives its rows again`);
 
-        // each: over rows
-        const each = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-each-rows")].map(e => e.querySelector(".booklet-prompt").textContent + " / " + e.querySelector(".booklet-each-notyet").textContent + " / " + e.querySelectorAll("input,textarea,button").length), BOOK);
-        c.ok(each.length === 3 && each.every(x => /does not draw yet\. Its answers are kept as written\.\s*\/ 0$/.test(x)), `[${where}] the three questions asked for each row are a title and a line, nothing to type in: ${JSON.stringify(each)}`);
+        // each: over rows (slice 2): the question asked for each plot is drawn in the Notes column, a text area in every row, named for a screen reader
+        const notes = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-query")[0].querySelectorAll("tr.booklet-q-trow[data-depth='0'] [data-booklet-q='notes'] textarea")].map(t => t.getAttribute("aria-labelledby").split(" ").map(i => document.getElementById(i).textContent.trim()).join(" ")), BOOK);
+        c.ok(notes.length === 3 && notes.every(x => /^A note for the gardener \(.+\)$/.test(x)), `[${where}] the question asked for each plot is a text area in the Notes column of every row, named by the question and the plot: ${JSON.stringify(notes)}`);
         c.ok(orchard.sha(path.join(vault, ORCHARD)) === sh0, `[${where}] the orchard note is the same bytes`);
 
         // the large dashboard
@@ -536,5 +539,148 @@ module.exports = function dashboardChecks(env) {
     return c;
   }
 
-  return { 29: check29, 30: check30, 31: check31, 32: check32, 61: check61 };
+  /* ================= CHECK 62 ================= */
+  // Dashboards slice 2 (format 0.19): acts on the rows of a data block, in the real app, on the made-up orchard example: a field marked `edit` pressed
+  // with a real click into a box and kept with Enter as one act (`pick`, `a`, `was`) in a new kept entry, no other byte of the note changed; Esc and
+  // the keyboard; the three display states when the JSON is changed from outside; `readonly` on the roundup; a question asked for each row typed in a
+  // column (a draft, not an act) and in a request's open part, kept by the row's Finalize; the control names in the accessibility tree; print.
+  async function check62() {
+    const c = new Check(62, "0.19 acts on rows, in the real app: a field marked edit pressed into a box and kept by Enter as one act with was in a new entry, nothing else in the note changed; Esc keeps nothing; the keyboard; waiting, same and changed after the JSON changes outside; readonly cards have no box; a question in a column is a draft; a row's Finalize keeps its pairs as one entry; control names; print shows values");
+    const ORCHARD = "orchard-dashboard.booklet.md";
+    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    for (const where of ["desktop", "phone"]) {
+      const desk = where === "desktop";
+      await withApp("c62-" + where, async (o, vault) => {
+        const noteFile = path.join(vault, ORCHARD), jsonFile = path.join(vault, "orchard-dashboard.json");
+        fs.writeFileSync(noteFile, fs.readFileSync(here("orchard-dashboard.booklet.md")));
+        // the open-jobs count is marked as a number to edit in this copy of the file (the example marks four other fields)
+        const j0 = JSON.parse(fs.readFileSync(here("orchard-dashboard.json"), "utf8"));
+        j0.plots.fields.open = { label: "Open jobs", edit: "number" };
+        fs.writeFileSync(jsonFile, JSON.stringify(j0));
+        if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
+        const orchard = kit(env, ORCHARD);
+        const orig = fs.readFileSync(noteFile, "utf8");
+        await orchard.open(o, ORCHARD);
+        await orchard.goTo(o, "activity:desk/orchard");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 4 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
+        const qs = () => o.page.locator(BOOK + " .booklet-query");
+        const plots = qs().nth(0);
+        const cell = (key, pick = "p-orchard") => plots.locator(`[data-booklet-edit='${key}'][data-booklet-pick='${pick}']`);
+        const noteText = () => fs.readFileSync(noteFile, "utf8");
+        const entries = () => (noteText().match(/^\{"ts":"[^\n]*$/gm) || []);
+        const settle = async () => { await quiet(o); await sleep(900); await quiet(o); };
+
+        // a real click on a value turns it into a box of its kind, with the focus in it
+        await cell("stage").locator("button").click();
+        const sel = cell("stage").locator("select");
+        c.ok((await sel.count()) === 1 && (await sel.evaluate(e => e === document.activeElement && e.value)) === "growing", `[${where}] pressing the Stage value gives a menu with the focus in it, on the value`);
+        c.ok((await sel.evaluate(e => [...e.options].map(x => x.value).join())) === "planning,growing,resting,done", `[${where}] and its options are the field's`);
+        c.ok((await plots.locator("details[open]").count()) === 0, `[${where}] the press did not open the row`);
+        await sel.selectOption("resting");
+        // notices come and go: a watcher keeps the words of every one that appears
+        // (Obsidian shows no notice in a window that is not focused, and the harness's window may not be: it is told it has the focus)
+        await o.evaluate(() => { window.dispatchEvent(new Event("focus")); });
+        await o.evaluate(() => { window.__seen = []; new MutationObserver(() => document.querySelectorAll(".notice").forEach(n => { if (!window.__seen.includes(n.textContent)) window.__seen.push(n.textContent); })).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+        await o.page.keyboard.press("Enter");
+        await settle();
+        const t1 = noteText(), es = entries();
+        c.ok(t1.startsWith(orig.replace(/\s*$/, "")) && es.length === 1 && /"stage":\[\{"pick":"p-orchard","a":"resting","was":"growing"\}\]/.test(es[0]), `[${where}] Enter keeps one entry, one pair with the row, the value and was: ${es[0]}`);
+        c.ok(t1.slice(0, orig.replace(/\s*$/, "").length) === orig.replace(/\s*$/, ""), `[${where}] and the note before the records is the same bytes`);
+        c.ok(/resting/.test(await cell("stage").innerText()) && /· sent, waiting/.test(await cell("stage").innerText()), `[${where}] the cell says, in words, that it is sent and waiting: ${JSON.stringify(await cell("stage").innerText())}`);
+        c.ok(await cell("stage").locator("button").evaluate(b => b === document.activeElement), `[${where}] the focus is back on the value's button`);
+        const described = await cell("stage").locator("button").evaluate(b => { const m = document.getElementById(b.getAttribute("aria-describedby") || "-"); return m ? m.textContent.trim() : ""; });
+        c.ok(/^· sent, waiting$/.test(described), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(described)}`);
+        await o.page.waitForFunction(() => (window.__seen || []).some(x => /change kept/i.test(x)), null, { timeout: 8000 }).catch(() => {});
+        const notices = await o.evaluate(() => (window.__seen || []).join("|"));
+        c.ok(/change kept/i.test(notices), `[${where}] a kept change is announced by a notice: ${JSON.stringify(notices)}`);
+
+        // the three display states, when the JSON is changed from outside
+        const json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
+        const jsonWrite = async fn => { fn(json); fs.writeFileSync(jsonFile, JSON.stringify(json)); await sleep(1200); await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await sleep(800); await quiet(o); };
+        await jsonWrite(j => (j.plots.rows[0].stage = "resting"));
+        c.ok(!/sent, waiting|You sent/.test(await cell("stage").innerText()) && /resting/.test(await cell("stage").innerText()), `[${where}] the data now holds what was sent: nothing is marked`);
+        await jsonWrite(j => (j.plots.rows[0].stage = "done"));
+        c.ok(/done/.test(await cell("stage").innerText()) && /You sent: resting/.test(await cell("stage").innerText()), `[${where}] the data holds something else: the value now, with what was sent beneath: ${JSON.stringify(await cell("stage").innerText())}`);
+        await jsonWrite(j => (j.plots.rows[0].stage = "growing"));
+
+        // Esc keeps nothing; the keyboard reaches the value and Enter keeps
+        await cell("due").locator("button").focus();
+        await o.page.keyboard.press("Enter");
+        const due = cell("due").locator("input");
+        c.ok((await due.count()) === 1 && (await due.getAttribute("type")) === "date", `[${where}] Enter on the focused Due value gives a date field`);
+        await o.page.keyboard.press("Escape");
+        await settle();
+        c.ok(entries().length === 1 && (await cell("due").locator("input").count()) === 0 && /2026-11-20/.test(await cell("due").innerText()), `[${where}] Esc keeps nothing and puts the value back`);
+        // a half-typed number ("3e" gives value "" and badInput in Chrome) is kept as nothing: the box stays open with the text and a word
+        await cell("open").locator("button").focus();
+        await o.page.keyboard.press("Enter");
+        await o.page.keyboard.type("3e");
+        const badInput = await cell("open").locator("input").evaluate(i => ({ bad: i.validity.badInput, value: i.value }));
+        await o.page.keyboard.press("Tab");
+        await settle();
+        c.ok(badInput.bad === true && entries().length === 1 && (await cell("open").locator("input").count()) === 1 && /not a number/.test(await cell("open").locator("[role=alert]").innerText()), `[${where}] unreadable number text (${JSON.stringify(badInput)}) keeps nothing, the box stays open, and a word says why: ${JSON.stringify(await cell("open").innerText())}`);
+        await cell("open").locator("input").focus();
+        await o.page.keyboard.press("Escape");
+        await settle();
+        c.ok(entries().length === 1 && (await cell("open").locator("input").count()) === 0, `[${where}] Esc leaves the value as it was`);
+        await cell("title").locator("button").focus();
+        await o.page.keyboard.press("Enter");
+        await o.page.keyboard.type("Old orchard");
+        c.ok((await plots.locator("details[open]").count()) === 0, `[${where}] typing a space in the box does not open the row`);
+        await o.page.keyboard.press("Enter");
+        await settle();
+        const es2 = entries();
+        c.ok(es2.length === 2 && /"title":\[\{"pick":"p-orchard","a":"Old orchard","was":"Orchard"\}\]/.test(es2[1]), `[${where}] the keyboard keeps a second entry: ${es2[1]}`);
+        c.ok(es2[0] === es[0] + ",", `[${where}] the first entry's bytes are as they were`);
+
+        // readonly: the roundup draws values only
+        const roundup = qs().nth(1);
+        c.ok((await roundup.locator("[data-booklet-edit], .booklet-edit-open").count()) === 0 && /growing/.test(await roundup.innerText()), `[${where}] the read-only cards hold values and no box`);
+
+        // a question asked for each row, in a column: typing is a draft, not an act
+        const ta = plots.locator("[data-booklet-q='notes'][data-booklet-pick='p-orchard'] textarea");
+        await ta.fill("Check the stakes");
+        await ta.blur();
+        await settle();
+        const t3 = noteText();
+        c.ok(entries().length === 2 && /"notes":\[\{"pick":"p-orchard","a":"Check the stakes"\}\]/.test(t3), `[${where}] a note typed in the column is a draft pair with no was, and no entry`);
+
+        // a request: its choice replaces nothing (the field is a list) and Finalize keeps that row's pairs as one entry
+        const requests = qs().nth(3);
+        await clickEnd(requests.locator("summary").first());
+        await quiet(o);
+        const d0 = requests.locator("details").first();
+        const pick = await d0.getAttribute("data-id");
+        await d0.locator("[data-booklet-q='decision'] button.booklet-choice").first().click();
+        await d0.locator("[data-booklet-q='reply'] textarea").fill("Hire one, this time");
+        await d0.locator("[data-booklet-q='reply'] textarea").blur();
+        await settle();
+        const fin = d0.locator("button.booklet-row-finalize");
+        c.ok(await fin.isEnabled(), `[${where}] Finalize in the row is enabled once the row has an answer`);
+        await fin.click();
+        await settle();
+        const es3 = entries();
+        c.ok(es3.length === 3 && new RegExp(`"decision":\\[\\{"pick":"${pick}","a":1\\}\\]`).test(es3[2]) && new RegExp(`"reply":\\[\\{"pick":"${pick}","a":"Hire one, this time"\\}\\]`).test(es3[2]), `[${where}] Finalize keeps that row's pairs as one entry with no was: ${es3[2]}`);
+        c.ok(/"notes":\[\{"pick":"p-orchard"/.test(noteText()) && !new RegExp(`"reply":\\[\\{"pick":"${pick}"`).test(noteText().split("booklet draft")[1] || ""), `[${where}] and the plot's note stays in the draft while the request's is out of it`);
+
+        // names in the accessibility tree, and print
+        let tree = "";
+        try { tree = await plots.ariaSnapshot(); } catch (e) { tree = "(no ariaSnapshot: " + e.message + ")"; }
+        c.info(`[${where}] the tree of the plots table (start): ${JSON.stringify(tree.slice(0, 700))}`);
+        c.ok(/button "Edit Stage, [^"]*: [a-z]+"/.test(tree) && /textbox "A note for the gardener/.test(tree), `[${where}] the edit button and the column's text area are named by field or question and row`);
+        await o.page.emulateMedia({ media: "print" });
+        await sleep(300);
+        const pr = await o.evaluate(sel => { const q = document.querySelectorAll(sel + " .booklet-query")[0]; const shown = e => getComputedStyle(e).display !== "none"; return { controls: [...q.querySelectorAll(".booklet-row-controls")].filter(shown).length, values: [...q.querySelectorAll(".booklet-print-value")].filter(shown).length, words: [...q.querySelectorAll(".booklet-print-value")].map(e => e.textContent).join("|") }; }, BOOK);
+        await o.page.emulateMedia({ media: "screen" });
+        c.ok(pr.controls === 0 && pr.values >= 1 && /Check the stakes/.test(pr.words), `[${where}] in print the question's controls are hidden and its words are shown: ${JSON.stringify(pr)}`);
+
+        c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(json), `[${where}] the data file is only what this check wrote to it, never the plugin`);
+        await orchard.goTo(o, "home").catch(() => {});
+        if (!desk) { await o.page.setViewportSize({ width: 1280, height: 900 }); await mobile(o, false); }
+      });
+    }
+    return c;
+  }
+
+  return { 29: check29, 30: check30, 31: check31, 32: check32, 61: check61, 62: check62 };
 };

@@ -29,7 +29,7 @@ function placeOf(box: HTMLElement): () => void {
 	const scrolls: [HTMLElement, number, number][] = [];
 	for (let n: HTMLElement | null = box; n; n = n.parentElement) if (n.scrollTop || n.scrollLeft) scrolls.push([n, n.scrollTop, n.scrollLeft]);
 	const wraps = Array.from(box.querySelectorAll<HTMLElement>(".booklet-q-wrap")).map((w) => w.scrollLeft);
-	const FOCUSABLE = "summary, button, a[href], input, select";
+	const FOCUSABLE = "summary, button, a[href], input, select, textarea";
 	const active = box.ownerDocument.activeElement;
 	const at = active && box.contains(active) ? Array.from(box.querySelectorAll(FOCUSABLE)).indexOf(active) : -1;
 	return () => {

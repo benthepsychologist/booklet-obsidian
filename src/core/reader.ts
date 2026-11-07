@@ -266,7 +266,7 @@ export interface Query {
 	parent: string | null;
 	/**
 	 * `readonly` (SPEC section 6): written bare, every field the view draws is read-only (`true`); written `readonly: title, due`, just
-	 * those. Null when the line has none. Read and ignored: this view draws every field read-only whatever the query says.
+	 * those. Null when the line has none. Read by every view (ask.ts isReadonly).
 	 */
 	readonly: true | string[] | null;
 	/** The roles the query points at a field of another name (`label: bucket`). */
@@ -745,11 +745,11 @@ function readCopies(activities: readonly Activity[], blocks: readonly FencedBloc
 /**
  * `each:<id>` on a question line (SPEC section 5, "A question asked for each pick"): the question is asked
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
- * same activity, or a data block in reach (a question asked for each row, which is read and not drawn yet), not the question itself, and one level only: the source has no `each:` of its own (the question
+ * same activity, or a data block in reach (a question asked for each row, ask.ts), not the question itself, and one level only: the source has no `each:` of its own (the question
  * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and
  * ignored, and the question is drawn as its kind. A question of any kind follows its source.
  */
-function readEach(uses: readonly EachUse[], data: readonly DataBlock[], problems: string[], unreadRows: (line: number) => void): void {
+function readEach(uses: readonly EachUse[], data: readonly DataBlock[], problems: string[]): void {
 	for (const u of uses) {
 		const { q, act, source } = u;
 		if (!act.segments.includes(q)) continue; // not drawn (its shared menu was not found), already said
@@ -757,7 +757,7 @@ function readEach(uses: readonly EachUse[], data: readonly DataBlock[], problems
 		const ignored = "so its each: is ignored";
 		const src = act.segments.find((x) => (x.type === "question" || x.type === "unsupported") && x.id === source);
 		// a data block in reach (the activity's own module, or the shared data section) is a source too: the question is asked for each of its rows
-		// (SPEC section 5, "A question asked for each row"), which this view does not draw yet
+		// (SPEC section 5, "A question asked for each row"; ask.ts)
 		const rows = !src && !!source && source !== q.id && !!inScope(data, source, act.scope || null);
 		let why: string | null = null;
 		if (!source) why = `${said}, and its each: names nothing, ${ignored}.`;
@@ -772,7 +772,6 @@ function readEach(uses: readonly EachUse[], data: readonly DataBlock[], problems
 			continue;
 		}
 		q.each = source;
-		if (rows) unreadRows(u.line - 1);
 	}
 }
 
@@ -1445,9 +1444,7 @@ export function parseBooklet(text: string): Booklet {
 		u.q.options = hit.items.map((text) => ({ text, correct: false, reply: [] }));
 		u.q.menu = hit.id;
 	}
-	readEach(eachUses, dataBlocks, problems, (n) =>
-		noteUnread(n, "a question asked for each row of a data block is not drawn yet, so it is drawn as its title and a line saying so, and its answers are kept as written", true),
-	);
+	readEach(eachUses, dataBlocks, problems);
 	readCopies(activities, blocks, problems);
 	// a widget line's block: in its own module first (its fence, then its data section), then a shared one (booklet.html widgetOf)
 	for (const a of activities)

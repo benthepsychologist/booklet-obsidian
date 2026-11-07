@@ -27,7 +27,7 @@ Both kinds are built and tested the same way (`npm ci`, `npm run build`, `npm te
 
 Ben, 2026-11-06, on 1.1.1: *"merge 28 and tag 1.1.1 and write that rule into docs/release-flow.md yes."* The rule is set by what the release touches, because the test suite and a BRAT install see different things.
 
-**What the suite sees.** The real desktop app on 1.14.5 and 1.11.7, the 61 checks of `e2e-tests/plugin-check.js`, the accessibility scripts, and before and after screenshots that can be compared byte for byte. For a change that only moves how something is drawn, that is stronger evidence than one install on one device.
+**What the suite sees.** The real desktop app on 1.14.5 and 1.11.7, the 62 checks of `e2e-tests/plugin-check.js`, the accessibility scripts, and before and after screenshots that can be compared byte for byte. For a change that only moves how something is drawn, that is stronger evidence than one install on one device.
 
 **What it does not see.**
 - **Phones.** Everything runs as desktop Obsidian under a virtual display, and phone mode is emulated (`docs/floor-0130.md`). Android has never been tried. Real touch, the on-screen keyboard and the real safe area are outside the suite.
