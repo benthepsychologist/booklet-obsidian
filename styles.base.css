@@ -1273,6 +1273,113 @@
 	grid-template-columns: 1fr;
 }
 
+/* acts on the rows of a data view (row-ask.ts): a field that can be edited is its value until it is pressed, then a box */
+.booklet-edit-open {
+	appearance: none;
+	display: inline;
+	height: auto;
+	margin: 0;
+	padding: 0 var(--size-2-1);
+	border: 0;
+	border-bottom: var(--border-width) dashed var(--text-faint);
+	border-radius: 0;
+	background: transparent;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	text-align: start;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	cursor: text;
+}
+
+.booklet-edit-open:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-edit-open:focus-visible {
+	outline: 2px solid var(--text-normal);
+	outline-offset: 1px;
+}
+
+.booklet-edit-box {
+	max-width: 100%;
+	font: inherit;
+}
+
+/* a question asked of a row: in the row's open part, with its words; in a column, the heading says them */
+.booklet-row-asks {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0 var(--size-4-1);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-row-ask .booklet-prompt {
+	font-weight: var(--font-semibold);
+	margin-bottom: var(--size-2-1);
+}
+
+.booklet-row-ask-col {
+	min-width: 8em;
+}
+
+/* the display states are said in words: sent and waiting, or changed since */
+.booklet-row-state {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-row-state:empty {
+	display: none;
+}
+
+.booklet-row-sent {
+	display: block;
+}
+
+.booklet-row-history {
+	margin: var(--size-2-1) 0 0;
+	padding: 0;
+	list-style: none;
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-row-history.booklet-none {
+	display: none;
+}
+
+.booklet-row-time {
+	color: var(--text-muted);
+}
+
+.booklet-row-finish {
+	margin-top: var(--size-2-1);
+}
+
+.booklet-print-value {
+	display: none;
+}
+
+/* print shows values, not boxes */
+@media print {
+	.booklet-row-controls,
+	.booklet-row-finish {
+		display: none;
+	}
+
+	.booklet-print-value {
+		display: block;
+		white-space: pre-wrap;
+	}
+
+	.booklet-edit-open {
+		border-bottom: 0;
+		padding: 0;
+	}
+}
+
 /* a heading over the child rows that came from one field */
 .booklet-q-ghead {
 	margin: var(--size-4-2) 0 var(--size-2-2);

@@ -71,6 +71,22 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
 }
 
 /**
+ * A widget question's controls alone, below the words a row's copy of it is given (SPEC section 5, "A question asked for each row"):
+ * the same controls the widget draws for a pick, over the host and key of the row.
+ */
+export function drawWidgetBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, labelledBy: string, locked: boolean): void {
+	const data = q.widget?.data;
+	if (!data) {
+		box.createEl("p", { cls: "booklet-muted", text: `This widget needs a widget block the note does not carry (^${q.embed ?? "?"}).` });
+		return;
+	}
+	const engine = engineOf(data);
+	if (engine === "grid-select") drawGrid(host, box, t, q, data, labelledBy, locked, key);
+	else if (engine === "svg-regions") drawRegions(host, box, t, q, data, copyOf(data), labelledBy, locked, key);
+	else box.createEl("p", { cls: "booklet-muted", text: `Not yet supported: a widget drawn by the engine "${engine || "?"}".` });
+}
+
+/**
  * A field and an Add button for words of the reader's own. `add` gets the words, commas between them, when they are
  * added: on Add, on Enter, and on leaving the field, as booklet.html's tag field adds a word in progress when it is
  * left, so nothing typed is dropped. What is typed and not added yet is held by the view (`key`), so a drawing of the

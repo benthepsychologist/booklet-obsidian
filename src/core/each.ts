@@ -83,13 +83,14 @@ export const pairFor = (v: unknown, p: PickValue): Pair | undefined => pairsOf(v
 /**
  * The answer with one pick's answer set to `a`: the pick's first pair has `a` replaced in place (its other keys, and
  * their order, as they were); a pick with no pair gets one at the end; an answer that holds nothing takes the pair
- * out, as a pick with no answer has no pair. Every other member stays as it is, pairs for picks taken back among them.
+ * out, as a pick with no answer has no pair. Every other member stays as it is, pairs for picks taken back among them. `extra` is
+ * the other keys a new pair is made with (`was`, for a question asked for each row that replaces a value); a pair that exists keeps its own.
  */
-export function setPair(v: unknown, p: PickValue, a: unknown): unknown[] {
+export function setPair(v: unknown, p: PickValue, a: unknown, extra?: Record<string, unknown>): unknown[] {
 	const list: unknown[] = Array.isArray(v) ? (v as unknown[]) : [];
 	const at = list.findIndex((x) => isPair(x) && x.pick === p);
 	if (!holdsSomething(a)) return at < 0 ? list : list.filter((_, i) => i !== at);
-	if (at < 0) return [...list, { pick: p, a }];
+	if (at < 0) return [...list, { pick: p, a, ...extra }];
 	return list.map((x, i) => (i === at ? { ...(x as Pair), a } : x));
 }
 

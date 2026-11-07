@@ -9,7 +9,7 @@
 import { pickWords as pickWordsOf, plainOf, shownPairs, sourceOf } from "./each";
 import { plainWords } from "./earlier";
 import type { Activity, Question } from "./reader";
-import { holdsSomething, shapeIssue } from "./shape";
+import { holdsSomething, isPair, shapeIssue } from "./shape";
 import { engineOf, gridNames, gridOf, regionSummary, regionsOf } from "./widgets";
 
 /** A piece of an answer in words: `md` is the file's own inline Markdown (an option, an anchor), `text` is plain words. */
@@ -91,7 +91,8 @@ export function eachWords(act: Pick<Activity, "segments">, q: Question, entry: R
 	const issue = shapeIssue(q, v);
 	if (issue) return { kept: JSON.stringify(v), issue };
 	const src = sourceOf(act, q);
-	if (!src) return [];
 	const plain = plainOf(q);
+	// asked for each row of a data block: the block's rows are not in the note's records, so a pair is named by its row's id
+	if (!src) return Array.isArray(v) ? v.flatMap((p) => (isPair(p) && holdsSomething(p.a) ? [{ pick: { text: String(p.pick) } as WordPart, words: answerWords(plain, p.a) }] : [])) : [];
 	return shownPairs(src, entry, q).flatMap(({ pick, pair }) => (pair && holdsSomething(pair.a) ? [{ pick: pickWordsOf(src, pick), words: answerWords(plain, pair.a) }] : []));
 }

@@ -25,6 +25,9 @@ import {
 	entryPlace,
 	finalizeDraft,
 	findHeading,
+	keepEntry,
+	keepRowDraft,
+	pairFor,
 	gateMedia,
 	slotAllowed,
 	entryFor,
@@ -114,6 +117,7 @@ import { DataFiles } from "./data-files";
 import { mountQuery, type QueryMount } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
+import { makeRowsUi, type EditSession, type RowsView } from "./row-ask";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
@@ -161,6 +165,8 @@ interface Pending {
 	q: Question;
 	/** The pick the typing is the answer of, for a question asked for each pick (each.ts). */
 	pick?: PickValue;
+	/** The other keys a new pair is made with (`was`, for a question asked for each row that replaces a value). */
+	extra?: Record<string, unknown>;
 	value: AnswerValue | undefined;
 	timer: number | null;
 }
@@ -185,7 +191,7 @@ function endOfDay(d: Date): number {
 	return e.getTime();
 }
 
-export class BookletView extends TextFileView implements QuestionHost, ScreenHost {
+export class BookletView extends TextFileView implements QuestionHost, ScreenHost, RowsView {
 	/** The note's text as last read or written by this view: what getViewData returns. */
 	private text = "";
 	private book: Booklet | null = null;
@@ -255,6 +261,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private menus = new Map<string, MenuState>();
 	/** What the reader has done to each query's view (the parents opened in a nested list; the sort and filter): kept for as long as the pane is open, never saved. */
 	private queryViews = new Map<string, QueryViewState>();
+	/** The edit boxes that are open in the rows of the queries (row-ask.ts), by cell: what the reader typed waits here through a redraw of the rows. */
+	readonly sessions = new Map<string, EditSession>();
 	/** The data files the note's data blocks name (data-files.ts): read through the vault, read again when they change and when the pane comes back. */
 	private readonly files = new DataFiles(
 		() => this.app.vault.adapter,
@@ -430,7 +438,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 * work, and closes the window once that work is done, so the plugin offers a task only when there is some.
 	 */
 	hasUnsaved(): boolean {
-		return this.pending.size > 0 || this.queued > 0 || [...this.ownFields.keys()].some((key) => !!this.held.get(key)) || this.listens.unsaved();
+		return this.pending.size > 0 || this.queued > 0 || [...this.sessions.values()].some((s) => !!s.commit) || [...this.ownFields.keys()].some((key) => !!this.held.get(key)) || this.listens.unsaved();
 	}
 
 	/**
@@ -604,6 +612,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** Writes what was typed and not written yet, and adds the own words typed and not added (leaving a field does), before the screen is left. */
 	private flushAll(): void {
 		for (const p of [...this.pending.values()]) this.flushTyped(p.t, p.q, p.pick);
+		// an edit box that is open keeps its change as leaving it would
+		for (const s of [...this.sessions.values()]) s.commit?.();
 		this.flushOwn(null);
 		// a position that plays or is noted and not written is read from its element now, before the drawing takes the element away
 		this.listens.flush();
@@ -764,6 +774,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.following = false;
 		this.widgets.clear();
 		this.ownFields.clear();
+		this.sessions.clear();
 		this.listens.reset();
 		this.showAll.clear();
 		this.entriesFolded.clear();
@@ -1053,19 +1064,19 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.syncWidgets();
 	}
 
-	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): void {
 		const key = pendingKey(t, q, pick);
 		const p = this.pending.get(key);
 		if (p) {
 			if (p.timer !== null) window.clearTimeout(p.timer);
 			this.pending.delete(key);
 		}
-		this.commit(t, q, this.whole(t, q, value, pick));
+		this.commit(t, q, this.whole(t, q, value, pick, extra));
 	}
 
-	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void {
+	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): void {
 		const key = pendingKey(t, q, pick);
-		const p = this.pending.get(key) ?? { t, q, pick, value, timer: null };
+		const p = this.pending.get(key) ?? { t, q, pick, extra, value, timer: null };
 		p.value = value;
 		if (p.timer === null) p.timer = window.setTimeout(() => this.flushTyped(t, q, pick), TYPING_PAUSE_MS);
 		this.pending.set(key, p);
@@ -1077,17 +1088,54 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!p) return;
 		if (p.timer !== null) window.clearTimeout(p.timer);
 		this.pending.delete(key);
-		this.commit(p.t, p.q, this.whole(p.t, p.q, p.value, pick));
+		this.commit(p.t, p.q, this.whole(p.t, p.q, p.value, pick, p.extra));
 	}
 
 	/**
 	 * What a question's answer becomes when its answer is `value`: for a question asked for each pick, `value` is the answer
 	 * of one pick (the `a` of its pair), and the rest of the pairs stay as they are (each.ts setPair).
 	 */
-	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): AnswerValue | undefined {
+	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): AnswerValue | undefined {
 		if (pick === undefined) return value;
-		const next = setPair(this.heldAnswer(t, q), pick, value);
+		const next = setPair(this.heldAnswer(t, q), pick, value, extra);
 		return next.length ? next : undefined;
+	}
+
+	/* ---- RowsView: acts on the rows of a data view (row-ask.ts) ---- */
+
+	keptOf(t: Target): Entry[] {
+		return this.book?.records.entries[t.scope]?.[t.activity.id] ?? [];
+	}
+
+	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void): void {
+		const file = this.file;
+		if (!file) return failed();
+		const id = t.activity.id;
+		// the entry is made of the file's fresh text, and its time is the moment of the write: one new entry, and no other byte changes
+		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", undefined, failed);
+	}
+
+	keepRow(t: Target, ids: readonly string[], pick: PickValue): void {
+		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, t.activity) && p.pick === pick) this.flushTyped(p.t, p.q, p.pick);
+		const file = this.file;
+		if (!file) return;
+		const a = t.activity;
+		const rule = this.dayRule();
+		this.queue(
+			file,
+			(text) => keepRowDraft(text, t.scope, a.id, ids, pick, { ts: isoSecond(new Date()), rule: a.daily ? rule : undefined }).text,
+			"The entry was not kept.",
+			() => new Notice("Booklet: entry kept."),
+		);
+	}
+
+	draftHas(t: Target, ids: readonly string[], pick: PickValue): boolean {
+		for (const p of this.pending.values()) if (sameAct(p.t.activity, t.activity) && p.pick === pick && ids.includes(p.q.id)) return true;
+		const d = this.shown(t.activity).values;
+		return ids.some((id) => {
+			const pair = own(d, id) ? pairFor(d[id], pick) : undefined;
+			return !!pair && holdsSomething(pair.a);
+		});
 	}
 
 	/* ---- drawing ---- */
@@ -1614,7 +1662,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (p.q.id !== q.id || !sameAct(p.t.activity, t.activity)) continue;
 			if (p.pick === undefined) v = p.value;
 			else {
-				const next = setPair(v, p.pick, p.value);
+				const next = setPair(v, p.pick, p.value, p.extra);
 				v = next.length ? next : undefined;
 			}
 		}
@@ -1882,6 +1930,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const host = {
 			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
+			// the acts a reader can make on a data block's rows are drawn by the activity that holds the query (row-ask.ts)
+			rows: s.source && s.source.kind === "data" ? makeRowsUi(this, a, vkey) : undefined,
 		};
 		const draw = mountQuery(host, box, st);
 		// one entry for each query: a query drawn again replaces the box it had, which is gone from the page, and its rows with it
@@ -1895,12 +1945,14 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const rec = this.book.records;
 			// a data block that names a file: what was read of the file is part of what the rows are, so a file read again draws them again
 			const file = src && src.kind === "data" && src.block.file ? this.files.version(src.block) : "";
-			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null) + file;
+			// rows that can be acted on show the acts kept so far (waiting, or changed since), so a new kept entry draws them again
+			const kept = src && src.kind === "data" && a.repeat ? JSON.stringify(rec.entries[a.scope]?.[a.id] ?? []) : "";
+			const now = JSON.stringify(act ? (act.repeat ? (rec.entries[act.scope]?.[act.id] ?? []) : (rec.answers[act.scope] ?? {})) : null) + file + kept;
 			if (now === sig) return;
 			sig = now;
 			const book = this.book;
 			// drawn again over rows the reader is looking at: the rows they have open, their scroll and their focus stay where they were
-			draw(() => planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b) }), drawnOnce);
+			draw(() => planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b), activity: a }), drawnOnce);
 			drawnOnce = true;
 		};
 		show();

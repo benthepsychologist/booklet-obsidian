@@ -9,7 +9,7 @@ import { appendItem, removeItem, removeMember, replaceItem, scanJson, setMember 
 import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines, type Line } from "./lines";
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, entryPlaces, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
-import { pairsOf, pickKey, recordFilled } from "./each";
+import { pairsOf, pickKey, recordFilled, type PickValue } from "./each";
 import { holdsSomething, isPair, shapeIssue } from "./shape";
 
 /**
@@ -517,6 +517,73 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	}
 	for (const b of drafts) if (b !== reuse) ops.push({ b, remove: true });
 	return { text: applyOps(d, ops), entry, replaced };
+}
+
+/**
+ * Keeps acts as one new entry of a `repeat` activity, and changes nothing else (SPEC section 5, "Editing a field in place"; section 8,
+ * "Writing records back"): `answers` are the entry's members besides its `ts`, each a list of pairs `{ pick, a, was }`. The entry goes
+ * after the last entry of the activity's last entries block, in the layout that block uses; with no entries block yet, a new one goes
+ * after the activity's draft, or at the end of the scope's records. The draft is not touched. The `ts` is moved on to the next free
+ * second while another entry of the activity has it. Throws RecordsWriteError when the activity keeps no entries.
+ */
+export function keepEntry(text: string, scope: string, activityId: string, answers: Record<string, unknown>, opts: { ts: string }): { text: string; entry: Entry } {
+	const d = openDoc(text, scope);
+	const act = activityIn(d, scope, activityId);
+	if (!act.repeat) throw new RecordsWriteError(`The activity "${activityId}" does not repeat, so it keeps no entries.`);
+	let at = Date.parse(opts.ts);
+	if (!Number.isFinite(at)) throw new RecordsWriteError(`"${opts.ts}" is not a time.`);
+	const keys = Object.keys(answers);
+	if (!keys.length) throw new RecordsWriteError("Nothing to keep yet: the entry is empty.");
+	for (const k of keys) {
+		if (k === "ts") throw new RecordsWriteError('A field called "ts" cannot be kept: an entry\'s time is called ts.');
+		checkValue(answers[k] as AnswerValue);
+	}
+	const taken = new Set((d.book.records.entries[scope]?.[activityId] ?? []).map((e) => String(e.ts)));
+	let ts = isoSecond(new Date(at));
+	while (taken.has(ts)) ts = isoSecond(new Date((at += 1000)));
+	const entry = Object.create(null) as Entry;
+	entry.ts = ts;
+	for (const k of keys) entry[k] = answers[k];
+	const itemText = JSON.stringify(entry);
+	const blocks = readable(d, "entries", scope, activityId);
+	const last = blocks[blocks.length - 1];
+	if (last) {
+		const code = appendItem(last.code, itemText);
+		if (code === null) throw new RecordsWriteError("This activity's entries are in a block that cannot be written into, so it is kept as written.");
+		return { text: applyOps(d, [{ b: last, code }]), entry };
+	}
+	const drafts = readable(d, "draft", scope, activityId);
+	return { text: placeNewBlock(d, scope, fenceOf(`booklet entries ${activityId}`, entriesJson([entry])), drafts[drafts.length - 1]), entry };
+}
+
+/**
+ * A row's Finalize (SPEC section 5, "A question asked for each row"): keeps one entry that holds that row's answers only, the pairs
+ * for `pick` of the questions in `ids`, and leaves the rest of the draft as it was: those pairs are taken out of the draft, and every
+ * other pair stays. Throws RecordsWriteError when the draft holds no answer for the row.
+ */
+export function keepRowDraft(text: string, scope: string, activityId: string, ids: readonly string[], pick: PickValue, opts: { ts: string; rule?: DayRule }): { text: string; entry: Entry } {
+	const d = openDoc(text, scope);
+	const act = activityIn(d, scope, activityId);
+	if (!act.repeat) throw new RecordsWriteError(`The activity "${activityId}" does not repeat, so it keeps no entries.`);
+	const merged = d.book.records.drafts[scope]?.[activityId];
+	const answers = Object.create(null) as Record<string, unknown>;
+	const rest: [string, unknown[]][] = [];
+	for (const id of ids) {
+		const held = merged && own(merged, id) ? merged[id] : undefined;
+		if (!Array.isArray(held)) continue;
+		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === id);
+		const mine = held.filter((p) => isPair(p) && p.pick === pick && holdsSomething(p.a));
+		if (!mine.length) continue;
+		// a lines question's blank lines are not kept, as in Finalize
+		const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
+		answers[id] = q && q.kind === "lines" ? mine.map((p) => ({ ...(p as Record<string, unknown>), a: bare((p as { a: unknown }).a) })) : mine;
+		rest.push([id, held.filter((p) => !(isPair(p) && p.pick === pick))]);
+	}
+	if (!Object.keys(answers).length) throw new RecordsWriteError("Nothing to keep yet: this row has no answer.");
+	const kept = keepEntry(text, scope, activityId, answers, { ts: opts.ts });
+	let out = kept.text;
+	for (const [id, left] of rest) out = setDraftAnswer(out, scope, activityId, id, left.length ? left : undefined, act.daily ? opts.rule : undefined);
+	return { text: out, entry: kept.entry };
 }
 
 /** What an entry reads as, to tell one entry from another that has the same `ts` (its answers as JSON, in the order the file has them). */

@@ -8,7 +8,8 @@
  */
 import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
-import { childRowsOf, type DataRow, type DataRows, type DataValue } from "./data";
+import { childRowsOf, type DataRow, type DataRows, type DataValue, type FieldEdit } from "./data";
+import { carries, editSpecOf, isReadonly, pickOfRow, type EditSpec } from "./ask";
 import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
@@ -98,6 +99,10 @@ export interface Row {
 	cells: Record<string, Cell>;
 	/** A kept entry's `ts` (what a date sort and a chart's date label read); a summary row or a data row has none. */
 	ts?: string;
+	/** A data row as the block holds it (its values, and its child rows under their fields): what a question asked for each row and an edited field read. */
+	raw?: DataRow;
+	/** A data row's `id` as its pairs name it: undefined when it has none, or when an earlier row of the block has the same one (the first is used). */
+	id?: PickValue;
 }
 
 /** The smallest and largest of a list, by a loop: `Math.min(...list)` passes every number as an argument and throws past about 120,000. */
@@ -129,6 +134,8 @@ export interface RowSet {
 	all?: Row[];
 	groupsOf?: Map<Row, { key: string; rows: Row[] }[]>;
 	kidKeys?: Set<string>;
+	/** A data block's `edit` marks, by field (ask.ts editSpecOf reads them). */
+	edits?: Record<string, FieldEdit>;
 }
 
 export interface Group {
@@ -178,6 +185,28 @@ export interface Tree {
 	flat: Row[];
 	/** What a row shows when it opens besides its children: its other fields. */
 	more: (r: Row) => MoreField[];
+	/** The questions asked of a row that are drawn in its open part (ask.ts): after its other fields and before its children. */
+	asks: (r: Row) => Question[];
+}
+
+/**
+ * The acts a reader can make on a data view's rows (SPEC section 5, "A question asked for each row" and "Editing a field in place"; section 6,
+ * `readonly`): which questions of the activity are asked for each row of the block, which a `fields:` names (drawn in that column), which
+ * fields may be edited, and which the query locks. The activity decides whether an act can be kept (it must repeat); that is the view's.
+ */
+export interface AskPlan {
+	/** The questions of the query's activity whose `each:` names the block, in the activity's order. */
+	questions: Question[];
+	/** A question the query's `fields:` names, by the column it stands in. */
+	columns: Map<string, Question>;
+	/** Is this question asked of this row: the row has an id, and carries a field with the question's id, or no row of the block does. */
+	asked(q: Question, r: Row): boolean;
+	/** The questions drawn in this row's open part: asked of it and not placed in a column. */
+	open(r: Row): Question[];
+	/** The query locks this field (or, bare, every field), a question included. */
+	readonly(key: string): boolean;
+	/** The box an editable field of this row asks for, or null: the field is read-only (no mark, or the row has no id, or a question is asked of the field). */
+	edit(r: Row, key: string): EditSpec | null;
 }
 
 export type QueryPlan =
@@ -198,6 +227,8 @@ export type QueryPlan =
 			tree?: Tree;
 			/** What shows is the quiet box that says why a data file was not read (SPEC section 7), and not the query's own words for no rows. */
 			quiet?: boolean;
+			/** For a `table`, `list` or `cards` over a data block: what the reader may do to its rows (questions, edited fields, `readonly`). */
+			ask?: AskPlan;
 	  };
 
 export interface PlanOptions {
@@ -206,6 +237,8 @@ export interface PlanOptions {
 	 * box (data-files.ts). Left out, such a block has no rows to give and the quiet box says it could not be read.
 	 */
 	fileRows?: (block: DataBlock) => { data: DataRows } | { note: string };
+	/** The activity that holds the query: the questions it asks for each row of a data block are the ones the view draws (ask.ts). */
+	activity?: Activity;
 	/** The moment the page was drawn: today, for a span of days, is its date. */
 	drawn: Date;
 	/** The moment the rows are worked out (default now): an entry later than it is in no span. */
@@ -695,7 +728,7 @@ function dataSet(b: DataRows): RowSet {
 			const c = dataCell(v as DataValue | DataValue[]);
 			if (c) cells[k] = c;
 		}
-		return { row: { cells }, data: d };
+		return { row: { cells, raw: d, id: pickOfRow(d) }, data: d };
 	};
 	const top = b.rows.map(make);
 	const todo = top.slice().reverse();
@@ -714,9 +747,17 @@ function dataSet(b: DataRows): RowSet {
 		groupsOf.set(row, gs.map((g) => ({ key: g.key, rows: g.rows })));
 		for (let i = gs.length - 1; i >= 0; i--) for (let j = gs[i]!.kids.length - 1; j >= 0; j--) todo.push(gs[i]!.kids[j]!);
 	}
+	// two rows with one id: the first is used (SPEC section 7), so the later one has no id to be asked a question or edited by
+	const ids = new Set<string>();
+	for (const r of all) {
+		if (r.id === undefined) continue;
+		const k = pickKey(r.id);
+		if (ids.has(k)) r.id = undefined;
+		else ids.add(k);
+	}
 	const own = (b.fields ? Object.keys(b.fields) : Object.keys(b.rows[0] ?? {})).filter((k) => !kidKeys.has(k));
 	const named = (k: string): string => (b.fields && Object.prototype.hasOwnProperty.call(b.fields, k) ? b.fields[k]! : k);
-	return { kind: "data", rows: top.map((x) => x.row), own, label: (k) => [{ text: named(k) }], questions: [], expand: (k) => [k], valueField: null, all, groupsOf, kidKeys };
+	return { kind: "data", rows: top.map((x) => x.row), own, label: (k) => [{ text: named(k) }], questions: [], expand: (k) => [k], valueField: null, all, groupsOf, kidKeys, edits: b.edits };
 }
 
 /** A data value as a cell: plain words, never Markdown; a number carries its number; a list is shown comma-separated and each member can be a pill. */
@@ -788,7 +829,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 			data = got.data;
 		}
 		set = dataSet(data);
-		return finishPlan(set, q, view, locale);
+		return finishPlan(set, q, view, locale, askPlan(set, q, view, src.id, opts.activity));
 	}
 	const a = src.act;
 	const all = questionsOf(a);
@@ -817,7 +858,48 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		const named = q.fields ? all.filter((x) => q.fields!.includes(x.id)) : [];
 		set = entryRows(book, a, all, named.length ? named : all, q, opts);
 	}
-	return finishPlan(set, q, view, locale);
+	return finishPlan(set, q, view, locale, null);
+}
+
+/**
+ * What the reader may do to a data view's rows (SPEC section 5, "A question asked for each row", "Editing a field in place"; section 6,
+ * `readonly`). Only `table`, `list` and `cards` have an open part or a column to draw it in. Nothing is asked of a row that has no id,
+ * and a question is asked only of rows that carry a field with its id (of every row, when none does).
+ */
+function askPlan(set: RowSet, q: Query, view: ViewName, blockId: string, act: Activity | undefined): AskPlan | null {
+	if (view !== "table" && view !== "list" && view !== "cards") return null;
+	const questions = act ? questionsOf(act).filter((x) => x.each === blockId && !sourceOf(act, x)) : [];
+	const edits = set.edits ?? {};
+	const rows = set.all ?? set.rows;
+	const alone = new Map<string, boolean>();
+	// no row of the block, at any depth, carries a field with the question's id: then it is asked of every row
+	const every = (x: Question): boolean => {
+		let v = alone.get(x.id);
+		if (v === undefined) {
+			v = !rows.some((r) => !!r.raw && carries(r.raw, x.id));
+			alone.set(x.id, v);
+		}
+		return v;
+	};
+	const columns = new Map<string, Question>();
+	for (const k of q.fields ?? []) {
+		const x = questions.find((z) => z.id === k);
+		if (x) columns.set(k, x);
+	}
+	const asked = (x: Question, r: Row): boolean => r.id !== undefined && !!r.raw && (every(x) || carries(r.raw, x.id));
+	return {
+		questions,
+		columns,
+		asked,
+		open: (r) => questions.filter((x) => !columns.has(x.id) && asked(x, r)),
+		readonly: (k) => isReadonly(q.readonly, k),
+		edit: (r, k) => {
+			if (r.id === undefined || isReadonly(q.readonly, k)) return null;
+			// a field that a question is asked of, in this row, is the question
+			if (questions.some((x) => x.id === k && asked(x, r))) return null;
+			return Object.prototype.hasOwnProperty.call(edits, k) ? editSpecOf(edits[k]) : null;
+		},
+	};
 }
 
 /** The text of a cell that holds a row's `parent` or `id`, trimmed. */
@@ -883,7 +965,7 @@ export function nestRows(rows: readonly Row[], parentKey: string, limit: number 
  * goes through nestRows. Adds each row's children in groups (rows nested by `parent` first, then one group for each field that held
  * rows, headed by that field's label) and the key that remembers a row is open (its `id`, else its place).
  */
-function nestData(set: RowSet, pk: string, limit: number | null): Omit<Tree, "more" | "tops"> {
+function nestData(set: RowSet, pk: string, limit: number | null): Omit<Tree, "more" | "tops" | "asks"> {
 	const all = set.all ?? set.rows;
 	const groupsOf = set.groupsOf ?? new Map<Row, { key: string; rows: Row[] }[]>();
 	const given = new Map<Row, Row>();
@@ -948,7 +1030,7 @@ export function flatTree(roots: readonly Row[], kids: ReadonlyMap<Row, readonly 
  * row's own keys count, whether or not `fields` was declared, at every depth; the source's own fields come first, in their order.
  * Only a data block's rows have more to show.
  */
-function moreOf(set: RowSet, cols: readonly string[], roles: Record<Role, string | null>, q: Query, gk: string | null): (r: Row) => MoreField[] {
+function moreOf(set: RowSet, cols: readonly string[], roles: Record<Role, string | null>, q: Query, gk: string | null, ask: AskPlan | null): (r: Row) => MoreField[] {
 	const line = new Set(cols);
 	const skip = new Set<string>([...ROLE_NAMES.map((n) => roles[n]).filter((x): x is string => !!x), "id", q.parent ?? "parent", ...(gk ? [gk] : [])]);
 	const memo = new Map<Row, MoreField[]>();
@@ -960,6 +1042,8 @@ function moreOf(set: RowSet, cols: readonly string[], roles: Record<Role, string
 			// a row's cell exists only for a field it holds as a plain value: a field that holds child rows in this row is no cell
 			for (const k of new Set([...set.own, ...Object.keys(r.cells)])) {
 				if (line.has(k) || skip.has(k)) continue;
+				// a field that a question is asked of, in this row, is drawn as that question (SPEC section 5), not again as a line
+				if (ask && ask.questions.some((x) => x.id === k && ask.asked(x, r))) continue;
 				const c = r.cells[k];
 				if (c && c.text !== "") out.push({ key: k, label: set.label(k), text: c.text });
 			}
@@ -970,7 +1054,7 @@ function moreOf(set: RowSet, cols: readonly string[], roles: Record<Role, string
 }
 
 /** Everything a plan holds after the rows are known: limit, nesting, empty, roles, the other fields, tone and groups; or, for a chart, what it plots. */
-function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): QueryPlan {
+function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string, ask: AskPlan | null): QueryPlan {
 	let rows = set.rows;
 	const chartView = view === "bars" || view === "line";
 	const pk = q.parent ?? "parent";
@@ -978,7 +1062,7 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): Quer
 	// a table, a list or cards whose rows carry a parent, or hold rows, is nested, and `limit` counts its top rows (kept-entry cards stay dated cards)
 	const canNest = drawn.includes("parent") && (view !== "cards" || set.kind === "data");
 	const nests = canNest && ((set.groupsOf?.size ?? 0) > 0 || rows.some((r) => keyText(r, pk) !== ""));
-	let nested: Omit<Tree, "more" | "tops"> | null = nests ? nestData(set, pk, q.limit) : null;
+	let nested: Omit<Tree, "more" | "tops" | "asks"> | null = nests ? nestData(set, pk, q.limit) : null;
 	if (nested) rows = nested.flat;
 	else if (q.limit !== null && drawn.includes("limit")) rows = rows.slice(0, q.limit);
 	// a chart runs from the oldest to the newest: `limit` kept the newest N of the entries (newest first), and now they are turned round
@@ -997,9 +1081,20 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): Quer
 		roles.tone = null;
 	}
 	const gk = drawn.includes("group") && !nests ? q.group : null;
-	const more = moreOf(set, cols, roles, q, gk);
+	const more = moreOf(set, cols, roles, q, gk, ask);
+	const asks = (r: Row): Question[] => (ask ? ask.open(r) : []);
+	// a name in `fields:` that is a question's id is the question: its column is headed by the label the block declares for that name, else by the question's title
+	if (ask && ask.columns.size) {
+		const label = set.label;
+		set.label = (k) => {
+			const x = ask.columns.get(k);
+			const base = label(k);
+			const declared = !(base.length === 1 && "text" in base[0]! && base[0].text === k);
+			return x && !declared ? [x.title ? { md: x.title } : { text: x.id }] : base;
+		};
+	}
 	// a flat row with more to show than its line opens too: it is drawn by the same tree, with no children
-	if (!nested && canNest && set.kind === "data" && rows.some((r) => more(r).length)) {
+	if (!nested && canNest && set.kind === "data" && rows.some((r) => more(r).length || asks(r).length)) {
 		nested = nestData(set, pk, q.limit);
 		rows = nested.flat;
 	}
@@ -1019,9 +1114,10 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string): Quer
 		}
 	}
 	const plan: QueryPlan = { kind: "rows", view, set, groups, roles, cols, empty: null };
+	if (ask) plan.ask = ask;
 	if (nested) {
 		// the rows of `groups` are every row of the tree, whatever the view draws; the top rows stand in `tops`, grouped when `group:` names a field
-		plan.tree = { ...nested, tops: gk ? groups : [{ name: null, rows: nested.roots }], more };
+		plan.tree = { ...nested, tops: gk ? groups : [{ name: null, rows: nested.roots }], more, asks };
 		if (gk) plan.groups = [{ name: null, rows }];
 	}
 	return plan;

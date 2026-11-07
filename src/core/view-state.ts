@@ -23,8 +23,8 @@ export const newViewState = (): QueryViewState => ({ open: false, q: "", key: nu
 /** The rows a plan draws, counting a nested view's children. */
 export const rowCount = (p: Plan): number => p.groups.reduce((n, g) => n + g.rows.length, 0);
 
-/** Does this row of a nested view open: it has children, or more of its own fields to show than its line does. */
-export const opensRow = (t: Tree, r: Row): boolean => (t.groups.get(r)?.length ?? 0) > 0 || t.more(r).length > 0;
+/** Does this row of a nested view open: it has children, or more of its own fields to show than its line does, or a question to ask of it. */
+export const opensRow = (t: Tree, r: Row): boolean => (t.groups.get(r)?.length ?? 0) > 0 || t.more(r).length > 0 || t.asks(r).length > 0;
 
 /** Open all: every row of the nested view that opens (not only the ones a search keeps), by key. */
 export function openAllRows(p: Plan, st: QueryViewState): void {

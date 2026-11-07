@@ -596,7 +596,7 @@ test("the orchard example: four queries over three keys of one file, drawn as th
 	assert.ok(plots.querySelector(".booklet-q-trmore"), "the orchard opens to its text");
 	assert.ok([...plots.querySelectorAll("tr.booklet-q-grouprow")].some((r) => r.textContent.trim() === "Jobs"), "and then its jobs, headed by the field");
 	assert.ok(plots.textContent.includes("Eight apple trees and two pear trees."));
-	// the read-only roundup: the same rows as cards; `readonly` is read and changes nothing yet
+	// the read-only roundup: the same rows as cards
 	assert.equal(roundup.getAttribute("data-booklet-view"), "cards");
 	assert.equal(roundup.querySelectorAll(".booklet-q-cards > .booklet-q-card").length, json.plots.rows.length);
 	// the harvest: a bar chart over the second key
@@ -605,22 +605,6 @@ test("the orchard example: four queries over three keys of one file, drawn as th
 	// the requests: the third key reached through a dotted path
 	assert.equal(requests.querySelectorAll(".booklet-q-row, summary").length >= json.inbox.requests.length, true);
 	assert.equal(v.log.reads.length, 1, "one read of one file for four blocks");
-	assert.equal(v.disk.writes, 0);
-	v.close();
-});
-
-test("the questions in the example that are asked for each row are drawn as their title and a line saying they are not drawn yet, with nothing to type in", async () => {
-	const text = readFileSync(here("orchard-dashboard.booklet.md"), "utf8");
-	const v = open(text, { "orchard-dashboard.json": readFileSync(here("orchard-dashboard.json"), "utf8") }, "Orchard.booklet.md");
-	v.view.go({ screen: "activity:desk/orchard", tab: null, part: 0 });
-	await v.settled();
-	const boxes = [...v.view.contentEl.querySelectorAll(".booklet-each-rows")];
-	assert.equal(boxes.length, 3, "a note, a decision and a reply");
-	assert.deepEqual(boxes.map((b) => b.querySelector(".booklet-prompt").textContent), ["A note for the gardener", "Your call", "A word of reply"]);
-	for (const b of boxes) {
-		assert.match(b.querySelector(".booklet-each-notyet").textContent, /asked once for each row of a data block, which this plugin does not draw yet\. Its answers are kept as written\./);
-		assert.equal(b.querySelector("input, textarea, button"), null, "nothing to type in or press");
-	}
 	assert.equal(v.disk.writes, 0);
 	v.close();
 });

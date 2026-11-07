@@ -36,11 +36,12 @@ export interface QuestionHost {
 	answerOf(t: Target, q: Question): unknown;
 	/**
 	 * A press: the answer is shown and written at once. `undefined` clears it. `pick` (the next three too): the value is
-	 * the answer of one pick of a question asked for each pick, the `a` of its pair (each-question.ts).
+	 * the answer of one pick of a question asked for each pick, the `a` of its pair (each-question.ts). `extra`: the other keys
+	 * a new pair is made with (`was`, for a question asked for each row that replaces a value, row-ask.ts).
 	 */
-	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void;
+	answer(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): void;
 	/** Typing: the value is kept, and written after a pause or when the field loses focus. */
-	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue): void;
+	typed(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): void;
 	flushTyped(t: Target, q: Question, pick?: PickValue): void;
 	/** What was typed and is not written yet, if anything. */
 	pendingOf(t: Target, q: Question, pick?: PickValue): { value: AnswerValue | undefined } | null;
@@ -95,28 +96,20 @@ const focused = (el: HTMLElement) => el.ownerDocument.activeElement === el;
  */
 export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q: Question, locked: boolean): void {
 	const wrong = host.wrongOf(t, q);
-	// asked for each row of a data block (SPEC section 5): its source is no question of the activity. Not drawn yet (slice 2): its title, help and a line saying so
+	// asked for each row of a data block (SPEC section 5): its source is no question of the activity. It is drawn in the rows of the
+	// activity's queries over the block (query-view.ts, row-ask.ts), not where it is written, so nothing is drawn here unless its answer
+	// is of the wrong shape: then its title and the notice are, since the rows draw it locked
 	if (q.each && !sourceOf(t.activity, q)) {
-		const box = drawRowsEach(host, card, q);
+		if (!wrong) return;
+		const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind} booklet-each-rows` });
+		host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 		box.setAttr("data-booklet-q", q.id);
-		guardShape(host, box, t, q, !!wrong);
+		guardShape(host, box, t, q, true);
 		return;
 	}
 	const box = q.kind === "widget" ? drawWidget(host, card, t, q, locked || !!wrong) : q.kind === "listen" ? drawListen(host, card, t, q, locked || !!wrong) : drawCommon(host, card, t, q, locked || !!wrong);
 	box.setAttr("data-booklet-q", q.id);
 	guardShape(host, box, t, q, !!wrong);
-}
-
-/** What a question asked for each row of a data block says in its place: this plugin does not ask it yet. Its answers stay as written. */
-export const EACH_ROWS_NOT_YET = "This question is asked once for each row of a data block, which this plugin does not draw yet. Its answers are kept as written.";
-
-/** A question asked for each row of a data block: its title and help, then the line that says it is not drawn yet. Nothing here can be answered or written. */
-function drawRowsEach(host: QuestionHost, card: HTMLElement, q: Question): HTMLElement {
-	const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind} booklet-each-rows` });
-	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
-	if (q.help) host.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered" }));
-	box.createEl("p", { cls: "booklet-muted booklet-each-notyet", text: EACH_ROWS_NOT_YET });
-	return box;
 }
 
 /**
@@ -174,8 +167,8 @@ function drawCommon(host: QuestionHost, card: HTMLElement, t: Target, q: Questio
 	return box;
 }
 
-/** A question's controls, below its words (or below a pick's under `each:`), by its kind. */
-function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
+/** A question's controls, below its words (or below a pick's under `each:`, or a row's), by its kind. */
+export function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	if (q.kind === "text") drawText(host, box, t, q, key, label, locked);
 	else if (q.kind === "number") drawNumber(host, box, t, q, key, label, locked);
 	else if (q.kind === "date") drawDate(host, box, t, q, key, label, locked);
@@ -186,6 +179,9 @@ function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Question, 
 }
 
 export type Label = (el: HTMLElement) => void;
+
+/** Names a control for a screen reader by the elements whose ids are given (a question's prompt and a pick's or a row's words). */
+export { labeller };
 
 function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const field = q.long ? box.createEl("textarea", { cls: "booklet-text booklet-long", attr: { rows: 4 } }) : box.createEl("input", { cls: "booklet-text", type: "text" });

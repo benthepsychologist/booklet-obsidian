@@ -8,13 +8,25 @@
  */
 import { getIcon, setIcon } from "obsidian";
 import { drawChart } from "./charts";
-import { QUERY_WORDS, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type Group, type MoreField, type QueryPlan, type QueryViewState, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
+import { QUERY_WORDS, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type EditSpec, type Group, type MoreField, type QueryPlan, type QueryViewState, type Question, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
 	md(markdown: string, el: HTMLElement): void;
 	/** Opens a note a row's link leads to, from this note. */
 	openNote(path: string): void;
+	/** The acts a reader can make on a data view's rows (row-ask.ts); left out, the rows are drawn as their values. */
+	rows?: RowsUi;
+}
+
+/** What draws the parts of a data view that a reader can act on. Each draws into `into` and registers what it needs to show again with the view. */
+export interface RowsUi {
+	/** A question asked for each row, for this row: in its open part (with its words) or in a column (the column's heading says them). */
+	ask(into: HTMLElement, p: Plan, r: Row, q: Question, where: "open" | "column"): void;
+	/** A field marked `edit`, as its value; pressing it turns it into a box that keeps one act. */
+	edit(into: HTMLElement, p: Plan, r: Row, key: string, spec: EditSpec): void;
+	/** A row's Finalize, under its questions. */
+	finish(into: HTMLElement, p: Plan, r: Row, qs: readonly Question[]): void;
 }
 
 /** How many levels of a nested list are drawn inside one another. */
@@ -112,6 +124,37 @@ function cellInto(host: QueryHost, into: HTMLElement, c: Cell | undefined, asLis
 	words(host, into, c.parts);
 }
 
+/**
+ * Is a field drawn in a row's line (a column, an extra, a card's line): it has words; or it is a question the query places in this column
+ * and the row is asked it; or it is a field the reader can edit, empty or not.
+ */
+function shownField(p: Plan, r: Row, k: string): boolean {
+	if ((r.cells[k]?.text ?? "") !== "") return true;
+	const a = p.ask;
+	if (!a) return false;
+	const q = a.columns.get(k);
+	return q ? a.asked(q, r) : !!a.edit(r, k);
+}
+
+/** A field of a row, in a column, an extra or a card's line: a question placed there, an editable value, or its words. */
+function fieldInto(host: QueryHost, p: Plan, into: HTMLElement, r: Row, k: string, asList: boolean): void {
+	const a = p.ask;
+	const ui = host.rows;
+	if (a && ui) {
+		const q = a.columns.get(k);
+		if (q) {
+			if (a.asked(q, r)) ui.ask(into, p, r, q, "column");
+			return;
+		}
+		const spec = a.edit(r, k);
+		if (spec) {
+			ui.edit(into, p, r, k, spec);
+			return;
+		}
+	}
+	cellInto(host, into, r.cells[k], asList);
+}
+
 /** A tone, said in words to a screen reader too. */
 function toneWords(into: HTMLElement, tone: string | null): void {
 	if (tone) into.createSpan({ cls: "booklet-sr", text: ` (${QUERY_WORDS.tone[tone] ?? tone})` });
@@ -169,19 +212,50 @@ export function numericColumns(rows: readonly Row[], cols: readonly string[]): S
 }
 
 /** A nameless row's name to a screen reader (a disclosure with nothing in it to read). */
+/**
+ * A row's summary can hold a box that is typed in (a field edited in place, a question asked for each row). The browser opens or shuts a
+ * details when Space is let go over its summary, whatever inside it was typed in, so a space typed in such a box would fold the row. A
+ * key let go in a field, text area or menu inside the summary is therefore the box's own: its default (the browser's, for the summary) is
+ * cancelled. A button inside keeps its own Space (a press), and the summary keeps its own.
+ */
+function ownKeys(summary: HTMLElement): void {
+	summary.addEventListener("keyup", (evt) => {
+		const t = evt.target as HTMLElement | null;
+		if (!t || t === summary || (evt.key !== " " && evt.key !== "Spacebar")) return;
+		const tag = t.tagName;
+		if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && !["button", "submit", "reset", "checkbox", "radio", "range", "color", "file", "image"].includes((t as HTMLInputElement).type))) evt.preventDefault();
+	});
+}
+
 function nameIfBlank(summary: HTMLElement): void {
 	if ((summary.textContent ?? "").trim() === "") summary.createSpan({ cls: "booklet-sr", text: QUERY_WORDS.row });
 }
 
-/** A row's open part (SPEC section 6, "What opens"): its other fields, each under its label as plain text with the line breaks kept. */
-function moreInto(host: QueryHost, into: HTMLElement, m: readonly MoreField[]): void {
-	if (!m.length) return;
-	const dl = into.createEl("dl", { cls: "booklet-q-more" });
-	for (const f of m) {
-		words(host, dl.createEl("dt"), f.label);
-		dl.createEl("dd", { cls: "booklet-q-text", text: f.text });
+/**
+ * A row's open part (SPEC section 6, "What opens"): its other fields, each under its label as plain text with the line breaks kept (a
+ * field the reader can edit is pressed to edit), then the questions asked of it (SPEC section 5), each with its own words.
+ */
+function openInto(host: QueryHost, p: Plan, into: HTMLElement, r: Row): void {
+	const m: readonly MoreField[] = p.tree ? p.tree.more(r) : [];
+	if (m.length) {
+		const dl = into.createEl("dl", { cls: "booklet-q-more" });
+		for (const f of m) {
+			words(host, dl.createEl("dt"), f.label);
+			const dd = dl.createEl("dd", { cls: "booklet-q-text" });
+			const spec = host.rows && p.ask ? p.ask.edit(r, f.key) : null;
+			if (spec) host.rows!.edit(dd, p, r, f.key, spec);
+			else dd.setText(f.text);
+		}
 	}
+	const qs = p.tree && host.rows ? p.tree.asks(r) : [];
+	if (!qs.length) return;
+	const box = into.createDiv({ cls: "booklet-row-asks" });
+	for (const q of qs) host.rows!.ask(box, p, r, q, "open");
+	host.rows!.finish(box, p, r, qs);
 }
+
+/** Does a row's open part hold anything to draw: its other fields, or a question? */
+const hasOpenPart = (p: Plan, r: Row): boolean => !!p.tree && (p.tree.more(r).length > 0 || p.tree.asks(r).length > 0);
 
 /** The heading of a group of child rows, the field they came from. */
 function kidHead(host: QueryHost, into: HTMLElement, label: readonly WordPart[]): void {
@@ -230,7 +304,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		} else if (k === leadKey && (roles.link || roles.icon)) {
 			iconInto(into, r, roles);
 			lead(host, into, r, roles, (el) => cellInto(host, el, r.cells[k], true));
-		} else cellInto(host, into, r.cells[k], true);
+		} else fieldInto(host, p, into, r, k, true);
 	};
 	const nest = nestOf(p, ui);
 	if (!nest) {
@@ -282,17 +356,17 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			details = box.createEl("details", { attr: { "data-id": nest.key(r) } });
 			details.open = nest.isOpen(r);
 			const summary = details.createEl("summary");
+			ownKeys(summary);
 			fill(td, summary, r, k);
 			nameIfBlank(summary);
 		}
 		if (!opens || !details) return;
 		const below = (): (() => void)[] => {
 			const jobs: (() => void)[] = [];
-			const m = tree.more(r);
-			if (m.length)
+			if (hasOpenPart(p, r))
 				jobs.push(() => {
 					const td = body.createEl("tr", { cls: "booklet-q-trmore", attr: { "data-depth": String(depth + 1) } }).createEl("td", { attr: { colspan: span } });
-					moreInto(host, leadBox(td, depth + 1), m);
+					openInto(host, p, leadBox(td, depth + 1), r);
 				});
 			for (const g of tree.groups.get(r) ?? []) {
 				if (g.label)
@@ -355,7 +429,7 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): Ne
 		iconInto(line, r, roles);
 		pills(line, badges, tone);
 		if (roles.label && r.cells[roles.label]) lead(host, line.createSpan({ cls: "booklet-q-label" }), r, roles, (el) => cellInto(host, el, r.cells[roles.label!], false));
-		const extras = cols.filter((k) => (r.cells[k]?.text ?? "") !== "");
+		const extras = cols.filter((k) => shownField(p, r, k));
 		if (extras.length) {
 			const x = line.createSpan({ cls: "booklet-q-extras" });
 			for (const k of extras) {
@@ -363,7 +437,7 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): Ne
 				const sr = f.createSpan({ cls: "booklet-sr" });
 				words(host, sr, set.label(k));
 				sr.appendText(": ");
-				cellInto(host, f, r.cells[k], false);
+				fieldInto(host, p, f, r, k, false);
 			}
 		}
 		if (roles.value && r.cells[roles.value]) cellInto(host, line.createSpan({ cls: `booklet-q-value${tone && !badges.length ? ` booklet-tone-${tone}` : ""}` }), r.cells[roles.value], false);
@@ -397,20 +471,21 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): Ne
 		}
 		if (depth >= MAX_NEST) {
 			const li = row(ul, r);
-			moreInto(host, li, tree.more(r));
+			openInto(host, p, li, r);
 			work.push((tree.groups.get(r) ?? []).flatMap((g) => g.rows.map((c) => node(ul, c, depth))));
 			return;
 		}
 		const d = ul.createEl("li", { cls: "booklet-q-node" }).createEl("details", { attr: { "data-id": nest.key(r) } });
 		d.open = nest.isOpen(r);
 		const summary = d.createEl("summary", { cls: "booklet-q-row" });
+		ownKeys(summary);
 		fill(summary, r);
 		nameIfBlank(summary);
 		let drawn = false;
 		const draw = (): void => {
 			if (drawn) return;
 			drawn = true;
-			moreInto(host, d, tree.more(r));
+			openInto(host, p, d, r);
 			const jobs: (() => void)[] = [];
 			for (const g of tree.groups.get(r) ?? []) {
 				if (g.label) jobs.push(() => kidHead(host, d, g.label!));
@@ -469,12 +544,12 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 	const nest = nestOf(p, ui);
 	/** A data row's lines: every field that plays no role, under the title, as on a kept entry's card. */
 	const linesInto = (card: HTMLElement, r: Row): void => {
-		const lines = set.kind === "data" ? cols.filter((k) => r.cells[k]) : [];
+		const lines = set.kind === "data" ? cols.filter((k) => r.cells[k] || shownField(p, r, k)) : [];
 		if (!lines.length) return;
 		const dl = card.createEl("dl");
 		for (const k of lines) {
 			words(host, dl.createEl("dt"), set.label(k));
-			cellInto(host, dl.createEl("dd"), r.cells[k], true);
+			fieldInto(host, p, dl.createEl("dd"), r, k, true);
 		}
 	};
 	const plain = (at: HTMLElement, r: Row): HTMLElement => {
@@ -510,7 +585,7 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		}
 		if (depth >= MAX_NEST) {
 			const c = plain(at, r);
-			moreInto(host, c, tree.more(r));
+			openInto(host, p, c, r);
 			work.push((tree.groups.get(r) ?? []).flatMap((g) => g.rows.map((k) => card(at, k, depth))));
 			return;
 		}
@@ -519,6 +594,7 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		const d = wrap.createEl("details", { attr: { "data-id": nest.key(r) } });
 		d.open = nest.isOpen(r);
 		const summary = d.createEl("summary");
+		ownKeys(summary);
 		const head = summary.createSpan({ cls: "booklet-q-card-title" });
 		iconInto(head, r, roles);
 		if (roles.label && r.cells[roles.label]) lead(host, head, r, roles, (el) => cellInto(host, el, r.cells[roles.label!], false));
@@ -534,7 +610,7 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			if (drawn) return;
 			drawn = true;
 			const body = d.createDiv({ cls: "booklet-q-fold-body" });
-			moreInto(host, body, tree.more(r));
+			openInto(host, p, body, r);
 			const jobs: (() => void)[] = [];
 			for (const g of tree.groups.get(r) ?? []) {
 				if (g.label) jobs.push(() => kidHead(host, body, g.label!));
