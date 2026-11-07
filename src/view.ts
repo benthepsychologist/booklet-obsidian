@@ -1109,12 +1109,16 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return this.book?.records.entries[t.scope]?.[t.activity.id] ?? [];
 	}
 
+	say(message: string): void {
+		new Notice(message);
+	}
+
 	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void): void {
 		const file = this.file;
 		if (!file) return failed();
 		const id = t.activity.id;
 		// the entry is made of the file's fresh text, and its time is the moment of the write: one new entry, and no other byte changes
-		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", undefined, failed);
+		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => new Notice("Booklet: change kept."), failed);
 	}
 
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void {
@@ -1962,11 +1966,24 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			sig = now;
 			const book = this.book;
 			// drawn again over rows the reader is looking at: the rows they have open, their scroll and their focus stay where they were
-			draw(() => planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b), activity: a }), drawnOnce);
+			let planned: ReturnType<typeof planQuery> | null = null;
+			draw(() => (planned = planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b), activity: a })), drawnOnce);
 			drawnOnce = true;
+			if (planned) this.keepWordsOfGoneRows(vkey, planned);
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);
+	}
+
+	/**
+	 * A row taken out of the data (the file was written again) while the reader had a box open on one of its fields: the box is gone with
+	 * the row, so the words in it are kept as an act at once, as leaving the box would have kept them, and nothing is left hanging. A row
+	 * that is only not drawn now (shut, filtered out) keeps its box for when it is drawn again.
+	 */
+	private keepWordsOfGoneRows(vkey: string, plan: ReturnType<typeof planQuery>): void {
+		if (plan.kind !== "rows") return;
+		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [pickKey(r.id)])));
+		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(pickKey(s.pick))) s.commit?.();
 	}
 
 	private dayRule(): DayRule {

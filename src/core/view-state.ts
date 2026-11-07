@@ -48,7 +48,8 @@ export function shownKeys(p: Plan): string[] {
 export function sortKeys(p: Plan): { key: string; label: string }[] {
 	if (p.view === "line") return [];
 	const { roles, set } = p;
-	const keys = uniq([set.kind === "entries" ? "date" : null, roles.label, roles.value, ...p.cols.flatMap(set.expand)]);
+	// a column that holds a question asked for each row is the reader's own answers, not a field of the rows: there is nothing to sort by
+	const keys = uniq([set.kind === "entries" ? "date" : null, roles.label, roles.value, ...p.cols.flatMap(set.expand)]).filter((k) => !p.ask?.columns.has(k));
 	return keys.map((key) => ({ key, label: key === "date" ? QUERY_WORDS.controls.date : textOf(set.label(key)) }));
 }
 

@@ -1339,6 +1339,15 @@
 	display: block;
 }
 
+.booklet-row-state[data-state="invalid"] {
+	display: block;
+	color: var(--text-error);
+}
+
+.booklet-row-state[data-state="invalid"]:empty {
+	display: none;
+}
+
 .booklet-row-history {
 	margin: var(--size-2-1) 0 0;
 	padding: 0;
@@ -1358,7 +1367,8 @@
 	margin-top: var(--size-2-1);
 }
 
-.booklet-print-value {
+.booklet-print-value,
+.booklet-edit-print {
 	display: none;
 }
 
@@ -1371,6 +1381,16 @@
 
 	.booklet-print-value {
 		display: block;
+		white-space: pre-wrap;
+	}
+
+	/* an edit box left open prints as its words, in plain text: no border, no spinner, a text area's whole text */
+	.booklet-edit-box {
+		display: none;
+	}
+
+	.booklet-edit-print {
+		display: inline;
 		white-space: pre-wrap;
 	}
 

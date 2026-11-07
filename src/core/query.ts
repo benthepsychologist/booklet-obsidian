@@ -9,7 +9,7 @@
 import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import { childRowsOf, type DataRow, type DataRows, type DataValue, type FieldEdit } from "./data";
-import { carries, editSpecOf, isReadonly, pickOfRow, type EditSpec } from "./ask";
+import { carries, editSpecOf, heldOf, isReadonly, pickOfRow, type EditSpec } from "./ask";
 import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
@@ -897,7 +897,10 @@ function askPlan(set: RowSet, q: Query, view: ViewName, blockId: string, act: Ac
 			if (r.id === undefined || isReadonly(q.readonly, k)) return null;
 			// a field that a question is asked of, in this row, is the question
 			if (questions.some((x) => x.id === k && asked(x, r))) return null;
-			return Object.prototype.hasOwnProperty.call(edits, k) ? editSpecOf(edits[k]) : null;
+			if (!Object.prototype.hasOwnProperty.call(edits, k)) return null;
+			// a list is for appending, not for editing in place; a row that does not carry the field has nothing to edit
+			if (!r.raw || heldOf(r.raw, k).shape !== "value") return null;
+			return editSpecOf(edits[k]);
 		},
 	};
 }

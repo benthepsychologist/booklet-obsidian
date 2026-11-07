@@ -388,3 +388,138 @@ test("a space typed in a box inside a row's summary is the box's own: the browse
 	press(cell.querySelector(".booklet-edit-box"), "Escape");
 	v.close();
 });
+
+/* ---- the fix round: a half-typed number, a daily activity, a list value, the waiting mark, a row that goes, print ---- */
+
+const Notice = globalThis.__bookletStubNotice;
+
+/** A number box whose browser says the text typed is not a number (Chrome gives value "" and validity.badInput for "3e"). */
+function badNumber(box, text) {
+	Object.defineProperty(box, "validity", { configurable: true, value: { badInput: true } });
+	Object.defineProperty(box, "value", { configurable: true, get: () => "", set: () => {} });
+	box.__typed = text;
+}
+const numberOrchard = async (extra = {}) => {
+	const file = JSON.parse(FILE);
+	file.plots.fields.open = { label: "Open jobs", edit: "number" };
+	return orchard({ file: JSON.stringify(file), ...extra });
+};
+
+test("a number box that holds text that is no number keeps nothing, stays open with a word, and only an empty box keeps null", async () => {
+	const v = await numberOrchard();
+	const cell = v.cell(v.queries()[0], "open", "p-orchard");
+	click(cell.querySelector("button"));
+	const box = cell.querySelector("input.booklet-edit-box");
+	assert.equal(box.type, "number");
+	badNumber(box, "3e");
+	press(box, "Enter");
+	await v.settled();
+	assert.equal(v.disk.writes, 0, "nothing is kept for text that is not a number");
+	const again = v.cell(v.queries()[0], "open", "p-orchard");
+	assert.ok(again.querySelector("input.booklet-edit-box"), "the box stays open, with the reader's text in it");
+	assert.match(words(again.querySelector(".booklet-row-state")), /not a number/i, "and says so in words");
+	assert.equal(again.querySelector(".booklet-row-state").getAttribute("role"), "alert");
+	v.close();
+});
+
+test("leaving the screen with number text that cannot be read keeps nothing, says so, and leaves nothing hanging", async () => {
+	const v = await numberOrchard();
+	const cell = v.cell(v.queries()[0], "open", "p-orchard");
+	click(cell.querySelector("button"));
+	badNumber(cell.querySelector("input.booklet-edit-box"), "1e999");
+	Notice.said.length = 0;
+	v.view.go({ screen: "home", tab: null, part: 0 });
+	await v.settled();
+	assert.equal(v.disk.writes, 0);
+	assert.ok(Notice.said.some((x) => /not a number/.test(x)), JSON.stringify(Notice.said));
+	assert.equal(v.view.sessions.size, 0);
+	v.close();
+});
+
+test("an empty number box keeps null", async () => {
+	const v = await numberOrchard();
+	const cell = v.cell(v.queries()[0], "open", "p-orchard");
+	click(cell.querySelector("button"));
+	typeInto(cell.querySelector("input"), "");
+	press(cell.querySelector("input"), "Enter");
+	await v.settled();
+	assert.deepEqual(norm(v.kept()[0].open), [{ pick: "p-orchard", a: null, was: 3 }], "an emptied box is an emptied value");
+	v.close();
+});
+
+test("in a daily activity a field marked edit is its value only, and a question asked for each row is a draft with no was and no row Finalize", async () => {
+	const text = ORCHARD.replace("orchard repeat", "orchard repeat daily");
+	const v = await orchard({ text });
+	const plots = v.queries()[0];
+	assert.equal(plots.querySelectorAll("button.booklet-edit-open").length, 0, "no edit button");
+	assert.ok(words(plots.querySelector("tbody tr")).includes("growing"), "the value is drawn");
+	const t = plots.querySelector("[data-booklet-q='notes'][data-booklet-pick='p-orchard'] textarea");
+	typeInto(t, "A daily note");
+	t.dispatchEvent(new w.FocusEvent("blur"));
+	await v.settled(400);
+	assert.equal(v.kept().length, 0);
+	assert.deepEqual(norm(core.parseBooklet(v.disk.text).records.drafts.desk.orchard.notes), [{ pick: "p-orchard", a: "A daily note" }]);
+	const requests = v.queries()[3];
+	const d0 = requests.querySelector("details");
+	d0.open = true;
+	d0.dispatchEvent(new w.Event("toggle"));
+	assert.equal(d0.querySelector("button.booklet-row-finalize"), null, "a daily activity keeps one entry a day: no row Finalize");
+	v.close();
+});
+
+test("a field marked edit whose value is a list is drawn as a list of words and is read-only", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.fields.kind = { label: "Kind", edit: "text" };
+	file.plots.rows[0].kind = ["Orchard", "Old"];
+	const v = await orchard({ file: JSON.stringify(file) });
+	const plots = v.queries()[0];
+	assert.equal(plots.querySelector("[data-booklet-edit='kind'][data-booklet-pick='p-orchard']"), null, "no edit cell");
+	assert.ok(words(plots.querySelector("tbody tr")).includes("Orchard") && words(plots.querySelector("tbody tr")).includes("Old"), "both words are drawn");
+	v.close();
+});
+
+test("the waiting mark is tied to the edit button (described by it), and a kept edit is announced", async () => {
+	const v = await orchard();
+	Notice.said.length = 0;
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Described");
+	await v.settled();
+	assert.ok(Notice.said.some((x) => /change kept/i.test(x)), `announced: ${JSON.stringify(Notice.said)}`);
+	const cell = v.cell(v.queries()[0], "title", "p-orchard");
+	const b = cell.querySelector("button");
+	const mark = cell.querySelector(".booklet-row-state");
+	assert.ok(mark.id && b.getAttribute("aria-describedby") === mark.id, "the button is described by the mark");
+	assert.equal(words(mark), "Sent, waiting to be applied.");
+	v.close();
+});
+
+test("a row taken out of the data while its box is open keeps the reader's words as an act at once and leaves nothing hanging", async () => {
+	const v = await orchard();
+	const cell = v.cell(v.queries()[0], "title", "p-orchard");
+	click(cell.querySelector("button"));
+	typeInto(cell.querySelector(".booklet-edit-box"), "Words of a row that went");
+	await v.rewrite((j) => j.plots.rows.splice(0, 1));
+	await v.settled();
+	await sleepTick();
+	const kept = v.kept();
+	assert.equal(kept.length, 1, "kept at once");
+	assert.deepEqual(norm(kept[0].title), [{ pick: "p-orchard", a: "Words of a row that went", was: "Orchard" }]);
+	assert.equal(v.view.hasUnsaved(), false, "and nothing is left to write");
+	assert.equal(v.view.sessions.size, 0);
+	v.close();
+});
+
+test("an edit box open at print time prints its value as plain text, and the style sheet hides the box", async () => {
+	const v = await orchard();
+	const cell = v.cell(v.queries()[0], "title", "p-orchard");
+	click(cell.querySelector("button"));
+	typeInto(cell.querySelector(".booklet-edit-box"), "Typed and not kept");
+	const printed = cell.querySelector(".booklet-edit-print");
+	assert.ok(printed, "a plain copy of the box's words is there");
+	assert.equal(printed.textContent, "Typed and not kept");
+	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	const print = css.slice(css.indexOf("@media print"));
+	assert.match(print, /\.booklet-edit-box[^{]*\{[^}]*display:\s*none/);
+	assert.match(print, /\.booklet-edit-print[^{]*\{[^}]*display:\s*(inline|block)/);
+	press(cell.querySelector(".booklet-edit-box"), "Escape");
+	v.close();
+});

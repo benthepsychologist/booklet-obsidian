@@ -324,9 +324,10 @@ export interface DayRule {
 }
 
 /** The first kept entry of an activity whose day is `rule.today`, in file order (booklet.html seedUpsertDraft). */
-export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule): Entry | null {
+export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule, act?: Partial<Pick<Activity, "segments">>): Entry | null {
 	const dayOf = rule.dayOf ?? localDayOf;
-	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today) ?? null;
+	// an entry that holds acts on rows is a moment of its own, not the day's entry (isActEntry)
+	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today && !(act && isActEntry(act, e))) ?? null;
 }
 
 export interface ShownDraft {
@@ -346,7 +347,7 @@ export interface ShownDraft {
 export function shownDraft(book: Booklet, scope: string, activity: Pick<Activity, "id" | "daily"> & Partial<Pick<Activity, "segments">>, rule?: DayRule): ShownDraft {
 	const values = book.records.drafts[scope]?.[activity.id] ?? (Object.create(null) as Record<string, unknown>);
 	if (recordFilled(activity, values) || !activity.daily || !rule) return { values, seededFrom: null };
-	const today = todaysEntry(book, scope, activity.id, rule);
+	const today = todaysEntry(book, scope, activity.id, rule, activity);
 	if (!today) return { values, seededFrom: null };
 	const seeded = Object.create(null) as Record<string, unknown>;
 	for (const [k, v] of Object.entries(today)) if (k !== "ts") seeded[k] = v;
@@ -435,6 +436,21 @@ export interface Finalized {
 }
 
 /**
+ * Is this kept entry an act on the rows of a data block (SPEC section 5, "Editing a field in place")? It holds a field's act (a key that is
+ * no question's, whose value is a list of pairs `{ pick, a }`) or a pair that says what the value was (`was`). Such an entry is a moment of
+ * its own: a daily Finalize neither replaces it nor takes its time.
+ */
+export function isActEntry(act: Partial<Pick<Activity, "segments">>, e: Entry): boolean {
+	const ids = new Set((act.segments ?? []).filter((x): x is Question => x.type === "question").map((x) => x.id));
+	return Object.entries(e).some(([k, v]) => {
+		if (k === "ts" || !Array.isArray(v)) return false;
+		const pairs = v.filter((x) => isPair(x));
+		if (!pairs.length) return false;
+		return !ids.has(k) || pairs.some((x) => Object.prototype.hasOwnProperty.call(x, "was"));
+	});
+}
+
+/**
  * Keeps a `repeat` activity's draft as a dated entry and empties the draft (booklet.html finalizeEntry).
  * The entry, `{"ts": …}` and every answer the draft holds, goes after the last entry of the activity's
  * last entries block, or, with none yet, a new entries block takes the draft block's place; every draft
@@ -450,7 +466,7 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	const merged = d.book.records.drafts[scope]?.[activityId];
 	// a draft whose only answers are pairs for picks taken back is empty too (each.ts recordFilled)
 	if (!recordFilled(act, merged)) {
-		const keptToday = act.daily && opts.rule && todaysEntry(d.book, scope, activityId, opts.rule);
+		const keptToday = act.daily && opts.rule && todaysEntry(d.book, scope, activityId, opts.rule, act);
 		throw new RecordsWriteError(keptToday ? "Today's entry is already kept. Change an answer to keep it again." : "Nothing to keep yet: the entry is empty.");
 	}
 	const kept = d.book.records.entries[scope]?.[activityId] ?? [];
@@ -463,7 +479,7 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 	const dayOf = rule?.dayOf ?? localDayOf;
 	// the entry a daily Finalize replaces gives up its time: the new entry may take it
 	const day = rule ? dayOf(isoSecond(new Date(at))) : "";
-	const replacing = rule ? kept.find((e) => dayOf(String(e.ts)) === day) : undefined;
+	const replacing = rule ? kept.find((e) => dayOf(String(e.ts)) === day && !isActEntry(act, e)) : undefined;
 	const taken = new Set(kept.filter((e) => e !== replacing).map((e) => String(e.ts)));
 	let ts = isoSecond(new Date(at));
 	while (taken.has(ts)) ts = isoSecond(new Date((at += late ? -1000 : 1000)));
@@ -492,7 +508,7 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 		for (let bi = 0; bi < entryBlocks.length && !replaced; bi++) {
 			const b = entryBlocks[bi]!;
 			const items = entryItems(b.value) ?? [];
-			const ix = items.findIndex((e) => dayOf(String(e.ts)) === onDay);
+			const ix = items.findIndex((e) => dayOf(String(e.ts)) === onDay && !isActEntry(act, e));
 			if (ix < 0) continue;
 			const oldTs = String(items[ix]!.ts);
 			ops.push({ b, code: replaceItem(b.code, ix, itemText)! });

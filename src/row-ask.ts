@@ -47,6 +47,10 @@ export interface EditSession {
 	text: string;
 	was: unknown;
 	focused: boolean;
+	/** The query that drew the box, the row's id, and the cell now holding the box (the view keeps the words of a row that goes, view.ts). */
+	vkey: string;
+	pick: PickValue;
+	cell?: HTMLElement;
 	/** Keeps what is in the box as leaving it would: set while the box is drawn, and called before the screen is left. */
 	commit?: () => void;
 }
@@ -55,6 +59,8 @@ export interface EditSession {
 export interface RowsView extends QuestionHost {
 	/** The activity's kept entries as the view holds them. */
 	keptOf(t: Target): Entry[];
+	/** Says something to the reader, politely (a notice). */
+	say(message: string): void;
 	/** Keeps one act as a new entry of the activity, under `key`; `failed` runs when it could not be written (the reader's words are then given back). */
 	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void): void;
 	/** A row's Finalize: keeps that row's draft pairs of the questions `ids` as one entry, and takes them out of the draft. */
@@ -86,8 +92,11 @@ function wordsOf(q: Question, v: unknown): string {
 /** What the rows of one query can do, for the activity that holds it: its questions drawn in rows, its edit boxes, and the row's Finalize. */
 export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 	const t: Target = { scope: a.scope, activity: a };
-	/** Can an act be kept: the activity keeps entries and has an id to keep them under. */
-	const keeps = a.repeat && !!a.id;
+	/**
+	 * Can an act be kept: the activity keeps entries and has an id to keep them under. A daily activity keeps one entry a day, made by its
+	 * own Finalize, so an act (an entry of its own) has no place in it: there a field is its value, and a question is a draft as any is.
+	 */
+	const keeps = a.repeat && !!a.id && !a.daily;
 
 	const ask: RowsUi["ask"] = (into, p, r, q, where) => {
 		const plan = p.ask!;
@@ -232,9 +241,11 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 		/** What the cell shows when it is not open: the value, or (waiting) what was sent. */
 		const start: unknown = sh.state === "waiting" ? sh.sent.a : now;
 
-		const mark = (c: HTMLElement, s: Shows): void => {
-			if (s.state === "waiting") c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " Sent, waiting to be applied." });
-			else if (s.state === "changed") c.createSpan({ cls: "booklet-row-state booklet-row-sent", attr: { "data-state": "changed" }, text: ` You sent “${valueText(s.sent.a)}”, but the value has changed since.` });
+		/** The words of a waiting or changed value, beside it; the value's button is described by them. */
+		const mark = (c: HTMLElement, s: Shows): HTMLElement | null => {
+			if (s.state === "waiting") return c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting", id: view.uid() }, text: " Sent, waiting to be applied." });
+			if (s.state === "changed") return c.createSpan({ cls: "booklet-row-state booklet-row-sent", attr: { "data-state": "changed", id: view.uid() }, text: ` You sent “${valueText(s.sent.a)}”, but the value has changed since.` });
+			return null;
 		};
 		const shut = (shown: unknown, s: Shows): void => {
 			cell.empty();
@@ -251,15 +262,17 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 			b.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
-				view.sessions.set(sk, { text, was: now, focused: true });
+				view.sessions.set(sk, { text, was: now, focused: true, vkey, pick: id });
 				open();
 			});
-			mark(cell, s);
+			const said = mark(cell, s);
+			if (said) b.setAttr("aria-describedby", said.id);
 		};
 
 		const open = (): void => {
 			const sess = view.sessions.get(sk);
 			if (!sess) return;
+			sess.cell = cell;
 			cell.empty();
 			const nameId = view.uid();
 			cell.createSpan({ cls: "booklet-sr", attr: { id: nameId }, text: `${label}, ${name}` });
@@ -277,20 +290,43 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 			} else box = cell.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr: spec.kind === "number" ? { inputmode: "decimal" } : {} });
 			box.setAttr("aria-labelledby", nameId);
 			box.setAttr("data-booklet-key", `${key}#${String(id)}`);
+			// the box's words as plain text, which is what prints (the box itself does not), and a place for a word to the reader
+			const printed = cell.createSpan({ cls: "booklet-edit-print", text: sess.text });
+			const warn = cell.createSpan({ cls: "booklet-row-state", attr: { "data-state": "invalid", role: "alert", id: view.uid() } });
+			box.setAttr("aria-describedby", warn.id);
 			if (box.tagName === "SELECT") {
 				const at = Array.from((box as HTMLSelectElement).options).findIndex((o) => sameOption(o.value, sess.text));
 				(box as HTMLSelectElement).selectedIndex = Math.max(0, at);
 			} else box.value = sess.text;
 			const read = (): string => box.value;
-			box.addEventListener("input", () => {
-				sess.text = read();
-			});
-			box.addEventListener("change", () => {
-				sess.text = read();
-			});
+			/** A number box whose text is no number (the browser gives value "" and says badInput for "3e"): it holds words that cannot be kept. */
+			const unreadable = (): boolean => spec.kind === "number" && ((box as HTMLInputElement).validity?.badInput === true || (read().trim() !== "" && !Number.isFinite(Number(read()))));
+			const typedIn = (): void => {
+				// unreadable text is not the box's value: the session keeps the last words that were
+				if (!unreadable()) {
+					sess.text = read();
+					printed.setText(sess.text);
+					warn.setText("");
+				}
+			};
+			box.addEventListener("input", typedIn);
+			box.addEventListener("change", typedIn);
 			let over = false;
-			const finish = (keepIt: boolean): void => {
+			const finish = (keepIt: boolean, leaving = false): void => {
 				if (over) return;
+				if (keepIt && unreadable()) {
+					if (!leaving) {
+						// the box stays open with the reader's text in it, and says why nothing is kept
+						warn.setText("That is not a number, so nothing is kept. Correct the number to keep it.");
+						return;
+					}
+					// the screen is being left: the text cannot be read as a number, so it cannot be kept
+					over = true;
+					view.sessions.delete(sk);
+					shut(start, sh);
+					view.say(`Booklet: ${label} of ${name} was not changed, because what was typed is not a number.`);
+					return;
+				}
 				over = true;
 				view.sessions.delete(sk);
 				const typed = read();
@@ -302,14 +338,14 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 				// what was typed shows at once, as waiting, until the note holds it (the view draws the rows again then)
 				shut(next, { state: "waiting", sent: { ts: "", a: next, was, hasWas: true } });
 				view.keepAct(t, key, { pick: id, a: next, was }, () => {
-					view.sessions.set(sk, { text: typed, was, focused: false });
+					view.sessions.set(sk, { text: typed, was, focused: false, vkey, pick: id, cell });
 					if (cell.isConnected) {
 						over = false;
 						open();
 					}
 				});
 			};
-			sess.commit = () => finish(true);
+			sess.commit = () => finish(true, true);
 			// a key in the box belongs to the box: it never reaches the row's disclosure, which Space and Enter would toggle
 			const own = (evt: Event) => evt.stopPropagation();
 			const el: HTMLElement = box;

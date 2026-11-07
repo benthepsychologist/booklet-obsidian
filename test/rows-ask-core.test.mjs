@@ -15,7 +15,7 @@ const FIELDS = { title: { label: "Name", edit: "text" }, stage: { label: "Stage"
 const DATA = {
 	fields: FIELDS,
 	rows: [
-		{ id: "a", title: "Apples", stage: "growing", due: "2026-11-20", size: 3, kind: "tree", notes: ["old"] },
+		{ id: "a", title: "Apples", stage: "growing", due: "2026-11-20", size: 3, about: "Two trees", odd: "z", kind: "tree", notes: ["old"] },
 		{ id: "b", title: "Pears", stage: "planning", kind: "tree", notes: [] },
 		{ title: "No id", stage: "planning" },
 		{ id: "a", title: "Same id again", notes: [] },
@@ -189,4 +189,37 @@ test("a row's Finalize keeps that row's pairs as one entry and leaves the others
 	assert.deepEqual(norm(b.records.drafts.desk.orchard.decision), [{ pick: "b-hens", a: 2 }], "the other row's answer waits");
 	assert.equal(b.records.drafts.desk.orchard.reply, undefined);
 	assert.throws(() => core.keepRowDraft(out.text, "desk", "orchard", ["decision", "reply"], "b-ladder", { ts: "2026-11-07T10:00:00Z" }), /no answer/);
+});
+
+/* ---- the fix round ---- */
+
+test("a field marked edit whose value in a row is a list, or an object, is not edited in that row; a scalar is", () => {
+	const data = { fields: { kind: { label: "Kind", edit: "text" }, title: "Name" }, rows: [{ id: "a", title: "A", kind: ["x", "y"] }, { id: "b", title: "B", kind: "tree" }, { id: "c", title: "C" }] };
+	const { p } = plan(note(["from: d\nas: table\nfields: title, kind"], "", "repeat", [["d", data]]));
+	const [a, b, c] = ROWS(p);
+	assert.equal(p.ask.edit(a, "kind"), null, "a list is for appending");
+	assert.ok(p.ask.edit(b, "kind"));
+	assert.equal(p.ask.edit(c, "kind"), null, "a row without the field has nothing to edit in place");
+});
+
+test("a question column's heading is not a sort key; the other columns are", () => {
+	const { p } = plan(note(["from: d\nas: table\nfields: title, notes"], QS));
+	const keys = core.sortKeys(p).map((k) => k.key);
+	assert.ok(keys.includes("title"));
+	assert.equal(keys.includes("notes"), false);
+});
+
+test("a daily Finalize keeps an act entry of the same day as it is and adds its own entry", () => {
+	let t = ORCHARD.replace("orchard repeat", "orchard repeat daily");
+	const rule = { today: "2026-11-07", until: Date.parse("2026-11-07T23:59:59Z"), dayOf: (ts) => String(ts).slice(0, 10) };
+	t = core.keepEntry(t, "desk", "orchard", { title: [{ pick: "p-orchard", a: "Edited", was: "Orchard" }] }, { ts: "2026-11-07T08:00:00Z" }).text;
+	const line = t.split("\n").find((l) => l.startsWith('{"ts":"2026-11-07T08:00:00Z"'));
+	t = core.setDraftAnswer(t, "desk", "orchard", "decision", [{ pick: "b-ladder", a: 1 }], rule);
+	const out = core.finalizeDraft(t, "desk", "orchard", { ts: "2026-11-07T10:00:00Z", rule });
+	assert.equal(out.replaced, false, "the act entry is not replaced");
+	const kept = core.parseBooklet(out.text).records.entries.desk.orchard;
+	assert.equal(kept.length, 2);
+	assert.equal(kept[0].ts, "2026-11-07T08:00:00Z", "and keeps its time");
+	assert.ok(out.text.includes(line.replace(/,$/, "")), "and its bytes");
+	assert.equal(kept[0].decision, undefined, "the draft is not merged into it");
 });
