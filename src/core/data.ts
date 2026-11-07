@@ -4,7 +4,7 @@
  * or just the list of rows. A value is a string, a number, `true`, `false`, `null`, a flat list of those, a list of rows (objects)
  * or one row (an object): a row that holds rows has children, to any depth (format 0.19). A list is all values or all rows. A
  * field's label in `fields` is a string, or an object `{ label, edit, options }`: the label is read, and `edit` and `options` are
- * kept for a reader that edits (this one does not yet). The block belongs to whoever wrote the file: it is read here, drawn by a
+ * used by a reader that edits (ask.ts editSpecOf; the view draws a marked field as a box). The block belongs to whoever wrote the file: it is read here, drawn by a
  * query, and never written. Plain TypeScript: nothing here imports Obsidian.
  */
 
@@ -16,7 +16,7 @@ export interface DataRow {
 	[key: string]: DataValue | DataValue[] | DataRow | DataRow[];
 }
 
-/** What a field's label object said about editing it. Read and kept; nothing edits yet (slice 2). */
+/** What a field's label object said about editing it. Read here, used by ask.ts (editSpecOf) to say which fields are edited and in what kind of box. */
 export interface FieldEdit {
 	edit?: unknown;
 	options?: unknown;

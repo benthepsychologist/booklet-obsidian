@@ -553,7 +553,10 @@ module.exports = function dashboardChecks(env) {
       await withApp("c62-" + where, async (o, vault) => {
         const noteFile = path.join(vault, ORCHARD), jsonFile = path.join(vault, "orchard-dashboard.json");
         fs.writeFileSync(noteFile, fs.readFileSync(here("orchard-dashboard.booklet.md")));
-        fs.writeFileSync(jsonFile, fs.readFileSync(here("orchard-dashboard.json")));
+        // the open-jobs count is marked as a number to edit in this copy of the file (the example marks four other fields)
+        const j0 = JSON.parse(fs.readFileSync(here("orchard-dashboard.json"), "utf8"));
+        j0.plots.fields.open = { label: "Open jobs", edit: "number" };
+        fs.writeFileSync(jsonFile, JSON.stringify(j0));
         if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
         const orchard = kit(env, ORCHARD);
         const orig = fs.readFileSync(noteFile, "utf8");
@@ -574,6 +577,10 @@ module.exports = function dashboardChecks(env) {
         c.ok((await sel.evaluate(e => [...e.options].map(x => x.value).join())) === "planning,growing,resting,done", `[${where}] and its options are the field's`);
         c.ok((await plots.locator("details[open]").count()) === 0, `[${where}] the press did not open the row`);
         await sel.selectOption("resting");
+        // notices come and go: a watcher keeps the words of every one that appears
+        // (Obsidian shows no notice in a window that is not focused, and the harness's window may not be: it is told it has the focus)
+        await o.evaluate(() => { window.dispatchEvent(new Event("focus")); });
+        await o.evaluate(() => { window.__seen = []; new MutationObserver(() => document.querySelectorAll(".notice").forEach(n => { if (!window.__seen.includes(n.textContent)) window.__seen.push(n.textContent); })).observe(document.body, { childList: true, subtree: true, characterData: true }); });
         await o.page.keyboard.press("Enter");
         await settle();
         const t1 = noteText(), es = entries();
@@ -581,6 +588,11 @@ module.exports = function dashboardChecks(env) {
         c.ok(t1.slice(0, orig.replace(/\s*$/, "").length) === orig.replace(/\s*$/, ""), `[${where}] and the note before the records is the same bytes`);
         c.ok(/resting/.test(await cell("stage").innerText()) && /Sent, waiting to be applied\./.test(await cell("stage").innerText()), `[${where}] the cell says, in words, that it is sent and waiting: ${JSON.stringify(await cell("stage").innerText())}`);
         c.ok(await cell("stage").locator("button").evaluate(b => b === document.activeElement), `[${where}] the focus is back on the value's button`);
+        const described = await cell("stage").locator("button").evaluate(b => { const m = document.getElementById(b.getAttribute("aria-describedby") || "-"); return m ? m.textContent.trim() : ""; });
+        c.ok(/^Sent, waiting to be applied\.$/.test(described), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(described)}`);
+        await o.page.waitForFunction(() => (window.__seen || []).some(x => /change kept/i.test(x)), null, { timeout: 8000 }).catch(() => {});
+        const notices = await o.evaluate(() => (window.__seen || []).join("|"));
+        c.ok(/change kept/i.test(notices), `[${where}] a kept change is announced by a notice: ${JSON.stringify(notices)}`);
 
         // the three display states, when the JSON is changed from outside
         const json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
@@ -599,6 +611,18 @@ module.exports = function dashboardChecks(env) {
         await o.page.keyboard.press("Escape");
         await settle();
         c.ok(entries().length === 1 && (await cell("due").locator("input").count()) === 0 && /2026-11-20/.test(await cell("due").innerText()), `[${where}] Esc keeps nothing and puts the value back`);
+        // a half-typed number ("3e" gives value "" and badInput in Chrome) is kept as nothing: the box stays open with the text and a word
+        await cell("open").locator("button").focus();
+        await o.page.keyboard.press("Enter");
+        await o.page.keyboard.type("3e");
+        const badInput = await cell("open").locator("input").evaluate(i => ({ bad: i.validity.badInput, value: i.value }));
+        await o.page.keyboard.press("Tab");
+        await settle();
+        c.ok(badInput.bad === true && entries().length === 1 && (await cell("open").locator("input").count()) === 1 && /not a number/.test(await cell("open").locator("[role=alert]").innerText()), `[${where}] unreadable number text (${JSON.stringify(badInput)}) keeps nothing, the box stays open, and a word says why: ${JSON.stringify(await cell("open").innerText())}`);
+        await cell("open").locator("input").focus();
+        await o.page.keyboard.press("Escape");
+        await settle();
+        c.ok(entries().length === 1 && (await cell("open").locator("input").count()) === 0, `[${where}] Esc leaves the value as it was`);
         await cell("title").locator("button").focus();
         await o.page.keyboard.press("Enter");
         await o.page.keyboard.type("Old orchard");
@@ -646,7 +670,7 @@ module.exports = function dashboardChecks(env) {
         c.ok(/button "Edit Stage, [^"]*: [a-z]+"/.test(tree) && /textbox "A note for the gardener/.test(tree), `[${where}] the edit button and the column's text area are named by field or question and row`);
         await o.page.emulateMedia({ media: "print" });
         await sleep(300);
-        const pr = await o.evaluate(sel => { const q = document.querySelectorAll(sel + " .booklet-query")[0]; const shown = e => getComputedStyle(e).display !== "none"; return { controls: [...q.querySelectorAll(".booklet-row-controls")].filter(shown).length, values: [...q.querySelectorAll(".booklet-print-value")].filter(shown).length, words: [...q.querySelectorAll(".booklet-print-value")].map(e => e.textContent).join("|"), openBoxes: [...q.querySelectorAll(".booklet-edit-box")].length }; }, BOOK);
+        const pr = await o.evaluate(sel => { const q = document.querySelectorAll(sel + " .booklet-query")[0]; const shown = e => getComputedStyle(e).display !== "none"; return { controls: [...q.querySelectorAll(".booklet-row-controls")].filter(shown).length, values: [...q.querySelectorAll(".booklet-print-value")].filter(shown).length, words: [...q.querySelectorAll(".booklet-print-value")].map(e => e.textContent).join("|") }; }, BOOK);
         await o.page.emulateMedia({ media: "screen" });
         c.ok(pr.controls === 0 && pr.values >= 1 && /Check the stakes/.test(pr.words), `[${where}] in print the question's controls are hidden and its words are shown: ${JSON.stringify(pr)}`);
 
