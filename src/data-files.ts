@@ -25,6 +25,8 @@ interface Entry {
 	/** The text `json` was parsed from: a read that finds the same text again changes nothing. */
 	text?: string;
 	error?: DataFileError;
+	/** A look at the file was asked for while its first read was under way: it is looked at again when that read ends. */
+	again?: boolean;
 }
 
 export class DataFiles {
@@ -90,7 +92,10 @@ export class DataFiles {
 		if (!a) return;
 		await Promise.all(
 			[...this.files].map(async ([path, e]) => {
-				if (e.state === "loading") return;
+				if (e.state === "loading") {
+					e.again = true;
+					return;
+				}
 				const now = await stampOf(a, path);
 				if (this.dead || this.files.get(path) !== e || e.stamp === now) return;
 				this.read(path, e);
@@ -150,24 +155,33 @@ export class DataFiles {
 				out = { state: "error", error: "failed" };
 			}
 			if (this.dead || this.files.get(path) !== e || e.ticket !== ticket) return;
-			// A read that fails leaves good data as it is (the data is not the reader's work, and a half-written file or a flicker of the
-			// disk is not news): the rows already drawn stay. Nothing is kept of the stamp, so the next look at the file reads it again.
-			if (e.state === "ok" && out.state === "error") {
-				e.stamp = "";
-				return;
-			}
-			e.stamp = stamp;
-			// the same text, or the same way of failing, as the last read: nothing new to draw (a generator that rewrites an identical file
-			// must not redraw every query on it, which would interrupt a selection in an open part)
-			if (out.state === "ok" ? e.state === "ok" && e.text === out.text : e.state === "error" && e.error === out.error) return;
-			e.gen++;
-			e.state = out.state;
-			e.json = out.state === "ok" ? out.json : undefined;
-			e.text = out.state === "ok" ? out.text : undefined;
-			e.error = out.state === "error" ? out.error : undefined;
-			for (const k of [...this.found.keys()]) if (k.startsWith(`${path}\n`)) this.found.delete(k);
-			this.changed();
+			// a look asked for while the first read was under way is made now: the stamp held is from before the file was read
+			const again = e.again;
+			e.again = false;
+			this.land(path, e, out, stamp);
+			if (again) void this.refresh();
 		})();
+	}
+
+	/** Puts the outcome of a read in the entry, and tells the views if it is something new to draw. */
+	private land(path: string, e: Entry, out: { state: "ok"; json: unknown; text: string } | { state: "error"; error: DataFileError }, stamp: string): void {
+		// A read that fails leaves good data as it is (the data is not the reader's work, and a half-written file or a flicker of the
+		// disk is not news): the rows already drawn stay. Nothing is kept of the stamp, so the next look at the file reads it again.
+		if (e.state === "ok" && out.state === "error") {
+			e.stamp = "";
+			return;
+		}
+		e.stamp = stamp;
+		// the same text, or the same way of failing, as the last read: nothing new to draw (a generator that rewrites an identical file
+		// must not redraw every query on it, which would interrupt a selection in an open part)
+		if (out.state === "ok" ? e.state === "ok" && e.text === out.text : e.state === "error" && e.error === out.error) return;
+		e.gen++;
+		e.state = out.state;
+		e.json = out.state === "ok" ? out.json : undefined;
+		e.text = out.state === "ok" ? out.text : undefined;
+		e.error = out.state === "error" ? out.error : undefined;
+		for (const k of [...this.found.keys()]) if (k.startsWith(`${path}\n`)) this.found.delete(k);
+		this.changed();
 	}
 }
 

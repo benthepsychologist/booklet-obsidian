@@ -31,8 +31,11 @@ const note = (queries, blocks = [["d", DATA]], extra = "") =>
 	`${fm}\n> [!activity|show] Show\n\n${queries.map(fence).join("\n\n")}\n\n${extra}> [!data] Data\n\n${blocks.map(([id, j]) => data(j, id)).join("\n\n")}\n`;
 
 /** A pane on `text`, with the vault's files (`files`: path to text) behind the adapter, and the vault events the view asked for kept. */
-function open(text, files = {}, path = "Note.booklet.md") {
+function open(text, files = {}, path = "Note.booklet.md", hold = false) {
 	const disk = { text, writes: 0 };
+	/** With `hold`, a read takes the file as it is when it is asked for and returns it only when `gate.release()` is called. */
+	const gate = { wait: null, release: () => {} };
+	if (hold) gate.wait = new Promise((r) => (gate.release = r));
 	const log = { reads: [], stats: 0 };
 	const held = new Map(Object.entries(files).map(([p, t]) => [p, { text: t, mtime: 1 }]));
 	const adapter = {
@@ -40,7 +43,9 @@ function open(text, files = {}, path = "Note.booklet.md") {
 			log.reads.push(p);
 			const f = held.get(p);
 			if (!f) throw new Error("ENOENT");
-			return f.text;
+			const text = f.text;
+			await gate.wait;
+			return text;
 		},
 		stat: async (p) => {
 			log.stats++;
@@ -55,6 +60,7 @@ function open(text, files = {}, path = "Note.booklet.md") {
 		...v,
 		log,
 		events,
+		gate,
 		/** Changes a file in the vault, as another program writes it. */
 		write(p, t) {
 			held.set(p, { text: t, mtime: (held.get(p)?.mtime ?? 0) + 1 });
@@ -793,5 +799,18 @@ test("the same error twice does not draw the quiet box again", async () => {
 	await until(() => v.log.reads.length === 2, "the second read");
 	await v.settled();
 	assert.equal(v.queries()[0].querySelector(".booklet-q-quiet"), box);
+	v.close();
+});
+
+test("a change that lands while the first read is under way is picked up when that read ends", async () => {
+	const v = open(fileNote(), { "dash.json": PLOTS }, "Note.booklet.md", true);
+	await until(() => v.log.reads.length === 1, "the first read to begin");
+	assert.match(quiet(v.queries()[0]), /Loading/);
+	v.write("dash.json", PLOTS.replace("Garden", "Gardens"));
+	v.events.get("modify")({ path: "dash.json" });
+	await v.settled();
+	v.gate.release();
+	await until(() => labels(v.queries()[0])[0] === "Gardens", "the file as it is now");
+	assert.equal(v.log.reads.length, 2, "read once more, not more");
 	v.close();
 });
