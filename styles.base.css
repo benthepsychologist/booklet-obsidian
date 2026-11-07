@@ -1307,7 +1307,7 @@
 	border-bottom: var(--border-width) solid var(--background-modifier-border);
 }
 
-/* a card that folds: the title, badges and note stay in sight when it is shut */
+/* a card that folds: the title, badges, note and lines stay in sight when it is shut */
 .booklet-q-fold details > summary > * {
 	vertical-align: baseline;
 }

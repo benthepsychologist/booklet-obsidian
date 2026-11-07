@@ -500,8 +500,8 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		}
 		return null;
 	}
-	// A card that opens (SPEC section 6, "Rows that open") is a card that folds: its title, badges, value and note stay in sight, and its
-	// other lines, open part and child cards are drawn when it opens, or at once if it was kept open.
+	// A card that opens (SPEC section 6, "Rows that open") is a card that folds: its title, badges, value, note and lines stay in sight, and its
+	// open part and child cards are drawn when it opens, or at once if it was kept open.
 	const { tree, work } = nest;
 	const card = (at: HTMLElement, r: Row, depth: number): (() => void) => () => {
 		if (!nest.has(r)) {
@@ -525,6 +525,8 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		pills(summary, badgesOf(r, roles), tone);
 		if (roles.value && r.cells[roles.value]) cellInto(host, summary.createSpan({ cls: "booklet-q-big" }), r.cells[roles.value], false);
 		if (roles.note && r.cells[roles.note]) cellInto(host, summary.createSpan({ cls: "booklet-q-note" }), r.cells[roles.note], false);
+		// the query's `fields:` lines are on the card's closed face (SPEC section 6, "Rows that open"), as on a card that does not open
+		linesInto(summary, r);
 		toneWords(summary, tone);
 		nameIfBlank(summary);
 		let drawn = false;
@@ -532,7 +534,6 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			if (drawn) return;
 			drawn = true;
 			const body = d.createDiv({ cls: "booklet-q-fold-body" });
-			linesInto(body, r);
 			moreInto(host, body, tree.more(r));
 			const jobs: (() => void)[] = [];
 			for (const g of tree.groups.get(r) ?? []) {

@@ -210,7 +210,7 @@ test("cards nest: a card that opens is a fold card (its title and note stay in s
 	const d = folds[0].querySelector("details");
 	press(d);
 	const body = d.querySelector(".booklet-q-fold-body");
-	assert.deepEqual([...body.children].map((c) => c.className.split(" ").filter((x) => /^booklet-q-(more|ghead|cards|sub)$/.test(x)).join(".")), ["", "booklet-q-more", "booklet-q-ghead", "booklet-q-cards.booklet-q-sub"]);
+	assert.deepEqual([...body.children].map((c) => c.className.split(" ").filter((x) => /^booklet-q-(more|ghead|cards|sub)$/.test(x)).join(".")), ["booklet-q-more", "booklet-q-ghead", "booklet-q-cards.booklet-q-sub"]);
 	assert.equal(body.querySelector(".booklet-q-ghead").textContent, "Projects");
 	assert.equal(body.querySelectorAll(".booklet-q-sub > .booklet-q-card").length, 2);
 	v.close();
@@ -685,4 +685,32 @@ test("the table's headings are real column headings, and the control's buttons a
 		assert.ok(words(b));
 	}
 	v.close();
+});
+
+/* ---- review fixes: a card's lines, a failed read, a BOM, an unchanged read, a change during the first read, retained boxes ---- */
+
+test("a card that opens shows the query's fields: lines on its closed face, in the summary, and not again inside its body", () => {
+	const v = open(note(["from: d\nas: cards\nlabel: title\nfields: kind"]));
+	const q = v.queries()[0];
+	const folds = [...q.querySelectorAll(".booklet-q-fold")];
+	assert.equal(folds.length, 2);
+	for (const f of folds) {
+		const dl = f.querySelector("details > summary dl");
+		assert.ok(dl, "the lines are on the closed card's face, inside its summary");
+		assert.deepEqual(dts(dl), ["Kind"]);
+	}
+	assert.match(words(folds[0]), /Kind\s*hub/, "and the shut card says them in words");
+	const d = folds[0].querySelector("details");
+	press(d);
+	assert.equal(d.querySelectorAll(":scope > summary dl").length, 1, "the lines stay in the summary, once");
+	assert.deepEqual([...d.querySelectorAll(":scope > .booklet-q-fold-body > dl")].map((x) => x.className), ["booklet-q-more"], "and the body holds only the open part's own list");
+	v.close();
+});
+
+test("a card that does not open and one that does show the same lines when shut", () => {
+	const flat = { fields: { title: "Name", kind: "Kind" }, rows: [{ id: "a", title: "A", kind: "x" }] };
+	const plain = open(note(["from: d\nas: cards\nlabel: title\nfields: kind"], [["d", flat]])).queries()[0];
+	const fold = open(note(["from: d\nas: cards\nlabel: title\nfields: kind"])).queries()[0];
+	assert.deepEqual(dts(plain), ["Kind"]);
+	assert.deepEqual(dts(fold.querySelector(".booklet-q-fold")), ["Kind"], "shut, as a card with nothing to open");
 });
