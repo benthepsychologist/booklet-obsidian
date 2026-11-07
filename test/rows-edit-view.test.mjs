@@ -108,7 +108,7 @@ test("a field marked edit is its value until pressed; pressing turns it into a b
 	assert.match(card, /titlep-orchard: Old orchard \(was Orchard\)/, "the kept entry says the act in words: the field, the row, the new value and what it was");
 	assert.doesNotMatch(card, /does not show yet/, "and does not call it a question this view does not show");
 	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-edit-value")), "Old orchard");
-	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-row-state")), "Sent, waiting to be applied.", "and says, in words, that it waits");
+	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-row-state")), "· sent, waiting", "and says, in words, that it waits");
 	v.close();
 });
 
@@ -208,7 +208,7 @@ test("after the data is read again: the value now (nothing marked), what was sen
 	assert.equal(mark().getAttribute("data-state"), "changed");
 	const now = v.cell(v.queries()[0], "title", "p-orchard");
 	assert.equal(words(now.querySelector(".booklet-edit-value")), "Somebody else's", "the value now");
-	assert.equal(words(mark()), "You sent “Sent name”, but the value has changed since.", "with what was sent beneath, in words");
+	assert.equal(words(mark()), "You sent: Sent name", "with what was sent beneath, in words");
 	assert.equal(v.disk.writes, 1, "reading again writes nothing");
 	v.close();
 });
@@ -267,8 +267,7 @@ test("readonly: a, b locks those fields in a view and leaves the rest editable; 
 	assert.equal(plots.querySelectorAll('[data-booklet-edit="stage"]').length, 0, "stage is a value");
 	assert.ok(plots.querySelectorAll('[data-booklet-edit="title"] button').length > 0, "title is still edited");
 	assert.ok(plots.querySelectorAll('[data-booklet-edit="due"] button').length > 0);
-	const note = plots.querySelector('[data-booklet-q="notes"] textarea');
-	assert.ok(note.disabled || note.readOnly || note.hasAttribute("readonly") || note.hasAttribute("disabled"), "a question in a locked column cannot be typed in");
+	assert.equal(plots.querySelector('[data-booklet-q="notes"]'), null, "a locked question with no answer draws nothing: no title, no empty control");
 	v.close();
 });
 
@@ -488,7 +487,7 @@ test("the waiting mark is tied to the edit button (described by it), and a kept 
 	const b = cell.querySelector("button");
 	const mark = cell.querySelector(".booklet-row-state");
 	assert.ok(mark.id && b.getAttribute("aria-describedby") === mark.id, "the button is described by the mark");
-	assert.equal(words(mark), "Sent, waiting to be applied.");
+	assert.equal(words(mark), "· sent, waiting");
 	v.close();
 });
 
@@ -521,5 +520,42 @@ test("an edit box open at print time prints its value as plain text, and the sty
 	assert.match(print, /\.booklet-edit-box[^{]*\{[^}]*display:\s*none/);
 	assert.match(print, /\.booklet-edit-print[^{]*\{[^}]*display:\s*(inline|block)/);
 	press(cell.querySelector(".booklet-edit-box"), "Escape");
+	v.close();
+});
+
+test("a locked question that has an answer shows it as plain words, with no control; the adding history lists time then words, with no waiting words", async () => {
+	const text = ORCHARD.replace("fields: asked, decision\n```", "fields: asked, decision\nreadonly: decision\n```");
+	assert.notEqual(text, ORCHARD);
+	const file = JSON.parse(FILE);
+	file.inbox.requests[0].decision = "Yes";
+	const v = await orchard({ text, file: JSON.stringify(file) });
+	const requests = v.queries()[3];
+	const locked = requests.querySelector("[data-booklet-q='decision'][data-booklet-pick='b-ladder']");
+	assert.ok(locked, "the answered row draws it");
+	assert.equal(locked.querySelectorAll("button, input, textarea, select").length, 0, "no control");
+	assert.equal(words(locked.querySelector(".booklet-row-roval")), "Yes");
+	assert.equal(requests.querySelector("[data-booklet-q='decision'][data-booklet-pick='b-hens']"), null, "a row with no answer draws nothing");
+	v.close();
+});
+
+test("the history under an adding question reads time then words; the data's list items come first; nothing says waiting", async () => {
+	const file = JSON.parse(FILE);
+	file.inbox.requests[0].reply = ["An old reply"];
+	const v = await orchard({ file: JSON.stringify(file) });
+	const requests = v.queries()[3];
+	const d0 = requests.querySelector("details");
+	d0.open = true;
+	d0.dispatchEvent(new w.Event("toggle"));
+	const reply = d0.querySelector("[data-booklet-q='reply'] textarea");
+	typeInto(reply, "A new reply");
+	reply.dispatchEvent(new w.FocusEvent("blur"));
+	await v.settled(400);
+	click(d0.querySelector("button.booklet-row-finalize"));
+	await v.settled();
+	const items = [...v.queries()[3].querySelectorAll("[data-booklet-q='reply'][data-booklet-pick='b-ladder'] .booklet-row-history li")].map((x) => words(x));
+	assert.equal(items.length, 2);
+	assert.equal(items[0], "An old reply", "the data's own list first");
+	assert.match(items[1], /^.+ · A new reply$/, "then the kept answer: its time, then its words");
+	assert.ok(!items.join(" ").includes("waiting"));
 	v.close();
 });

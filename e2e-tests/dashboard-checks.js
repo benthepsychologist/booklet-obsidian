@@ -586,10 +586,10 @@ module.exports = function dashboardChecks(env) {
         const t1 = noteText(), es = entries();
         c.ok(t1.startsWith(orig.replace(/\s*$/, "")) && es.length === 1 && /"stage":\[\{"pick":"p-orchard","a":"resting","was":"growing"\}\]/.test(es[0]), `[${where}] Enter keeps one entry, one pair with the row, the value and was: ${es[0]}`);
         c.ok(t1.slice(0, orig.replace(/\s*$/, "").length) === orig.replace(/\s*$/, ""), `[${where}] and the note before the records is the same bytes`);
-        c.ok(/resting/.test(await cell("stage").innerText()) && /Sent, waiting to be applied\./.test(await cell("stage").innerText()), `[${where}] the cell says, in words, that it is sent and waiting: ${JSON.stringify(await cell("stage").innerText())}`);
+        c.ok(/resting/.test(await cell("stage").innerText()) && /· sent, waiting/.test(await cell("stage").innerText()), `[${where}] the cell says, in words, that it is sent and waiting: ${JSON.stringify(await cell("stage").innerText())}`);
         c.ok(await cell("stage").locator("button").evaluate(b => b === document.activeElement), `[${where}] the focus is back on the value's button`);
         const described = await cell("stage").locator("button").evaluate(b => { const m = document.getElementById(b.getAttribute("aria-describedby") || "-"); return m ? m.textContent.trim() : ""; });
-        c.ok(/^Sent, waiting to be applied\.$/.test(described), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(described)}`);
+        c.ok(/^· sent, waiting$/.test(described), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(described)}`);
         await o.page.waitForFunction(() => (window.__seen || []).some(x => /change kept/i.test(x)), null, { timeout: 8000 }).catch(() => {});
         const notices = await o.evaluate(() => (window.__seen || []).join("|"));
         c.ok(/change kept/i.test(notices), `[${where}] a kept change is announced by a notice: ${JSON.stringify(notices)}`);
@@ -598,9 +598,9 @@ module.exports = function dashboardChecks(env) {
         const json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
         const jsonWrite = async fn => { fn(json); fs.writeFileSync(jsonFile, JSON.stringify(json)); await sleep(1200); await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await sleep(800); await quiet(o); };
         await jsonWrite(j => (j.plots.rows[0].stage = "resting"));
-        c.ok(!/Sent, waiting|You sent/.test(await cell("stage").innerText()) && /resting/.test(await cell("stage").innerText()), `[${where}] the data now holds what was sent: nothing is marked`);
+        c.ok(!/sent, waiting|You sent/.test(await cell("stage").innerText()) && /resting/.test(await cell("stage").innerText()), `[${where}] the data now holds what was sent: nothing is marked`);
         await jsonWrite(j => (j.plots.rows[0].stage = "done"));
-        c.ok(/done/.test(await cell("stage").innerText()) && /You sent “resting”, but the value has changed since\./.test(await cell("stage").innerText()), `[${where}] the data holds something else: the value now, with what was sent beneath: ${JSON.stringify(await cell("stage").innerText())}`);
+        c.ok(/done/.test(await cell("stage").innerText()) && /You sent: resting/.test(await cell("stage").innerText()), `[${where}] the data holds something else: the value now, with what was sent beneath: ${JSON.stringify(await cell("stage").innerText())}`);
         await jsonWrite(j => (j.plots.rows[0].stage = "growing"));
 
         // Esc keeps nothing; the keyboard reaches the value and Enter keeps

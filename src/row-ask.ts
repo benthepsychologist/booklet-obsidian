@@ -42,6 +42,10 @@ import type { RowsUi } from "./query-view";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
+/** The words of the display states, as the reference renderer says them (booklet.html, the strings called waiting and sent). */
+const WAITING = " · sent, waiting";
+const SENT = "You sent:";
+
 /** An edit box that is open: the words in it, the data's value when the box was opened (`was`), and whether the reader was in it. Kept by the view. */
 export interface EditSession {
 	text: string;
@@ -104,21 +108,9 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 		const raw = r.raw!;
 		const held = heldOf(raw, q.id);
 		const inPlace = held.shape === "value";
-		const locked = plan.readonly(q.id) || (a.repeat && !a.id) || !!view.wrongOf(t, q);
+		const readonly = plan.readonly(q.id);
+		const locked = readonly || (a.repeat && !a.id) || !!view.wrongOf(t, q);
 		const key = `${keyOf(t, q)}#row:${vkey}:${pickKey(id)}`;
-		const box = into.createDiv({ cls: `booklet-row-ask booklet-kind-${q.kind}${where === "column" ? " booklet-row-ask-col" : ""}`, attr: { "data-booklet-q": q.id, "data-booklet-pick": String(id) } });
-		const promptId = view.uid();
-		const nameId = view.uid();
-		// the question's words head it in a row's open part; in a column the column's heading says them, and a hidden copy names the control
-		const prompt = box.createDiv({ cls: `booklet-prompt markdown-rendered${where === "column" ? " booklet-sr" : ""}`, attr: { id: promptId } });
-		view.md(q.title || q.id, prompt);
-		box.createSpan({ cls: "booklet-sr", attr: { id: nameId }, text: ` (${rowName(p, r)})` });
-		let helpId: string | null = null;
-		if (q.help && where === "open") {
-			helpId = view.uid();
-			view.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered", attr: { id: helpId } }));
-		}
-		const named = `${promptId} ${nameId}`;
 		const eq = q.kind === "choice" || q.kind === "multi" ? sameOption : sameValue;
 		const now = held.shape === "value" ? held.value : undefined;
 		const shows = (): Shows => {
@@ -135,6 +127,25 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 			const sh = shows();
 			return sh.state === "waiting" ? sh.sent.a : startOf(q, now);
 		};
+		// a question the query locks shows the answer as plain words (the renderer's way), and nothing at all when there is nothing to show
+		const lockedWords = (): string => {
+			const w = wordsOf(q, shownAnswer());
+			return w !== "" ? w : inPlace ? valueText(now) : "";
+		};
+		if (readonly && q.kind !== "listen" && lockedWords() === "" && shows().state === "none" && !(held.shape === "list" && held.items.length) && !(keeps && !inPlace && keptAdds(view.keptOf(t), q.id, id).length)) return;
+		const box = into.createDiv({ cls: `booklet-row-ask booklet-kind-${q.kind}${where === "column" ? " booklet-row-ask-col" : ""}`, attr: { "data-booklet-q": q.id, "data-booklet-pick": String(id) } });
+		const promptId = view.uid();
+		const nameId = view.uid();
+		// the question's words head it in a row's open part; in a column the column's heading says them, and a hidden copy names the control
+		const prompt = box.createDiv({ cls: `booklet-prompt markdown-rendered${where === "column" ? " booklet-sr" : ""}`, attr: { id: promptId } });
+		view.md(q.title || q.id, prompt);
+		box.createSpan({ cls: "booklet-sr", attr: { id: nameId }, text: ` (${rowName(p, r)})` });
+		let helpId: string | null = null;
+		if (q.help && where === "open") {
+			helpId = view.uid();
+			view.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered", attr: { id: helpId } }));
+		}
+		const named = `${promptId} ${nameId}`;
 		// a pair for a value that is replaced says what the value was when the reader began to change it
 		const extra = (): Record<string, unknown> | undefined => (inPlace && keeps ? { was: now ?? null } : undefined);
 		const updaters: Array<() => void> = [];
@@ -160,6 +171,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 		};
 		const controls = box.createDiv({ cls: "booklet-row-controls" });
 		if (q.kind === "listen") controls.createEl("p", { cls: "booklet-muted", text: "A listen question is not asked for each row." });
+		else if (readonly) controls.createDiv({ cls: "booklet-row-roval", text: lockedWords() });
 		else if (q.kind === "widget") drawWidgetBody(rowHost, controls, t, q, key, named, locked);
 		else drawBody(rowHost, controls, t, q, key, labeller(named, helpId), locked);
 
@@ -175,26 +187,22 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 				const sh = shows();
 				if (sh.state === "waiting") {
 					state.setAttr("data-state", "waiting");
-					state.setText("Sent, waiting to be applied.");
+					state.setText(WAITING);
 				} else if (sh.state === "changed") {
 					state.setAttr("data-state", "changed");
-					state.setText(`You sent “${wordsOf(q, sh.sent.a)}”, but the value has changed since.`);
+					state.setText(`${SENT} ${wordsOf(q, sh.sent.a)}`);
 				}
 			}
 			if (history) {
 				history.empty();
+				// what the data holds as a list, then the kept answers newest first: the time, then the words
 				const adds = keeps ? keptAdds(view.keptOf(t), q.id, id) : [];
-				const items = held.shape === "list" ? held.items : [];
-				const listed: string[] = [];
+				for (const x of held.shape === "list" ? held.items : []) history.createEl("li", { cls: "booklet-row-held", text: x });
 				for (const add of adds) {
-					const w = wordsOf(q, add.a);
-					const applied = items.some((x) => sameOption(x, w));
-					listed.push(w);
 					const li = history.createEl("li", { cls: "booklet-row-kept" });
-					li.appendText(w);
-					li.createSpan({ cls: "booklet-row-time", text: ` · ${whenText(add.ts)}${applied ? "" : " · waiting to be applied"}` });
+					li.createSpan({ cls: "booklet-row-time", text: `${whenText(add.ts)} · ` });
+					li.appendText(wordsOf(q, add.a));
 				}
-				for (const x of items) if (!listed.some((w) => sameOption(w, x))) history.createEl("li", { cls: "booklet-row-held", text: x });
 				history.toggleClass("booklet-none", !history.childElementCount);
 			}
 			const pending = view.pendingOf(t, q, id);
@@ -243,8 +251,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 
 		/** The words of a waiting or changed value, beside it; the value's button is described by them. */
 		const mark = (c: HTMLElement, s: Shows): HTMLElement | null => {
-			if (s.state === "waiting") return c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting", id: view.uid() }, text: " Sent, waiting to be applied." });
-			if (s.state === "changed") return c.createSpan({ cls: "booklet-row-state booklet-row-sent", attr: { "data-state": "changed", id: view.uid() }, text: ` You sent “${valueText(s.sent.a)}”, but the value has changed since.` });
+			if (s.state === "waiting") return c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting", id: view.uid() }, text: WAITING });
+			if (s.state === "changed") return c.createSpan({ cls: "booklet-row-state booklet-row-sent", attr: { "data-state": "changed", id: view.uid() }, text: `${SENT} ${valueText(s.sent.a)}` });
 			return null;
 		};
 		const shut = (shown: unknown, s: Shows): void => {
