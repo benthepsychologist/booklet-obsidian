@@ -1,15 +1,15 @@
 /*
  * The reader's own sorting and filtering of a query's rows (SPEC section 6, "Sorting and filtering are the reader's"): a
  * renderer may let the reader sort and filter the rows of any view on screen, the same control on every view, and a line
- * chart keeps its order. It is kept for as long as the pane is open and saved nowhere; a file never states it. Here is the
+ * chart keeps its order. It is kept for as long as the pane is open and never in the note; a file never states it. Here is the
  * state, and the rows it leaves (booklet.html's viewNodes pipeline: filter, then sort, then group, after `limit`). The
  * control and the drawing are in the view. Plain TypeScript: nothing here imports Obsidian.
  */
-import { CONTROLS_MIN, QUERY_WORDS, flatTree, numberOf, textOf, type Cell, type Group, type QueryPlan, type Row, type Tree } from "./query";
+import { CONTROLS_MIN, QUERY_WORDS, flatTree, numberOf, textOf, type Cell, type Group, type KidGroup, type QueryPlan, type Row, type Tree } from "./query";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
-/** What the reader has done to one query's view: the control open, the words searched, the field sorted by and which way, and the parents opened in a nested list (their `id`s). */
+/** What the reader has done to one query's view: the control open, the words searched, the field sorted by and which way, and the rows opened in a nested view (their keys: a row's `id`, else its place). */
 export interface QueryViewState {
 	open: boolean;
 	q: string;
@@ -20,8 +20,18 @@ export interface QueryViewState {
 
 export const newViewState = (): QueryViewState => ({ open: false, q: "", key: null, dir: 1, opens: new Set() });
 
-/** The rows a plan draws, counting a nested list's children. */
+/** The rows a plan draws, counting a nested view's children. */
 export const rowCount = (p: Plan): number => p.groups.reduce((n, g) => n + g.rows.length, 0);
+
+/** Does this row of a nested view open: it has children, or more of its own fields to show than its line does. */
+export const opensRow = (t: Tree, r: Row): boolean => (t.groups.get(r)?.length ?? 0) > 0 || t.more(r).length > 0;
+
+/** Open all: every row of the nested view that opens (not only the ones a search keeps), by key. */
+export function openAllRows(p: Plan, st: QueryViewState): void {
+	st.opens.clear();
+	const t = p.tree;
+	if (t) for (const r of t.flat) if (opensRow(t, r)) st.opens.add(t.keyOf.get(r)!);
+}
 
 /** Does the reader get the control: a view with rows (none: the query's own `empty:` shows) and at least nine of them. */
 export const wantsControls = (p: QueryPlan): p is Plan => p.kind === "rows" && p.empty === null && rowCount(p) >= CONTROLS_MIN;
@@ -80,11 +90,11 @@ export interface Shown {
 	total: number;
 	/** The search is on. */
 	filtering: boolean;
-	/** In a nested list while a search is on: the parents of a match, which stand open so the match shows. */
+	/** In a nested view while a search is on: the parents of a match, which stand open so the match shows. */
 	force: ReadonlySet<Row>;
 }
 
-/** The plan as the reader has asked to see it: filtered, then sorted inside each group (a nested list: among each parent's children, a match kept with its parents). */
+/** The plan as the reader has asked to see it: filtered, then sorted inside each group (a nested view: among each parent's children, a match kept with its parents). */
 export function applyViewState(p: Plan, st: QueryViewState): Shown {
 	const total = rowCount(p);
 	const needle = st.q.trim().toLowerCase();
@@ -99,22 +109,28 @@ export function applyViewState(p: Plan, st: QueryViewState): Shown {
 	const order = (rows: readonly Row[]): Row[] => (st.key !== null ? sortRows(rows, st.key, st.dir) : [...rows]);
 	const force = new Set<Row>();
 	if (p.tree) {
-		const all = p.groups.flatMap((g) => g.rows);
+		const t = p.tree;
+		const all = t.flat;
 		const match = filtering ? all.filter(passes) : all;
 		const keep = filtering ? new Set(match) : null;
-		if (keep) for (const r of match) for (let a = p.tree.up.get(r); a && !force.has(a); a = p.tree.up.get(a)) {
+		if (keep) for (const r of match) for (let a = t.up.get(r); a && !force.has(a); a = t.up.get(a)) {
 			force.add(a);
 			keep.add(a);
 		}
+		// a match is kept with its parents; sorting reorders each set of siblings, and the shape of the tree stays
 		const among = (list: readonly Row[]): Row[] => order(keep ? list.filter((r) => keep.has(r)) : list);
+		const groups = new Map<Row, KidGroup[]>();
 		const kids = new Map<Row, Row[]>();
-		for (const [parent, list] of p.tree.kids) {
-			const b = among(list);
-			if (b.length) kids.set(parent, b);
+		for (const [parent, gs] of t.groups) {
+			const out = gs.map((g) => ({ ...g, rows: among(g.rows) })).filter((g) => g.rows.length);
+			if (!out.length) continue;
+			groups.set(parent, out);
+			kids.set(parent, out.flatMap((g) => g.rows));
 		}
-		const roots = among(p.tree.roots);
-		const tree: Tree = { roots, kids, up: p.tree.up };
+		const tops = t.tops.map((g) => ({ name: g.name, rows: among(g.rows) })).filter((g) => g.rows.length);
+		const roots = tops.flatMap((g) => g.rows);
 		const flat = flatTree(roots, kids);
+		const tree: Tree = { ...t, roots, tops, kids, groups, flat };
 		return { plan: { ...p, groups: flat.length ? [{ name: null, rows: flat }] : [], tree }, shown: match.length, total, filtering, force };
 	}
 	const groups: Group[] = p.groups

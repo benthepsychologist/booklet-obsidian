@@ -491,6 +491,7 @@
          "summary": true,
          "group": null,
          "parent": null,
+         "readonly": null,
          "roles": {}
         },
         "source": {
@@ -518,6 +519,7 @@
          "summary": false,
          "group": null,
          "parent": null,
+         "readonly": null,
          "roles": {}
         },
         "source": {
@@ -1328,6 +1330,7 @@
             "summary": true,
             "group": null,
             "parent": null,
+            "readonly": null,
             "roles": {}
            },
            "source": {
@@ -1355,6 +1358,7 @@
             "summary": false,
             "group": null,
             "parent": null,
+            "readonly": null,
             "roles": {}
            },
            "source": {
@@ -2937,6 +2941,7 @@
          "summary": false,
          "group": null,
          "parent": null,
+         "readonly": null,
          "roles": {}
         },
         "source": {
@@ -3673,6 +3678,7 @@
             "summary": false,
             "group": null,
             "parent": null,
+            "readonly": null,
             "roles": {}
            },
            "source": {

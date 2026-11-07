@@ -27,7 +27,8 @@ import {
 } from "./lines";
 import { BOOKLET_ICONS } from "../booklet-icons";
 import { looksLikeMistake, shortLine, type Unread } from "./unread";
-import { readDataRows, type DataRows } from "./data";
+import { isRowObj, readDataRows, readFields, type DataRows } from "./data";
+import { dataFilePath, dataKeyPathOk, type DataFileRef } from "./data-file";
 import { referenceSource, type ReferenceDefinition } from "./references";
 import { readRecords, regionMask, findRegions, type RecordsRead } from "./records";
 import { shapeIssue } from "./shape";
@@ -93,6 +94,12 @@ export interface DataBlock extends DataRows {
 	id: string;
 	module: string | null;
 	line: number;
+	/**
+	 * Set when the fence line names a JSON file beside the note (`booklet data dashboard.json plots`, SPEC section 7, "Rows from a
+	 * file"): the rows then come from that file, found by the view (data-files.ts), and `rows` here is empty. `fields` and `edits` are
+	 * the fence's own, laid over the file's.
+	 */
+	file?: DataFileRef;
 }
 
 /** A shared menu (`> [!menu|id]` and its bullets): `module` as for a widget block. */
@@ -233,8 +240,8 @@ export interface Unsupported {
 
 /* ---- queries (SPEC section 6, "Queries: showing kept entries and data" and "A span of days, and summaries") ---- */
 
-/** A query's fifteen keys (written as one string, so that no line here reads as an import to test/safety.test.mjs). */
-export const QUERY_KEYS: readonly string[] = "from as fields group limit parent empty label value note badge tone link icon summary".split(" ");
+/** A query's sixteen keys (written as one string, so that no line here reads as an import to test/safety.test.mjs). */
+export const QUERY_KEYS: readonly string[] = "from as fields group limit parent empty label value note badge tone link icon summary readonly".split(" ");
 /** The six views. */
 export const QUERY_VIEWS = ["cards", "table", "list", "tiles", "bars", "line"] as const;
 export type ViewName = (typeof QUERY_VIEWS)[number];
@@ -257,6 +264,11 @@ export interface Query {
 	summary: boolean;
 	group: string | null;
 	parent: string | null;
+	/**
+	 * `readonly` (SPEC section 6): written bare, every field the view draws is read-only (`true`); written `readonly: title, due`, just
+	 * those. Null when the line has none. Read and ignored: this view draws every field read-only whatever the query says.
+	 */
+	readonly: true | string[] | null;
 	/** The roles the query points at a field of another name (`label: bucket`). */
 	roles: Partial<Record<Role, string>>;
 }
@@ -733,33 +745,34 @@ function readCopies(activities: readonly Activity[], blocks: readonly FencedBloc
 /**
  * `each:<id>` on a question line (SPEC section 5, "A question asked for each pick"): the question is asked
  * once for each pick in its source's answer. The setting holds when it names a choice, a multi or a widget in the
- * same activity, not the question itself, and one level only: the source has no `each:` of its own (the question
+ * same activity, or a data block in reach (a question asked for each row, which is read and not drawn yet), not the question itself, and one level only: the source has no `each:` of its own (the question
  * that names such a source is the one reported; the source keeps its own). One that does not hold is reported and
  * ignored, and the question is drawn as its kind. A question of any kind follows its source.
  */
-function readEach(uses: readonly EachUse[], problems: string[]): void {
+function readEach(uses: readonly EachUse[], data: readonly DataBlock[], problems: string[], unreadRows: (line: number) => void): void {
 	for (const u of uses) {
 		const { q, act, source } = u;
 		if (!act.segments.includes(q)) continue; // not drawn (its shared menu was not found), already said
 		const said = `Line ${u.line}: the ${q.kind} "${q.id}" is to be asked for each pick`;
 		const ignored = "so its each: is ignored";
 		const src = act.segments.find((x) => (x.type === "question" || x.type === "unsupported") && x.id === source);
-		const why = !source
-			? `${said}, and its each: names nothing, ${ignored}.`
-			: source === q.id
-				? `${said} of itself, ${ignored}.`
-				: !src
-					? `${said} of "${source}", which is no question or widget in its activity, ${ignored}.`
-					: uses.some((o) => o.act === act && o.q.id === source)
-						? `${said} of "${source}", which is itself asked for each pick of another (one level only), ${ignored}.`
-						: src.type !== "question" || !SOURCE_KINDS.has(src.kind)
-							? `${said} of "${source}", a ${src.type === "question" || src.type === "unsupported" ? src.kind : "part"}: only a choice, a multi or a widget can be a source, ${ignored}.`
-							: null;
+		// a data block in reach (the activity's own module, or the shared data section) is a source too: the question is asked for each of its rows
+		// (SPEC section 5, "A question asked for each row"), which this view does not draw yet
+		const rows = !src && !!source && source !== q.id && !!inScope(data, source, act.scope || null);
+		let why: string | null = null;
+		if (!source) why = `${said}, and its each: names nothing, ${ignored}.`;
+		else if (source === q.id) why = `${said} of itself, ${ignored}.`;
+		else if (rows) why = null;
+		else if (!src) why = `${said} of "${source}", which is no question or widget in its activity and no data block in reach, ${ignored}.`;
+		else if (uses.some((o) => o.act === act && o.q.id === source)) why = `${said} of "${source}", which is itself asked for each pick of another (one level only), ${ignored}.`;
+		else if (src.type !== "question" || !SOURCE_KINDS.has(src.kind))
+			why = `${said} of "${source}", a ${src.type === "question" || src.type === "unsupported" ? src.kind : "part"}: only a choice, a multi or a widget can be a source, ${ignored}.`;
 		if (why) {
 			problems.push(why);
 			continue;
 		}
 		q.each = source;
+		if (rows) unreadRows(u.line - 1);
 	}
 }
 
@@ -899,7 +912,47 @@ export function parseBooklet(text: string): Booklet {
 		}
 		const r = readDataRows(json);
 		if ("bad" in r) problems.push(`${at(i)}: the data block "${id}" ${r.bad}, so no query can draw it.`);
-		else dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: r.rows, fields: r.fields });
+		else dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: r.rows, fields: r.fields, edits: r.edits });
+	};
+	/**
+	 * A data block whose fence line names a file (`booklet data dashboard.json inbox.requests`, SPEC section 7, "Rows from a file"):
+	 * the fence is empty or holds only `fields`, and the rows come from the file when the view reads it. A name or a key path that is
+	 * never read is said, and the block keeps its place, marked so, so that a query that names it draws the quiet box and not nothing.
+	 */
+	const readDataFile = (i: number, close: number, id: string, name: string, keys: string) => {
+		const body = lines.slice(i + 1, Math.min(close, lines.length)).join("\n");
+		let o: Record<string, unknown> = {};
+		if (body.trim()) {
+			let json: unknown;
+			try {
+				json = JSON.parse(body);
+			} catch {
+				problems.push(`${at(i)}: the data block "${id}" is not JSON, so no query can draw it.`);
+				return;
+			}
+			if (!isRowObj(json)) {
+				problems.push(`${at(i)}: the data block "${id}" names a file, so its fence may hold only an object with \`fields\`, so no query can draw it.`);
+				return;
+			}
+			o = json;
+		}
+		let fields: Record<string, string> | null = null;
+		let edits: DataRows["edits"] = {};
+		if (o["fields"] !== undefined) {
+			const f = readFields(o["fields"]);
+			if ("bad" in f) {
+				problems.push(`${at(i)}: the data block "${id}" ${f.bad}, so no query can draw it.`);
+				return;
+			}
+			fields = f.fields;
+			edits = f.edits;
+		}
+		if (o["rows"] !== undefined) problems.push(`${at(i)}: the data block "${id}" names a file, so its fence may hold only \`fields\`; its rows were not read, since the rows come from the file.`);
+		const badName = dataFilePath(name) === null;
+		const badPath = !badName && !dataKeyPathOk(keys);
+		if (badName) problems.push(`${at(i)}: the data block "${id}" names the file “${name.slice(0, 80)}”, which is not a plain name of a .json file beside the note (letters, digits, _ . / and -, no part that starts with a dot), so it is never read.`);
+		else if (badPath) problems.push(`${at(i)}: the data block "${id}" names the key path “${keys.slice(0, 80)}”, which is not keys of letters, digits, _ and - joined by dots, so it is never read.`);
+		dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: [], fields, edits, file: { name, path: keys, bad: badName || badPath } });
 	};
 	/** The question a `hint` or `solution` callout read now would belong to: the one straight above it, nothing else read since. */
 	let lastQ: Question | null = null;
@@ -1015,7 +1068,12 @@ export function parseBooklet(text: string): Booklet {
 				const what = (info[1] ?? "").toLowerCase();
 				// a widget's data is read wherever it sits, and drawn only where a widget line embeds it
 				if (what === "widget") readWidget(i, k, hasId ? (lines[n] ?? "").trim().slice(1) : null);
-				if (what === "data" && hasId) readData(i, k, (lines[n] ?? "").trim().slice(1));
+				if (what === "data" && hasId) {
+					const id = (lines[n] ?? "").trim().slice(1);
+					// `booklet data <file.json> [key.path]`: the rows come from a file beside the note (SPEC section 7)
+					if (info[2]) readDataFile(i, k, id, info[2], info[3] ?? "");
+					else readData(i, k, id);
+				}
 				if (what !== "widget" && what !== "data" && what !== "query") {
 					// a block this view does not define: shown where it stands in an activity as not yet supported, and kept as written
 					noteUnread(i, `${what ? `"booklet ${what}"` : "a booklet block with no type"} is not a block this view reads, so it is drawn as "not yet supported"`, true);
@@ -1387,7 +1445,9 @@ export function parseBooklet(text: string): Booklet {
 		u.q.options = hit.items.map((text) => ({ text, correct: false, reply: [] }));
 		u.q.menu = hit.id;
 	}
-	readEach(eachUses, problems);
+	readEach(eachUses, dataBlocks, problems, (n) =>
+		noteUnread(n, "a question asked for each row of a data block is not drawn yet, so it is drawn as its title and a line saying so, and its answers are kept as written", true),
+	);
 	readCopies(activities, blocks, problems);
 	// a widget line's block: in its own module first (its fence, then its data section), then a shared one (booklet.html widgetOf)
 	for (const a of activities)
@@ -1505,7 +1565,8 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 	for (const [n, raw] of body.entries()) {
 		const ln = raw.trim();
 		if (!ln) continue;
-		const kv = kvLine(ln);
+		// `readonly` alone on its line is a key with no value (SPEC section 6): every field the view draws is read-only
+		const kv = /^readonly$/i.test(ln) ? (["readonly", ""] as [string, string]) : kvLine(ln);
 		if (!kv) {
 			problems.push(`${at}: the query block has a line that is not \`key: value\` (${ln}), so it was refused.`);
 			return null;
@@ -1538,6 +1599,15 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 		summary: o["summary"] === "on",
 		group: text("group"),
 		parent: text("parent"),
+		readonly:
+			o["readonly"] === undefined
+				? null
+				: o["readonly"] === ""
+					? true
+					: o["readonly"]
+							.split(",")
+							.map((x) => x.trim())
+							.filter(Boolean),
 		roles,
 	};
 }
