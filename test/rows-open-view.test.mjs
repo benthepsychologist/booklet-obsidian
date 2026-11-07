@@ -589,7 +589,7 @@ test("the orchard example: four queries over three keys of one file, drawn as th
 	await until(() => v.queries().length === 4 && v.queries().every((q) => !q.querySelector(".booklet-q-quiet")), "the four queries");
 	const [plots, roundup, harvest, requests] = v.queries();
 	// the plots: one table, three top rows; the rows that hold jobs open, and so does a row with text the line does not show
-	assert.deepEqual([...plots.querySelectorAll("thead th")].map((x) => x.textContent), ["Name", "Kind", "Stage", "Open jobs", "Due", "Notes for the gardener"]);
+	assert.deepEqual([...plots.querySelectorAll("thead th")].map((x) => x.textContent), ["Name", "Kind", "Stage", "Open jobs", "Due", "A note for the gardener"]);
 	assert.equal(plots.querySelectorAll("tbody tr").length, json.plots.rows.length);
 	assert.equal(plots.querySelectorAll("tbody tr")[0].getAttribute("data-depth"), "0");
 	press(plots.querySelector("details"));

@@ -1083,14 +1083,12 @@ function finishPlan(set: RowSet, q: Query, view: ViewName, locale: string, ask: 
 	const gk = drawn.includes("group") && !nests ? q.group : null;
 	const more = moreOf(set, cols, roles, q, gk, ask);
 	const asks = (r: Row): Question[] => (ask ? ask.open(r) : []);
-	// a name in `fields:` that is a question's id is the question: its column is headed by the label the block declares for that name, else by the question's title
+	// a name in `fields:` that is a question's id is the question, not a field of the rows (SPEC section 6): its column is headed by the question's title
 	if (ask && ask.columns.size) {
 		const label = set.label;
 		set.label = (k) => {
 			const x = ask.columns.get(k);
-			const base = label(k);
-			const declared = !(base.length === 1 && "text" in base[0]! && base[0].text === k);
-			return x && !declared ? [x.title ? { md: x.title } : { text: x.id }] : base;
+			return x ? [x.title ? { md: x.title } : { text: x.id }] : label(k);
 		};
 	}
 	// a flat row with more to show than its line opens too: it is drawn by the same tree, with no children

@@ -28,6 +28,8 @@ import {
 	keepEntry,
 	keepRowDraft,
 	pairFor,
+	pairsOf,
+	valueText,
 	gateMedia,
 	slotAllowed,
 	entryFor,
@@ -1816,7 +1818,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				}
 			}
 			const ids = new Set(qs.map((q) => q.id));
-			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && holdsSomething(e[k])).length;
+			// an act on a field of a row (a data field edited in place): its key is no question's, its pairs say the row, the new value and what it was
+			const acts = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && pairsOf(e[k]).length);
+			for (const k of acts) {
+				rows++;
+				dl.createEl("dt", { text: k });
+				const ul = dl.createEl("dd").createEl("ul");
+				for (const x of pairsOf(e[k]) as Array<Record<string, unknown>>) ul.createEl("li", { text: `${String(x.pick)}: ${valueText(x.a)}${Object.prototype.hasOwnProperty.call(x, "was") ? ` (was ${valueText(x.was) || "empty"})` : ""}` });
+			}
+			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && !acts.includes(k) && holdsSomething(e[k])).length;
 			if (!rows && !other) item.createDiv({ cls: "booklet-muted", text: "No answers in this entry." });
 			if (other) item.createDiv({ cls: "booklet-muted", text: `${other === 1 ? "One answer" : `${other} answers`} kept here ${other === 1 ? "is" : "are"} for a question this view does not show yet.` });
 			this.drawRemove(item, list, a, e, base.indexOf(e), entryKey(e));

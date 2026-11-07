@@ -104,6 +104,9 @@ test("a field marked edit is its value until pressed; pressing turns it into a b
 	assert.deepEqual(norm(kept[0].title), [{ pick: "p-orchard", a: "Old orchard", was: "Orchard" }], "one pair: the row, the new value, the value when the reader began");
 	assertOutsideUnchanged(ORCHARD, v.disk.text, "kept");
 	assert.equal(v.cell(plots, "title", "p-orchard").querySelector(".booklet-edit-box"), null, "the box is a value again");
+	const card = words(v.view.contentEl.querySelector(".booklet-entry"));
+	assert.match(card, /titlep-orchard: Old orchard \(was Orchard\)/, "the kept entry says the act in words: the field, the row, the new value and what it was");
+	assert.doesNotMatch(card, /does not show yet/, "and does not call it a question this view does not show");
 	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-edit-value")), "Old orchard");
 	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-row-state")), "Sent, waiting to be applied.", "and says, in words, that it waits");
 	v.close();
@@ -275,7 +278,7 @@ test("a question named in fields: is drawn in its column, one control for each r
 	const v = await orchard();
 	const plots = v.queries()[0];
 	const heads = [...plots.querySelectorAll("thead th")].map((x) => x.textContent);
-	assert.equal(heads.at(-1), "Notes for the gardener", "the label the data block gives that name, which is the question's column");
+	assert.equal(heads.at(-1), "A note for the gardener", "a name in fields: that is a question's id is the question: its column is headed by the question's title, not the label the data block gives that name");
 	const boxes = plots.querySelectorAll('tr.booklet-q-trow [data-booklet-q="notes"] textarea');
 	assert.equal(boxes.length, plots.querySelectorAll("tr.booklet-q-trow").length, "a control in every row that is drawn");
 	const t = boxes[0];

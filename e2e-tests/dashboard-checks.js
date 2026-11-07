@@ -412,7 +412,7 @@ module.exports = function dashboardChecks(env) {
         await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 4 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
         const plots = qs().nth(0);
         c.ok((await plots.locator("tbody tr").count()) === 3, `[${where}] the plots table reads orchard-dashboard.json from the vault: ${await plots.locator("tbody tr").count()} top rows`);
-        c.ok((await plots.locator("thead th").allInnerTexts()).join("|") === "Name|Kind|Stage|Open jobs|Due|Notes for the gardener", `[${where}] its headings are the file's labels`);
+        c.ok((await plots.locator("thead th").allInnerTexts()).join("|") === "Name|Kind|Stage|Open jobs|Due|A note for the gardener", `[${where}] its headings are the file's labels`);
         c.ok((await plots.locator("details").count()) === 3, `[${where}] the three plots open (each has text or jobs); every disclosure is shut and nothing below is drawn: ${await plots.locator("tbody tr").count()} rows`);
         c.ok((await qs().nth(3).locator("summary, .booklet-q-row").count()) >= 1, `[${where}] the requests list reads the same file at inbox.requests`);
 
