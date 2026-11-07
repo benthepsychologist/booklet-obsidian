@@ -262,7 +262,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		() => this.syncWidgets(),
 	);
 	/** The queries drawn, for a print to open their rows and fold them back (query-controls.ts, `printRows`). */
-	private readonly printable = new Set<{ box: HTMLElement; mount: QueryMount }>();
+	private readonly printable = new Map<string, { box: HTMLElement; mount: QueryMount }>();
 	/** A step through the pane is under way (Obsidian drops a second one asked for meanwhile: a double press turns one page). */
 	private moving = false;
 	/** A tab chosen while a step was under way: made when the step has landed, so that the last move asked for is the one that lands. */
@@ -402,8 +402,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.register(() => this.files.close());
 		// printing prints everything: every closed row of a query is opened for the paper and folded back after (query-controls.ts)
 		const printing = (on: boolean) => () => {
-			for (const q of [...this.printable]) {
-				if (!q.box.isConnected) this.printable.delete(q);
+			for (const [key, q] of [...this.printable]) {
+				if (!q.box.isConnected) this.printable.delete(key);
 				else q.mount.printRows(on);
 			}
 		};
@@ -1107,6 +1107,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.book = book;
 		this.widgets.clear();
 		this.ownFields.clear();
+		// the screen is drawn again from nothing: the boxes of the queries it had are gone
+		this.printable.clear();
 		this.cite = null;
 		this.source.open = null;
 		// a drawing is finished when every piece of Markdown in it is rendered (see md and drawn)
@@ -1882,7 +1884,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 		};
 		const draw = mountQuery(host, box, st);
-		this.printable.add({ box, mount: draw });
+		// one entry for each query: a query drawn again replaces the box it had, which is gone from the page, and its rows with it
+		this.printable.set(vkey, { box, mount: draw });
 		let sig = "";
 		let drawnOnce = false;
 		const show = () => {

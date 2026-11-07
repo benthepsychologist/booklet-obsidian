@@ -814,3 +814,15 @@ test("a change that lands while the first read is under way is picked up when th
 	assert.equal(v.log.reads.length, 2, "read once more, not more");
 	v.close();
 });
+
+test("a query drawn again does not leave its old box held for printing: one entry for each query on screen", async () => {
+	const v = open(note(["from: d\nas: list\nlabel: title"]));
+	assert.equal(v.view.printable.size, 1);
+	for (let n = 0; n < 4; n++) await v.away();
+	assert.equal(v.view.printable.size, 1, "the old boxes are let go");
+	assert.ok([...v.view.printable.values()].every((q) => q.box.isConnected));
+	v.view.go({ screen: "home", tab: null, part: 0 });
+	await v.settled();
+	assert.equal(v.view.printable.size, 0, "a screen with no query holds none");
+	v.close();
+});
