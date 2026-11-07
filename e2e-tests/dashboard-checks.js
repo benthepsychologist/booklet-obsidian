@@ -570,6 +570,18 @@ module.exports = function dashboardChecks(env) {
         const entries = () => (noteText().match(/^\{"ts":"[^\n]*$/gm) || []);
         const settle = async () => { await quiet(o); await sleep(900); await quiet(o); };
 
+        // an editable value is drawn as the value it holds, not as a pill, and its column is as wide as its longest word (a one-letter column wraps inside a word)
+        const looks = await plots.locator("button.booklet-edit-open").evaluateAll(bs => bs.map(b => {
+          const cs = getComputedStyle(b), words = (b.querySelector(".booklet-edit-value") || b).textContent.trim().split(/\s+/).filter(Boolean).length;
+          const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5, h = b.getBoundingClientRect().height;
+          return { radius: cs.borderTopLeftRadius, border: cs.borderTopWidth, h: Math.round(h), lines: Math.round(h / lh), words, wrap: cs.overflowWrap, bg: cs.backgroundColor };
+        }));
+        const pill = looks.filter(l => parseFloat(l.radius) > 8 || l.border !== "0px" || l.wrap === "anywhere");
+        c.ok(looks.length > 0 && pill.length === 0, `[${where}] an editable value is plain text with a faint tint (no pill, no border, no break-anywhere): ${JSON.stringify(pill[0] || looks[0])}`);
+        const broken = looks.filter(l => l.lines > l.words + 1);
+        c.ok(broken.length === 0, `[${where}] no editable value is wrapped inside a word (lines no more than words + 1): ${JSON.stringify(broken[0] || "")}`);
+        c.ok(looks.every(l => l.bg !== "rgba(0, 0, 0, 0)" && l.bg !== "transparent"), `[${where}] and each has a tint to say it can be pressed: ${looks[0].bg}`);
+
         // a real click on a value turns it into a box of its kind, with the focus in it
         await cell("stage").locator("button").click();
         const sel = cell("stage").locator("select");

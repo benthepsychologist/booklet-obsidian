@@ -370,6 +370,20 @@ test("print shows values, not boxes: the sheet hides the controls and shows each
 	assert.match(print, /\.booklet-edit-open[^{]*\{[^}]*(border|background)/, "the edit button prints as plain text");
 });
 
+test("an editable value is drawn as its value: the Paper look's pill leaves it out, the base reset names it, and a table counts a word, not a letter, as its least width", () => {
+	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	const pill = css.split("\n").filter((l) => /data-booklet-look\^="paper"\] button[^{]*:where\(:not\(/.test(l));
+	assert.ok(pill.length >= 4, "the Paper look's button rules are there");
+	for (const l of pill) assert.match(l, /\.booklet-edit-open/, "each leaves the edit button out: " + l);
+	const rule = css.slice(css.indexOf(".booklet-edit-open,\nbutton.booklet-edit-open"), css.indexOf(".booklet-edit-open:hover"));
+	assert.match(rule, /border:\s*0;/);
+	assert.match(rule, /min-height:\s*0;/);
+	assert.match(rule, /overflow-wrap:\s*break-word;/, "not `anywhere`, which makes a table's cell as narrow as one letter");
+	assert.doesNotMatch(rule, /overflow-wrap:\s*anywhere/);
+	assert.match(rule, /background:\s*var\(--background-modifier-hover\)/, "a faint tint, not a pill");
+	assert.match(css, /data-booklet-look\^="paper"\] \.booklet-edit-open \{[^}]*background:\s*color-mix\(in srgb, var\(--bk-brand-wash\)/, "the Paper look tints it with its own wash");
+});
+
 test("a space typed in a box inside a row's summary is the box's own: the browser's Space for the summary is cancelled, and a button keeps its Space", async () => {
 	const v = await orchard();
 	const plots = v.queries()[0];

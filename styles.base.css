@@ -1274,27 +1274,42 @@
 }
 
 /* acts on the rows of a data view (row-ask.ts): a field that can be edited is its value until it is pressed, then a box */
-.booklet-edit-open {
+/* The editable value is a button, but it is drawn as the value it holds, like the cells around it: no pill, no border, no box of its own.
+   A faint tint is all that says it can be pressed (Obsidian's hover tone here; the Paper look's own wash in themes/structure.css). The first rule is the properties Obsidian's
+   `button` rules and the Paper look's pill set (see themes/structure.css, section 8, which leaves this class out); the second says them
+   again at the weight of Obsidian's `button:not(.clickable-icon)`, whose background and shadow would otherwise win over a class.
+   `overflow-wrap: break-word` (not `anywhere`) so a table counts the longest word, not one letter, as the cell's least width. */
+.booklet-edit-open,
+button.booklet-edit-open:not(.clickable-icon) {
 	appearance: none;
 	display: inline;
+	width: auto;
 	height: auto;
+	min-width: 0;
+	min-height: 0;
 	margin: 0;
 	padding: 0 var(--size-2-1);
 	border: 0;
-	border-bottom: var(--border-width) dashed var(--text-faint);
-	border-radius: 0;
-	background: transparent;
+	border-radius: var(--radius-s);
+	corner-shape: initial;
+	background: var(--background-modifier-hover);
 	box-shadow: none;
 	color: inherit;
 	font: inherit;
+	letter-spacing: inherit;
 	text-align: start;
+	text-shadow: none;
+	transition: none;
+	user-select: auto;
 	white-space: pre-wrap;
-	overflow-wrap: anywhere;
+	overflow-wrap: break-word;
 	cursor: text;
 }
 
-.booklet-edit-open:hover {
-	background: var(--background-modifier-hover);
+.booklet-edit-open:hover,
+button.booklet-edit-open:not(.clickable-icon):hover {
+	background: var(--background-modifier-active-hover);
+	box-shadow: none;
 }
 
 .booklet-edit-open:focus-visible {
@@ -1399,8 +1414,9 @@
 		white-space: pre-wrap;
 	}
 
-	.booklet-edit-open {
-		border-bottom: 0;
+	.booklet-edit-open,
+	button.booklet-edit-open:not(.clickable-icon) {
+		background: none;
 		padding: 0;
 	}
 }
