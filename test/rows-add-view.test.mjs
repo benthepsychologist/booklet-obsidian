@@ -45,6 +45,8 @@ async function garden(text, { file = null } = {}) {
 	const disk = { text, writes: 0 };
 	const held = { text: file, mtime: 1 };
 	const unwritable = { on: false };
+	/** Makes the note's next `n` writes fail, as a vault that refuses does. */
+	const refuseNote = { n: 0 };
 	const adapter = {
 		read: async () => held.text,
 		stat: async () => ({ size: held.text.length, mtime: held.mtime }),
@@ -55,7 +57,7 @@ async function garden(text, { file = null } = {}) {
 			return held.text;
 		},
 	};
-	const app = testApp(disk, { vault: { adapter, on: () => ({}), process: async (_f, fn) => (disk.writes++, (disk.text = fn(disk.text))) } });
+	const app = testApp(disk, { vault: { adapter, on: () => ({}), process: async (_f, fn) => { if (refuseNote.n > 0) { refuseNote.n--; throw new Error("refused"); } disk.writes++; return (disk.text = fn(disk.text)); } } });
 	const v = openView(text, { path: "Garden.booklet.md", disk, app, screen: "activity:desk/work" });
 	await v.settled();
 	await until(() => v.view.contentEl.querySelector(".booklet-query") && !v.view.contentEl.querySelector(".booklet-q-quiet"), "the query");
@@ -64,6 +66,7 @@ async function garden(text, { file = null } = {}) {
 	return {
 		...v,
 		unwritable,
+		refuseNote,
 		file: () => held.text,
 		overwrite(text) {
 			held.text = text;
@@ -726,5 +729,91 @@ test("a row that was added, applied, and later removed from the data by someone 
 	click(v.q().querySelector(".booklet-row-remove-yes"));
 	await v.after();
 	assert.deepEqual(v.names(), ["Prune", "Stakes"]);
+	v.close();
+});
+
+/* ---- what the README promises: words and questions survive, and a failed keep gives the words back ---- */
+
+/** The file changes under the open view and the view reads it again: the rows are drawn again. */
+async function redraw(v) {
+	const other = JSON.parse(v.file());
+	other.rows[1].title = other.rows[1].title + "!";
+	v.overwrite(JSON.stringify(other, null, 2) + "\n");
+	await v.view.files.refresh();
+	await v.after();
+}
+
+test("words typed in the Add form survive the rows being drawn again", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	const v = await garden(note({ file: true }), { file: FILE });
+	open(v);
+	typeInto(box(v, "Name"), "Mul");
+	const before = box(v, "Name");
+	await redraw(v);
+	assert.equal(before.isConnected, false, "the rows were drawn again");
+	assert.equal(box(v, "Name")?.value, "Mul", "the form is open and holds the words");
+	v.close();
+});
+
+test("a Remove question that is open survives the rows being drawn again", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	const v = await garden(note({ file: true }), { file: FILE });
+	click(v.q().querySelector('[data-booklet-remove="j-1"] .booklet-row-remove-open'));
+	const before = v.q().querySelector(".booklet-row-remove-yes");
+	await redraw(v);
+	assert.equal(before.isConnected, false, "the rows were drawn again");
+	assert.match(words(v.q().querySelector('[data-booklet-remove="j-1"]')), /Remove this row and the 2 rows under it\?/);
+	assert.equal(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-yes'), null, "only the row asked about");
+	v.close();
+});
+
+test("an Add whose entry could not be kept gives the reader's words back, and a Remove gives back its button", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	const v = await garden(note({ file: true }), { file: FILE });
+	open(v);
+	typeInto(box(v, "Name"), "Mulch");
+	v.refuseNote.n = 5;
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.equal(v.kept().length, 0, "nothing was kept");
+	assert.equal(box(v, "Name")?.value, "Mulch", "the words are back in the box");
+	assert.equal(v.file(), FILE);
+	click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'));
+	click(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	assert.equal(v.kept().length, 0);
+	assert.notEqual(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'), null, "the Remove button is back");
+	v.refuseNote.n = 0;
+	// and the form still works: the same words are added
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.deepEqual(JSON.parse(v.file()).rows.map((r) => r.title), ["Prune", "Stakes", "Mulch"]);
+	v.close();
+});
+
+test("asking Remove again and again adds no key listener to the row's Remove: one for the control, however many times it is pressed", async () => {
+	const v = await garden(note());
+	const proto = w.EventTarget.prototype;
+	const real = proto.addEventListener;
+	const keys = new Map();
+	proto.addEventListener = function (type, ...rest) {
+		if ((type === "keydown" || type === "keypress") && this.classList?.contains("booklet-row-remove")) keys.set(this, (keys.get(this) ?? 0) + 1);
+		return real.call(this, type, ...rest);
+	};
+	try {
+		for (let i = 0; i < 4; i++) {
+			click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'));
+			click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-no'));
+		}
+	} finally {
+		proto.addEventListener = real;
+	}
+	assert.equal(keys.size, 0, "no listener was added by the presses (they were put on when the control was drawn)");
+	// and Esc in the question still closes it, once
+	click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'));
+	const yes = v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-yes');
+	yes.dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	assert.equal(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-yes'), null);
+	assert.notEqual(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'), null);
 	v.close();
 });

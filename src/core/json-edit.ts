@@ -261,6 +261,14 @@ export interface RowEdit {
 	put: string;
 }
 
+/** The spaces and tabs just before the closing `}` that ends `text` (none when it does not end in one). Read from the end: a pattern for it is quadratic on a long run. */
+function padBeforeClose(text: string): string {
+	if (!text.endsWith("}")) return "";
+	let i = text.length - 1;
+	while (i > 0 && (text[i - 1] === " " || text[i - 1] === "\t")) i--;
+	return text.slice(i, text.length - 1);
+}
+
 /**
  * Where `row` (an object of plain values, its keys in the order they are written) goes to stand at the end of the list `arr` of `code`,
  * and what is written: in the layout of the row before it, so one line stays one line (its spacing after a colon and a comma, and inside
@@ -291,7 +299,7 @@ export function addRowEdit(code: string, arr: ArrayNode, row: Record<string, unk
 	if (!prevText.includes("\n")) {
 		const comma = members.length >= 2 ? code.slice(members[0]!.value.end, members[1]!.keyStart) : colon.includes(" ") ? ", " : ",";
 		const padL = /^\{([ \t]*)/.exec(prevText)?.[1] ?? "";
-		const padR = members.length ? (/([ \t]*)\}$/.exec(prevText)?.[1] ?? "") : "";
+		const padR = members.length ? padBeforeClose(prevText) : "";
 		text = entries.length ? "{" + padL + entries.map(pair).join(comma) + padR + "}" : "{}";
 	} else {
 		const rowIndent = beginsLine(code, prev.start) ? leadingSpace(code, prev.start) : (/\n([ \t]*)$/.exec(sep)?.[1] ?? "");
@@ -301,7 +309,7 @@ export function addRowEdit(code: string, arr: ArrayNode, row: Record<string, unk
 		const firstOnBrace = !/^\{[ \t]*\r?\n/.test(prevText);
 		const closeOwn = /\n[ \t]*\}$/.test(prevText);
 		const lead = firstOnBrace ? "{" + (/^\{([ \t]*)/.exec(prevText)?.[1] ?? "") : "{" + eol + inner;
-		const tail = closeOwn ? eol + leadingSpace(code, prev.end - 1) + "}" : (/([ \t]*)\}$/.exec(prevText)?.[1] ?? "") + "}";
+		const tail = closeOwn ? eol + leadingSpace(code, prev.end - 1) + "}" : padBeforeClose(prevText) + "}";
 		text = entries.length ? lead + entries.map(pair).join("," + eol + inner) + tail : "{}";
 	}
 	return { from: prev.end, to: prev.end, put: sep + text };

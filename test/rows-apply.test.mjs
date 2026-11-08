@@ -331,3 +331,18 @@ test("a number beyond JavaScript's exact range in a removed row: the rest of the
 	assert.equal(r.ok, true);
 	assert.equal(r.text, `{"rows":[\n  {"id":"b","big":98765432109876543210}\n]}`);
 });
+
+test("a row holding a very long run of spaces is laid out in milliseconds, not seconds (no quadratic pattern in the layout reading)", () => {
+	const long = `{"rows":[{"id":"a","note":"${" ".repeat(60000)}x"}]}`;
+	const t1 = Date.now();
+	const added = applyAdd(long, "", "b", undefined, { title: "B" });
+	assert.equal(added.ok, true);
+	assert.ok(Date.now() - t1 < 500, `took ${Date.now() - t1} ms`);
+	assert.equal(JSON.parse(added.text).rows.length, 2);
+	// the same for the unwritten tail: spaces before the closing brace of a long one-line row
+	const spaced = `{"rows":[{ "id":"a", "note":"${" ".repeat(60000)}" }]}`;
+	const t0 = Date.now();
+	const r = applyAdd(spaced, "", "b", undefined, { title: "B" });
+	assert.ok(Date.now() - t0 < 500, `took ${Date.now() - t0} ms`);
+	assert.equal(r.text.includes('{ "id":"b", "title":"B" }'), true, "and the layout is still read: the braces' padding comes from the row before");
+});
