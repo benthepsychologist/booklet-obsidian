@@ -71,7 +71,12 @@ test("the slug: lowercase, runs of other characters become one hyphen, no accent
 	assert.equal(slugOf("  --Hello, World--  "), "hello-world");
 	assert.equal(slugOf("A_B/C.D"), "a-b-c-d");
 	assert.equal(slugOf("keep-hyphens-and-9"), "keep-hyphens-and-9");
-	assert.equal(slugOf("Café"), "caf", "an accented letter is not a letter a to z");
+	assert.equal(slugOf("Café"), "cafe", "an accent is removed (NFD, combining marks dropped)");
+	assert.equal(slugOf("Crème brûlée"), "creme-brulee");
+	assert.equal(slugOf("Ñandú"), "nandu");
+	assert.equal(slugOf("日本語"), "", "no a to z or digit at all: empty");
+	assert.equal(slugOf("🎉🎉"), "");
+	assert.equal(slugOf("Ångström 2"), "angstrom-2");
 	assert.equal(slugOf(42), "42");
 	assert.equal(slugOf(null), "");
 	assert.equal(slugOf(undefined), "");
@@ -188,4 +193,39 @@ test("a typed id (no idFormat): not empty, one line, fits the pattern, is new", 
 	assert.equal(checkTypedId("x", "(", []).message, ID_WORDS.patternBad, "a pattern that is no regular expression");
 	assert.equal(core.patternOf(undefined).ok, true);
 	assert.equal(core.patternOf(5).ok, false);
+});
+
+test("a number part must be bounded by a constant: next to a variable text part or digits/hex it is not a valid format", () => {
+	for (const bad of ["{parent}{n}", "{n}{parent}", "{field:x}{n}", "{n}{field:x}", "{n:3}{field:x}", "{n}{time}", "{time}{n}", "{n}{date}", "{epoch}{n:2}", "{n}{uuid}", "{uuid}{n}", "a{parent}{n}b"]) {
+		const f = parseIdFormat(bad);
+		assert.equal(f.ok, false, bad);
+		assert.match(f.why, /constant|next to/i, `${bad} says why`);
+		assert.equal(make(bad, { values: { x: "v" } }).ok, false, bad);
+	}
+	for (const good of ["{parent}-{n}", "P{n}", "{n}-{field:x}", "{field:x}-{n:3}", "{n}.{time}", "{uuid}-{n}", "p{n}{{x", "{parent}/{n}"]) assert.equal(parseIdFormat(good).ok, true, good);
+	// the digits of {n} are found without a text part to swallow them
+	assert.equal(make("{parent}-{n}", { parent: "p", ids: ["p-9", "p-10"] }).id, "p-11");
+});
+
+test("an empty made id is refused in words, whatever the format; a parent's id keeps {parent} formats working under a row", () => {
+	for (const f of ["{parent}", "{parent}{parent}", "{parent}{parent}{{"]) {
+		if (f.endsWith("{{")) continue;
+		const r = make(f);
+		assert.deepEqual(r, { ok: false, why: "empty", message: ID_WORDS.empty }, f);
+	}
+	assert.equal(ID_WORDS.empty, "That id format makes an empty id here.");
+	assert.equal(make("{parent}", { parent: "p-orchard" }).id, "p-orchard", "under a row it is the parent's id (and clashes only if a row has it)");
+	assert.equal(make("p-{parent}").id, "p-", "a constant makes it not empty");
+	assert.equal(make("p-{parent}", { parent: "x" }).id, "p-x");
+});
+
+test("an empty slug says why: an empty box asks for it; a box with nothing an id can use says so, naming the field", () => {
+	const labelOf = (k) => (k === "title" ? "Name" : k);
+	assert.equal(make("ID-{field:title}", { values: { title: "" }, labelOf }).message, "Give it a name first.");
+	assert.equal(make("ID-{field:title}", { values: {}, labelOf }).message, "Give it a name first.");
+	assert.equal(make("ID-{field:title}", { values: { title: "   " }, labelOf }).message, "Give it a name first.", "blanks are an empty box");
+	const r = make("ID-{field:title}", { values: { title: "日本語" }, labelOf });
+	assert.deepEqual(r, { ok: false, why: "slug", field: "title", message: "'Name' has no letters or digits an id can use. Type an id, or use another part." });
+	assert.equal(make("ID-{field:title}", { values: { title: "!!!" }, labelOf }).message, ID_WORDS.noUsable("Name"));
+	assert.equal(make("ID-{field:title}", { values: { title: "Café" }, labelOf }).id, "ID-cafe");
 });

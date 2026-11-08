@@ -251,7 +251,12 @@ export function rowActs(q: Query, view: string, own: readonly string[], edits: R
 	}
 	let idProblem: string | null = null;
 	if (idFormat !== undefined) {
-		if (!parseIdFormat(idFormat).ok) idProblem = ID_WORDS.formatBad;
+		const f = parseIdFormat(idFormat);
+		if (!f.ok) idProblem = ID_WORDS.formatBad;
+		else {
+			// a `{field:NAME}` is made from a box; a field that has none (not marked `edit`, locked by the query, or not in the block) is always empty
+			for (const part of f.parts) if (part.kind === "field" && !fields.some((x) => x.key === part.name)) idProblem ??= ID_WORDS.noBox(label(part.name).trim() || part.name);
+		}
 	} else if (!patternOf(idPattern).ok) idProblem = ID_WORDS.patternBad;
 	return { add, remove, idProblem, fields, idFormat, idPattern };
 }

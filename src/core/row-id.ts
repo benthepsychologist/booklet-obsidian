@@ -30,6 +30,12 @@ export const ID_WORDS = {
 	/** `label` is the field's label, lowercase. */
 	noSlug: (label: string) => `Give it a ${label} first.`,
 	clash: "A row with that id exists. Add a part to the id format that tells rows apart (a number, a time or a UUID).",
+	/** A format that makes nothing at all (only constants and `{parent}`, and the row has no parent). */
+	empty: "That id format makes an empty id here.",
+	/** The box was filled but holds no letter a to z or digit once accents are removed. `label` is the field's label as written. */
+	noUsable: (label: string) => `'${label}' has no letters or digits an id can use. Type an id, or use another part.`,
+	/** A `{field:NAME}` part whose field the form has no box for. `label` is the field's label as written. */
+	noBox: (label: string) => `The id format uses ${label}, which this table does not ask for.`,
 	typedEmpty: "Give it an id first.",
 	typedClash: "A row with that id exists. Choose another id.",
 	typedPattern: (pattern: string) => `That id does not fit the pattern ${pattern}.`,
@@ -80,6 +86,15 @@ export function parseIdFormat(format: unknown): IdFormat {
 		i++;
 	}
 	flush();
+	// a number part is told from its neighbours only by a constant: next to text of any length, or digits, or hex, where it ends is a guess
+	for (let i = 0; i < parts.length; i++) {
+		if (parts[i]!.kind !== "n") continue;
+		for (const j of [i - 1, i + 1]) {
+			const k = parts[j]?.kind;
+			if (k === "field" || k === "parent" || k === "time" || k === "date" || k === "epoch" || k === "uuid")
+				return { ok: false, why: "a number part sits next to another part that is not a constant; put a constant (a hyphen, a letter) between them" };
+		}
+	}
 	if (parts.filter((x) => x.kind === "n").length > 1) return { ok: false, why: "the id format has two number parts; it can have only one" };
 	const bare = parts.length === 1 && parts[0]!.kind === "n" && (parts[0] as { width: number }).width === 0;
 	return { ok: true, parts, bare };
@@ -139,12 +154,14 @@ export function nextNumber(parts: readonly IdPart[], ids: readonly (string | num
 }
 
 /**
- * A value as a slug: lowercase; every run of characters other than letters (a to z after lowercasing; no accent is kept), digits and
- * hyphens becomes one hyphen; leading and trailing hyphens go. Empty when nothing is left.
+ * A value as a slug: accents removed (NFD, the combining marks dropped), lowercase; every run of characters other than letters (a to z),
+ * digits and hyphens becomes one hyphen; leading and trailing hyphens go. Empty when nothing is left (日本語, an emoji).
  */
 export function slugOf(value: unknown): string {
 	const s = value === null || value === undefined ? "" : String(value);
 	return s
+		.normalize("NFD")
+		.replace(/[\u0300-\u036f]/g, "")
 		.toLowerCase()
 		.replace(/[^a-z0-9-]+/g, "-")
 		.replace(/^-+|-+$/g, "");
@@ -180,7 +197,7 @@ export interface IdInputs {
 	labelOf?: (field: string) => string;
 }
 
-export type MadeId = { ok: true; id: string | number } | { ok: false; why: "format" | "slug" | "clash"; message: string; field?: string };
+export type MadeId = { ok: true; id: string | number } | { ok: false; why: "format" | "slug" | "clash" | "empty"; message: string; field?: string };
 
 /** How many seconds past the moment of the add a time or epoch id may move to find a free id. */
 export const ID_BUMP_SECONDS = 60;
@@ -200,8 +217,10 @@ export function makeId(format: unknown, input: IdInputs): MadeId {
 		if (p.kind === "field") {
 			const slug = slugOf(input.values[p.name]);
 			if (!slug) {
-				const label = (input.labelOf ? input.labelOf(p.name) : p.name).trim().toLowerCase() || p.name;
-				return { ok: false, why: "slug", field: p.name, message: ID_WORDS.noSlug(label) };
+				const raw = (input.labelOf ? input.labelOf(p.name) : p.name).trim() || p.name;
+				const typed = input.values[p.name];
+				const filled = typed !== null && typed !== undefined && String(typed).trim() !== "";
+				return { ok: false, why: "slug", field: p.name, message: filled ? ID_WORDS.noUsable(raw) : ID_WORDS.noSlug(raw.toLowerCase()) };
 			}
 		}
 		if (p.kind === "uuid" && uuid === null) uuid = uuidOf(input.random(16));
@@ -233,6 +252,7 @@ export function makeId(format: unknown, input: IdInputs): MadeId {
 				}
 			})
 			.join("");
+		if (text === "") return { ok: false, why: "empty", message: ID_WORDS.empty };
 		if (!taken.has(text)) return { ok: true, id: f.bare ? n : text };
 	}
 	return { ok: false, why: "clash", message: ID_WORDS.clash };

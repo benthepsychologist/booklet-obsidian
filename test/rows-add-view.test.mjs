@@ -203,6 +203,53 @@ test("a bare {n} writes the id as a JSON number in the entry's pick and in the d
 	v.close();
 });
 
+test("a number part next to a text or digit part is not a valid format: the quiet line, no Add button", async () => {
+	for (const idFormat of ["{parent}{n}", "{field:title}{n}", "{n}{time}", "{n}{uuid}"]) {
+		const v = await garden(note({ data: { ...DATA, idFormat } }));
+		assert.equal(v.q().querySelector(".booklet-row-add-open"), null, idFormat);
+		assert.match(words(v.q().querySelector(".booklet-row-add-quiet")), /id format is not valid/i, idFormat);
+		v.close();
+	}
+	for (const idFormat of ["{parent}-{n}", "P{n}"]) {
+		const v = await garden(note({ data: { ...DATA, idFormat } }));
+		assert.notEqual(v.q().querySelector(".booklet-row-add-open"), null, idFormat);
+		v.close();
+	}
+});
+
+test("an id format that uses a field the form has no box for (not edit, locked by readonly, or not declared) draws the quiet line, naming the field", async () => {
+	const kinds = { ...DATA, fields: { ...DATA.fields, kind: "Kind" }, idFormat: "j-{field:kind}" };
+	let v = await garden(note({ data: kinds }));
+	assert.equal(v.q().querySelector(".booklet-row-add-open"), null);
+	assert.equal(words(v.q().querySelector(".booklet-row-add-quiet")), "The id format uses Kind, which this table does not ask for.");
+	v.close();
+	v = await garden(note({ data: { ...DATA, idFormat: "j-{field:title}" }, query: "from: jobs\nas: table\nfields: title\nadd\nreadonly: title" }));
+	assert.equal(words(v.q().querySelector(".booklet-row-add-quiet")), "The id format uses Name, which this table does not ask for.");
+	v.close();
+	v = await garden(note({ data: { ...DATA, idFormat: "j-{field:nope}" } }));
+	assert.equal(words(v.q().querySelector(".booklet-row-add-quiet")), "The id format uses nope, which this table does not ask for.", "a field the block does not declare has no box either");
+	v.close();
+	v = await garden(note({ data: { ...DATA, idFormat: "j-{field:title}" } }));
+	assert.notEqual(v.q().querySelector(".booklet-row-add-open"), null, "a field with a box is fine");
+	v.close();
+});
+
+test("a made id that is empty keeps nothing and says so; under a row a {parent} format works", async () => {
+	const v = await garden(note({ data: { ...DATA, idFormat: "{parent}" } }));
+	open(v);
+	click(v.q().querySelector(".booklet-row-add-go"));
+	assert.equal(words(v.q().querySelector(".booklet-row-addmsg")), "That id format makes an empty id here.");
+	assert.equal(v.kept().length, 0);
+	v.openRow("j-1");
+	const under = v.q().querySelector(".booklet-row-add-under");
+	open(v, under);
+	click(under.querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.equal(v.kept().length, 0, "a row j-1 already has the id j-1: the clash is said, nothing kept");
+	assert.match(words(under.querySelector(".booklet-row-addmsg")), /A row with that id exists/);
+	v.close();
+});
+
 /* ---- adding ---- */
 
 test("Add opens a form with a box for each editable field, in the query's order; Esc and Cancel close it and write nothing", async () => {
