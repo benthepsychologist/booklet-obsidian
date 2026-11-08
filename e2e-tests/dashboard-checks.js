@@ -824,7 +824,7 @@ module.exports = function dashboardChecks(env) {
         const added = JSON.parse(inlineText);
         added.rows.push({ id: "j-5", title: "Mulch" });
         const e1 = entriesOf();
-        c.ok(e1.length === 1 && /"\$add":\[\{"pick":"j-5","row":\{"title":"Mulch"\}\}\]/.test(e1[0]), `[${where}] Enter keeps one $add entry, one pair, with the id the format made: ${e1[0]}`);
+        c.ok(e1.length === 1 && /"\$add":\[\{"in":"jobs","pick":"j-5","row":\{"title":"Mulch"\}\}\]/.test(e1[0]), `[${where}] Enter keeps one $add entry, one pair, with the id the format made: ${e1[0]}`);
         sameNote(added, "the first add");
         c.ok((await jobs.locator("tbody tr").count()) === 3 && /Mulch/.test(await jobs.innerText()) && !/sent, waiting/.test(await jobs.innerText()), `[${where}] the table shows the new row, not waiting`);
         c.ok((await seen()) === "", `[${where}] a success says nothing beyond the redraw: ${JSON.stringify(await seen())}`);
@@ -844,7 +844,7 @@ module.exports = function dashboardChecks(env) {
         await settle();
         added.rows[0].jobs.push({ id: "j-6", title: "Sharpen saw" });
         const e2 = entriesOf();
-        c.ok(e2.length === 2 && /"\$add":\[\{"pick":"j-6","under":"j-1","row":\{"title":"Sharpen saw"\}\}\]/.test(e2[1]) && e2[0] === e1[0] + ",", `[${where}] Add under keeps a second entry, with the parent, and the first entry's bytes are as they were: ${e2[1]}`);
+        c.ok(e2.length === 2 && /"\$add":\[\{"in":"jobs","pick":"j-6","under":"j-1","row":\{"title":"Sharpen saw"\}\}\]/.test(e2[1]) && e2[0] === e1[0] + ",", `[${where}] Add under keeps a second entry, with the parent, and the first entry's bytes are as they were: ${e2[1]}`);
         sameNote(added, "the add under a row");
 
         // Remove: asks first; Esc cancels; the question counts the rows under the row
@@ -862,7 +862,7 @@ module.exports = function dashboardChecks(env) {
         await settle();
         added.rows.shift();
         const e3 = entriesOf();
-        c.ok(e3.length === 3 && /"\$delete":\[\{"pick":"j-1","was":\{"id":"j-1","title":"Prune"/.test(e3[2]), `[${where}] Remove keeps one $delete entry carrying the row as it was: ${e3[2].slice(0, 160)}`);
+        c.ok(e3.length === 3 && /"\$delete":\[\{"in":"jobs","pick":"j-1","was":\{"id":"j-1","title":"Prune"/.test(e3[2]), `[${where}] Remove keeps one $delete entry carrying the row as it was: ${e3[2].slice(0, 160)}`);
         sameNote(added, "the removal of a row with rows under it");
         c.ok((await jobs.locator("tbody tr").count()) === 2 && !/Prune|Ladder|Burn|Sharpen/.test(await jobs.innerText()), `[${where}] the row and the rows under it are gone from the table: ${await jobs.locator("tbody tr").count()} rows, ${JSON.stringify((await jobs.innerText()).replace(/\s+/g, " "))}`);
         c.ok((await seen()) === "", `[${where}] and a success still says nothing: ${JSON.stringify(await seen())}`);
@@ -874,11 +874,10 @@ module.exports = function dashboardChecks(env) {
         await settle();
         file.beds.rows.push({ id: "ID-pear-tree", title: "Pear tree" });
         c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(file), `[${where}] an add to the file is written at the end of the rows in the layout of the row before it, and every other byte is as it was`);
-        // the jobs' own new row (kept as an $add of the same activity) is drawn waiting in every view of the activity, which has no way to tell the block it was for: only the beds' own rows are counted
-        const ownRemoves = await beds.locator(".booklet-q-row:not(:has([data-state='waiting'])) .booklet-row-remove-open").count();
-        c.ok(/Pear tree/.test(await plain.innerText()) && ownRemoves === 4, `[${where}] the read-only view of the same beds shows the new row, and the list has four Removes on its own rows (${ownRemoves}; ${await beds.locator(".booklet-row-remove-open").count()} with the other block's waiting row)`);
+        // the jobs' new rows (kept as $add entries of the same activity, for the block jobs) are not drawn in the views of beds: a pair names its block
+        c.ok(/Pear tree/.test(await plain.innerText()) && (await beds.locator(".booklet-row-remove-open").count()) === 4 && !/Mulch|Sharpen saw/.test(await beds.innerText()), `[${where}] the read-only view of the same beds shows the new row, the list has four Removes, and no row of the jobs block is drawn in it (${await beds.locator(".booklet-row-remove-open").count()})`);
         const eFile = entriesOf();
-        c.ok(eFile.length === 4 && /"pick":"ID-pear-tree"/.test(eFile[3]), `[${where}] the file's add kept its own entry: ${eFile[3]}`);
+        c.ok(eFile.length === 4 && /"in":"beds","pick":"ID-pear-tree"/.test(eFile[3]), `[${where}] the file's add kept its own entry: ${eFile[3]}`);
         c.ok(beforeRecords().trimEnd() === expectNote(added).trimEnd(), `[${where}] and the note's block was not touched by a change to the file`);
         await beds.locator("[data-booklet-remove='ID-beans'] .booklet-row-remove-open").click();
         c.ok(/^Remove this row\?/.test((await beds.locator("[data-booklet-remove='ID-beans'] .booklet-row-remove-q").innerText()).trim()), `[${where}] a row with nothing under it asks "Remove this row?"`);
@@ -910,7 +909,7 @@ module.exports = function dashboardChecks(env) {
         await plum.locator(".booklet-row-remove-yes").click();
         await settle();
         const ePlum = entriesOf();
-        c.ok(ePlum.length === nPlum + 1 && /"\$delete":\[\{"pick":"ID-plum","was":\{"id":"ID-plum","title":"Plum"\}\}\]/.test(ePlum[nPlum]), `[${where}] Remove keeps one $delete holding the waiting row as the entry made it: ${ePlum[nPlum]}`);
+        c.ok(ePlum.length === nPlum + 1 && /"\$delete":\[\{"in":"beds","pick":"ID-plum","was":\{"id":"ID-plum","title":"Plum"\}\}\]/.test(ePlum[nPlum]), `[${where}] Remove keeps one $delete holding the waiting row as the entry made it: ${ePlum[nPlum]}`);
         c.ok(fs.readFileSync(jsonFile, "utf8") === lockedBefore && !/Plum/.test(await beds.innerText()), `[${where}] the file is as it was and the waiting row is gone from the list`);
 
         // a row changed since the reader drew it: the removal is kept, nothing is removed, the row says so

@@ -1587,19 +1587,19 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
   - Source: Not ruled on. The brief for this slice asked for it; it reverses the 1.3.0 README line "rows written in the note itself … the plugin does not change".
   - Suggestion: keep as the plugin's own; Ben to confirm
 
-- **C-173** · tier `builder`
-  Entries do not say which data block an `$add` was for, so when one activity holds several data blocks, an add to one is drawn as "sent, waiting" in the views of the others, where the data never holds its id. Remove on the waiting row dismisses it (and, as the newest act on that id, marks the real row in the first block "removing, waiting"). The plugin does not guess the block.
-  - Why: the contract's `$add` pair is `{pick, under, row}` and an entry belongs to an activity; a guess from `under` or the fields would draw rows in the wrong place as often as the right one. Found when check 63's made-up note had two blocks in one activity.
-  - Where: `src/core/rows-act.ts` (`withPending`)
-  - Source: Not ruled on; the contract and SPEC 0.20 assume one block for the entries of an activity.
-  - Suggestion: SPEC to say, or to let the pair name its block (`from`); until then a README limit
+- **C-173** · tier `builder` (resolved 2026-11-08 by contract section 10, item 1)
+  Entries did not say which data block an `$add` or `$delete` was for, so when one activity held several data blocks an add to one was drawn "sent, waiting" in the views of the others. Resolved: each pair carries `"in": "<the data block's id>"` (required). A pending add or removal is drawn only in views of that block; `{n}` and clashes count only within that block's rows and waiting adds; the apply changes only that block's data. A pair without `in`, or whose `in` names no block, is kept as written and neither drawn, counted nor applied (the spec's linter reports it). No old shape is kept (pre-1.0).
+  - Why: found when check 63's made-up note had two blocks in one activity; the earlier note here asked SPEC to let the pair name its block, and the contract did.
+  - Where: `src/core/rows-act.ts` (`addPairs`, `deletePairs`, `withPending`, `rowIds`); `src/core/query.ts` (the `withPending` call); `src/view.ts` (`idsOf`, `inflight`); `src/row-ask.ts` (Add and Remove write `in`)
+  - Source: Ruled by the contract (section 10, item 1).
+  - Suggestion: none
 
-- **C-174** · tier `builder`
-  On a narrow screen (600 px or less) the table's column of Remove buttons is pinned to the end of what shows while the table scrolls sideways (`position: sticky`), and the question wraps in a width of its own (10 to 16 em). Remove is not moved into a row's open part, because a table row that does not open has none.
+- **C-174** · tier `builder` (accepted 2026-11-08 by contract section 10, item 3)
+  On a narrow screen (600 px or less) the table's column of Remove buttons is pinned to the end of what shows while the table scrolls sideways (`position: sticky`), and the question wraps in a width of its own (10 to 16 em). Remove is not moved into a row's open part, because a table row that does not open has none. The contract accepts this pinned column in place of moving Remove into the lead cell; the spec says nothing about where Remove sits.
   - Why: contract 8.10 says Remove sits in the row's open part on a narrow screen; a flat table's rows have no open part, and drawing the control twice (once hidden) would double every Remove for a screen reader and for the tests. Pinning it keeps it in view and pressable without a sideways scroll, which was the fault.
   - Where: `styles.base.css` (`.booklet-row-remove-q`; the `@media (max-width: 600px)` rule); check 63 measures it at 390 px in both looks
-  - Source: Contract 8.10, read for the case it names; the literal "open part" is done only where one exists (it does not, for a flat table).
-  - Suggestion: Ben to confirm, or say to move Remove into the lead cell on a phone
+  - Source: Ruled by the contract (section 10, item 3), which accepts the pinned column.
+  - Suggestion: none
 
 - **C-175** · tier `builder`
   A number outside JavaScript's exact range in a removed row is a README limit, not handled: the row is read through `JSON.parse` before the removal is compared and recorded, so `was` holds the nearest number the language has. The data file's bytes of the row are removed whole, so nothing else changes.
@@ -1608,9 +1608,9 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
   - Source: Contract 8.11, second option.
   - Suggestion: keep as the plugin's own
 
-- **C-176** · tier `builder`
-  An in-place edit (beta 3) keeps a number pick and a text pick apart (`1` is not `"1"`), as its tests and 0.19 say; only adding and removing compare ids as text (contract section 9, item 5).
-  - Why: section 9 names `pick`, `under` and the ids in the data for `$add` and `$delete`; an edit's pick is another act, with its own earlier rule and tests.
-  - Where: `src/core/apply.ts` (`rowsWithId`, `asText`)
-  - Source: Contract section 9, item 5, read as about adds and removals.
-  - Suggestion: SPEC to say whether an edit's pick is text too
+- **C-176** · tier `builder` (changed 2026-11-08 by contract section 10, item 2)
+  Ids are text for every act: an in-place edit's pick `{pick, a, was}`, a question asked for each row (its draft pairs, its kept pairs, a row's Finalize), an add's `pick` and `under`, and a removal's `pick` all match a row's `id` as text, so 5 and "5" are one id. A pick is stored as the id is written (a number id gives a number pick). Two rows whose ids are the same as text are two rows with one id (the second is not asked or edited, an edit of that id is refused as ambiguous). A question asked for each pick of another question (a choice's position or a widget's id) keeps a number and its digits as words apart.
+  - Why: contract section 10, item 2, replaced the earlier reading that only adds and removals compared as text (the old test "a pick that is a number matches a number id, not the same digits as words" is changed).
+  - Where: `src/core/apply.ts` (`rowsWithId`); `src/core/ask.ts` (`pairsFor`); `src/core/each.ts` (`pairFor`, `setPair`, `samePick`, `askedOfRows`); `src/core/write.ts` (`keepRowDraft`); `src/core/query.ts` (repeated ids); `src/view.ts`, `src/row-ask.ts` (draft pairs of a row)
+  - Source: Ruled by the contract (section 10, item 2).
+  - Suggestion: none
