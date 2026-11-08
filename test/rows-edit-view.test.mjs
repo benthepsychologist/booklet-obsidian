@@ -388,6 +388,80 @@ test("rows written in the note itself are not a vault file: an edit is kept, not
 	v.close();
 });
 
+test("a field named id marked edit is kept and never written: it is the row's identity, even when the new id would collide with another row's", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.fields.id = { label: "Code", edit: "text" };
+	const text = ORCHARD.replace("fields: title, kind, stage, open, due, notes\n```", "fields: id, title, kind, stage, open, due, notes\n```");
+	assert.notEqual(text, ORCHARD);
+	const v = await orchard({ text, file: JSON.stringify(file) });
+	const before = v.file();
+	const idCell = v.cell(v.queries()[0], "id", "p-orchard");
+	assert.ok(idCell, "the id is drawn as an edit cell, the data marks it");
+	const other = JSON.parse(before).plots.rows[1].id;
+	said().length = 0;
+	change(idCell, other);
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), before, "nothing was written");
+	assert.equal(v.written.count, 0);
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.deepEqual(norm(v.kept()[0].id), [{ pick: "p-orchard", a: other, was: "p-orchard" }]);
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because that field is the row's id, which is never written."]);
+	const state = v.cell(v.queries()[0], "id", "p-orchard").querySelector(".booklet-row-state");
+	assert.equal(state.getAttribute("data-state"), "waiting", "the cell says it is waiting, as for any act that is not applied");
+	// the row is still found by its old id: another edit of it still works
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Still found");
+	await v.settled();
+	await sleepTick();
+	assert.equal(JSON.parse(v.file()).plots.rows[0].title, "Still found");
+	v.close();
+});
+
+test("ids repeated in the file: the first row is edited, nothing is written, and the notice says more than one row has that id", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.rows[1].id = file.plots.rows[0].id;
+	const v = await orchard({ file: JSON.stringify(file) });
+	const before = v.file();
+	said().length = 0;
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Which one");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), before);
+	assert.equal(v.kept().length, 1);
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because more than one row has that id, so the file is left alone."]);
+	v.close();
+});
+
+test("the file already holds the value: the notice says so and does not say it was written", async () => {
+	const v = await orchard();
+	const same = v.file().replace('"stage": "growing"', '"stage": "resting"');
+	assert.notEqual(same, v.file());
+	v.overwrite(same);
+	said().length = 0;
+	change(v.cell(v.queries()[0], "stage", "p-orchard"), "resting");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), same);
+	assert.equal(v.written.count, 0);
+	assert.deepEqual(said(), ["Booklet: change kept. orchard-dashboard.json already holds that value, so nothing was written."]);
+	v.close();
+});
+
+test("the data file is found from the note the act was kept in, even if the pane has moved to another note by the time it is applied", async () => {
+	const v = await orchard();
+	const paths = [];
+	const process = v.view.app.vault.adapter.process;
+	v.view.app.vault.adapter.process = (p, fn) => (paths.push(p), process(p, fn));
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Moved on");
+	// the pane is handed another note, in another folder, before the queued write has run
+	v.view.file = { path: "Elsewhere/Other.booklet.md", basename: "Other.booklet" };
+	await v.settled();
+	await sleepTick();
+	assert.deepEqual(paths, ["orchard-dashboard.json"], "the file named from the orchard note's folder, not Elsewhere/");
+	assert.equal(JSON.parse(v.file()).plots.rows[0].title, "Moved on");
+	v.close();
+});
+
 /* ---- the display states, a refused act, and words that survive ---- */
 
 test("after the data is read again: the value now (nothing marked), what was sent (marked waiting), or the value now with what was sent beneath", async () => {

@@ -88,7 +88,7 @@ export interface WidgetBlock {
 
 /**
  * A `booklet data` block with its block id: `module` as for a widget block. Its rows are read once (data.ts) and drawn by a
- * query that names the block; the block is never written. A block that cannot be read is reported and is not here.
+ * query that names the block; the block is never written here (a file's rows are changed only by the plugin's apply of a kept edit, data-files.ts). A block that cannot be read is reported and is not here.
  */
 export interface DataBlock extends DataRows {
 	id: string;

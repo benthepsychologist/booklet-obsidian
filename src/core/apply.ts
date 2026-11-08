@@ -3,7 +3,7 @@
  * `{ pick, a, was }` for a field, and it sets that field of the row whose `id` is the pick to `a`, only if the data still holds `was`.
  * The change is made to the one value's own text and nowhere else: every other byte of the file (its spacing, its key order, the other
  * rows, its line endings, a byte order mark at the start) comes back exactly as it was (SPEC section 8: no normalizing). A pick that
- * names no row or more than one row, a row that does not carry the field, and a value that is no longer `was` write nothing.
+ * names no row or more than one row, the field `id` (it is the row's identity: changing it would orphan every act that names the old one), a row that does not carry the field, and a value that is no longer `was` write nothing.
  * Plain TypeScript: nothing here imports Obsidian.
  */
 import { pickOfRow, sameValue } from "./ask";
@@ -11,7 +11,7 @@ import type { DataRow } from "./data";
 import { scanJson, type JsonMember, type JsonNode } from "./json-edit";
 
 /** Why an act was not applied, in a few words each (the plugin's notice puts them in plain English). */
-export type ApplyWhy = "no row" | "ambiguous" | "no field" | "changed" | "unreadable";
+export type ApplyWhy = "no row" | "ambiguous" | "no field" | "changed" | "unreadable" | "identity";
 
 export type ApplyResult = { ok: true; text: string } | { ok: false; why: ApplyWhy };
 
@@ -32,6 +32,8 @@ const parseAt = (s: string, n: JsonNode): unknown => JSON.parse(s.slice(n.start,
  * with `was` and `a` (the display states' comparison: a choice is compared as an option is, all others as a value).
  */
 export function applyAct(text: string, keyPath: string, pick: unknown, field: string, was: unknown, a: unknown, eq: (x: unknown, y: unknown) => boolean = sameValue): ApplyResult {
+	// a row's id is what every act names it by: it is never set, whatever the data marks as editable
+	if (field === "id") return { ok: false, why: "identity" };
 	// a value is written as a JSON string, a JSON number or null: nothing else is an edit's value
 	if (!(a === null || typeof a === "string" || (typeof a === "number" && Number.isFinite(a)))) return { ok: false, why: "unreadable" };
 	// a byte order mark is no part of the JSON, and stays where it is

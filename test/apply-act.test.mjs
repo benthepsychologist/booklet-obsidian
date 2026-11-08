@@ -143,6 +143,14 @@ test("text that is not JSON, or an act that is not a value, writes nothing", () 
 	assert.deepEqual(applyAct('{"rows":[{"id":"a","s":"x"}]}', "", "a", "s", "x", NaN), { ok: false, why: "unreadable" });
 });
 
+test("the field id is never written: it is what every act names the row by", () => {
+	const t = '{"rows":[{"id":"a","s":"x"},{"id":"b","s":"x"}]}';
+	assert.deepEqual(applyAct(t, "", "a", "id", "a", "b"), { ok: false, why: "identity" }, "a new id that another row has");
+	assert.deepEqual(applyAct(t, "", "a", "id", "a", "c"), { ok: false, why: "identity" }, "and one that nobody has");
+	assert.deepEqual(applyAct('{"rows":[{"id":1,"s":"x"}]}', "", 1, "id", 1, 2), { ok: false, why: "identity" }, "a number id too");
+	assert.deepEqual(applyAct(t, "", "a", "id", "a", "a"), { ok: false, why: "identity" }, "even to the same words");
+});
+
 test("a deep chain of rows is found; one too deep for the JSON scanner is refused, not thrown", () => {
 	const chain = (n) => {
 		let t = '{"id":"end","s":"x"}';

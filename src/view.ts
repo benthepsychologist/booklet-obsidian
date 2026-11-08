@@ -151,7 +151,8 @@ const PRESS_END_MS = 300;
 const REFUSED_BECAUSE: Record<ApplyWhy, string> = {
 	changed: "the data holds a different value now",
 	"no row": "the row is no longer there",
-	ambiguous: "more than one row has that id now",
+	ambiguous: "more than one row has that id, so the file is left alone",
+	identity: "that field is the row's id, which is never written",
 	"no field": "the row no longer has that field",
 	unreadable: "the file cannot be read as data now",
 };
@@ -1127,20 +1128,23 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		if (!file) return failed();
 		const id = t.activity.id;
 		// the entry is made of the file's fresh text, and its time is the moment of the write: one new entry, and no other byte changes
-		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => this.applyAct(key, pair, apply), failed);
+		// the data file's path is worked out now, from the note this act was kept in: a pane that moves to another note meanwhile resolves nothing against another folder
+		const path = apply ? this.files.pathOf(apply.block) : null;
+		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => this.applyAct(key, pair, apply, path), failed);
 	}
 
 	/**
 	 * The act is kept; now, if the rows come from a file of the vault and the act replaced a value (it has `was`), it is written into
 	 * that file once, only if the file still holds `was` (data-files.ts). Whatever happens, the kept entry stays: the notice says so.
 	 */
-	private async applyAct(key: string, pair: Record<string, unknown>, apply?: ActApply): Promise<void> {
+	private async applyAct(key: string, pair: Record<string, unknown>, apply: ActApply | undefined, path: string | null): Promise<void> {
 		if (!apply || !Object.prototype.hasOwnProperty.call(pair, "was")) {
 			new Notice("Booklet: change kept.");
 			return;
 		}
-		const got = await this.files.apply(apply.block, pair["pick"], key, pair["was"], pair["a"], apply.eq);
+		const got = await this.files.apply(apply.block, path, pair["pick"], key, pair["was"], pair["a"], apply.eq);
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
+		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
 		else if (got.state === "refused") new Notice(`Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
 		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because the file cannot be written.`);
 	}

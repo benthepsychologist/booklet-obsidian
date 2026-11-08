@@ -1,6 +1,7 @@
 /*
  * The data files a note's `booklet data <file.json> <key.path>` blocks name (SPEC section 7, "Rows from a file"), read through the
- * vault and nothing else: no request leaves the device, and nothing is written. A file is read once for each read, however many blocks
+ * vault and nothing else: no request leaves the device. A file is only read, with one exception: apply() below writes the one value of an
+ * in-place edit the reader kept (see core/apply.ts), and nothing else of it. A file is read once for each read, however many blocks
  * name it (each block takes its own key path from what was read, and keeps its own fence `fields`). It is read again when the
  * vault says it changed and when the pane comes back into view, and only a file whose size or time changed is read again. Whatever the
  * reader has open or scrolled is the view's (query-controls.ts); this holds the files.
@@ -17,8 +18,10 @@ export interface DataAdapter {
 
 /** What became of an act that was to be written into a data file. */
 export type Applied =
-	/** Written into the file, or the file already held the value. */
+	/** Written into the file. */
 	| { state: "written"; name: string }
+	/** The file already held the value: nothing was written. */
+	| { state: "same"; name: string }
 	/** Not written because of what the file holds now. */
 	| { state: "refused"; why: ApplyWhy; name: string }
 	/** Not written: the file cannot be written, or the block names no file in the vault. */
@@ -100,14 +103,13 @@ export class DataFiles {
 	}
 
 	/**
-	 * Applies one kept act to the file a block names (core/apply.ts): the file is read again at the moment of writing and the act is applied
+	 * Applies one kept act to the file a block names, at `path` (worked out when the act was kept, from the note it was kept in; core/apply.ts): the file is read again at the moment of writing and the act is applied
 	 * to that text, so a change made outside since the page drew is seen; the value's own text is replaced and no other byte changes.
 	 * Nothing is written when the act cannot be applied. A file written is put in the entry at once, so every block that names it is drawn
 	 * again from the new text (once: the vault's own event for the same write finds nothing new).
 	 */
-	async apply(block: DataBlock, pick: unknown, field: string, was: unknown, a: unknown, eq: (x: unknown, y: unknown) => boolean): Promise<Applied> {
+	async apply(block: DataBlock, path: string | null, pick: unknown, field: string, was: unknown, a: unknown, eq: (x: unknown, y: unknown) => boolean): Promise<Applied> {
 		const file = block.file;
-		const path = this.pathOf(block);
 		const adapter = this.adapter();
 		if (!file || path === null || !adapter) return { state: "failed", name: file ? file.name : "" };
 		const name = file.name;
@@ -123,7 +125,7 @@ export class DataFiles {
 			});
 		} catch (err) {
 			if (err instanceof Refused) {
-				if (err.why === "unchanged") return { state: "written", name };
+				if (err.why === "unchanged") return { state: "same", name };
 				// the file is not what the page drew: it is looked at again, so the cells show what it holds now
 				void this.refresh();
 				return { state: "refused", why: err.why, name };
