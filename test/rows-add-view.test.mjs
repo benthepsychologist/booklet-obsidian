@@ -20,7 +20,7 @@ const DATA = {
 		{ id: "j-4", title: "Stakes", stage: "planning" },
 	],
 };
-const FRONT = ["---", 'booklet: "0.19"', "id: example/garden", "title: Garden", "lang: en", "---", "", "# Garden", "", "> [!module|desk] Desk", ""];
+const FRONT = ["---", 'booklet: "0.20"', "id: example/garden", "title: Garden", "lang: en", "---", "", "# Garden", "", "> [!module|desk] Desk", ""];
 const note = ({ head = "repeat", query = "from: jobs\nas: table\nfields: title, stage\nadd\ndelete", data = DATA, file = false } = {}) =>
 	[
 		...FRONT,
@@ -146,6 +146,60 @@ test("a format that cannot be read draws one quiet line instead of the Add butto
 	const quiet = v.q().querySelector(".booklet-row-add-quiet");
 	assert.ok(quiet && words(quiet).length > 10, "a line that says why");
 	assert.equal(v.q().querySelectorAll(".booklet-row-remove-open").length, 2);
+	v.close();
+});
+
+test("a format with two number parts is not valid: the same quiet line, no Add button, Remove stays", async () => {
+	const v = await garden(note({ data: { ...DATA, idFormat: "{n}-{n:3}" } }));
+	assert.equal(v.q().querySelector(".booklet-row-add-open"), null);
+	assert.match(words(v.q().querySelector(".booklet-row-add-quiet")), /id format/i);
+	assert.equal(v.q().querySelectorAll(".booklet-row-remove-open").length, 2);
+	v.close();
+});
+
+test("the form asks for every field the block marks edit, in the order the block declares them, whatever the query shows or the order it lists", async () => {
+	const v = await garden(note({ query: "from: jobs\nas: table\nfields: size, title\nadd" }));
+	open(v);
+	assert.deepEqual([...v.q().querySelectorAll(".booklet-row-addfield label")].map((l) => words(l)), ["Name", "Stage", "Size"]);
+	v.close();
+});
+
+test("a box left empty is left out of the row, an all-empty form keeps row {} and still adds, a number is a number, a choice its option's words", async () => {
+	const v = await garden(note({ query: "from: jobs\nas: table\nfields: title, stage, size\nadd" }));
+	open(v);
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"])), [{ pick: "j-5", row: {} }], "an empty form: a row with only an id");
+	assert.deepEqual({ ...blockRows(v)[2] }, { id: "j-5" });
+	open(v);
+	typeInto(box(v, "Size"), "12");
+	box(v, "Stage").value = "growing";
+	box(v, "Stage").dispatchEvent(new w.Event("change", { bubbles: true }));
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	const pair = JSON.parse(JSON.stringify(v.kept()[1]["$add"]))[0];
+	assert.deepEqual(pair, { pick: "j-6", row: { stage: "growing", size: 12 } }, "title left out; the keys follow the block's order; size is a number");
+	assert.strictEqual(pair.row.size, 12);
+	assert.deepEqual({ ...blockRows(v)[3] }, { id: "j-6", stage: "growing", size: 12 });
+	// the number 0 is a number, not an empty box
+	open(v);
+	typeInto(box(v, "Size"), "0");
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[2]["$add"]))[0].row, { size: 0 });
+	v.close();
+});
+
+test("a bare {n} writes the id as a JSON number in the entry's pick and in the data; an existing text id counts as its number", async () => {
+	const { rows, ...rest } = DATA;
+	const v = await garden(note({ data: { ...rest, idFormat: "{n}", rows: [{ id: 3, title: "A" }, { id: "7", title: "B" }] } }));
+	open(v);
+	typeInto(box(v, "Name"), "New");
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.strictEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"]))[0].pick, 8, "a number in the entry");
+	assert.strictEqual(blockRows(v)[2].id, 8, "and a number in the data");
+	assert.match(v.disk.text, /"id":8,/);
 	v.close();
 });
 

@@ -121,9 +121,30 @@ test("the matcher: a constant is itself, {n} digits, time/date/epoch digits of t
 	assert.equal(m("j-{n}").test("j-1x"), false);
 });
 
-test("a format with two {n} parts counts once and writes the same number in both", () => {
-	assert.equal(make("{n}-{n:3}", { ids: ["4-004"] }).id, "5-005");
-	assert.equal(make("a{n}b{n}").id, "a1b1");
+test("a format with two number parts is not valid, whatever their widths: the same number written twice", () => {
+	for (const bad of ["{n}-{n:3}", "a{n}b{n}", "{n:2}{n:2}", "{n:9}/{n}"]) {
+		const f = parseIdFormat(bad);
+		assert.equal(f.ok, false, bad);
+		assert.match(f.why, /number/i, `${bad} says why`);
+		assert.equal(make(bad).ok, false, bad);
+		assert.equal(make(bad).why, "format", bad);
+		assert.equal(make(bad).message, ID_WORDS.formatBad, bad);
+	}
+	// one number part, with anything else beside it, is fine
+	for (const good of ["{n}", "{n:3}", "j-{n}-{uuid}", "{time}-{n:2}"]) assert.equal(parseIdFormat(good).ok, true, good);
+});
+
+test("a bare {n} makes a JSON number; {n:W} and every other format make a string; numbers and text clash as text", () => {
+	assert.strictEqual(make("{n}", { ids: [4] }).id, 5);
+	assert.strictEqual(make("{n}", { ids: ["4", 2] }).id, 5, "an id written as text counts");
+	assert.strictEqual(make("{n:1}", { ids: [4] }).id, "5", "a width makes a string");
+	assert.strictEqual(make("{n:3}").id, "001");
+	assert.strictEqual(make("n{n}").id, "n1");
+	// an existing number 5 and a string "5" are the same id
+	assert.equal(make("{field:t}", { ids: [5], values: { t: "5" } }).ok, false, "text against a number");
+	assert.equal(make("{field:t}", { ids: ["5"], values: { t: "5" } }).ok, false, "text against text");
+	assert.equal(checkTypedId("5", undefined, [5]).ok, false);
+	assert.equal(checkTypedId(" 5 ", undefined, ["5"]).ok, false);
 });
 
 test("a clash refuses in words that say to add a part that tells rows apart; no silent change", () => {

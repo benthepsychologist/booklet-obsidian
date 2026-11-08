@@ -40,7 +40,7 @@ const WIDTHS = /^[1-9]$/;
 
 /**
  * Reads a format. A bare `{n}` (nothing else) is `bare`: the id is then a JSON number. Anything else is a string. A format with two
- * number parts counts once and writes the same number in both.
+ * number parts (`{n}` or `{n:W}`) is not valid: it would be the same number written twice (SPEC section 7, "One number part at most").
  */
 export function parseIdFormat(format: unknown): IdFormat {
 	if (typeof format !== "string" || format === "") return { ok: false, why: "the id format is empty" };
@@ -80,6 +80,7 @@ export function parseIdFormat(format: unknown): IdFormat {
 		i++;
 	}
 	flush();
+	if (parts.filter((x) => x.kind === "n").length > 1) return { ok: false, why: "the id format has two number parts; it can have only one" };
 	const bare = parts.length === 1 && parts[0]!.kind === "n" && (parts[0] as { width: number }).width === 0;
 	return { ok: true, parts, bare };
 }
