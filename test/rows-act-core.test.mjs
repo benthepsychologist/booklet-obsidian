@@ -172,6 +172,16 @@ test("a daily Finalize neither replaces an entry that adds or removes a row nor 
 	const kept = core.parseBooklet(done.text).records.entries[""].show;
 	assert.equal(kept.length, 2);
 	assert.equal(kept.some((e) => core.isRowActEntry(e)), true);
+	assert.equal(new Set(kept.map((e) => e.ts)).size, 2, "and the new entry did not take the add's time: each entry has a time of its own");
+});
+
+test("today's entry of a daily activity is never an entry that adds or removes a row", () => {
+	const daily = `${fm}\n> [!activity|show repeat daily] Show\n\n> [!text|t] T\n\n${entries([{ ts: "2026-11-08T10:42:00Z", ...ADD }, { ts: "2026-11-08T11:00:00Z", t: "words" }])}`;
+	const book = core.parseBooklet(daily);
+	const act = book.activities.find((a) => a.id === "show");
+	const rule = { today: "2026-11-08", until: Date.parse("2026-11-08T23:59:59Z"), dayOf: (ts) => ts.slice(0, 10) };
+	assert.equal(core.todaysEntry(book, "", "show", rule, act).t, "words", "the day's own entry, past the add");
+	assert.equal(core.isRowActEntry(core.todaysEntry(book, "", "show", rule)), true, "(without the activity, the first entry of the day is what it was)");
 });
 
 /* ---- what is drawn while the data has not followed ---- */
