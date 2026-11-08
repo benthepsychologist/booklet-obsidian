@@ -3,8 +3,11 @@
  * `repeat` activity's entry, `$add` and `$delete`, each a list of pairs. A `$` cannot begin a question's or an activity's id, so neither can
  * meet an answer; the entry is written first and never removed, and the data is changed afterwards, once (apply.ts).
  *
- *   { "$add":    [ { "pick": <the new row's id>, "under": <the parent's id, left out for a top row>, "row": { …the fields asked for… } } ], "ts": … }
- *   { "$delete": [ { "pick": <the removed row's id>, "was": { …the whole row as the data held it, rows under it included… } } ], "ts": … }
+ *   { "$add":    [ { "in": <the data block's id>, "pick": <the new row's id>, "under": <the parent's id, left out for a top row>, "row": { …the fields asked for… } } ], "ts": … }
+ *   { "$delete": [ { "in": <the data block's id>, "pick": <the removed row's id>, "was": { …the whole row as the data held it, rows under it included… } } ], "ts": … }
+ *
+ * A pair names its block (`in`), and only that block's views draw it, count it for `{n}` and have it applied; a pair without an `in`, or
+ * with one no block carries, is kept as written and read by nothing (contract section 10).
  *
  * What a reader sees of them while the data is not yet changed (`withPending`): an added row is drawn from its entry at the end of its
  * parent's rows, marked "sent, waiting", until the data holds a row with that id, then from the data and never twice; a removed row stays,
@@ -27,12 +30,15 @@ export const DELETE_KEY = "$delete";
 export type RowAct = "adding" | "removing" | "refused";
 
 export interface AddPair {
+	/** The id of the data block the act is for (contract section 10); an entry without one is read by no block. */
+	in: string;
 	pick: PickValue;
 	under?: PickValue;
 	row: Record<string, DataValue>;
 }
 
 export interface DeletePair {
+	in: string;
 	pick: PickValue;
 	was: unknown;
 }
@@ -40,30 +46,38 @@ export interface DeletePair {
 const isPick = (v: unknown): v is PickValue => (typeof v === "string" && v !== "") || (typeof v === "number" && Number.isFinite(v));
 const isValue = (v: unknown): v is DataValue => v === null || typeof v === "string" || typeof v === "number" || typeof v === "boolean";
 
-/** The `$add` pairs of an entry that are one: a `pick`, an `under` that is a pick when it is there, and a `row` of plain values (`id` is never one of them). */
-export function addPairs(e: Entry): AddPair[] {
+/** Is this the id of a data block, as an act names it (`in`)? */
+const isBlockId = (v: unknown): v is string => typeof v === "string" && v !== "";
+
+/**
+ * The `$add` pairs of an entry that are one: an `in` (the data block's id), a `pick`, an `under` that is a pick when it is there, and a
+ * `row` of plain values (`id` is never one of them). A pair without an `in` is no act of any block: it is not returned, and the entry is
+ * left as written. `loose` returns those too (with `in` empty), for the list of what was kept, which says them in words.
+ */
+export function addPairs(e: Entry, loose = false): AddPair[] {
 	const v = e[ADD_KEY];
 	if (!Array.isArray(v)) return [];
 	const out: AddPair[] = [];
 	for (const x of v as unknown[]) {
 		if (!isRowObj(x as DataRow) || !isPick((x as Record<string, unknown>)["pick"])) continue;
 		const o = x as Record<string, unknown>;
+		if (!isBlockId(o["in"]) && !loose) continue;
 		if (o["under"] !== undefined && !isPick(o["under"])) continue;
 		const row: Record<string, DataValue> = {};
 		if (isRowObj(o["row"] as DataRow)) for (const [k, val] of Object.entries(o["row"] as Record<string, unknown>)) if (k !== "id" && isValue(val)) row[k] = val;
-		out.push({ pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] as PickValue } : {}), row });
+		out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] as PickValue } : {}), row });
 	}
 	return out;
 }
 
-/** The `$delete` pairs of an entry that are one: a `pick` and a `was` that is an object. */
-export function deletePairs(e: Entry): DeletePair[] {
+/** The `$delete` pairs of an entry that are one: an `in`, a `pick` and a `was` that is an object (`loose` as for `addPairs`). */
+export function deletePairs(e: Entry, loose = false): DeletePair[] {
 	const v = e[DELETE_KEY];
 	if (!Array.isArray(v)) return [];
 	const out: DeletePair[] = [];
 	for (const x of v as unknown[]) {
 		const o = x as Record<string, unknown> | null;
-		if (o && typeof o === "object" && !Array.isArray(o) && isPick(o["pick"]) && o["was"] !== null && typeof o["was"] === "object" && !Array.isArray(o["was"])) out.push({ pick: o["pick"], was: o["was"] });
+		if (o && typeof o === "object" && !Array.isArray(o) && isPick(o["pick"]) && o["was"] !== null && typeof o["was"] === "object" && !Array.isArray(o["was"]) && (loose || isBlockId(o["in"]))) out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"], was: o["was"] });
 	}
 	return out;
 }
@@ -123,22 +137,22 @@ export interface Pending {
 
 type Act = { t: number; i: number; j: number } & ({ kind: "add"; p: AddPair } | { kind: "delete"; p: DeletePair });
 
-/** Every add and removal the entries keep, oldest first (a tie in time goes by the entry's place, then the pair's). */
-function actsInOrder(entries: readonly Entry[]): Act[] {
+/** Every add and removal the entries keep for one data block, oldest first (a tie in time goes by the entry's place, then the pair's). */
+function actsInOrder(entries: readonly Entry[], block: string): Act[] {
 	const acts: Act[] = [];
 	entries.forEach((e, i) => {
 		if (!isRowActEntry(e)) return;
 		const t = Date.parse(String(e.ts));
-		addPairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j, kind: "add", p }));
-		deletePairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j: 1000 + j, kind: "delete", p }));
+		addPairs(e).forEach((p, j) => p.in === block && acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j, kind: "add", p }));
+		deletePairs(e).forEach((p, j) => p.in === block && acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j: 1000 + j, kind: "delete", p }));
 	});
 	return acts.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
 }
 
-/** The newest act on each pick, in the order the picks were first acted on. */
-function newestActs(entries: readonly Entry[]): Act[] {
+/** The newest act on each pick of one block, in the order the picks were first acted on. */
+function newestActs(entries: readonly Entry[], block: string): Act[] {
 	const newest = new Map<string, Act>();
-	for (const a of actsInOrder(entries)) newest.set(idKey(a.p.pick), a);
+	for (const a of actsInOrder(entries, block)) newest.set(idKey(a.p.pick), a);
 	return [...newest.values()];
 }
 
@@ -149,10 +163,10 @@ function newestActs(entries: readonly Entry[]): Act[] {
  * row is still what the reader saw, and refused when it is not; a removal whose pick is gone is done. The rows given are not changed:
  * when an add is drawn, the rows are copied.
  */
-export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending {
+export function withPending(rows: DataRow[], entries: readonly Entry[], block: string): Pending {
 	const none: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
 	const newest = new Map<string, Act>();
-	for (const a of actsInOrder(entries)) newest.set(idKey(a.p.pick), a);
+	for (const a of actsInOrder(entries, block)) newest.set(idKey(a.p.pick), a);
 	if (!newest.size) return none;
 	const held = indexRows(rows);
 	const out: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
@@ -217,7 +231,7 @@ export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending
  * The id of every row of the data at every depth, and of every add still waiting (whether or not it can be drawn yet): what the id of a new
  * row is made against, so that a number counts past the adds on their way and no id is made twice.
  */
-export function rowIds(rows: readonly DataRow[], entries: readonly Entry[]): PickValue[] {
+export function rowIds(rows: readonly DataRow[], entries: readonly Entry[], block: string): PickValue[] {
 	const held = indexRows(rows);
 	const out: PickValue[] = [];
 	const todo = rows.slice().reverse();
@@ -231,7 +245,7 @@ export function rowIds(rows: readonly DataRow[], entries: readonly Entry[]): Pic
 		}
 	}
 	const waiting = new Set<string>();
-	for (const a of newestActs(entries)) if (a.kind === "add" && !held.has(idKey(a.p.pick)) && !waiting.has(idKey(a.p.pick))) {
+	for (const a of newestActs(entries, block)) if (a.kind === "add" && !held.has(idKey(a.p.pick)) && !waiting.has(idKey(a.p.pick))) {
 		waiting.add(idKey(a.p.pick));
 		out.push(a.p.pick);
 	}

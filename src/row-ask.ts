@@ -170,7 +170,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			const sent = newestSent(view.keptOf(t), q.id, id);
 			return showsOf(sent, sent ? asValue(q, sent.a) : undefined, now, eq);
 		};
-		const draftPair = () => pairFor(view.answerOf(t, q), id);
+		const draftPair = () => pairFor(view.answerOf(t, q), id, true);
 		/** What the control shows: the reader's draft over all; else the value, or (in the waiting state) what was sent. An adding question starts empty. */
 		const shownAnswer = (): unknown => {
 			const d = draftPair();
@@ -595,7 +595,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 					const named = made.field;
 					return say(made.message, named !== undefined && boxes.has(named) ? named : acts.idFormat === undefined ? ID_BOX : null);
 				}
-				const pair: Record<string, unknown> = { pick: made.id, ...(parentId !== undefined ? { under: parentId } : {}), row };
+				const pair: Record<string, unknown> = { in: block.id, pick: made.id, ...(parentId !== undefined ? { under: parentId } : {}), row };
 				view.addForms.delete(fkey);
 				closed();
 				box.querySelector<HTMLElement>("button")?.focus();
@@ -713,7 +713,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				view.keepAct(
 					t,
 					DELETE_KEY,
-					{ pick: id, was: JSON.parse(JSON.stringify(gone)) as unknown },
+					{ in: block.id, pick: id, was: JSON.parse(JSON.stringify(gone)) as unknown },
 					() => {
 						if (wrap.isConnected) closed();
 					},

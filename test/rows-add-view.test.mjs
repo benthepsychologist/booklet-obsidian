@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openView, testApp, click, until, words, typeInto, press, window as w } from "./dom.mjs";
-import { core, assertOutsideUnchanged } from "./helpers.mjs";
+import { core, assertOutsideUnchanged, norm } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
@@ -172,7 +172,7 @@ test("a box left empty is left out of the row, an all-empty form keeps row {} an
 	open(v);
 	click(v.q().querySelector(".booklet-row-add-go"));
 	await v.after();
-	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"])), [{ pick: "j-5", row: {} }], "an empty form: a row with only an id");
+	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"])), [{ in: "jobs", pick: "j-5", row: {} }], "an empty form: a row with only an id");
 	assert.deepEqual({ ...blockRows(v)[2] }, { id: "j-5" });
 	open(v);
 	typeInto(box(v, "Size"), "12");
@@ -181,7 +181,7 @@ test("a box left empty is left out of the row, an all-empty form keeps row {} an
 	click(v.q().querySelector(".booklet-row-add-go"));
 	await v.after();
 	const pair = JSON.parse(JSON.stringify(v.kept()[1]["$add"]))[0];
-	assert.deepEqual(pair, { pick: "j-6", row: { stage: "growing", size: 12 } }, "title left out; the keys follow the block's order; size is a number");
+	assert.deepEqual(pair, { in: "jobs", pick: "j-6", row: { stage: "growing", size: 12 } }, "title left out; the keys follow the block's order; size is a number");
 	assert.strictEqual(pair.row.size, 12);
 	assert.deepEqual({ ...blockRows(v)[3] }, { id: "j-6", stage: "growing", size: 12 });
 	// the number 0 is a number, not an empty box
@@ -291,7 +291,7 @@ test("Add keeps one $add entry, then the row is in the block between its fences;
 	const kept = v.kept();
 	assert.equal(kept.length, 1);
 	assert.deepEqual(Object.keys(kept[0]).sort(), ["$add", "ts"]);
-	assert.deepEqual(JSON.parse(JSON.stringify(kept[0]["$add"])), [{ pick: "j-5", row: { title: "Mulch", stage: "planning" } }], "the id comes after the highest j- number, at every depth");
+	assert.deepEqual(JSON.parse(JSON.stringify(kept[0]["$add"])), [{ in: "jobs", pick: "j-5", row: { title: "Mulch", stage: "planning" } }], "the id comes after the highest j- number, at every depth");
 	const rows = blockRows(v);
 	assert.deepEqual(rows.map((r) => r.id), ["j-1", "j-4", "j-5"]);
 	assert.deepEqual({ ...rows[2] }, { id: "j-5", title: "Mulch", stage: "planning" });
@@ -330,7 +330,7 @@ test("Add under a row puts the new row at the end of that row's own list of rows
 	click(under.querySelector(".booklet-row-add-go"));
 	await v.after();
 	assert.deepEqual(blockRows(v)[0].jobs.map((r) => r.id), ["j-2", "j-3", "j-5"]);
-	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"])), [{ pick: "j-5", under: "j-1", row: { title: "Sharpen saw" } }]);
+	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"])), [{ in: "jobs", pick: "j-5", under: "j-1", row: { title: "Sharpen saw" } }]);
 	v.close();
 });
 
@@ -435,7 +435,7 @@ test("a confirmed Remove keeps one $delete entry carrying the row as it was, the
 	const kept = v.kept();
 	assert.equal(kept.length, 1);
 	assert.deepEqual(Object.keys(kept[0]).sort(), ["$delete", "ts"]);
-	assert.deepEqual(JSON.parse(JSON.stringify(kept[0]["$delete"])), [{ pick: "j-1", was: DATA.rows[0] }]);
+	assert.deepEqual(JSON.parse(JSON.stringify(kept[0]["$delete"])), [{ in: "jobs", pick: "j-1", was: DATA.rows[0] }]);
 	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-4"]);
 	assert.deepEqual(said(), []);
 	assert.deepEqual(v.names(), ["Stakes"]);
@@ -706,7 +706,7 @@ test("a pending add can be removed: a $delete entry holds the pending row, the r
 	assert.equal(v.file(), FILE, "the data never held the row, so nothing is written");
 	const kept = v.kept();
 	assert.equal(kept.length, 2);
-	assert.deepEqual(JSON.parse(JSON.stringify(kept[1]["$delete"])), [{ pick: "j-5", was: { id: "j-5", title: "Mulch" } }]);
+	assert.deepEqual(JSON.parse(JSON.stringify(kept[1]["$delete"])), [{ in: "jobs", pick: "j-5", was: { id: "j-5", title: "Mulch" } }]);
 	assert.deepEqual(v.names(), ["Prune", "Stakes"], "the ghost is gone");
 	assert.deepEqual(said().filter((s) => /Booklet: the removal/.test(s)), [], "and no notice about the removal");
 	// the number counts it as removed: the next add is j-5 again
@@ -816,4 +816,104 @@ test("asking Remove again and again adds no key listener to the row's Remove: on
 	assert.equal(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-yes'), null);
 	assert.notEqual(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'), null);
 	v.close();
+});
+
+/* ---- contract section 10: an act names its block ---- */
+
+const TWO_BLOCKS = () =>
+	[
+		...FRONT,
+		"> [!activity|work repeat] Work",
+		"",
+		"```booklet query",
+		"from: jobs\nas: table\nfields: title\nadd\ndelete",
+		"```",
+		"",
+		"```booklet query",
+		"from: beds\nas: table\nfields: title\nadd\ndelete",
+		"```",
+		"",
+		"```booklet data",
+		JSON.stringify(DATA),
+		"```",
+		"^jobs",
+		"",
+		"```booklet data",
+		JSON.stringify({ ...DATA, rows: [{ id: "j-1", title: "Roses" }, { id: "j-2", title: "Beans" }] }),
+		"```",
+		"^beds",
+		"",
+		"> [!module|desk end]",
+		"",
+	].join("\n");
+const queries = (v) => [...v.view.contentEl.querySelectorAll(".booklet-query")];
+const namesIn = (q) => [...q.querySelectorAll("tbody tr")].map((tr) => words(tr.querySelector("td").cloneNode(true)).replace(/\s+/g, " "));
+
+test("an Add names its block (`in`); the new row is drawn waiting in that block's view only, and the other block's number is its own", async () => {
+	const v = await garden(TWO_BLOCKS());
+	const [jobs, beds] = queries(v);
+	click(jobs.querySelector(".booklet-row-add-open"));
+	typeInto([...jobs.querySelectorAll(".booklet-row-addfield")].find((f) => words(f.querySelector("label")) === "Name").querySelector("input"), "Mulch");
+	click(jobs.querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.deepEqual(JSON.parse(JSON.stringify(v.kept()[0]["$add"]))[0].in, "jobs");
+	// the add is in jobs' data now; beds is not touched and does not draw it
+	const [j2, b2] = queries(v);
+	assert.equal(core.parseBooklet(v.disk.text).data.find((b) => b.id === "beds").rows.length, 2, "beds' rows are unchanged");
+	assert.equal(namesIn(b2).some((n) => /Mulch/.test(n)), false, "the other block's view does not draw it");
+	assert.equal(namesIn(j2).some((n) => /Mulch/.test(n)), true);
+	// an add in beds is numbered by beds' own rows (j-3), not past jobs' j-5
+	click(b2.querySelector(".booklet-row-add-open"));
+	click(queries(v)[1].querySelector(".booklet-row-add-go"));
+	await v.after();
+	const bedsAdd = v.kept().flatMap((e) => e["$add"] ?? []).find((p) => p.in === "beds");
+	assert.equal(bedsAdd.pick, "j-3");
+});
+
+test("entries already in the note: a pair for one block is drawn waiting in that block's view only; a pair without `in`, or naming no block, is drawn nowhere and stays as written", async () => {
+	let text = TWO_BLOCKS();
+	for (const [ts, key, pair] of [
+		["2026-11-08T10:00:00Z", "$add", { in: "jobs", pick: "j-9", row: { title: "Ghost job" } }],
+		["2026-11-08T10:01:00Z", "$add", { pick: "j-8", row: { title: "No block" } }],
+		["2026-11-08T10:02:00Z", "$add", { in: "nowhere", pick: "j-7", row: { title: "Lost" } }],
+	])
+		text = core.keepEntry(text, "desk", "work", { [key]: [pair] }, { ts }).text;
+	const v = await garden(text);
+	const [jobs, beds] = queries(v);
+	assert.deepEqual(namesIn(jobs).filter((n) => /Ghost|No block|Lost/.test(n)).map((n) => n.replace(/ · sent, waiting.*/, "").trim()), ["Ghost job"], "only the pair that names jobs, in jobs");
+	assert.deepEqual(namesIn(beds).filter((n) => /Ghost|No block|Lost/.test(n)), [], "beds draws none of them");
+	assert.equal(v.disk.text, text, "drawing changes nothing in the note");
+	// Remove on a pending add of jobs is still offered there, and keeps a pair that names jobs
+	click(jobs.querySelector('[data-booklet-remove="j-9"] .booklet-row-remove-open'));
+	click(jobs.querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	const last = v.kept().at(-1);
+	assert.equal(last["$delete"][0].in, "jobs");
+	assert.deepEqual(norm(v.kept().slice(0, 3)).map((e) => e.ts), ["2026-11-08T10:00:00Z", "2026-11-08T10:01:00Z", "2026-11-08T10:02:00Z"]);
+	assert.equal(v.disk.text.includes('"$add":[{"pick":"j-8","row":{"title":"No block"}}]'), true, "the pair without `in` is still as written");
+});
+
+test("a new row's number counts past the block's own waiting adds and the ones on their way, not past another block's", async () => {
+	let text = TWO_BLOCKS();
+	// jobs has an add waiting that is far ahead (j-20); beds has its own waiting add, j-5
+	for (const [ts, pair] of [
+		["2026-11-08T10:00:00Z", { in: "jobs", pick: "j-20", row: { title: "Far ahead" } }],
+		["2026-11-08T10:01:00Z", { in: "beds", pick: "j-5", row: { title: "Waiting in beds" } }],
+	])
+		text = core.keepEntry(text, "desk", "work", { $add: [pair] }, { ts }).text;
+	const v = await garden(text);
+	click(queries(v)[1].querySelector(".booklet-row-add-open"));
+	click(queries(v)[1].querySelector(".booklet-row-add-go"));
+	await v.after();
+	const mine = v.kept().flatMap((e) => e["$add"] ?? []).filter((p) => p.in === "beds");
+	assert.deepEqual(mine.map((p) => p.pick), ["j-5", "j-6"], "past beds' own waiting j-5, and not past jobs' j-20");
+	// two adds in two blocks, the second pressed before the first is kept: neither counts the other's id
+	click(queries(v)[0].querySelector(".booklet-row-add-open"));
+	click(queries(v)[0].querySelector(".booklet-row-add-go"));
+	click(queries(v)[1].querySelector(".booklet-row-add-open"));
+	click(queries(v)[1].querySelector(".booklet-row-add-go"));
+	await v.after();
+	const all = v.kept().flatMap((e) => e["$add"] ?? []);
+	assert.equal(all.filter((p) => p.in === "jobs").at(-1).pick, "j-21");
+	assert.equal(all.filter((p) => p.in === "beds").at(-1).pick, "j-7", "beds' next number, though jobs' add was on its way");
 });

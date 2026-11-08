@@ -758,7 +758,7 @@ function dataSet(b: DataRows): RowSet {
 	const ids = new Set<string>();
 	for (const r of all) {
 		if (r.id === undefined) continue;
-		const k = pickKey(r.id);
+		const k = String(r.id);
 		if (ids.has(k)) r.id = undefined;
 		else ids.add(k);
 	}
@@ -837,7 +837,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		}
 		// adds still waiting stand at the end of their parent's rows and removals still waiting are marked (rows-act.ts), for an activity that keeps entries
 		const kept = opts.activity && opts.activity.repeat && !opts.activity.daily ? (book.records.entries[opts.activity.scope]?.[opts.activity.id] ?? []) : [];
-		const pending = kept.length ? withPending(data.rows, kept) : null;
+		const pending = kept.length ? withPending(data.rows, kept, src.block.id) : null;
 		set = dataSet(pending && pending.rows !== data.rows ? { ...data, rows: pending.rows } : data);
 		if (pending)
 			for (const r of set.all ?? set.rows) {

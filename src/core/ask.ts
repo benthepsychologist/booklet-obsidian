@@ -158,10 +158,10 @@ const timeOf = (e: Entry): number => {
 const pairOf = (x: unknown): x is { pick: PickValue; a: unknown } & Record<string, unknown> =>
 	isRowObj(x) && (typeof x["pick"] === "number" || typeof x["pick"] === "string") && Object.prototype.hasOwnProperty.call(x, "a");
 
-/** The pairs of one act key that name this row, in the entry's order. */
+/** The pairs of one act key that name this row, in the entry's order (the row's id as text: 5 and "5" are one row). */
 export function pairsFor(e: Entry, key: string, pick: PickValue): (Record<string, unknown> & { pick: PickValue; a: unknown })[] {
 	const v = e[key];
-	return Array.isArray(v) ? v.filter((x) => pairOf(x) && x.pick === pick).map((x) => x as Record<string, unknown> & { pick: PickValue; a: unknown }) : [];
+	return Array.isArray(v) ? v.filter((x) => pairOf(x) && String(x.pick) === String(pick)).map((x) => x as Record<string, unknown> & { pick: PickValue; a: unknown }) : [];
 }
 
 /** The newest act kept on this row under this key (the entry with the latest `ts`; a later pair of the same entry wins), or null. */

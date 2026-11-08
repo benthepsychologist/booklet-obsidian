@@ -77,8 +77,18 @@ export function pickWords(src: Question, p: PickValue): WordPart {
 /** The pairs of an answer (members that are not pairs are not read). */
 export const pairsOf = (v: unknown): Pair[] => (Array.isArray(v) ? v.filter((x): x is Pair => isPair(x)) : []);
 
-/** The first pair for a pick, compared exactly: a number and a string never match. */
-export const pairFor = (v: unknown, p: PickValue): Pair | undefined => pairsOf(v).find((x) => x.pick === p);
+/**
+ * Is this question asked for each row of a data block (its `each:` names a block, no question of the activity)? Its picks are row ids, and
+ * ids are text (contract section 10): 5 and "5" are one row. A question asked for each pick of another question keeps a number position and
+ * a text apart.
+ */
+export const askedOfRows = (act: Pick<Activity, "segments">, q: Question): boolean => !!q.each && !sourceOf(act, q);
+
+/** Do these two picks name the same pick: exactly, or (`asText`, for row ids) as text. */
+export const samePick = (x: PickValue, y: PickValue, asText = false): boolean => (asText ? String(x) === String(y) : x === y);
+
+/** The first pair for a pick, compared exactly: a number and a string never match (`asText`: for a row's id, 5 and "5" match). */
+export const pairFor = (v: unknown, p: PickValue, asText = false): Pair | undefined => pairsOf(v).find((x) => samePick(x.pick, p, asText));
 
 /**
  * The answer with one pick's answer set to `a`: the pick's first pair has `a` replaced in place (its other keys, and
@@ -86,9 +96,9 @@ export const pairFor = (v: unknown, p: PickValue): Pair | undefined => pairsOf(v
  * out, as a pick with no answer has no pair. Every other member stays as it is, pairs for picks taken back among them. `extra` is
  * the other keys a new pair is made with (`was`, for a question asked for each row that replaces a value); a pair that exists keeps its own.
  */
-export function setPair(v: unknown, p: PickValue, a: unknown, extra?: Record<string, unknown>): unknown[] {
+export function setPair(v: unknown, p: PickValue, a: unknown, extra?: Record<string, unknown>, asText = false): unknown[] {
 	const list: unknown[] = Array.isArray(v) ? (v as unknown[]) : [];
-	const at = list.findIndex((x) => isPair(x) && x.pick === p);
+	const at = list.findIndex((x) => isPair(x) && samePick(x.pick, p, asText));
 	if (!holdsSomething(a)) return at < 0 ? list : list.filter((_, i) => i !== at);
 	if (at < 0) return [...list, { pick: p, a, ...extra }];
 	return list.map((x, i) => (i === at ? { ...(x as Pair), a } : x));

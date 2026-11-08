@@ -29,6 +29,7 @@ const plan = (text) => {
 	return { b, act, seg, p: core.planQuery(b, seg, { drawn: DRAWN, now: DRAWN, activity: act }) };
 };
 const entries = (items) => `\n%%\n> [!records] App record\n\n\`\`\`booklet entries show\n{"items":[\n${items.map((i) => JSON.stringify(i)).join(",\n")}\n]}\n\`\`\`\n%%\n`;
+const rowIdsOf = (rows, entries, block = "d") => core.rowIds(rows, entries, block);
 const flat = (p) => p.set.all;
 const byId = (p, id) => flat(p).find((r) => r.id === id);
 
@@ -121,34 +122,42 @@ test("the fence's idFormat and idPattern win over the file's, as `fields` do; a 
 
 /* ---- the entries ---- */
 
-const ADD = { $add: [{ pick: "j-5", under: "j-1", row: { title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:42:00Z" };
-const DEL = { $delete: [{ pick: "j-4", was: { id: "j-4", title: "Stakes", stage: "planning", kind: "Job" } }], ts: "2026-11-08T10:43:10Z" };
+const ADD = { $add: [{ in: "d", pick: "j-5", under: "j-1", row: { title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:42:00Z" };
+const DEL = { $delete: [{ in: "d", pick: "j-4", was: { id: "j-4", title: "Stakes", stage: "planning", kind: "Job" } }], ts: "2026-11-08T10:43:10Z" };
 
 test("an entry with `$add` or `$delete` is read as it is written and is a moment of its own", () => {
 	const b = core.parseBooklet(note("from: d\nas: table\nadd\ndelete", "repeat", [["d", DATA]], entries([ADD, DEL])));
 	const kept = b.records.entries[""].show;
 	assert.deepEqual(norm(kept), [ADD, DEL]);
-	assert.deepEqual(norm(core.addPairs(kept[0])), [{ pick: "j-5", under: "j-1", row: { title: "Weed", stage: "planning" } }]);
-	assert.deepEqual(norm(core.deletePairs(kept[1])), [{ pick: "j-4", was: DEL.$delete[0].was }]);
+	assert.deepEqual(norm(core.addPairs(kept[0])), [{ in: "d", pick: "j-5", under: "j-1", row: { title: "Weed", stage: "planning" } }]);
+	assert.deepEqual(norm(core.deletePairs(kept[1])), [{ in: "d", pick: "j-4", was: DEL.$delete[0].was }]);
 	assert.equal(core.isRowActEntry(kept[0]), true);
 	assert.equal(core.isActEntry(b.activities[0], kept[0]), true);
 	assert.equal(core.isActEntry(b.activities[0], kept[1]), true);
 	assert.equal(core.isRowActEntry({ ts: "x", other: 1 }), false);
 });
 
-test("pairs that are not pairs are not read: no pick, a pick that is empty, an under that is not a pick, a was that is no object", () => {
-	assert.deepEqual(core.addPairs({ ts: "x", $add: [{ row: {} }, { pick: "" }, { pick: "a", under: {} }, 5, null, { pick: 3, row: { id: "no", n: 1, bad: {}, ok: null } }] }), [{ pick: 3, row: { n: 1, ok: null } }]);
-	assert.deepEqual(core.deletePairs({ ts: "x", $delete: [{ pick: "a" }, { pick: "a", was: [] }, { pick: "a", was: 1 }, { pick: "b", was: { id: "b" } }] }), [{ pick: "b", was: { id: "b" } }]);
+test("pairs that are not pairs are not read: no pick, a pick that is empty, an under that is not a pick, a was that is no object, no `in`", () => {
+	assert.deepEqual(core.addPairs({ ts: "x", $add: [{ in: "d", row: {} }, { in: "d", pick: "" }, { in: "d", pick: "a", under: {} }, 5, null, { in: "d", pick: 3, row: { id: "no", n: 1, bad: {}, ok: null } }] }), [{ in: "d", pick: 3, row: { n: 1, ok: null } }]);
+	assert.deepEqual(core.deletePairs({ ts: "x", $delete: [{ in: "d", pick: "a" }, { in: "d", pick: "a", was: [] }, { in: "d", pick: "a", was: 1 }, { in: "d", pick: "b", was: { id: "b" } }] }), [{ in: "d", pick: "b", was: { id: "b" } }]);
 	assert.deepEqual(core.addPairs({ ts: "x" }), []);
 	assert.deepEqual(core.addPairs({ ts: "x", $add: "no" }), []);
+	// the block a pair is for is required: a pair without one, or with one that is not a name, is no act of any block
+	for (const bad of [undefined, "", 7, null, ["d"]]) {
+		const at = bad === undefined ? {} : { in: bad };
+		assert.deepEqual(core.addPairs({ ts: "x", $add: [{ ...at, pick: "a", row: {} }] }), [], `an add with in ${JSON.stringify(bad)}`);
+		assert.deepEqual(core.deletePairs({ ts: "x", $delete: [{ ...at, pick: "a", was: { id: "a" } }] }), [], `a removal with in ${JSON.stringify(bad)}`);
+	}
+	// the list of what was kept still says them (loose), with no block
+	assert.deepEqual(norm(core.addPairs({ ts: "x", $add: [{ pick: "a", row: {} }] }, true)), [{ in: "", pick: "a", row: {} }]);
 });
 
 test("the records writer keeps `$add` and `$delete` entries byte for byte, hand spacing included, when it keeps another entry", () => {
-	const hand = `\n%%\n> [!records] App record\n\n\`\`\`booklet entries show\n{ "items":[ {"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,\n  {"ts":"2026-11-08T10:43:10Z","$delete":[{"pick":"j-4","was":{"id":"j-4","title":"Stakes"}}]  } ] }\n\`\`\`\n%%\n`;
+	const hand = `\n%%\n> [!records] App record\n\n\`\`\`booklet entries show\n{ "items":[ {"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"in":"d","pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,\n  {"ts":"2026-11-08T10:43:10Z","$delete":[{"in":"d","pick":"j-4","was":{"id":"j-4","title":"Stakes"}}]  } ] }\n\`\`\`\n%%\n`;
 	const text = note("from: d\nas: table\nadd", "repeat", [["d", DATA]], hand);
 	const kept = core.keepEntry(text, "", "show", { title: [{ pick: "j-1", a: "New", was: "Prune" }] }, { ts: "2026-11-08T11:00:00Z" });
 	assertOutsideUnchanged(text, kept.text, "kept");
-	assert.equal(kept.text.includes(`{"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,\n  {"ts":"2026-11-08T10:43:10Z","$delete":[{"pick":"j-4","was":{"id":"j-4","title":"Stakes"}}]  } `), true, "the two entries as written");
+	assert.equal(kept.text.includes(`{"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"in":"d","pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,\n  {"ts":"2026-11-08T10:43:10Z","$delete":[{"in":"d","pick":"j-4","was":{"id":"j-4","title":"Stakes"}}]  } `), true, "the two entries as written");
 	// an add and a delete are kept as new entries, the key as is
 	const A = { ...ADD, ts: "2026-11-08T10:50:00Z" };
 	const D = { ...DEL, ts: "2026-11-08T10:51:00Z" };
@@ -157,9 +166,9 @@ test("the records writer keeps `$add` and `$delete` entries byte for byte, hand 
 	assertOutsideUnchanged(text, add.text, "an add");
 	const del = core.keepEntry(add.text, "", "show", { $delete: D.$delete }, { ts: D.ts });
 	assert.deepEqual(norm(core.parseBooklet(del.text).records.entries[""].show.slice(-2)), [A, D]);
-	assert.equal(del.text.includes(`{"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,`), true, "the hand-spaced entries are still as written");
+	assert.equal(del.text.includes(`{"ts":"2026-11-08T10:42:00Z" ,"$add":[ {"in":"d","pick":"j-5" ,"under":"j-1","row":{"title":"Weed"}} ]} ,`), true, "the hand-spaced entries are still as written");
 	// two kept in the same second: the later one moves to the next free second
-	const again = core.keepEntry(del.text, "", "show", { $add: [{ pick: "j-6", row: {} }] }, { ts: A.ts });
+	const again = core.keepEntry(del.text, "", "show", { $add: [{ in: "d", pick: "j-6", row: {} }] }, { ts: A.ts });
 	assert.equal(again.entry.ts, "2026-11-08T10:50:01Z");
 });
 
@@ -204,12 +213,12 @@ test("an add whose pick the data does not hold is a row drawn at the end of its 
 });
 
 test("a top add goes last among the top rows; a parent that is gone or holds no one list of rows draws nothing", () => {
-	const top = { $add: [{ pick: "j-9", row: { title: "Top" } }], ts: "2026-11-08T10:50:00Z" };
+	const top = { $add: [{ in: "d", pick: "j-9", row: { title: "Top" } }], ts: "2026-11-08T10:50:00Z" };
 	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([top]))).p;
 	assert.deepEqual(p.tree.roots.map((r) => r.id), ["j-1", "j-4", "j-9"]);
-	const lost = { $add: [{ pick: "j-9", under: "nobody", row: {} }], ts: "2026-11-08T10:50:00Z" };
+	const lost = { $add: [{ in: "d", pick: "j-9", under: "nobody", row: {} }], ts: "2026-11-08T10:50:00Z" };
 	assert.deepEqual(flat(plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([lost]))).p).map((r) => r.id), ["j-1", "j-2", "j-3", "j-4"]);
-	const noKids = { $add: [{ pick: "j-9", under: "j-4", row: {} }], ts: "2026-11-08T10:50:00Z" };
+	const noKids = { $add: [{ in: "d", pick: "j-9", under: "j-4", row: {} }], ts: "2026-11-08T10:50:00Z" };
 	assert.deepEqual(flat(plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([noKids]))).p).map((r) => r.id), ["j-1", "j-2", "j-3", "j-4"], "a parent with no children yet cannot take its first child");
 });
 
@@ -223,8 +232,8 @@ test("the data given to the plan is never changed by drawing a pending add", () 
 });
 
 test("a later act on the same pick wins: add, remove, add back", () => {
-	const gone = { $delete: [{ pick: "j-5", was: { id: "j-5", title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:44:00Z" };
-	const back = { $add: [{ pick: "j-5", under: "j-1", row: { title: "Weed again" } }], ts: "2026-11-08T10:45:00Z" };
+	const gone = { $delete: [{ in: "d", pick: "j-5", was: { id: "j-5", title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:44:00Z" };
+	const back = { $add: [{ in: "d", pick: "j-5", under: "j-1", row: { title: "Weed again" } }], ts: "2026-11-08T10:45:00Z" };
 	assert.equal(byId(plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([ADD, gone]))).p, "j-5"), undefined, "added then removed: not drawn (the data never held it)");
 	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([ADD, gone, back]))).p;
 	assert.equal(byId(p, "j-5").cells.title.text, "Weed again");
@@ -233,7 +242,7 @@ test("a later act on the same pick wins: add, remove, add back", () => {
 
 test("a removal whose row the data still holds as the reader saw it is marked removing; one that changed since is marked refused; a gone row is gone", () => {
 	const row = DATA.rows[1];
-	const del = (was) => ({ $delete: [{ pick: "j-4", was }], ts: "2026-11-08T10:43:10Z" });
+	const del = (was) => ({ $delete: [{ in: "d", pick: "j-4", was }], ts: "2026-11-08T10:43:10Z" });
 	const mk = (was, rows = DATA.rows) => plan(note("from: d\nas: table\ndelete", "repeat", [["d", { ...DATA, rows }]], entries([del(was)]))).p;
 	assert.equal(byId(mk(row), "j-4").act, "removing");
 	assert.equal(byId(mk({ ...row, title: "Other" }), "j-4").act, "refused", "the data changed since the reader drew it");
@@ -259,11 +268,11 @@ test("rows under a row are counted at every depth (the confirmation says how man
 });
 
 test("the ids to make against are every id at every depth, as written, then the adds still waiting", () => {
-	assert.deepEqual(core.rowIds(DATA.rows, [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "the waiting add's id comes after the block's own");
-	assert.deepEqual(core.rowIds(DATA.rows, []), ["j-1", "j-2", "j-3", "j-4"]);
-	assert.deepEqual(core.rowIds(DATA.rows, [ADD, ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add kept twice is one id");
-	assert.deepEqual(core.rowIds([...DATA.rows, { id: "j-5" }], [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add the data already holds is not counted twice");
-	assert.deepEqual(core.rowIds([{ id: "a" }, { id: "a" }, { id: 7 }, { title: "no id" }], []), ["a", "a", 7]);
+	assert.deepEqual(rowIdsOf(DATA.rows, [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "the waiting add's id comes after the block's own");
+	assert.deepEqual(rowIdsOf(DATA.rows, []), ["j-1", "j-2", "j-3", "j-4"]);
+	assert.deepEqual(rowIdsOf(DATA.rows, [ADD, ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add kept twice is one id");
+	assert.deepEqual(rowIdsOf([...DATA.rows, { id: "j-5" }], [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add the data already holds is not counted twice");
+	assert.deepEqual(rowIdsOf([{ id: "a" }, { id: "a" }, { id: 7 }, { title: "no id" }], []), ["a", "a", 7]);
 });
 
 /* ---- contract section 9: which field takes a child, ids as text ---- */
@@ -277,7 +286,7 @@ test("a parent whose list is empty takes its first child; a parent with two cand
 	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }, "x"] }), null, "a list with an item that is not an object is none");
 	assert.equal(core.childListKey({ id: "p", kid: { id: "c" } }), null, "a child held as one object is no list");
 	assert.equal(core.childListKey({ id: "p" }), null);
-	const first = { $add: [{ pick: "j-9", under: "j-1", row: { title: "First" } }], ts: "2026-11-08T10:50:00Z" };
+	const first = { $add: [{ in: "d", pick: "j-9", under: "j-1", row: { title: "First" } }], ts: "2026-11-08T10:50:00Z" };
 	const drawn = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]], entries([first])));
 	const p = drawn.p;
 	assert.deepEqual(flat(p).map((r) => r.id), ["j-1", "j-9", "j-4"], "drawn under its parent");
@@ -291,21 +300,62 @@ test("a parent whose list is empty takes its first child; a parent with two cand
 test("ids are compared as text: a pick 5 and a row \"5\" are one id, in the pending adds, the removals and the ids to make against", () => {
 	const rows = [{ id: 5, title: "Five" }, { id: "6", title: "Six" }];
 	const D = { fields: { title: "Name" }, rows };
-	const add5 = { $add: [{ pick: "5", row: { title: "Five" } }], ts: "2026-11-08T10:50:00Z" };
-	const add6 = { $add: [{ pick: 6, row: { title: "Six" } }], ts: "2026-11-08T10:50:01Z" };
+	const add5 = { $add: [{ in: "d", pick: "5", row: { title: "Five" } }], ts: "2026-11-08T10:50:00Z" };
+	const add6 = { $add: [{ in: "d", pick: 6, row: { title: "Six" } }], ts: "2026-11-08T10:50:01Z" };
 	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", D]], entries([add5, add6]))).p;
 	assert.deepEqual(flat(p).map((r) => r.id), [5, "6"], "the data holds both: nothing is drawn as waiting");
 	assert.equal(flat(p).filter((r) => r.act).length, 0);
-	const del = { $delete: [{ pick: "5", was: { id: 5, title: "Five" } }], ts: "2026-11-08T10:51:00Z" };
+	const del = { $delete: [{ in: "d", pick: "5", was: { id: 5, title: "Five" } }], ts: "2026-11-08T10:51:00Z" };
 	const q = plan(note("from: d\nas: table\ndelete", "repeat", [["d", D]], entries([del]))).p;
 	assert.equal(byId(q, 5).act, "removing", "a removal of \"5\" finds the row 5");
-	assert.deepEqual(core.rowIds(rows, [add5, add6]), [5, "6"], "an add the data holds as text is not counted twice");
-	assert.deepEqual(core.rowIds([], [{ ...add5 }, { $add: [{ pick: 5, row: {} }], ts: "2026-11-08T10:50:02Z" }]), [5], "5 and \"5\" waiting are one");
+	assert.deepEqual(rowIdsOf(rows, [add5, add6]), [5, "6"], "an add the data holds as text is not counted twice");
+	assert.deepEqual(rowIdsOf([], [{ ...add5 }, { $add: [{ in: "d", pick: 5, row: {} }], ts: "2026-11-08T10:50:02Z" }]), [5], "5 and \"5\" waiting are one");
 });
 
 test("an add is waiting only if no later entry removes the same pick; the id counter agrees", () => {
-	const gone = { $delete: [{ pick: "j-5", was: { id: "j-5", title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:44:00Z" };
-	assert.deepEqual(core.rowIds(DATA.rows, [ADD, gone]), ["j-1", "j-2", "j-3", "j-4"], "added and then removed: its number is free");
-	assert.equal(core.rowIds(DATA.rows, [gone, { ...ADD, ts: "2026-11-08T10:46:00Z" }]).includes("j-5"), true, "removed and then added again: the later add is waiting");
-	assert.equal(core.rowIds(DATA.rows, [{ ...ADD, ts: "2026-11-08T10:46:00Z" }, gone]).includes("j-5"), true, "the order of the entries in the list does not matter, the ts does");
+	const gone = { $delete: [{ in: "d", pick: "j-5", was: { id: "j-5", title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:44:00Z" };
+	assert.deepEqual(rowIdsOf(DATA.rows, [ADD, gone]), ["j-1", "j-2", "j-3", "j-4"], "added and then removed: its number is free");
+	assert.equal(rowIdsOf(DATA.rows, [gone, { ...ADD, ts: "2026-11-08T10:46:00Z" }]).includes("j-5"), true, "removed and then added again: the later add is waiting");
+	assert.equal(rowIdsOf(DATA.rows, [{ ...ADD, ts: "2026-11-08T10:46:00Z" }, gone]).includes("j-5"), true, "the order of the entries in the list does not matter, the ts does");
+});
+
+/* ---- contract section 10: an act names its block ---- */
+
+const TWO = [["beds", DATA], ["jobs", { ...DATA, rows: [{ id: "k-1", title: "Other", stage: "planning" }] }]];
+const planFor = (from, blocks, items) => plan(note(`from: ${from}\nas: table\nadd\ndelete`, "repeat", blocks, entries(items))).p;
+
+test("a pending add or removal is drawn only in the views of the block it names", () => {
+	const add = { $add: [{ in: "beds", pick: "j-5", under: "j-1", row: { title: "Weed" } }], ts: "2026-11-08T10:42:00Z" };
+	assert.equal(byId(planFor("beds", TWO, [add]), "j-5").act, "adding");
+	assert.equal(byId(planFor("jobs", TWO, [add]), "j-5"), undefined, "not drawn in the other block's view");
+	assert.deepEqual(flat(planFor("jobs", TWO, [add])).map((r) => r.id), ["k-1"]);
+	const del = { $delete: [{ in: "beds", pick: "j-4", was: DATA.rows[1] }], ts: "2026-11-08T10:43:00Z" };
+	assert.equal(byId(planFor("beds", TWO, [del]), "j-4").act, "removing");
+	// the same id in the other block is another row: it is not marked
+	const same = [["beds", DATA], ["jobs", { ...DATA, rows: [DATA.rows[1]] }]];
+	assert.equal(byId(planFor("jobs", same, [del]), "j-4").act, undefined, "a removal for beds does not mark the row of jobs that has the same id");
+	assert.equal(byId(planFor("jobs", same, [{ ...del, $delete: [{ ...del.$delete[0], in: "jobs" }] }]), "j-4").act, "removing");
+});
+
+test("an entry without `in`, or with one no block carries, is drawn nowhere and left as written", () => {
+	const bare = { $add: [{ pick: "j-5", under: "j-1", row: { title: "Weed" } }], ts: "2026-11-08T10:42:00Z" };
+	const lost = { $add: [{ in: "nowhere", pick: "j-6", row: { title: "Lost" } }], ts: "2026-11-08T10:43:00Z" };
+	const bareDel = { $delete: [{ pick: "j-4", was: DATA.rows[1] }], ts: "2026-11-08T10:44:00Z" };
+	const p = planFor("beds", TWO, [bare, lost, bareDel]);
+	assert.deepEqual(flat(p).map((r) => r.id), ["j-1", "j-2", "j-3", "j-4"]);
+	assert.equal(flat(p).filter((r) => r.act).length, 0);
+	assert.deepEqual(rowIdsOf(DATA.rows, [bare, lost, bareDel], "beds"), ["j-1", "j-2", "j-3", "j-4"], "and no number counts past them");
+	// the writer keeps them byte for byte beside a new entry
+	const text = note("from: beds\nas: table\nadd", "repeat", TWO, entries([bare, lost, bareDel]));
+	const kept = core.keepEntry(text, "", "show", { $add: [{ in: "beds", pick: "j-7", row: {} }] }, { ts: "2026-11-08T12:00:00Z" });
+	assertOutsideUnchanged(text, kept.text, "kept");
+	assert.deepEqual(norm(core.parseBooklet(kept.text).records.entries[""].show.slice(0, 3)), [bare, lost, bareDel]);
+});
+
+test("the ids to make against, and a clash, are counted within the block: another block's waiting add is no id of this one", () => {
+	const add = { $add: [{ in: "beds", pick: "j-5", row: {} }], ts: "2026-11-08T10:42:00Z" };
+	assert.deepEqual(rowIdsOf(DATA.rows, [add], "beds"), ["j-1", "j-2", "j-3", "j-4", "j-5"]);
+	assert.deepEqual(rowIdsOf(DATA.rows, [add], "jobs"), ["j-1", "j-2", "j-3", "j-4"], "jobs does not count past beds' add");
+	const removed = { $delete: [{ in: "jobs", pick: "j-5", was: { id: "j-5" } }], ts: "2026-11-08T10:43:00Z" };
+	assert.equal(rowIdsOf(DATA.rows, [add, removed], "beds").includes("j-5"), true, "a removal for another block does not free the number");
 });

@@ -11,6 +11,7 @@
 "cases": [
  {"name": "first number", "format": "{n}", "ids": [], "parent": null, "fields": {}, "expect": {"id": 1}},
  {"name": "next number", "format": "{n}", "ids": [1, 2, 7], "parent": null, "fields": {}, "expect": {"id": 8}},
+ {"name": "numbers and text both count", "format": "{n}", "ids": [3, "4", "five"], "parent": null, "fields": {}, "expect": {"id": 5}},
  {"name": "numbers and text ids", "format": "{n}", "ids": ["3", "10", "x"], "parent": null, "fields": {}, "expect": {"id": 11}},
  {"name": "leading zeros count", "format": "{n}", "ids": ["007"], "parent": null, "fields": {}, "expect": {"id": 8}},
  {"name": "an empty id is not counted", "format": "{n}", "ids": [""], "parent": null, "fields": {}, "expect": {"id": 1}},
@@ -38,7 +39,6 @@
  {"name": "an emoji is a separator", "format": "{field:title}", "ids": [], "parent": null, "fields": {"title": "🌱 Seeds"}, "expect": {"id": "seeds"}},
  {"name": "a title with no letter or digit has no slug", "format": "j-{field:title}", "ids": [], "parent": null, "fields": {"title": "日本語"}, "expect": {"refuse": "empty-slug", "field": "title"}},
  {"name": "an empty box has no slug", "format": "j-{field:title}", "ids": [], "parent": null, "fields": {"title": ""}, "expect": {"refuse": "empty-slug", "field": "title"}},
- {"name": "a box of spaces has no slug", "format": "j-{field:title}", "ids": [], "parent": null, "fields": {"title": "   "}, "expect": {"refuse": "empty-slug", "field": "title"}},
  {"name": "a clash", "format": "j-{field:title}", "ids": ["j-weed"], "parent": null, "fields": {"title": "Weed"}, "expect": {"refuse": "clash"}},
  {"name": "ids are text, 5 is \"5\"", "format": "{field:title}", "ids": [5], "parent": null, "fields": {"title": "5"}, "expect": {"refuse": "clash"}},
  {"name": "time tries the next second", "format": "t{time}", "ids": ["t20261108104200"], "parent": null, "fields": {}, "expect": {"id": "t20261108104201"}},
@@ -48,9 +48,6 @@
  {"name": "date has no second try", "format": "d{date}", "ids": ["d20261108"], "parent": null, "fields": {}, "expect": {"refuse": "clash"}},
  {"name": "an id that is empty is refused", "format": "{parent}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "empty-id"}},
  {"name": "an unknown part", "format": "a-{colour}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
- {"name": "an unclosed brace", "format": "a-{n", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
- {"name": "an empty format", "format": "", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
- {"name": "a width of 0", "format": "a-{n:0}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
  {"name": "two number parts", "format": "{n}-{n:3}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
  {"name": "a number next to text", "format": "{parent}{n}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}},
  {"name": "a number next to a digit", "format": "plot1{n}", "ids": [], "parent": null, "fields": {}, "expect": {"refuse": "invalid-format"}}

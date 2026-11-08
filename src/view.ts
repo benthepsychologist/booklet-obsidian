@@ -41,6 +41,7 @@ import {
 	keepEntry,
 	keepRowDraft,
 	pairFor,
+	askedOfRows,
 	pairsOf,
 	valueText,
 	gateMedia,
@@ -253,6 +254,8 @@ const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
 
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
+/** An add on its way, as `inflight` holds it: the block, a line break (no id holds one), the id as text. */
+const inflightKey = (block: string, pick: unknown): string => `${block}\n${String(pick)}`;
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
 
 /** Does this part ask for an answer: a question, or a question of a common kind that cannot be drawn (it has no id)? */
@@ -342,6 +345,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	/** The rows whose Remove asked "Remove this row?" and wait for the answer, by query and row. Never saved. */
 	readonly removeAsks = new Set<string>();
 	/** The ids of adds kept and not yet in the note: two adds in a row make two ids (the note is read again when the write lands). */
+	/** The ids of adds on their way into the note, by the block they are for (`block id` then the id as text). */
 	private readonly inflight = new Set<string>();
 	/** The data files the note's data blocks name (data-files.ts): read through the vault, read again when they change and when the pane comes back. */
 	private readonly files = new DataFiles(
@@ -1185,7 +1189,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 */
 	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): AnswerValue | undefined {
 		if (pick === undefined) return value;
-		const next = setPair(this.heldAnswer(t, q), pick, value, extra);
+		const next = setPair(this.heldAnswer(t, q), pick, value, extra, askedOfRows(t.activity, q));
 		return next.length ? next : undefined;
 	}
 
@@ -1207,7 +1211,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// the data file's path is worked out now, from the note this act was kept in: a pane that moves to another note meanwhile resolves nothing against another folder
 		const path = apply ? this.files.pathOf(apply.block) : null;
 		// an add's id is held until the note has it, so that the next add made meanwhile counts past it
-		const waiting = key === ADD_KEY ? String(pair["pick"]) : null;
+		const waiting = key === ADD_KEY ? inflightKey(String(pair["in"]), pair["pick"]) : null;
 		if (waiting !== null) this.inflight.add(waiting);
 		const done = (): void => {
 			if (waiting !== null) this.inflight.delete(waiting);
@@ -1231,8 +1235,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	idsOf(t: Target, block: DataBlock): PickValue[] {
 		const got = block.file ? this.files.rows(block) : { data: block };
 		const rows = "data" in got ? got.data.rows : [];
-		const ids = rowIds(rows, this.keptOf(t));
-		for (const w of this.inflight) if (!ids.some((x) => String(x) === w)) ids.push(w);
+		const ids = rowIds(rows, this.keptOf(t), block.id);
+		for (const w of this.inflight) {
+			const at = w.indexOf("\n");
+			const id = w.slice(at + 1);
+			if (w.slice(0, at) === block.id && !ids.some((x) => String(x) === id)) ids.push(id);
+		}
 		return ids;
 	}
 
@@ -1297,7 +1305,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void {
-		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, t.activity) && p.pick === pick) this.flushTyped(p.t, p.q, p.pick);
+		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, t.activity) && p.pick !== undefined && String(p.pick) === String(pick)) this.flushTyped(p.t, p.q, p.pick);
 		const file = this.file;
 		if (!file) return;
 		const a = t.activity;
@@ -1311,10 +1319,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	draftHas(t: Target, ids: readonly string[], pick: PickValue): boolean {
-		for (const p of this.pending.values()) if (sameAct(p.t.activity, t.activity) && p.pick === pick && ids.includes(p.q.id)) return true;
+		for (const p of this.pending.values()) if (sameAct(p.t.activity, t.activity) && p.pick !== undefined && String(p.pick) === String(pick) && ids.includes(p.q.id)) return true;
 		const d = this.shown(t.activity).values;
 		return ids.some((id) => {
-			const pair = own(d, id) ? pairFor(d[id], pick) : undefined;
+			const pair = own(d, id) ? pairFor(d[id], pick, true) : undefined;
 			return !!pair && holdsSomething(pair.a);
 		});
 	}
@@ -1843,7 +1851,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (p.q.id !== q.id || !sameAct(p.t.activity, t.activity)) continue;
 			if (p.pick === undefined) v = p.value;
 			else {
-				const next = setPair(v, p.pick, p.value, p.extra);
+				const next = setPair(v, p.pick, p.value, p.extra, askedOfRows(t.activity, p.q));
 				v = next.length ? next : undefined;
 			}
 		}
@@ -2006,13 +2014,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				for (const x of pairsOf(e[k]) as Array<Record<string, unknown>>) ul.createEl("li", { text: `${String(x.pick)}: ${valueText(x.a)}${Object.prototype.hasOwnProperty.call(x, "was") ? ` (was ${valueText(x.was) || "empty"})` : ""}` });
 			}
 			// an entry that adds a row or takes one out (rows-act.ts): said in words, with the row's id and what it was given
-			for (const p of addPairs(e)) {
+			for (const p of addPairs(e, true)) {
 				rows++;
 				dl.createEl("dt", { text: "Added a row" });
 				const fields = Object.entries(p.row).map(([k, v]) => `${k}: ${valueText(v) || "empty"}`);
 				dl.createEl("dd", { text: `${String(p.pick)}${p.under !== undefined ? ` under ${String(p.under)}` : ""}${fields.length ? ` (${fields.join(", ")})` : ""}` });
 			}
-			for (const p of deletePairs(e)) {
+			for (const p of deletePairs(e, true)) {
 				rows++;
 				dl.createEl("dt", { text: "Removed a row" });
 				const was = p.was as Record<string, unknown>;
@@ -2171,8 +2179,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 */
 	private keepWordsOfGoneRows(vkey: string, plan: ReturnType<typeof planQuery>): void {
 		if (plan.kind !== "rows") return;
-		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [pickKey(r.id)])));
-		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(pickKey(s.pick))) s.commit?.();
+		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [String(r.id)])));
+		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(String(s.pick))) s.commit?.();
 	}
 
 	private dayRule(): DayRule {
