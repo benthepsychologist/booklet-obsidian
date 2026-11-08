@@ -759,7 +759,7 @@ module.exports = function dashboardChecks(env) {
   // the files on disk are compared byte for byte with what the change should make, and the note outside the block's fences is the bytes it was.
   async function check63() {
     const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; the Paper look pills them and Obsidian's look does not; print hides them");
-    const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json";
+    const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json", WIDE63 = "garden-wide.booklet.md";
     const here = f => path.join(__dirname, "..", "test", "dashboards", f);
     for (const where of ["desktop", "phone"]) {
       const desk = where === "desktop";
@@ -874,7 +874,9 @@ module.exports = function dashboardChecks(env) {
         await settle();
         file.beds.rows.push({ id: "ID-pear-tree", title: "Pear tree" });
         c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(file), `[${where}] an add to the file is written at the end of the rows in the layout of the row before it, and every other byte is as it was`);
-        c.ok(/Pear tree/.test(await plain.innerText()) && (await beds.locator(".booklet-row-remove-open").count()) === 4, `[${where}] the read-only view of the same beds shows the new row, and the list has four Removes`);
+        // the jobs' own new row (kept as an $add of the same activity) is drawn waiting in every view of the activity, which has no way to tell the block it was for: only the beds' own rows are counted
+        const ownRemoves = await beds.locator(".booklet-q-row:not(:has([data-state='waiting'])) .booklet-row-remove-open").count();
+        c.ok(/Pear tree/.test(await plain.innerText()) && ownRemoves === 4, `[${where}] the read-only view of the same beds shows the new row, and the list has four Removes on its own rows (${ownRemoves}; ${await beds.locator(".booklet-row-remove-open").count()} with the other block's waiting row)`);
         const eFile = entriesOf();
         c.ok(eFile.length === 4 && /"pick":"ID-pear-tree"/.test(eFile[3]), `[${where}] the file's add kept its own entry: ${eFile[3]}`);
         c.ok(beforeRecords().trimEnd() === expectNote(added).trimEnd(), `[${where}] and the note's block was not touched by a change to the file`);
@@ -923,6 +925,51 @@ module.exports = function dashboardChecks(env) {
         const pr = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-row-add, " + sel + " .booklet-row-remove, " + sel + " .booklet-q-act")].filter(e => getComputedStyle(e).display !== "none").length, BOOK);
         await o.page.emulateMedia({ media: "screen" });
         c.ok(pr === 0, `[${where}] in print no Add, Remove or Remove column is shown (${pr} shown)`);
+
+        // reach (contract 8.10): on a note whose table is wider than a phone, Remove, its question and its two answers are all in the window, on top and pressed where they
+        // stand (no scrolling to find them), in both looks; the question wraps; nothing is wider than the window; asking scrolls nothing sideways
+        fs.writeFileSync(path.join(vault, WIDE63), fs.readFileSync(here(WIDE63)));
+        const kw = kit(env, WIDE63);
+        await kw.open(o, WIDE63);
+        await kw.goTo(o, "activity:desk/work");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 3 && [...q].every(x => !x.querySelector(".booklet-q-quiet") && x.querySelector(".booklet-row-remove-open")); }, BOOK, { timeout: 10000 });
+        const wide = [o.page.locator(BOOK + " .booklet-query").nth(0), o.page.locator(BOOK + " .booklet-query").nth(1), o.page.locator(BOOK + " .booklet-query").nth(2)];
+        const reach = async (view, id, what) => view.evaluate((root, { id, what }) => {
+          root.scrollIntoView({ block: "center", inline: "nearest" }); // down the page only: the query's own box, never the row
+          const rm = root.querySelector(`[data-booklet-remove='${id}']`), win = window.innerWidth, wrap = root.querySelector(".booklet-q-wrap");
+          const out = { what, win, page: document.documentElement.scrollWidth, scrolls: wrap ? wrap.scrollWidth > wrap.clientWidth : false, wrapScroll: wrap ? wrap.scrollLeft : 0, buttons: {} };
+          for (const b of rm.querySelectorAll("button")) {
+            const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+            out.buttons[b.className.split(" ").pop()] = { left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), inWindow: r.left >= 0 && r.right <= win, onTop: hit === b || b.contains(hit), hit: hit ? hit.tagName + "." + hit.className : null };
+          }
+          const q = rm.querySelector(".booklet-row-remove-q");
+          if (q) { const r = q.getBoundingClientRect(); out.question = { right: Math.round(r.right), w: Math.round(r.width), lines: Math.round(r.height / parseFloat(getComputedStyle(q).lineHeight || "20")), wrap: getComputedStyle(q).whiteSpace }; }
+          return out;
+        }, { id, what });
+        const centre = async loc => { const b = await loc.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+        const wideEntries = () => (fs.readFileSync(path.join(vault, WIDE63), "utf8").match(/^\{"ts":"[^\n]*$/gm) || []).length;
+        for (const lk of [paper.look, "obsidian"]) {
+          await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), lk);
+          await frames(o);
+          for (const [vi, kind] of [[0, "table"], [1, "list"], [2, "cards"]]) {
+            const tag = `[${where}, ${lk.replace(/-.*/, "")} look, ${kind}]`;
+            const rmId = "t-4";
+            const base = await reach(wide[vi], rmId, "base");
+            const open = base.buttons["booklet-row-remove-open"];
+            c.ok(base.page <= base.win && open && open.inWindow && open.onTop, `${tag} Remove is in the window and on top, with no sideways scroll of the page: ${JSON.stringify(base)}`);
+            if (kind === "table" && !desk) c.ok(base.scrolls, `${tag} (the table is wider than the window, so it scrolls inside its card: the case this is for)`);
+            await o.page.mouse.click(...(await centre(wide[vi].locator(`[data-booklet-remove='${rmId}'] .booklet-row-remove-open`))));
+            await o.page.waitForFunction(sel => document.querySelector(sel + " .booklet-row-remove-q"), BOOK, { timeout: 4000 });
+            const ask = await reach(wide[vi], rmId, "ask"), bts = ask.buttons;
+            c.ok(ask.page <= ask.win && ask.question && ask.question.right <= ask.win && ask.question.wrap === "normal" && bts["booklet-row-remove-yes"].inWindow && bts["booklet-row-remove-yes"].onTop && bts["booklet-row-remove-no"].inWindow && bts["booklet-row-remove-no"].onTop, `${tag} the question wraps (${ask.question && ask.question.lines} lines) and it and both answers are in the window and on top: ${JSON.stringify(ask)}`);
+            c.ok(ask.wrapScroll === base.wrapScroll, `${tag} asking scrolled nothing sideways (${base.wrapScroll} then ${ask.wrapScroll})`);
+            c.info(`${tag} the question and its answers: ${await shot0(o, `rows-reach-${where}-${lk.replace(/-.*/, "")}-${kind}-ask`)}`);
+            await o.page.mouse.click(...(await centre(wide[vi].locator(`[data-booklet-remove='${rmId}'] .booklet-row-remove-no`))));
+            await o.page.waitForFunction(sel => !document.querySelector(sel + " .booklet-row-remove-q"), BOOK, { timeout: 4000 });
+            c.ok(wideEntries() === 0, `${tag} Cancel, pressed where it stands, closes the question and keeps nothing`);
+            if (kind === "table") c.info(`${tag} the table: ${await shot0(o, `rows-reach-${where}-${lk.replace(/-.*/, "")}-${kind}-base`)}`);
+          }
+        }
         if (!desk) { await o.page.setViewportSize({ width: 1280, height: 900 }); await mobile(o, false); }
       });
     }

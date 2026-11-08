@@ -59,6 +59,22 @@ test("the narrow column of Remove buttons keeps a table's other columns their ro
 	assert.match(mine, /\.booklet-q-table td\.booklet-q-act \{[^}]*width: 1%;[^}]*white-space: nowrap;/);
 });
 
+test("the Remove question wraps inside a width of its own, and on a narrow screen the Remove column stays in view (contract 8.10)", () => {
+	// the question is in the narrow column that holds nowrap: it must say white-space: normal, with room to wrap in and a limit
+	const q = /\.booklet-row-remove-q \{([^}]*)\}/.exec(mine)[1];
+	assert.match(q, /white-space: normal;/);
+	assert.match(q, /min-width: \d/);
+	assert.match(q, /max-width: \d/);
+	assert.match(q, /overflow-wrap: anywhere;/);
+	// in a narrow screen's table the column is pinned to the end of the visible box, with the page's own background so words do not show through
+	const narrow = /@media \(max-width: \d+px\) \{([\s\S]*?\n\})/.exec(mine.slice(mine.indexOf(".booklet-q-table th.booklet-q-act")));
+	assert.ok(narrow, "a rule for a narrow screen");
+	assert.match(narrow[1], /td\.booklet-q-act/);
+	assert.match(narrow[1], /position: sticky;/);
+	assert.match(narrow[1], /inset-inline-end: 0;/);
+	assert.match(narrow[1], /background-color: var\(--background-primary\);/);
+});
+
 test("the built sheet carries them", () => {
 	assert.ok(built.includes(mine.trim().slice(0, 200)));
 	assert.ok(built.includes(".booklet-view[data-booklet-look^=\"paper\"] .booklet-row-addform"));

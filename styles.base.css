@@ -1455,9 +1455,14 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	gap: var(--size-2-2);
 }
 
+/* the question wraps inside a width of its own: the table's column of Remove buttons holds its words on one line, and a question that did so ran off the screen */
 .booklet-row-remove-q {
 	font-size: var(--font-ui-small);
 	font-weight: var(--font-semibold);
+	white-space: normal;
+	overflow-wrap: anywhere;
+	min-width: 10em;
+	max-width: 16em;
 }
 
 /* the narrow column that holds a row's Remove in a table */
@@ -1467,6 +1472,16 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	white-space: nowrap;
 	text-align: end;
 	vertical-align: top;
+}
+
+/* on a narrow screen the column of Remove buttons stays at the end of what shows when the table scrolls across, so Remove is in view and can be pressed without scrolling sideways */
+@media (max-width: 600px) {
+	.booklet-q-table th.booklet-q-act,
+	.booklet-q-table td.booklet-q-act {
+		position: sticky;
+		inset-inline-end: 0;
+		background-color: var(--background-primary);
+	}
 }
 
 /* the remove confirmation is the same warning red as the entry's: white words on a darkened red in both of Obsidian's themes */
