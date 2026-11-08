@@ -1387,6 +1387,107 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	margin-top: var(--size-2-1);
 }
 
+/* adding and removing rows (row-ask.ts): the Add button, the form it opens, the Remove control with its question, and the row's waiting words.
+   Every button here is `.booklet-row-act`; the Paper look pills it with the rest (themes/structure.css, section 8), Obsidian's own look draws it as any button. */
+.booklet-row-add {
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-row-add-under {
+	margin: var(--size-2-1) 0 var(--size-2-1) var(--size-4-4);
+}
+
+.booklet-row-addform {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-row-addfield {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-1);
+	min-width: 0;
+}
+
+.booklet-row-addfield label,
+.booklet-row-addfield .booklet-prompt {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-row-addfield input,
+.booklet-row-addfield textarea,
+.booklet-row-addfield select {
+	max-width: 100%;
+	font: inherit;
+}
+
+.booklet-row-addactions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+}
+
+.booklet-row-addmsg {
+	margin: 0;
+}
+
+/* a refusal or a problem with the form is said in words, in the error colour, and stays until the next try */
+.booklet-row-addmsg:not(:empty) {
+	display: block;
+}
+
+/* the format cannot be read: one quiet line instead of the Add button */
+.booklet-row-add-quiet {
+	margin: var(--size-4-2) 0;
+	font-size: var(--font-ui-smaller);
+}
+
+/* the Remove control: a button, and once pressed the question with its two answers, in line with the row's words */
+.booklet-row-remove {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+}
+
+.booklet-row-remove-q {
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+/* the narrow column that holds a row's Remove in a table */
+.booklet-q-table th.booklet-q-act,
+.booklet-q-table td.booklet-q-act {
+	width: 1%;
+	white-space: nowrap;
+	text-align: end;
+	vertical-align: top;
+}
+
+/* the remove confirmation is the same warning red as the entry's: white words on a darkened red in both of Obsidian's themes */
+.booklet-view .booklet-row-remove button.mod-warning,
+.booklet-view .booklet-row-remove button.mod-warning:hover {
+	background: var(--background-modifier-error);
+	color: var(--text-on-accent);
+}
+
+@supports (color: color-mix(in srgb, red, blue)) {
+	.theme-light .booklet-view .booklet-row-remove button.mod-warning,
+	.theme-light .booklet-view .booklet-row-remove button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
+	}
+
+	.theme-dark .booklet-view .booklet-row-remove button.mod-warning,
+	.theme-dark .booklet-view .booklet-row-remove button.mod-warning:hover {
+		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
+	}
+}
+
 .booklet-print-value,
 .booklet-edit-print {
 	display: none;
@@ -1395,7 +1496,11 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 /* print shows values, not boxes */
 @media print {
 	.booklet-row-controls,
-	.booklet-row-finish {
+	.booklet-row-finish,
+	.booklet-row-add,
+	.booklet-row-remove,
+	.booklet-row-add-quiet,
+	.booklet-q-table .booklet-q-act {
 		display: none;
 	}
 
@@ -4239,7 +4344,9 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning,
-.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover {
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove button.mod-warning,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove button.mod-warning:hover {
 	background-color: var(--bk-hmm-wash);
 	border-color: var(--bk-hmm-tile);
 	color: var(--bk-ink);
@@ -4863,6 +4970,19 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 			background-color 0.25s ease,
 			border-color 0.25s ease;
 	}
+}
+
+/* adding and removing rows: the form is a card in the Paper look's own rule and radius, and its buttons are the pills above */
+.booklet-view[data-booklet-look^="paper"] .booklet-row-addform {
+	border: 1.5px solid var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove-q,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-add-quiet {
+	color: var(--bk-ink-soft);
 }
 
 /* ===== themes/pictures.css ===== */
