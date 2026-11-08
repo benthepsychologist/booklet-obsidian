@@ -161,10 +161,13 @@ test("Add opens a form with a box for each editable field, in the query's order;
 	assert.equal(form.querySelector("select") !== null, true, "a choice is a select");
 	assert.equal(form.querySelector(".booklet-row-addmsg").getAttribute("role"), "alert");
 	typeInto(box(v, "Name"), "typed");
-	press(form, "Escape");
-	assert.equal(v.q().querySelector(".booklet-row-addform"), null, "Esc closes it");
+	press(box(v, "Name"), "Escape");
+	assert.equal(v.q().querySelector(".booklet-row-addform"), null, "Esc in a box closes the form");
 	open(v);
 	assert.equal(box(v, "Name").value, "", "and what was typed is gone");
+	press(v.q().querySelector(".booklet-row-add-go"), "Escape");
+	assert.equal(v.q().querySelector(".booklet-row-addform"), null, "and so does Esc on a button of the form");
+	open(v);
 	click(v.q().querySelector(".booklet-row-add-cancel"));
 	assert.equal(v.q().querySelector(".booklet-row-addform"), null, "Cancel closes it");
 	assert.equal(v.disk.writes, 0);
@@ -332,6 +335,29 @@ test("a confirmed Remove keeps one $delete entry carrying the row as it was, the
 	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-4"]);
 	assert.deepEqual(said(), []);
 	assert.deepEqual(v.names(), ["Stakes"]);
+	v.close();
+});
+
+/** A press as a pointer makes it: down on the button, up on the document, then the click. */
+const press1 = (el) => {
+	el.dispatchEvent(new w.Event("pointerdown", { bubbles: true }));
+	el.ownerDocument.dispatchEvent(new w.Event("pointerup", { bubbles: true }));
+	click(el);
+};
+
+test("a Remove pressed with a pointer is drawn as removed once the note holds it, though the click stops at the button", async () => {
+	const v = await garden(note());
+	press1(v.q().querySelector('[data-booklet-remove="j-1"] .booklet-row-remove-open'));
+	press1(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	// the press-tail timer (300 ms) is the other way a drawing could come; the drawing has to come without waiting for it
+	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-4"]);
+	assert.deepEqual(v.names(), ["Stakes"], "the row is gone from the table, not left as 'removing, waiting'");
+	press1(v.q().querySelector(".booklet-row-add-open"));
+	typeInto(box(v, "Name"), "Mulch");
+	press1(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.deepEqual(v.names(), ["Stakes", "Mulch"], "and an add pressed the same way is drawn as a row of the data");
 	v.close();
 });
 

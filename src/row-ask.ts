@@ -115,6 +115,11 @@ export interface RowsView extends QuestionHost {
 	removeAsks: Set<string>;
 	/** Every id of the block's rows and of the adds waiting: what a new row's id is made against. */
 	idsOf(t: Target, block: DataBlock): PickValue[];
+	/**
+	 * A click that ended at its own button (it never reaches the view's click listener) is over: a drawing that waited for the press is made
+	 * once the writes it started have landed, as after any other click.
+	 */
+	clicked(): void;
 }
 
 /** A row's name in words, for a screen reader: its label, else its first field, else its id. */
@@ -462,6 +467,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			b.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				view.addForms.set(fkey, { values: {}, id: "", message: "", focus: acts.fields[0]?.key ?? (acts.idFormat === undefined ? ID_BOX : null) });
 				open();
 			});
@@ -499,6 +505,12 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				node.addEventListener("click", (evt) => evt.stopPropagation());
 				node.addEventListener("keydown", (evt: KeyboardEvent) => {
 					evt.stopPropagation();
+					// Esc in a box closes the form: the box keeps the key from reaching the form's own listener below
+					if (evt.key === "Escape") {
+						evt.preventDefault();
+						stop();
+						return;
+					}
 					if (evt.key === "Enter" && el.tagName !== "TEXTAREA" && el.tagName !== "SELECT") {
 						evt.preventDefault();
 						submit();
@@ -544,6 +556,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			cancel.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				stop();
 			});
 			group.addEventListener("keydown", (evt: KeyboardEvent) => {
@@ -600,6 +613,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			add.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				submit();
 			});
 			if (sess.focus !== null) boxes.get(sess.focus)?.focus();
@@ -642,6 +656,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				// a press never reaches the row's own disclosure
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				view.removeAsks.add(rkey);
 				ask();
 			});
@@ -662,6 +677,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			no.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				back();
 			});
 			wrap.addEventListener("keydown", (evt: KeyboardEvent) => {
@@ -675,6 +691,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			yes.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
+				view.clicked();
 				view.removeAsks.delete(rkey);
 				wrap.empty();
 				wrap.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: "removing, waiting" });

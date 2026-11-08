@@ -1100,6 +1100,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return issue ? { issue, kept: JSON.stringify(v) } : null;
 	}
 
+	clicked(): void {
+		this.endPressTail();
+		this.settleSoon(0);
+	}
+
 	redrawSoon(): void {
 		this.stale = true;
 		this.settleSoon(0);
