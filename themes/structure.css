@@ -752,7 +752,9 @@
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning,
-.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover {
+.booklet-view[data-booklet-look^="paper"] .booklet-entry-ask button.mod-warning:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove button.mod-warning,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove button.mod-warning:hover {
 	background-color: var(--bk-hmm-wash);
 	border-color: var(--bk-hmm-tile);
 	color: var(--bk-ink);
@@ -1376,4 +1378,17 @@
 			background-color 0.25s ease,
 			border-color 0.25s ease;
 	}
+}
+
+/* adding and removing rows: the form is a card in the Paper look's own rule and radius, and its buttons are the pills above */
+.booklet-view[data-booklet-look^="paper"] .booklet-row-addform {
+	border: 1.5px solid var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-row-remove-q,
+.booklet-view[data-booklet-look^="paper"] .booklet-row-add-quiet {
+	color: var(--bk-ink-soft);
 }
