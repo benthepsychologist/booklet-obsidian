@@ -46,7 +46,7 @@ const WIDTHS = /^[1-9]$/;
 
 /**
  * Reads a format. A bare `{n}` (nothing else) is `bare`: the id is then a JSON number. Anything else is a string. A format with two
- * number parts (`{n}` or `{n:W}`) is not valid: it would be the same number written twice (SPEC section 7, "One number part at most").
+ * number parts (`{n}` or `{n:W}`) is not valid, and neither is a number part directly against a variable part, a time, a date, a UUID or a digit of a constant: it would be the same number written twice (SPEC section 7, "One number part at most").
  */
 export function parseIdFormat(format: unknown): IdFormat {
 	if (typeof format !== "string" || format === "") return { ok: false, why: "the id format is empty" };
@@ -91,6 +91,9 @@ export function parseIdFormat(format: unknown): IdFormat {
 		if (parts[i]!.kind !== "n") continue;
 		for (const j of [i - 1, i + 1]) {
 			const k = parts[j]?.kind;
+			// a constant that runs into the number with a digit (`plot1{n}`) is digits against digits: where the number starts is a guess
+			const near = j < i ? (parts[j] as { text?: string } | undefined)?.text?.slice(-1) : (parts[j] as { text?: string } | undefined)?.text?.slice(0, 1);
+			if (k === "text" && near !== undefined && /[0-9]/.test(near)) return { ok: false, why: "a number part sits next to a digit of a constant; put a hyphen or a letter between them" };
 			if (k === "field" || k === "parent" || k === "time" || k === "date" || k === "epoch" || k === "uuid")
 				return { ok: false, why: "a number part sits next to another part that is not a constant; put a constant (a hyphen, a letter) between them" };
 		}
