@@ -1566,12 +1566,12 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
   - Source: Not ruled on. SPEC 0.20 says a refused removal "leaves the row with 'You asked to remove this; it changed since.'" and is silent on whether Remove is offered again.
   - Suggestion: keep as the plugin's own; propose one line to SPEC saying a row so marked may be removed again
 
-- **C-170** · tier `builder`
-  Add under this row is offered on a row that holds exactly one field whose value is a non-empty list of rows (objects). A row with an empty list, with no list, or with two lists is not offered it. The applier agrees: it finds the same list or refuses with "Cannot tell where the new row goes under this one."
-  - Why: SPEC 0.20 says the parent's list is "its only field that holds a list of rows" and that a parent with no rows yet cannot take its first child. An empty list has no rows in it to tell it is a list of rows, so it is not counted. Offering the control only where it can work keeps a refusal rare.
-  - Where: `src/core/data.ts:125` (`childListKey`); `src/core/apply.ts:143` (`childList`); `src/row-ask.ts:635`
-  - Source: Not ruled on. SPEC 0.20 and the contract give the rule for the entry; whether the page offers the control where the rule would refuse is left open.
-  - Suggestion: keep as the plugin's own
+- **C-170** · tier `builder` (changed 2026-11-08 by contract section 9, item 3)
+  Add under this row is offered on a row that has exactly one candidate field: a field whose value is a list whose items are all objects. An empty list is a candidate, so a row with `"jobs": []` takes its first child; a row with no such field, or with two (`"jobs": []` and `"tags": []`), is not offered it. The applier agrees: it finds the same list or refuses with "Cannot tell where the new row goes under this one."
+  - Why: the contract's section 9 replaced the first choice (an empty list is not counted, so a parent with no children could not take its first one) with this rule.
+  - Where: `src/core/data.ts` (`childListKey`); `src/core/apply.ts` (`childList`); `src/core/rows-act.ts` (the copy a pending add stands in); `src/row-ask.ts` (`offersUnder`)
+  - Source: Ruled by the contract (section 9, item 3); the earlier choice was the plugin's own.
+  - Suggestion: none; the README says it
 
 - **C-171** · tier `builder`
   A row held as a field's single object (`"detail": { "id": ..., ... }`, not in a list) cannot be removed: the removal is refused as "no place": the entry is kept, nothing is written, and the notice says "That row stands in no list of rows, so it cannot be taken out." Removing it would leave a field with no value or a half-written object, and there is no comma and no list to take it out of.
@@ -1586,3 +1586,31 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
   - Where: `src/core/apply.ts:227` (`applyInFence`); `src/view.ts:1253` (`applyInline`)
   - Source: Not ruled on. The brief for this slice asked for it; it reverses the 1.3.0 README line "rows written in the note itself … the plugin does not change".
   - Suggestion: keep as the plugin's own; Ben to confirm
+
+- **C-173** · tier `builder`
+  Entries do not say which data block an `$add` was for, so when one activity holds several data blocks, an add to one is drawn as "sent, waiting" in the views of the others, where the data never holds its id. Remove on the waiting row dismisses it (and, as the newest act on that id, marks the real row in the first block "removing, waiting"). The plugin does not guess the block.
+  - Why: the contract's `$add` pair is `{pick, under, row}` and an entry belongs to an activity; a guess from `under` or the fields would draw rows in the wrong place as often as the right one. Found when check 63's made-up note had two blocks in one activity.
+  - Where: `src/core/rows-act.ts` (`withPending`)
+  - Source: Not ruled on; the contract and SPEC 0.20 assume one block for the entries of an activity.
+  - Suggestion: SPEC to say, or to let the pair name its block (`from`); until then a README limit
+
+- **C-174** · tier `builder`
+  On a narrow screen (600 px or less) the table's column of Remove buttons is pinned to the end of what shows while the table scrolls sideways (`position: sticky`), and the question wraps in a width of its own (10 to 16 em). Remove is not moved into a row's open part, because a table row that does not open has none.
+  - Why: contract 8.10 says Remove sits in the row's open part on a narrow screen; a flat table's rows have no open part, and drawing the control twice (once hidden) would double every Remove for a screen reader and for the tests. Pinning it keeps it in view and pressable without a sideways scroll, which was the fault.
+  - Where: `styles.base.css` (`.booklet-row-remove-q`; the `@media (max-width: 600px)` rule); check 63 measures it at 390 px in both looks
+  - Source: Contract 8.10, read for the case it names; the literal "open part" is done only where one exists (it does not, for a flat table).
+  - Suggestion: Ben to confirm, or say to move Remove into the lead cell on a phone
+
+- **C-175** · tier `builder`
+  A number outside JavaScript's exact range in a removed row is a README limit, not handled: the row is read through `JSON.parse` before the removal is compared and recorded, so `was` holds the nearest number the language has. The data file's bytes of the row are removed whole, so nothing else changes.
+  - Why: contract 8.11 allows a README limit "if that cannot be done"; recording the file's text instead would change how every row is read (the block's rows are parsed once for the page, in the core's reader), which is far beyond this slice.
+  - Where: `README.md` (Known limits of adding and removing)
+  - Source: Contract 8.11, second option.
+  - Suggestion: keep as the plugin's own
+
+- **C-176** · tier `builder`
+  An in-place edit (beta 3) keeps a number pick and a text pick apart (`1` is not `"1"`), as its tests and 0.19 say; only adding and removing compare ids as text (contract section 9, item 5).
+  - Why: section 9 names `pick`, `under` and the ids in the data for `$add` and `$delete`; an edit's pick is another act, with its own earlier rule and tests.
+  - Where: `src/core/apply.ts` (`rowsWithId`, `asText`)
+  - Source: Contract section 9, item 5, read as about adds and removals.
+  - Suggestion: SPEC to say whether an edit's pick is text too
