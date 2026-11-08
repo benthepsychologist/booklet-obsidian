@@ -106,6 +106,8 @@ export interface Row {
 	id?: PickValue;
 	/** A data row that is being added (made from its kept entry, not in the data yet) or removed (still in the data), or whose removal the data did not follow (rows-act.ts). */
 	act?: RowAct;
+	/** A data row as the data holds it: `raw`, but for a row that was copied to make room for an add waiting under it (a removal records this as `was`). */
+	data?: DataRow;
 }
 
 /** The smallest and largest of a list, by a loop: `Math.min(...list)` passes every number as an argument and throws past about 120,000. */
@@ -839,6 +841,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 		set = dataSet(pending && pending.rows !== data.rows ? { ...data, rows: pending.rows } : data);
 		if (pending)
 			for (const r of set.all ?? set.rows) {
+				if (r.raw) r.data = pending.origin.get(r.raw) ?? r.raw;
 				if (r.raw && pending.adding.has(r.raw)) r.act = "adding";
 				else if (r.id !== undefined) {
 					const st = pending.removing.get(pickKey(r.id));
@@ -905,7 +908,8 @@ function askPlan(set: RowSet, q: Query, view: ViewName, blockId: string, act: Ac
 		const x = questions.find((z) => z.id === k);
 		if (x) columns.set(k, x);
 	}
-	const asked = (x: Question, r: Row): boolean => r.id !== undefined && !!r.raw && (every(x) || carries(r.raw, x.id));
+	// a row still on its way into the data (rows-act.ts) is not asked questions or edited: the data does not hold it yet
+	const asked = (x: Question, r: Row): boolean => r.id !== undefined && r.act !== "adding" && !!r.raw && (every(x) || carries(r.raw, x.id));
 	return {
 		questions,
 		columns,
@@ -913,7 +917,7 @@ function askPlan(set: RowSet, q: Query, view: ViewName, blockId: string, act: Ac
 		open: (r) => questions.filter((x) => !columns.has(x.id) && asked(x, r)),
 		readonly: (k) => isReadonly(q.readonly, k),
 		edit: (r, k) => {
-			if (r.id === undefined || isReadonly(q.readonly, k)) return null;
+			if (r.id === undefined || r.act === "adding" || isReadonly(q.readonly, k)) return null;
 			// a field that a question is asked of, in this row, is the question
 			if (questions.some((x) => x.id === k && asked(x, r))) return null;
 			if (!Object.prototype.hasOwnProperty.call(edits, k)) return null;

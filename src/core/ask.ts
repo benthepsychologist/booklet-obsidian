@@ -12,7 +12,6 @@ import { childRowsOf, isRowObj, ownValue, type DataRow, type FieldEdit } from ".
 import { plainWords, sameWords } from "./earlier";
 import type { PickValue } from "./each";
 import type { Query, Question } from "./reader";
-import type { Row } from "./query";
 import type { Entry } from "./records";
 import { parseIdFormat, patternOf, ID_WORDS } from "./row-id";
 
@@ -255,14 +254,4 @@ export function rowActs(q: Query, view: string, own: readonly string[], edits: R
 		if (!parseIdFormat(idFormat).ok) idProblem = ID_WORDS.formatBad;
 	} else if (!patternOf(idPattern).ok) idProblem = ID_WORDS.patternBad;
 	return { add, remove, idProblem, fields, idFormat, idPattern };
-}
-
-/** The id of every row of a set at every depth, as written: what a new row's id is made against. */
-export function idsOfRows(rows: readonly Row[]): PickValue[] {
-	const out: PickValue[] = [];
-	for (const r of rows) {
-		const v = r.raw ? pickOfRow(r.raw) : undefined;
-		if (v !== undefined) out.push(v);
-	}
-	return out;
 }

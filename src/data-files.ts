@@ -1,12 +1,13 @@
 /*
  * The data files a note's `booklet data <file.json> <key.path>` blocks name (SPEC section 7, "Rows from a file"), read through the
- * vault and nothing else: no request leaves the device. A file is only read, with one exception: apply() below writes the one value of an
- * in-place edit the reader kept (see core/apply.ts), and nothing else of it. A file is read once for each read, however many blocks
+ * vault and nothing else: no request leaves the device. A file is only read, with one exception: apply() and applyText() below write the
+ * one value of an in-place edit the reader kept, a row the reader added or a row the reader removed (see core/apply.ts), and nothing else
+ * of it. A file is read once for each read, however many blocks
  * name it (each block takes its own key path from what was read, and keeps its own fence `fields`). It is read again when the
  * vault says it changed and when the pane comes back into view, and only a file whose size or time changed is read again. Whatever the
  * reader has open or scrolled is the view's (query-controls.ts); this holds the files.
  */
-import { DATA_FILE_MAX, DATA_WORDS, applyAct, dataMerge, dataRead, dataVaultPath, type ApplyWhy, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
+import { DATA_FILE_MAX, DATA_WORDS, applyAct, dataMerge, dataRead, dataVaultPath, type ApplyResult, type ApplyWhy, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
 
 /** The part of Obsidian's file adapter this reads with (a `.json` file need not be in the vault's index, so the adapter and not a TFile). */
 export interface DataAdapter {
@@ -103,12 +104,20 @@ export class DataFiles {
 	}
 
 	/**
-	 * Applies one kept act to the file a block names, at `path` (worked out when the act was kept, from the note it was kept in; core/apply.ts): the file is read again at the moment of writing and the act is applied
+	 * Applies one kept edit to the file a block names, at `path` (worked out when the act was kept, from the note it was kept in; core/apply.ts): the file is read again at the moment of writing and the act is applied
 	 * to that text, so a change made outside since the page drew is seen; the value's own text is replaced and no other byte changes.
 	 * Nothing is written when the act cannot be applied. A file written is put in the entry at once, so every block that names it is drawn
 	 * again from the new text (once: the vault's own event for the same write finds nothing new).
 	 */
 	async apply(block: DataBlock, path: string | null, pick: unknown, field: string, was: unknown, a: unknown, eq: (x: unknown, y: unknown) => boolean): Promise<Applied> {
+		return this.applyText(block, path, (text, keyPath) => applyAct(text, keyPath, pick, field, was, a, eq));
+	}
+
+	/**
+	 * Applies a change to the file a block names, at `path`: `run` is given the file's text, read at the moment of writing, and the block's
+	 * key path, and says the new text or why not (core/apply.ts: an edit, an added row, a removed row). The same rules as `apply`.
+	 */
+	async applyText(block: DataBlock, path: string | null, run: (text: string, keyPath: string) => ApplyResult): Promise<Applied> {
 		const file = block.file;
 		const adapter = this.adapter();
 		if (!file || path === null || !adapter) return { state: "failed", name: file ? file.name : "" };
@@ -116,7 +125,7 @@ export class DataFiles {
 		let after = "";
 		try {
 			await adapter.process(path, (text) => {
-				const r = applyAct(text, file.path, pick, field, was, a, eq);
+				const r = run(text, file.path);
 				if (!r.ok) throw new Refused(r.why);
 				// the value is already there: nothing to write
 				if (r.text === text) throw new Refused("unchanged");

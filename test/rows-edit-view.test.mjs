@@ -347,7 +347,7 @@ test("a row's Finalize and a question's answer are only kept: nothing is written
 	v.close();
 });
 
-test("rows written in the note itself are not a vault file: an edit is kept, nothing else is written, and the cell waits", async () => {
+test("rows written in the note itself: an edit is kept and written between the data block's fences, and nowhere else in the note", async () => {
 	const text = [
 		"---",
 		'booklet: "0.19"',
@@ -382,9 +382,15 @@ test("rows written in the note itself are not a vault file: an edit is kept, not
 	await v.settled();
 	await sleepTick();
 	assert.equal(v.kept().length, 1);
-	assert.equal(v.written.count, 0);
-	assert.deepEqual(said(), ["Booklet: change kept."]);
-	assert.equal(v.cell(v.queries()[0], "title", "a").querySelector(".booklet-row-state").getAttribute("data-state"), "waiting");
+	assert.equal(v.written.count, 0, "no vault file is written");
+	assert.deepEqual(said(), ["Booklet: change kept and written to the data block."]);
+	const after = v.disk.text;
+	// the note up to the records the app keeps is the note as it was, but for the one value between the fences
+	assert.equal(after.split("\n%%\n")[0].trimEnd(), text.replace('"title":"One"', '"title":"Two"').trimEnd(), "the note changed only inside the fence");
+	assert.equal(after.split("\n%%\n").length, 3, "and the records region (opened and closed by %%) is the one other thing there");
+	const cell = v.cell(v.queries()[0], "title", "a");
+	assert.equal(words(cell.querySelector(".booklet-edit-value")), "Two", "the cell shows the value the note now holds");
+	assert.equal(cell.querySelector('.booklet-row-state[data-state="waiting"]'), null, "and no longer waits");
 	v.close();
 });
 

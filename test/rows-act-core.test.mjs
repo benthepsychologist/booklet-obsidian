@@ -248,9 +248,10 @@ test("rows under a row are counted at every depth (the confirmation says how man
 	assert.equal(core.rowsUnder({ id: "x", one: { id: "y" } }), 1);
 });
 
-test("the ids to make against are every id at every depth, as written", () => {
-	const { p } = plan(note("from: d\nas: table\nadd", "repeat", [["d", DATA]], entries([ADD])));
-	assert.deepEqual(core.idsOfRows(p.set.all), ["j-1", "j-2", "j-3", "j-5", "j-4"], "the waiting add's id is among them");
-	const dup = plan(note("from: d\nas: table\nadd", "repeat", [["d", { ...DATA, rows: [{ id: "a" }, { id: "a" }, { id: 7 }, { title: "no id" }] }]])).p;
-	assert.deepEqual(core.idsOfRows(dup.set.all), ["a", "a", 7]);
+test("the ids to make against are every id at every depth, as written, then the adds still waiting", () => {
+	assert.deepEqual(core.rowIds(DATA.rows, [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "the waiting add's id comes after the block's own");
+	assert.deepEqual(core.rowIds(DATA.rows, []), ["j-1", "j-2", "j-3", "j-4"]);
+	assert.deepEqual(core.rowIds(DATA.rows, [ADD, ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add kept twice is one id");
+	assert.deepEqual(core.rowIds([...DATA.rows, { id: "j-5" }], [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add the data already holds is not counted twice");
+	assert.deepEqual(core.rowIds([{ id: "a" }, { id: "a" }, { id: 7 }, { title: "no id" }], []), ["a", "a", 7]);
 });

@@ -110,6 +110,8 @@ function indexRows(rows: readonly DataRow[]): Map<string, DataRow[]> {
 /** What is waiting to reach the data: the rows with the added ones put where they will land, which rows are new, and which are going. */
 export interface Pending {
 	rows: DataRow[];
+	/** For a row that was copied to make room for an add, the row as the data holds it: what a removal records as `was`. */
+	origin: WeakMap<DataRow, DataRow>;
 	/** The rows made from an entry (not in the data yet). */
 	adding: WeakSet<DataRow>;
 	/** By `pickKey` of the row: `waiting` (the data still holds it as it was drawn) or `refused` (it changed since, or is not one row). */
@@ -117,6 +119,25 @@ export interface Pending {
 }
 
 type Act = { t: number; i: number; j: number } & ({ kind: "add"; p: AddPair } | { kind: "delete"; p: DeletePair });
+
+/** Every add and removal the entries keep, oldest first (a tie in time goes by the entry's place, then the pair's). */
+function actsInOrder(entries: readonly Entry[]): Act[] {
+	const acts: Act[] = [];
+	entries.forEach((e, i) => {
+		if (!isRowActEntry(e)) return;
+		const t = Date.parse(String(e.ts));
+		addPairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j, kind: "add", p }));
+		deletePairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j: 1000 + j, kind: "delete", p }));
+	});
+	return acts.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
+}
+
+/** The newest act on each pick, in the order the picks were first acted on. */
+function newestActs(entries: readonly Entry[]): Act[] {
+	const newest = new Map<string, Act>();
+	for (const a of actsInOrder(entries)) newest.set(pickKey(a.p.pick), a);
+	return [...newest.values()];
+}
 
 /**
  * The data's rows with the adds still waiting put in, and the removals still waiting marked. The newest act on a pick decides: an add
@@ -126,20 +147,12 @@ type Act = { t: number; i: number; j: number } & ({ kind: "add"; p: AddPair } | 
  * when an add is drawn, the rows are copied.
  */
 export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending {
-	const none: Pending = { rows, adding: new WeakSet(), removing: new Map() };
-	const acts: Act[] = [];
-	entries.forEach((e, i) => {
-		if (!isRowActEntry(e)) return;
-		const t = Date.parse(String(e.ts));
-		addPairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j, kind: "add", p }));
-		deletePairs(e).forEach((p, j) => acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j: 1000 + j, kind: "delete", p }));
-	});
-	if (!acts.length) return none;
-	acts.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
+	const none: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
 	const newest = new Map<string, Act>();
-	for (const a of acts) newest.set(pickKey(a.p.pick), a);
+	for (const a of actsInOrder(entries)) newest.set(pickKey(a.p.pick), a);
+	if (!newest.size) return none;
 	const held = indexRows(rows);
-	const out: Pending = { rows, adding: new WeakSet(), removing: new Map() };
+	const out: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
 	const adds: Act[] = [];
 	for (const [key, a] of newest) {
 		const have = held.get(key);
@@ -152,7 +165,11 @@ export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending
 
 	// copy the rows (each row and each list of rows it holds), so the added ones stand where they will land and the data is not touched
 	const copies = new Map<string, DataRow[]>();
-	const copy = (r: DataRow): DataRow => ({ ...r });
+	const copy = (r: DataRow): DataRow => {
+		const c = { ...r };
+		out.origin.set(c, r);
+		return c;
+	};
 	const top = rows.map(copy);
 	const todo = top.slice().reverse();
 	while (todo.length) {
@@ -190,5 +207,30 @@ export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending
 		out.adding.add(made);
 	}
 	out.rows = top;
+	return out;
+}
+
+/**
+ * The id of every row of the data at every depth, and of every add still waiting (whether or not it can be drawn yet): what the id of a new
+ * row is made against, so that a number counts past the adds on their way and no id is made twice.
+ */
+export function rowIds(rows: readonly DataRow[], entries: readonly Entry[]): PickValue[] {
+	const held = indexRows(rows);
+	const out: PickValue[] = [];
+	const todo = rows.slice().reverse();
+	while (todo.length) {
+		const r = todo.pop()!;
+		if (isPick(r["id"])) out.push(r["id"]);
+		const vs = Object.values(r);
+		for (let i = vs.length - 1; i >= 0; i--) {
+			const kids = childRowsOf(vs[i]);
+			if (kids) for (let j = kids.length - 1; j >= 0; j--) todo.push(kids[j]!);
+		}
+	}
+	const waiting = new Set<string>();
+	for (const a of newestActs(entries)) if (a.kind === "add" && !held.has(pickKey(a.p.pick)) && !waiting.has(pickKey(a.p.pick))) {
+		waiting.add(pickKey(a.p.pick));
+		out.push(a.p.pick);
+	}
 	return out;
 }
