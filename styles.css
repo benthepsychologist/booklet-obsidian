@@ -1430,9 +1430,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* a nested table: the lead cell holds the disclosure, set in by one step for each level of the row's depth */
+/* The lead cell keeps one step of room at its left for the disclosure triangle, which hangs outside the summary: without it a top-level row's
+   triangle sat outside the table's scroll box and was clipped, and a row whose title is a value to edit had nothing else to press. */
 .booklet-q-lead {
 	display: flex;
 	align-items: baseline;
+	padding-inline-start: var(--size-4-4);
 }
 
 .booklet-q-ind {

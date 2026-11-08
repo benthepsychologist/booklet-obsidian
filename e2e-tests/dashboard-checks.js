@@ -582,6 +582,18 @@ module.exports = function dashboardChecks(env) {
         c.ok(broken.length === 0, `[${where}] no editable value is wrapped inside a word (lines no more than words + 1): ${JSON.stringify(broken[0] || "")}`);
         c.ok(looks.every(l => l.bg !== "rgba(0, 0, 0, 0)" && l.bg !== "transparent"), `[${where}] and each has a tint to say it can be pressed: ${looks[0].bg}`);
 
+        // a top-level row of the editable table opens by its triangle, which is inside the table's scroll box (not clipped) and is pressed with the mouse
+        const sum0 = plots.locator("details > summary").first();
+        const b0 = await sum0.boundingBox(), w0 = await plots.locator(".booklet-q-wrap").boundingBox();
+        c.ok(b0.x - w0.x >= 14, `[${where}] the first row's triangle has room inside the table (the summary starts ${Math.round(b0.x - w0.x)}px in)`);
+        await o.page.mouse.click(b0.x - 13, b0.y + b0.height / 2);
+        await o.page.waitForFunction(sel => document.querySelector(sel + " .booklet-query details").open, BOOK, { timeout: 4000 }).catch(() => {});
+        c.ok(await plots.locator("details").first().evaluate(d => d.open), `[${where}] pressing the first row's triangle opens the row`);
+        c.ok((await plots.locator("tr.booklet-q-trmore").count()) > 0, `[${where}] and its open part is drawn under it`);
+        await o.page.mouse.click(b0.x - 13, b0.y + b0.height / 2);
+        await o.page.waitForFunction(sel => !document.querySelector(sel + " .booklet-query details").open, BOOK, { timeout: 4000 }).catch(() => {});
+        c.ok(!(await plots.locator("details").first().evaluate(d => d.open)), `[${where}] pressing it again shuts the row`);
+
         // a real click on a value turns it into a box of its kind, with the focus in it
         await cell("stage").locator("button").click();
         const sel = cell("stage").locator("select");

@@ -384,6 +384,12 @@ test("an editable value is drawn as its value: the Paper look's pill leaves it o
 	assert.match(css, /data-booklet-look\^="paper"\] \.booklet-edit-open \{[^}]*background:\s*color-mix\(in srgb, var\(--bk-brand-wash\)/, "the Paper look tints it with its own wash");
 });
 
+test("a table's lead cell keeps room for the disclosure triangle, so a top-level row's triangle is not clipped by the table's scroll box", () => {
+	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	const rule = css.slice(css.indexOf(".booklet-q-lead {"), css.indexOf("}", css.indexOf(".booklet-q-lead {")));
+	assert.match(rule, /padding-inline-start:\s*var\(--size-4-4\)/);
+});
+
 test("a space typed in a box inside a row's summary is the box's own: the browser's Space for the summary is cancelled, and a button keeps its Space", async () => {
 	const v = await orchard();
 	const plots = v.queries()[0];
