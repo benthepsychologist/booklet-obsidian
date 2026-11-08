@@ -274,10 +274,13 @@ test("planQuery over a file block: the rows the view read, or the quiet box; a r
 
 /* ---- readonly, and each: over a data block ---- */
 
-test("`readonly` is the sixteenth key and the last of every view's list; bare, or with names, it is read and kept", () => {
-	assert.equal(core.QUERY_KEYS.length, 16);
-	assert.equal(core.QUERY_KEYS.at(-1), "readonly");
-	assert.ok(Object.values(core.VIEW_DRAWS).every((l) => l.at(-1) === "readonly"));
+test("`readonly` is the sixteenth key, then `add` and `delete`; bare, or with names, it is read and kept", () => {
+	assert.equal(core.QUERY_KEYS.length, 18);
+	assert.deepEqual(core.QUERY_KEYS.slice(-3), ["readonly", "add", "delete"]);
+	// every view reads `readonly`; only the views of rows that open read `add` and `delete`
+	assert.ok(Object.values(core.VIEW_DRAWS).every((l) => l.includes("readonly")));
+	for (const v of ["table", "list", "cards"]) assert.deepEqual(core.VIEW_DRAWS[v].slice(-3), ["readonly", "add", "delete"], v);
+	for (const v of ["tiles", "bars", "line"]) assert.equal(core.VIEW_DRAWS[v].at(-1), "readonly", v);
 	const q = (line) => core.parseBooklet(note([`from: d\n${line}`])).activities[0].segments.find((s) => s.type === "query").query;
 	assert.equal(q("readonly").readonly, true);
 	assert.deepEqual(q("readonly: title, due").readonly, ["title", "due"]);

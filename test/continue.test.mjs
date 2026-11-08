@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { build, core } from "./helpers.mjs";
 
-const HEAD = '---\nbooklet: "0.19"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
+const HEAD = '---\nbooklet: "0.20"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
 const BREAK = "\n***\n";
 
 /** A booklet of three bare activities. The course: two pages, each with a listen and a question. */

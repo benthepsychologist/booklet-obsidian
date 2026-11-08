@@ -18,7 +18,7 @@ import { pane } from "./pane.mjs";
 const { drawMarks, keepStepsOne, loadStepsOne, moveHeld, keepHeld, loadHeld } = await import("./.build/screens.mjs");
 
 const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
-const head = 'booklet: "0.19"';
+const head = 'booklet: "0.20"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 /** A device store, as Obsidian's saveLocalStorage keeps one; `one` holds the steps one at a time. */
 function store(one) {

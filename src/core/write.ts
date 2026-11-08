@@ -10,6 +10,7 @@ import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, entryPlaces, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
 import { pairsOf, pickKey, recordFilled, type PickValue } from "./each";
+import { isRowActEntry } from "./rows-act";
 import { holdsSomething, isPair, shapeIssue } from "./shape";
 
 /**
@@ -441,6 +442,8 @@ export interface Finalized {
  * its own: a daily Finalize neither replaces it nor takes its time.
  */
 export function isActEntry(act: Partial<Pick<Activity, "segments">>, e: Entry): boolean {
+	// an entry that adds or removes a row (`$add`, `$delete`, rows-act.ts) is a moment of its own too
+	if (isRowActEntry(e)) return true;
 	const ids = new Set((act.segments ?? []).filter((x): x is Question => x.type === "question").map((x) => x.id));
 	return Object.entries(e).some(([k, v]) => {
 		if (k === "ts" || !Array.isArray(v)) return false;
@@ -574,7 +577,7 @@ export function keepEntry(text: string, scope: string, activityId: string, answe
 
 /**
  * A row's Finalize (SPEC section 5, "A question asked for each row"): keeps one entry that holds that row's answers only, the pairs
- * for `pick` of the questions in `ids`, and leaves the rest of the draft as it was: those pairs are taken out of the draft, and every
+ * for `pick` (a row's id: as text, 5 and "5" are one row) of the questions in `ids`, and leaves the rest of the draft as it was: those pairs are taken out of the draft, and every
  * other pair stays. Throws RecordsWriteError when the draft holds no answer for the row.
  */
 export function keepRowDraft(text: string, scope: string, activityId: string, ids: readonly string[], pick: PickValue, opts: { ts: string; rule?: DayRule }): { text: string; entry: Entry } {
@@ -588,12 +591,12 @@ export function keepRowDraft(text: string, scope: string, activityId: string, id
 		const held = merged && own(merged, id) ? merged[id] : undefined;
 		if (!Array.isArray(held)) continue;
 		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === id);
-		const mine = held.filter((p) => isPair(p) && p.pick === pick && holdsSomething(p.a));
+		const mine = held.filter((p) => isPair(p) && String(p.pick) === String(pick) && holdsSomething(p.a));
 		if (!mine.length) continue;
 		// a lines question's blank lines are not kept, as in Finalize
 		const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
 		answers[id] = q && q.kind === "lines" ? mine.map((p) => ({ ...(p as Record<string, unknown>), a: bare((p as { a: unknown }).a) })) : mine;
-		rest.push([id, held.filter((p) => !(isPair(p) && p.pick === pick))]);
+		rest.push([id, held.filter((p) => !(isPair(p) && String(p.pick) === String(pick)))]);
 	}
 	if (!Object.keys(answers).length) throw new RecordsWriteError("Nothing to keep yet: this row has no answer.");
 	const kept = keepEntry(text, scope, activityId, answers, { ts: opts.ts });

@@ -7,7 +7,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { assertOutsideUnchanged, build, core, norm } from "./helpers.mjs";
 
-const HEAD = '---\nbooklet: "0.19"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
+const HEAD = '---\nbooklet: "0.20"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
 const note = (body) => `${HEAD}\n${body}`;
 const EP1 = "> [!listen|e1] Episode 1: Foundations\n> ![Episode 1](https://media.example.org/u01/e1.m4a)\n";
 const BASE = `> [!activity|course] A course\n\n${EP1}\n> [!listen|e2 left:60] Episode 2\n> ![[ep2.mp3]]\n\n> [!text|t] Thoughts\n`;

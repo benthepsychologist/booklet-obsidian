@@ -1,4 +1,4 @@
-// Checks 29 to 32, 61 and 62 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
+// Checks 29 to 32, 61, 62 and 63 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
 // copied into each check's own copy of the vault:
 //   29 charts (bars and a line, the numbers fold, the readout and the arrow keys),
 //   30 data blocks and the kept days in every view (icons, links, pills, a nested list, tiles of an each-pick, the empty words),
@@ -753,5 +753,258 @@ module.exports = function dashboardChecks(env) {
     return c;
   }
 
-  return { 29: check29, 30: check30, 31: check31, 32: check32, 61: check61, 62: check62 };
+  /* ================= CHECK 63 ================= */
+  // Dashboards slice 3 (format 0.20): adding and removing rows, in the real app, on a made-up note (test/dashboards/garden-jobs.booklet.md) whose first query draws
+  // jobs written in the note itself (an inline data block) and whose second and third draw beds from a file beside it. The pressing is done with real clicks and keys;
+  // the files on disk are compared byte for byte with what the change should make, and the note outside the block's fences is the bytes it was.
+  async function check63() {
+    const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written, a file that is not valid UTF-8 and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; on a table wider than a phone Remove, its question and its answers are in the window, on top and pressed where they stand, in both looks; the Paper look pills them and Obsidian's look does not; print hides them");
+    const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json", WIDE63 = "garden-wide.booklet.md";
+    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    for (const where of ["desktop", "phone"]) {
+      const desk = where === "desktop";
+      await withApp("c63-" + where, async (o, vault) => {
+        const noteFile = path.join(vault, NOTE63), jsonFile = path.join(vault, FILE63);
+        fs.writeFileSync(noteFile, fs.readFileSync(here(NOTE63)));
+        fs.writeFileSync(jsonFile, fs.readFileSync(here(FILE63)));
+        if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
+        const k = kit(env, NOTE63);
+        const orig = fs.readFileSync(noteFile, "utf8");
+        const jsonOrig = fs.readFileSync(jsonFile, "utf8");
+        // the data as the fixture wrote it, so that each expected byte string is the same data written the way the fixture writes it (one line)
+        const inlineText = orig.slice(orig.indexOf("```booklet data\n") + "```booklet data\n".length, orig.indexOf("\n```\n^jobs"));
+        const inline = JSON.parse(inlineText), file = JSON.parse(jsonOrig);
+        await k.open(o, NOTE63);
+        await k.goTo(o, "activity:desk/work");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 3 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
+        const qs = () => o.page.locator(BOOK + " .booklet-query");
+        const jobs = qs().nth(0), beds = qs().nth(1), plain = qs().nth(2);
+        const noteText = () => fs.readFileSync(noteFile, "utf8");
+        const entriesOf = () => (noteText().match(/^\{"ts":"[^\n]*$/gm) || []);
+        const settle = async () => { await quiet(o); await sleep(900); await quiet(o); };
+        const seen = () => o.evaluate(() => (window.__seen || []).join("|"));
+        // the note up to the records the app keeps: the fixture with the inline block's text replaced
+        const expectNote = data => orig.replace(inlineText, JSON.stringify(data));
+        const beforeRecords = () => { const t = noteText(), i = t.indexOf("\n%%\n"); return i < 0 ? t : t.slice(0, i + 1); };
+        const sameNote = (data, what) => c.ok(beforeRecords().trimEnd() === expectNote(data).trimEnd(), `[${where}] ${what}: the note outside the block's fences is the bytes it was, and the block is the data with the change`);
+        await o.evaluate(() => { window.dispatchEvent(new Event("focus")); });
+        await o.evaluate(() => { window.__seen = []; new MutationObserver(() => document.querySelectorAll(".notice").forEach(n => { if (!window.__seen.includes(n.textContent)) window.__seen.push(n.textContent); })).observe(document.body, { childList: true, subtree: true, characterData: true }); });
+
+        // the controls: where they are, and where they are not
+        c.ok((await jobs.locator(".booklet-row-add-open").count()) === 1 && (await beds.locator(".booklet-row-add-open").count()) === 1, `[${where}] the two views that say add draw an Add button`);
+        c.ok((await jobs.locator(".booklet-row-remove-open").count()) === 2 && (await beds.locator(".booklet-row-remove-open").count()) === 3, `[${where}] and a Remove on each top row (${await jobs.locator(".booklet-row-remove-open").count()} jobs, ${await beds.locator(".booklet-row-remove-open").count()} beds)`);
+        c.ok((await plain.locator(".booklet-row-add, .booklet-row-remove, .booklet-q-act").count()) === 0, `[${where}] the view of the same beds that says neither draws no control`);
+        const names = await jobs.locator(".booklet-row-remove-open").allInnerTexts();
+        c.ok(names.join("|").replace(/\s+/g, " ") === "Remove Prune|Remove Stakes", `[${where}] each Remove is named by its row: ${JSON.stringify(names)}`);
+
+        // the looks: Paper pills the buttons and cards the form; Obsidian's own look draws Obsidian's button and a plain box
+        const look = async () => jobs.locator(".booklet-row-add-open").evaluate(b => { const cs = getComputedStyle(b); return { look: b.closest(".booklet-view").getAttribute("data-booklet-look"), radius: parseFloat(cs.borderTopLeftRadius) }; });
+        const paper = await look();
+        c.ok(/^paper/.test(paper.look) && paper.radius > 100, `[${where}] in the Paper look the Add button is a pill: ${JSON.stringify(paper)}`);
+        await o.evaluate(() => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = "obsidian"; }));
+        await frames(o);
+        const obs = await look();
+        c.ok(obs.look === "obsidian" && obs.radius < 100, `[${where}] in Obsidian's own look it is Obsidian's button (its phone mode rounds it more), not a pill: ${JSON.stringify(obs)}`);
+        await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), paper.look);
+        await frames(o);
+
+        // Add: a real click opens the form with the focus in the first box; typing and Enter keep the row
+        await jobs.locator(".booklet-row-add-open").click();
+        const form = jobs.locator(".booklet-row-addform");
+        c.ok((await form.count()) === 1 && (await form.locator("label").allInnerTexts()).join("|") === "Name|Stage", `[${where}] Add opens a form with a box for each field the view shows: ${(await form.locator("label").allInnerTexts()).join("|")}`);
+        c.ok(await form.locator("input").first().evaluate(i => i === document.activeElement), `[${where}] and the focus is in the first box`);
+        const cards = await form.evaluate(f => { const cs = getComputedStyle(f); return { border: cs.borderTopWidth, radius: cs.borderTopLeftRadius, look: f.closest(".booklet-view").getAttribute("data-booklet-look") }; });
+        c.ok(parseFloat(cards.border) > 0 && parseFloat(cards.radius) > 0, `[${where}] the form is a bordered box: ${JSON.stringify(cards)}`);
+        await o.page.keyboard.press("Escape");
+        c.ok((await jobs.locator(".booklet-row-addform").count()) === 0 && entriesOf().length === 0, `[${where}] Esc closes it and keeps nothing`);
+        await jobs.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Mulch");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        const added = JSON.parse(inlineText);
+        added.rows.push({ id: "j-5", title: "Mulch" });
+        const e1 = entriesOf();
+        c.ok(e1.length === 1 && /"\$add":\[\{"in":"jobs","pick":"j-5","row":\{"title":"Mulch"\}\}\]/.test(e1[0]), `[${where}] Enter keeps one $add entry, one pair, with the id the format made: ${e1[0]}`);
+        sameNote(added, "the first add");
+        c.ok((await jobs.locator("tbody tr").count()) === 3 && /Mulch/.test(await jobs.innerText()) && !/sent, waiting/.test(await jobs.innerText()), `[${where}] the table shows the new row, not waiting`);
+        c.ok((await seen()) === "", `[${where}] a success says nothing beyond the redraw: ${JSON.stringify(await seen())}`);
+        c.ok((await jobs.locator(".booklet-row-addform").count()) === 0 && (await jobs.locator(".booklet-row-add-open").count()) === 1, `[${where}] and the form is closed again`);
+
+        // Add under: the row's open part holds its own Add
+        const summary = jobs.locator("details > summary").first();
+        const sb = await summary.boundingBox();
+        await o.page.mouse.click(sb.x + sb.width - 3, sb.y + Math.min(sb.height - 2, 6));
+        await o.page.waitForFunction(sel => document.querySelector(sel + " .booklet-query details").open, BOOK, { timeout: 4000 }).catch(() => {});
+        const under = jobs.locator(".booklet-row-add-under");
+        await under.first().waitFor({ timeout: 4000 }).catch(() => {});
+        c.ok((await under.count()) === 1 && (await under.getAttribute("data-booklet-add")) === "j-1", `[${where}] the open row offers Add under this row`);
+        await under.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Sharpen saw");
+        await under.locator(".booklet-row-add-go").click();
+        await settle();
+        added.rows[0].jobs.push({ id: "j-6", title: "Sharpen saw" });
+        const e2 = entriesOf();
+        c.ok(e2.length === 2 && /"\$add":\[\{"in":"jobs","pick":"j-6","under":"j-1","row":\{"title":"Sharpen saw"\}\}\]/.test(e2[1]) && e2[0] === e1[0] + ",", `[${where}] Add under keeps a second entry, with the parent, and the first entry's bytes are as they were: ${e2[1]}`);
+        sameNote(added, "the add under a row");
+
+        // Remove: asks first; Esc cancels; the question counts the rows under the row
+        const rm = jobs.locator("[data-booklet-remove='j-1']");
+        await rm.locator(".booklet-row-remove-open").click();
+        c.ok(/^Remove this row and the 3 rows under it\?/.test((await rm.locator(".booklet-row-remove-q").innerText()).trim()), `[${where}] the question counts the rows under the row: ${JSON.stringify(await rm.locator(".booklet-row-remove-q").innerText())}`);
+        c.ok((await rm.getAttribute("aria-live")) === "polite" && (await rm.locator("button").allInnerTexts()).map(x => x.replace(/\s+/g, " ").trim()).join("|") === "Remove Prune|Cancel", `[${where}] it is announced politely, with Remove and Cancel`);
+        const confirmLook = await rm.locator(".booklet-row-remove-yes").evaluate(b => { const cs = getComputedStyle(b); return { bg: cs.backgroundColor, color: cs.color }; });
+        c.info(`[${where}] the confirm button's colours in the ${paper.look} look: ${JSON.stringify(confirmLook)}`);
+        c.ok(confirmLook.bg !== "rgba(0, 0, 0, 0)" && confirmLook.bg !== confirmLook.color, `[${where}] the confirm is drawn as a filled warning button`);
+        await o.page.keyboard.press("Escape");
+        c.ok((await rm.locator(".booklet-row-remove-q").count()) === 0 && entriesOf().length === 2, `[${where}] Esc cancels the question and keeps nothing`);
+        await rm.locator(".booklet-row-remove-open").click();
+        await rm.locator(".booklet-row-remove-yes").click();
+        await settle();
+        added.rows.shift();
+        const e3 = entriesOf();
+        c.ok(e3.length === 3 && /"\$delete":\[\{"in":"jobs","pick":"j-1","was":\{"id":"j-1","title":"Prune"/.test(e3[2]), `[${where}] Remove keeps one $delete entry carrying the row as it was: ${e3[2].slice(0, 160)}`);
+        sameNote(added, "the removal of a row with rows under it");
+        c.ok((await jobs.locator("tbody tr").count()) === 2 && !/Prune|Ladder|Burn|Sharpen/.test(await jobs.innerText()), `[${where}] the row and the rows under it are gone from the table: ${await jobs.locator("tbody tr").count()} rows, ${JSON.stringify((await jobs.innerText()).replace(/\s+/g, " "))}`);
+        c.ok((await seen()) === "", `[${where}] and a success still says nothing: ${JSON.stringify(await seen())}`);
+
+        // the file: an add is written in the row's own place, a remove takes the row and its comma, and the read-only view of the same beds follows
+        await beds.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Pear tree");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        file.beds.rows.push({ id: "ID-pear-tree", title: "Pear tree" });
+        c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(file), `[${where}] an add to the file is written at the end of the rows in the layout of the row before it, and every other byte is as it was`);
+        // the jobs' new rows (kept as $add entries of the same activity, for the block jobs) are not drawn in the views of beds: a pair names its block
+        c.ok(/Pear tree/.test(await plain.innerText()) && (await beds.locator(".booklet-row-remove-open").count()) === 4 && !/Mulch|Sharpen saw/.test(await beds.innerText()), `[${where}] the read-only view of the same beds shows the new row, the list has four Removes, and no row of the jobs block is drawn in it (${await beds.locator(".booklet-row-remove-open").count()})`);
+        const eFile = entriesOf();
+        c.ok(eFile.length === 4 && /"in":"beds","pick":"ID-pear-tree"/.test(eFile[3]), `[${where}] the file's add kept its own entry: ${eFile[3]}`);
+        c.ok(beforeRecords().trimEnd() === expectNote(added).trimEnd(), `[${where}] and the note's block was not touched by a change to the file`);
+        await beds.locator("[data-booklet-remove='ID-beans'] .booklet-row-remove-open").click();
+        c.ok(/^Remove this row\?/.test((await beds.locator("[data-booklet-remove='ID-beans'] .booklet-row-remove-q").innerText()).trim()), `[${where}] a row with nothing under it asks "Remove this row?"`);
+        await beds.locator("[data-booklet-remove='ID-beans'] .booklet-row-remove-yes").click();
+        await settle();
+        file.beds.rows = file.beds.rows.filter(r => r.id !== "ID-beans");
+        c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(file), `[${where}] a removal from the file takes the row and its comma and no other byte`);
+        c.ok(!/Beans/.test(await plain.innerText()) && !/Beans/.test(await beds.innerText()), `[${where}] both views of the beds have lost it`);
+
+        // a file that cannot be written: the add is kept, nothing is written, a notice says why, the row shows as waiting
+        fs.chmodSync(jsonFile, 0o444);
+        const lockedBefore = fs.readFileSync(jsonFile, "utf8");
+        await o.evaluate(() => { window.__seen = []; });
+        const nBefore = entriesOf().length;
+        await beds.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Plum");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        fs.chmodSync(jsonFile, 0o644);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === lockedBefore && entriesOf().length === nBefore + 1, `[${where}] with the file read-only the entry is kept (${entriesOf().length} entries) and the file is as it was`);
+        c.ok(/Plum/.test(await beds.innerText()) && /· sent, waiting/.test(await beds.innerText()), `[${where}] the new row is drawn at the end, "sent, waiting": ${JSON.stringify((await beds.innerText()).replace(/\s+/g, " "))}`);
+        c.ok(/the row was kept but not added to garden-jobs\.json/i.test(await seen()) && /cannot be written/.test(await seen()), `[${where}] a notice says so: ${JSON.stringify(await seen())}`);
+
+        // a pending add can be removed (contract 8.5): Plum is waiting; Remove keeps a $delete holding the row as the entry made it, nothing is written (the file never held it), the row goes
+        const plum = beds.locator("[data-booklet-remove='ID-plum']");
+        c.ok((await plum.locator(".booklet-row-remove-open").count()) === 1, `[${where}] the waiting row offers Remove`);
+        const nPlum = entriesOf().length;
+        await plum.locator(".booklet-row-remove-open").click();
+        await plum.locator(".booklet-row-remove-yes").click();
+        await settle();
+        const ePlum = entriesOf();
+        c.ok(ePlum.length === nPlum + 1 && /"\$delete":\[\{"in":"beds","pick":"ID-plum","was":\{"id":"ID-plum","title":"Plum"\}\}\]/.test(ePlum[nPlum]), `[${where}] Remove keeps one $delete holding the waiting row as the entry made it: ${ePlum[nPlum]}`);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === lockedBefore && !/Plum/.test(await beds.innerText()), `[${where}] the file is as it was and the waiting row is gone from the list`);
+
+        // a row changed since the reader drew it: the removal is kept, nothing is removed, the row says so
+        const staleRow = beds.locator("[data-booklet-remove='ID-herbs']");
+        await staleRow.locator(".booklet-row-remove-open").click();
+        const changed = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
+        changed.beds.rows.find(r => r.id === "ID-herbs").title = "Herbs, moved";
+        await o.evaluate(() => { window.__seen = []; });
+        // changed from outside, and answered at once, before the app has read the file again (a program that wrote it a moment ago)
+        const yes = await staleRow.locator(".booklet-row-remove-yes").elementHandle();
+        fs.writeFileSync(jsonFile, JSON.stringify(changed));
+        await yes.evaluate(b => b.click());
+        await settle();
+        c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(changed), `[${where}] nothing was removed from the file`);
+        c.ok(/Changed since you drew it\./.test(await seen()), `[${where}] a notice says why: ${JSON.stringify(await seen())}`);
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await sleep(900); await quiet(o);
+        c.ok(/You asked to remove this; it changed since\./.test(await beds.innerText()), `[${where}] and the row says it changed since, in words: ${JSON.stringify((await beds.innerText()).replace(/\s+/g, " ").slice(0, 200))}`);
+
+        // a data file that is not valid UTF-8 (the reviewer's input: a byte order mark, CRLF, tabs and a Latin-1 byte): an add and a removal write nothing, and a notice says so
+        const latin = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"beds":{"fields":{"title":{"label":"Name","edit":"text"}},"idFormat":"ID-{field:title}","rows":[\r\n\t{"id":"b-1","title":"Caf'), Buffer.from([0xe9]), Buffer.from('"},\r\n\t{"id":"b-2","title":"Two"}\r\n]}}\r\n')]);
+        fs.writeFileSync(jsonFile, latin);
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => /Two/.test(document.querySelector(sel).innerText), BOOK, { timeout: 8000 });
+        await sleep(600); await quiet(o);
+        await o.evaluate(() => { window.__seen = []; });
+        const nLatin = entriesOf().length;
+        await beds.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Three");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        c.ok(fs.readFileSync(jsonFile).equals(latin), `[${where}] an add to a file that holds a Latin-1 byte writes nothing: the file is the same bytes (BOM, CRLF, tabs and the byte)`);
+        c.ok(/not valid UTF-8, so it was not changed/.test(await seen()) && entriesOf().length === nLatin + 1, `[${where}] a notice says so and the entry is kept: ${JSON.stringify(await seen())}`);
+        await o.evaluate(() => { window.__seen = []; });
+        await beds.locator("[data-booklet-remove='b-2'] .booklet-row-remove-open").click();
+        await beds.locator("[data-booklet-remove='b-2'] .booklet-row-remove-yes").click();
+        await settle();
+        c.ok(fs.readFileSync(jsonFile).equals(latin) && /the removal was kept, but no row was taken out of garden-jobs\.json\. That file is not valid UTF-8, so it was not changed\./.test(await seen()), `[${where}] a removal from it writes nothing either: ${JSON.stringify(await seen())}`);
+
+        // print hides the controls
+        await o.page.emulateMedia({ media: "print" });
+        await sleep(300);
+        const pr = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-row-add, " + sel + " .booklet-row-remove, " + sel + " .booklet-q-act")].filter(e => getComputedStyle(e).display !== "none").length, BOOK);
+        await o.page.emulateMedia({ media: "screen" });
+        c.ok(pr === 0, `[${where}] in print no Add, Remove or Remove column is shown (${pr} shown)`);
+
+        // reach (contract 8.10): on a note whose table is wider than a phone, Remove, its question and its two answers are all in the window, on top and pressed where they
+        // stand (no scrolling to find them), in both looks; the question wraps; nothing is wider than the window; asking scrolls nothing sideways
+        fs.writeFileSync(path.join(vault, WIDE63), fs.readFileSync(here(WIDE63)));
+        const kw = kit(env, WIDE63);
+        await kw.open(o, WIDE63);
+        await kw.goTo(o, "activity:desk/work");
+        await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 3 && [...q].every(x => !x.querySelector(".booklet-q-quiet") && x.querySelector(".booklet-row-remove-open")); }, BOOK, { timeout: 10000 });
+        const wide = [o.page.locator(BOOK + " .booklet-query").nth(0), o.page.locator(BOOK + " .booklet-query").nth(1), o.page.locator(BOOK + " .booklet-query").nth(2)];
+        const reach = async (view, id, what) => view.evaluate((root, { id, what }) => {
+          root.scrollIntoView({ block: "center", inline: "nearest" }); // down the page only: the query's own box, never the row
+          const rm = root.querySelector(`[data-booklet-remove='${id}']`), win = window.innerWidth, wrap = root.querySelector(".booklet-q-wrap");
+          const out = { what, win, page: document.documentElement.scrollWidth, scrolls: wrap ? wrap.scrollWidth > wrap.clientWidth : false, wrapScroll: wrap ? wrap.scrollLeft : 0, buttons: {} };
+          for (const b of rm.querySelectorAll("button")) {
+            const r = b.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+            out.buttons[b.className.split(" ").pop()] = { left: Math.round(r.left), right: Math.round(r.right), w: Math.round(r.width), h: Math.round(r.height), inWindow: r.left >= 0 && r.right <= win, onTop: hit === b || b.contains(hit), hit: hit ? hit.tagName + "." + hit.className : null };
+          }
+          const q = rm.querySelector(".booklet-row-remove-q");
+          if (q) { const r = q.getBoundingClientRect(); out.question = { right: Math.round(r.right), w: Math.round(r.width), lines: Math.round(r.height / parseFloat(getComputedStyle(q).lineHeight || "20")), wrap: getComputedStyle(q).whiteSpace }; }
+          return out;
+        }, { id, what });
+        const centre = async loc => { const b = await loc.boundingBox(); return [b.x + b.width / 2, b.y + b.height / 2]; };
+        const wideEntries = () => (fs.readFileSync(path.join(vault, WIDE63), "utf8").match(/^\{"ts":"[^\n]*$/gm) || []).length;
+        for (const lk of [paper.look, "obsidian"]) {
+          await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), lk);
+          await frames(o);
+          for (const [vi, kind] of [[0, "table"], [1, "list"], [2, "cards"]]) {
+            const tag = `[${where}, ${lk.replace(/-.*/, "")} look, ${kind}]`;
+            const rmId = "t-4";
+            const base = await reach(wide[vi], rmId, "base");
+            const open = base.buttons["booklet-row-remove-open"];
+            c.ok(base.page <= base.win && open && open.inWindow && open.onTop, `${tag} Remove is in the window and on top, with no sideways scroll of the page: ${JSON.stringify(base)}`);
+            if (kind === "table" && !desk) c.ok(base.scrolls, `${tag} (the table is wider than the window, so it scrolls inside its card: the case this is for)`);
+            await o.page.mouse.click(...(await centre(wide[vi].locator(`[data-booklet-remove='${rmId}'] .booklet-row-remove-open`))));
+            await o.page.waitForFunction(sel => document.querySelector(sel + " .booklet-row-remove-q"), BOOK, { timeout: 4000 });
+            const ask = await reach(wide[vi], rmId, "ask"), bts = ask.buttons;
+            c.ok(ask.page <= ask.win && ask.question && ask.question.right <= ask.win && ask.question.wrap === "normal" && bts["booklet-row-remove-yes"].inWindow && bts["booklet-row-remove-yes"].onTop && bts["booklet-row-remove-no"].inWindow && bts["booklet-row-remove-no"].onTop, `${tag} the question wraps (${ask.question && ask.question.lines} lines) and it and both answers are in the window and on top: ${JSON.stringify(ask)}`);
+            c.ok(ask.wrapScroll === base.wrapScroll, `${tag} asking scrolled nothing sideways (${base.wrapScroll} then ${ask.wrapScroll})`);
+            c.info(`${tag} the question and its answers: ${await shot0(o, `rows-reach-${where}-${lk.replace(/-.*/, "")}-${kind}-ask`)}`);
+            await o.page.mouse.click(...(await centre(wide[vi].locator(`[data-booklet-remove='${rmId}'] .booklet-row-remove-no`))));
+            await o.page.waitForFunction(sel => !document.querySelector(sel + " .booklet-row-remove-q"), BOOK, { timeout: 4000 });
+            c.ok(wideEntries() === 0, `${tag} Cancel, pressed where it stands, closes the question and keeps nothing`);
+            if (kind === "table") c.info(`${tag} the table: ${await shot0(o, `rows-reach-${where}-${lk.replace(/-.*/, "")}-${kind}-base`)}`);
+          }
+        }
+        if (!desk) { await o.page.setViewportSize({ width: 1280, height: 900 }); await mobile(o, false); }
+      });
+    }
+    return c;
+  }
+
+  return { 29: check29, 30: check30, 31: check31, 32: check32, 61: check61, 62: check62, 63: check63 };
 };

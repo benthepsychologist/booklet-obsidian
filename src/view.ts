@@ -17,8 +17,20 @@ import {
 	copyText,
 	referenceContext,
 	barTabs,
+	type ApplyResult,
 	type ApplyWhy,
 	type CalloutBox,
+	ADD_KEY,
+	DELETE_KEY,
+	applyAct,
+	applyAdd,
+	applyDelete,
+	applyInFence,
+	deletePairs,
+	addPairs,
+	rowIds,
+	rowsUnder,
+	type DataRow,
 	buildNav,
 	designKey,
 	earlierEntries,
@@ -29,6 +41,7 @@ import {
 	keepEntry,
 	keepRowDraft,
 	pairFor,
+	askedOfRows,
 	pairsOf,
 	valueText,
 	gateMedia,
@@ -82,6 +95,7 @@ import {
 	type AnswerValue,
 	type Booklet,
 	type ContinueTarget,
+	type DataBlock,
 	type DayRule,
 	type Entry,
 	type AnswerWords,
@@ -116,11 +130,11 @@ import { keepFurthest, loadFurthest } from "./listen-store";
 import { MEDIA_EVENTS } from "./playing";
 import { drawMentions, drawPageMenu, type MenuState } from "./page-menu";
 import { calloutColourIsTriplet, drawCallout, drawMarks, drawSteps, type CiteScope } from "./reading";
-import { DataFiles } from "./data-files";
+import { DataFiles, type Applied } from "./data-files";
 import { mountQuery, type QueryMount } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
-import { makeRowsUi, type ActApply, type EditSession, type RowsView } from "./row-ask";
+import { makeRowsUi, type ActApply, type AddSession, type EditSession, type RowsView } from "./row-ask";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
@@ -155,7 +169,56 @@ const REFUSED_BECAUSE: Record<ApplyWhy, string> = {
 	identity: "that field is the row's id, which is never written",
 	"no field": "the row no longer has that field",
 	unreadable: "the file cannot be read as data now",
+	"no place": "the row it goes under holds no one list of rows, so it is not clear where it goes",
+	"not utf8": "the file is not valid UTF-8",
+	clash: "a row with that id exists",
+	"too deep": "the row is nested too deeply to change",
+	"too big": "the file would be too big to read",
+	"no write": "this data cannot be changed from here",
 };
+/**
+ * Whole sentences for the refusals that are about the data as a whole, said the same for an edit, an add and a removal (they replace the
+ * "because ..." and the per-act sentence): the file is not text the plugin may write, the file would grow past what it can read, the block is
+ * not one the plugin can write.
+ */
+const WHOLE_REFUSAL = {
+	"not utf8": "That file is not valid UTF-8, so it was not changed.",
+	"too big": "That would make the file too big to read (the limit is 5 MB), so it was not changed.",
+	"no write": "This data cannot be changed from here.",
+} as const;
+/** What a refused add or removal says, as a sentence (a refusal writes nothing and says why in words; the entry stays). */
+const ROW_REFUSED: Record<"add" | "delete", Record<ApplyWhy, string>> = {
+	add: {
+		"no row": "That row is gone.",
+		ambiguous: "More than one row has that id.",
+		"no place": "Cannot tell where the new row goes under this one.",
+		unreadable: "The data cannot be read as data now.",
+		changed: "The data changed.",
+		identity: "The data changed.",
+		"no field": "The data changed.",
+		"not utf8": WHOLE_REFUSAL["not utf8"],
+		clash: "A row with that id exists. Add it again with another id.",
+		"too deep": "The data changed.",
+		"too big": WHOLE_REFUSAL["too big"],
+		"no write": WHOLE_REFUSAL["no write"],
+	},
+	delete: {
+		changed: "Changed since you drew it.",
+		ambiguous: "More than one row has that id.",
+		"no place": "That row stands in no list of rows, so it cannot be taken out.",
+		unreadable: "The data cannot be read as data now.",
+		"no row": "That row is gone.",
+		identity: "The data changed.",
+		"no field": "The data changed.",
+		"not utf8": WHOLE_REFUSAL["not utf8"],
+		clash: "The data changed.",
+		"too deep": "That row is nested too deeply to change.",
+		"too big": WHOLE_REFUSAL["too big"],
+		"no write": WHOLE_REFUSAL["no write"],
+	},
+};
+/** What an inline data block is called in a notice. */
+const INLINE_NAME = "the data block";
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;
 /** Ids handed out by every view, so two panes in one window never share one (a tab names its panel by id). */
@@ -191,6 +254,8 @@ const lastPlace = new WeakMap<WorkspaceLeaf, { path: string; place: Place }>();
 
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 const nullMap = <T>(): Record<string, T> => Object.create(null) as Record<string, T>;
+/** An add on its way, as `inflight` holds it: the block, a line break (no id holds one), the id as text. */
+const inflightKey = (block: string, pick: unknown): string => `${block}\n${String(pick)}`;
 const sameAct = (a: Activity, b: Activity) => a.scope === b.scope && a.id === b.id;
 
 /** Does this part ask for an answer: a question, or a question of a common kind that cannot be drawn (it has no id)? */
@@ -275,6 +340,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private queryViews = new Map<string, QueryViewState>();
 	/** The edit boxes that are open in the rows of the queries (row-ask.ts), by cell: what the reader typed waits here through a redraw of the rows. */
 	readonly sessions = new Map<string, EditSession>();
+	/** The forms for a new row that are open (row-ask.ts), by query and parent: what the reader typed waits here through a redraw of the rows. Never saved. */
+	readonly addForms = new Map<string, AddSession>();
+	/** The rows whose Remove asked "Remove this row?" and wait for the answer, by query and row. Never saved. */
+	readonly removeAsks = new Set<string>();
+	/** The ids of adds kept and not yet in the note: two adds in a row make two ids (the note is read again when the write lands). */
+	/** The ids of adds on their way into the note, by the block they are for (`block id` then the id as text). */
+	private readonly inflight = new Set<string>();
 	/** The data files the note's data blocks name (data-files.ts): read through the vault, read again when they change and when the pane comes back. */
 	private readonly files = new DataFiles(
 		() => this.app.vault.adapter,
@@ -787,6 +859,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.widgets.clear();
 		this.ownFields.clear();
 		this.sessions.clear();
+		this.addForms.clear();
+		this.removeAsks.clear();
+		this.inflight.clear();
 		this.listens.reset();
 		this.showAll.clear();
 		this.entriesFolded.clear();
@@ -1054,6 +1129,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		return issue ? { issue, kept: JSON.stringify(v) } : null;
 	}
 
+	clicked(): void {
+		this.endPressTail();
+		this.settleSoon(0);
+	}
+
 	redrawSoon(): void {
 		this.stale = true;
 		this.settleSoon(0);
@@ -1109,7 +1189,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 */
 	private whole(t: Target, q: Question, value: AnswerValue | undefined, pick?: PickValue, extra?: Record<string, unknown>): AnswerValue | undefined {
 		if (pick === undefined) return value;
-		const next = setPair(this.heldAnswer(t, q), pick, value, extra);
+		const next = setPair(this.heldAnswer(t, q), pick, value, extra, askedOfRows(t.activity, q));
 		return next.length ? next : undefined;
 	}
 
@@ -1130,27 +1210,102 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// the entry is made of the file's fresh text, and its time is the moment of the write: one new entry, and no other byte changes
 		// the data file's path is worked out now, from the note this act was kept in: a pane that moves to another note meanwhile resolves nothing against another folder
 		const path = apply ? this.files.pathOf(apply.block) : null;
-		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => this.applyAct(key, pair, apply, path), failed);
+		// an add's id is held until the note has it, so that the next add made meanwhile counts past it
+		const waiting = key === ADD_KEY ? inflightKey(String(pair["in"]), pair["pick"]) : null;
+		if (waiting !== null) this.inflight.add(waiting);
+		const done = (): void => {
+			if (waiting !== null) this.inflight.delete(waiting);
+		};
+		this.queue(
+			file,
+			(text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text,
+			"The change was not kept.",
+			() => this.applyAct(key, pair, apply, path).finally(done),
+			() => {
+				done();
+				failed();
+			},
+		);
 	}
 
 	/**
-	 * The act is kept; now, if the rows come from a file of the vault and the act replaced a value (it has `was`), it is written into
-	 * that file once, only if the file still holds `was` (data-files.ts). Whatever happens, the kept entry stays: the notice says so.
+	 * Every id of the rows of a data block, and of the adds waiting for the data (kept, or on their way into the note): what a new row's id
+	 * is made against (core/row-id.ts). Read when the reader presses Add, from the data as it is now.
+	 */
+	idsOf(t: Target, block: DataBlock): PickValue[] {
+		const got = block.file ? this.files.rows(block) : { data: block };
+		const rows = "data" in got ? got.data.rows : [];
+		const ids = rowIds(rows, this.keptOf(t), block.id);
+		for (const w of this.inflight) {
+			const at = w.indexOf("\n");
+			const id = w.slice(at + 1);
+			if (w.slice(0, at) === block.id && !ids.some((x) => String(x) === id)) ids.push(id);
+		}
+		return ids;
+	}
+
+	/**
+	 * The act is kept; now, if the rows come from a file of the vault or from a data block in the note, and the act replaced a value (it has
+	 * `was`), added a row (`$add`) or removed one (`$delete`), it is written into that data once (data-files.ts, core/apply.ts). Whatever
+	 * happens, the kept entry stays: the notice says so.
 	 */
 	private async applyAct(key: string, pair: Record<string, unknown>, apply: ActApply | undefined, path: string | null): Promise<void> {
+		if (key === ADD_KEY || key === DELETE_KEY) return this.applyRows(key, pair, apply, path);
 		if (!apply || !Object.prototype.hasOwnProperty.call(pair, "was")) {
 			new Notice("Booklet: change kept.");
 			return;
 		}
-		const got = await this.files.apply(apply.block, path, pair["pick"], key, pair["was"], pair["a"], apply.eq);
+		const run = (text: string, keyPath: string): ApplyResult => applyAct(text, keyPath, pair["pick"], key, pair["was"], pair["a"], apply.eq);
+		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
 		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
-		else if (got.state === "refused") new Notice(`Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
-		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because the file cannot be written.`);
+		else if (got.state === "refused") new Notice(got.why in WHOLE_REFUSAL ? `Booklet: change kept. ${WHOLE_REFUSAL[got.why as keyof typeof WHOLE_REFUSAL]}` : `Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
+		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
+	}
+
+	/** An added or a removed row, once the entry is kept: written into the data; a success says nothing beyond the redraw, a refusal says why. */
+	private async applyRows(key: string, pair: Record<string, unknown>, apply: ActApply | undefined, path: string | null): Promise<void> {
+		const adding = key === ADD_KEY;
+		if (!apply) return;
+		const run = (text: string, keyPath: string): ApplyResult =>
+			adding
+				? applyAdd(text, keyPath, pair["pick"], pair["under"], (pair["row"] ?? {}) as Record<string, unknown>)
+				: applyDelete(text, keyPath, pair["pick"], pair["was"]);
+		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
+		if (got.state === "written" || got.state === "same") return;
+		const lead = adding ? "the row was kept but not added to" : "the removal was kept, but no row was taken out of";
+		if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why]}`);
+		else new Notice(`Booklet: ${lead}${got.name ? ` ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
+	}
+
+	/**
+	 * Applies a change to a data block written in the note itself: it goes through the same write as the records (so the open editor, the
+	 * queue and the stamp rules hold), and the note changes only between the block's fences. Called from inside the queue's own chain, so the
+	 * write is made directly and not queued behind itself.
+	 */
+	private async applyInline(block: DataBlock, act: (inner: string) => ApplyResult): Promise<Applied> {
+		const file = this.file;
+		const name = INLINE_NAME;
+		if (!file) return { state: "failed", name };
+		let out: Applied = { state: "failed", name };
+		try {
+			await this.write(file, (note) => {
+				const r = applyInFence(note, block.id, block.module, act);
+				if (!r.ok) {
+					out = { state: "refused", why: r.why, name };
+					return note;
+				}
+				out = r.text === note ? { state: "same", name } : { state: "written", name };
+				return r.text;
+			});
+		} catch {
+			return { state: "failed", name };
+		}
+		return out;
 	}
 
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void {
-		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, t.activity) && p.pick === pick) this.flushTyped(p.t, p.q, p.pick);
+		for (const p of [...this.pending.values()]) if (sameAct(p.t.activity, t.activity) && p.pick !== undefined && String(p.pick) === String(pick)) this.flushTyped(p.t, p.q, p.pick);
 		const file = this.file;
 		if (!file) return;
 		const a = t.activity;
@@ -1164,10 +1319,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	draftHas(t: Target, ids: readonly string[], pick: PickValue): boolean {
-		for (const p of this.pending.values()) if (sameAct(p.t.activity, t.activity) && p.pick === pick && ids.includes(p.q.id)) return true;
+		for (const p of this.pending.values()) if (sameAct(p.t.activity, t.activity) && p.pick !== undefined && String(p.pick) === String(pick) && ids.includes(p.q.id)) return true;
 		const d = this.shown(t.activity).values;
 		return ids.some((id) => {
-			const pair = own(d, id) ? pairFor(d[id], pick) : undefined;
+			const pair = own(d, id) ? pairFor(d[id], pick, true) : undefined;
 			return !!pair && holdsSomething(pair.a);
 		});
 	}
@@ -1696,7 +1851,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			if (p.q.id !== q.id || !sameAct(p.t.activity, t.activity)) continue;
 			if (p.pick === undefined) v = p.value;
 			else {
-				const next = setPair(v, p.pick, p.value, p.extra);
+				const next = setPair(v, p.pick, p.value, p.extra, askedOfRows(t.activity, p.q));
 				v = next.length ? next : undefined;
 			}
 		}
@@ -1858,7 +2013,21 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 				const ul = dl.createEl("dd").createEl("ul");
 				for (const x of pairsOf(e[k]) as Array<Record<string, unknown>>) ul.createEl("li", { text: `${String(x.pick)}: ${valueText(x.a)}${Object.prototype.hasOwnProperty.call(x, "was") ? ` (was ${valueText(x.was) || "empty"})` : ""}` });
 			}
-			const other = Object.keys(e).filter((k) => k !== "ts" && !ids.has(k) && !acts.includes(k) && holdsSomething(e[k])).length;
+			// an entry that adds a row or takes one out (rows-act.ts): said in words, with the row's id and what it was given
+			for (const p of addPairs(e, true)) {
+				rows++;
+				dl.createEl("dt", { text: "Added a row" });
+				const fields = Object.entries(p.row).map(([k, v]) => `${k}: ${valueText(v) || "empty"}`);
+				dl.createEl("dd", { text: `${String(p.pick)}${p.under !== undefined ? ` under ${String(p.under)}` : ""}${fields.length ? ` (${fields.join(", ")})` : ""}` });
+			}
+			for (const p of deletePairs(e, true)) {
+				rows++;
+				dl.createEl("dt", { text: "Removed a row" });
+				const was = p.was as Record<string, unknown>;
+				const under = rowsUnder(was as DataRow);
+				dl.createEl("dd", { text: `${String(p.pick)}${under ? ` and ${under === 1 ? "the row" : `the ${under} rows`} under it` : ""}` });
+			}
+			const other = Object.keys(e).filter((k) => k !== "ts" && k !== ADD_KEY && k !== DELETE_KEY && !ids.has(k) && !acts.includes(k) && holdsSomething(e[k])).length;
 			if (!rows && !other) item.createDiv({ cls: "booklet-muted", text: "No answers in this entry." });
 			if (other) item.createDiv({ cls: "booklet-muted", text: `${other === 1 ? "One answer" : `${other} answers`} kept here ${other === 1 ? "is" : "are"} for a question this view does not show yet.` });
 			this.drawRemove(item, list, a, e, base.indexOf(e), entryKey(e));
@@ -2010,8 +2179,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	 */
 	private keepWordsOfGoneRows(vkey: string, plan: ReturnType<typeof planQuery>): void {
 		if (plan.kind !== "rows") return;
-		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [pickKey(r.id)])));
-		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(pickKey(s.pick))) s.commit?.();
+		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [String(r.id)])));
+		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(String(s.pick))) s.commit?.();
 	}
 
 	private dayRule(): DayRule {

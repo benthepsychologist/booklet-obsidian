@@ -4,9 +4,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/check-in",
      "title": "Check-in",
      "lang": "en"
@@ -492,6 +492,8 @@
          "group": null,
          "parent": null,
          "readonly": null,
+         "add": false,
+         "delete": false,
          "roles": {}
         },
         "source": {
@@ -520,6 +522,8 @@
          "group": null,
          "parent": null,
          "readonly": null,
+         "add": false,
+         "delete": false,
          "roles": {}
         },
         "source": {
@@ -805,6 +809,7 @@
       "text": "{ \"engine\": \"grid-select\",\n  \"axes\": { \"top\": \"more energy\", \"bottom\": \"less energy\", \"left\": \"less pleasant\", \"right\": \"more pleasant\" },\n  \"cells\": [\n    { \"id\": \"agitating\", \"label\": \"Agitating\", \"note\": \"Lots of energy, and not pleasant.\", \"color\": \"warm\" },\n    { \"id\": \"invigorating\", \"label\": \"Invigorating\", \"note\": \"Lots of energy, and pleasant.\", \"color\": \"green\" },\n    { \"id\": \"draining\", \"label\": \"Draining\", \"note\": \"Little energy, and not pleasant.\", \"color\": \"blue\" },\n    { \"id\": \"soothing\", \"label\": \"Soothing\", \"note\": \"Little energy, and pleasant.\", \"color\": \"purple\" }\n  ],\n  \"items\": [\n    { \"id\": \"rushed\", \"cell\": \"agitating\", \"label\": \"Rushed\" },\n    { \"id\": \"tense\", \"cell\": \"agitating\", \"label\": \"Tense\" },\n    { \"id\": \"lively\", \"cell\": \"invigorating\", \"label\": \"Lively\" },\n    { \"id\": \"cheerful\", \"cell\": \"invigorating\", \"label\": \"Cheerful\" },\n    { \"id\": \"flat\", \"cell\": \"draining\", \"label\": \"Flat\" },\n    { \"id\": \"tired\", \"cell\": \"draining\", \"label\": \"Tired\" },\n    { \"id\": \"settled\", \"cell\": \"soothing\", \"label\": \"Settled\" },\n    { \"id\": \"content\", \"cell\": \"soothing\", \"label\": \"Content\" } ],\n  \"copy\": { \"h\": \"Four kinds of feeling\", \"p\": \"Press the words that fit, in any of the four.\" } }"
      }
     ],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -1331,6 +1336,8 @@
             "group": null,
             "parent": null,
             "readonly": null,
+            "add": false,
+            "delete": false,
             "roles": {}
            },
            "source": {
@@ -1359,6 +1366,8 @@
             "group": null,
             "parent": null,
             "readonly": null,
+            "add": false,
+            "delete": false,
             "roles": {}
            },
            "source": {
@@ -1446,9 +1455,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/daily-tracker",
      "title": "Daily tracker",
      "lang": "en"
@@ -1649,6 +1658,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [
@@ -1994,9 +2004,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/evening-check-in",
      "title": "Evening check-in",
      "lang": "en"
@@ -2147,6 +2157,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -2376,9 +2387,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/every-kind",
      "title": "Every kind",
      "lang": "en"
@@ -2942,6 +2953,8 @@
          "group": null,
          "parent": null,
          "readonly": null,
+         "add": false,
+         "delete": false,
          "roles": {}
         },
         "source": {
@@ -3033,6 +3046,7 @@
       "text": "{ \"engine\": \"grid-select\",\n  \"axes\": { \"top\": \"taller\", \"bottom\": \"shorter\", \"left\": \"narrower\", \"right\": \"wider\" },\n  \"cells\": [\n    { \"id\": \"tall-narrow\", \"label\": \"Tall and narrow\", \"note\": \"Like a chimney.\", \"color\": \"warm\" },\n    { \"id\": \"tall-wide\", \"label\": \"Tall and wide\", \"note\": \"Like a wardrobe.\", \"color\": \"green\" },\n    { \"id\": \"short-narrow\", \"label\": \"Short and narrow\", \"note\": \"Like a brick.\", \"color\": \"amber\" },\n    { \"id\": \"short-wide\", \"label\": \"Short and wide\", \"note\": \"Like a bench.\", \"color\": \"teal\" }\n  ],\n  \"items\": [\n    { \"id\": \"red-box\", \"cell\": \"tall-wide\", \"label\": \"The red box\" },\n    { \"id\": \"blue-box\", \"cell\": \"short-narrow\", \"label\": \"The blue box\" } ],\n  \"copy\": { \"h\": \"Boxes\", \"p\": \"Pick the cell each box fits.\" } }"
      }
     ],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -3679,6 +3693,8 @@
             "group": null,
             "parent": null,
             "readonly": null,
+            "add": false,
+            "delete": false,
             "roles": {}
            },
            "source": {
@@ -3805,9 +3821,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/kept-records",
      "title": "Kept records",
      "lang": "en"
@@ -4046,6 +4062,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [
@@ -4540,9 +4557,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "nav-proto/sketching",
      "title": "Learning to sketch",
      "lang": "en"
@@ -5045,6 +5062,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -6008,9 +6026,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/reading",
      "title": "Reading and steps",
      "lang": "en"
@@ -6550,6 +6568,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [
      {
       "id": "atlas-12",
@@ -7314,9 +7333,9 @@
    "book": {
     "ok": true,
     "refusal": null,
-    "marker": "0.19",
+    "marker": "0.20",
     "frontMatter": {
-     "booklet": "0.19",
+     "booklet": "0.20",
      "id": "booklet-test/study-quiz",
      "title": "Study quiz",
      "lang": "en"
@@ -7763,6 +7782,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -8437,6 +8457,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -8761,6 +8782,7 @@
     "widgets": [],
     "menus": [],
     "blocks": [],
+    "data": [],
     "notes": [],
     "records": {
      "regions": [],
@@ -8912,7 +8934,7 @@
   },
   "places": {
    "home||0": {
-    "sha": "64164f850eb816662ac51c99594a99fd99cadcc05f7ab1edc5cd4c97354a746d",
+    "sha": "342203b44e7e29db7ed1081cc20a086274c7daa9ff9e8648ec99dc2790a7f865",
     "writes": 0,
     "same": true,
     "drawn": "home",
@@ -8924,7 +8946,7 @@
     }
    },
    "activity:/o||0": {
-    "sha": "8ee2f07591eeafb8d62a32aed7b56102608e6f451e721961a817aca4d8fe911d",
+    "sha": "308f074ebfade7121df1591b05162e4d8a1eecd259c997804549accc980e84f0",
     "writes": 0,
     "same": true,
     "drawn": "activity:/o",

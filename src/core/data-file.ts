@@ -12,6 +12,21 @@ export const DATA_NAME_MAX = 200;
 /** The largest data file read, in bytes (booklet.html's LINK_BYTES: the same file reads the same way here). */
 export const DATA_FILE_MAX = 5 * 1024 * 1024;
 
+/** How many bytes `text` is in UTF-8 (a data file's size is counted in bytes; a lone surrogate counts as the three bytes of U+FFFD). */
+export function utf8Length(text: string): number {
+	let n = 0;
+	for (let i = 0; i < text.length; i++) {
+		const c = text.charCodeAt(i);
+		if (c < 0x80) n += 1;
+		else if (c < 0x800) n += 2;
+		else if (c >= 0xd800 && c <= 0xdbff && i + 1 < text.length && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff) {
+			n += 4;
+			i++;
+		} else n += 3;
+	}
+	return n;
+}
+
 /** What a `booklet data` fence line names: the file, the key path inside it, and whether either is a name that is never read. */
 export interface DataFileRef {
 	name: string;
@@ -81,6 +96,9 @@ export function dataRead(file: DataFileRef, json: unknown): DataFound {
 export interface FenceOver {
 	fields: Record<string, string> | null;
 	edits: Record<string, FieldEdit>;
+	/** The fence's `idFormat` and `idPattern`, which win over the file's (row-id.ts). */
+	idFormat?: unknown;
+	idPattern?: unknown;
 }
 
 /** The rows of one block from what the file holds there: the block's own fence labels and marks laid over the file's. */
@@ -88,5 +106,10 @@ export function dataMerge(found: DataFound, fence: FenceOver | null): { data: Da
 	if ("note" in found) return found;
 	const d = found.d;
 	const fields = fence && (fence.fields || d.fields) ? { ...(d.fields ?? {}), ...(fence.fields ?? {}) } : null;
-	return { data: { rows: d.rows, fields, edits: { ...d.edits, ...(fence ? fence.edits : {}) } } };
+	const out: DataRows = { rows: d.rows, fields, edits: { ...d.edits, ...(fence ? fence.edits : {}) } };
+	const idFormat = fence?.idFormat !== undefined ? fence.idFormat : d.idFormat;
+	const idPattern = fence?.idPattern !== undefined ? fence.idPattern : d.idPattern;
+	if (idFormat !== undefined) out.idFormat = idFormat;
+	if (idPattern !== undefined) out.idPattern = idPattern;
+	return { data: out };
 }

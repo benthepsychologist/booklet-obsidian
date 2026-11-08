@@ -8,7 +8,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { build, core, norm } from "./helpers.mjs";
 
-const head = `---\nbooklet: "0.19"\ntitle: Made up\n---\n\n`;
+const head = `---\nbooklet: "0.20"\ntitle: Made up\n---\n\n`;
 const asCrlf = (t) => t.replace(/\n/g, "\r\n");
 const only = (nav) => [...nav.byKey.values()][0];
 

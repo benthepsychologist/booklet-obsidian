@@ -15,7 +15,7 @@ module.exports = function navChecks(env) {
 
   /* ---- made-up notes the checks write into their own copy of the vault ---- */
   const WEEKLY_NOTE = `---
-booklet: "0.19"
+booklet: "0.20"
 title: Weekly plan
 ---
 
@@ -67,7 +67,7 @@ An ordinary note, made up.
 - [[Finish test.booklet#Answer]]
 `;
   const FINISH_NOTE = `---
-booklet: "0.19"
+booklet: "0.20"
 title: Finish test
 ---
 
@@ -84,7 +84,7 @@ Some words to read.
 > [!text|what] What happened?
 `;
   const LONG_NOTE = `---
-booklet: "0.19"
+booklet: "0.20"
 title: A booklet with a rather long title that cannot fit on one line of a phone
 ---
 
@@ -109,7 +109,7 @@ Four.
 > [!module|long end] End
 `;
   const TABBED_NOTE = `---
-booklet: "0.19"
+booklet: "0.20"
 title: Tabs and pages
 ---
 
@@ -132,7 +132,7 @@ Two p2
 
   // a made-up wiki of 13 pages in three levels, one activity with no tab line (made-up words)
   const GARDEN_NOTE = `---
-booklet: "0.19"
+booklet: "0.20"
 title: A small garden
 ---
 
@@ -202,7 +202,7 @@ A spade, a fork and a trowel are enough.
 `;
   // a made-up tree fourteen levels deep with two pages beside each, for the menu that must scroll inside itself
   const DEEP_NOTE = (() => {
-    let t = `---\nbooklet: "0.19"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
+    let t = `---\nbooklet: "0.20"\ntitle: A deep wiki\n---\n\n> [!activity|deep] A deep wiki\n\nThe first page of a made-up tree.\n`;
     for (let n = 1; n <= 14; n++) {
       t += `\n> [!page|level-${n}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} of the tree\n\nWords on level ${n}.\n`;
       for (const side of ["a", "b"]) t += `\n> [!page|level-${n}${side}${n > 1 ? ` parent:level-${n - 1}` : ""}] Level ${n} side ${side}\n\nA page beside level ${n}.\n`;
@@ -214,7 +214,7 @@ A spade, a fork and a trowel are enough.
   // a note of one repeating activity ("Log") with `n` made-up kept entries; with `two`, a second one ("More") with 4
   function foldNote(n, two) {
     const entries = (id, k) => `\`\`\`booklet entries ${id}\n{"items": [\n${Array.from({ length: k }, (_, i) => `{"ts": "2026-09-${String(i + 1).padStart(2, "0")}T09:00:00Z", "${id === "log" ? "what" : "else"}": "Made-up entry ${i + 1} of ${id}"}`).join(",\n")}\n]}\n\`\`\`\n`;
-    let t = `---\nbooklet: "0.19"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
+    let t = `---\nbooklet: "0.20"\ntitle: Fold ${n}\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n`;
     if (two) t += `\n> [!activity|more repeat] More\n\n> [!text|else] What else?\n`;
     const blocks = (n ? entries("log", n) : "") + (two ? entries("more", 4) : "");
     return blocks ? t + `\n%%\n> [!records] App record — do not edit below this line\n\n${blocks}%%\n` : t;
@@ -224,7 +224,7 @@ A spade, a fork and a trowel are enough.
     return [...src.matchAll(/^\t"([a-z0-9-]+)",$/gm)].map(m => m[1]);
   }
   function iconsNote(names) {
-    let t = `---\nbooklet: "0.19"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
+    let t = `---\nbooklet: "0.20"\ntitle: All icons\n---\n\n> [!module|icons] All icons\n\n`;
     for (const n of names) t += `> [!activity|a-${n} icon:${n}] ${n}\n\nIcon ${n}.\n\n`;
     return t + `> [!module|icons end] End\n`;
   }

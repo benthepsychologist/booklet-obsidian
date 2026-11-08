@@ -52,7 +52,7 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 }
 
 /** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
-export const FORMAT_VERSION = "0.19";
+export const FORMAT_VERSION = "0.20";
 
 export interface Option {
 	text: string;
@@ -94,6 +94,11 @@ export interface DataBlock extends DataRows {
 	id: string;
 	module: string | null;
 	line: number;
+	/**
+	 * For a block whose JSON is written in the note itself (not a file, not inside a callout): the lines between its fences, counted from 0,
+	 * `from` the first and `to` the line after the last. An applied add, removal or edit writes only inside them (apply.ts, fenceInner).
+	 */
+	inner?: { from: number; to: number };
 	/**
 	 * Set when the fence line names a JSON file beside the note (`booklet data dashboard.json plots`, SPEC section 7, "Rows from a
 	 * file"): the rows then come from that file, found by the view (data-files.ts), and `rows` here is empty. `fields` and `edits` are
@@ -240,8 +245,8 @@ export interface Unsupported {
 
 /* ---- queries (SPEC section 6, "Queries: showing kept entries and data" and "A span of days, and summaries") ---- */
 
-/** A query's sixteen keys (written as one string, so that no line here reads as an import to test/safety.test.mjs). */
-export const QUERY_KEYS: readonly string[] = "from as fields group limit parent empty label value note badge tone link icon summary readonly".split(" ");
+/** A query's eighteen keys (written as one string, so that no line here reads as an import to test/safety.test.mjs). */
+export const QUERY_KEYS: readonly string[] = "from as fields group limit parent empty label value note badge tone link icon summary readonly add delete".split(" ");
 /** The six views. */
 export const QUERY_VIEWS = ["cards", "table", "list", "tiles", "bars", "line"] as const;
 export type ViewName = (typeof QUERY_VIEWS)[number];
@@ -269,6 +274,12 @@ export interface Query {
 	 * those. Null when the line has none. Read by every view (ask.ts isReadonly).
 	 */
 	readonly: true | string[] | null;
+	/**
+	 * `add` and `delete` (written bare, like a bare `readonly`): the view of a data block's rows offers "Add a row" (a top row, and under a
+	 * row that opens) and "Remove" on each row. Each needs the activity to keep entries; a bare `readonly` locks both (ask.ts rowActs).
+	 */
+	add: boolean;
+	delete: boolean;
 	/** The roles the query points at a field of another name (`label: bucket`). */
 	roles: Partial<Record<Role, string>>;
 }
@@ -397,6 +408,8 @@ export interface Booklet {
 	menus: MenuBlock[];
 	/** The fenced blocks that carry a block id, in file order (a widget's and a data block's among them). */
 	blocks: FencedBlock[];
+	/** The data blocks that were read, in file order (a query names one of them; an applied add, removal or edit finds its block here again, in the note's fresh text). */
+	data: DataBlock[];
 	/** The footnotes' definitions, in file order. */
 	notes: Note[];
 	references: ReferenceDefinition[];
@@ -901,7 +914,7 @@ export function parseBooklet(text: string): Booklet {
 		widgets.push({ id, module: blockModule(), data: data as Record<string, unknown>, line: i + 1 });
 	};
 	/** A data block's rows: JSON read as SPEC section 7 says; a block that cannot be read is reported and no query can name it. */
-	const readData = (i: number, close: number, id: string) => {
+	const readData = (i: number, close: number, id: string, inner?: { from: number; to: number }) => {
 		let json: unknown;
 		try {
 			json = JSON.parse(lines.slice(i + 1, Math.min(close, lines.length)).join("\n"));
@@ -911,7 +924,7 @@ export function parseBooklet(text: string): Booklet {
 		}
 		const r = readDataRows(json);
 		if ("bad" in r) problems.push(`${at(i)}: the data block "${id}" ${r.bad}, so no query can draw it.`);
-		else dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: r.rows, fields: r.fields, edits: r.edits });
+		else dataBlocks.push({ id, module: blockModule(), line: i + 1, ...(inner ? { inner } : {}), ...r });
 	};
 	/**
 	 * A data block whose fence line names a file (`booklet data dashboard.json inbox.requests`, SPEC section 7, "Rows from a file"):
@@ -947,11 +960,14 @@ export function parseBooklet(text: string): Booklet {
 			edits = f.edits;
 		}
 		if (o["rows"] !== undefined) problems.push(`${at(i)}: the data block "${id}" names a file, so its fence may hold only \`fields\`; its rows were not read, since the rows come from the file.`);
+		const ids: Pick<DataRows, "idFormat" | "idPattern"> = {};
+		if (o["idFormat"] !== undefined) ids.idFormat = o["idFormat"];
+		if (o["idPattern"] !== undefined) ids.idPattern = o["idPattern"];
 		const badName = dataFilePath(name) === null;
 		const badPath = !badName && !dataKeyPathOk(keys);
 		if (badName) problems.push(`${at(i)}: the data block "${id}" names the file “${name.slice(0, 80)}”, which is not a plain name of a .json file beside the note (letters, digits, _ . / and -, no part that starts with a dot), so it is never read.`);
 		else if (badPath) problems.push(`${at(i)}: the data block "${id}" names the key path “${keys.slice(0, 80)}”, which is not keys of letters, digits, _ and - joined by dots, so it is never read.`);
-		dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: [], fields, edits, file: { name, path: keys, bad: badName || badPath } });
+		dataBlocks.push({ id, module: blockModule(), line: i + 1, rows: [], fields, edits, ...ids, file: { name, path: keys, bad: badName || badPath } });
 	};
 	/** The question a `hint` or `solution` callout read now would belong to: the one straight above it, nothing else read since. */
 	let lastQ: Question | null = null;
@@ -1071,7 +1087,8 @@ export function parseBooklet(text: string): Booklet {
 					const id = (lines[n] ?? "").trim().slice(1);
 					// `booklet data <file.json> [key.path]`: the rows come from a file beside the note (SPEC section 7)
 					if (info[2]) readDataFile(i, k, id, info[2], info[3] ?? "");
-					else readData(i, k, id);
+					// the fence's own lines, when the fence stands in the note itself and not in a callout: where an applied add or edit writes (apply.ts, fenceInner)
+					else readData(i, k, id, open.length ? undefined : { from: i + 1, to: Math.min(k, lines.length) });
 				}
 				if (what !== "widget" && what !== "data" && what !== "query") {
 					// a block this view does not define: shown where it stands in an activity as not yet supported, and kept as written
@@ -1493,6 +1510,7 @@ export function parseBooklet(text: string): Booklet {
 		widgets,
 		menus,
 		blocks,
+		data: dataBlocks,
 		notes,
 		references,
 		records,
@@ -1563,7 +1581,7 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 		const ln = raw.trim();
 		if (!ln) continue;
 		// `readonly` alone on its line is a key with no value (SPEC section 6): every field the view draws is read-only
-		const kv = /^readonly$/i.test(ln) ? (["readonly", ""] as [string, string]) : kvLine(ln);
+		const kv = /^(?:readonly|add|delete)$/i.test(ln) ? ([ln.toLowerCase(), ""] as [string, string]) : kvLine(ln);
 		if (!kv) {
 			problems.push(`${at}: the query block has a line that is not \`key: value\` (${ln}), so it was refused.`);
 			return null;
@@ -1574,6 +1592,8 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 	for (const [k, n] of where) if (!QUERY_KEYS.includes(k)) unread(n, `a query has no setting "${k}", so it was ignored`, !looksLikeMistake(k, known));
 	const lim = o["limit"] === undefined ? null : LIMIT_RE.exec(o["limit"].trim());
 	if (o["limit"] !== undefined && !lim) problems.push(`${at}: the query's \`limit: ${o["limit"]}\` is not a positive whole number or a number of days (such as \`7 days\`), so it was ignored.`);
+	for (const k of ["add", "delete"])
+		if (o[k] !== undefined && o[k] !== "") problems.push(`${at}: the query's \`${k}: ${o[k]}\` has words after the key; ${k} stands alone, so they were ignored.`);
 	if (o["summary"] !== undefined && o["summary"] !== "on") problems.push(`${at}: the query's \`summary: ${o["summary"]}\` is not \`on\`, so it was ignored.`);
 	const text = (k: string): string | null => (o[k] !== undefined && o[k] !== "" ? o[k] : null);
 	const roles: Partial<Record<Role, string>> = {};
@@ -1605,6 +1625,8 @@ function readQuery(body: readonly string[], line: number, problems: string[], un
 							.split(",")
 							.map((x) => x.trim())
 							.filter(Boolean),
+		add: o["add"] !== undefined,
+		delete: o["delete"] !== undefined,
 		roles,
 	};
 }
@@ -1687,6 +1709,12 @@ function linkQuery(s: QuerySegment, act: Activity, activities: readonly Activity
 	if (q.summary && q.group !== null) {
 		problems.push(`Line ${s.line}: the query's \`group: ${q.group}\` is ignored: summary rows have nothing to group by.`);
 		q.group = null;
+	}
+	for (const k of [...(q.add ? ["add"] : []), ...(q.delete ? ["delete"] : [])]) {
+		const view = q.as ?? (source.kind === "data" || q.summary ? "table" : "cards");
+		if (source.kind !== "data") problems.push(`Line ${s.line}: the query's \`${k}\` changes the rows of a data block, and this query reads ${source.kind === "activity" ? "kept entries" : "a question's answers"}, so it does nothing.`);
+		else if (view !== "table" && view !== "list" && view !== "cards") problems.push(`Line ${s.line}: the query's \`${k}\` does nothing on ${view}; only table, cards and list draw rows that can be added or removed.`);
+		else if (!act.repeat || act.daily) problems.push(`Line ${s.line}: the query's \`${k}\` needs its activity to keep entries (\`repeat\`, not \`repeat daily\`), so it is not drawn here.`);
 	}
 	s.source = source;
 	return null;

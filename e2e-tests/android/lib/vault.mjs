@@ -39,7 +39,7 @@ export function makeWav(seconds, freq = 440, rate = 8000, amp = 3000) {
 	return Buffer.concat([h, data]);
 }
 
-const front = (id, title, extra = "") => `---\nbooklet: "0.19"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
+const front = (id, title, extra = "") => `---\nbooklet: "0.20"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
 
 /** Two activities. The first has a two-minute tone, a write-in and a choice; "Next" is a page move to the second. */
 export const listenNote = () =>
@@ -65,7 +65,7 @@ export const listenNote = () =>
 /** A made-up garden wiki: one activity, a tree of pages three levels deep, so the Pages button and its menu are drawn. */
 export const pagesNote = () =>
 	`---
-booklet: "0.19"
+booklet: "0.20"
 title: A small garden
 ---
 

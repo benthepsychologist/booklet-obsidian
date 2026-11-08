@@ -347,10 +347,10 @@ test("a row's Finalize and a question's answer are only kept: nothing is written
 	v.close();
 });
 
-test("rows written in the note itself are not a vault file: an edit is kept, nothing else is written, and the cell waits", async () => {
+test("rows written in the note itself: an edit is kept and written between the data block's fences, and nowhere else in the note", async () => {
 	const text = [
 		"---",
-		'booklet: "0.19"',
+		'booklet: "0.20"',
 		"id: example/inline",
 		"title: Inline",
 		"lang: en",
@@ -382,9 +382,15 @@ test("rows written in the note itself are not a vault file: an edit is kept, not
 	await v.settled();
 	await sleepTick();
 	assert.equal(v.kept().length, 1);
-	assert.equal(v.written.count, 0);
-	assert.deepEqual(said(), ["Booklet: change kept."]);
-	assert.equal(v.cell(v.queries()[0], "title", "a").querySelector(".booklet-row-state").getAttribute("data-state"), "waiting");
+	assert.equal(v.written.count, 0, "no vault file is written");
+	assert.deepEqual(said(), ["Booklet: change kept and written to the data block."]);
+	const after = v.disk.text;
+	// the note up to the records the app keeps is the note as it was, but for the one value between the fences
+	assert.equal(after.split("\n%%\n")[0].trimEnd(), text.replace('"title":"One"', '"title":"Two"').trimEnd(), "the note changed only inside the fence");
+	assert.equal(after.split("\n%%\n").length, 3, "and the records region (opened and closed by %%) is the one other thing there");
+	const cell = v.cell(v.queries()[0], "title", "a");
+	assert.equal(words(cell.querySelector(".booklet-edit-value")), "Two", "the cell shows the value the note now holds");
+	assert.equal(cell.querySelector('.booklet-row-state[data-state="waiting"]'), null, "and no longer waits");
 	v.close();
 });
 
@@ -849,5 +855,62 @@ test("the history under an adding question reads time then words; the data's lis
 	assert.equal(items[0], "An old reply", "the data's own list first");
 	assert.match(items[1], /^.+ · A new reply$/, "then the kept answer: its time, then its words");
 	assert.ok(!items.join(" ").includes("waiting"));
+	v.close();
+});
+
+/* ---- contract section 10: ids are text ---- */
+
+test("ids are text: an act kept with the pick \"7\" is found on the row whose id is the number 7, and an edit of that row is kept with the id as the data writes it", async () => {
+	const json = JSON.parse(FILE);
+	json.plots.rows[0].id = 7;
+	const file = JSON.stringify(json);
+	const seeded = core.keepEntry(ORCHARD, "desk", "orchard", { title: [{ pick: "7", a: "Sent name", was: "Orchard" }] }, { ts: "2026-11-08T10:00:00Z" }).text;
+	const v = await orchard({ text: seeded, file });
+	const mark = () => v.cell(v.queries()[0], "title", "7").querySelector(".booklet-row-state");
+	assert.equal(mark()?.getAttribute("data-state"), "waiting", "the text pick finds the number id: what was sent is waiting");
+	v.unwritable.on = true;
+	change(v.cell(v.queries()[0], "stage", "7"), "resting");
+	await v.settled();
+	const stage = v.kept().find((e) => e.stage).stage;
+	assert.strictEqual(stage[0].pick, 7, "the pick is stored as the id is written");
+	v.close();
+});
+
+test("ids are text: a row whose id is the number 7 offers Finalize for a draft answer kept as the pick \"7\", and keeps it", async () => {
+	const json = JSON.parse(FILE);
+	const ladder = JSON.stringify(json).includes('"b-ladder"');
+	assert.equal(ladder, true);
+	const renamed = FILE.replace('"id": "b-ladder"', '"id": 7');
+	const draft = core.setDraftAnswer(ORCHARD, "desk", "orchard", "decision", [{ pick: "7", a: 1 }]);
+	const v = await orchard({ text: draft, file: renamed });
+	const first = v.queries()[3].querySelector("details");
+	first.open = true;
+	first.dispatchEvent(new w.Event("toggle"));
+	const finalize = first.querySelector("button.booklet-row-finalize");
+	assert.equal(finalize.disabled, false, "the draft pair \"7\" is this row's");
+	assert.equal(first.querySelector('[data-booklet-q="decision"] button.booklet-choice').getAttribute("aria-pressed"), "true", "and the control shows its answer");
+	click(finalize);
+	await v.settled();
+	await sleepTick();
+	assert.deepEqual(norm(v.kept().find((e) => e.decision).decision), [{ pick: "7", a: 1 }]);
+	v.close();
+});
+
+test("ids are text: answering again on a row whose draft pair was written \"7\" changes that pair and adds none", async () => {
+	const renamed = FILE.replace('"id": "b-ladder"', '"id": 7');
+	const draft = core.setDraftAnswer(ORCHARD, "desk", "orchard", "decision", [{ pick: "7", a: 1 }]);
+	const v = await orchard({ text: draft, file: renamed });
+	const first = v.queries()[3].querySelector("details");
+	first.open = true;
+	first.dispatchEvent(new w.Event("toggle"));
+	const options = first.querySelectorAll('[data-booklet-q="decision"] button.booklet-choice');
+	click(options[1]);
+	await v.settled();
+	await sleepTick();
+	await v.settled();
+	const held = norm(core.parseBooklet(v.disk.text).records.drafts.desk.orchard.decision);
+	assert.equal(held.length, 1, "one pair for the row");
+	assert.equal(String(held[0].pick), "7");
+	assert.notDeepEqual(held[0].a, 1, "and it changed");
 	v.close();
 });

@@ -1,5 +1,5 @@
 ---
-booklet: "0.19"
+booklet: "0.20"
 id: booklet-test/pictures-demo
 title: Pictures demo
 lang: en

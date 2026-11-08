@@ -27,6 +27,16 @@ export interface RowsUi {
 	edit(into: HTMLElement, p: Plan, r: Row, key: string, spec: EditSpec): void;
 	/** A row's Finalize, under its questions. */
 	finish(into: HTMLElement, p: Plan, r: Row, qs: readonly Question[]): void;
+	/** "Add a row", under the view (a top row): its button and form, or the quiet line that says the id format is not valid; nothing when the query does not ask for it. */
+	addTop(into: HTMLElement, p: Plan): void;
+	/** Does this row's open part hold "Add under this row" (the query asks for it, and the row holds one list of rows)? */
+	offersUnder(p: Plan, r: Row): boolean;
+	/** "Add under this row", in the row's open part. */
+	addUnder(into: HTMLElement, p: Plan, r: Row): void;
+	/** Does this view draw "Remove" on its rows? */
+	removes(p: Plan): boolean;
+	/** "Remove" on a row, and its question. */
+	remove(into: HTMLElement, p: Plan, r: Row): void;
 }
 
 /** How many levels of a nested list are drawn inside one another. */
@@ -194,6 +204,16 @@ function pills(into: HTMLElement, list: readonly string[], tone: string | null):
 	for (const b of list) box.createSpan({ cls: `booklet-q-pill${tone ? ` booklet-tone-${tone}` : ""}`, text: b });
 }
 
+/**
+ * What a row is going through while the data has not followed its kept entry (core/rows-act.ts), in words beside it: an added row "sent,
+ * waiting", a row asked to be removed "removing, waiting", and a removal the data did not follow, which says so. Nothing is said by colour alone.
+ */
+function actMark(into: HTMLElement, r: Row): void {
+	if (r.act === "adding") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · sent, waiting" });
+	else if (r.act === "removing") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · removing, waiting" });
+	else if (r.act === "refused") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "changed" }, text: " · You asked to remove this; it changed since." });
+}
+
 /** The most characters a table cell may hold and still be kept on one line (a date and its time is 27). */
 const SHORT_CELL = 32;
 
@@ -248,14 +268,17 @@ function openInto(host: QueryHost, p: Plan, into: HTMLElement, r: Row): void {
 		}
 	}
 	const qs = p.tree && host.rows ? p.tree.asks(r) : [];
-	if (!qs.length) return;
-	const box = into.createDiv({ cls: "booklet-row-asks" });
-	for (const q of qs) host.rows!.ask(box, p, r, q, "open");
-	host.rows!.finish(box, p, r, qs);
+	if (qs.length) {
+		const box = into.createDiv({ cls: "booklet-row-asks" });
+		for (const q of qs) host.rows!.ask(box, p, r, q, "open");
+		host.rows!.finish(box, p, r, qs);
+	}
+	// "Add under this row", for a row that holds one list of rows
+	if (host.rows && host.rows.offersUnder(p, r)) host.rows.addUnder(into, p, r);
 }
 
-/** Does a row's open part hold anything to draw: its other fields, or a question? */
-const hasOpenPart = (p: Plan, r: Row): boolean => !!p.tree && (p.tree.more(r).length > 0 || p.tree.asks(r).length > 0);
+/** Does a row's open part hold anything to draw: its other fields, a question, or "Add under this row"? */
+const hasOpenPart = (host: QueryHost, p: Plan, r: Row): boolean => !!p.tree && (p.tree.more(r).length > 0 || p.tree.asks(r).length > 0 || !!host.rows?.offersUnder(p, r));
 
 /** The heading of a group of child rows, the field they came from. */
 function kidHead(host: QueryHost, into: HTMLElement, label: readonly WordPart[]): void {
@@ -272,6 +295,8 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 	const short = new Set(cols.filter((k) => all.every((r) => !r.cells[k]?.list && (r.cells[k]?.text ?? "").length <= SHORT_CELL)));
 	const wrap = into.createDiv({ cls: "booklet-q-wrap" });
 	const t = wrap.createEl("table", { cls: "booklet-q-table" });
+	// "Remove" on each row stands in a column of its own at the end
+	const removes = !!host.rows && host.rows.removes(p);
 	const head = t.createEl("thead").createEl("tr");
 	for (const k of cols) {
 		const th = head.createEl("th", { cls: numeric.has(k) ? "booklet-q-num" : "", attr: { scope: "col" } });
@@ -291,6 +316,11 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			sort.on(k);
 		});
 	}
+	if (removes) head.createEl("th", { cls: "booklet-q-act", attr: { scope: "col" } }).createSpan({ cls: "booklet-sr", text: "Remove" });
+	/** The cell that holds a row's Remove. */
+	const actCell = (tr: HTMLElement, r: Row): void => {
+		if (removes) host.rows!.remove(tr.createEl("td", { cls: "booklet-q-act" }), p, r);
+	};
 	// the first column that is not the badge leads the row: it carries the row's picture and its link
 	const leadKey = cols.find((k) => k !== roles.badge);
 	/** One cell's contents, in `td` or in the part of it that is the row's lead (`into`). */
@@ -305,13 +335,14 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			iconInto(into, r, roles);
 			lead(host, into, r, roles, (el) => cellInto(host, el, r.cells[k], true));
 		} else fieldInto(host, p, into, r, k, true);
+		if (k === leadKey) actMark(into, r);
 	};
 	const nest = nestOf(p, ui);
 	if (!nest) {
 		for (const g of p.groups) {
 			const body = t.createEl("tbody");
 			if (g.name !== null) {
-				const th = body.createEl("tr", { cls: "booklet-q-grouprow" }).createEl("th", { attr: { scope: "rowgroup", colspan: String(cols.length) } });
+				const th = body.createEl("tr", { cls: "booklet-q-grouprow" }).createEl("th", { attr: { scope: "rowgroup", colspan: String(cols.length + (removes ? 1 : 0)) } });
 				th.appendText(g.name || "–");
 				th.createSpan({ cls: "booklet-q-count", text: QUERY_WORDS.rows(g.rows.length) });
 			}
@@ -321,6 +352,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 					const td = tr.createEl("td");
 					fill(td, td, r, k);
 				}
+				actCell(tr, r);
 			}
 		}
 		return null;
@@ -329,7 +361,7 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 	// native disclosure in its lead cell; what it opens to (its other fields, its children) is a few rows after it, drawn when it
 	// opens and taken away when it shuts. `data-depth` says how far in a row is.
 	const body = t.createEl("tbody");
-	const span = String(cols.length || 1);
+	const span = String(cols.length + (removes ? 1 : 0) || 1);
 	const nlead = leadKey ?? cols[0];
 	const { tree, work } = nest;
 	const leadBox = (td: HTMLElement, depth: number): HTMLElement => {
@@ -360,10 +392,11 @@ function table(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 			fill(td, summary, r, k);
 			nameIfBlank(summary);
 		}
+		actCell(tr, r);
 		if (!opens || !details) return;
 		const below = (): (() => void)[] => {
 			const jobs: (() => void)[] = [];
-			if (hasOpenPart(p, r))
+			if (hasOpenPart(host, p, r))
 				jobs.push(() => {
 					const td = body.createEl("tr", { cls: "booklet-q-trmore", attr: { "data-depth": String(depth + 1) } }).createEl("td", { attr: { colspan: span } });
 					openInto(host, p, leadBox(td, depth + 1), r);
@@ -442,6 +475,8 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): Ne
 		}
 		if (roles.value && r.cells[roles.value]) cellInto(host, line.createSpan({ cls: `booklet-q-value${tone && !badges.length ? ` booklet-tone-${tone}` : ""}` }), r.cells[roles.value], false);
 		toneWords(line, tone);
+		actMark(line, r);
+		if (host.rows && host.rows.removes(p)) host.rows.remove(line, p, r);
 		if (roles.note && r.cells[roles.note]) cellInto(host, li.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
 	};
 	const row = (ul: HTMLElement, r: Row) => {
@@ -563,6 +598,8 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		if (roles.note && r.cells[roles.note]) cellInto(host, card.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
 		linesInto(card, r);
 		toneWords(card, tone);
+		actMark(card, r);
+		if (host.rows && host.rows.removes(p)) host.rows.remove(card, p, r);
 		return card;
 	};
 	if (!nest) {
@@ -604,6 +641,8 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		// the query's `fields:` lines are on the card's closed face (SPEC section 6, "Rows that open"), as on a card that does not open
 		linesInto(summary, r);
 		toneWords(summary, tone);
+		actMark(summary, r);
+		if (host.rows && host.rows.removes(p)) host.rows.remove(summary, p, r);
 		nameIfBlank(summary);
 		let drawn = false;
 		const draw = (): void => {
@@ -666,12 +705,17 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, 
 	into.setAttr("data-booklet-view", p.view);
 	if (p.empty !== null) {
 		into.createEl("p", { cls: `booklet-muted booklet-q-empty${p.quiet ? " booklet-q-quiet" : ""}`, text: p.empty });
+		// a view with no rows can still take its first: "Add a row" stands under the words that say there are none
+		if (!p.quiet && p.acts) host.rows?.addTop(into, p);
 		return null;
 	}
+	let hooks: NestHooks | null = null;
 	if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
-	else if (p.view === "table") return table(host, into, p, ui);
-	else if (p.view === "list") return listView(host, into, p, ui);
+	else if (p.view === "table") hooks = table(host, into, p, ui);
+	else if (p.view === "list") hooks = listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);
-	else return cards(host, into, p, ui);
-	return null;
+	else hooks = cards(host, into, p, ui);
+	// "Add a row", under the rows
+	if (p.acts) host.rows?.addTop(into, p);
+	return hooks;
 }

@@ -1552,3 +1552,65 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 - The Allow card's second defect (focus pulled back to Obsidian's Settings, and one Escape closing both, on Obsidian 1.11.7; `docs/accessibility-100.md`, finding 13). Ben: *"option A, do the fix so it doesn't escape to close both the popup and the card. that's annoying and it might actually block the allow-list usage"*. Outcome: **changed** (to be fixed in 1.0.0). Built (`5098737`): the card puts a key scope of its own on Obsidian's key stack while it is open, so Escape goes to the topmost scope only: it closes the card when the card is on top and Settings when Settings is, and Settings no longer pulls focus back from the card. The card's own document listener keeps Tab only. `e2e-tests/allow-settings-100.js`: 9 of 16 facts passed before on 1.11.7, 21 of 21 pass after on both 1.11.7 and 1.14.5.
 - Contrast that comes from Obsidian's theme colours (`docs/accessibility-100.md`, findings 7 to 10). Ben: *"A is fine, sticking with obsidian's theme colors for now"*. Outcome: **kept as the plugin's own** (it follows the user's theme) and listed in the README's Accessibility section. The hub item adds that the focus ring gets the second look the review page recommended. Built (`14889fc`): the plugin's own focus rings are the text colour (C-167), the one place the colours were changed; the accent contrasts (findings 7 to 9) still follow the theme.
 - The settings page's heading. Not a ruling: lane E2 removed the "Allow list for media" heading from the settings page, which has one section only (`5098737`; no row held it).
+
+---
+
+## F. Adding and removing rows (format 0.20), 2026-11-08
+
+Four choices the plugin made where the contract (`design/dashboards-as-booklets/rows-contract.md`) and SPEC 0.20 are silent, found while building the rows add/delete slice. They are listed here in the file's style; none is a ruling. They are not counted in the totals at the top of this file, which describe the list as it stood on 2026-11-03. Source for each: not ruled on.
+
+- **C-169** · tier `builder`
+  A row whose removal was kept and then refused because it had changed since the reader drew it ("You asked to remove this; it changed since.") offers Remove again. Pressing it keeps a new `$delete` entry whose `was` is the row as it stands now, and the newest act on a row wins. A row whose removal is merely waiting ("removing, waiting") or whose add is waiting offers no Remove.
+  - Why: the reader can see the row as it is now, so asking again is the natural next step; with no Remove the row could never be removed from the page. Entries are never removed, so the old refused one stays and is simply outranked.
+  - Where: `src/row-ask.ts:644`; `src/core/rows-act.ts` (`newestActs`)
+  - Source: Not ruled on. SPEC 0.20 says a refused removal "leaves the row with 'You asked to remove this; it changed since.'" and is silent on whether Remove is offered again.
+  - Suggestion: keep as the plugin's own; propose one line to SPEC saying a row so marked may be removed again
+
+- **C-170** · tier `builder` (changed again 2026-11-08 by contract section 11)
+  Add under this row is offered on a row with one field that takes children. Of the fields whose value is a list whose items are all objects: if exactly one has rows, it takes the child (empty lists beside it are ignored, so `"jobs": [{…}]` with `"tags": []` works); if none has rows and exactly one is empty, that empty list takes the child (the first child of `"jobs": []`); otherwise (two lists with rows, or none with rows and two or more empty, or no list) the row is not offered it. The applier chooses the same list or refuses with "Cannot tell where the new row goes under this one."
+  - Why: the contract's section 9 counted an empty list as a candidate, which refused every add under a parent that carries an empty `tags: []` beside its real child list; section 11 prefers the list that has rows.
+  - Where: `src/core/data.ts` (`childListKey`); `src/core/apply.ts` (`childList`); `src/core/rows-act.ts` (the copy a pending add stands in); `src/row-ask.ts` (`offersUnder`)
+  - Source: Ruled by the contract (section 11, refining section 9, item 3); the earlier choices were the plugin's own.
+  - Suggestion: none; the README says it
+
+- **C-171** · tier `builder`
+  A row held as a field's single object (`"detail": { "id": ..., ... }`, not in a list) cannot be removed: the removal is refused as "no place": the entry is kept, nothing is written, and the notice says "That row stands in no list of rows, so it cannot be taken out." Removing it would leave a field with no value or a half-written object, and there is no comma and no list to take it out of.
+  - Why: a list element can be taken out with its comma and its own line and nothing else; a member's value cannot without choosing what the member becomes. SPEC 0.20 describes removing from "its list" only.
+  - Where: `src/core/apply.ts:191`
+  - Source: Not ruled on. SPEC 0.20 is silent on a row that is not in a list.
+  - Suggestion: keep as the plugin's own; propose to SPEC that only a row in a list can be removed
+
+- **C-172** · tier `builder`
+  An edit, an added row and a removed row in a data block written in the note itself (an inline `booklet data` block) are written into the note, between the block's fences and nowhere else, by the same functions as for a file. The notice says "written to the data block".
+  - Why: SPEC 0.20 hosting says a host applies the act to the data the block holds; a block in the note is data the plugin hosts, and the alternative (keep the entry and never change the data) leaves every add and remove waiting forever. Before this slice the plugin only kept an edit of an inline block.
+  - Where: `src/core/apply.ts:227` (`applyInFence`); `src/view.ts:1253` (`applyInline`)
+  - Source: Not ruled on. The brief for this slice asked for it; it reverses the 1.3.0 README line "rows written in the note itself … the plugin does not change".
+  - Suggestion: keep as the plugin's own; Ben to confirm
+
+- **C-173** · tier `builder` (resolved 2026-11-08 by contract section 10, item 1)
+  Entries did not say which data block an `$add` or `$delete` was for, so when one activity held several data blocks an add to one was drawn "sent, waiting" in the views of the others. Resolved: each pair carries `"in": "<the data block's id>"` (required). A pending add or removal is drawn only in views of that block; `{n}` and clashes count only within that block's rows and waiting adds; the apply changes only that block's data. A pair without `in`, or whose `in` names no block, is kept as written and neither drawn, counted nor applied (the spec's linter reports it). No old shape is kept (pre-1.0).
+  - Why: found when check 63's made-up note had two blocks in one activity; the earlier note here asked SPEC to let the pair name its block, and the contract did.
+  - Where: `src/core/rows-act.ts` (`addPairs`, `deletePairs`, `withPending`, `rowIds`); `src/core/query.ts` (the `withPending` call); `src/view.ts` (`idsOf`, `inflight`); `src/row-ask.ts` (Add and Remove write `in`)
+  - Source: Ruled by the contract (section 10, item 1).
+  - Suggestion: none
+
+- **C-174** · tier `builder` (accepted 2026-11-08 by contract section 10, item 3)
+  On a narrow screen (600 px or less) the table's column of Remove buttons is pinned to the end of what shows while the table scrolls sideways (`position: sticky`), and the question wraps in a width of its own (10 to 16 em). Remove is not moved into a row's open part, because a table row that does not open has none. The contract accepts this pinned column in place of moving Remove into the lead cell; the spec says nothing about where Remove sits.
+  - Why: contract 8.10 says Remove sits in the row's open part on a narrow screen; a flat table's rows have no open part, and drawing the control twice (once hidden) would double every Remove for a screen reader and for the tests. Pinning it keeps it in view and pressable without a sideways scroll, which was the fault.
+  - Where: `styles.base.css` (`.booklet-row-remove-q`; the `@media (max-width: 600px)` rule); check 63 measures it at 390 px in both looks
+  - Source: Ruled by the contract (section 10, item 3), which accepts the pinned column.
+  - Suggestion: none
+
+- **C-175** · tier `builder`
+  A number outside JavaScript's exact range in a removed row is a README limit, not handled: the row is read through `JSON.parse` before the removal is compared and recorded, so `was` holds the nearest number the language has. The data file's bytes of the row are removed whole, so nothing else changes.
+  - Why: contract 8.11 allows a README limit "if that cannot be done"; recording the file's text instead would change how every row is read (the block's rows are parsed once for the page, in the core's reader), which is far beyond this slice.
+  - Where: `README.md` (Known limits of adding and removing)
+  - Source: Contract 8.11, second option.
+  - Suggestion: keep as the plugin's own
+
+- **C-176** · tier `builder` (changed 2026-11-08 by contract section 10, item 2)
+  Ids are text for every act: an in-place edit's pick `{pick, a, was}`, a question asked for each row (its draft pairs, its kept pairs, a row's Finalize), an add's `pick` and `under`, and a removal's `pick` all match a row's `id` as text, so 5 and "5" are one id. A pick is stored as the id is written (a number id gives a number pick). Two rows whose ids are the same as text are two rows with one id (the second is not asked or edited, an edit of that id is refused as ambiguous). A question asked for each pick of another question (a choice's position or a widget's id) keeps a number and its digits as words apart.
+  - Why: contract section 10, item 2, replaced the earlier reading that only adds and removals compared as text (the old test "a pick that is a number matches a number id, not the same digits as words" is changed).
+  - Where: `src/core/apply.ts` (`rowsWithId`); `src/core/ask.ts` (`pairsFor`); `src/core/each.ts` (`pairFor`, `setPair`, `samePick`, `askedOfRows`); `src/core/write.ts` (`keepRowDraft`); `src/core/query.ts` (repeated ids); `src/view.ts`, `src/row-ask.ts` (draft pairs of a row)
+  - Source: Ruled by the contract (section 10, item 2).
+  - Suggestion: none

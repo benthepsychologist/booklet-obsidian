@@ -58,6 +58,14 @@ test("a row with no id has nothing to name it by, so its fields are read-only; a
 	assert.equal(p.ask.edit(rows[3], "title"), null, "the second row to have id a is not edited: an act on `a` would name two rows");
 });
 
+test("a repeated id is compared as text: the rows 5 and \"5\" are one id, so the second is not edited", () => {
+	const data = { fields: { title: { label: "Name", edit: "text" } }, rows: [{ id: 5, title: "Five" }, { id: "5", title: "Five again" }] };
+	const { p } = plan(note(["from: d\nas: table\nfields: title"], "", "repeat", [["d", data]]));
+	const rows = ROWS(p);
+	assert.ok(p.ask.edit(rows[0], "title"));
+	assert.equal(p.ask.edit(rows[1], "title"), null);
+});
+
 test("readonly: bare locks every field and question; readonly: a, b locks those; the data is not changed by either", () => {
 	const bare = plan(note(["from: d\nas: table\nfields: title, stage, reply\nreadonly"], QS)).p;
 	for (const k of ["title", "stage", "reply", "anything"]) assert.equal(bare.ask.readonly(k), true, k);
@@ -143,6 +151,26 @@ test("the newest act on a row is the entry with the latest ts; a later pair in t
 	assert.deepEqual(core.keptAdds(entries, "title", "a").map((x) => x.a), ["fourth", "third", "second", "first"]);
 });
 
+test("ids are text for the acts on a row: a pick 5 and a row \"5\" are one row, in the newest act, the kept adds and the draft's pairs (contract section 10)", () => {
+	const entries = [
+		{ ts: "2026-11-07T10:00:00Z", title: [{ pick: 5, a: "number pick", was: "x" }] },
+		{ ts: "2026-11-07T11:00:00Z", title: [{ pick: "5", a: "text pick", was: "number pick" }] },
+	];
+	assert.equal(core.newestSent(entries, "title", 5).a, "text pick", "the row 5 finds the later pick \"5\"");
+	assert.equal(core.newestSent(entries, "title", "5").a, "text pick");
+	assert.deepEqual(core.keptAdds(entries, "title", "5").map((x) => x.a), ["text pick", "number pick"]);
+	// a draft of a question asked for each row: the pair of 5 is found by "5", and set in place (its pick stays as written)
+	const draft = [{ pick: 5, a: "x" }];
+	assert.equal(core.pairFor(draft, "5", true).a, "x");
+	assert.equal(core.pairFor(draft, "5"), undefined, "a question asked for each pick of another question keeps a number and its digits as words apart");
+	assert.deepEqual(norm(core.setPair(draft, "5", "y", undefined, true)), [{ pick: 5, a: "y" }]);
+	assert.deepEqual(norm(core.setPair(draft, "5", "y")), [{ pick: 5, a: "x" }, { pick: "5", a: "y" }]);
+	// which questions are asked of rows: `each:` names a data block and no question of the activity
+	const b = core.parseBooklet(note([`from: d\nas: table`], "> [!choice|pickone] Pick\n- one\n- two\n\n> [!text|reply each:d] Reply\n\n> [!text|why each:pickone] Why\n\n"));
+	const qs = b.activities.find((x) => x.id === "show").segments.filter((x) => x.type === "question");
+	assert.deepEqual(qs.map((q) => [q.id, core.askedOfRows(b.activities.find((x) => x.id === "show"), q)]), [["pickone", false], ["reply", true], ["why", false]]);
+});
+
 /* ---- the writer ---- */
 
 const ORCHARD = readFileSync(new URL("./dashboards/orchard-dashboard.booklet.md", import.meta.url), "utf8");
@@ -189,6 +217,14 @@ test("a row's Finalize keeps that row's pairs as one entry and leaves the others
 	assert.deepEqual(norm(b.records.drafts.desk.orchard.decision), [{ pick: "b-hens", a: 2 }], "the other row's answer waits");
 	assert.equal(b.records.drafts.desk.orchard.reply, undefined);
 	assert.throws(() => core.keepRowDraft(out.text, "desk", "orchard", ["decision", "reply"], "b-ladder", { ts: "2026-11-07T10:00:00Z" }), /no answer/);
+});
+
+test("a row's Finalize finds the row's pairs by the id as text: a draft pair \"7\" is the row whose id is 7", () => {
+	let t = core.setDraftAnswer(ORCHARD, "desk", "orchard", "decision", [{ pick: "7", a: 1 }, { pick: "8", a: 2 }]);
+	const out = core.keepRowDraft(t, "desk", "orchard", ["decision"], 7, { ts: "2026-11-07T10:00:00Z" });
+	const b = core.parseBooklet(out.text);
+	assert.deepEqual(norm(b.records.entries.desk.orchard), [{ ts: "2026-11-07T10:00:00Z", decision: [{ pick: "7", a: 1 }] }], "the pair is kept as it was written");
+	assert.deepEqual(norm(b.records.drafts.desk.orchard.decision), [{ pick: "8", a: 2 }]);
 });
 
 /* ---- the fix round ---- */

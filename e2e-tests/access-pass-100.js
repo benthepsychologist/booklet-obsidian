@@ -38,7 +38,7 @@ const NOTES = {
   "Screen reader walk.booklet.md": read(path.join(REPO, "test", "page-notes", "Screen reader walk", "Screen reader walk.booklet.md")),
   "media/tone.wav": fs.readFileSync(path.join(REPO, "test", "page-notes", "Screen reader walk", "media", "tone.wav")),
 };
-const front = (id, title, extra = "") => `---\nbooklet: "0.19"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
+const front = (id, title, extra = "") => `---\nbooklet: "0.20"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
 // the media note: an allowed clip, a blocked one, a listen box; the note declares two sites that are on no list
 const mediaNote = ctx => front("access-media", "Listening", `media-from:\n  - ${ctx.url("declared.example.org")}\n  - ${ctx.url("note.example.org")}\n`) + `> [!activity|a1] Listening and watching
 

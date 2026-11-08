@@ -126,10 +126,14 @@ test("a row that is missing, an id on two rows, a field the row lacks or holds a
 	assert.deepEqual(applyAct('{"rows":[{"id":"a","s":"x","jobs":[{"id":"c"}]}]}', "", "c", "s", "x", "y"), { ok: false, why: "no field" });
 });
 
-test("a pick that is a number matches a number id, not the same digits as words", () => {
-	const t = '{"rows":[{"id":1,"s":"x"},{"id":"1","s":"x"}]}';
-	assert.equal(applyAct(t, "", 1, "s", "x", "y").text, '{"rows":[{"id":1,"s":"y"},{"id":"1","s":"x"}]}');
-	assert.equal(applyAct(t, "", "1", "s", "x", "y").text, '{"rows":[{"id":1,"s":"x"},{"id":"1","s":"y"}]}');
+test("ids are text: a pick 5 and an id \"5\" are one id, in either direction (contract section 10)", () => {
+	const num = '{"rows":[{"id":5,"s":"x"}]}';
+	assert.equal(applyAct(num, "", "5", "s", "x", "y").text, '{"rows":[{"id":5,"s":"y"}]}', "a text pick finds a number id, which stays as written");
+	assert.equal(applyAct(num, "", 5, "s", "x", "y").text, '{"rows":[{"id":5,"s":"y"}]}');
+	const txt = '{"rows":[{"id":"5","s":"x"}]}';
+	assert.equal(applyAct(txt, "", 5, "s", "x", "y").text, '{"rows":[{"id":"5","s":"y"}]}', "a number pick finds a text id");
+	// two rows that are one id as text are two rows with that id: not one row to write to
+	assert.deepEqual(applyAct('{"rows":[{"id":1,"s":"x"},{"id":"1","s":"x"}]}', "", 1, "s", "x", "y"), { ok: false, why: "ambiguous" });
 });
 
 test("a key written twice is read as its last, as the display reads it", () => {
