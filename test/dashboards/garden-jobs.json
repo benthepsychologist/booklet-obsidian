@@ -1,0 +1,1 @@
+{"beds":{"fields":{"title":{"label":"Name","edit":"text"}},"idFormat":"ID-{field:title}","rows":[{"id":"ID-herbs","title":"Herbs"},{"id":"ID-beans","title":"Beans"},{"id":"ID-leeks","title":"Leeks"}]}}
