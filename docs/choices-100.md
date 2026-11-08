@@ -1552,3 +1552,37 @@ The 96 plain keeps (review section 2) were not named in his answer. They stand a
 - The Allow card's second defect (focus pulled back to Obsidian's Settings, and one Escape closing both, on Obsidian 1.11.7; `docs/accessibility-100.md`, finding 13). Ben: *"option A, do the fix so it doesn't escape to close both the popup and the card. that's annoying and it might actually block the allow-list usage"*. Outcome: **changed** (to be fixed in 1.0.0). Built (`5098737`): the card puts a key scope of its own on Obsidian's key stack while it is open, so Escape goes to the topmost scope only: it closes the card when the card is on top and Settings when Settings is, and Settings no longer pulls focus back from the card. The card's own document listener keeps Tab only. `e2e-tests/allow-settings-100.js`: 9 of 16 facts passed before on 1.11.7, 21 of 21 pass after on both 1.11.7 and 1.14.5.
 - Contrast that comes from Obsidian's theme colours (`docs/accessibility-100.md`, findings 7 to 10). Ben: *"A is fine, sticking with obsidian's theme colors for now"*. Outcome: **kept as the plugin's own** (it follows the user's theme) and listed in the README's Accessibility section. The hub item adds that the focus ring gets the second look the review page recommended. Built (`14889fc`): the plugin's own focus rings are the text colour (C-167), the one place the colours were changed; the accent contrasts (findings 7 to 9) still follow the theme.
 - The settings page's heading. Not a ruling: lane E2 removed the "Allow list for media" heading from the settings page, which has one section only (`5098737`; no row held it).
+
+---
+
+## F. Adding and removing rows (format 0.20), 2026-11-08
+
+Four choices the plugin made where the contract (`design/dashboards-as-booklets/rows-contract.md`) and SPEC 0.20 are silent, found while building the rows add/delete slice. They are listed here in the file's style; none is a ruling. They are not counted in the totals at the top of this file, which describe the list as it stood on 2026-11-03. Source for each: not ruled on.
+
+- **C-169** · tier `builder`
+  A row whose removal was kept and then refused because it had changed since the reader drew it ("You asked to remove this; it changed since.") offers Remove again. Pressing it keeps a new `$delete` entry whose `was` is the row as it stands now, and the newest act on a row wins. A row whose removal is merely waiting ("removing, waiting") or whose add is waiting offers no Remove.
+  - Why: the reader can see the row as it is now, so asking again is the natural next step; with no Remove the row could never be removed from the page. Entries are never removed, so the old refused one stays and is simply outranked.
+  - Where: `src/row-ask.ts:644`; `src/core/rows-act.ts` (`newestActs`)
+  - Source: Not ruled on. SPEC 0.20 says a refused removal "leaves the row with 'You asked to remove this; it changed since.'" and is silent on whether Remove is offered again.
+  - Suggestion: keep as the plugin's own; propose one line to SPEC saying a row so marked may be removed again
+
+- **C-170** · tier `builder`
+  Add under this row is offered on a row that holds exactly one field whose value is a non-empty list of rows (objects). A row with an empty list, with no list, or with two lists is not offered it. The applier agrees: it finds the same list or refuses with "Cannot tell where the new row goes under this one."
+  - Why: SPEC 0.20 says the parent's list is "its only field that holds a list of rows" and that a parent with no rows yet cannot take its first child. An empty list has no rows in it to tell it is a list of rows, so it is not counted. Offering the control only where it can work keeps a refusal rare.
+  - Where: `src/core/data.ts:125` (`childListKey`); `src/core/apply.ts:143` (`childList`); `src/row-ask.ts:635`
+  - Source: Not ruled on. SPEC 0.20 and the contract give the rule for the entry; whether the page offers the control where the rule would refuse is left open.
+  - Suggestion: keep as the plugin's own
+
+- **C-171** · tier `builder`
+  A row held as a field's single object (`"detail": { "id": ..., ... }`, not in a list) cannot be removed: the removal is refused as "no place": the entry is kept, nothing is written, and the notice says "That row stands in no list of rows, so it cannot be taken out." Removing it would leave a field with no value or a half-written object, and there is no comma and no list to take it out of.
+  - Why: a list element can be taken out with its comma and its own line and nothing else; a member's value cannot without choosing what the member becomes. SPEC 0.20 describes removing from "its list" only.
+  - Where: `src/core/apply.ts:191`
+  - Source: Not ruled on. SPEC 0.20 is silent on a row that is not in a list.
+  - Suggestion: keep as the plugin's own; propose to SPEC that only a row in a list can be removed
+
+- **C-172** · tier `builder`
+  An edit, an added row and a removed row in a data block written in the note itself (an inline `booklet data` block) are written into the note, between the block's fences and nowhere else, by the same functions as for a file. The notice says "written to the data block".
+  - Why: SPEC 0.20 hosting says a host applies the act to the data the block holds; a block in the note is data the plugin hosts, and the alternative (keep the entry and never change the data) leaves every add and remove waiting forever. Before this slice the plugin only kept an edit of an inline block.
+  - Where: `src/core/apply.ts:227` (`applyInFence`); `src/view.ts:1253` (`applyInline`)
+  - Source: Not ruled on. The brief for this slice asked for it; it reverses the 1.3.0 README line "rows written in the note itself … the plugin does not change".
+  - Suggestion: keep as the plugin's own; Ben to confirm
