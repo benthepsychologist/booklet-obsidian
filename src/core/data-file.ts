@@ -81,6 +81,9 @@ export function dataRead(file: DataFileRef, json: unknown): DataFound {
 export interface FenceOver {
 	fields: Record<string, string> | null;
 	edits: Record<string, FieldEdit>;
+	/** The fence's `idFormat` and `idPattern`, which win over the file's (row-id.ts). */
+	idFormat?: unknown;
+	idPattern?: unknown;
 }
 
 /** The rows of one block from what the file holds there: the block's own fence labels and marks laid over the file's. */
@@ -88,5 +91,10 @@ export function dataMerge(found: DataFound, fence: FenceOver | null): { data: Da
 	if ("note" in found) return found;
 	const d = found.d;
 	const fields = fence && (fence.fields || d.fields) ? { ...(d.fields ?? {}), ...(fence.fields ?? {}) } : null;
-	return { data: { rows: d.rows, fields, edits: { ...d.edits, ...(fence ? fence.edits : {}) } } };
+	const out: DataRows = { rows: d.rows, fields, edits: { ...d.edits, ...(fence ? fence.edits : {}) } };
+	const idFormat = fence?.idFormat !== undefined ? fence.idFormat : d.idFormat;
+	const idPattern = fence?.idPattern !== undefined ? fence.idPattern : d.idPattern;
+	if (idFormat !== undefined) out.idFormat = idFormat;
+	if (idPattern !== undefined) out.idPattern = idPattern;
+	return { data: out };
 }

@@ -144,7 +144,7 @@ function valueText(v: unknown, layout: Layout): string {
 	return inline(v);
 }
 
-const splice = (s: string, from: number, to: number, put: string) => s.slice(0, from) + put + s.slice(to);
+export const splice = (s: string, from: number, to: number, put: string) => s.slice(0, from) + put + s.slice(to);
 
 function objectAt(code: string): (JsonSpan & { kind: "object"; members: JsonMember[] }) | null {
 	const n = scanJson(code);
@@ -242,4 +242,78 @@ export function removeItem(code: string, index: number): string | null {
 	if (!arr || !el || !e) return null;
 	if (el.length === 1) return splice(code, arr.start, arr.end, "[]");
 	return index > 0 ? splice(code, el[index - 1]!.end, e.end, "") : splice(code, e.start, el[1]!.start, "");
+}
+
+/* ---- a row of a data block's list of rows: added at the end, or taken out ---- */
+
+type ArrayNode = JsonSpan & { kind: "array"; elements: JsonNode[] };
+
+/** The whitespace that starts the line `at` is on. */
+const leadingSpace = (code: string, at: number): string => /^[ \t]*/.exec(code.slice(code.lastIndexOf("\n", at - 1) + 1))![0];
+
+/** Does `at` begin its line (only space before it on the line)? */
+const beginsLine = (code: string, at: number): boolean => /^[ \t]*$/.test(code.slice(code.lastIndexOf("\n", at - 1) + 1, at));
+
+/** A change to a text: the span replaced and what is put there. */
+export interface RowEdit {
+	from: number;
+	to: number;
+	put: string;
+}
+
+/**
+ * Where `row` (an object of plain values, its keys in the order they are written) goes to stand at the end of the list `arr` of `code`,
+ * and what is written: in the layout of the row before it, so one line stays one line (its spacing after a colon and a comma, and inside
+ * its braces), and a row written across lines stays so, with the same indent. A list with no row gets the plain layout: two spaces
+ * deeper than the line the list starts on, one space after a colon, a key to a line. Line endings follow the text (CRLF stays CRLF).
+ */
+export function addRowEdit(code: string, arr: ArrayNode, row: Record<string, unknown>): RowEdit {
+	const eol = code.includes("\r\n") ? "\r\n" : "\n";
+	const entries = Object.entries(row);
+	const el = arr.elements;
+	if (!el.length) {
+		const ind = leadingSpace(code, arr.start);
+		const mine = ind + "  ";
+		const body = entries.length ? "{" + eol + mine + "  " + entries.map(([k, v]) => JSON.stringify(k) + ": " + JSON.stringify(v)).join("," + eol + mine + "  ") + eol + mine + "}" : "{}";
+		return { from: arr.start, to: arr.end, put: "[" + eol + mine + body + eol + ind + "]" };
+	}
+	const prev = el[el.length - 1]!;
+	const prevText = code.slice(prev.start, prev.end);
+	const members = prev.kind === "object" ? prev.members : [];
+	const colon = members.length ? code.slice(members[0]!.keyEnd, members[0]!.value.start) : ": ";
+	// what comes between one row and the next
+	let sep: string;
+	if (el.length >= 2) sep = code.slice(el[el.length - 2]!.end, prev.start);
+	else if (code.slice(arr.start, prev.start).includes("\n")) sep = "," + eol + (beginsLine(code, prev.start) ? leadingSpace(code, prev.start) : "");
+	else sep = colon.includes(" ") ? ", " : ",";
+	const pair = ([k, v]: [string, unknown]) => JSON.stringify(k) + colon + JSON.stringify(v);
+	let text: string;
+	if (!prevText.includes("\n")) {
+		const comma = members.length >= 2 ? code.slice(members[0]!.value.end, members[1]!.keyStart) : colon.includes(" ") ? ", " : ",";
+		const padL = /^\{([ \t]*)/.exec(prevText)?.[1] ?? "";
+		const padR = members.length ? (/([ \t]*)\}$/.exec(prevText)?.[1] ?? "") : "";
+		text = entries.length ? "{" + padL + entries.map(pair).join(comma) + padR + "}" : "{}";
+	} else {
+		const rowIndent = beginsLine(code, prev.start) ? leadingSpace(code, prev.start) : (/\n([ \t]*)$/.exec(sep)?.[1] ?? "");
+		const onOwn = [...members].reverse().find((m) => beginsLine(code, m.keyStart));
+		const unit = rowIndent.includes("\t") ? "\t" : "  ";
+		const inner = onOwn ? leadingSpace(code, onOwn.keyStart) : rowIndent + unit;
+		const firstOnBrace = !/^\{[ \t]*\r?\n/.test(prevText);
+		const closeOwn = /\n[ \t]*\}$/.test(prevText);
+		const lead = firstOnBrace ? "{" + (/^\{([ \t]*)/.exec(prevText)?.[1] ?? "") : "{" + eol + inner;
+		const tail = closeOwn ? eol + leadingSpace(code, prev.end - 1) + "}" : (/([ \t]*)\}$/.exec(prevText)?.[1] ?? "") + "}";
+		text = entries.length ? lead + entries.map(pair).join("," + eol + inner) + tail : "{}";
+	}
+	return { from: prev.end, to: prev.end, put: sep + text };
+}
+
+/**
+ * The change that takes the row at `index` out of the list `arr`: its text, its comma and its own line, and nothing else. The only row of
+ * a list leaves `[]`.
+ */
+export function removeRowEdit(arr: ArrayNode, index: number): RowEdit {
+	const el = arr.elements;
+	if (el.length === 1) return { from: arr.start, to: arr.end, put: "[]" };
+	if (index > 0) return { from: el[index - 1]!.end, to: el[index]!.end, put: "" };
+	return { from: el[0]!.start, to: el[1]!.start, put: "" };
 }

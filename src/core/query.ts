@@ -9,7 +9,8 @@
 import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import { childRowsOf, type DataRow, type DataRows, type DataValue, type FieldEdit } from "./data";
-import { carries, editSpecOf, heldOf, isReadonly, pickOfRow, type EditSpec } from "./ask";
+import { carries, editSpecOf, heldOf, isReadonly, pickOfRow, rowActs, type EditSpec, type RowActs } from "./ask";
+import { withPending, type RowAct } from "./rows-act";
 import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
@@ -21,9 +22,9 @@ import { localDayOf } from "./write";
 
 /** Which keys each view reads (SPEC section 6's table of views). */
 export const VIEW_DRAWS: Record<ViewName, readonly string[]> = {
-	cards: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly"],
-	table: ["fields", "group", "limit", "parent", "badge", "tone", "link", "icon", "readonly"],
-	list: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly"],
+	cards: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly", "add", "delete"],
+	table: ["fields", "group", "limit", "parent", "badge", "tone", "link", "icon", "readonly", "add", "delete"],
+	list: ["label", "value", "note", "badge", "tone", "fields", "group", "limit", "parent", "link", "icon", "readonly", "add", "delete"],
 	tiles: ["label", "value", "note", "tone", "group", "limit", "link", "icon", "readonly"],
 	bars: ["label", "value", "tone", "limit", "readonly"],
 	line: ["label", "value", "fields", "limit", "readonly"],
@@ -103,6 +104,8 @@ export interface Row {
 	raw?: DataRow;
 	/** A data row's `id` as its pairs name it: undefined when it has none, or when an earlier row of the block has the same one (the first is used). */
 	id?: PickValue;
+	/** A data row that is being added (made from its kept entry, not in the data yet) or removed (still in the data), or whose removal the data did not follow (rows-act.ts). */
+	act?: RowAct;
 }
 
 /** The smallest and largest of a list, by a loop: `Math.min(...list)` passes every number as an argument and throws past about 120,000. */
@@ -229,6 +232,8 @@ export type QueryPlan =
 			quiet?: boolean;
 			/** For a `table`, `list` or `cards` over a data block: what the reader may do to its rows (questions, edited fields, `readonly`). */
 			ask?: AskPlan;
+			/** For a `table`, `list` or `cards` over a data block whose query says `add` or `delete`: what it offers (a bare `readonly` leaves neither). */
+			acts?: RowActs;
 	  };
 
 export interface PlanOptions {
@@ -828,8 +833,22 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 			}
 			data = got.data;
 		}
-		set = dataSet(data);
-		return finishPlan(set, q, view, locale, askPlan(set, q, view, src.id, opts.activity));
+		// adds still waiting stand at the end of their parent's rows and removals still waiting are marked (rows-act.ts), for an activity that keeps entries
+		const kept = opts.activity && opts.activity.repeat && !opts.activity.daily ? (book.records.entries[opts.activity.scope]?.[opts.activity.id] ?? []) : [];
+		const pending = kept.length ? withPending(data.rows, kept) : null;
+		set = dataSet(pending && pending.rows !== data.rows ? { ...data, rows: pending.rows } : data);
+		if (pending)
+			for (const r of set.all ?? set.rows) {
+				if (r.raw && pending.adding.has(r.raw)) r.act = "adding";
+				else if (r.id !== undefined) {
+					const st = pending.removing.get(pickKey(r.id));
+					if (st) r.act = st === "waiting" ? "removing" : "refused";
+				}
+			}
+		const plan = finishPlan(set, q, view, locale, askPlan(set, q, view, src.id, opts.activity));
+		const acts = plan.kind === "rows" ? rowActs(q, view, set.own, set.edits ?? {}, (k) => textOf(set.label(k)), data.idFormat, data.idPattern) : null;
+		if (plan.kind === "rows" && acts) plan.acts = acts;
+		return plan;
 	}
 	const a = src.act;
 	const all = questionsOf(a);

@@ -10,6 +10,7 @@ import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, entryPlaces, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
 import { pairsOf, pickKey, recordFilled, type PickValue } from "./each";
+import { isRowActEntry } from "./rows-act";
 import { holdsSomething, isPair, shapeIssue } from "./shape";
 
 /**
@@ -441,6 +442,8 @@ export interface Finalized {
  * its own: a daily Finalize neither replaces it nor takes its time.
  */
 export function isActEntry(act: Partial<Pick<Activity, "segments">>, e: Entry): boolean {
+	// an entry that adds or removes a row (`$add`, `$delete`, rows-act.ts) is a moment of its own too
+	if (isRowActEntry(e)) return true;
 	const ids = new Set((act.segments ?? []).filter((x): x is Question => x.type === "question").map((x) => x.id));
 	return Object.entries(e).some(([k, v]) => {
 		if (k === "ts" || !Array.isArray(v)) return false;

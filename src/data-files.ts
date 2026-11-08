@@ -91,7 +91,7 @@ export class DataFiles {
 			got = dataRead(file, e.json);
 			this.found.set(at, got);
 		}
-		return dataMerge(got, { fields: block.fields, edits: block.edits });
+		return dataMerge(got, { fields: block.fields, edits: block.edits, idFormat: block.idFormat, idPattern: block.idPattern });
 	}
 
 	/** What a view compares to know the file under a block is not the one it drew: changes when the file is read again, or lands. */

@@ -155,6 +155,7 @@ const REFUSED_BECAUSE: Record<ApplyWhy, string> = {
 	identity: "that field is the row's id, which is never written",
 	"no field": "the row no longer has that field",
 	unreadable: "the file cannot be read as data now",
+	"no place": "the row it goes under holds no one list of rows, so it is not clear where it goes",
 };
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;

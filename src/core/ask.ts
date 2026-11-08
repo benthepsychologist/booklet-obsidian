@@ -12,7 +12,9 @@ import { childRowsOf, isRowObj, ownValue, type DataRow, type FieldEdit } from ".
 import { plainWords, sameWords } from "./earlier";
 import type { PickValue } from "./each";
 import type { Query, Question } from "./reader";
+import type { Row } from "./query";
 import type { Entry } from "./records";
+import { parseIdFormat, patternOf, ID_WORDS } from "./row-id";
 
 /** The kinds of box an `edit` mark asks for (SPEC section 7's table). */
 export type EditKind = "text" | "long" | "number" | "date" | "choice";
@@ -203,4 +205,64 @@ export function keptAdds(entries: readonly Entry[], key: string, pick: PickValue
 		for (const p of pairsFor(e, key, pick).reverse()) out.push({ ts: String(e.ts), a: p.a, t: timeOf(e), i });
 	});
 	return out.sort((x, y) => y.t - x.t || y.i - x.i).map(({ ts, a }) => ({ ts, a }));
+}
+
+/* ---- adding and removing rows (rows-act.ts) ---- */
+
+/** A field the form for a new row asks for: a field of the block marked `edit`, with its label and the box its kind asks for. */
+export interface AddField {
+	key: string;
+	label: string;
+	spec: EditSpec;
+}
+
+/**
+ * What a query that says `add` or `delete` offers on a data block's rows (SPEC section 6): the controls the query asks for, and what the
+ * form for a new row asks. The activity decides whether an act can be kept (it must repeat); that is the view's.
+ */
+export interface RowActs {
+	/** "Add a row" (a top row) and "Add under this row" (a child row) are asked for. */
+	add: boolean;
+	/** "Remove" on each row is asked for. */
+	remove: boolean;
+	/** In words, why no row can be added here: the block's `idFormat` or `idPattern` is not valid. Null when it is. */
+	idProblem: string | null;
+	/** One box for each field the block marks `edit` that the query does not lock, in the block's declared order. */
+	fields: AddField[];
+	/** The block's `idFormat` as written (a string when valid), else undefined: the id is made from it. With none, the form has an id box. */
+	idFormat: unknown;
+	idPattern: unknown;
+}
+
+/**
+ * The acts a query offers on a data block's rows, or null: only `table`, `list` and `cards` draw rows that open or carry a control; a bare
+ * `readonly` locks both keys (`readonly: a, b`, a list of fields, does not); a query that says neither offers nothing.
+ */
+export function rowActs(q: Query, view: string, own: readonly string[], edits: Record<string, FieldEdit>, label: (key: string) => string, idFormat: unknown, idPattern: unknown): RowActs | null {
+	if (view !== "table" && view !== "list" && view !== "cards") return null;
+	const locked = q.readonly === true;
+	const add = q.add && !locked;
+	const remove = q.delete && !locked;
+	if (!add && !remove) return null;
+	const fields: AddField[] = [];
+	for (const key of own) {
+		if (key === "id" || isReadonly(q.readonly, key)) continue;
+		const spec = Object.prototype.hasOwnProperty.call(edits, key) ? editSpecOf(edits[key]) : null;
+		if (spec) fields.push({ key, label: label(key), spec });
+	}
+	let idProblem: string | null = null;
+	if (idFormat !== undefined) {
+		if (!parseIdFormat(idFormat).ok) idProblem = ID_WORDS.formatBad;
+	} else if (!patternOf(idPattern).ok) idProblem = ID_WORDS.patternBad;
+	return { add, remove, idProblem, fields, idFormat, idPattern };
+}
+
+/** The id of every row of a set at every depth, as written: what a new row's id is made against. */
+export function idsOfRows(rows: readonly Row[]): PickValue[] {
+	const out: PickValue[] = [];
+	for (const r of rows) {
+		const v = r.raw ? pickOfRow(r.raw) : undefined;
+		if (v !== undefined) out.push(v);
+	}
+	return out;
 }

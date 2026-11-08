@@ -28,3 +28,5 @@ export * from "./copy";
 export * from "./data-file";
 export * from "./ask";
 export * from "./apply";
+export * from "./row-id";
+export * from "./rows-act";

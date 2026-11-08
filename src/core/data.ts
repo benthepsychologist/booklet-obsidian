@@ -22,11 +22,17 @@ export interface FieldEdit {
 	options?: unknown;
 }
 
-/** The rows of a data block, its declared fields (key to label, in order, or null when it declares none) and the `edit` marks of its labels. */
+/**
+ * The rows of a data block, its declared fields (key to label, in order, or null when it declares none) and the `edit` marks of its labels.
+ * `idFormat` and `idPattern` are the two optional keys beside `fields` that say how the id of a row the reader adds is made (row-id.ts):
+ * kept as written, whatever they hold, and checked by whoever uses them (absent: undefined).
+ */
 export interface DataRows {
 	rows: DataRow[];
 	fields: Record<string, string> | null;
 	edits: Record<string, FieldEdit>;
+	idFormat?: unknown;
+	idPattern?: unknown;
 }
 
 /** Why a block cannot be read, in the words the note's problems use ("a data block ..."). */
@@ -97,7 +103,10 @@ export function readDataRows(json: unknown): DataRows | { bad: string } {
 		fields = f.fields;
 		edits = f.edits;
 	}
-	return { rows: rows as DataRow[], fields, edits };
+	const out: DataRows = { rows: rows as DataRow[], fields, edits };
+	if (obj && obj["idFormat"] !== undefined) out.idFormat = obj["idFormat"];
+	if (obj && obj["idPattern"] !== undefined) out.idPattern = obj["idPattern"];
+	return out;
 }
 
 /** A field's value as a list of child rows: a non-empty list whose first member is a row, or one row. Else none (the value is plain). */
@@ -108,3 +117,17 @@ export function childRowsOf(v: unknown): DataRow[] | null {
 
 /** A row's own value of a field, never a member the object inherits (a field named `constructor` or `toString`). */
 export const ownValue = (r: DataRow, k: string): DataRow[string] | undefined => (own(r, k) ? r[k] : undefined);
+
+/**
+ * The field of a row that new child rows are added to: its only field that holds a list of rows (a non-empty list of objects). Null when it
+ * has none or more than one, and a row whose list is empty has none: a row with no children yet cannot take its first child.
+ */
+export function childListKey(r: DataRow): string | null {
+	let key: string | null = null;
+	for (const [k, v] of Object.entries(r)) {
+		if (!Array.isArray(v) || !v.length || !v.every(isRowObj)) continue;
+		if (key !== null) return null;
+		key = k;
+	}
+	return key;
+}
