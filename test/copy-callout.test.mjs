@@ -14,7 +14,7 @@ import { click, typeInto, window as w, words } from "./dom.mjs";
 import { core, sha } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const HEAD = `---\nbooklet: "0.19"\nid: made/up\ntitle: Tides\nlang: en\n---\n\n`;
+const HEAD = `---\nbooklet: "0.20"\nid: made/up\ntitle: Tides\nlang: en\n---\n\n`;
 const note = (body, head = HEAD) => `${head}${body}`;
 
 /** A long text question with its folded hint and solution, a choice, and a copy callout that names them. */
@@ -57,7 +57,7 @@ test("a copy line is read: its id, its button words, its ids in order, its lead-
 	assert.equal(c.label, "Copy for my tutor");
 	assert.deepEqual(c.of, ["why", "why/hint", "why/solution", "pick"]);
 	assert.equal(c.prompt, "Please score my answer from 0 to 5.");
-	assert.equal(core.FORMAT_VERSION, "0.19");
+	assert.equal(core.FORMAT_VERSION, "0.20");
 });
 
 test("a copy line needs no id of its own: `[!copy|of:a]` is read, and a lead-in of several lines keeps them", () => {

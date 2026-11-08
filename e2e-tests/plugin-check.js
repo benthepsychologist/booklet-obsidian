@@ -3,7 +3,7 @@
 // It NEVER touches --vault: every check works on its own fresh copy of the vault and its own scratch config folder, both
 // under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
-// leftovers-checks.js; 29 to 32, 61 (0.19, rows that open and data files), 62 (0.19, acts on rows) and 63 (0.19, adding and removing rows) in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
+// leftovers-checks.js; 29 to 32, 61 (0.19, rows that open and data files), 62 (0.19, acts on rows) and 63 (0.20, adding and removing rows) in dashboard-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
 // safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 and 56 to 59 (0.12.0, audio and video) in media-checks.js; 60 (0.19, the copy callout) in copy-checks.js. README.md in
 // this folder says what each one checks.
 // Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
@@ -1610,7 +1610,7 @@ async function check14() {
     const orig = fs.readFileSync(file, "utf8").replace("> [!choice|fruit] Which fruit", "> [!choice|fruit open] Which fruit");
     fs.writeFileSync(file, orig);
     const OLDER = "Older marker.booklet.md";
-    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.19"', 'booklet: "0.15"'));
+    fs.writeFileSync(path.join(vault, OLDER), orig.replace('booklet: "0.20"', 'booklet: "0.15"'));
     await o.page.waitForSelector(".nav-file-title", { timeout: 10000 });
     // a note marked with an earlier format: opened as it is, with no notice for its marker alone
     await openNote(o, OLDER, "/kinds");

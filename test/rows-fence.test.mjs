@@ -22,7 +22,7 @@ const ROWS = `{
 /** A note with an inline data block, a hand-spaced entry and a records region. */
 const note = (data = ROWS, before = "") =>
 	`${before}---
-booklet: "0.19"
+booklet: "0.20"
 title: Garden
 ---
 
@@ -159,7 +159,7 @@ test("a refusal returns no text, and a no-op returns the note itself", () => {
 });
 
 test("a fence whose own lines are indented (three spaces, in a list) is found, and the new row sits at its indent", () => {
-	const n = `---\nbooklet: "0.19"\ntitle: G\n---\n\n> [!activity|work repeat] Work\n\n   \`\`\`booklet data\n   { "rows": [\n      { "id": "a" }\n   ] }\n   \`\`\`\n   ^plots\n`;
+	const n = `---\nbooklet: "0.20"\ntitle: G\n---\n\n> [!activity|work repeat] Work\n\n   \`\`\`booklet data\n   { "rows": [\n      { "id": "a" }\n   ] }\n   \`\`\`\n   ^plots\n`;
 	const r = applyInFence(n, "plots", null, (t) => applyAdd(t, "", "c", undefined, { t: "z" }));
 	assert.equal(r.ok, true);
 	assert.equal(r.text, n.replace(`      { "id": "a" }\n`, `      { "id": "a" },\n      { "id": "c", "t": "z" }\n`));

@@ -52,7 +52,7 @@ export function isThematicBreak(line: string, textAbove: boolean): boolean {
 }
 
 /** The format this view reads: a note marked with it opens with nothing said of its marker (SPEC section 2). */
-export const FORMAT_VERSION = "0.19";
+export const FORMAT_VERSION = "0.20";
 
 export interface Option {
 	text: string;

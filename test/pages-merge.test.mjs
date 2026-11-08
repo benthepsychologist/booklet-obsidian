@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { core, norm } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const head = 'booklet: "0.19"';
+const head = 'booklet: "0.20"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 const only = (text) => {
 	const book = core.parseBooklet(text);

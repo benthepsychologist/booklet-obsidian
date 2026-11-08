@@ -1,5 +1,5 @@
 ---
-booklet: "0.19"
+booklet: "0.20"
 id: booklet-test/screen-reader-walk
 title: Screen reader walk
 description: A made-up note for walking through the Booklet view with a screen reader. Every word is invented.

@@ -10,7 +10,7 @@ import { openView, click, words, until } from "./dom.mjs";
 import { core, norm } from "./helpers.mjs";
 
 const HEAD = `---
-booklet: "0.19"
+booklet: "0.20"
 id: test/damaged
 title: Damaged
 lang: en

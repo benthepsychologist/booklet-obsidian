@@ -33,7 +33,7 @@ const NOTES = {
   "Garden dashboards.booklet.md": read(path.join(REPO, "test", "page-notes", "Garden dashboards.booklet.md")),
   "media/tone.wav": fs.readFileSync(path.join(REPO, "test", "page-notes", "Screen reader walk", "media", "tone.wav")),
 };
-const mediaNote = ctx => `---\nbooklet: "0.19"\nid: booklet-test/ring-media\ntitle: Listening\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Listening and watching\n\nAllowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})\n\nBlocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n\n> [!activity|a2] Second activity\n\n> [!choice|q2] Another question?\n- [ ] Yes\n- [ ] No\n`;
+const mediaNote = ctx => `---\nbooklet: "0.20"\nid: booklet-test/ring-media\ntitle: Listening\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Listening and watching\n\nAllowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})\n\nBlocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n\n> [!activity|a2] Second activity\n\n> [!choice|q2] Another question?\n- [ ] Yes\n- [ ] No\n`;
 
 // in the page: the ring of the focused element and the surface behind it
 const RING = () => {

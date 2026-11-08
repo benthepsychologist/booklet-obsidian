@@ -350,7 +350,7 @@ test("a row's Finalize and a question's answer are only kept: nothing is written
 test("rows written in the note itself: an edit is kept and written between the data block's fences, and nowhere else in the note", async () => {
 	const text = [
 		"---",
-		'booklet: "0.19"',
+		'booklet: "0.20"',
 		"id: example/inline",
 		"title: Inline",
 		"lang: en",

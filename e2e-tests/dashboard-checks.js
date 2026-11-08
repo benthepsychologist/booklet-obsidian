@@ -754,11 +754,11 @@ module.exports = function dashboardChecks(env) {
   }
 
   /* ================= CHECK 63 ================= */
-  // Dashboards slice 3 (format 0.19): adding and removing rows, in the real app, on a made-up note (test/dashboards/garden-jobs.booklet.md) whose first query draws
+  // Dashboards slice 3 (format 0.20): adding and removing rows, in the real app, on a made-up note (test/dashboards/garden-jobs.booklet.md) whose first query draws
   // jobs written in the note itself (an inline data block) and whose second and third draw beds from a file beside it. The pressing is done with real clicks and keys;
   // the files on disk are compared byte for byte with what the change should make, and the note outside the block's fences is the bytes it was.
   async function check63() {
-    const c = new Check(63, "0.19 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; the Paper look pills them and Obsidian's look does not; print hides them");
+    const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; the Paper look pills them and Obsidian's look does not; print hides them");
     const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json";
     const here = f => path.join(__dirname, "..", "test", "dashboards", f);
     for (const where of ["desktop", "phone"]) {

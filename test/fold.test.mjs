@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import { core, norm, sha } from "./helpers.mjs";
 import { pane } from "./pane.mjs";
 
-const BASE = `---\nbooklet: "0.19"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
+const BASE = `---\nbooklet: "0.20"\ntitle: Two logs\n---\n\n> [!activity|log repeat] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily] Mood\n\n> [!text|how] How was it?\n`;
 
 /** The note with `n` made-up kept entries for the activity `id` (its one question `q`). */
 function withEntries(text, id, q, n) {
@@ -130,7 +130,7 @@ test("the choice is no part of the note or of the saved place: nothing is writte
 /** The problems that name a line (the version notice, whatever its words, is not one). */
 const lineProblems = (text) => norm(core.parseBooklet(text).problems.filter((x) => /^Line \d+:/.test(x)));
 
-const MARKED = `---\nbooklet: "0.19"\ntitle: Two logs\n---\n\n> [!activity|log repeat entries:folded] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily entries:folded] Mood\n\n> [!text|how] How was it?\n\n> [!activity|plain repeat] Plain\n\n> [!text|p] Anything?\n`;
+const MARKED = `---\nbooklet: "0.20"\ntitle: Two logs\n---\n\n> [!activity|log repeat entries:folded] Log\n\n> [!text|what] What happened?\n\n> [!activity|mood repeat daily entries:folded] Mood\n\n> [!text|how] How was it?\n\n> [!activity|plain repeat] Plain\n\n> [!text|p] Anything?\n`;
 
 test("entries:folded: the list of kept entries starts folded, on a repeat and on a repeat daily activity, and a note without the mark is unchanged", async () => {
 	const p = pane(withEntries(MARKED, "log", "what", 3), { screen: "activity:/log" });

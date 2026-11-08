@@ -67,7 +67,7 @@ export const FIELDS = { title: "Name", kind: "Kind", stage: "Stage", open: "Open
 /** The small booklet that draws it: one activity, three queries, each drawing the same rows another way (a table, a list, cards). */
 export function bookletText(file = "garden.json") {
 	return `---
-booklet: "0.19"
+booklet: "0.20"
 title: Garden dashboard
 lang: en
 ---

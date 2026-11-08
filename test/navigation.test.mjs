@@ -65,7 +65,7 @@ test("an activity's screen: trail down to it, tab bar, one page at a time, and a
 });
 
 test("a booklet that offers one activity opens into it; a bare activity's pager labels the next one with no number", async () => {
-	const text = `---\nbooklet: "0.19"\ntitle: Three notes\n---\n\n> [!activity|first] First\n\nOne.\n\n> [!activity|second] Second\n\nTwo.\n\n> [!activity|third hidden] Hidden\n\nNot offered.\n`;
+	const text = `---\nbooklet: "0.20"\ntitle: Three notes\n---\n\n> [!activity|first] First\n\nOne.\n\n> [!activity|second] Second\n\nTwo.\n\n> [!activity|third hidden] Hidden\n\nNot offered.\n`;
 	const p = pane(text);
 	await p.settled();
 	assert.equal(p.screen, "home", "two offered activities: home");
@@ -74,7 +74,7 @@ test("a booklet that offers one activity opens into it; a bare activity's pager 
 	assert.deepEqual(p.trail(), ["Three notes", "First"]);
 	assert.deepEqual(p.pager().buttons, ["Back to the overview", "Next: Second"]);
 	p.close();
-	const one = pane(`---\nbooklet: "0.19"\ntitle: One note\n---\n\n> [!activity|only] Only\n\nHi.\n`);
+	const one = pane(`---\nbooklet: "0.20"\ntitle: One note\n---\n\n> [!activity|only] Only\n\nHi.\n`);
 	await one.settled();
 	assert.equal(one.screen, "activity:/only");
 	assert.deepEqual(one.pager().buttons, ["Back to the overview"]);
@@ -164,7 +164,7 @@ test("Back and Forward take the pane through the same places, and leave the tab 
 });
 
 test("each tab keeps the page last seen while the pane is open", async () => {
-	const text = `---\nbooklet: "0.19"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
+	const text = `---\nbooklet: "0.20"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
 	const p = pane(text);
 	await p.settled();
 	assert.equal(p.screen, "activity:/a");
@@ -183,7 +183,7 @@ test("each tab keeps the page last seen while the pane is open", async () => {
 });
 
 test("a tab chosen while a page is turning ends on that tab; a double press on Next turns one page", async () => {
-	const text = `---\nbooklet: "0.19"\ntitle: Quick hands\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
+	const text = `---\nbooklet: "0.20"\ntitle: Quick hands\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n***\nOne p3\n\n> [!tab] Two\n\nTwo p1\n***\nTwo p2\n`;
 	const p = pane(text, { delay: 40 });
 	await p.settled();
 	const press = (sel, label) => click(p.all(sel).find((b) => p.words(b).startsWith(label)));
@@ -226,7 +226,7 @@ test("an activity of pages: the page under a page is a card on it, the trail nam
 });
 
 test("the trail does not name the booklet twice: a module of one activity with no words, and an activity titled as its booklet, give one crumb", async () => {
-	const book = (body) => `---\nbooklet: "0.19"\ntitle: Garden wiki\n---\n\n${body}`;
+	const book = (body) => `---\nbooklet: "0.20"\ntitle: Garden wiki\n---\n\n${body}`;
 	// a module with no words of its own is called by the booklet's title, and so is its one activity's card and trail
 	const noModule = pane(book("> [!module|g]\n\n> [!activity|beds] Beds\n\nWords.\n\n> [!module|g end] E\n"));
 	await noModule.settled();
@@ -309,9 +309,9 @@ test("the place is kept when a pane toggles to Markdown and back: the leaf remem
 test("no move writes anything into a note: three made-up notes are byte-for-byte the same after every move", async () => {
 	const notes = {
 		sampler: SKETCH,
-		tabbed: `---\nbooklet: "0.19"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n\n> [!tab] Two\n\nTwo p1\n\n> [!page|more] More\n\nTwo p2\n\n> [!activity|b] B\n\nAfter A.\n***\nAnd later.\n`,
+		tabbed: `---\nbooklet: "0.20"\ntitle: Tabs and pages\n---\n\n> [!activity|a] A\n\n> [!tab] One\n\nOne p1\n***\nOne p2\n\n> [!tab] Two\n\nTwo p1\n\n> [!page|more] More\n\nTwo p2\n\n> [!activity|b] B\n\nAfter A.\n***\nAnd later.\n`,
 		kept: (() => {
-			let t = `---\nbooklet: "0.19"\ntitle: A daily note\n---\n\n> [!module|d] Day\n\n> [!activity|today repeat daily] Today\n\n> [!text|what] What happened?\n\n> [!activity|other] Other\n\nWords.\n\n> [!module|d end] E\n`;
+			let t = `---\nbooklet: "0.20"\ntitle: A daily note\n---\n\n> [!module|d] Day\n\n> [!activity|today repeat daily] Today\n\n> [!text|what] What happened?\n\n> [!activity|other] Other\n\nWords.\n\n> [!module|d end] E\n`;
 			t = core.setDraftAnswer(t, "d", "today", "what", "A walk");
 			return core.finalizeDraft(t, "d", "today", { ts: "2026-10-20T09:00:00Z" }).text;
 		})(),
@@ -361,7 +361,7 @@ function linkRender(markdown, el) {
 test("a heading link opens the place its words name, as a step; a dead one is plain words; a link to a module the booklet holds opens it, and to one it lacks is a chip", async () => {
 	globalThis.__bookletStubRender = linkRender;
 	try {
-		const text = `---\nbooklet: "0.19"\ntitle: Links\n---\n\n> [!module|one] One\n\n> [!activity|a] Alpha\n\nSee [[#Beta]] and [[#Nowhere at all]] and [[two.booklet]] and [[three.booklet|the third]].\n\n> [!activity|b] Beta\n\nBeta words.\n\n> [!module|one end] E\n\n> [!module|two] Two\n\n> [!activity|c] Gamma\n\nGamma words.\n\n> [!activity|d] Delta\n\nMore.\n\n> [!module|two end] E\n`;
+		const text = `---\nbooklet: "0.20"\ntitle: Links\n---\n\n> [!module|one] One\n\n> [!activity|a] Alpha\n\nSee [[#Beta]] and [[#Nowhere at all]] and [[two.booklet]] and [[three.booklet|the third]].\n\n> [!activity|b] Beta\n\nBeta words.\n\n> [!module|one end] E\n\n> [!module|two] Two\n\n> [!activity|c] Gamma\n\nGamma words.\n\n> [!activity|d] Delta\n\nMore.\n\n> [!module|two end] E\n`;
 		const p = pane(text, { screen: "activity:one/a" });
 		await p.settled();
 		const links = p.all(".booklet-pagebody a");

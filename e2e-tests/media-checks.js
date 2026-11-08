@@ -34,7 +34,7 @@ module.exports = function mediaChecks(env) {
     o.page.on("request", r => { try { const u = new URL(r.url()); if (/^https?:$/.test(u.protocol) && WATCHED.has(u.hostname)) seen.push({ t: Date.now(), host: u.hostname, url: r.url(), type: r.resourceType() }); } catch (e) { /* not an address */ } });
     return seen;
   }
-  const front = (id, title, extra = "") => `---\nbooklet: "0.19"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
+  const front = (id, title, extra = "") => `---\nbooklet: "0.20"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
   const poll = async (fn, ms = 6000, every = 100) => { const t0 = Date.now(); for (;;) { const v = await fn(); if (v) return v; if (Date.now() - t0 > ms) return v; await sleep(every); } };
   const slotsOf = (o, sel = "") => o.evaluate(s => [...document.querySelectorAll(s + " .booklet-media-slot")].map(e => ({ kind: e.getAttribute("data-booklet-media"), state: e.getAttribute("data-state"), where: e.closest(".booklet-prompt, .booklet-choices, .booklet-scale, .booklet-prose, .booklet-help, .booklet-listen-media") ? e.closest(".booklet-prompt, .booklet-choices, .booklet-scale, .booklet-prose, .booklet-help, .booklet-listen-media").className.split(" ")[0] : "", text: e.textContent.replace(/\s+/g, " ").trim().slice(0, 120) })), BOOK + sel);
 

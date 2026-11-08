@@ -12,7 +12,7 @@ import { pane } from "./pane.mjs";
 
 process.env.TZ = "UTC";
 
-const HEAD = '---\nbooklet: "0.19"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
+const HEAD = '---\nbooklet: "0.20"\nid: made/up\ntitle: Made up\nlang: en\n---\n';
 const BREAK = "\n***\n";
 
 /** Two activities on the home screen; the first has two pages, each with a listen and a question. */

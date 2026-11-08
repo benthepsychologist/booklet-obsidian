@@ -20,7 +20,7 @@ module.exports = function picturesChecks(env) {
     "images/shape.svg": SVG, "my boat.png": PNG, "dot.png": PNG, "images/wave.png": PNG,
   };
   const casesText = () => `---
-booklet: "0.19"
+booklet: "0.20"
 id: booklet-test/picture-cases
 title: Picture cases
 lang: en

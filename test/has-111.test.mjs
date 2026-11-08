@@ -30,7 +30,7 @@ test("the stylesheet reads the marks the code sets: data-booklet-at for the coun
 });
 
 const note = (n) =>
-	`---\nbooklet: "0.19"\n---\n\n> [!activity|a] A\n\n` +
+	`---\nbooklet: "0.20"\n---\n\n> [!activity|a] A\n\n` +
 	Array.from({ length: n }, (_, i) => `> [!group] Step ${i + 1}\n> > [!choice|q${i + 1}] Pick ${i + 1}\n> - [ ] Yes\n> - [ ] No\n`).join("\n") +
 	"\n";
 const open = (n) => {
