@@ -278,10 +278,11 @@ test("a parent whose list is empty takes its first child; a parent with two cand
 	assert.equal(core.childListKey({ id: "p", kid: { id: "c" } }), null, "a child held as one object is no list");
 	assert.equal(core.childListKey({ id: "p" }), null);
 	const first = { $add: [{ pick: "j-9", under: "j-1", row: { title: "First" } }], ts: "2026-11-08T10:50:00Z" };
-	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]], entries([first]))).p;
+	const drawn = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]], entries([first])));
+	const p = drawn.p;
 	assert.deepEqual(flat(p).map((r) => r.id), ["j-1", "j-9", "j-4"], "drawn under its parent");
 	assert.equal(byId(p, "j-9").act, "adding");
-	assert.deepEqual(empty.rows[0].jobs, [], "and the data is not changed by drawing it");
+	assert.deepEqual(drawn.b.data[0].rows[0].jobs, [], "and the data the page holds is not changed by drawing it");
 	// the control: Add under is offered on a row with one candidate, empty or not
 	const form = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]])).p;
 	assert.equal(core.childListKey(form.set.all.find((r) => r.id === "j-1").raw), "jobs");

@@ -758,7 +758,7 @@ module.exports = function dashboardChecks(env) {
   // jobs written in the note itself (an inline data block) and whose second and third draw beds from a file beside it. The pressing is done with real clicks and keys;
   // the files on disk are compared byte for byte with what the change should make, and the note outside the block's fences is the bytes it was.
   async function check63() {
-    const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; on a table wider than a phone Remove, its question and its answers are in the window, on top and pressed where they stand, in both looks; the Paper look pills them and Obsidian's look does not; print hides them");
+    const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written, a file that is not valid UTF-8 and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; on a table wider than a phone Remove, its question and its answers are in the window, on top and pressed where they stand, in both looks; the Paper look pills them and Obsidian's look does not; print hides them");
     const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json", WIDE63 = "garden-wide.booklet.md";
     const here = f => path.join(__dirname, "..", "test", "dashboards", f);
     for (const where of ["desktop", "phone"]) {
@@ -902,6 +902,17 @@ module.exports = function dashboardChecks(env) {
         c.ok(/Plum/.test(await beds.innerText()) && /· sent, waiting/.test(await beds.innerText()), `[${where}] the new row is drawn at the end, "sent, waiting": ${JSON.stringify((await beds.innerText()).replace(/\s+/g, " "))}`);
         c.ok(/the row was kept but not added to garden-jobs\.json/i.test(await seen()) && /cannot be written/.test(await seen()), `[${where}] a notice says so: ${JSON.stringify(await seen())}`);
 
+        // a pending add can be removed (contract 8.5): Plum is waiting; Remove keeps a $delete holding the row as the entry made it, nothing is written (the file never held it), the row goes
+        const plum = beds.locator("[data-booklet-remove='ID-plum']");
+        c.ok((await plum.locator(".booklet-row-remove-open").count()) === 1, `[${where}] the waiting row offers Remove`);
+        const nPlum = entriesOf().length;
+        await plum.locator(".booklet-row-remove-open").click();
+        await plum.locator(".booklet-row-remove-yes").click();
+        await settle();
+        const ePlum = entriesOf();
+        c.ok(ePlum.length === nPlum + 1 && /"\$delete":\[\{"pick":"ID-plum","was":\{"id":"ID-plum","title":"Plum"\}\}\]/.test(ePlum[nPlum]), `[${where}] Remove keeps one $delete holding the waiting row as the entry made it: ${ePlum[nPlum]}`);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === lockedBefore && !/Plum/.test(await beds.innerText()), `[${where}] the file is as it was and the waiting row is gone from the list`);
+
         // a row changed since the reader drew it: the removal is kept, nothing is removed, the row says so
         const staleRow = beds.locator("[data-booklet-remove='ID-herbs']");
         await staleRow.locator(".booklet-row-remove-open").click();
@@ -918,6 +929,26 @@ module.exports = function dashboardChecks(env) {
         await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
         await sleep(900); await quiet(o);
         c.ok(/You asked to remove this; it changed since\./.test(await beds.innerText()), `[${where}] and the row says it changed since, in words: ${JSON.stringify((await beds.innerText()).replace(/\s+/g, " ").slice(0, 200))}`);
+
+        // a data file that is not valid UTF-8 (the reviewer's input: a byte order mark, CRLF, tabs and a Latin-1 byte): an add and a removal write nothing, and a notice says so
+        const latin = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from('{"beds":{"fields":{"title":{"label":"Name","edit":"text"}},"idFormat":"ID-{field:title}","rows":[\r\n\t{"id":"b-1","title":"Caf'), Buffer.from([0xe9]), Buffer.from('"},\r\n\t{"id":"b-2","title":"Two"}\r\n]}}\r\n')]);
+        fs.writeFileSync(jsonFile, latin);
+        await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+        await o.page.waitForFunction(sel => /Two/.test(document.querySelector(sel).innerText), BOOK, { timeout: 8000 });
+        await sleep(600); await quiet(o);
+        await o.evaluate(() => { window.__seen = []; });
+        const nLatin = entriesOf().length;
+        await beds.locator(".booklet-row-add-open").click();
+        await o.page.keyboard.type("Three");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        c.ok(fs.readFileSync(jsonFile).equals(latin), `[${where}] an add to a file that holds a Latin-1 byte writes nothing: the file is the same bytes (BOM, CRLF, tabs and the byte)`);
+        c.ok(/not valid UTF-8, so it was not changed/.test(await seen()) && entriesOf().length === nLatin + 1, `[${where}] a notice says so and the entry is kept: ${JSON.stringify(await seen())}`);
+        await o.evaluate(() => { window.__seen = []; });
+        await beds.locator("[data-booklet-remove='b-2'] .booklet-row-remove-open").click();
+        await beds.locator("[data-booklet-remove='b-2'] .booklet-row-remove-yes").click();
+        await settle();
+        c.ok(fs.readFileSync(jsonFile).equals(latin) && /the removal was kept, but no row was taken out of garden-jobs\.json\. That file is not valid UTF-8, so it was not changed\./.test(await seen()), `[${where}] a removal from it writes nothing either: ${JSON.stringify(await seen())}`);
 
         // print hides the controls
         await o.page.emulateMedia({ media: "print" });
