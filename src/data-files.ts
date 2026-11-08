@@ -5,12 +5,30 @@
  * vault says it changed and when the pane comes back into view, and only a file whose size or time changed is read again. Whatever the
  * reader has open or scrolled is the view's (query-controls.ts); this holds the files.
  */
-import { DATA_FILE_MAX, DATA_WORDS, dataMerge, dataRead, dataVaultPath, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
+import { DATA_FILE_MAX, DATA_WORDS, applyAct, dataMerge, dataRead, dataVaultPath, type ApplyWhy, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
 
 /** The part of Obsidian's file adapter this reads with (a `.json` file need not be in the vault's index, so the adapter and not a TFile). */
 export interface DataAdapter {
 	read(path: string): Promise<string>;
 	stat(path: string): Promise<{ size: number; mtime: number } | null>;
+	/** Reads the file, calls `fn` with its text and writes what `fn` returns, in one step (the app's own, since 1.7.2); a `fn` that throws writes nothing. */
+	process(path: string, fn: (data: string) => string): Promise<string>;
+}
+
+/** What became of an act that was to be written into a data file. */
+export type Applied =
+	/** Written into the file, or the file already held the value. */
+	| { state: "written"; name: string }
+	/** Not written because of what the file holds now. */
+	| { state: "refused"; why: ApplyWhy; name: string }
+	/** Not written: the file cannot be written, or the block names no file in the vault. */
+	| { state: "failed"; name: string };
+
+/** Thrown inside the app's read-and-write step to make it write nothing. */
+class Refused extends Error {
+	constructor(readonly why: ApplyWhy | "unchanged") {
+		super(why);
+	}
 }
 
 /** One file as last read: its size and time when it was (`stamp`), a count of reads (`gen`), and what it held or why it could not be read. */
@@ -79,6 +97,58 @@ export class DataFiles {
 		if (path === null) return "refused";
 		const e = this.files.get(path);
 		return e ? `${e.gen}:${e.state}` : "unread";
+	}
+
+	/**
+	 * Applies one kept act to the file a block names (core/apply.ts): the file is read again at the moment of writing and the act is applied
+	 * to that text, so a change made outside since the page drew is seen; the value's own text is replaced and no other byte changes.
+	 * Nothing is written when the act cannot be applied. A file written is put in the entry at once, so every block that names it is drawn
+	 * again from the new text (once: the vault's own event for the same write finds nothing new).
+	 */
+	async apply(block: DataBlock, pick: unknown, field: string, was: unknown, a: unknown, eq: (x: unknown, y: unknown) => boolean): Promise<Applied> {
+		const file = block.file;
+		const path = this.pathOf(block);
+		const adapter = this.adapter();
+		if (!file || path === null || !adapter) return { state: "failed", name: file ? file.name : "" };
+		const name = file.name;
+		let after = "";
+		try {
+			await adapter.process(path, (text) => {
+				const r = applyAct(text, file.path, pick, field, was, a, eq);
+				if (!r.ok) throw new Refused(r.why);
+				// the value is already there: nothing to write
+				if (r.text === text) throw new Refused("unchanged");
+				after = r.text;
+				return r.text;
+			});
+		} catch (err) {
+			if (err instanceof Refused) {
+				if (err.why === "unchanged") return { state: "written", name };
+				// the file is not what the page drew: it is looked at again, so the cells show what it holds now
+				void this.refresh();
+				return { state: "refused", why: err.why, name };
+			}
+			return { state: "failed", name };
+		}
+		await this.landWritten(adapter, path, after);
+		return { state: "written", name };
+	}
+
+	/** Puts the text just written in the file's entry, as a read of it would (the read that was under way is overtaken). */
+	private async landWritten(adapter: DataAdapter, path: string, text: string): Promise<void> {
+		const e = this.files.get(path);
+		if (!e || this.dead) return;
+		if (e.state === "loading") return;
+		e.ticket = ++this.gens;
+		try {
+			const st = await adapter.stat(path);
+			const json = JSON.parse(text.charCodeAt(0) === 0xfeff ? text.slice(1) : text) as unknown;
+			this.land(path, e, { state: "ok", json, text }, st ? `${st.mtime}:${st.size}` : "");
+		} catch {
+			// what was written could not be put in the entry: it is read again
+			e.stamp = "";
+			this.read(path, e);
+		}
 	}
 
 	/** The vault says a file changed (or was made, removed or renamed): every file named is looked at again. */
