@@ -179,8 +179,8 @@ test("the parent: none is gone, more than one is ambiguous, and a parent needs e
 	// lists of plain values beside the one list of rows do not count
 	const mixed = applyAdd(`{"rows":[{"id":"p","notes":["a","b"],"k":[{"id":"x"}]}]}`, "", "c", "p", { t: "z" });
 	assert.equal(mixed.text, `{"rows":[{"id":"p","notes":["a","b"],"k":[{"id":"x"}, {"id":"c","t":"z"}]}]}`, "(one row on the line: a comma and one space)");
-	// an empty list beside a list of rows is a second candidate
-	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","empty":[],"k":[{"id":"x"}]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	// an empty list beside a list of rows is ignored (contract section 11): the child goes in the list that has rows
+	assert.equal(applyAdd(`{"rows":[{"id":"p","empty":[],"k":[{"id":"x"}]}]}`, "", "c", "p", {}).text, `{"rows":[{"id":"p","empty":[],"k":[{"id":"x"}, {"id":"c"}]}]}`);
 	// a refusal writes nothing: it returns no text
 	assert.equal("text" in applyAdd(MULTI, "plots", "c", "a", {}), false);
 });
@@ -351,13 +351,18 @@ test("a row holding a very long run of spaces is laid out in milliseconds, not s
 
 /* ---- contract section 9 ---- */
 
-test("a parent with an empty list takes its first child, in the layout for an empty list; two candidate lists (an empty one counts) refuse; one object is no place", () => {
+test("a parent with an empty list takes its first child, in the layout for an empty list; a list with rows wins over empty lists beside it; two lists with rows, or no rows and two empty lists, refuse; one object is no place", () => {
 	const t = `{"rows":[\n  {"id":"p","jobs":[]},\n  {"id":"q"}\n]}`;
 	const r = applyAdd(t, "", "c", "p", { title: "C" });
 	assert.equal(r.ok, true);
 	assert.equal(r.text, `{"rows":[\n  {"id":"p","jobs":[\n    {\n      "id": "c",\n      "title": "C"\n    }\n  ]},\n  {"id":"q"}\n]}`, "two spaces deeper than the line the list is on, the bracket at that line's indent");
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","jobs":[],"tags":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
-	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","jobs":[{"id":"x"}],"tags":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","jobs":[{"id":"x"}],"tags":[{"id":"y"}]}]}`, "", "c", "p", {}), { ok: false, why: "no place" }, "two lists with rows");
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","a":[],"b":[],"c":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" }, "three empty lists");
+	// an empty list beside the list that has rows is ignored (contract section 11), in either order, and the bytes are exact
+	assert.equal(applyAdd(`{"rows":[{"id":"p","jobs":[{"id":"x"}],"tags":[]}]}`, "", "c", "p", {}).text, `{"rows":[{"id":"p","jobs":[{"id":"x"}, {"id":"c"}],"tags":[]}]}`);
+	assert.equal(applyAdd(`{"rows":[{"id":"p","tags":[],"jobs":[{"id":"x"}]}]}`, "", "c", "p", {}).text, `{"rows":[{"id":"p","tags":[],"jobs":[{"id":"x"}, {"id":"c"}]}]}`);
+	assert.equal(applyAdd(`{"rows":[{"id":"p","tags":[],"jobs":[{"id":"x"}],"more":[]}]}`, "", "c", "p", {}).ok, true, "two empty lists beside the one with rows");
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","kid":{"id":"x"}}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"p"}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
 	// a list of values beside the one list of rows is no candidate

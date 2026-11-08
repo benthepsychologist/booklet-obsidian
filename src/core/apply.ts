@@ -161,11 +161,13 @@ export function sameJson(a: unknown, b: unknown): boolean {
 	return kx.length === Object.keys(y).length && kx.every((k) => Object.prototype.hasOwnProperty.call(y, k) && sameJson(x[k], y[k]));
 }
 
-/** The only candidate field of a row (as the text reads it) for new child rows: a list whose items are all objects, an empty list included. Null when it has none or several (data.ts childListKey). */
+/** The field of a row (as the text reads it) that takes new child rows, as data.ts childListKey chooses: the only list of objects that has rows, else the only empty one. Null otherwise. */
 function childList(members: Map<string, JsonMember>): Arr | null {
-	const lists: Arr[] = [];
-	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.every((e) => e.kind === "object")) lists.push(m.value);
-	return lists.length === 1 ? lists[0]! : null;
+	const full: Arr[] = [];
+	const empty: Arr[] = [];
+	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.every((e) => e.kind === "object")) (m.value.elements.length ? full : empty).push(m.value);
+	if (full.length) return full.length === 1 ? full[0]! : null;
+	return empty.length === 1 ? empty[0]! : null;
 }
 
 /**

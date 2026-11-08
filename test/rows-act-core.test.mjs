@@ -277,11 +277,15 @@ test("the ids to make against are every id at every depth, as written, then the 
 
 /* ---- contract section 9: which field takes a child, ids as text ---- */
 
-test("a parent whose list is empty takes its first child; a parent with two candidate lists (an empty one counts) takes none; one object is no list", () => {
+test("a parent whose list is empty takes its first child; an empty list beside a list with rows is ignored; two lists with rows, or none with rows and two empty, take none; one object is no list", () => {
 	const empty = { ...DATA, rows: [{ id: "j-1", title: "Prune", jobs: [] }, { id: "j-4", title: "Stakes" }] };
 	assert.equal(core.childListKey({ id: "p", jobs: [] }), "jobs");
-	assert.equal(core.childListKey({ id: "p", jobs: [], tags: [] }), null, "two candidates");
-	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: [] }), null, "an empty list is a candidate beside a full one");
+	assert.equal(core.childListKey({ id: "p", jobs: [], tags: [] }), null, "none with rows and two empty");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: [] }), "jobs", "an empty list beside a list with rows is ignored");
+	assert.equal(core.childListKey({ id: "p", tags: [], jobs: [{ id: "c" }], more: [] }), "jobs");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: [{ id: "d" }] }), null, "two lists with rows");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: [{ id: "d" }], none: [] }), null, "an empty one does not make the choice");
+	assert.equal(core.childListKey({ id: "p", tags: ["a"], jobs: [] }), "jobs", "a list of values is no candidate, but an empty list is");
 	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: ["a"] }), "jobs", "a list of values is no candidate");
 	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }, "x"] }), null, "a list with an item that is not an object is none");
 	assert.equal(core.childListKey({ id: "p", kid: { id: "c" } }), null, "a child held as one object is no list");
@@ -358,4 +362,16 @@ test("the ids to make against, and a clash, are counted within the block: anothe
 	assert.deepEqual(rowIdsOf(DATA.rows, [add], "jobs"), ["j-1", "j-2", "j-3", "j-4"], "jobs does not count past beds' add");
 	const removed = { $delete: [{ in: "jobs", pick: "j-5", was: { id: "j-5" } }], ts: "2026-11-08T10:43:00Z" };
 	assert.equal(rowIdsOf(DATA.rows, [add, removed], "beds").includes("j-5"), true, "a removal for another block does not free the number");
+});
+
+/* ---- contract section 11: the list that has rows takes the child ---- */
+
+test("a pending add under a parent with an empty list beside its list of rows is drawn in the list that has rows; two lists with rows draw nothing", () => {
+	const mk = (parent) => ({ ...DATA, rows: [parent, DATA.rows[1]] });
+	const add = { $add: [{ in: "d", pick: "j-9", under: "j-1", row: { title: "New" } }], ts: "2026-11-08T10:50:00Z" };
+	const one = plan(note("from: d\nas: table\nadd", "repeat", [["d", mk({ id: "j-1", title: "Prune", tags: [], jobs: [{ id: "j-2", title: "Ladder" }] })]], entries([add])));
+	assert.deepEqual(flat(one.p).map((r) => r.id), ["j-1", "j-2", "j-9", "j-4"]);
+	assert.equal(byId(one.p, "j-9").act, "adding");
+	const two = plan(note("from: d\nas: table\nadd", "repeat", [["d", mk({ id: "j-1", title: "Prune", tags: [{ id: "t-1" }], jobs: [{ id: "j-2", title: "Ladder" }] })]], entries([add])));
+	assert.equal(byId(two.p, "j-9"), undefined);
 });

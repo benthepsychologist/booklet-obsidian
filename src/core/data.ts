@@ -119,16 +119,18 @@ export function childRowsOf(v: unknown): DataRow[] | null {
 export const ownValue = (r: DataRow, k: string): DataRow[string] | undefined => (own(r, k) ? r[k] : undefined);
 
 /**
- * The field of a row that new child rows are added to (contract section 9, item 3): its only candidate, a candidate being a field whose
- * value is a list whose items are all objects. An empty list is a candidate, so a row with `"jobs": []` takes its first child. Null when it
- * has no candidate (no list, a list of values, a child held as one object) or more than one.
+ * The field of a row that new child rows are added to (contract section 11): of the fields whose value is a list whose items are all
+ * objects, the one that has rows, if exactly one does (empty lists beside it are ignored); else, when none has rows, the one empty list
+ * (`"jobs": []` takes its first child). Null otherwise: two lists with rows, or none with rows and two or more empty, or no list at all
+ * (a list of values, a child held as one object).
  */
 export function childListKey(r: DataRow): string | null {
-	let key: string | null = null;
+	const full: string[] = [];
+	const empty: string[] = [];
 	for (const [k, v] of Object.entries(r)) {
 		if (!Array.isArray(v) || !v.every(isRowObj)) continue;
-		if (key !== null) return null;
-		key = k;
+		(v.length ? full : empty).push(k);
 	}
-	return key;
+	if (full.length) return full.length === 1 ? full[0]! : null;
+	return empty.length === 1 ? empty[0]! : null;
 }

@@ -1566,11 +1566,11 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
   - Source: Not ruled on. SPEC 0.20 says a refused removal "leaves the row with 'You asked to remove this; it changed since.'" and is silent on whether Remove is offered again.
   - Suggestion: keep as the plugin's own; propose one line to SPEC saying a row so marked may be removed again
 
-- **C-170** · tier `builder` (changed 2026-11-08 by contract section 9, item 3)
-  Add under this row is offered on a row that has exactly one candidate field: a field whose value is a list whose items are all objects. An empty list is a candidate, so a row with `"jobs": []` takes its first child; a row with no such field, or with two (`"jobs": []` and `"tags": []`), is not offered it. The applier agrees: it finds the same list or refuses with "Cannot tell where the new row goes under this one."
-  - Why: the contract's section 9 replaced the first choice (an empty list is not counted, so a parent with no children could not take its first one) with this rule.
+- **C-170** · tier `builder` (changed again 2026-11-08 by contract section 11)
+  Add under this row is offered on a row with one field that takes children. Of the fields whose value is a list whose items are all objects: if exactly one has rows, it takes the child (empty lists beside it are ignored, so `"jobs": [{…}]` with `"tags": []` works); if none has rows and exactly one is empty, that empty list takes the child (the first child of `"jobs": []`); otherwise (two lists with rows, or none with rows and two or more empty, or no list) the row is not offered it. The applier chooses the same list or refuses with "Cannot tell where the new row goes under this one."
+  - Why: the contract's section 9 counted an empty list as a candidate, which refused every add under a parent that carries an empty `tags: []` beside its real child list; section 11 prefers the list that has rows.
   - Where: `src/core/data.ts` (`childListKey`); `src/core/apply.ts` (`childList`); `src/core/rows-act.ts` (the copy a pending add stands in); `src/row-ask.ts` (`offersUnder`)
-  - Source: Ruled by the contract (section 9, item 3); the earlier choice was the plugin's own.
+  - Source: Ruled by the contract (section 11, refining section 9, item 3); the earlier choices were the plugin's own.
   - Suggestion: none; the README says it
 
 - **C-171** · tier `builder`
