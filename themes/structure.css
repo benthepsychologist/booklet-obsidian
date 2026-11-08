@@ -680,9 +680,9 @@
 
 /* ---------- 8. buttons: secondary is a pill with a rule border, primary is the brand fill ---------- */
 
-/* Every button but the three that are drawn as words (a source number, a sortable table heading, the fold) and Obsidian's icon buttons.
+/* Every button but the four that are drawn as words (a source number, a sortable table heading, the fold, an editable value) and Obsidian's icon buttons.
    :where() keeps the exclusions out of the weight, so a component rule below needs no more than a class or two to answer this one. */
-.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)) {
 	min-height: 44px;
 	padding: 0.45rem 1.1rem;
 	border: 1.5px solid var(--bk-edge);
@@ -696,19 +696,29 @@
 	cursor: pointer;
 }
 
-.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):hover {
+/* the editable value: the value as it is, on a faint wash of the brand tint (hover: the whole wash); its shape is the base's */
+.booklet-view[data-booklet-look^="paper"] .booklet-edit-open {
+	background: color-mix(in srgb, var(--bk-brand-wash) 40%, transparent);
+	font-family: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-edit-open:hover {
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)):hover {
 	background-color: var(--bk-brand-wash);
 	border-color: var(--bk-brand);
 	color: var(--bk-ink);
 }
 
-.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)) {
 	background-color: var(--bk-brand);
 	border-color: var(--bk-brand);
 	color: var(--bk-on-brand);
 }
 
-.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):hover {
+.booklet-view[data-booklet-look^="paper"] button.mod-cta:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)):hover {
 	background-color: var(--bk-brand-deep);
 	border-color: var(--bk-brand-deep);
 	color: var(--bk-on-brand);
@@ -1349,14 +1359,14 @@
 		transform: scale(0.98);
 	}
 
-	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)) {
+	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)) {
 		transition:
 			background-color 0.15s ease,
 			border-color 0.15s ease,
 			transform 0.1s ease;
 	}
 
-	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .clickable-icon)):active {
+	.booklet-view[data-booklet-look^="paper"] button:where(:not(.booklet-cite-mark, .booklet-q-sort, .booklet-fold, .booklet-edit-open, .clickable-icon)):active {
 		transform: translateY(1px);
 	}
 

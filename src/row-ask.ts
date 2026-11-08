@@ -5,6 +5,8 @@
  * (core/ask.ts, core/write.ts); this draws them with the plugin's own controls (questions.ts), and names every control for a screen reader
  * by the field's or question's words and the row's.
  *
+ * An edit also writes the data file when the rows come from one in the vault (view.ts applyAct, data-files.ts apply, core/apply.ts).
+ *
  * An act is one pair `{ pick, a, was }` in a new kept entry of the activity that holds the query, so the activity must repeat: in any
  * other the field is drawn as its value, and a question is answered as any `each:` question is, as it is typed. Typing in a question
  * is a draft (the view's, as every draft is); typing in an edit box is the reader's until Enter or leaving the box keeps it as one act,
@@ -28,6 +30,7 @@ import {
 	valueText,
 	whenText,
 	type Activity,
+	type DataBlock,
 	type Entry,
 	type PickValue,
 	type Question,
@@ -45,6 +48,12 @@ type Plan = Extract<QueryPlan, { kind: "rows" }>;
 /** The words of the display states, as the reference renderer says them (booklet.html, the strings called waiting and sent). */
 const WAITING = " · sent, waiting";
 const SENT = "You sent:";
+
+/** What the view needs to apply a kept act to a data file: the block that names the file, and how the data's value is compared with `was`. */
+export interface ActApply {
+	block: DataBlock;
+	eq: (a: unknown, b: unknown) => boolean;
+}
 
 /** An edit box that is open: the words in it, the data's value when the box was opened (`was`), and whether the reader was in it. Kept by the view. */
 export interface EditSession {
@@ -65,8 +74,11 @@ export interface RowsView extends QuestionHost {
 	keptOf(t: Target): Entry[];
 	/** Says something to the reader, politely (a notice). */
 	say(message: string): void;
-	/** Keeps one act as a new entry of the activity, under `key`; `failed` runs when it could not be written (the reader's words are then given back). */
-	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void): void;
+	/**
+	 * Keeps one act as a new entry of the activity, under `key`; `failed` runs when it could not be written (the reader's words are then given
+	 * back). With `apply`, once the entry is kept the act is also written into the data file the block names, if the data still holds `pair.was`.
+	 */
+	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void, apply?: ActApply): void;
 	/** A row's Finalize: keeps that row's draft pairs of the questions `ids` as one entry, and takes them out of the draft. */
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void;
 	/** Does the draft (or typing not written yet) hold an answer for this row to one of these questions? */
@@ -94,7 +106,7 @@ function wordsOf(q: Question, v: unknown): string {
 }
 
 /** What the rows of one query can do, for the activity that holds it: its questions drawn in rows, its edit boxes, and the row's Finalize. */
-export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
+export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: DataBlock): RowsUi {
 	const t: Target = { scope: a.scope, activity: a };
 	/**
 	 * Can an act be kept: the activity keeps entries and has an id to keep them under. A daily activity keeps one entry a day, made by its
@@ -345,13 +357,21 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string): RowsUi {
 				const was = sess.was ?? null;
 				// what was typed shows at once, as waiting, until the note holds it (the view draws the rows again then)
 				shut(next, { state: "waiting", sent: { ts: "", a: next, was, hasWas: true } });
-				view.keepAct(t, key, { pick: id, a: next, was }, () => {
-					view.sessions.set(sk, { text: typed, was, focused: false, vkey, pick: id, cell });
-					if (cell.isConnected) {
-						over = false;
-						open();
-					}
-				});
+				// an edit also changes the data when the rows come from a file of the vault (the plugin is that file's host, docs/hosting.md);
+				// rows written in the note itself are only kept, and so is a question's answer (it has no `was` and goes another way)
+				view.keepAct(
+					t,
+					key,
+					{ pick: id, a: next, was },
+					() => {
+						view.sessions.set(sk, { text: typed, was, focused: false, vkey, pick: id, cell });
+						if (cell.isConnected) {
+							over = false;
+							open();
+						}
+					},
+					block.file ? { block, eq } : undefined,
+				);
 			};
 			sess.commit = () => finish(true, true);
 			// a key in the box belongs to the box: it never reaches the row's disclosure, which Space and Enter would toggle

@@ -544,8 +544,10 @@ module.exports = function dashboardChecks(env) {
   // with a real click into a box and kept with Enter as one act (`pick`, `a`, `was`) in a new kept entry, no other byte of the note changed; Esc and
   // the keyboard; the three display states when the JSON is changed from outside; `readonly` on the roundup; a question asked for each row typed in a
   // column (a draft, not an act) and in a request's open part, kept by the row's Finalize; the control names in the accessibility tree; print.
+  // Since 1.4.0-beta.3 the plugin is the host of the vault data file and applies an edit to it (docs/hosting.md, "Applying a reader's acts"): the value's own text is
+  // replaced, every other byte stays, and the read-only table of the same rows shows it. An edit that cannot be applied is kept, not written, and says why.
   async function check62() {
-    const c = new Check(62, "0.19 acts on rows, in the real app: a field marked edit pressed into a box and kept by Enter as one act with was in a new entry, nothing else in the note changed; Esc keeps nothing; the keyboard; waiting, same and changed after the JSON changes outside; readonly cards have no box; a question in a column is a draft; a row's Finalize keeps its pairs as one entry; control names; print shows values");
+    const c = new Check(62, "0.19 acts on rows, in the real app: a field marked edit pressed into a box and kept by Enter as one act with was in a new entry, nothing else in the note changed, and the value written into the vault data file (only its own text), the read-only table showing it; Esc keeps nothing; the keyboard; waiting, same and changed after the JSON changes outside; an edit whose data changed meanwhile, and one for a file that cannot be written, are kept and not written, in words; readonly cards have no box; a question in a column is a draft; a row's Finalize keeps its pairs as one entry and writes no data; control names; print shows values");
     const ORCHARD = "orchard-dashboard.booklet.md";
     const here = f => path.join(__dirname, "..", "test", "dashboards", f);
     for (const where of ["desktop", "phone"]) {
@@ -560,6 +562,7 @@ module.exports = function dashboardChecks(env) {
         if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
         const orchard = kit(env, ORCHARD);
         const orig = fs.readFileSync(noteFile, "utf8");
+        const jsonOrig = fs.readFileSync(jsonFile, "utf8");
         await orchard.open(o, ORCHARD);
         await orchard.goTo(o, "activity:desk/orchard");
         await o.page.waitForFunction(sel => { const q = document.querySelectorAll(sel + " .booklet-query"); return q.length === 4 && [...q].every(x => !x.querySelector(".booklet-q-quiet")); }, BOOK, { timeout: 10000 });
@@ -567,8 +570,33 @@ module.exports = function dashboardChecks(env) {
         const plots = qs().nth(0);
         const cell = (key, pick = "p-orchard") => plots.locator(`[data-booklet-edit='${key}'][data-booklet-pick='${pick}']`);
         const noteText = () => fs.readFileSync(noteFile, "utf8");
+        const countWord = (text, w) => text.split(w).length - 1;
         const entries = () => (noteText().match(/^\{"ts":"[^\n]*$/gm) || []);
         const settle = async () => { await quiet(o); await sleep(900); await quiet(o); };
+
+        // an editable value is drawn as the value it holds, not as a pill, and its column is as wide as its longest word (a one-letter column wraps inside a word)
+        const looks = await plots.locator("button.booklet-edit-open").evaluateAll(bs => bs.map(b => {
+          const cs = getComputedStyle(b), words = (b.querySelector(".booklet-edit-value") || b).textContent.trim().split(/\s+/).filter(Boolean).length;
+          const lh = parseFloat(cs.lineHeight) || parseFloat(cs.fontSize) * 1.5, h = b.getBoundingClientRect().height;
+          return { radius: cs.borderTopLeftRadius, border: cs.borderTopWidth, h: Math.round(h), lines: Math.round(h / lh), words, wrap: cs.overflowWrap, bg: cs.backgroundColor };
+        }));
+        const pill = looks.filter(l => parseFloat(l.radius) > 8 || l.border !== "0px" || l.wrap === "anywhere");
+        c.ok(looks.length > 0 && pill.length === 0, `[${where}] an editable value is plain text with a faint tint (no pill, no border, no break-anywhere): ${JSON.stringify(pill[0] || looks[0])}`);
+        const broken = looks.filter(l => l.lines > l.words + 1);
+        c.ok(broken.length === 0, `[${where}] no editable value is wrapped inside a word (lines no more than words + 1): ${JSON.stringify(broken[0] || "")}`);
+        c.ok(looks.every(l => l.bg !== "rgba(0, 0, 0, 0)" && l.bg !== "transparent"), `[${where}] and each has a tint to say it can be pressed: ${looks[0].bg}`);
+
+        // a top-level row of the editable table opens by its triangle, which is inside the table's scroll box (not clipped) and is pressed with the mouse
+        const sum0 = plots.locator("details > summary").first();
+        const b0 = await sum0.boundingBox(), w0 = await plots.locator(".booklet-q-wrap").boundingBox();
+        c.ok(b0.x - w0.x >= 14, `[${where}] the first row's triangle has room inside the table (the summary starts ${Math.round(b0.x - w0.x)}px in)`);
+        await o.page.mouse.click(b0.x - 13, b0.y + b0.height / 2);
+        await o.page.waitForFunction(sel => document.querySelector(sel + " .booklet-query details").open, BOOK, { timeout: 4000 }).catch(() => {});
+        c.ok(await plots.locator("details").first().evaluate(d => d.open), `[${where}] pressing the first row's triangle opens the row`);
+        c.ok((await plots.locator("tr.booklet-q-trmore").count()) > 0, `[${where}] and its open part is drawn under it`);
+        await o.page.mouse.click(b0.x - 13, b0.y + b0.height / 2);
+        await o.page.waitForFunction(sel => !document.querySelector(sel + " .booklet-query details").open, BOOK, { timeout: 4000 }).catch(() => {});
+        c.ok(!(await plots.locator("details").first().evaluate(d => d.open)), `[${where}] pressing it again shuts the row`);
 
         // a real click on a value turns it into a box of its kind, with the focus in it
         await cell("stage").locator("button").click();
@@ -577,6 +605,7 @@ module.exports = function dashboardChecks(env) {
         c.ok((await sel.evaluate(e => [...e.options].map(x => x.value).join())) === "planning,growing,resting,done", `[${where}] and its options are the field's`);
         c.ok((await plots.locator("details[open]").count()) === 0, `[${where}] the press did not open the row`);
         await sel.selectOption("resting");
+        const restingBefore = countWord(await qs().nth(1).innerText(), "resting");
         // notices come and go: a watcher keeps the words of every one that appears
         // (Obsidian shows no notice in a window that is not focused, and the harness's window may not be: it is told it has the focus)
         await o.evaluate(() => { window.dispatchEvent(new Event("focus")); });
@@ -586,22 +615,29 @@ module.exports = function dashboardChecks(env) {
         const t1 = noteText(), es = entries();
         c.ok(t1.startsWith(orig.replace(/\s*$/, "")) && es.length === 1 && /"stage":\[\{"pick":"p-orchard","a":"resting","was":"growing"\}\]/.test(es[0]), `[${where}] Enter keeps one entry, one pair with the row, the value and was: ${es[0]}`);
         c.ok(t1.slice(0, orig.replace(/\s*$/, "").length) === orig.replace(/\s*$/, ""), `[${where}] and the note before the records is the same bytes`);
-        c.ok(/resting/.test(await cell("stage").innerText()) && /· sent, waiting/.test(await cell("stage").innerText()), `[${where}] the cell says, in words, that it is sent and waiting: ${JSON.stringify(await cell("stage").innerText())}`);
+        // the plugin wrote the data file: the value's own text, every other byte as it was
+        const at = jsonOrig.indexOf('"stage":"growing"', jsonOrig.indexOf('"p-orchard"')) + '"stage":'.length;
+        const jsonExpected = jsonOrig.slice(0, at) + '"resting"' + jsonOrig.slice(at + '"growing"'.length);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === jsonExpected, `[${where}] the data file holds the new value in its own place and every other byte as before (${jsonOrig.length} bytes before, ${fs.readFileSync(jsonFile, "utf8").length} after)`);
+        c.ok(/resting/.test(await cell("stage").innerText()) && !/sent, waiting|You sent/.test(await cell("stage").innerText()), `[${where}] the cell shows the value alone: ${JSON.stringify(await cell("stage").innerText())}`);
+        c.ok(countWord(await qs().nth(1).innerText(), "resting") === restingBefore + 1, `[${where}] and the read-only roundup of the same rows shows the new value (${restingBefore} before, ${countWord(await qs().nth(1).innerText(), "resting")} now)`);
         c.ok(await cell("stage").locator("button").evaluate(b => b === document.activeElement), `[${where}] the focus is back on the value's button`);
-        const described = await cell("stage").locator("button").evaluate(b => { const m = document.getElementById(b.getAttribute("aria-describedby") || "-"); return m ? m.textContent.trim() : ""; });
-        c.ok(/^· sent, waiting$/.test(described), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(described)}`);
+        c.ok((await cell("stage").locator("button").getAttribute("aria-describedby")) === null, `[${where}] and nothing describes the button (no waiting words)`);
         await o.page.waitForFunction(() => (window.__seen || []).some(x => /change kept/i.test(x)), null, { timeout: 8000 }).catch(() => {});
         const notices = await o.evaluate(() => (window.__seen || []).join("|"));
-        c.ok(/change kept/i.test(notices), `[${where}] a kept change is announced by a notice: ${JSON.stringify(notices)}`);
+        c.ok(/Change kept and written to orchard-dashboard\.json\./i.test(notices), `[${where}] a kept and written change is announced by a notice: ${JSON.stringify(notices)}`);
 
         // the three display states, when the JSON is changed from outside
-        const json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
+        let json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
         const jsonWrite = async fn => { fn(json); fs.writeFileSync(jsonFile, JSON.stringify(json)); await sleep(1200); await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange"))); await sleep(800); await quiet(o); };
         await jsonWrite(j => (j.plots.rows[0].stage = "resting"));
-        c.ok(!/sent, waiting|You sent/.test(await cell("stage").innerText()) && /resting/.test(await cell("stage").innerText()), `[${where}] the data now holds what was sent: nothing is marked`);
+        c.ok(!/sent, waiting|You sent/.test(await cell("stage").innerText()) && /resting/.test(await cell("stage").innerText()), `[${where}] the data holds what was sent: nothing is marked`);
         await jsonWrite(j => (j.plots.rows[0].stage = "done"));
         c.ok(/done/.test(await cell("stage").innerText()) && /You sent: resting/.test(await cell("stage").innerText()), `[${where}] the data holds something else: the value now, with what was sent beneath: ${JSON.stringify(await cell("stage").innerText())}`);
         await jsonWrite(j => (j.plots.rows[0].stage = "growing"));
+        c.ok(/resting/.test(await cell("stage").innerText()) && /· sent, waiting/.test(await cell("stage").innerText()), `[${where}] the data is back to what the edit began from (changed outside): what was sent, marked as waiting: ${JSON.stringify(await cell("stage").innerText())}`);
+        const waitDescribed = await cell("stage").locator("button").evaluate(b => { const m = document.getElementById(b.getAttribute("aria-describedby") || "-"); return m ? m.textContent.trim() : ""; });
+        c.ok(/^· sent, waiting$/.test(waitDescribed), `[${where}] the waiting words describe the value's button (aria-describedby): ${JSON.stringify(waitDescribed)}`);
 
         // Esc keeps nothing; the keyboard reaches the value and Enter keeps
         await cell("due").locator("button").focus();
@@ -632,6 +668,8 @@ module.exports = function dashboardChecks(env) {
         const es2 = entries();
         c.ok(es2.length === 2 && /"title":\[\{"pick":"p-orchard","a":"Old orchard","was":"Orchard"\}\]/.test(es2[1]), `[${where}] the keyboard keeps a second entry: ${es2[1]}`);
         c.ok(es2[0] === es[0] + ",", `[${where}] the first entry's bytes are as they were`);
+        c.ok(JSON.parse(fs.readFileSync(jsonFile, "utf8")).plots.rows[0].title === "Old orchard" && fs.readFileSync(jsonFile, "utf8") === JSON.stringify(json).replace('"title":"Orchard"', '"title":"Old orchard"'), `[${where}] the keyboard edit is written into the data file too, and only that value changed`);
+        json = JSON.parse(fs.readFileSync(jsonFile, "utf8"));
 
         // readonly: the roundup draws values only
         const roundup = qs().nth(1);
@@ -674,7 +712,40 @@ module.exports = function dashboardChecks(env) {
         await o.page.emulateMedia({ media: "screen" });
         c.ok(pr.controls === 0 && pr.values >= 1 && /Check the stakes/.test(pr.words), `[${where}] in print the question's controls are hidden and its words are shown: ${JSON.stringify(pr)}`);
 
-        c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(json), `[${where}] the data file is only what this check wrote to it, never the plugin`);
+
+        // an edit whose data was changed from outside after the page drew is kept but not written (the stale-page check), and says why
+        const nBefore = entries().length;
+        const staleBefore = fs.readFileSync(jsonFile, "utf8");
+        await o.evaluate(() => { window.__seen = []; });
+        await cell("due").locator("button").click();
+        const staleOutside = staleBefore.replace('"due":"2026-11-20"', '"due":"2030-01-01"');
+        c.ok(staleOutside !== staleBefore, `[${where}] (the file has the due date this part changes)`);
+        fs.writeFileSync(jsonFile, staleOutside);
+        await cell("due").locator("input").fill("2027-05-05");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        const esStale = entries();
+        c.ok(esStale.length === nBefore + 1 && /"due":\[\{"pick":"p-orchard","a":"2027-05-05","was":"2026-11-20"\}\]/.test(esStale[esStale.length - 1]), `[${where}] the stale edit is kept as an entry: ${esStale[esStale.length - 1]}`);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === staleOutside, `[${where}] and the data file is exactly what was written from outside: nothing of it was written`);
+        const staleCell = await cell("due").innerText();
+        c.ok(/2030-01-01/.test(staleCell) && /You sent: 2027-05-05/.test(staleCell), `[${where}] the cell shows the value now with what was sent beneath: ${JSON.stringify(staleCell)}`);
+        const staleSeen = await o.evaluate(() => (window.__seen || []).join("|"));
+        c.ok(/change kept, but not written to orchard-dashboard\.json, because the data holds a different value now\./i.test(staleSeen), `[${where}] a notice says it was kept and not written, and why: ${JSON.stringify(staleSeen)}`);
+
+        // a data file that cannot be written: kept, not written, the cell waits, and a notice says so
+        fs.chmodSync(jsonFile, 0o444);
+        const lockedBefore = fs.readFileSync(jsonFile, "utf8");
+        await o.evaluate(() => { window.__seen = []; });
+        await cell("title").locator("button").click();
+        await cell("title").locator("input").fill("Third name");
+        await o.page.keyboard.press("Enter");
+        await settle();
+        fs.chmodSync(jsonFile, 0o644);
+        c.ok(fs.readFileSync(jsonFile, "utf8") === lockedBefore && entries().length === nBefore + 2, `[${where}] with the file read-only: the entry is kept (${entries().length} entries) and the data file is as it was`);
+        c.ok(/Third name/.test(await cell("title").innerText()) && /· sent, waiting/.test(await cell("title").innerText()), `[${where}] and the cell says it is sent and waiting: ${JSON.stringify(await cell("title").innerText())}`);
+        const lockedSeen = await o.evaluate(() => (window.__seen || []).join("|"));
+        c.ok(/change kept, but not written to orchard-dashboard\.json, because the file cannot be written\./i.test(lockedSeen), `[${where}] a notice says the file cannot be written: ${JSON.stringify(lockedSeen)}`);
+        c.ok(fs.readFileSync(noteFile, "utf8").includes("booklet entries"), `[${where}] (the note still holds its records)`);
         await orchard.goTo(o, "home").catch(() => {});
         if (!desk) { await o.page.setViewportSize({ width: 1280, height: 900 }); await mobile(o, false); }
       });

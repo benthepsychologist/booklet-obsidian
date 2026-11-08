@@ -17,6 +17,7 @@ import {
 	copyText,
 	referenceContext,
 	barTabs,
+	type ApplyWhy,
 	type CalloutBox,
 	buildNav,
 	designKey,
@@ -119,7 +120,7 @@ import { DataFiles } from "./data-files";
 import { mountQuery, type QueryMount } from "./query-controls";
 import { words } from "./query-view";
 import { drawQuestion, keyOf, pressed, type QuestionHost, type Target } from "./questions";
-import { makeRowsUi, type EditSession, type RowsView } from "./row-ask";
+import { makeRowsUi, type ActApply, type EditSession, type RowsView } from "./row-ask";
 import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, pagerCount, type CardRow, type Crumb, type PagerButton, type ScreenHost } from "./screens";
 import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
@@ -146,6 +147,15 @@ export interface ViewHost {
 const TYPING_PAUSE_MS = 700;
 /** After a press ends with no click (a touch that scrolled, say), how long a drawing that waits is held back still. */
 const PRESS_END_MS = 300;
+/** Why a kept act was not written into the data file, as the notice says it (after "because"). */
+const REFUSED_BECAUSE: Record<ApplyWhy, string> = {
+	changed: "the data holds a different value now",
+	"no row": "the row is no longer there",
+	ambiguous: "more than one row has that id, so the file is left alone",
+	identity: "that field is the row's id, which is never written",
+	"no field": "the row no longer has that field",
+	unreadable: "the file cannot be read as data now",
+};
 /** How many kept entries an activity lists before "Show all". */
 const ENTRIES_SHOWN = 10;
 /** Ids handed out by every view, so two panes in one window never share one (a tab names its panel by id). */
@@ -1113,12 +1123,30 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		new Notice(message);
 	}
 
-	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void): void {
+	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void, apply?: ActApply): void {
 		const file = this.file;
 		if (!file) return failed();
 		const id = t.activity.id;
 		// the entry is made of the file's fresh text, and its time is the moment of the write: one new entry, and no other byte changes
-		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => new Notice("Booklet: change kept."), failed);
+		// the data file's path is worked out now, from the note this act was kept in: a pane that moves to another note meanwhile resolves nothing against another folder
+		const path = apply ? this.files.pathOf(apply.block) : null;
+		this.queue(file, (text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text, "The change was not kept.", () => this.applyAct(key, pair, apply, path), failed);
+	}
+
+	/**
+	 * The act is kept; now, if the rows come from a file of the vault and the act replaced a value (it has `was`), it is written into
+	 * that file once, only if the file still holds `was` (data-files.ts). Whatever happens, the kept entry stays: the notice says so.
+	 */
+	private async applyAct(key: string, pair: Record<string, unknown>, apply: ActApply | undefined, path: string | null): Promise<void> {
+		if (!apply || !Object.prototype.hasOwnProperty.call(pair, "was")) {
+			new Notice("Booklet: change kept.");
+			return;
+		}
+		const got = await this.files.apply(apply.block, path, pair["pick"], key, pair["was"], pair["a"], apply.eq);
+		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
+		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
+		else if (got.state === "refused") new Notice(`Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
+		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because the file cannot be written.`);
 	}
 
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void {
@@ -1945,7 +1973,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			md: (markdown: string, el: HTMLElement) => this.md(markdown, el),
 			openNote: (path: string) => void this.app.workspace.openLinkText(path, this.file ? this.file.path : ""),
 			// the acts a reader can make on a data block's rows are drawn by the activity that holds the query (row-ask.ts)
-			rows: s.source && s.source.kind === "data" ? makeRowsUi(this, a, vkey) : undefined,
+			rows: s.source && s.source.kind === "data" ? makeRowsUi(this, a, vkey, s.source.block) : undefined,
 		};
 		const draw = mountQuery(host, box, st);
 		// one entry for each query: a query drawn again replaces the box it had, which is gone from the page, and its rows with it

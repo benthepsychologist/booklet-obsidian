@@ -25,7 +25,21 @@ async function orchard({ text = ORCHARD, file = FILE, screen = "activity:desk/or
 	const disk = { text, writes: 0 };
 	const held = { text: file, mtime: 1 };
 	const refuse = { next: 0 };
-	const adapter = { read: async () => held.text, stat: async () => ({ size: held.text.length, mtime: held.mtime }) };
+	const unwritable = { on: false };
+	const written = { count: 0, reads: 0 };
+	const adapter = {
+		read: async () => (written.reads++, held.text),
+		stat: async () => ({ size: held.text.length, mtime: held.mtime }),
+		// the app's read-and-write step: a function that throws writes nothing; a file that cannot be written refuses
+		process: async (_p, fn) => {
+			if (unwritable.on) throw new Error("EACCES");
+			const next = fn(held.text);
+			held.text = next;
+			held.mtime++;
+			written.count++;
+			return next;
+		},
+	};
 	const events = new Map();
 	const app = testApp(disk, {
 		vault: {
@@ -49,6 +63,15 @@ async function orchard({ text = ORCHARD, file = FILE, screen = "activity:desk/or
 	return {
 		...v,
 		refuse,
+		unwritable,
+		written,
+		/** The data file as it is on the disk now. */
+		file: () => held.text,
+		/** The data file changed by another program, byte for byte. */
+		overwrite(text) {
+			held.text = text;
+			held.mtime++;
+		},
 		queries: () => [...v.view.contentEl.querySelectorAll(".booklet-query")],
 		/** The data file as another program writes it again (`edit` changes the parsed JSON), then the pane is looked at again. */
 		async rewrite(edit) {
@@ -108,7 +131,8 @@ test("a field marked edit is its value until pressed; pressing turns it into a b
 	assert.match(card, /titlep-orchard: Old orchard \(was Orchard\)/, "the kept entry says the act in words: the field, the row, the new value and what it was");
 	assert.doesNotMatch(card, /does not show yet/, "and does not call it a question this view does not show");
 	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-edit-value")), "Old orchard");
-	assert.equal(words(v.cell(plots, "title", "p-orchard").querySelector(".booklet-row-state")), "· sent, waiting", "and says, in words, that it waits");
+	assert.equal(v.cell(plots, "title", "p-orchard").querySelector(".booklet-row-state"), null, "the plugin wrote the data file too, so the value stands alone (it said it was waiting before; see the apply tests below)");
+	assert.equal(JSON.parse(v.file()).plots.rows[0].title, "Old orchard");
 	v.close();
 });
 
@@ -122,7 +146,7 @@ test("a second act on the same field is another entry; the first is not touched"
 	await v.settled();
 	const kept = v.kept();
 	assert.equal(kept.length, 2);
-	assert.deepEqual(norm(kept[1].title), [{ pick: "p-orchard", a: "B", was: "Orchard" }], "was is the data's value, which has not changed");
+	assert.deepEqual(norm(kept[1].title), [{ pick: "p-orchard", a: "B", was: "A" }], "was is the data's value, which the first act wrote");
 	// the records region before the second act is in the text after it, entry for entry
 	assert.ok(v.disk.text.includes(first.slice(first.indexOf('{"items": [') + 11, first.indexOf("\n]}") )), "the first entry's bytes are kept");
 	v.close();
@@ -193,10 +217,257 @@ test("in an activity that does not repeat, a field marked edit is its value and 
 	v.close();
 });
 
+/* ---- the plugin writes the data file for an edit (docs/hosting.md, "Applying a reader's acts") ---- */
+
+const said = () => globalThis.__bookletStubNotice.said;
+const count = (text, word) => text.split(word).length - 1;
+
+test("an edit is kept first and then written into the data file: the value's own text only, the read-only table follows, the cell shows the value alone", async () => {
+	const v = await orchard();
+	const before = v.file();
+	const resting = count(words(v.queries()[1]), "resting");
+	said().length = 0;
+	const reads = v.written.reads;
+	change(v.cell(v.queries()[0], "stage", "p-orchard"), "resting");
+	await v.settled();
+	await sleepTick();
+	assert.deepEqual(norm(v.kept()[0].stage), [{ pick: "p-orchard", a: "resting", was: "growing" }], "the act is kept as before");
+	assertOutsideUnchanged(ORCHARD, v.disk.text, "kept");
+	const at = before.indexOf('"growing"', before.indexOf('"p-orchard"'));
+	assert.equal(v.file(), before.slice(0, at) + '"resting"' + before.slice(at + '"growing"'.length), "every byte of the file is as it was, outside the value");
+	assert.equal(v.written.count, 1, "one write");
+	assert.equal(v.written.reads, reads, "and the file was not read again for it: the text written is the text the views draw");
+	const cell = v.cell(v.queries()[0], "stage", "p-orchard");
+	assert.equal(cell.querySelector(".booklet-row-state"), null, "no mark");
+	assert.equal(words(cell.querySelector(".booklet-edit-value")), "resting");
+	assert.equal(count(words(v.queries()[1]), "resting"), resting + 1, "the read-only roundup of the same rows shows the new value");
+	assert.deepEqual(said(), ["Booklet: change kept and written to orchard-dashboard.json."]);
+	v.close();
+});
+
+test("a number, an emptied number and a date are written as what they are", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.fields.open = { label: "Open jobs", edit: "number" };
+	const v = await orchard({ file: JSON.stringify(file) });
+	change(v.cell(v.queries()[0], "open", "p-orchard"), "7");
+	await v.settled();
+	await sleepTick();
+	assert.equal(JSON.parse(v.file()).plots.rows[0].open, 7);
+	assert.ok(/"open":7,/.test(v.file()), "a JSON number, written where the 3 was");
+	change(v.cell(v.queries()[0], "open", "p-orchard"), "");
+	await v.settled();
+	await sleepTick();
+	assert.ok(/"open":null,/.test(v.file()), "an emptied number is null");
+	assert.deepEqual(norm(v.kept()[1].open), [{ pick: "p-orchard", a: null, was: 7 }]);
+	change(v.cell(v.queries()[0], "due", "p-orchard"), "2026-12-24");
+	await v.settled();
+	await sleepTick();
+	assert.equal(JSON.parse(v.file()).plots.rows[0].due, "2026-12-24");
+	v.close();
+});
+
+test("an edit of a nested row is written to that row", async () => {
+	const v = await orchard();
+	const first = v.queries()[0].querySelector("details");
+	first.open = true;
+	first.dispatchEvent(new w.Event("toggle"));
+	const job = v.queries()[0].querySelector('[data-booklet-edit="title"][data-booklet-pick="j-prune"]');
+	assert.ok(job, "the job row's title is an edit cell once its plot is open");
+	change(job, "Prune the pears");
+	await v.settled();
+	await sleepTick();
+	const json = JSON.parse(v.file());
+	assert.equal(json.plots.rows[0].jobs[0].title, "Prune the pears");
+	assert.equal(json.plots.rows[0].title, "Orchard");
+	v.close();
+});
+
+test("a stale edit is kept but not written: the data was changed after the page drew, and the cell shows the value now with what was sent", async () => {
+	const v = await orchard();
+	const changedOutside = v.file().replace('"stage": "growing"', '"stage": "done"');
+	assert.notEqual(changedOutside, v.file());
+	v.overwrite(changedOutside);
+	said().length = 0;
+	change(v.cell(v.queries()[0], "stage", "p-orchard"), "resting");
+	await v.settled();
+	await sleepTick();
+	await sleepTick();
+	assert.equal(v.file(), changedOutside, "nothing was written");
+	assert.equal(v.written.count, 0);
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because the data holds a different value now."]);
+	const cell = v.cell(v.queries()[0], "stage", "p-orchard");
+	assert.equal(words(cell.querySelector(".booklet-edit-value")), "done", "the value now");
+	assert.equal(words(cell.querySelector(".booklet-row-state")), "You sent: resting", "with what was sent beneath");
+	v.close();
+});
+
+test("a row that has left the file, and a file that cannot be written: kept, not written, and said in words; the cell waits", async () => {
+	const v = await orchard();
+	const gone = JSON.parse(v.file());
+	gone.plots.rows.splice(0, 1);
+	const goneText = JSON.stringify(gone, null, 2);
+	v.overwrite(goneText);
+	said().length = 0;
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Late edit");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), goneText);
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because the row is no longer there."]);
+	v.close();
+
+	const w2 = await orchard();
+	w2.unwritable.on = true;
+	said().length = 0;
+	const before = w2.file();
+	change(w2.cell(w2.queries()[0], "title", "p-orchard"), "Cannot write");
+	await w2.settled();
+	await sleepTick();
+	assert.equal(w2.file(), before);
+	assert.equal(w2.kept().length, 1, "the act is kept, so nothing the reader did is lost");
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because the file cannot be written."]);
+	assert.equal(w2.cell(w2.queries()[0], "title", "p-orchard").querySelector(".booklet-row-state").getAttribute("data-state"), "waiting", "the cell says it is waiting");
+	w2.close();
+});
+
+test("a row's Finalize and a question's answer are only kept: nothing is written to the data file", async () => {
+	const v = await orchard();
+	const before = v.file();
+	const first = v.queries()[3].querySelector("details");
+	first.open = true;
+	first.dispatchEvent(new w.Event("toggle"));
+	click(first.querySelector('[data-booklet-q="decision"] button.booklet-choice'));
+	await v.settled();
+	click(first.querySelector("button.booklet-row-finalize"));
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.kept().length, 1);
+	assert.equal(v.file(), before);
+	assert.equal(v.written.count, 0);
+	v.close();
+});
+
+test("rows written in the note itself are not a vault file: an edit is kept, nothing else is written, and the cell waits", async () => {
+	const text = [
+		"---",
+		'booklet: "0.19"',
+		"id: example/inline",
+		"title: Inline",
+		"lang: en",
+		"---",
+		"",
+		"# Inline",
+		"",
+		"> [!module|desk] Desk",
+		"",
+		"> [!activity|orchard repeat] The desk",
+		"",
+		"```booklet query",
+		"from: plots",
+		"as: table",
+		"fields: title",
+		"```",
+		"",
+		"```booklet data",
+		JSON.stringify({ fields: { title: { label: "Name", edit: "text" } }, rows: [{ id: "a", title: "One" }] }),
+		"```",
+		"^plots",
+		"",
+		"> [!module|desk end]",
+		"",
+	].join("\n");
+	const v = await orchard({ text, queries: 1 });
+	said().length = 0;
+	change(v.cell(v.queries()[0], "title", "a"), "Two");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.kept().length, 1);
+	assert.equal(v.written.count, 0);
+	assert.deepEqual(said(), ["Booklet: change kept."]);
+	assert.equal(v.cell(v.queries()[0], "title", "a").querySelector(".booklet-row-state").getAttribute("data-state"), "waiting");
+	v.close();
+});
+
+test("a field named id marked edit is kept and never written: it is the row's identity, even when the new id would collide with another row's", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.fields.id = { label: "Code", edit: "text" };
+	const text = ORCHARD.replace("fields: title, kind, stage, open, due, notes\n```", "fields: id, title, kind, stage, open, due, notes\n```");
+	assert.notEqual(text, ORCHARD);
+	const v = await orchard({ text, file: JSON.stringify(file) });
+	const before = v.file();
+	const idCell = v.cell(v.queries()[0], "id", "p-orchard");
+	assert.ok(idCell, "the id is drawn as an edit cell, the data marks it");
+	const other = JSON.parse(before).plots.rows[1].id;
+	said().length = 0;
+	change(idCell, other);
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), before, "nothing was written");
+	assert.equal(v.written.count, 0);
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.deepEqual(norm(v.kept()[0].id), [{ pick: "p-orchard", a: other, was: "p-orchard" }]);
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because that field is the row's id, which is never written."]);
+	const state = v.cell(v.queries()[0], "id", "p-orchard").querySelector(".booklet-row-state");
+	assert.equal(state.getAttribute("data-state"), "waiting", "the cell says it is waiting, as for any act that is not applied");
+	// the row is still found by its old id: another edit of it still works
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Still found");
+	await v.settled();
+	await sleepTick();
+	assert.equal(JSON.parse(v.file()).plots.rows[0].title, "Still found");
+	v.close();
+});
+
+test("ids repeated in the file: the first row is edited, nothing is written, and the notice says more than one row has that id", async () => {
+	const file = JSON.parse(FILE);
+	file.plots.rows[1].id = file.plots.rows[0].id;
+	const v = await orchard({ file: JSON.stringify(file) });
+	const before = v.file();
+	said().length = 0;
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Which one");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), before);
+	assert.equal(v.kept().length, 1);
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to orchard-dashboard.json, because more than one row has that id, so the file is left alone."]);
+	v.close();
+});
+
+test("the file already holds the value: the notice says so and does not say it was written", async () => {
+	const v = await orchard();
+	const same = v.file().replace('"stage": "growing"', '"stage": "resting"');
+	assert.notEqual(same, v.file());
+	v.overwrite(same);
+	said().length = 0;
+	change(v.cell(v.queries()[0], "stage", "p-orchard"), "resting");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.file(), same);
+	assert.equal(v.written.count, 0);
+	assert.deepEqual(said(), ["Booklet: change kept. orchard-dashboard.json already holds that value, so nothing was written."]);
+	v.close();
+});
+
+test("the data file is found from the note the act was kept in, even if the pane has moved to another note by the time it is applied", async () => {
+	const v = await orchard();
+	const paths = [];
+	const process = v.view.app.vault.adapter.process;
+	v.view.app.vault.adapter.process = (p, fn) => (paths.push(p), process(p, fn));
+	change(v.cell(v.queries()[0], "title", "p-orchard"), "Moved on");
+	// the pane is handed another note, in another folder, before the queued write has run
+	v.view.file = { path: "Elsewhere/Other.booklet.md", basename: "Other.booklet" };
+	await v.settled();
+	await sleepTick();
+	assert.deepEqual(paths, ["orchard-dashboard.json"], "the file named from the orchard note's folder, not Elsewhere/");
+	assert.equal(JSON.parse(v.file()).plots.rows[0].title, "Moved on");
+	v.close();
+});
+
 /* ---- the display states, a refused act, and words that survive ---- */
 
 test("after the data is read again: the value now (nothing marked), what was sent (marked waiting), or the value now with what was sent beneath", async () => {
 	const v = await orchard();
+	// a file that cannot be written: the act is only kept, as when the data is somebody else's
+	v.unwritable.on = true;
 	change(v.cell(v.queries()[0], "title", "p-orchard"), "Sent name");
 	await v.settled();
 	const mark = () => v.cell(v.queries()[0], "title", "p-orchard").querySelector(".booklet-row-state");
@@ -370,6 +641,26 @@ test("print shows values, not boxes: the sheet hides the controls and shows each
 	assert.match(print, /\.booklet-edit-open[^{]*\{[^}]*(border|background)/, "the edit button prints as plain text");
 });
 
+test("an editable value is drawn as its value: the Paper look's pill leaves it out, the base reset names it, and a table counts a word, not a letter, as its least width", () => {
+	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	const pill = css.split("\n").filter((l) => /data-booklet-look\^="paper"\] button[^{]*:where\(:not\(/.test(l));
+	assert.ok(pill.length >= 4, "the Paper look's button rules are there");
+	for (const l of pill) assert.match(l, /\.booklet-edit-open/, "each leaves the edit button out: " + l);
+	const rule = css.slice(css.indexOf(".booklet-edit-open,\nbutton.booklet-edit-open"), css.indexOf(".booklet-edit-open:hover"));
+	assert.match(rule, /border:\s*0;/);
+	assert.match(rule, /min-height:\s*0;/);
+	assert.match(rule, /overflow-wrap:\s*break-word;/, "not `anywhere`, which makes a table's cell as narrow as one letter");
+	assert.doesNotMatch(rule, /overflow-wrap:\s*anywhere/);
+	assert.match(rule, /background:\s*var\(--background-modifier-hover\)/, "a faint tint, not a pill");
+	assert.match(css, /data-booklet-look\^="paper"\] \.booklet-edit-open \{[^}]*background:\s*color-mix\(in srgb, var\(--bk-brand-wash\)/, "the Paper look tints it with its own wash");
+});
+
+test("a table's lead cell keeps room for the disclosure triangle, so a top-level row's triangle is not clipped by the table's scroll box", () => {
+	const css = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+	const rule = css.slice(css.indexOf(".booklet-q-lead {"), css.indexOf("}", css.indexOf(".booklet-q-lead {")));
+	assert.match(rule, /padding-inline-start:\s*var\(--size-4-4\)/);
+});
+
 test("a space typed in a box inside a row's summary is the box's own: the browser's Space for the summary is cancelled, and a button keeps its Space", async () => {
 	const v = await orchard();
 	const plots = v.queries()[0];
@@ -479,6 +770,7 @@ test("a field marked edit whose value is a list is drawn as a list of words and 
 
 test("the waiting mark is tied to the edit button (described by it), and a kept edit is announced", async () => {
 	const v = await orchard();
+	v.unwritable.on = true;
 	Notice.said.length = 0;
 	change(v.cell(v.queries()[0], "title", "p-orchard"), "Described");
 	await v.settled();
