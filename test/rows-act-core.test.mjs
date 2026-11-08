@@ -265,3 +265,46 @@ test("the ids to make against are every id at every depth, as written, then the 
 	assert.deepEqual(core.rowIds([...DATA.rows, { id: "j-5" }], [ADD]), ["j-1", "j-2", "j-3", "j-4", "j-5"], "an add the data already holds is not counted twice");
 	assert.deepEqual(core.rowIds([{ id: "a" }, { id: "a" }, { id: 7 }, { title: "no id" }], []), ["a", "a", 7]);
 });
+
+/* ---- contract section 9: which field takes a child, ids as text ---- */
+
+test("a parent whose list is empty takes its first child; a parent with two candidate lists (an empty one counts) takes none; one object is no list", () => {
+	const empty = { ...DATA, rows: [{ id: "j-1", title: "Prune", jobs: [] }, { id: "j-4", title: "Stakes" }] };
+	assert.equal(core.childListKey({ id: "p", jobs: [] }), "jobs");
+	assert.equal(core.childListKey({ id: "p", jobs: [], tags: [] }), null, "two candidates");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: [] }), null, "an empty list is a candidate beside a full one");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }], tags: ["a"] }), "jobs", "a list of values is no candidate");
+	assert.equal(core.childListKey({ id: "p", jobs: [{ id: "c" }, "x"] }), null, "a list with an item that is not an object is none");
+	assert.equal(core.childListKey({ id: "p", kid: { id: "c" } }), null, "a child held as one object is no list");
+	assert.equal(core.childListKey({ id: "p" }), null);
+	const first = { $add: [{ pick: "j-9", under: "j-1", row: { title: "First" } }], ts: "2026-11-08T10:50:00Z" };
+	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]], entries([first]))).p;
+	assert.deepEqual(flat(p).map((r) => r.id), ["j-1", "j-9", "j-4"], "drawn under its parent");
+	assert.equal(byId(p, "j-9").act, "adding");
+	assert.deepEqual(empty.rows[0].jobs, [], "and the data is not changed by drawing it");
+	// the control: Add under is offered on a row with one candidate, empty or not
+	const form = plan(note("from: d\nas: table\nadd", "repeat", [["d", empty]])).p;
+	assert.equal(core.childListKey(form.set.all.find((r) => r.id === "j-1").raw), "jobs");
+});
+
+test("ids are compared as text: a pick 5 and a row \"5\" are one id, in the pending adds, the removals and the ids to make against", () => {
+	const rows = [{ id: 5, title: "Five" }, { id: "6", title: "Six" }];
+	const D = { fields: { title: "Name" }, rows };
+	const add5 = { $add: [{ pick: "5", row: { title: "Five" } }], ts: "2026-11-08T10:50:00Z" };
+	const add6 = { $add: [{ pick: 6, row: { title: "Six" } }], ts: "2026-11-08T10:50:01Z" };
+	const p = plan(note("from: d\nas: table\nadd", "repeat", [["d", D]], entries([add5, add6]))).p;
+	assert.deepEqual(flat(p).map((r) => r.id), [5, "6"], "the data holds both: nothing is drawn as waiting");
+	assert.equal(flat(p).filter((r) => r.act).length, 0);
+	const del = { $delete: [{ pick: "5", was: { id: 5, title: "Five" } }], ts: "2026-11-08T10:51:00Z" };
+	const q = plan(note("from: d\nas: table\ndelete", "repeat", [["d", D]], entries([del]))).p;
+	assert.equal(byId(q, 5).act, "removing", "a removal of \"5\" finds the row 5");
+	assert.deepEqual(core.rowIds(rows, [add5, add6]), [5, "6"], "an add the data holds as text is not counted twice");
+	assert.deepEqual(core.rowIds([], [{ ...add5 }, { $add: [{ pick: 5, row: {} }], ts: "2026-11-08T10:50:02Z" }]), [5], "5 and \"5\" waiting are one");
+});
+
+test("an add is waiting only if no later entry removes the same pick; the id counter agrees", () => {
+	const gone = { $delete: [{ pick: "j-5", was: { id: "j-5", title: "Weed", stage: "planning" } }], ts: "2026-11-08T10:44:00Z" };
+	assert.deepEqual(core.rowIds(DATA.rows, [ADD, gone]), ["j-1", "j-2", "j-3", "j-4"], "added and then removed: its number is free");
+	assert.equal(core.rowIds(DATA.rows, [gone, { ...ADD, ts: "2026-11-08T10:46:00Z" }]).includes("j-5"), true, "removed and then added again: the later add is waiting");
+	assert.equal(core.rowIds(DATA.rows, [{ ...ADD, ts: "2026-11-08T10:46:00Z" }, gone]).includes("j-5"), true, "the order of the entries in the list does not matter, the ts does");
+});

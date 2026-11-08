@@ -10,7 +10,7 @@ import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import { childRowsOf, type DataRow, type DataRows, type DataValue, type FieldEdit } from "./data";
 import { carries, editSpecOf, heldOf, isReadonly, pickOfRow, rowActs, type EditSpec, type RowActs } from "./ask";
-import { withPending, type RowAct } from "./rows-act";
+import { idKey, withPending, type RowAct } from "./rows-act";
 import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
 import { ROLE_NAMES, questionsOf } from "./reader";
@@ -844,7 +844,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 				if (r.raw) r.data = pending.origin.get(r.raw) ?? r.raw;
 				if (r.raw && pending.adding.has(r.raw)) r.act = "adding";
 				else if (r.id !== undefined) {
-					const st = pending.removing.get(pickKey(r.id));
+					const st = pending.removing.get(idKey(r.id));
 					if (st) r.act = st === "waiting" ? "removing" : "refused";
 				}
 			}

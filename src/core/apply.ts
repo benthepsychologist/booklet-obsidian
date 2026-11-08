@@ -90,6 +90,9 @@ function locate(text: string, keyPath: string): Located | { why: ApplyWhy } {
 	return { bom, body, list: at };
 }
 
+/** Ids are compared as text: 5 and "5" are one id (contract section 9, item 5). */
+const sameId = (a: unknown, b: unknown): boolean => (typeof a === "string" || typeof a === "number") && (typeof b === "string" || typeof b === "number") && String(a) === String(b);
+
 /** A row found by its id: its members, and the list it stands in (null for a row held as a field's one object) with its place there. */
 interface Found {
 	row: Obj;
@@ -98,8 +101,8 @@ interface Found {
 	at: number;
 }
 
-/** Every row at every depth whose `id` is the pick (a row that holds rows has children): a stack, so a chain thousands deep is no recursion. */
-function rowsWithId(body: string, list: Arr, pick: unknown): Found[] {
+/** Every row at every depth whose `id` is the pick (`asText`: as text, 5 and "5" one id, for an add and a removal; an in-place edit of beta 3 keeps a number pick and a text pick apart) (a row that holds rows has children): a stack, so a chain thousands deep is no recursion. */
+function rowsWithId(body: string, list: Arr, pick: unknown, asText = true): Found[] {
 	const found: Found[] = [];
 	const todo: { row: Obj; in: Arr | null; at: number }[] = [];
 	for (let i = list.elements.length - 1; i >= 0; i--) {
@@ -110,7 +113,7 @@ function rowsWithId(body: string, list: Arr, pick: unknown): Found[] {
 		const x = todo.pop()!;
 		const members = byKey(x.row);
 		const id = members.get("id");
-		if (id && id.value.kind === "value" && pickOfRow({ id: parseAt(body, id.value) } as DataRow) === pick) found.push({ row: x.row, members, in: x.in, at: x.at });
+		if (id && id.value.kind === "value" && (asText ? sameId(pickOfRow({ id: parseAt(body, id.value) } as DataRow), pick) : pickOfRow({ id: parseAt(body, id.value) } as DataRow) === pick)) found.push({ row: x.row, members, in: x.in, at: x.at });
 		for (const m of members.values()) {
 			const v = m.value;
 			if (v.kind === "object") todo.push({ row: v, in: null, at: 0 });
@@ -133,7 +136,7 @@ export function applyAct(text: string, keyPath: string, pick: unknown, field: st
 	const at = locate(text, keyPath);
 	if ("why" in at) return { ok: false, why: at.why };
 	const { bom, body } = at;
-	const found = rowsWithId(body, at.list, pick);
+	const found = rowsWithId(body, at.list, pick, false);
 	if (!found.length) return { ok: false, why: "no row" };
 	if (found.length > 1) return { ok: false, why: "ambiguous" };
 
@@ -158,10 +161,10 @@ export function sameJson(a: unknown, b: unknown): boolean {
 	return kx.length === Object.keys(y).length && kx.every((k) => Object.prototype.hasOwnProperty.call(y, k) && sameJson(x[k], y[k]));
 }
 
-/** The only field of a row (as the text reads it) that holds a list of rows: a non-empty list of objects. Null when it has none or several. */
+/** The only candidate field of a row (as the text reads it) for new child rows: a list whose items are all objects, an empty list included. Null when it has none or several (data.ts childListKey). */
 function childList(members: Map<string, JsonMember>): Arr | null {
 	const lists: Arr[] = [];
-	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.length > 0 && m.value.elements.every((e) => e.kind === "object")) lists.push(m.value);
+	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.every((e) => e.kind === "object")) lists.push(m.value);
 	return lists.length === 1 ? lists[0]! : null;
 }
 

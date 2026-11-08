@@ -293,7 +293,7 @@ export function addRowEdit(code: string, arr: ArrayNode, row: Record<string, unk
 	let sep: string;
 	if (el.length >= 2) sep = code.slice(el[el.length - 2]!.end, prev.start);
 	else if (code.slice(arr.start, prev.start).includes("\n")) sep = "," + eol + (beginsLine(code, prev.start) ? leadingSpace(code, prev.start) : "");
-	else sep = colon.includes(" ") ? ", " : ",";
+	else sep = ", ";
 	const pair = ([k, v]: [string, unknown]) => JSON.stringify(k) + colon + JSON.stringify(v);
 	let text: string;
 	if (!prevText.includes("\n")) {
@@ -316,12 +316,14 @@ export function addRowEdit(code: string, arr: ArrayNode, row: Record<string, unk
 }
 
 /**
- * The change that takes the row at `index` out of the list `arr`: its text, its comma and its own line, and nothing else. The only row of
- * a list leaves `[]`.
+ * The change that takes the row at `index` out of the list `arr` (contract section 9, item 2): the row's own text and one comma. When a row
+ * follows, the comma after it, with the space around that comma, up to the next row (the separator before stays as it was); the last row
+ * goes with the comma before it (which was the previous row's separator). A row alone on its lines takes them with it: the line ending
+ * before it stays as the previous row's, so the closing bracket keeps its place. The only row of a list leaves `[]`.
  */
 export function removeRowEdit(arr: ArrayNode, index: number): RowEdit {
 	const el = arr.elements;
 	if (el.length === 1) return { from: arr.start, to: arr.end, put: "[]" };
-	if (index > 0) return { from: el[index - 1]!.end, to: el[index]!.end, put: "" };
-	return { from: el[0]!.start, to: el[1]!.start, put: "" };
+	if (index < el.length - 1) return { from: el[index]!.start, to: el[index + 1]!.start, put: "" };
+	return { from: el[index - 1]!.end, to: el[index]!.end, put: "" };
 }

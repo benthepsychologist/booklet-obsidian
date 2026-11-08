@@ -258,12 +258,12 @@ export function makeId(format: unknown, input: IdInputs): MadeId {
 	return { ok: false, why: "clash", message: ID_WORDS.clash };
 }
 
-/** The pattern a typed id must fit, or why there is none to use: a pattern that is not a regular expression. */
+/** The pattern a typed id must fit, or why there is none to use: a pattern that is not a regular expression. It must match the whole id (the host anchors it) and is compiled with the `u` flag (contract section 9, item 7). */
 export function patternOf(pattern: unknown): { ok: true; re: RegExp | null } | { ok: false } {
 	if (pattern === undefined || pattern === null) return { ok: true, re: null };
 	if (typeof pattern !== "string") return { ok: false };
 	try {
-		return { ok: true, re: new RegExp(pattern) };
+		return { ok: true, re: new RegExp(`^(?:${pattern})$`, "u") };
 	} catch {
 		return { ok: false };
 	}

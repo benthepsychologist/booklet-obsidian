@@ -229,3 +229,19 @@ test("an empty slug says why: an empty box asks for it; a box with nothing an id
 	assert.equal(make("ID-{field:title}", { values: { title: "!!!" }, labelOf }).message, ID_WORDS.noUsable("Name"));
 	assert.equal(make("ID-{field:title}", { values: { title: "Café" }, labelOf }).id, "ID-cafe");
 });
+
+test("a typed id must match the whole of the pattern (the host anchors it), compiled with the u flag; trimmed; empty or a line break refused", () => {
+	const { checkTypedId, patternOf } = core;
+	assert.equal(checkTypedId("p-12", "p-\\d+", []).ok, true);
+	assert.equal(checkTypedId("p-12x", "p-\\d+", []).ok, false, "a match of a part is not a match");
+	assert.equal(checkTypedId("xp-12", "p-\\d+", []).ok, false);
+	assert.equal(checkTypedId("a", "a|b", []).ok, true);
+	assert.equal(checkTypedId("ab", "a|b", []).ok, false, "an alternative does not escape the anchors");
+	assert.equal(checkTypedId("  p-1  ", "p-\\d", []).id, "p-1", "trimmed at both ends");
+	assert.equal(checkTypedId("   ", undefined, []).message, core.ID_WORDS.typedEmpty);
+	assert.equal(checkTypedId("a\nb", undefined, []).message, core.ID_WORDS.typedBreak);
+	// the u flag: a code point is one character, and a pattern the u flag does not allow is a bad pattern
+	assert.equal(checkTypedId("\u{1F331}", "^.$", []).ok, true, "one emoji is one character under u");
+	assert.equal(patternOf("\\-").ok, false, "an escape u does not allow is no pattern");
+	assert.equal(patternOf("(").ok, false);
+});

@@ -97,7 +97,7 @@ test("a one-line layout stays on one line, with its spacing: compact, spaced aft
 	const colons = `{"rows": [{"id": "a", "t": "x"}, {"id": "b", "t": "y"}]}`;
 	assert.equal(applyAdd(colons, "", "c", undefined, { t: "z" }).text, `{"rows": [{"id": "a", "t": "x"}, {"id": "b", "t": "y"}, {"id": "c", "t": "z"}]}`);
 	const lone = `{"rows":[{"id":"a"}]}`;
-	assert.equal(applyAdd(lone, "", "c", undefined, {}).text, `{"rows":[{"id":"a"},{"id":"c"}]}`, "a row with only an id");
+	assert.equal(applyAdd(lone, "", "c", undefined, {}).text, `{"rows":[{"id":"a"}, {"id":"c"}]}`, "one row on the line: a comma and one space (contract 9, item 4)");
 });
 
 test("a row stays multi-line with the indent and the key spacing of the row before it (tabs, no space after the colon)", () => {
@@ -140,7 +140,7 @@ test("CRLF stays CRLF and a leading byte order mark stays where it is", () => {
 
 test("the id is the row's first key, a number id is written as a number, and a `row` that carries an id does not replace it", () => {
 	const r = applyAdd(`{"rows":[{"id":1,"t":"x"}]}`, "", 2, undefined, { id: "evil", t: "z" });
-	assert.equal(r.text, `{"rows":[{"id":1,"t":"x"},{"id":2,"t":"z"}]}`);
+	assert.equal(r.text, `{"rows":[{"id":1,"t":"x"}, {"id":2,"t":"z"}]}`);
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"a"}]}`, "", "", undefined, {}), { ok: false, why: "unreadable" }, "an empty id is no id");
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"a"}]}`, "", null, undefined, {}), { ok: false, why: "unreadable" });
 	// values keep their type: text with quotes, a number, null
@@ -172,13 +172,15 @@ test("the parent: none is gone, more than one is ambiguous, and a parent needs e
 	assert.deepEqual(applyAdd(twin, "", "c", "p", {}), { ok: false, why: "ambiguous" });
 	// no list of rows: a plain row cannot take a first child
 	assert.deepEqual(applyAdd(MULTI, "plots", "c", "a", {}), { ok: false, why: "no place" });
-	// an empty list is not a list of rows
-	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","k":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	// an empty list is a candidate (contract 9, item 3): the first child goes in it
+	assert.equal(applyAdd(`{"rows":[{"id":"p","k":[]}]}`, "", "c", "p", {}).ok, true);
 	// two lists of rows: it cannot tell
 	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","k":[{"id":"x"}],"m":[{"id":"y"}]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
 	// lists of plain values beside the one list of rows do not count
-	const mixed = applyAdd(`{"rows":[{"id":"p","notes":["a","b"],"empty":[],"k":[{"id":"x"}]}]}`, "", "c", "p", { t: "z" });
-	assert.equal(mixed.text, `{"rows":[{"id":"p","notes":["a","b"],"empty":[],"k":[{"id":"x"},{"id":"c","t":"z"}]}]}`);
+	const mixed = applyAdd(`{"rows":[{"id":"p","notes":["a","b"],"k":[{"id":"x"}]}]}`, "", "c", "p", { t: "z" });
+	assert.equal(mixed.text, `{"rows":[{"id":"p","notes":["a","b"],"k":[{"id":"x"}, {"id":"c","t":"z"}]}]}`, "(one row on the line: a comma and one space)");
+	// an empty list beside a list of rows is a second candidate
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","empty":[],"k":[{"id":"x"}]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
 	// a refusal writes nothing: it returns no text
 	assert.equal("text" in applyAdd(MULTI, "plots", "c", "a", {}), false);
 });
@@ -345,4 +347,55 @@ test("a row holding a very long run of spaces is laid out in milliseconds, not s
 	const r = applyAdd(spaced, "", "b", undefined, { title: "B" });
 	assert.ok(Date.now() - t0 < 500, `took ${Date.now() - t0} ms`);
 	assert.equal(r.text.includes('{ "id":"b", "title":"B" }'), true, "and the layout is still read: the braces' padding comes from the row before");
+});
+
+/* ---- contract section 9 ---- */
+
+test("a parent with an empty list takes its first child, in the layout for an empty list; two candidate lists (an empty one counts) refuse; one object is no place", () => {
+	const t = `{"rows":[\n  {"id":"p","jobs":[]},\n  {"id":"q"}\n]}`;
+	const r = applyAdd(t, "", "c", "p", { title: "C" });
+	assert.equal(r.ok, true);
+	assert.equal(r.text, `{"rows":[\n  {"id":"p","jobs":[\n    {\n      "id": "c",\n      "title": "C"\n    }\n  ]},\n  {"id":"q"}\n]}`, "two spaces deeper than the line the list is on, the bracket at that line's indent");
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","jobs":[],"tags":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","jobs":[{"id":"x"}],"tags":[]}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p","kid":{"id":"x"}}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	assert.deepEqual(applyAdd(`{"rows":[{"id":"p"}]}`, "", "c", "p", {}), { ok: false, why: "no place" });
+	// a list of values beside the one list of rows is no candidate
+	assert.equal(applyAdd(`{"rows":[{"id":"p","tags":["a"],"jobs":[{"id":"x"}]}]}`, "", "c", "p", {}).ok, true);
+});
+
+test("a bare list of rows at the root that is empty takes a row at column 2, its bracket at column 0", () => {
+	const r = applyAdd(`[]`, "", "a", undefined, { title: "A" });
+	assert.equal(r.text, `[\n  {\n    "id": "a",\n    "title": "A"\n  }\n]`);
+});
+
+test("ids are compared as text in the data: pick 5 finds the row \"5\" and the row 5; under too; an add of \"5\" onto a row 5 is the same", () => {
+	const t = `{"rows":[{"id":5,"title":"Five","jobs":[{"id":"6","title":"Six"}]}]}`;
+	assert.equal(applyDelete(t, "", "6", { id: "6", title: "Six" }).ok, true);
+	assert.equal(applyDelete(t, "", 6, { id: "6", title: "Six" }).text, applyDelete(t, "", "6", { id: "6", title: "Six" }).text, "pick 6 finds the row \"6\"");
+	assert.equal(applyDelete(t, "", "5", JSON.parse(`{"id":5,"title":"Five","jobs":[{"id":"6","title":"Six"}]}`)).text, `{"rows":[]}`);
+	assert.deepEqual(applyAdd(t, "", "5", undefined, { title: "Five" }), { ok: true, text: t });
+	const under = applyAdd(t, "", "7", "5", { title: "Seven" });
+	assert.equal(under.ok, true);
+	assert.deepEqual(JSON.parse(under.text).rows[0].jobs.map((x) => x.id), ["6", "7"]);
+	// was is compared as parsed JSON: the number 1 is the number 1.0, never the string "1"
+	assert.equal(applyDelete(`{"rows":[{"id":"a","n":1.0}]}`, "", "a", { id: "a", n: 1 }).ok, true);
+	assert.deepEqual(applyDelete(`{"rows":[{"id":"a","n":1}]}`, "", "a", { id: "a", n: "1" }), { ok: false, why: "changed" });
+});
+
+test("a removal takes the row and the comma after it when a row follows (the separator before stays); the last row takes the comma before it", () => {
+	const t = `{"rows":[{"id":"a"},{"id":"b"} ,{"id":"c"}]}`;
+	assert.equal(applyDelete(t, "", "b", { id: "b" }).text, `{"rows":[{"id":"a"},{"id":"c"}]}`, "the middle row: its own comma and the space before it go, the first separator stays");
+	assert.equal(applyDelete(t, "", "a", { id: "a" }).text, `{"rows":[{"id":"b"} ,{"id":"c"}]}`);
+	assert.equal(applyDelete(t, "", "c", { id: "c" }).text, `{"rows":[{"id":"a"},{"id":"b"}]}`, "the last row: the comma before it, which was the previous row's separator, goes with it");
+	const lines = `{"rows":[\n  {"id":"a"},\n  {"id":"b"},\n  {"id":"c"}\n]}`;
+	assert.equal(applyDelete(lines, "", "c", { id: "c" }).text, `{"rows":[\n  {"id":"a"},\n  {"id":"b"}\n]}`, "alone on its lines: the lines go and the closing bracket keeps its place");
+	assert.equal(applyDelete(lines, "", "b", { id: "b" }).text, `{"rows":[\n  {"id":"a"},\n  {"id":"c"}\n]}`);
+	assert.equal(applyDelete(`{"rows":[{"id":"a"}]}`, "", "a", { id: "a" }).text, `{"rows":[]}`, "the only row leaves []");
+});
+
+test("a row added after one row on the same line follows a comma and one space", () => {
+	assert.equal(applyAdd(`{"rows":[{"id":"a"}]}`, "", "b", undefined, { t: "x" }).text, `{"rows":[{"id":"a"}, {"id":"b","t":"x"}]}`);
+	assert.equal(applyAdd(`{"rows":[{"id":"a"},{"id":"b"}]}`, "", "c", undefined, {}).text, `{"rows":[{"id":"a"},{"id":"b"},{"id":"c"}]}`, "two rows: the spacing between them");
+	assert.equal(applyAdd(`{"rows":[{"id":"a"} ,  {"id":"b"}]}`, "", "c", undefined, {}).text, `{"rows":[{"id":"a"} ,  {"id":"b"} ,  {"id":"c"}]}`);
 });

@@ -13,7 +13,10 @@
  */
 import { sameJson } from "./apply";
 import { childListKey, childRowsOf, isRowObj, type DataRow, type DataValue } from "./data";
-import { pickKey, type PickValue } from "./each";
+import type { PickValue } from "./each";
+
+/** Ids are compared as text: 5 and "5" are one id (contract section 9, item 5). */
+export const idKey = (p: PickValue): string => String(p);
 import type { Entry } from "./records";
 
 /** The two keys of an entry that hold these acts. */
@@ -85,7 +88,7 @@ export function rowsUnder(r: DataRow): number {
 	return n;
 }
 
-/** The ids of every row at every depth, as keys of their type (`pickKey`), each with the rows that carry it. */
+/** The ids of every row at every depth, as keys (`idKey`: text), each with the rows that carry it. */
 function indexRows(rows: readonly DataRow[]): Map<string, DataRow[]> {
 	const out = new Map<string, DataRow[]>();
 	const todo = rows.slice().reverse();
@@ -93,7 +96,7 @@ function indexRows(rows: readonly DataRow[]): Map<string, DataRow[]> {
 		const r = todo.pop()!;
 		const id = r["id"];
 		if (isPick(id)) {
-			const k = pickKey(id);
+			const k = idKey(id);
 			const l = out.get(k);
 			if (l) l.push(r);
 			else out.set(k, [r]);
@@ -114,7 +117,7 @@ export interface Pending {
 	origin: WeakMap<DataRow, DataRow>;
 	/** The rows made from an entry (not in the data yet). */
 	adding: WeakSet<DataRow>;
-	/** By `pickKey` of the row: `waiting` (the data still holds it as it was drawn) or `refused` (it changed since, or is not one row). */
+	/** By `idKey` of the row: `waiting` (the data still holds it as it was drawn) or `refused` (it changed since, or is not one row). */
 	removing: Map<string, "waiting" | "refused">;
 }
 
@@ -135,7 +138,7 @@ function actsInOrder(entries: readonly Entry[]): Act[] {
 /** The newest act on each pick, in the order the picks were first acted on. */
 function newestActs(entries: readonly Entry[]): Act[] {
 	const newest = new Map<string, Act>();
-	for (const a of actsInOrder(entries)) newest.set(pickKey(a.p.pick), a);
+	for (const a of actsInOrder(entries)) newest.set(idKey(a.p.pick), a);
 	return [...newest.values()];
 }
 
@@ -149,7 +152,7 @@ function newestActs(entries: readonly Entry[]): Act[] {
 export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending {
 	const none: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
 	const newest = new Map<string, Act>();
-	for (const a of actsInOrder(entries)) newest.set(pickKey(a.p.pick), a);
+	for (const a of actsInOrder(entries)) newest.set(idKey(a.p.pick), a);
 	if (!newest.size) return none;
 	const held = indexRows(rows);
 	const out: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
@@ -176,12 +179,12 @@ export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending
 		const c = todo.pop()!;
 		const id = c["id"];
 		if (isPick(id)) {
-			const l = copies.get(pickKey(id));
+			const l = copies.get(idKey(id));
 			if (l) l.push(c);
-			else copies.set(pickKey(id), [c]);
+			else copies.set(idKey(id), [c]);
 		}
 		for (const [k, v] of Object.entries(c)) {
-			if (Array.isArray(v) && v.length && v.every(isRowObj)) {
+			if (Array.isArray(v) && v.every(isRowObj)) {
 				const list = (v as DataRow[]).map(copy);
 				c[k] = list;
 				for (let i = list.length - 1; i >= 0; i--) todo.push(list[i]!);
@@ -200,7 +203,7 @@ export function withPending(rows: DataRow[], entries: readonly Entry[]): Pending
 			out.adding.add(made);
 			continue;
 		}
-		const parents = copies.get(pickKey(p.under));
+		const parents = copies.get(idKey(p.under));
 		const key = parents && parents.length === 1 ? childListKey(parents[0]!) : null;
 		if (!parents || key === null) continue;
 		(parents[0]![key] as DataRow[]).push(made);
@@ -228,8 +231,8 @@ export function rowIds(rows: readonly DataRow[], entries: readonly Entry[]): Pic
 		}
 	}
 	const waiting = new Set<string>();
-	for (const a of newestActs(entries)) if (a.kind === "add" && !held.has(pickKey(a.p.pick)) && !waiting.has(pickKey(a.p.pick))) {
-		waiting.add(pickKey(a.p.pick));
+	for (const a of newestActs(entries)) if (a.kind === "add" && !held.has(idKey(a.p.pick)) && !waiting.has(idKey(a.p.pick))) {
+		waiting.add(idKey(a.p.pick));
 		out.push(a.p.pick);
 	}
 	return out;
