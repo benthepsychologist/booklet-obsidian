@@ -9,7 +9,7 @@
  * would orphan every act that names the old one), a row that does not carry the field, and a value that is no longer `was` write nothing.
  *
  * Adding (`applyAdd`): `{ pick, under?, row }` puts a row, with `id` first and then the fields of `row`, at the end of a list of rows:
- * the block's own, or the one list of rows the row `under` holds. A row with that id already there is not added again ("same").
+ * the block's own, or the one list of rows the row `under` holds. A row with that id already there is not added again ("same") if it holds every field of `row`; otherwise it is a "clash".
  * Removing (`applyDelete`): `{ pick, was }` takes the row whose `id` is the pick (and the rows under it) out, only if it is still `was`.
  * Plain TypeScript: nothing here imports Obsidian.
  */
@@ -20,7 +20,24 @@ import { splitLines } from "./lines";
 import { parseBooklet } from "./reader";
 
 /** Why an act was not applied, in a few words each (the plugin's notice puts them in plain English). */
-export type ApplyWhy = "no row" | "ambiguous" | "no field" | "changed" | "unreadable" | "identity" | "no place";
+export type ApplyWhy =
+	| "no row"
+	| "ambiguous"
+	| "no field"
+	| "changed"
+	| "unreadable"
+	| "identity"
+	| "no place"
+	/** The text holds U+FFFD: a byte that was not UTF-8 was made into it on reading, and writing it back would change that byte. */
+	| "not utf8"
+	/** An add whose id is already in the data, on a row that is not the one the reader added. */
+	| "clash"
+	/** A row nested too deeply to be compared. */
+	| "too deep"
+	/** The new text would pass the size a data file may be read at (data-files.ts). */
+	| "too big"
+	/** The block is not found in the note's own text now (in a callout or a comment, or gone): it cannot be changed from here. */
+	| "no write";
 
 export type ApplyResult = { ok: true; text: string } | { ok: false; why: ApplyWhy };
 
@@ -49,6 +66,8 @@ function locate(text: string, keyPath: string): Located | { why: ApplyWhy } {
 	// a byte order mark is no part of the JSON, and stays where it is
 	const bom = text.charCodeAt(0) === 0xfeff ? 1 : 0;
 	const body = text.slice(bom);
+	// a byte that was not UTF-8 reads as U+FFFD, and the text written back would carry U+FFFD in its place: nothing is written
+	if (body.includes("\uFFFD")) return { why: "not utf8" };
 	try {
 		JSON.parse(body);
 	} catch {
@@ -157,7 +176,14 @@ export function applyAdd(text: string, keyPath: string, pick: unknown, under: un
 	const at = locate(text, keyPath);
 	if ("why" in at) return { ok: false, why: at.why };
 	const { bom, body } = at;
-	if (rowsWithId(body, at.list, pick).length) return { ok: true, text };
+	const have = rowsWithId(body, at.list, pick);
+	if (have.length) {
+		// the row is already there: the same add only if it holds what the reader's row holds (an outside write may have given the id to another row)
+		if (have.length > 1) return { ok: false, why: "ambiguous" };
+		const now = parseAt(body, have[0]!.row) as Record<string, unknown>;
+		for (const [k, v] of Object.entries(row)) if (k !== "id" && !(Object.prototype.hasOwnProperty.call(now, k) && sameJson(now[k], v))) return { ok: false, why: "clash" };
+		return { ok: true, text };
+	}
 	let list = at.list;
 	if (under !== undefined) {
 		const parents = rowsWithId(body, at.list, under);
@@ -186,7 +212,14 @@ export function applyDelete(text: string, keyPath: string, pick: unknown, was: u
 	if (!found.length) return { ok: true, text };
 	if (found.length > 1) return { ok: false, why: "ambiguous" };
 	const f = found[0]!;
-	if (!sameJson(parseAt(body, f.row), was)) return { ok: false, why: "changed" };
+	let same: boolean;
+	try {
+		same = sameJson(parseAt(body, f.row), was);
+	} catch {
+		// a row nested thousands deep: the comparison runs out of room
+		return { ok: false, why: "too deep" };
+	}
+	if (!same) return { ok: false, why: "changed" };
 	// a row held as a field's one object stands in no list: there is no comma to take with it
 	if (!f.in) return { ok: false, why: "no place" };
 	const e = removeRowEdit(f.in, f.at);
@@ -226,7 +259,7 @@ export function fenceInner(note: string, id: string, module: string | null): Fen
  */
 export function applyInFence(note: string, id: string, module: string | null, act: (inner: string) => ApplyResult): ApplyResult {
 	const span = fenceInner(note, id, module);
-	if (!span) return { ok: false, why: "unreadable" };
+	if (!span) return { ok: false, why: "no write" };
 	const r = act(span.text);
 	if (!r.ok) return r;
 	return { ok: true, text: r.text === span.text ? note : splice(note, span.from, span.to, r.text) };

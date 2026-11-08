@@ -162,8 +162,8 @@ test("applying an add twice adds once: a row with that id already there is the s
 	assert.equal(twice.ok, true);
 	assert.equal(twice.text, once.text);
 	// at any depth: the id exists under another parent
-	assert.equal(applyAdd(MULTI, "plots", "b1", undefined, { title: "x" }).text, MULTI);
-	assert.equal(applyAdd(MULTI, "plots", "b1s1", "a", { title: "x" }).text, MULTI, "the pick exists, wherever the parent is");
+	assert.equal(applyAdd(MULTI, "plots", "b1", undefined, { title: "B one" }).text, MULTI);
+	assert.equal(applyAdd(MULTI, "plots", "b1s1", "a", { title: "Step" }).text, MULTI, "the pick exists, wherever the parent is");
 });
 
 test("the parent: none is gone, more than one is ambiguous, and a parent needs exactly one list of rows", () => {
@@ -284,4 +284,50 @@ test("a chain of rows is looked through; one nested too deep for the reader to s
 	assert.equal(r.ok, true);
 	assert.equal(applyDelete(shallow, "", "leaf", { id: "leaf" }).ok, true);
 	assert.deepEqual(applyAdd(chain(20000), "", "new", "n0", {}), { ok: false, why: "unreadable" });
+});
+
+/* ---- the cold review's fix round (contract section 8) ---- */
+
+/** The reviewer's file: a byte order mark, CRLF, tabs, and a Latin-1 byte that the decoder made U+FFFD. */
+const LATIN1 = `﻿{"beds":{"fields":{"title":"Name"},"rows":[\r\n\t{"id":"b-1","title":"Caf�"},\r\n\t{"id":"b-2","title":"Two"}\r\n]}}\r\n`;
+
+test("text with a replacement character (a byte that was not UTF-8) is refused by an edit, an add and a delete: nothing is written", () => {
+	assert.deepEqual(applyAdd(LATIN1, "beds", "b-3", undefined, { title: "Three" }), { ok: false, why: "not utf8" });
+	assert.deepEqual(applyDelete(LATIN1, "beds", "b-2", { id: "b-2", title: "Two" }), { ok: false, why: "not utf8" });
+	assert.deepEqual(core.applyAct(LATIN1, "beds", "b-2", "title", "Two", "2"), { ok: false, why: "not utf8" });
+	// the same text without the damage is written as before (the byte order mark, CRLF and tabs stay)
+	const clean = LATIN1.replace("�", "é");
+	const r = applyAdd(clean, "beds", "b-3", undefined, { title: "Three" });
+	assert.equal(r.ok, true);
+	assert.equal(r.text.startsWith("﻿"), true);
+	assert.equal(r.text.includes("Café"), true);
+});
+
+test("an add whose id is already there is the same only when every field of its row matches; otherwise it is a clash and nothing is written", () => {
+	const t = `{"rows":[{"id":"j-5","title":"Mow","stage":"todo","extra":1}]}`;
+	// same fields (the row may have more than the entry's): the same
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, { title: "Mow", stage: "todo" }), { ok: true, text: t });
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, {}), { ok: true, text: t }, "an entry with no fields matches any row of that id");
+	// a different value, or a field the row lacks: a clash
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, { title: "Water" }), { ok: false, why: "clash" });
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, { title: "Mow", note: "x" }), { ok: false, why: "clash" });
+	// types are strict: the number 1 is not the text "1"
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, { extra: "1" }), { ok: false, why: "clash" });
+	assert.deepEqual(applyAdd(t, "", "j-5", undefined, { extra: 1 }), { ok: true, text: t });
+});
+
+test("a removal of a row nested too deep to compare is refused in words (too deep), never a crash", () => {
+	const deep = (n) => "[".repeat(n) + "]".repeat(n);
+	const row = (n) => `{"id":"r","x":${deep(n)}}`;
+	// shallow enough to compare: taken out; thousands deep (the reviewer's 5000-level chain): too deep to compare, refused in words
+	assert.equal(applyDelete(`{"rows":[${row(500)}]}`, "", "r", JSON.parse(row(500))).ok, true);
+	assert.deepEqual(applyDelete(`{"rows":[${row(4000)}]}`, "", "r", JSON.parse(row(4000))), { ok: false, why: "too deep" });
+});
+
+test("a number beyond JavaScript's exact range in a removed row: the rest of the file is the bytes it was", () => {
+	const t = `{"rows":[\n  {"id":"a","big":12345678901234567890},\n  {"id":"b","big":98765432109876543210}\n]}`;
+	const was = JSON.parse(`{"id":"a","big":12345678901234567890}`);
+	const r = applyDelete(t, "", "a", was);
+	assert.equal(r.ok, true);
+	assert.equal(r.text, `{"rows":[\n  {"id":"b","big":98765432109876543210}\n]}`);
 });

@@ -169,7 +169,22 @@ const REFUSED_BECAUSE: Record<ApplyWhy, string> = {
 	"no field": "the row no longer has that field",
 	unreadable: "the file cannot be read as data now",
 	"no place": "the row it goes under holds no one list of rows, so it is not clear where it goes",
+	"not utf8": "the file is not valid UTF-8",
+	clash: "a row with that id exists",
+	"too deep": "the row is nested too deeply to change",
+	"too big": "the file would be too big to read",
+	"no write": "this data cannot be changed from here",
 };
+/**
+ * Whole sentences for the refusals that are about the data as a whole, said the same for an edit, an add and a removal (they replace the
+ * "because ..." and the per-act sentence): the file is not text the plugin may write, the file would grow past what it can read, the block is
+ * not one the plugin can write.
+ */
+const WHOLE_REFUSAL = {
+	"not utf8": "That file is not valid UTF-8, so it was not changed.",
+	"too big": "That would make the file too big to read (the limit is 5 MB), so it was not changed.",
+	"no write": "This data cannot be changed from here.",
+} as const;
 /** What a refused add or removal says, as a sentence (a refusal writes nothing and says why in words; the entry stays). */
 const ROW_REFUSED: Record<"add" | "delete", Record<ApplyWhy, string>> = {
 	add: {
@@ -180,6 +195,11 @@ const ROW_REFUSED: Record<"add" | "delete", Record<ApplyWhy, string>> = {
 		changed: "The data changed.",
 		identity: "The data changed.",
 		"no field": "The data changed.",
+		"not utf8": WHOLE_REFUSAL["not utf8"],
+		clash: "A row with that id exists. Add it again with another id.",
+		"too deep": "The data changed.",
+		"too big": WHOLE_REFUSAL["too big"],
+		"no write": WHOLE_REFUSAL["no write"],
 	},
 	delete: {
 		changed: "Changed since you drew it.",
@@ -189,6 +209,11 @@ const ROW_REFUSED: Record<"add" | "delete", Record<ApplyWhy, string>> = {
 		"no row": "That row is gone.",
 		identity: "The data changed.",
 		"no field": "The data changed.",
+		"not utf8": WHOLE_REFUSAL["not utf8"],
+		clash: "The data changed.",
+		"too deep": "That row is nested too deeply to change.",
+		"too big": WHOLE_REFUSAL["too big"],
+		"no write": WHOLE_REFUSAL["no write"],
 	},
 };
 /** What an inline data block is called in a notice. */
@@ -1226,7 +1251,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
 		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
-		else if (got.state === "refused") new Notice(`Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
+		else if (got.state === "refused") new Notice(got.why in WHOLE_REFUSAL ? `Booklet: change kept. ${WHOLE_REFUSAL[got.why as keyof typeof WHOLE_REFUSAL]}` : `Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why]}.`);
 		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
 

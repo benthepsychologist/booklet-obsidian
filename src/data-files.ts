@@ -7,7 +7,7 @@
  * vault says it changed and when the pane comes back into view, and only a file whose size or time changed is read again. Whatever the
  * reader has open or scrolled is the view's (query-controls.ts); this holds the files.
  */
-import { DATA_FILE_MAX, DATA_WORDS, applyAct, dataMerge, dataRead, dataVaultPath, type ApplyResult, type ApplyWhy, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
+import { DATA_FILE_MAX, DATA_WORDS, utf8Length, applyAct, dataMerge, dataRead, dataVaultPath, type ApplyResult, type ApplyWhy, type DataBlock, type DataFileError, type DataFound, type DataRows } from "./core";
 
 /** The part of Obsidian's file adapter this reads with (a `.json` file need not be in the vault's index, so the adapter and not a TFile). */
 export interface DataAdapter {
@@ -129,6 +129,8 @@ export class DataFiles {
 				if (!r.ok) throw new Refused(r.why);
 				// the value is already there: nothing to write
 				if (r.text === text) throw new Refused("unchanged");
+				// a file the plugin could not read again is no file it may write: the read limit is in bytes, as the file's size is
+				if (utf8Length(r.text) > DATA_FILE_MAX) throw new Refused("too big");
 				after = r.text;
 				return r.text;
 			});

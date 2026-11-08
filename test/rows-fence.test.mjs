@@ -73,8 +73,8 @@ test("the block is found again in the note's own text: its id, its module, and t
 test("a block that names a file, and one inside a callout, are not written into the note", () => {
 	const file = note().replace("```booklet data\n" + ROWS + "\n```", "```booklet data plots.json\n```");
 	assert.equal(fenceInner(file, "plots", "desk"), null);
-	assert.deepEqual(edit(file, (t) => applyAdd(t, "", "z", undefined, {})), { ok: false, why: "unreadable" });
-	const inCallout = note().replace("```booklet data\n" + ROWS + "\n```\n^plots", "> [!tip] Hid\n> ```booklet data\n> { \"rows\": [ {\"id\": \"a\"} ] }\n> ```\n> ^plots");
+	assert.deepEqual(edit(file, (t) => applyAdd(t, "", "z", undefined, {})), { ok: false, why: "no write" });
+	const inCallout = note().replace("```booklet data\n" + ROWS + "\n```\n^plots", "> [!group] Hid\n> ```booklet data\n> { \"rows\": [ {\"id\": \"a\"} ] }\n> ```\n> ^plots");
 	assert.equal(parseBooklet(inCallout).data.every((x) => !x.inner), true);
 });
 
@@ -143,11 +143,11 @@ test("a fence that is itself indented (inside a list item) keeps its indentation
 	assert.equal(parseBooklet(e.text).data[0].rows.length, 1, "and the note reads back with the row");
 });
 
-test("a block that is not JSON, and an empty fence, are refused (unreadable) and the note is not touched", () => {
+test("a block that is not JSON, and an empty fence, are no data block of the note: refused (no write) and the note is not touched", () => {
 	const bad = note("{ not json");
-	assert.deepEqual(edit(bad, (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "unreadable" });
+	assert.deepEqual(edit(bad, (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "no write" });
 	const none = note("");
-	assert.deepEqual(edit(none, (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "unreadable" });
+	assert.deepEqual(edit(none, (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "no write" });
 });
 
 test("a refusal returns no text, and a no-op returns the note itself", () => {
@@ -163,4 +163,20 @@ test("a fence whose own lines are indented (three spaces, in a list) is found, a
 	const r = applyInFence(n, "plots", null, (t) => applyAdd(t, "", "c", undefined, { t: "z" }));
 	assert.equal(r.ok, true);
 	assert.equal(r.text, n.replace(`      { "id": "a" }\n`, `      { "id": "a" },\n      { "id": "c", "t": "z" }\n`));
+});
+
+test("a block that cannot be found in the note's own text now (in a callout, a file, gone) is refused as not writable, not as unreadable", () => {
+	const inCallout = note().replace("```booklet data\n" + ROWS + "\n```\n^plots", "> [!group] Hid\n> ```booklet data\n> { \"rows\": [ {\"id\": \"a\"} ] }\n> ```\n> ^plots");
+	assert.deepEqual(edit(inCallout, (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "no write" });
+	assert.deepEqual(applyInFence(note(), "nope", "desk", (t) => applyAdd(t, "", "c", undefined, {})), { ok: false, why: "no write" });
+});
+
+test("text between the fences with a replacement character is refused (not utf8) and the note is not touched", () => {
+	const n = note(ROWS.replace("A one", "Caf�"));
+	assert.deepEqual(edit(n, (t) => applyAdd(t, "", "c", undefined, { title: "C" })), { ok: false, why: "not utf8" });
+	assert.deepEqual(edit(n, (t) => applyDelete(t, "", "b", { id: "b", title: "B" })), { ok: false, why: "not utf8" });
+	assert.deepEqual(edit(n, (t) => applyAct(t, "", "b", "title", "B", "Bee")), { ok: false, why: "not utf8" });
+	// a replacement character elsewhere in the note is no business of the block
+	const prose = note(ROWS, "").replace("# Garden", "# Garden �");
+	assert.equal(edit(prose, (t) => applyAdd(t, "", "c", undefined, { title: "C" })).ok, true);
 });

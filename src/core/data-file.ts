@@ -12,6 +12,21 @@ export const DATA_NAME_MAX = 200;
 /** The largest data file read, in bytes (booklet.html's LINK_BYTES: the same file reads the same way here). */
 export const DATA_FILE_MAX = 5 * 1024 * 1024;
 
+/** How many bytes `text` is in UTF-8 (a data file's size is counted in bytes; a lone surrogate counts as the three bytes of U+FFFD). */
+export function utf8Length(text: string): number {
+	let n = 0;
+	for (let i = 0; i < text.length; i++) {
+		const c = text.charCodeAt(i);
+		if (c < 0x80) n += 1;
+		else if (c < 0x800) n += 2;
+		else if (c >= 0xd800 && c <= 0xdbff && i + 1 < text.length && text.charCodeAt(i + 1) >= 0xdc00 && text.charCodeAt(i + 1) <= 0xdfff) {
+			n += 4;
+			i++;
+		} else n += 3;
+	}
+	return n;
+}
+
 /** What a `booklet data` fence line names: the file, the key path inside it, and whether either is a name that is never read. */
 export interface DataFileRef {
 	name: string;

@@ -578,3 +578,153 @@ test("the same removal kept twice writes once: applying again is a no-op", async
 	assert.deepEqual(JSON.parse(once).rows.map((r) => r.id), ["j-1"]);
 	v.close();
 });
+
+/* ---- the cold review's fix round (contract section 8) ---- */
+
+/** Adds "Mulch" with the form, and waits for the writes. */
+async function addMulch(v) {
+	open(v);
+	typeInto(box(v, "Name"), "Mulch");
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+}
+
+test("a data file with a replacement character (a byte that was not UTF-8) is not written by an add or a remove: nothing changes, the notice says so", async () => {
+	const damaged = JSON.stringify(DATA, null, 2).replace("Prune", "Caf�") + "\n";
+	const v = await garden(note({ file: true }), { file: damaged });
+	await addMulch(v);
+	assert.equal(v.file(), damaged, "the file is as it was");
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.match(said()[0], /That file is not valid UTF-8, so it was not changed\./);
+	said().length = 0;
+	click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'));
+	click(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	assert.equal(v.file(), damaged);
+	assert.match(said()[0], /That file is not valid UTF-8, so it was not changed\./);
+	v.close();
+});
+
+test("a data block in the note with a replacement character is not written either", async () => {
+	const damaged = { ...DATA, rows: [{ id: "j-1", title: "Caf�" }, { id: "j-4", title: "Stakes" }] };
+	const text = note({ data: damaged });
+	const v = await garden(text);
+	await addMulch(v);
+	assert.match(said()[0], /That file is not valid UTF-8, so it was not changed\./);
+	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-1", "j-4"], "the block is as it was");
+	v.close();
+});
+
+test("an add whose id another row took since the page drew is a clash: nothing is written and the notice says so; the same row there is not an error", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	// another row has the id the plugin makes (j-5), written outside between the draw and the press
+	const v = await garden(note({ file: true }), { file: FILE });
+	open(v);
+	typeInto(box(v, "Name"), "Mulch");
+	const other = JSON.parse(FILE);
+	other.rows.push({ id: "j-5", title: "Water" });
+	const taken = JSON.stringify(other, null, 2) + "\n";
+	v.overwrite(taken);
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.equal(v.file(), taken, "nothing written");
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.match(said()[0], /A row with that id exists\./);
+	v.close();
+	// the same row already there (written by an earlier attempt): the same, no notice
+	const w2 = await garden(note({ file: true }), { file: FILE });
+	open(w2);
+	typeInto(box(w2, "Name"), "Mulch");
+	const same = JSON.parse(FILE);
+	same.rows.push({ id: "j-5", title: "Mulch" });
+	const have = JSON.stringify(same, null, 2) + "\n";
+	w2.overwrite(have);
+	click(w2.q().querySelector(".booklet-row-add-go"));
+	await w2.after();
+	assert.equal(w2.file(), have);
+	assert.deepEqual(said(), []);
+	w2.close();
+});
+
+test("a write that would take a data file past 5 MB writes nothing and says so", async () => {
+	const MAX = 5 * 1024 * 1024;
+	const make = (pad) => JSON.stringify({ ...DATA, rows: [{ id: "j-1", title: "Prune", pad }, { id: "j-4", title: "Stakes" }] }, null, 2) + "\n";
+	// just under the limit: the new row (about 40 bytes) takes it over
+	const FILE = make("x".repeat(MAX - make("").length - 10));
+	assert.equal(FILE.length, MAX - 10);
+	const v = await garden(note({ file: true }), { file: FILE });
+	await addMulch(v);
+	assert.equal(v.file(), FILE, "the file is as it was");
+	assert.equal(v.kept().length, 1);
+	assert.match(said()[0], /too big to read \(the limit is 5 MB\), so it was not changed\./);
+	v.close();
+});
+
+test("a data block the plugin cannot write (inside a callout) draws no Add, no Remove, and no edit boxes", async () => {
+	const inCallout = note().replace(/```booklet data\n(.*)\n```\n\^jobs/, (_m, json) => `> [!group] Hid\n> \`\`\`booklet data\n> ${json}\n> \`\`\`\n> ^jobs`);
+	assert.notEqual(inCallout, note(), "the block is in a callout");
+	const v = await garden(inCallout);
+	assert.deepEqual(v.names(), ["Prune", "Stakes"], "the rows are drawn");
+	v.openRow("j-1");
+	assert.equal(v.q().querySelector(".booklet-row-add, .booklet-row-remove, .booklet-q-act"), null, "no add or remove control");
+	assert.equal(v.q().querySelector("input, select, textarea, button.booklet-row-act, .booklet-edit-open"), null, "no edit box");
+	// the same block written in the note itself does draw its edit control
+	const plain = await garden(note({ query: "from: jobs\nas: table\nfields: title" }));
+	assert.notEqual(plain.q().querySelector(".booklet-edit-open"), null, "a block that can be written is edited in place");
+	plain.close();
+	v.close();
+});
+
+test("a block that stops being writable after the page drew (it was moved into a callout): the notice says it cannot be changed from here", async () => {
+	const v = await garden(note());
+	open(v);
+	typeInto(box(v, "Name"), "Mulch");
+	v.disk.text = note().replace(/```booklet data\n(.*)\n```\n\^jobs/, (_m, json) => `> [!group] Hid\n> \`\`\`booklet data\n> ${json}\n> \`\`\`\n> ^jobs`);
+	click(v.q().querySelector(".booklet-row-add-go"));
+	await v.after();
+	assert.match(said()[0], /This data cannot be changed from here\./);
+	assert.doesNotMatch(said().join("|"), /cannot be read/);
+	v.close();
+});
+
+test("a pending add can be removed: a $delete entry holds the pending row, the row is gone, and its number is free again", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	const v = await garden(note({ file: true }), { file: FILE });
+	v.unwritable.on = true;
+	await addMulch(v);
+	assert.deepEqual(v.names().slice(-1), ["Mulch · sent, waiting"]);
+	v.unwritable.on = false;
+	const pendingRemove = v.q().querySelector('[data-booklet-remove="j-5"] .booklet-row-remove-open');
+	assert.ok(pendingRemove, "a pending add offers Remove");
+	click(pendingRemove);
+	assert.match(words(v.q().querySelector('[data-booklet-remove="j-5"]')), /Remove this row\?/);
+	click(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	assert.equal(v.file(), FILE, "the data never held the row, so nothing is written");
+	const kept = v.kept();
+	assert.equal(kept.length, 2);
+	assert.deepEqual(JSON.parse(JSON.stringify(kept[1]["$delete"])), [{ pick: "j-5", was: { id: "j-5", title: "Mulch" } }]);
+	assert.deepEqual(v.names(), ["Prune", "Stakes"], "the ghost is gone");
+	assert.deepEqual(said().filter((s) => /Booklet: the removal/.test(s)), [], "and no notice about the removal");
+	// the number counts it as removed: the next add is j-5 again
+	await addMulch(v);
+	assert.deepEqual(JSON.parse(v.file()).rows.map((r) => r.id), ["j-1", "j-4", "j-5"]);
+	v.close();
+});
+
+test("a row that was added, applied, and later removed from the data by someone else is dismissed with Remove", async () => {
+	const FILE = JSON.stringify(DATA, null, 2) + "\n";
+	const v = await garden(note({ file: true }), { file: FILE });
+	await addMulch(v);
+	assert.deepEqual(v.names().slice(-1), ["Mulch"]);
+	// another activity removes it from the file
+	v.overwrite(FILE);
+	await v.view.files.refresh();
+	await v.after();
+	assert.deepEqual(v.names().slice(-1), ["Mulch · sent, waiting"], "the old entry draws it again as waiting");
+	click(v.q().querySelector('[data-booklet-remove="j-5"] .booklet-row-remove-open'));
+	click(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	assert.deepEqual(v.names(), ["Prune", "Stakes"]);
+	v.close();
+});

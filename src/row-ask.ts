@@ -148,6 +148,11 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 	 * own Finalize, so an act (an entry of its own) has no place in it: there a field is its value, and a question is a draft as any is.
 	 */
 	const keeps = a.repeat && !!a.id && !a.daily;
+	/**
+	 * Can the plugin write this block: a file of the vault (a file that cannot be found is not drawn at all), or JSON written in the note
+	 * itself between plain fences. One in a callout or a comment can be read and cannot be written, so it gets no control that would write.
+	 */
+	const writable = !!block.file || !!block.inner;
 
 	const ask: RowsUi["ask"] = (into, p, r, q, where) => {
 		const plan = p.ask!;
@@ -155,7 +160,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const raw = r.raw!;
 		const held = heldOf(raw, q.id);
 		const inPlace = held.shape === "value";
-		const readonly = plan.readonly(q.id);
+		const readonly = plan.readonly(q.id) || (inPlace && !writable);
 		const locked = readonly || (a.repeat && !a.id) || !!view.wrongOf(t, q);
 		const key = `${keyOf(t, q)}#row:${vkey}:${pickKey(id)}`;
 		const eq = q.kind === "choice" || q.kind === "multi" ? sameOption : sameValue;
@@ -305,7 +310,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const shut = (shown: unknown, s: Shows): void => {
 			cell.empty();
 			const text = valueText(shown);
-			if (!keeps) {
+			// an edit is drawn only where it can be written: the activity keeps entries, and the block is a file or JSON written in the note
+			if (!keeps || !writable) {
 				cell.appendText(text);
 				return;
 			}
@@ -443,14 +449,14 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			}
 		};
 
-		if (view.sessions.has(sk) && keeps) open();
+		if (view.sessions.has(sk) && keeps && writable) open();
 		else shut(start, sh);
 	};
 
 	/* ---- adding and removing rows (rows-act.ts) ---- */
 
 	/** Is the control of an add drawn for this view: the activity keeps entries, and the query asks for it. */
-	const adds = (p: Plan): boolean => keeps && !!p.acts && p.acts.add;
+	const adds = (p: Plan): boolean => keeps && writable && !!p.acts && p.acts.add;
 
 	/** Draws the form for a new row into `into`, closed (its button) or open, for the parent `parent` (null: a top row). */
 	const form = (into: HTMLElement, p: Plan, parent: Row | null): void => {
@@ -638,16 +644,36 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		if (offersUnder(p, r)) form(into, p, r);
 	};
 
-	const removes: RowsUi["removes"] = (p) => keeps && !!p.acts && p.acts.remove;
+	const removes: RowsUi["removes"] = (p) => keeps && writable && !!p.acts && p.acts.remove;
 
 	const remove: RowsUi["remove"] = (into, p, r) => {
-		if (!removes(p) || r.id === undefined || r.act === "adding" || r.act === "removing" || !r.raw) return;
+		// a row still on its way into the data (a pending add) can be removed too: the removal records it as the entry made it, and the data, which never held it, is left alone
+		if (!removes(p) || r.id === undefined || r.act === "removing" || !r.raw) return;
 		const id = r.id;
 		const rkey = `${vkey}|${pickKey(id)}`;
 		const name = rowName(p, r);
 		const gone = r.data ?? r.raw;
 		const wrap = into.createSpan({ cls: "booklet-row-remove", attr: { "data-booklet-remove": String(id), "aria-live": "polite" } });
+		/** Is the question showing: a key in it belongs to it, not to the row's disclosure. */
+		let asking = false;
+		const back = (): void => {
+			view.removeAsks.delete(rkey);
+			closed();
+			wrap.querySelector<HTMLElement>("button")?.focus();
+		};
+		// once for the wrap, not once for each question: a press of Remove asks again and again on the same wrap
+		wrap.addEventListener("keydown", (evt: KeyboardEvent) => {
+			if (!asking) return;
+			evt.stopPropagation();
+			if (evt.key !== "Escape") return;
+			evt.preventDefault();
+			back();
+		});
+		wrap.addEventListener("keypress", (evt) => {
+			if (asking) evt.stopPropagation();
+		});
 		const closed = (): void => {
+			asking = false;
 			wrap.empty();
 			const b = wrap.createEl("button", { cls: "booklet-row-act booklet-row-remove-open", attr: { type: "button" } });
 			b.appendText("Remove");
@@ -662,6 +688,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			});
 		};
 		const ask = (): void => {
+			asking = true;
 			wrap.empty();
 			const n = rowsUnder(gone as DataRow);
 			wrap.createSpan({ cls: "booklet-row-remove-q", text: n ? `Remove this row and the ${n} ${n === 1 ? "row" : "rows"} under it?` : "Remove this row?" });
@@ -669,30 +696,18 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			yes.appendText("Remove");
 			yes.createSpan({ cls: "booklet-sr", text: ` ${name}` });
 			const no = wrap.createEl("button", { cls: "booklet-row-act booklet-row-remove-no", text: "Cancel", attr: { type: "button" } });
-			const back = (): void => {
-				view.removeAsks.delete(rkey);
-				closed();
-				wrap.querySelector<HTMLElement>("button")?.focus();
-			};
 			no.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
 				view.clicked();
 				back();
 			});
-			wrap.addEventListener("keydown", (evt: KeyboardEvent) => {
-				evt.stopPropagation();
-				if (evt.key !== "Escape") return;
-				evt.preventDefault();
-				back();
-			});
-			// a key in the question belongs to it, not to the row's disclosure
-			wrap.addEventListener("keypress", (evt) => evt.stopPropagation());
 			yes.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
 				view.clicked();
 				view.removeAsks.delete(rkey);
+				asking = false;
 				wrap.empty();
 				wrap.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: "removing, waiting" });
 				view.keepAct(
