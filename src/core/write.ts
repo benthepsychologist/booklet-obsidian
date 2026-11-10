@@ -325,10 +325,10 @@ export interface DayRule {
 }
 
 /** The first kept entry of an activity whose day is `rule.today`, in file order (booklet.html seedUpsertDraft). */
-export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule, act?: Partial<Pick<Activity, "segments">>): Entry | null {
+export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule, act: Partial<Pick<Activity, "segments">>): Entry | null {
 	const dayOf = rule.dayOf ?? localDayOf;
 	// an entry that holds acts on rows is a moment of its own, not the day's entry (isActEntry)
-	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today && !(act && isActEntry(act, e))) ?? null;
+	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today && !isActEntry(act, e)) ?? null;
 }
 
 export interface ShownDraft {

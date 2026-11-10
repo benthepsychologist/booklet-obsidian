@@ -101,7 +101,7 @@ export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q
 	// is of the wrong shape: then its title and the notice are, since the rows draw it locked
 	if (q.each && !sourceOf(t.activity, q)) {
 		if (!wrong) return;
-		const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind} booklet-each-rows` });
+		const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind}` });
 		host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));
 		box.setAttr("data-booklet-q", q.id);
 		guardShape(host, box, t, q, true);
@@ -144,7 +144,7 @@ function guardShape(host: QuestionHost, box: HTMLElement, t: Target, q: Question
 }
 
 /** Names a control for a screen reader by the question's words (and a copy's pick): not aria-label, which Obsidian also shows as a tooltip on hover. */
-const labeller =
+export const labeller =
 	(labelledBy: string, describedBy: string | null) =>
 	(el: HTMLElement): void => {
 		el.setAttr("aria-labelledby", labelledBy);
@@ -179,9 +179,6 @@ export function drawBody(host: QuestionHost, box: HTMLElement, t: Target, q: Que
 }
 
 export type Label = (el: HTMLElement) => void;
-
-/** Names a control for a screen reader by the elements whose ids are given (a question's prompt and a pick's or a row's words). */
-export { labeller };
 
 function drawText(host: QuestionHost, box: HTMLElement, t: Target, q: Question, key: string, label: Label, locked: boolean): void {
 	const field = q.long ? box.createEl("textarea", { cls: "booklet-text booklet-long", attr: { rows: 4 } }) : box.createEl("input", { cls: "booklet-text", type: "text" });

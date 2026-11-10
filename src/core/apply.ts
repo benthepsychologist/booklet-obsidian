@@ -1,5 +1,5 @@
 /*
- * Applying one kept act to a data block's JSON text (docs/hosting.md, "Applying a reader's acts"): the text is a data file's, or the text
+ * Applying one kept act to a data block's JSON text (the Booklet repository's docs/hosting.md, "Applying a reader's acts"): the text is a data file's, or the text
  * between a data block's fences in the note itself (`applyInFence`), and the same functions work on both. Every change is made to the one
  * place it is about and nowhere else: every other byte (its spacing, its key order, the other rows, its line endings, a byte order mark
  * at the start) comes back exactly as it was (SPEC section 8: no normalizing).

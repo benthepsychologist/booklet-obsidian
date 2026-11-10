@@ -1464,8 +1464,7 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	min-width: 0;
 }
 
-.booklet-row-addfield label,
-.booklet-row-addfield .booklet-prompt {
+.booklet-row-addfield label {
 	font-weight: var(--font-semibold);
 }
 
@@ -1482,13 +1481,9 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	gap: var(--size-4-2);
 }
 
+/* a refusal or a problem with the form is said in words, in the error colour (the invalid state, above), and stays until the next try */
 .booklet-row-addmsg {
 	margin: 0;
-}
-
-/* a refusal or a problem with the form is said in words, in the error colour, and stays until the next try */
-.booklet-row-addmsg:not(:empty) {
-	display: block;
 }
 
 /* the format cannot be read: one quiet line instead of the Add button */

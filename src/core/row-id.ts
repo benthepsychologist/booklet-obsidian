@@ -206,7 +206,7 @@ export interface IdInputs {
 export type MadeId = { ok: true; id: string | number } | { ok: false; why: "format" | "slug" | "clash" | "empty"; message: string; field?: string };
 
 /** How many seconds past the moment of the add a time or epoch id may move to find a free id. */
-export const ID_BUMP_SECONDS = 60;
+const ID_BUMP_SECONDS = 60;
 
 /**
  * Makes the id of a new row from a format. A `{time}` or `{epoch}` id that already exists is tried again one second on, up to 60; any

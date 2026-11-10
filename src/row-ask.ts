@@ -5,7 +5,7 @@
  * (core/ask.ts, core/write.ts); this draws them with the plugin's own controls (questions.ts), and names every control for a screen reader
  * by the field's or question's words and the row's.
  *
- * An edit also writes the data, in the vault file or in the data block of the note (view.ts applyAct, data-files.ts apply, core/apply.ts).
+ * An edit also writes the data, in the vault file or in the data block of the note (view.ts applyAct, data-files.ts applyText, core/apply.ts).
  * Adding a row (the form for a new row) and removing one (a confirmed Remove) keep an entry of their own, `$add` or `$delete` (core/rows-act.ts),
  * and then write the data the same way; the id of a new row is made when the reader presses Add (core/row-id.ts).
  *
@@ -46,8 +46,6 @@ import {
 	type QueryPlan,
 	type Row,
 	type Shows,
-	type AddField,
-	type EditSpec,
 } from "./core";
 import { drawWidgetBody } from "./engines";
 import { drawBody, keyOf, labeller, type QuestionHost, type Target } from "./questions";
@@ -62,7 +60,8 @@ const SENT = "You sent:";
 /** What the view needs to apply a kept act to a data file: the block that names the file, and how the data's value is compared with `was`. */
 export interface ActApply {
 	block: DataBlock;
-	eq: (a: unknown, b: unknown) => boolean;
+	/** An edit's comparison; an added or a removed row is compared as plain values and passes none. */
+	eq?: (a: unknown, b: unknown) => boolean;
 }
 
 /** An edit box that is open: the words in it, the data's value when the box was opened (`was`), and whether the reader was in it. Kept by the view. */
@@ -100,9 +99,9 @@ export interface RowsView extends QuestionHost {
 	say(message: string): void;
 	/**
 	 * Keeps one act as a new entry of the activity, under `key`; `failed` runs when it could not be written (the reader's words are then given
-	 * back). With `apply`, once the entry is kept the act is also written into the data file the block names, if the data still holds `pair.was`.
+	 * back). Once the entry is kept the act is also written into the data file the block names, if the data still holds `pair.was`.
 	 */
-	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void, apply?: ActApply): void;
+	keepAct(t: Target, key: string, pair: Record<string, unknown>, failed: () => void, apply: ActApply): void;
 	/** A row's Finalize: keeps that row's draft pairs of the questions `ids` as one entry, and takes them out of the draft. */
 	keepRow(t: Target, ids: readonly string[], pick: PickValue): void;
 	/** Does the draft (or typing not written yet) hold an answer for this row to one of these questions? */
@@ -249,9 +248,9 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				history.empty();
 				// what the data holds as a list, then the kept answers newest first: the time, then the words
 				const adds = keeps ? keptAdds(view.keptOf(t), q.id, id) : [];
-				for (const x of held.shape === "list" ? held.items : []) history.createEl("li", { cls: "booklet-row-held", text: x });
+				for (const x of held.shape === "list" ? held.items : []) history.createEl("li", { text: x });
 				for (const add of adds) {
-					const li = history.createEl("li", { cls: "booklet-row-kept" });
+					const li = history.createEl("li");
 					li.createSpan({ cls: "booklet-row-time", text: `${whenText(add.ts)} · ` });
 					li.appendText(wordsOf(q, add.a));
 				}
@@ -398,8 +397,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				const was = sess.was ?? null;
 				// what was typed shows at once, as waiting, until the note holds it (the view draws the rows again then)
 				shut(next, { state: "waiting", sent: { ts: "", a: next, was, hasWas: true } });
-				// an edit also changes the data when the rows come from a file of the vault (the plugin is that file's host, docs/hosting.md);
-				// rows written in the note itself are only kept, and so is a question's answer (it has no `was` and goes another way)
+				// an edit also changes the data, in the vault file the rows come from (the plugin is that file's host, the Booklet repository's docs/hosting.md)
+				// or in the data block of the note itself; a question's answer is only kept (it has no `was` and goes another way)
 				view.keepAct(
 					t,
 					key,
@@ -588,7 +587,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				}
 				const ids = view.idsOf(t, block);
 				const parentId = parent ? parent.id : undefined;
-				const label = (k: string): string => acts.fields.find((f) => f.key === k)?.label ?? p.set.label(k).map((x) => ("text" in x ? x.text : x.md)).join("");
+				// a `{field:NAME}` with no box is an idProblem, and the form is not drawn then: the name always has a box here
+				const label = (k: string): string => acts.fields.find((f) => f.key === k)!.label;
 				const made: { ok: true; id: string | number } | { ok: false; message: string; field?: string } =
 					acts.idFormat !== undefined
 						? makeId(acts.idFormat, { ids, values: text, parent: parentId, now: new Date(), random: (n) => crypto.getRandomValues(new Uint8Array(n)), labelOf: label })
@@ -610,7 +610,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 						view.addForms.set(fkey, sess);
 						if (box.isConnected) open();
 					},
-					{ block, eq: sameValue },
+					{ block },
 				);
 			};
 			const say = (message: string, focus: string | null): void => {
@@ -642,9 +642,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 	/** A row can take a child when its id names it, it is in the data, and it holds exactly one list of rows. */
 	const offersUnder: RowsUi["offersUnder"] = (p, r) => adds(p) && !p.acts!.idProblem && r.id !== undefined && r.act !== "adding" && !!r.raw && childListKey(r.raw) !== null;
 
-	const addUnder: RowsUi["addUnder"] = (into, p, r) => {
-		if (offersUnder(p, r)) form(into, p, r);
-	};
+	// the one caller (query-view.ts) has asked offersUnder
+	const addUnder: RowsUi["addUnder"] = (into, p, r) => form(into, p, r);
 
 	const removes: RowsUi["removes"] = (p) => keeps && writable && !!p.acts && p.acts.remove;
 
@@ -720,7 +719,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 					() => {
 						if (wrap.isConnected) closed();
 					},
-					{ block, eq: sameValue },
+					{ block },
 				);
 			});
 			no.focus();
@@ -731,5 +730,3 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 
 	return { ask, edit, finish, addTop, offersUnder, addUnder, removes, remove };
 }
-
-export type { EditSpec, AddField };

@@ -190,7 +190,6 @@ test("today's entry of a daily activity is never an entry that adds or removes a
 	const act = book.activities.find((a) => a.id === "show");
 	const rule = { today: "2026-11-08", until: Date.parse("2026-11-08T23:59:59Z"), dayOf: (ts) => ts.slice(0, 10) };
 	assert.equal(core.todaysEntry(book, "", "show", rule, act).t, "words", "the day's own entry, past the add");
-	assert.equal(core.isRowActEntry(core.todaysEntry(book, "", "show", rule)), true, "(without the activity, the first entry of the day is what it was)");
 });
 
 /* ---- what is drawn while the data has not followed ---- */

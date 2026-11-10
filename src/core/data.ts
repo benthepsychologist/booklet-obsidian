@@ -4,8 +4,8 @@
  * or just the list of rows. A value is a string, a number, `true`, `false`, `null`, a flat list of those, a list of rows (objects)
  * or one row (an object): a row that holds rows has children, to any depth (format 0.19). A list is all values or all rows. A
  * field's label in `fields` is a string, or an object `{ label, edit, options }`: the label is read, and `edit` and `options` are
- * used by a reader that edits (ask.ts editSpecOf; the view draws a marked field as a box). The block belongs to whoever wrote the file: it is read here, drawn by a
- * query, and never written. Plain TypeScript: nothing here imports Obsidian.
+ * used by a reader that edits (ask.ts editSpecOf; the view draws a marked field as a box). The block belongs to whoever wrote the file: it is read here and drawn by a
+ * query, and never written here (a kept edit, an added row or a removed row is written by apply.ts). Plain TypeScript: nothing here imports Obsidian.
  */
 
 /** One plain value of a data row: a list of these is shown comma-separated. */
