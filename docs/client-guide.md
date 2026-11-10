@@ -4,13 +4,13 @@ Booklet is an add-on (Obsidian calls it a plugin) that opens a Booklet note as a
 
 ## 1. Install it
 
-Booklet is not in Obsidian's list of add-ons yet. Until it is, you will not find it in the steps below. These steps are for **when the plugin is listed**.
+Booklet is in Obsidian's list of add-ons. It needs Obsidian 1.11.7 or later. The same steps, with pictures for a computer and a phone, are at https://bookletmd.org/obsidian/.
 
-1. Open **Settings** (the gear at the bottom left).
-2. Choose **Community plugins**. If Obsidian says "Restricted mode" is on, press the button to turn it off.
+1. Open **Settings**: the gear at the bottom left, beside your vault's name. On a phone, tap the sidebar button at the top left first, then the gear.
+2. Choose **Community plugins**. If Restricted mode is on, press **Exit Restricted mode**, beside or under **Allow community plugins**.
 3. Press **Browse**.
-4. Type **Booklet** in the search box and choose it.
-5. Press **Install**, then **Enable**.
+4. Type **Booklet** in the search box and choose **Booklet**, by Benjamin Armstrong III.
+5. Press **Install**. When it has installed, press **Enable**.
 
 ## 2. If you use Obsidian Sync
 
@@ -33,9 +33,11 @@ Add-ons do not update by themselves.
 
 ## Good to know
 
-- Booklet is tested on a computer. An early version worked on an iPhone. It has not been tried on Android.
+- Booklet is tested on a computer, and each release is tried on an iPhone. It has not been tried on Android.
 - If something looks wrong, tell whoever gave you your Booklet notes. Do not delete the note: your answers are in it.
 
 Sources, checked 3 November 2026:
 Obsidian Help, Community plugins: https://obsidian.md/help/community-plugins
 Obsidian Help, Sync settings (vault configuration sync): https://obsidian.md/help/sync/settings
+
+The install steps were checked on 10 November 2026 against a real install of Booklet 1.4.0 from Obsidian's list, in Obsidian 1.14.5 on a computer and in its phone layout.
