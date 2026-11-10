@@ -23,7 +23,7 @@
  * made again.
  */
 import { pairFor, pickKey, pickWords, sourceOf, sourcePicks, type PickValue, type Question } from "./core";
-import { nodeOf, type QuestionHost, type Target } from "./questions";
+import { nodeOf, passedOn, type QuestionHost, type Target } from "./questions";
 
 interface Copy {
 	el: HTMLElement;
@@ -52,24 +52,15 @@ const copyKey = (key: string, p: PickValue): string => `${key}#pick:${pickKey(p)
  */
 function copyHost(host: QuestionHost, q: Question, pick: PickValue, onShow: (show: () => void) => void): QuestionHost {
 	return {
-		md: (markdown, el) => host.md(markdown, el),
-		mdBlock: (markdown, el) => host.mdBlock(markdown, el),
+		...passedOn(host),
 		answerOf: (t) => pairFor(host.answerOf(t, q), pick)?.a,
 		answer: (t, _q, value) => host.answer(t, q, value, pick),
 		typed: (t, _q, value) => host.typed(t, q, value, pick),
 		flushTyped: (t) => host.flushTyped(t, q, pick),
 		pendingOf: (t) => host.pendingOf(t, q, pick),
 		onShow: (_key, show) => onShow(show),
-		keepOwn: (key, t, commit) => host.keepOwn(key, t, commit),
-		pressTarget: () => host.pressTarget(),
-		heldOf: (key) => host.heldOf(key),
-		hold: (key, words) => host.hold(key, words),
 		earlierOf: (t) => ({ ...host.earlierOf(t), pick }),
-		reshow: () => host.reshow(),
-		uid: () => host.uid(),
 		wrongOf: (t) => host.wrongOf(t, q),
-		redrawSoon: () => host.redrawSoon(),
-		listens: host.listens,
 	};
 }
 

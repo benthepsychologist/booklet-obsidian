@@ -18,10 +18,13 @@ import { setIcon } from "obsidian";
 import {
 	ADD_KEY,
 	DELETE_KEY,
+	REMOVING_WAITING,
+	SENT_WAITING,
 	answerWords,
 	asValue,
 	checkTypedId,
 	childListKey,
+	keepsActs,
 	makeId,
 	rowsUnder,
 	heldOf,
@@ -42,19 +45,19 @@ import {
 	type DataBlock,
 	type Entry,
 	type PickValue,
+	type EditSpec,
 	type Question,
 	type QueryPlan,
 	type Row,
 	type Shows,
 } from "./core";
 import { drawWidgetBody } from "./engines";
-import { drawBody, keyOf, labeller, type QuestionHost, type Target } from "./questions";
+import { drawBody, keyOf, labeller, passedOn, type QuestionHost, type Target } from "./questions";
 import type { RowsUi } from "./query-view";
 
 type Plan = Extract<QueryPlan, { kind: "rows" }>;
 
-/** The words of the display states, as the reference renderer says them (booklet.html, the strings called waiting and sent). */
-const WAITING = " · sent, waiting";
+/** The words of the display states, as the reference renderer says them (booklet.html, the strings called waiting and sent; the waiting words are core/rows-act.ts SENT_WAITING). */
 const SENT = "You sent:";
 
 /** What the view needs to apply a kept act to a data file: the block that names the file, and how the data's value is compared with `was`. */
@@ -139,6 +142,41 @@ function wordsOf(q: Question, v: unknown): string {
 	return "list" in w ? w.list.join("; ") : textOf(w.parts);
 }
 
+type FieldBox = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+
+/**
+ * The box a field is typed in, of the kind its edit mark asks for (a text area, a menu, or a field), drawn into `into`; the caller puts
+ * the words in it. What differs between an edit box and a field of the add form: `id` (the form's label points at it), `keepUnlisted`
+ * (a menu's value the options do not list is its first option, so that opening the box changes nothing), `emptyFirst` (a menu begins with an
+ * empty option), and `sized` (a text box asks its column for the room of its words, `size`, not a browser's default width).
+ */
+function fieldBox(into: HTMLElement, spec: EditSpec, o: { id?: string; text: string; keepUnlisted: boolean; emptyFirst: boolean; sized: boolean }): FieldBox {
+	const id: Record<string, string> = o.id !== undefined ? { id: o.id } : {};
+	if (spec.kind === "long") return into.createEl("textarea", { cls: "booklet-text booklet-long booklet-edit-box", attr: { ...id, rows: 3 } });
+	if (spec.kind === "choice") {
+		const sel = into.createEl("select", { cls: "dropdown booklet-edit-box", attr: id });
+		const words = [...spec.options];
+		if (o.keepUnlisted && o.text !== "" && !words.some((w) => sameOption(w, o.text))) words.unshift(o.text);
+		if (o.emptyFirst) sel.createEl("option", { value: "", text: "" });
+		for (const w of words) sel.createEl("option", { value: w, text: w });
+		return sel;
+	}
+	const attr: Record<string, string> = { ...id };
+	if (spec.kind === "number") attr["inputmode"] = "decimal";
+	else if (spec.kind === "text" && o.sized) attr["size"] = String(Math.min(30, Math.max(8, o.text.length + 2)));
+	return into.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr });
+}
+
+/**
+ * What a number box holds: `ok` is false when its text is no number (the browser gives value "" and says badInput for "3e"), so it holds
+ * words that cannot be kept; else `n` is the number, or null for an empty box.
+ */
+function numberIn(el: HTMLElement & { value: string }): { ok: boolean; n: number | null } {
+	const raw = el.value;
+	const empty = raw.trim() === "";
+	return { ok: !((el as HTMLInputElement).validity?.badInput === true || (!empty && !Number.isFinite(Number(raw)))), n: empty ? null : Number(raw) };
+}
+
 /** What the rows of one query can do, for the activity that holds it: its questions drawn in rows, its edit boxes, and the row's Finalize. */
 export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: DataBlock): RowsUi {
 	const t: Target = { scope: a.scope, activity: a };
@@ -146,12 +184,22 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 	 * Can an act be kept: the activity keeps entries and has an id to keep them under. A daily activity keeps one entry a day, made by its
 	 * own Finalize, so an act (an entry of its own) has no place in it: there a field is its value, and a question is a draft as any is.
 	 */
-	const keeps = a.repeat && !!a.id && !a.daily;
+	const keeps = keepsActs(a) && !!a.id;
 	/**
 	 * Can the plugin write this block: a file of the vault (a file that cannot be found is not drawn at all), or JSON written in the note
 	 * itself between plain fences. One in a callout or a comment can be read and cannot be written, so it gets no control that would write.
 	 */
 	const writable = !!block.file || !!block.inner;
+
+	/** A press of a button: it never reaches the row's own disclosure, and the view is told that the press ended in a click. */
+	const onPress = (el: HTMLElement, fn: () => void): void => {
+		el.addEventListener("click", (evt) => {
+			evt.preventDefault();
+			evt.stopPropagation();
+			view.clicked();
+			fn();
+		});
+	};
 
 	const ask: RowsUi["ask"] = (into, p, r, q, where) => {
 		const plan = p.ask!;
@@ -201,24 +249,15 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const extra = (): Record<string, unknown> | undefined => (inPlace && keeps ? { was: now ?? null } : undefined);
 		const updaters: Array<() => void> = [];
 		const rowHost: QuestionHost = {
-			md: (markdown, el) => view.md(markdown, el),
-			mdBlock: (markdown, el) => view.mdBlock(markdown, el),
+			...passedOn(view),
 			answerOf: () => shownAnswer(),
 			answer: (_t, _q, value) => view.answer(t, q, value, id, extra()),
 			typed: (_t, _q, value) => view.typed(t, q, value, id, extra()),
 			flushTyped: () => view.flushTyped(t, q, id),
 			pendingOf: () => view.pendingOf(t, q, id),
 			onShow: (_k, show) => updaters.push(show),
-			keepOwn: (k, tt, commit) => view.keepOwn(k, tt, commit),
-			pressTarget: () => view.pressTarget(),
-			heldOf: (k) => view.heldOf(k),
-			hold: (k, words) => view.hold(k, words),
 			earlierOf: () => ({ ...view.earlierOf(t), pick: id }),
-			reshow: () => view.reshow(),
-			uid: () => view.uid(),
 			wrongOf: () => view.wrongOf(t, q),
-			redrawSoon: () => view.redrawSoon(),
-			listens: view.listens,
 		};
 		const controls = box.createDiv({ cls: "booklet-row-controls" });
 		if (q.kind === "listen") controls.createEl("p", { cls: "booklet-muted", text: "A listen question is not asked for each row." });
@@ -238,7 +277,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				const sh = shows();
 				if (sh.state === "waiting") {
 					state.setAttr("data-state", "waiting");
-					state.setText(WAITING);
+					state.setText(SENT_WAITING);
 				} else if (sh.state === "changed") {
 					state.setAttr("data-state", "changed");
 					state.setText(`${SENT} ${wordsOf(q, sh.sent.a)}`);
@@ -302,7 +341,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 
 		/** The words of a waiting or changed value, beside it; the value's button is described by them. */
 		const mark = (c: HTMLElement, s: Shows): HTMLElement | null => {
-			if (s.state === "waiting") return c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting", id: view.uid() }, text: WAITING });
+			if (s.state === "waiting") return c.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting", id: view.uid() }, text: SENT_WAITING });
 			if (s.state === "changed") return c.createSpan({ cls: "booklet-row-state booklet-row-sent", attr: { "data-state": "changed", id: view.uid() }, text: `${SENT} ${valueText(s.sent.a)}` });
 			return null;
 		};
@@ -336,18 +375,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			cell.empty();
 			const nameId = view.uid();
 			cell.createSpan({ cls: "booklet-sr", attr: { id: nameId }, text: `${label}, ${name}` });
-			let box: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
-			if (spec.kind === "long") box = cell.createEl("textarea", { cls: "booklet-text booklet-long booklet-edit-box", attr: { rows: 3 } });
-			else if (spec.kind === "choice") {
-				const sel = cell.createEl("select", { cls: "dropdown booklet-edit-box" });
-				const words = [...spec.options];
-				const has = (x: string) => words.some((o) => sameOption(o, x));
-				// a value the options do not list, and an empty one, are kept as the box's first words: nothing is changed by opening it
-				if (sess.text !== "" && !has(sess.text)) words.unshift(sess.text);
-				if (sess.text === "") sel.createEl("option", { value: "", text: "" });
-				for (const w of words) sel.createEl("option", { value: w, text: w });
-				box = sel;
-			} else box = cell.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr: spec.kind === "number" ? { inputmode: "decimal" } : spec.kind === "date" ? {} : { size: String(Math.min(30, Math.max(8, sess.text.length + 2))) } }); // `size`: a text box asks its column for the room of its words, not a browser's default width
+			// a value the options do not list, and an empty one, are kept as the box's first words: nothing is changed by opening it
+			const box = fieldBox(cell, spec, { text: sess.text, keepUnlisted: true, emptyFirst: sess.text === "", sized: true });
 			box.setAttr("aria-labelledby", nameId);
 			box.setAttr("data-booklet-key", `${key}#${String(id)}`);
 			// the box's words as plain text, which is what prints (the box itself does not), and a place for a word to the reader
@@ -359,8 +388,8 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				(box as HTMLSelectElement).selectedIndex = Math.max(0, at);
 			} else box.value = sess.text;
 			const read = (): string => box.value;
-			/** A number box whose text is no number (the browser gives value "" and says badInput for "3e"): it holds words that cannot be kept. */
-			const unreadable = (): boolean => spec.kind === "number" && ((box as HTMLInputElement).validity?.badInput === true || (read().trim() !== "" && !Number.isFinite(Number(read()))));
+			/** A number box whose text is no number: it holds words that cannot be kept. */
+			const unreadable = (): boolean => spec.kind === "number" && !numberIn(box).ok;
 			const typedIn = (): void => {
 				// unreadable text is not the box's value: the session keeps the last words that were
 				if (!unreadable()) {
@@ -391,7 +420,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				view.sessions.delete(sk);
 				const typed = read();
 				if (!keepIt) return void shut(start, sh);
-				const next: unknown = spec.kind === "number" ? (typed.trim() === "" ? null : Number(typed)) : typed;
+				const next: unknown = spec.kind === "number" ? numberIn(box).n : typed;
 				// leaving a box as it was found keeps nothing
 				if (eq(next, start)) return void shut(start, sh);
 				const was = sess.was ?? null;
@@ -471,10 +500,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			setIcon(b, "plus");
 			b.createSpan({ text: parent ? "Add under" : "Add" });
 			b.createSpan({ cls: "booklet-sr", text: parent ? ` this row (${name})` : " a row" });
-			b.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
+			onPress(b, () => {
 				view.addForms.set(fkey, { values: {}, id: "", message: "", focus: acts.fields[0]?.key ?? (acts.idFormat === undefined ? ID_BOX : null) });
 				open();
 			});
@@ -527,22 +553,9 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			for (const f of acts.fields) {
 				const k = f.key;
 				field(k, f.label, (id, at) => {
-					const v = sess.values[k] ?? "";
-					if (f.spec.kind === "long") {
-						const t = at.createEl("textarea", { cls: "booklet-text booklet-long booklet-edit-box", attr: { id, rows: 3 } });
-						t.value = v;
-						return t;
-					}
-					if (f.spec.kind === "choice") {
-						const sel = at.createEl("select", { cls: "dropdown booklet-edit-box", attr: { id } });
-						sel.createEl("option", { value: "", text: "" });
-						for (const w of f.spec.options) sel.createEl("option", { value: w, text: w });
-						sel.value = v;
-						return sel;
-					}
-					const i = at.createEl("input", { cls: "booklet-text booklet-edit-box", type: f.spec.kind === "number" ? "number" : f.spec.kind === "date" ? "date" : "text", attr: { id, ...(f.spec.kind === "number" ? { inputmode: "decimal" } : {}) } });
-					i.value = v;
-					return i;
+					const el = fieldBox(at, f.spec, { id, text: "", keepUnlisted: false, emptyFirst: true, sized: false });
+					el.value = sess.values[k] ?? "";
+					return el;
 				});
 			}
 			if (acts.idFormat === undefined) {
@@ -560,12 +573,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				closed();
 				box.querySelector<HTMLElement>("button")?.focus();
 			};
-			cancel.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
-				stop();
-			});
+			onPress(cancel, stop);
 			group.addEventListener("keydown", (evt: KeyboardEvent) => {
 				if (evt.key !== "Escape") return;
 				evt.preventDefault();
@@ -580,9 +588,9 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 					const raw = el.value;
 					text[f.key] = sess.values[f.key] ?? raw;
 					if (f.spec.kind === "number") {
-						const badInput = (el as HTMLInputElement).validity?.badInput === true;
-						if (badInput || (raw.trim() !== "" && !Number.isFinite(Number(raw)))) return say(`${f.label}: that is not a number, so nothing is kept. Correct the number to keep it.`, f.key);
-						if (raw.trim() !== "") row[f.key] = Number(raw);
+						const num = numberIn(el);
+						if (!num.ok) return say(`${f.label}: that is not a number, so nothing is kept. Correct the number to keep it.`, f.key);
+						if (num.n !== null) row[f.key] = num.n;
 					} else if (raw.trim() !== "") row[f.key] = raw;
 				}
 				const ids = view.idsOf(t, block);
@@ -618,12 +626,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				warn.setText(message);
 				if (focus !== null) boxes.get(focus)?.focus();
 			};
-			add.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
-				submit();
-			});
+			onPress(add, submit);
 			if (sess.focus !== null) boxes.get(sess.focus)?.focus();
 		};
 		if (view.addForms.has(fkey)) open();
@@ -680,11 +683,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			const b = wrap.createEl("button", { cls: "clickable-icon booklet-row-act booklet-row-remove-open", attr: { type: "button", "aria-label": `Remove ${name}` } });
 			setIcon(b, "trash-2");
 			b.createSpan({ cls: "booklet-sr", text: `Remove ${name}` });
-			b.addEventListener("click", (evt) => {
-				// a press never reaches the row's own disclosure
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
+			onPress(b, () => {
 				view.removeAsks.add(rkey);
 				ask();
 			});
@@ -698,20 +697,12 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			yes.appendText("Remove");
 			yes.createSpan({ cls: "booklet-sr", text: ` ${name}` });
 			const no = wrap.createEl("button", { cls: "booklet-row-act booklet-row-remove-no", text: "Cancel", attr: { type: "button" } });
-			no.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
-				back();
-			});
-			yes.addEventListener("click", (evt) => {
-				evt.preventDefault();
-				evt.stopPropagation();
-				view.clicked();
+			onPress(no, back);
+			onPress(yes, () => {
 				view.removeAsks.delete(rkey);
 				asking = false;
 				wrap.empty();
-				wrap.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: "removing, waiting" });
+				wrap.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: REMOVING_WAITING });
 				view.keepAct(
 					t,
 					DELETE_KEY,

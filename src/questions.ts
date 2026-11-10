@@ -14,7 +14,7 @@
  * drawn by engines.ts.
  */
 import { setIcon } from "obsidian";
-import { answeredOf, earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, sourceOf, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
+import { answeredOf, askedOfRows, earlierLines, earlierOptions, holdsSomething, plainWords, sameWords, type Activity, type AnswerValue, type Entry, type PickValue, type Question } from "./core";
 import { drawEach } from "./each-question";
 import { drawWidget } from "./engines";
 import { drawListen, type Listens } from "./listen-view";
@@ -79,6 +79,23 @@ export interface QuestionHost {
 	listens: Listens;
 }
 
+/**
+ * The members of a host that a host made for one copy of a question (each-question.ts) or for one row (row-ask.ts) hands on unchanged to
+ * the host it was made from. The rest (the answer, what is typed, where the earlier words come from, and the rest that are the copy's own) the maker writes.
+ */
+export const passedOn = (host: QuestionHost): Pick<QuestionHost, "md" | "mdBlock" | "keepOwn" | "pressTarget" | "heldOf" | "hold" | "reshow" | "uid" | "redrawSoon" | "listens"> => ({
+	md: (markdown, el) => host.md(markdown, el),
+	mdBlock: (markdown, el) => host.mdBlock(markdown, el),
+	keepOwn: (key, t, commit) => host.keepOwn(key, t, commit),
+	pressTarget: () => host.pressTarget(),
+	heldOf: (key) => host.heldOf(key),
+	hold: (key, words) => host.hold(key, words),
+	reshow: () => host.reshow(),
+	uid: () => host.uid(),
+	redrawSoon: () => host.redrawSoon(),
+	listens: host.listens,
+});
+
 export const keyOf = (t: Target, q: Question): string => `${t.scope}/${t.activity.id}/${q.id}`;
 
 /** An answer as a list of picks: positions and the reader's own words. */
@@ -99,7 +116,7 @@ export function drawQuestion(host: QuestionHost, card: HTMLElement, t: Target, q
 	// asked for each row of a data block (SPEC section 5): its source is no question of the activity. It is drawn in the rows of the
 	// activity's queries over the block (query-view.ts, row-ask.ts), not where it is written, so nothing is drawn here unless its answer
 	// is of the wrong shape: then its title and the notice are, since the rows draw it locked
-	if (q.each && !sourceOf(t.activity, q)) {
+	if (askedOfRows(t.activity, q)) {
 		if (!wrong) return;
 		const box = card.createDiv({ cls: `booklet-question booklet-kind-${q.kind}` });
 		host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered" }));

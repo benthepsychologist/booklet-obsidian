@@ -14,7 +14,7 @@
  * Plain TypeScript: nothing here imports Obsidian.
  */
 import { pickOfRow, sameValue } from "./ask";
-import type { DataRow } from "./data";
+import { chooseChildList, type DataRow } from "./data";
 import { addRowEdit, removeRowEdit, scanJson, splice, type JsonMember, type JsonNode } from "./json-edit";
 import { splitLines } from "./lines";
 import { parseBooklet } from "./reader";
@@ -163,11 +163,9 @@ export function sameJson(a: unknown, b: unknown): boolean {
 
 /** The field of a row (as the text reads it) that takes new child rows, as data.ts childListKey chooses: the only list of objects that has rows, else the only empty one. Null otherwise. */
 function childList(members: Map<string, JsonMember>): Arr | null {
-	const full: Arr[] = [];
-	const empty: Arr[] = [];
-	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.every((e) => e.kind === "object")) (m.value.elements.length ? full : empty).push(m.value);
-	if (full.length) return full.length === 1 ? full[0]! : null;
-	return empty.length === 1 ? empty[0]! : null;
+	const lists: { key: Arr; empty: boolean }[] = [];
+	for (const m of members.values()) if (m.value.kind === "array" && m.value.elements.every((e) => e.kind === "object")) lists.push({ key: m.value, empty: m.value.elements.length === 0 });
+	return chooseChildList(lists);
 }
 
 /**

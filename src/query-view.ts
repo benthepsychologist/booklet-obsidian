@@ -8,7 +8,7 @@
  */
 import { getIcon, setIcon } from "obsidian";
 import { drawChart } from "./charts";
-import { QUERY_WORDS, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type EditSpec, type Group, type MoreField, type QueryPlan, type QueryViewState, type Question, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
+import { QUERY_WORDS, REMOVING_WAITING, SENT_WAITING, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type EditSpec, type Group, type MoreField, type QueryPlan, type QueryViewState, type Question, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
@@ -209,8 +209,8 @@ function pills(into: HTMLElement, list: readonly string[], tone: string | null):
  * waiting", a row asked to be removed "removing, waiting", and a removal the data did not follow, which says so. Nothing is said by colour alone.
  */
 function actMark(into: HTMLElement, r: Row): void {
-	if (r.act === "adding") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · sent, waiting" });
-	else if (r.act === "removing") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · removing, waiting" });
+	if (r.act === "adding") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: SENT_WAITING });
+	else if (r.act === "removing") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: ` · ${REMOVING_WAITING}` });
 	else if (r.act === "refused") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "changed" }, text: " · You asked to remove this; it changed since." });
 }
 

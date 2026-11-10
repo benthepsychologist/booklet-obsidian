@@ -250,6 +250,10 @@ export const QUERY_KEYS: readonly string[] = "from as fields group limit parent 
 /** The six views. */
 export const QUERY_VIEWS = ["cards", "table", "list", "tiles", "bars", "line"] as const;
 export type ViewName = (typeof QUERY_VIEWS)[number];
+/** Does this view draw rows that open or carry a control (an edit, a question, Add, Remove)? Only `table`, `list` and `cards` do. */
+export const drawsRowActs = (view: string): boolean => view === "table" || view === "list" || view === "cards";
+/** The view a query is drawn as when it names none: a table for rows of a data block or a summary, else cards. */
+export const defaultView = (q: Pick<Query, "as" | "summary">, source: { kind: string }): ViewName => q.as ?? (source.kind === "data" || q.summary ? "table" : "cards");
 /** The seven roles a field plays in a row, each read from the field of its own name unless the query names another. */
 export const ROLE_NAMES = ["label", "value", "note", "badge", "tone", "link", "icon"] as const;
 export type Role = (typeof ROLE_NAMES)[number];
@@ -375,6 +379,9 @@ export interface Activity {
 	hidden: boolean;
 	segments: Segment[];
 }
+
+/** Does the activity keep entries an act can be one of: it repeats, and not daily (a daily activity keeps one entry a day, made by its own Finalize)? */
+export const keepsActs = (act: Pick<Activity, "repeat" | "daily">): boolean => act.repeat && !act.daily;
 
 export interface Module {
 	id: string;
@@ -1711,10 +1718,10 @@ function linkQuery(s: QuerySegment, act: Activity, activities: readonly Activity
 		q.group = null;
 	}
 	for (const k of [...(q.add ? ["add"] : []), ...(q.delete ? ["delete"] : [])]) {
-		const view = q.as ?? (source.kind === "data" || q.summary ? "table" : "cards");
+		const view = defaultView(q, source);
 		if (source.kind !== "data") problems.push(`Line ${s.line}: the query's \`${k}\` changes the rows of a data block, and this query reads ${source.kind === "activity" ? "kept entries" : "a question's answers"}, so it does nothing.`);
-		else if (view !== "table" && view !== "list" && view !== "cards") problems.push(`Line ${s.line}: the query's \`${k}\` does nothing on ${view}; only table, cards and list draw rows that can be added or removed.`);
-		else if (!act.repeat || act.daily) problems.push(`Line ${s.line}: the query's \`${k}\` needs its activity to keep entries (\`repeat\`, not \`repeat daily\`), so it is not drawn here.`);
+		else if (!drawsRowActs(view)) problems.push(`Line ${s.line}: the query's \`${k}\` does nothing on ${view}; only table, cards and list draw rows that can be added or removed.`);
+		else if (!keepsActs(act)) problems.push(`Line ${s.line}: the query's \`${k}\` needs its activity to keep entries (\`repeat\`, not \`repeat daily\`), so it is not drawn here.`);
 	}
 	s.source = source;
 	return null;
