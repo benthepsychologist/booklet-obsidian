@@ -169,6 +169,14 @@ PLAYWRIGHT=$S/npm/node_modules node focus-ring-100.js --obsidian <binary> --out 
 ```
 It presses the real Tab key through the opening screen, a wiki page with the Pages panel, every question kind, the kept-days views, the four dashboards, the Allow card in its three forms, the Now playing bar and (on a version that draws Settings in the main window) the plugin's settings page, in the light and the dark theme. At every stop, once Obsidian's 150 ms ease-in has finished, it reads the ring (an outline or a box shadow, its colour), the colour of the surface behind (every ancestor's background laid over the others) and the WCAG ratio of the two (a focus indicator needs 3:1, WCAG 1.4.11). It says whose ring it is by measuring it again with the plugin's stylesheet switched off: a ring that changes is the plugin's, one that does not is Obsidian's. It prints a table by control and theme, lowest ratio first, and writes `<tag>-focus-ring.json` (every stop) and `<tag>-focus-ring-table.json`.
 
+## Take the install walkthrough screenshots (`site-shots.js`)
+Not part of `plugin-check.js`: a script run by hand for the "install the Booklet plugin and open your first booklet" page of bookletmd.org.
+```
+PLAYWRIGHT=$S/npm/node_modules node site-shots.js --obsidian <binary> --out <dir> [--booklet <a .booklet.md>] \
+  [--plugin-dir <folder with main.js, manifest.json, styles.css>] [--platforms computer,phone] [--schemes light,dark] [--keep]
+```
+For each platform and scheme it starts a brand-new empty vault named `Notes` and a brand-new config folder (under `<out>/.work-<platform>-<scheme>`, removed at the end), with community plugins off and nothing installed, and walks the real interface by clicks and typing: Settings, Community plugins, turn community plugins on, Browse, "Booklet" typed in the search, Install, Enable, the note copied into the vault and clicked in the file list, then "Show Markdown" and the "Open as booklet" button. One PNG for each step with the control to press ringed (`<out>/<platform>-<NN>-<slug>-<scheme>.png`), and `<out>/shots.json` (file, platform, scheme, step, alt text, `real`). It needs the network: Booklet is installed from Obsidian's own community plugin directory. If the directory cannot be reached the run takes no steps 3 to 5, installs the plugin from `--plugin-dir` and marks its later shots `"real": false`. The script's header lists the shots and says which windows each is of (on the computer Settings and the plugin browser are windows of their own).
+
 ## Running an older Obsidian
 The Linux tarballs of every release are on github.com/obsidianmd/obsidian-releases. Two things differ for an old one:
 - An old installer fetches the newest app code on its first start and runs that instead. `drive.js` writes `updateDisabled: true` into the scratch config's `obsidian.json` so the version asked for is the version run.
