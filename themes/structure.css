@@ -698,12 +698,6 @@
 	outline: none;
 }
 
-/* a touch screen keeps the full height of any control, and the size of words that does not zoom the page */
-.booklet-view[data-booklet-look^="paper"]:is(.is-mobile *) .booklet-edit :is(input, textarea, select).booklet-edit-box {
-	min-height: 44px;
-	font-size: 1rem;
-}
-
 .booklet-view[data-booklet-look^="paper"] .booklet-qc-bar {
 	border-radius: var(--bk-r-md);
 	background-color: var(--bk-card);

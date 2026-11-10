@@ -146,24 +146,20 @@ type FieldBox = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 /**
  * The box a field is typed in, of the kind its edit mark asks for (a text area, a menu, or a field), drawn into `into`; the caller puts
- * the words in it. What differs between an edit box and a field of the add form: `id` (the form's label points at it), `keepUnlisted`
- * (a menu's value the options do not list is its first option, so that opening the box changes nothing), `emptyFirst` (a menu begins with an
- * empty option), and `sized` (a text box asks its column for the room of its words, `size`, not a browser's default width).
+ * the words in it. `text` is what the box opens on: a menu's value the options do not list is its first option, and an empty one an empty
+ * first option, so that opening the box changes nothing. `id` is for a label that points at the box.
  */
-function fieldBox(into: HTMLElement, spec: EditSpec, o: { id?: string; text: string; keepUnlisted: boolean; emptyFirst: boolean; sized: boolean }): FieldBox {
-	const id: Record<string, string> = o.id !== undefined ? { id: o.id } : {};
-	if (spec.kind === "long") return into.createEl("textarea", { cls: "booklet-text booklet-long booklet-edit-box", attr: { ...id, rows: 3 } });
+function fieldBox(into: HTMLElement, spec: EditSpec, text: string, id?: string): FieldBox {
+	const attr: Record<string, string> = id === undefined ? {} : { id };
+	if (spec.kind === "long") return into.createEl("textarea", { cls: "booklet-text booklet-long booklet-edit-box", attr: { ...attr, rows: 3 } });
 	if (spec.kind === "choice") {
-		const sel = into.createEl("select", { cls: "dropdown booklet-edit-box", attr: id });
-		const words = [...spec.options];
-		if (o.keepUnlisted && o.text !== "" && !words.some((w) => sameOption(w, o.text))) words.unshift(o.text);
-		if (o.emptyFirst) sel.createEl("option", { value: "", text: "" });
-		for (const w of words) sel.createEl("option", { value: w, text: w });
+		const sel = into.createEl("select", { cls: "dropdown booklet-edit-box", attr });
+		if (text === "") sel.createEl("option", { value: "", text: "" });
+		else if (!spec.options.some((w) => sameOption(w, text))) sel.createEl("option", { value: text, text });
+		for (const w of spec.options) sel.createEl("option", { value: w, text: w });
 		return sel;
 	}
-	const attr: Record<string, string> = { ...id };
 	if (spec.kind === "number") attr["inputmode"] = "decimal";
-	else if (spec.kind === "text" && o.sized) attr["size"] = String(Math.min(30, Math.max(8, o.text.length + 2)));
 	return into.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr });
 }
 
@@ -375,8 +371,9 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			cell.empty();
 			const nameId = view.uid();
 			cell.createSpan({ cls: "booklet-sr", attr: { id: nameId }, text: `${label}, ${name}` });
-			// a value the options do not list, and an empty one, are kept as the box's first words: nothing is changed by opening it
-			const box = fieldBox(cell, spec, { text: sess.text, keepUnlisted: true, emptyFirst: sess.text === "", sized: true });
+			const box = fieldBox(cell, spec, sess.text);
+			// a text box asks its column for the room of its words, not a browser's default width
+			if (spec.kind === "text") box.setAttr("size", Math.min(30, Math.max(8, sess.text.length + 2)));
 			box.setAttr("aria-labelledby", nameId);
 			box.setAttr("data-booklet-key", `${key}#${String(id)}`);
 			// the box's words as plain text, which is what prints (the box itself does not), and a place for a word to the reader
@@ -553,7 +550,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 			for (const f of acts.fields) {
 				const k = f.key;
 				field(k, f.label, (id, at) => {
-					const el = fieldBox(at, f.spec, { id, text: "", keepUnlisted: false, emptyFirst: true, sized: false });
+					const el = fieldBox(at, f.spec, "", id);
 					el.value = sess.values[k] ?? "";
 					return el;
 				});

@@ -336,8 +336,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	readonly addForms = new Map<string, AddSession>();
 	/** The rows whose Remove asked "Remove this row?" and wait for the answer, by query and row. Never saved. */
 	readonly removeAsks = new Set<string>();
-	/** The ids of adds on their way into the note (two adds in a row make two ids), as text, by the id of the block they are for. */
-	private readonly inflight = new Map<string, Set<string>>();
+	/** The adds on their way into the note (two adds in a row make two ids): the block each is for, and its id as text. */
+	private readonly inflight = new Set<{ block: string; id: string }>();
 	/** The data files the note's data blocks name (data-files.ts): read through the vault, read again when they change and when the pane comes back. */
 	private readonly files = new DataFiles(
 		() => this.app.vault.adapter,
@@ -1202,18 +1202,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// the data file's path is worked out now, from the note this act was kept in: a pane that moves to another note meanwhile resolves nothing against another folder
 		const path = this.files.pathOf(apply.block);
 		// an add's id is held until the note has it, so that the next add made meanwhile counts past it
-		const waiting = key === ADD_KEY ? String(pair["in"]) : null;
-		const waitingId = String(pair["pick"]);
-		if (waiting !== null) {
-			const held = this.inflight.get(waiting) ?? new Set<string>();
-			held.add(waitingId);
-			this.inflight.set(waiting, held);
-		}
+		const waiting = key === ADD_KEY ? { block: String(pair["in"]), id: String(pair["pick"]) } : null;
+		if (waiting) this.inflight.add(waiting);
 		const done = (): void => {
-			if (waiting === null) return;
-			const held = this.inflight.get(waiting);
-			held?.delete(waitingId);
-			if (held && !held.size) this.inflight.delete(waiting);
+			if (waiting) this.inflight.delete(waiting);
 		};
 		this.queue(
 			file,
@@ -1235,7 +1227,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = block.file ? this.files.rows(block) : { data: block };
 		const rows = "data" in got ? got.data.rows : [];
 		const ids = rowIds(rows, this.keptOf(t), block.id);
-		for (const id of this.inflight.get(block.id) ?? []) if (!ids.some((x) => samePick(x, id, true))) ids.push(id);
+		for (const w of this.inflight) if (w.block === block.id && !ids.some((x) => samePick(x, w.id, true))) ids.push(w.id);
 		return ids;
 	}
 
@@ -1247,11 +1239,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private async applyAct(key: string, pair: Record<string, unknown>, apply: ActApply, path: string | null): Promise<void> {
 		if (key === ADD_KEY || key === DELETE_KEY) return this.applyRows(key, pair, apply, path);
 		const run = (text: string, keyPath: string): ApplyResult => applyAct(text, keyPath, pair["pick"], key, pair["was"], pair["a"], apply.eq);
-		const got = await this.runOn(apply, path, run);
+		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
 		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
 		else if (got.state === "refused") new Notice(got.why in WHOLE_REFUSAL ? `Booklet: change kept. ${WHOLE_REFUSAL[got.why as keyof typeof WHOLE_REFUSAL]}` : `Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why] ?? "the data changed"}.`);
-		else this.cannotWrite(apply, `change kept, but not written${got.name ? ` to ${got.name}` : ""}`);
+		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
 
 	/** An added or a removed row, once the entry is kept: written into the data; a success says nothing beyond the redraw, a refusal says why. */
@@ -1261,21 +1253,11 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			adding
 				? applyAdd(text, keyPath, pair["pick"], pair["under"], (pair["row"] ?? {}) as Record<string, unknown>)
 				: applyDelete(text, keyPath, pair["pick"], pair["was"]);
-		const got = await this.runOn(apply, path, run);
+		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written" || got.state === "same") return;
 		const lead = adding ? "the row was kept but not added to" : "the removal was kept, but no row was taken out of";
 		if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why] ?? "The data changed."}`);
-		else this.cannotWrite(apply, `${lead}${got.name ? ` ${got.name}` : ""}`);
-	}
-
-	/** Runs a change on the data a block holds: the vault file it names, or its own text in the note. */
-	private runOn(apply: ActApply, path: string | null, run: (text: string, keyPath: string) => ApplyResult): Promise<Applied> {
-		return apply.block.file ? this.files.applyText(apply.block, path, run) : this.applyInline(apply.block, (inner) => run(inner, ""));
-	}
-
-	/** The notice for data that could not be written at all: `said` is what was kept and not done, and the data is the file or the note. */
-	private cannotWrite(apply: ActApply, said: string): void {
-		new Notice(`Booklet: ${said}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
+		else new Notice(`Booklet: ${lead}${got.name ? ` ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
 
 	/**
@@ -2164,19 +2146,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const book = this.book;
 			// drawn again over rows the reader is looking at: the rows they have open, their scroll and their focus stay where they were
 			let planned: ReturnType<typeof planQuery> | null = null;
-			// the rows drawn before are gone with the box, and what they registered to be shown again with them: only a row drawn now registers
-			this.forgetRows(vkey);
 			draw(() => (planned = planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b), activity: a })), drawnOnce);
 			drawnOnce = true;
 			if (planned) this.keepWordsOfGoneRows(vkey, planned);
 		};
 		show();
 		this.onShow(`query:${s.line}`, show);
-	}
-
-	/** Takes out what the rows of one query registered to be shown again (row-ask.ts: a row's questions and its Finalize), each of which holds the plan it was drawn from. */
-	private forgetRows(vkey: string): void {
-		for (const k of [...this.widgets.keys()]) if (k.includes(`#row:${vkey}:`) || k.includes(`#finish:${vkey}:`)) this.widgets.delete(k);
 	}
 
 	/**

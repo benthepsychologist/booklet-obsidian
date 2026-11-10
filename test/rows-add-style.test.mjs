@@ -45,9 +45,11 @@ test("the Paper look draws the form as its card and the confirm as its amber war
 });
 
 test("Obsidian's own look: the warning confirm is white words on a darkened red, in a light theme and a dark one", () => {
-	assert.match(mine, /\.booklet-view \.booklet-row-remove button\.mod-warning,\n\.booklet-view \.booklet-row-remove button\.mod-warning:hover \{\n\tbackground: var\(--background-modifier-error\);\n\tcolor: var\(--text-on-accent\);/);
-	assert.match(mine, /\.theme-light \.booklet-view \.booklet-row-remove button\.mod-warning/);
-	assert.match(mine, /\.theme-dark \.booklet-view \.booklet-row-remove button\.mod-warning/);
+	// one rule with an entry's Delete question
+	const both = String.raw`:is\(\.booklet-entry-ask, \.booklet-row-remove\) button\.mod-warning`;
+	assert.match(base, new RegExp(String.raw`\.booklet-view ${both},\n\.booklet-view ${both}:hover \{\n\tbackground: var\(--background-modifier-error\);\n\tcolor: var\(--text-on-accent\);`));
+	assert.match(base, new RegExp(String.raw`\.theme-light \.booklet-view ${both}`));
+	assert.match(base, new RegExp(String.raw`\.theme-dark \.booklet-view ${both}`));
 });
 
 test("print shows none of the controls: the Add button, the form, the Remove control, the quiet line and the Remove column", () => {

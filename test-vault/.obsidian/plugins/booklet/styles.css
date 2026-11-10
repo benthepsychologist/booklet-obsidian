@@ -1350,6 +1350,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	min-height: max(44px, var(--input-height));
 }
 
+/* the Paper look's compact edit box, on a touch screen: the full height of any control, and the size of words that does not zoom the page */
+.is-mobile .booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box {
+	min-height: 44px;
+	font-size: 1rem;
+}
+
 /* a question asked of a row: in the row's open part, with its words; in a column, the heading says them */
 .booklet-row-asks {
 	display: flex;
@@ -1526,25 +1532,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 		position: sticky;
 		inset-inline-end: 0;
 		background-color: var(--background-primary);
-	}
-}
-
-/* the remove confirmation is the same warning red as the entry's: white words on a darkened red in both of Obsidian's themes */
-.booklet-view .booklet-row-remove button.mod-warning,
-.booklet-view .booklet-row-remove button.mod-warning:hover {
-	background: var(--background-modifier-error);
-	color: var(--text-on-accent);
-}
-
-@supports (color: color-mix(in srgb, red, blue)) {
-	.theme-light .booklet-view .booklet-row-remove button.mod-warning,
-	.theme-light .booklet-view .booklet-row-remove button.mod-warning:hover {
-		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
-	}
-
-	.theme-dark .booklet-view .booklet-row-remove button.mod-warning,
-	.theme-dark .booklet-view .booklet-row-remove button.mod-warning:hover {
-		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
 	}
 }
 
@@ -2041,21 +2028,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 /* Obsidian's warning button is white on a bright red (3.5:1 in a dark theme, 4.2:1 in a light one), and on a phone its red words on the pale button read 3.9:1 in a light one;
    a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces).
-   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. */
-.booklet-view .booklet-entry-ask button.mod-warning,
-.booklet-view .booklet-entry-ask button.mod-warning:hover {
+   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. A row's Remove question is the same warning red. */
+.booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+.booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 	background: var(--background-modifier-error);
 	color: var(--text-on-accent);
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.theme-light .booklet-view .booklet-entry-ask button.mod-warning,
-	.theme-light .booklet-view .booklet-entry-ask button.mod-warning:hover {
+	.theme-light .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+	.theme-light .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
 	}
 
-	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning,
-	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning:hover {
+	.theme-dark .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+	.theme-dark .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
 	}
 }
@@ -4348,12 +4335,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box:focus-visible {
 	border-color: var(--bk-accent);
 	outline: none;
-}
-
-/* a touch screen keeps the full height of any control, and the size of words that does not zoom the page */
-.booklet-view[data-booklet-look^="paper"]:is(.is-mobile *) .booklet-edit :is(input, textarea, select).booklet-edit-box {
-	min-height: 44px;
-	font-size: 1rem;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-qc-bar {
