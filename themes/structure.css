@@ -170,6 +170,8 @@
 	--interactive-accent-hover: var(--bk-brand-deep);
 	--interactive-normal: var(--bk-card);
 	--interactive-hover: var(--bk-brand-wash);
+	--dropdown-background: var(--bk-paper);
+	--dropdown-background-hover: var(--bk-brand-wash);
 	--h1-color: var(--bk-ink);
 	--h2-color: var(--bk-ink);
 	--h3-color: var(--bk-ink);
@@ -664,6 +666,36 @@
 
 .booklet-view[data-booklet-look^="paper"] .booklet-long {
 	min-height: calc(var(--input-height) * 4);
+}
+
+/* Obsidian picks a dropdown's arrow by its own theme, and a Paper look can be set against that theme: the arrow follows the look (Obsidian's two arrows, as Obsidian draws them) */
+.booklet-view[data-booklet-look="paper-light"] .dropdown {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' opacity='0.9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='m7 15 5 5 5-5'/%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3C/svg%3E"), radial-gradient(ellipse, var(--dropdown-icon-background) 48%, transparent 50%);
+}
+
+.booklet-view[data-booklet-look="paper-dark"] .dropdown {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' opacity='0.6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='m7 15 5 5 5-5'/%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3C/svg%3E"), radial-gradient(ellipse, var(--dropdown-icon-background) 48%, transparent 50%);
+}
+
+/* a field being edited in a row is the size of the words it replaced, with one thin outline; the form field above and the focus ring of section 13 are for forms */
+.booklet-view[data-booklet-look^="paper"] .booklet-edit :is(input, textarea, select).booklet-edit-box {
+	min-height: 0;
+	padding: 1px var(--size-2-2);
+	border: 1px solid var(--bk-accent);
+	border-radius: var(--radius-s);
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-edit select.booklet-edit-box {
+	padding-inline-end: 1.9em;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box:focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box:focus-visible {
+	border-color: var(--bk-accent);
+	outline: none;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-qc-bar {

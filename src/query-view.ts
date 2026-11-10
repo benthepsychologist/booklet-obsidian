@@ -8,7 +8,7 @@
  */
 import { getIcon, setIcon } from "obsidian";
 import { drawChart } from "./charts";
-import { QUERY_WORDS, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type EditSpec, type Group, type MoreField, type QueryPlan, type QueryViewState, type Question, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
+import { QUERY_WORDS, REMOVING_WAITING, SENT_WAITING, badgesOf, buildChart, linkOf, opensRow, roleText, toneOf, type Cell, type EditSpec, type Group, type MoreField, type QueryPlan, type QueryViewState, type Question, type Role, type Row, type RowSet, type Tree, type WordPart } from "./core";
 
 /** What drawing a query needs from the view. */
 export interface QueryHost {
@@ -31,11 +31,11 @@ export interface RowsUi {
 	addTop(into: HTMLElement, p: Plan): void;
 	/** Does this row's open part hold "Add under this row" (the query asks for it, and the row holds one list of rows)? */
 	offersUnder(p: Plan, r: Row): boolean;
-	/** "Add under this row", in the row's open part. */
+	/** "Add under this row", in the row's open part; called only for a row that `offersUnder`. */
 	addUnder(into: HTMLElement, p: Plan, r: Row): void;
 	/** Does this view draw "Remove" on its rows? */
 	removes(p: Plan): boolean;
-	/** "Remove" on a row, and its question. */
+	/** "Remove" on a row, and its question; nothing when this view does not draw Remove (`removes`). */
 	remove(into: HTMLElement, p: Plan, r: Row): void;
 }
 
@@ -209,8 +209,8 @@ function pills(into: HTMLElement, list: readonly string[], tone: string | null):
  * waiting", a row asked to be removed "removing, waiting", and a removal the data did not follow, which says so. Nothing is said by colour alone.
  */
 function actMark(into: HTMLElement, r: Row): void {
-	if (r.act === "adding") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · sent, waiting" });
-	else if (r.act === "removing") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: " · removing, waiting" });
+	if (r.act === "adding") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: SENT_WAITING });
+	else if (r.act === "removing") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "waiting" }, text: ` · ${REMOVING_WAITING}` });
 	else if (r.act === "refused") into.createSpan({ cls: "booklet-row-state", attr: { "data-state": "changed" }, text: " · You asked to remove this; it changed since." });
 }
 
@@ -231,7 +231,6 @@ export function numericColumns(rows: readonly Row[], cols: readonly string[]): S
 	return new Set(cols.filter((k) => rows.some((r) => r.cells[k]) && rows.every((r) => !r.cells[k] || r.cells[k].num !== undefined)));
 }
 
-/** A nameless row's name to a screen reader (a disclosure with nothing in it to read). */
 /**
  * A row's summary can hold a box that is typed in (a field edited in place, a question asked for each row). The browser opens or shuts a
  * details when Space is let go over its summary, whatever inside it was typed in, so a space typed in such a box would fold the row. A
@@ -247,6 +246,7 @@ function ownKeys(summary: HTMLElement): void {
 	});
 }
 
+/** A nameless row's name to a screen reader (a disclosure with nothing in it to read). */
 function nameIfBlank(summary: HTMLElement): void {
 	if ((summary.textContent ?? "").trim() === "") summary.createSpan({ cls: "booklet-sr", text: QUERY_WORDS.row });
 }
@@ -476,7 +476,7 @@ function listView(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): Ne
 		if (roles.value && r.cells[roles.value]) cellInto(host, line.createSpan({ cls: `booklet-q-value${tone && !badges.length ? ` booklet-tone-${tone}` : ""}` }), r.cells[roles.value], false);
 		toneWords(line, tone);
 		actMark(line, r);
-		if (host.rows && host.rows.removes(p)) host.rows.remove(line, p, r);
+		host.rows?.remove(line, p, r);
 		if (roles.note && r.cells[roles.note]) cellInto(host, li.createDiv({ cls: "booklet-q-note" }), r.cells[roles.note], false);
 	};
 	const row = (ul: HTMLElement, r: Row) => {
@@ -599,7 +599,7 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		linesInto(card, r);
 		toneWords(card, tone);
 		actMark(card, r);
-		if (host.rows && host.rows.removes(p)) host.rows.remove(card, p, r);
+		host.rows?.remove(card, p, r);
 		return card;
 	};
 	if (!nest) {
@@ -642,7 +642,7 @@ function cards(host: QueryHost, into: HTMLElement, p: Plan, ui?: QueryUi): NestH
 		linesInto(summary, r);
 		toneWords(summary, tone);
 		actMark(summary, r);
-		if (host.rows && host.rows.removes(p)) host.rows.remove(summary, p, r);
+		host.rows?.remove(summary, p, r);
 		nameIfBlank(summary);
 		let drawn = false;
 		const draw = (): void => {

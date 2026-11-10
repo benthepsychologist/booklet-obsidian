@@ -6,14 +6,14 @@
  * of a single question with a summary gives that question's distribution. Nothing here is saved: a summary is drawn,
  * never written. Plain TypeScript: nothing here imports Obsidian.
  */
-import { pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
+import { askedOfRows, pairFor, pickKey, pickWords, plainOf, shownPairs, sourceOf, sourcePicks, type PickValue } from "./each";
 import { newestFirst, plainWords, sameWords } from "./earlier";
 import { childRowsOf, type DataRow, type DataRows, type DataValue, type FieldEdit } from "./data";
 import { carries, editSpecOf, heldOf, isReadonly, pickOfRow, rowActs, type EditSpec, type RowActs } from "./ask";
 import { idKey, withPending, type RowAct } from "./rows-act";
 import { DATA_WORDS } from "./data-file";
 import type { Activity, Booklet, DataBlock, Query, QuerySegment, Question, Role, ViewName } from "./reader";
-import { ROLE_NAMES, questionsOf } from "./reader";
+import { ROLE_NAMES, defaultView, drawsRowActs, keepsActs, questionsOf } from "./reader";
 import type { Entry } from "./records";
 import { holdsSomething, shapeIssue } from "./shape";
 import { engineOf, gridLabel, gridNames, gridOf, normWords, regionLabel, regionsOf, regionSummary, type Grid } from "./widgets";
@@ -816,7 +816,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 	const locale = opts.locale ?? "en";
 	// a query whose source is not found is taken out when the note is read (linkQueries), so this cannot happen; it is for the type checker
 	if (!src) throw new Error("planQuery: a query with no source");
-	const view: ViewName = q.as ?? (src.kind === "data" || q.summary ? "table" : "cards");
+	const view: ViewName = defaultView(q, src);
 	let set: RowSet;
 
 	if (src.kind === "data") {
@@ -836,7 +836,7 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
 			data = got.data;
 		}
 		// adds still waiting stand at the end of their parent's rows and removals still waiting are marked (rows-act.ts), for an activity that keeps entries
-		const kept = opts.activity && opts.activity.repeat && !opts.activity.daily ? (book.records.entries[opts.activity.scope]?.[opts.activity.id] ?? []) : [];
+		const kept = opts.activity && keepsActs(opts.activity) ? (book.records.entries[opts.activity.scope]?.[opts.activity.id] ?? []) : [];
 		const pending = kept.length ? withPending(data.rows, kept, src.block.id) : null;
 		set = dataSet(pending && pending.rows !== data.rows ? { ...data, rows: pending.rows } : data);
 		if (pending)
@@ -889,8 +889,8 @@ export function planQuery(book: Booklet, seg: QuerySegment, opts: PlanOptions): 
  * and a question is asked only of rows that carry a field with its id (of every row, when none does).
  */
 function askPlan(set: RowSet, q: Query, view: ViewName, blockId: string, act: Activity | undefined): AskPlan | null {
-	if (view !== "table" && view !== "list" && view !== "cards") return null;
-	const questions = act ? questionsOf(act).filter((x) => x.each === blockId && !sourceOf(act, x)) : [];
+	if (!drawsRowActs(view)) return null;
+	const questions = act ? questionsOf(act).filter((x) => x.each === blockId && askedOfRows(act, x)) : [];
 	const edits = set.edits ?? {};
 	const rows = set.all ?? set.rows;
 	const alone = new Map<string, boolean>();

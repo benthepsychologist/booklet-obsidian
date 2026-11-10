@@ -1562,7 +1562,7 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
 - **C-169** · tier `builder`
   A row whose removal was kept and then refused because it had changed since the reader drew it ("You asked to remove this; it changed since.") offers Remove again. Pressing it keeps a new `$delete` entry whose `was` is the row as it stands now, and the newest act on a row wins. A row whose removal is merely waiting ("removing, waiting") or whose add is waiting offers no Remove.
   - Why: the reader can see the row as it is now, so asking again is the natural next step; with no Remove the row could never be removed from the page. Entries are never removed, so the old refused one stays and is simply outranked.
-  - Where: `src/row-ask.ts:644`; `src/core/rows-act.ts` (`newestActs`)
+  - Where: `src/row-ask.ts` (`remove`); `src/core/rows-act.ts` (`newestActs`)
   - Source: Not ruled on. SPEC 0.20 says a refused removal "leaves the row with 'You asked to remove this; it changed since.'" and is silent on whether Remove is offered again.
   - Suggestion: keep as the plugin's own; propose one line to SPEC saying a row so marked may be removed again
 
@@ -1576,14 +1576,14 @@ Four choices the plugin made where the contract (`design/dashboards-as-booklets/
 - **C-171** · tier `builder`
   A row held as a field's single object (`"detail": { "id": ..., ... }`, not in a list) cannot be removed: the removal is refused as "no place": the entry is kept, nothing is written, and the notice says "That row stands in no list of rows, so it cannot be taken out." Removing it would leave a field with no value or a half-written object, and there is no comma and no list to take it out of.
   - Why: a list element can be taken out with its comma and its own line and nothing else; a member's value cannot without choosing what the member becomes. SPEC 0.20 describes removing from "its list" only.
-  - Where: `src/core/apply.ts:191`
+  - Where: `src/core/apply.ts` (`applyDelete`)
   - Source: Not ruled on. SPEC 0.20 is silent on a row that is not in a list.
   - Suggestion: keep as the plugin's own; propose to SPEC that only a row in a list can be removed
 
 - **C-172** · tier `builder`
   An edit, an added row and a removed row in a data block written in the note itself (an inline `booklet data` block) are written into the note, between the block's fences and nowhere else, by the same functions as for a file. The notice says "written to the data block".
   - Why: SPEC 0.20 hosting says a host applies the act to the data the block holds; a block in the note is data the plugin hosts, and the alternative (keep the entry and never change the data) leaves every add and remove waiting forever. Before this slice the plugin only kept an edit of an inline block.
-  - Where: `src/core/apply.ts:227` (`applyInFence`); `src/view.ts:1253` (`applyInline`)
+  - Where: `src/core/apply.ts` (`applyInFence`); `src/view.ts` (`applyInline`)
   - Source: Not ruled on. The brief for this slice asked for it; it reverses the 1.3.0 README line "rows written in the note itself … the plugin does not change".
   - Suggestion: keep as the plugin's own; Ben to confirm
 

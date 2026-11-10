@@ -1322,6 +1322,40 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	font: inherit;
 }
 
+/* A field being edited in a row: a box the size of the words it replaced, with one thin outline. That it became a box says it is being edited, so it has no ring and
+   does not make the row taller. Not the add form's boxes, which are form fields. On a touch screen it keeps the full height of any control (the last rule). */
+.booklet-view .booklet-edit .booklet-edit-box {
+	box-sizing: border-box;
+	height: auto;
+	min-height: 0;
+	padding: 1px var(--size-2-2);
+	border: 1px solid var(--interactive-accent);
+	border-radius: var(--radius-s);
+	box-shadow: none;
+	line-height: inherit;
+}
+
+.booklet-view .booklet-edit select.booklet-edit-box {
+	padding-inline-end: 1.9em;
+}
+
+.booklet-view .booklet-edit .booklet-edit-box:focus,
+.booklet-view .booklet-edit .booklet-edit-box:focus-visible {
+	border-color: var(--interactive-accent);
+	box-shadow: none;
+	outline: none;
+}
+
+.is-mobile .booklet-view .booklet-edit .booklet-edit-box {
+	min-height: max(44px, var(--input-height));
+}
+
+/* the Paper look's compact edit box, on a touch screen: the full height of any control, and the size of words that does not zoom the page */
+.is-mobile .booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box {
+	min-height: 44px;
+	font-size: 1rem;
+}
+
 /* a question asked of a row: in the row's open part, with its words; in a column, the heading says them */
 .booklet-row-asks {
 	display: flex;
@@ -1387,8 +1421,30 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	margin-top: var(--size-2-1);
 }
 
-/* adding and removing rows (row-ask.ts): the Add button, the form it opens, the Remove control with its question, and the row's waiting words.
-   Every button here is `.booklet-row-act`; the Paper look pills it with the rest (themes/structure.css, section 8), Obsidian's own look draws it as any button. */
+/* adding and removing rows (row-ask.ts): the Add control, the form it opens, the Remove control with its question, and the row's waiting words.
+   The two controls a row shows all the time are small: "+ Add" in quiet words and a trash icon. Both are Obsidian's `.clickable-icon`, which draws no button and which the
+   Paper look's pill leaves out (themes/structure.css, section 8), so they look the same in every look. The form's buttons and the question's answers are full buttons:
+   `.booklet-row-act` with the rest, pills in the Paper look. */
+.booklet-view .booklet-row-add-open.clickable-icon {
+	--icon-size: var(--icon-xs);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	width: auto;
+	padding: var(--size-2-1) var(--size-2-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-view .booklet-row-remove-open.clickable-icon {
+	--icon-size: var(--icon-s);
+	color: var(--text-muted);
+}
+
+.is-mobile .booklet-view .booklet-row-remove-open.clickable-icon {
+	min-width: 44px;
+}
+
 .booklet-row-add {
 	margin: var(--size-4-2) 0;
 }
@@ -1414,8 +1470,7 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	min-width: 0;
 }
 
-.booklet-row-addfield label,
-.booklet-row-addfield .booklet-prompt {
+.booklet-row-addfield label {
 	font-weight: var(--font-semibold);
 }
 
@@ -1432,13 +1487,9 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	gap: var(--size-4-2);
 }
 
+/* a refusal or a problem with the form is said in words, in the error colour (the invalid state, above), and stays until the next try */
 .booklet-row-addmsg {
 	margin: 0;
-}
-
-/* a refusal or a problem with the form is said in words, in the error colour, and stays until the next try */
-.booklet-row-addmsg:not(:empty) {
-	display: block;
 }
 
 /* the format cannot be read: one quiet line instead of the Add button */
@@ -1481,25 +1532,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 		position: sticky;
 		inset-inline-end: 0;
 		background-color: var(--background-primary);
-	}
-}
-
-/* the remove confirmation is the same warning red as the entry's: white words on a darkened red in both of Obsidian's themes */
-.booklet-view .booklet-row-remove button.mod-warning,
-.booklet-view .booklet-row-remove button.mod-warning:hover {
-	background: var(--background-modifier-error);
-	color: var(--text-on-accent);
-}
-
-@supports (color: color-mix(in srgb, red, blue)) {
-	.theme-light .booklet-view .booklet-row-remove button.mod-warning,
-	.theme-light .booklet-view .booklet-row-remove button.mod-warning:hover {
-		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
-	}
-
-	.theme-dark .booklet-view .booklet-row-remove button.mod-warning,
-	.theme-dark .booklet-view .booklet-row-remove button.mod-warning:hover {
-		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
 	}
 }
 
@@ -1996,21 +2028,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 /* Obsidian's warning button is white on a bright red (3.5:1 in a dark theme, 4.2:1 in a light one), and on a phone its red words on the pale button read 3.9:1 in a light one;
    a darkened red with white words holds 4.5:1 and more in both, on a desktop and on a phone (the selector is as strong as the phone rule it replaces).
-   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. */
-.booklet-view .booklet-entry-ask button.mod-warning,
-.booklet-view .booklet-entry-ask button.mod-warning:hover {
+   The red is darkened with the theme's own colours: its text colour in a light theme, its page colour in a dark one. A row's Remove question is the same warning red. */
+.booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+.booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 	background: var(--background-modifier-error);
 	color: var(--text-on-accent);
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.theme-light .booklet-view .booklet-entry-ask button.mod-warning,
-	.theme-light .booklet-view .booklet-entry-ask button.mod-warning:hover {
+	.theme-light .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+	.theme-light .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 		background: color-mix(in srgb, var(--background-modifier-error) 65%, var(--text-normal));
 	}
 
-	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning,
-	.theme-dark .booklet-view .booklet-entry-ask button.mod-warning:hover {
+	.theme-dark .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning,
+	.theme-dark .booklet-view :is(.booklet-entry-ask, .booklet-row-remove) button.mod-warning:hover {
 		background: color-mix(in srgb, var(--background-modifier-error) 70%, var(--background-primary));
 	}
 }
@@ -3777,6 +3809,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	--interactive-accent-hover: var(--bk-brand-deep);
 	--interactive-normal: var(--bk-card);
 	--interactive-hover: var(--bk-brand-wash);
+	--dropdown-background: var(--bk-paper);
+	--dropdown-background-hover: var(--bk-brand-wash);
 	--h1-color: var(--bk-ink);
 	--h2-color: var(--bk-ink);
 	--h3-color: var(--bk-ink);
@@ -4271,6 +4305,36 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-view[data-booklet-look^="paper"] .booklet-long {
 	min-height: calc(var(--input-height) * 4);
+}
+
+/* Obsidian picks a dropdown's arrow by its own theme, and a Paper look can be set against that theme: the arrow follows the look (Obsidian's two arrows, as Obsidian draws them) */
+.booklet-view[data-booklet-look="paper-light"] .dropdown {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='black' opacity='0.9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='m7 15 5 5 5-5'/%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3C/svg%3E"), radial-gradient(ellipse, var(--dropdown-icon-background) 48%, transparent 50%);
+}
+
+.booklet-view[data-booklet-look="paper-dark"] .dropdown {
+	background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' opacity='0.6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' %3E%3Cpath d='m7 15 5 5 5-5'/%3E%3Cpath d='m7 9 5-5 5 5'/%3E%3C/svg%3E"), radial-gradient(ellipse, var(--dropdown-icon-background) 48%, transparent 50%);
+}
+
+/* a field being edited in a row is the size of the words it replaced, with one thin outline; the form field above and the focus ring of section 13 are for forms */
+.booklet-view[data-booklet-look^="paper"] .booklet-edit :is(input, textarea, select).booklet-edit-box {
+	min-height: 0;
+	padding: 1px var(--size-2-2);
+	border: 1px solid var(--bk-accent);
+	border-radius: var(--radius-s);
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-edit select.booklet-edit-box {
+	padding-inline-end: 1.9em;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box:focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-edit .booklet-edit-box:focus-visible {
+	border-color: var(--bk-accent);
+	outline: none;
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-qc-bar {

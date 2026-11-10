@@ -55,18 +55,12 @@ export function drawWidget(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	if (q.help) host.mdBlock(q.help, box.createDiv({ cls: "booklet-help markdown-rendered" }));
 	else if (C["p"]) box.createDiv({ cls: "booklet-help", text: C["p"] });
 	for (const k of ["stance", "invite"]) if (C[k]) box.createEl("p", { cls: "booklet-muted", text: C[k] });
-	if (!data) {
-		box.createEl("p", { cls: "booklet-muted", text: `This widget needs a widget block the note does not carry (^${q.embed ?? "?"}).` });
-		return box;
-	}
-	const engine = engineOf(data);
 	const key = keyOf(t, q);
-	if (engine !== "grid-select" && engine !== "svg-regions") box.createEl("p", { cls: "booklet-muted", text: `Not yet supported: a widget drawn by the engine "${engine || "?"}".` });
-	else if (q.each)
-		// a widget asked for each pick: its controls once for each pick, under the pick's words (each-question.ts)
-		drawEach(host, box, t, q, key, promptId, (h, into, k, labelledBy) => (engine === "grid-select" ? drawGrid(h, into, t, q, data, labelledBy, locked, k) : drawRegions(h, into, t, q, data, C, labelledBy, locked, k)));
-	else if (engine === "grid-select") drawGrid(host, box, t, q, data, promptId, locked, key);
-	else drawRegions(host, box, t, q, data, C, promptId, locked, key);
+	const engine = data ? engineOf(data) : "";
+	// a widget asked for each pick: its controls once for each pick, under the pick's words (each-question.ts); with no widget block or
+	// an engine this plugin does not have, the one message of drawWidgetBody says so, once
+	if (q.each && (engine === "grid-select" || engine === "svg-regions")) drawEach(host, box, t, q, key, promptId, (h, into, k, labelledBy) => drawWidgetBody(h, into, t, q, k, labelledBy, locked));
+	else drawWidgetBody(host, box, t, q, key, promptId, locked);
 	return box;
 }
 

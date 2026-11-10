@@ -9,7 +9,7 @@ import { appendItem, removeItem, removeMember, replaceItem, scanJson, setMember 
 import { FENCE_OPEN, ID_PATTERN, eolOf, fenceEnd, isBlank, joinLines, splitLines, type Line } from "./lines";
 import { parseBooklet, type Activity, type Booklet, type Module, type Question } from "./reader";
 import { entryItems, entryPlaces, type Entry, type RecordBlock, type RecordsLine, type Region } from "./records";
-import { pairsOf, pickKey, recordFilled, type PickValue } from "./each";
+import { pairsOf, pickKey, recordFilled, samePick, type PickValue } from "./each";
 import { isRowActEntry } from "./rows-act";
 import { holdsSomething, isPair, shapeIssue } from "./shape";
 
@@ -37,6 +37,12 @@ export const entriesJson = (items: readonly Record<string, unknown>[]): string =
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 const own = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
+
+/** A lines question's answer without its blank lines (any other answer comes back as it is). */
+const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
+
+/** The pairs of a lines question asked for each pick or row, each without its blank lines (what is not a pair stays). */
+const barePairs = (pairs: readonly unknown[]): unknown[] => pairs.map((p) => (isPair(p) ? { ...p, a: bare(p.a) } : p));
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 /** Whether a draft or an entry holds any answer. */
@@ -325,10 +331,10 @@ export interface DayRule {
 }
 
 /** The first kept entry of an activity whose day is `rule.today`, in file order (booklet.html seedUpsertDraft). */
-export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule, act?: Partial<Pick<Activity, "segments">>): Entry | null {
+export function todaysEntry(book: Booklet, scope: string, activityId: string, rule: DayRule, act: Partial<Pick<Activity, "segments">>): Entry | null {
 	const dayOf = rule.dayOf ?? localDayOf;
 	// an entry that holds acts on rows is a moment of its own, not the day's entry (isActEntry)
-	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today && !(act && isActEntry(act, e))) ?? null;
+	return (book.records.entries[scope]?.[activityId] ?? []).find((e) => dayOf(String(e.ts)) === rule.today && !isActEntry(act, e)) ?? null;
 }
 
 export interface ShownDraft {
@@ -449,7 +455,7 @@ export function isActEntry(act: Partial<Pick<Activity, "segments">>, e: Entry): 
 		if (k === "ts" || !Array.isArray(v)) return false;
 		const pairs = v.filter((x) => isPair(x));
 		if (!pairs.length) return false;
-		return !ids.has(k) || pairs.some((x) => Object.prototype.hasOwnProperty.call(x, "was"));
+		return !ids.has(k) || pairs.some((x) => own(x, "was"));
 	});
 }
 
@@ -493,11 +499,10 @@ export function finalizeDraft(text: string, scope: string, activityId: string, o
 		// a lines question's lines typed and left blank are not kept (nor those of a pick's pair, under `each:`); every
 		// other answer is kept as written, one of the wrong shape among them (shape.ts)
 		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === k);
-		const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
 		entry[k] =
 			q && q.kind === "lines" && !shapeIssue(q, v) && Array.isArray(v)
 				? q.each
-					? (v as unknown[]).map((p) => (isPair(p) ? { ...p, a: bare(p.a) } : p))
+					? barePairs(v as unknown[])
 					: bare(v)
 				: v;
 	}
@@ -591,12 +596,11 @@ export function keepRowDraft(text: string, scope: string, activityId: string, id
 		const held = merged && own(merged, id) ? merged[id] : undefined;
 		if (!Array.isArray(held)) continue;
 		const q = act.segments.find((x): x is Question => x.type === "question" && x.id === id);
-		const mine = held.filter((p) => isPair(p) && String(p.pick) === String(pick) && holdsSomething(p.a));
+		const mine = held.filter((p) => isPair(p) && samePick(p.pick, pick, true) && holdsSomething(p.a));
 		if (!mine.length) continue;
 		// a lines question's blank lines are not kept, as in Finalize
-		const bare = (a: unknown): unknown => (Array.isArray(a) ? (a as unknown[]).filter((x) => holdsSomething(x)) : a);
-		answers[id] = q && q.kind === "lines" ? mine.map((p) => ({ ...(p as Record<string, unknown>), a: bare((p as { a: unknown }).a) })) : mine;
-		rest.push([id, held.filter((p) => !(isPair(p) && String(p.pick) === String(pick)))]);
+		answers[id] = q && q.kind === "lines" ? barePairs(mine) : mine;
+		rest.push([id, held.filter((p) => !(isPair(p) && samePick(p.pick, pick, true)))]);
 	}
 	if (!Object.keys(answers).length) throw new RecordsWriteError("Nothing to keep yet: this row has no answer.");
 	const kept = keepEntry(text, scope, activityId, answers, { ts: opts.ts });

@@ -45,9 +45,11 @@ test("the Paper look draws the form as its card and the confirm as its amber war
 });
 
 test("Obsidian's own look: the warning confirm is white words on a darkened red, in a light theme and a dark one", () => {
-	assert.match(mine, /\.booklet-view \.booklet-row-remove button\.mod-warning,\n\.booklet-view \.booklet-row-remove button\.mod-warning:hover \{\n\tbackground: var\(--background-modifier-error\);\n\tcolor: var\(--text-on-accent\);/);
-	assert.match(mine, /\.theme-light \.booklet-view \.booklet-row-remove button\.mod-warning/);
-	assert.match(mine, /\.theme-dark \.booklet-view \.booklet-row-remove button\.mod-warning/);
+	// one rule with an entry's Delete question
+	const both = String.raw`:is\(\.booklet-entry-ask, \.booklet-row-remove\) button\.mod-warning`;
+	assert.match(base, new RegExp(String.raw`\.booklet-view ${both},\n\.booklet-view ${both}:hover \{\n\tbackground: var\(--background-modifier-error\);\n\tcolor: var\(--text-on-accent\);`));
+	assert.match(base, new RegExp(String.raw`\.theme-light \.booklet-view ${both}`));
+	assert.match(base, new RegExp(String.raw`\.theme-dark \.booklet-view ${both}`));
 });
 
 test("print shows none of the controls: the Add button, the form, the Remove control, the quiet line and the Remove column", () => {
@@ -78,4 +80,26 @@ test("the Remove question wraps inside a width of its own, and on a narrow scree
 test("the built sheet carries them", () => {
 	assert.ok(built.includes(mine.trim().slice(0, 200)));
 	assert.ok(built.includes(".booklet-view[data-booklet-look^=\"paper\"] .booklet-row-addform"));
+});
+
+test("Add and Remove are small in every look: Obsidian's icon button, a plus and a word, a trash icon", () => {
+	assert.match(rowAsk, /"clickable-icon booklet-row-act booklet-row-add-open"/);
+	assert.match(rowAsk, /setIcon\(b, "plus"\)/);
+	assert.match(rowAsk, /"clickable-icon booklet-row-act booklet-row-remove-open"/);
+	assert.match(rowAsk, /setIcon\(b, "trash-2"\)/);
+	assert.match(structure, /button:where\(:not\([^)]*\.clickable-icon\)\) \{\n\tmin-height: 44px/, "the Paper look's pill leaves the icon button out");
+});
+
+test("a field being edited in a row is a thin outline in both looks, and a touch screen keeps the full height", () => {
+	assert.match(base, /\.booklet-view \.booklet-edit \.booklet-edit-box \{[^}]*min-height: 0;[^}]*border: 1px solid/);
+	assert.match(base, /\.is-mobile \.booklet-view \.booklet-edit \.booklet-edit-box \{\n\tmin-height: max\(44px/);
+	assert.match(structure, /\.booklet-edit :is\(input, textarea, select\)\.booklet-edit-box \{[^}]*min-height: 0;[^}]*border: 1px solid var\(--bk-accent\)/);
+	assert.match(structure, /\.booklet-edit \.booklet-edit-box:focus-visible \{[^}]*outline: none/);
+});
+
+test("a dropdown in a Paper look takes the look's background and arrow, whatever Obsidian's own theme is", () => {
+	assert.match(structure, /--dropdown-background: var\(--bk-paper\);/);
+	assert.match(structure, /--dropdown-background-hover: var\(--bk-brand-wash\);/);
+	assert.match(structure, /\.booklet-view\[data-booklet-look="paper-light"\] \.dropdown \{\n\tbackground-image: url\([^\n]*stroke='black'/);
+	assert.match(structure, /\.booklet-view\[data-booklet-look="paper-dark"\] \.dropdown \{\n\tbackground-image: url\([^\n]*stroke='white'/);
 });

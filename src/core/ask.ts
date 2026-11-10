@@ -10,10 +10,11 @@
  */
 import { childRowsOf, isRowObj, ownValue, type DataRow, type FieldEdit } from "./data";
 import { plainWords, sameWords } from "./earlier";
-import type { PickValue } from "./each";
-import type { Query, Question } from "./reader";
+import { samePick, type PickValue } from "./each";
+import { drawsRowActs, type Query, type Question } from "./reader";
 import type { Entry } from "./records";
 import { parseIdFormat, patternOf, ID_WORDS } from "./row-id";
+import { timeOf } from "./rows-act";
 
 /** The kinds of box an `edit` mark asks for (SPEC section 7's table). */
 export type EditKind = "text" | "long" | "number" | "date" | "choice";
@@ -149,11 +150,6 @@ export interface Sent {
 	hasWas: boolean;
 }
 
-const timeOf = (e: Entry): number => {
-	const t = Date.parse(String(e.ts));
-	return Number.isFinite(t) ? t : -Infinity;
-};
-
 /** Is this a pair `{ pick, a }` (other keys are kept and allowed)? */
 const pairOf = (x: unknown): x is { pick: PickValue; a: unknown } & Record<string, unknown> =>
 	isRowObj(x) && (typeof x["pick"] === "number" || typeof x["pick"] === "string") && Object.prototype.hasOwnProperty.call(x, "a");
@@ -161,7 +157,7 @@ const pairOf = (x: unknown): x is { pick: PickValue; a: unknown } & Record<strin
 /** The pairs of one act key that name this row, in the entry's order (the row's id as text: 5 and "5" are one row). */
 export function pairsFor(e: Entry, key: string, pick: PickValue): (Record<string, unknown> & { pick: PickValue; a: unknown })[] {
 	const v = e[key];
-	return Array.isArray(v) ? v.filter((x) => pairOf(x) && String(x.pick) === String(pick)).map((x) => x as Record<string, unknown> & { pick: PickValue; a: unknown }) : [];
+	return Array.isArray(v) ? v.filter((x) => pairOf(x) && samePick(x.pick, pick, true)).map((x) => x as Record<string, unknown> & { pick: PickValue; a: unknown }) : [];
 }
 
 /** The newest act kept on this row under this key (the entry with the latest `ts`; a later pair of the same entry wins), or null. */
@@ -238,7 +234,7 @@ export interface RowActs {
  * `readonly` locks both keys (`readonly: a, b`, a list of fields, does not); a query that says neither offers nothing.
  */
 export function rowActs(q: Query, view: string, own: readonly string[], edits: Record<string, FieldEdit>, label: (key: string) => string, idFormat: unknown, idPattern: unknown): RowActs | null {
-	if (view !== "table" && view !== "list" && view !== "cards") return null;
+	if (!drawsRowActs(view)) return null;
 	const locked = q.readonly === true;
 	const add = q.add && !locked;
 	const remove = q.delete && !locked;

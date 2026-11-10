@@ -26,6 +26,10 @@ import type { Entry } from "./records";
 export const ADD_KEY = "$add";
 export const DELETE_KEY = "$delete";
 
+/** The words beside a row (and beside an edited value) whose kept entry the data has not followed yet: sent, or asked to be removed. */
+export const SENT_WAITING = " · sent, waiting";
+export const REMOVING_WAITING = "removing, waiting";
+
 /** What a row is going through, drawn beside it: being added, being removed, or a removal the data did not follow. */
 export type RowAct = "adding" | "removing" | "refused";
 
@@ -59,13 +63,13 @@ export function addPairs(e: Entry, loose = false): AddPair[] {
 	if (!Array.isArray(v)) return [];
 	const out: AddPair[] = [];
 	for (const x of v as unknown[]) {
-		if (!isRowObj(x as DataRow) || !isPick((x as Record<string, unknown>)["pick"])) continue;
+		if (!isRowObj(x) || !isPick((x as Record<string, unknown>)["pick"])) continue;
 		const o = x as Record<string, unknown>;
 		if (!isBlockId(o["in"]) && !loose) continue;
 		if (o["under"] !== undefined && !isPick(o["under"])) continue;
 		const row: Record<string, DataValue> = {};
-		if (isRowObj(o["row"] as DataRow)) for (const [k, val] of Object.entries(o["row"] as Record<string, unknown>)) if (k !== "id" && isValue(val)) row[k] = val;
-		out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] as PickValue } : {}), row });
+		if (isRowObj(o["row"])) for (const [k, val] of Object.entries(o["row"] as Record<string, unknown>)) if (k !== "id" && isValue(val)) row[k] = val;
+		out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] } : {}), row });
 	}
 	return out;
 }
@@ -135,18 +139,26 @@ export interface Pending {
 	removing: Map<string, "waiting" | "refused">;
 }
 
-type Act = { t: number; i: number; j: number } & ({ kind: "add"; p: AddPair } | { kind: "delete"; p: DeletePair });
+/** The moment of an entry in ms, or -Infinity when its `ts` is no time (so it is the oldest). */
+export const timeOf = (e: Entry): number => {
+	const t = Date.parse(String(e.ts));
+	return Number.isFinite(t) ? t : -Infinity;
+};
+
+/** An act with its place: the entry's time and position, then adds before removals, then the pair's position in its list. */
+type Act = { t: number; i: number; rank: number; j: number } & ({ kind: "add"; p: AddPair } | { kind: "delete"; p: DeletePair });
+
+const inOrder = (a: Act, b: Act): number => a.t - b.t || a.i - b.i || a.rank - b.rank || a.j - b.j;
 
 /** Every add and removal the entries keep for one data block, oldest first (a tie in time goes by the entry's place, then the pair's). */
 function actsInOrder(entries: readonly Entry[], block: string): Act[] {
 	const acts: Act[] = [];
 	entries.forEach((e, i) => {
-		if (!isRowActEntry(e)) return;
-		const t = Date.parse(String(e.ts));
-		addPairs(e).forEach((p, j) => p.in === block && acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j, kind: "add", p }));
-		deletePairs(e).forEach((p, j) => p.in === block && acts.push({ t: Number.isFinite(t) ? t : -Infinity, i, j: 1000 + j, kind: "delete", p }));
+		const t = timeOf(e);
+		addPairs(e).forEach((p, j) => p.in === block && acts.push({ t, i, rank: 0, j, kind: "add", p }));
+		deletePairs(e).forEach((p, j) => p.in === block && acts.push({ t, i, rank: 1, j, kind: "delete", p }));
 	});
-	return acts.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
+	return acts.sort(inOrder);
 }
 
 /** The newest act on each pick of one block, in the order the picks were first acted on. */
@@ -164,21 +176,20 @@ function newestActs(entries: readonly Entry[], block: string): Act[] {
  * when an add is drawn, the rows are copied.
  */
 export function withPending(rows: DataRow[], entries: readonly Entry[], block: string): Pending {
-	const none: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
-	const newest = new Map<string, Act>();
-	for (const a of actsInOrder(entries, block)) newest.set(idKey(a.p.pick), a);
-	if (!newest.size) return none;
-	const held = indexRows(rows);
 	const out: Pending = { rows, origin: new WeakMap(), adding: new WeakSet(), removing: new Map() };
+	const newest = newestActs(entries, block);
+	if (!newest.length) return out;
+	const held = indexRows(rows);
 	const adds: Act[] = [];
-	for (const [key, a] of newest) {
+	for (const a of newest) {
+		const key = idKey(a.p.pick);
 		const have = held.get(key);
 		if (a.kind === "add") {
 			if (!have) adds.push(a);
-		} else if (have) out.removing.set(key, have.length === 1 && sameJson(have[0], (a.p as DeletePair).was) ? "waiting" : "refused");
+		} else if (have) out.removing.set(key, have.length === 1 && sameJson(have[0], a.p.was) ? "waiting" : "refused");
 	}
 	if (!adds.length) return out;
-	adds.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
+	adds.sort(inOrder);
 
 	// copy the rows (each row and each list of rows it holds), so the added ones stand where they will land and the data is not touched
 	const copies = new Map<string, DataRow[]>();
@@ -199,7 +210,7 @@ export function withPending(rows: DataRow[], entries: readonly Entry[], block: s
 		}
 		for (const [k, v] of Object.entries(c)) {
 			if (Array.isArray(v) && v.every(isRowObj)) {
-				const list = (v as DataRow[]).map(copy);
+				const list = v.map(copy);
 				c[k] = list;
 				for (let i = list.length - 1; i >= 0; i--) todo.push(list[i]!);
 			} else if (isRowObj(v)) {

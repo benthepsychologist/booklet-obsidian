@@ -55,7 +55,7 @@ export const newestFirst = (a: Entry, b: Entry): number => {
  * In a `repeat daily` activity (with `rule`), today's kept entry is left out: the draft shows it and will replace it,
  * so a word the reader took out of today's answer does not come back from the entry it is replacing.
  */
-export function earlierEntries(book: Booklet, scope: string, activity: Pick<Activity, "id" | "repeat" | "daily"> & Partial<Pick<Activity, "segments">>, rule?: DayRule): Entry[] {
+export function earlierEntries(book: Booklet, scope: string, activity: Pick<Activity, "id" | "repeat" | "daily" | "segments">, rule?: DayRule): Entry[] {
 	if (!activity.repeat) return [];
 	const all = book.records.entries[scope]?.[activity.id] ?? [];
 	const today = activity.daily && rule ? todaysEntry(book, scope, activity.id, rule, activity) : null;

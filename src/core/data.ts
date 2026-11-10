@@ -4,8 +4,8 @@
  * or just the list of rows. A value is a string, a number, `true`, `false`, `null`, a flat list of those, a list of rows (objects)
  * or one row (an object): a row that holds rows has children, to any depth (format 0.19). A list is all values or all rows. A
  * field's label in `fields` is a string, or an object `{ label, edit, options }`: the label is read, and `edit` and `options` are
- * used by a reader that edits (ask.ts editSpecOf; the view draws a marked field as a box). The block belongs to whoever wrote the file: it is read here, drawn by a
- * query, and never written. Plain TypeScript: nothing here imports Obsidian.
+ * used by a reader that edits (ask.ts editSpecOf; the view draws a marked field as a box). The block belongs to whoever wrote the file: it is read here and drawn by a
+ * query, and never written here (a kept edit, an added row or a removed row is written by apply.ts). Plain TypeScript: nothing here imports Obsidian.
  */
 
 /** One plain value of a data row: a list of these is shown comma-separated. */
@@ -125,12 +125,18 @@ export const ownValue = (r: DataRow, k: string): DataRow[string] | undefined => 
  * (a list of values, a child held as one object).
  */
 export function childListKey(r: DataRow): string | null {
-	const full: string[] = [];
-	const empty: string[] = [];
-	for (const [k, v] of Object.entries(r)) {
-		if (!Array.isArray(v) || !v.every(isRowObj)) continue;
-		(v.length ? full : empty).push(k);
-	}
-	if (full.length) return full.length === 1 ? full[0]! : null;
-	return empty.length === 1 ? empty[0]! : null;
+	const lists: { key: string; empty: boolean }[] = [];
+	for (const [k, v] of Object.entries(r)) if (Array.isArray(v) && v.every(isRowObj)) lists.push({ key: k, empty: v.length === 0 });
+	return chooseChildList(lists);
+}
+
+/**
+ * The rule of childListKey, for any way of holding the lists (the data's rows here, the file's text in apply.ts): `lists` are the fields
+ * whose value is a list whose items are all rows, each with its `key` and whether it is `empty`. The only one that has rows; else the only empty one; else null.
+ */
+export function chooseChildList<K>(lists: readonly { key: K; empty: boolean }[]): K | null {
+	const full = lists.filter((l) => !l.empty);
+	if (full.length) return full.length === 1 ? full[0]!.key : null;
+	const empty = lists.filter((l) => l.empty);
+	return empty.length === 1 ? empty[0]!.key : null;
 }

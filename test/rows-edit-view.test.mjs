@@ -11,14 +11,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { openView, testApp, click, until, words, typeInto, press, window as w } from "./dom.mjs";
-import { core, norm, assertOutsideUnchanged, fm, fence } from "./helpers.mjs";
+import { core, norm, assertOutsideUnchanged, fence } from "./helpers.mjs";
 
 process.env.TZ = "UTC";
 
 const here = (f) => new URL(`./dashboards/${f}`, import.meta.url);
 const ORCHARD = readFileSync(here("orchard-dashboard.booklet.md"), "utf8");
 const FILE = readFileSync(here("orchard-dashboard.json"), "utf8");
-const PATH = "orchard-dashboard.json";
 
 /** The orchard note open on its screen, with the data file behind the vault's adapter and a way to change it and to refuse a write. */
 async function orchard({ text = ORCHARD, file = FILE, screen = "activity:desk/orchard", queries = 4 } = {}) {
