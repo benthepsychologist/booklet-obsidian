@@ -162,16 +162,7 @@ export function pairsFor(e: Entry, key: string, pick: PickValue): (Record<string
 
 /** The newest act kept on this row under this key (the entry with the latest `ts`; a later pair of the same entry wins), or null. */
 export function newestSent(entries: readonly Entry[], key: string, pick: PickValue): Sent | null {
-	let best: { e: Entry; t: number; i: number } | null = null;
-	entries.forEach((e, i) => {
-		if (!pairsFor(e, key, pick).length) return;
-		const t = timeOf(e);
-		if (!best || t > best.t || (t === best.t && i > best.i)) best = { e, t, i };
-	});
-	if (!best) return null;
-	const found = best as { e: Entry };
-	const p = pairsFor(found.e, key, pick).pop()!;
-	return { ts: String(found.e.ts), a: p.a, was: p["was"], hasWas: Object.prototype.hasOwnProperty.call(p, "was") };
+	return bucketOf(entries, key, pick)?.sent ?? null;
 }
 
 /** What the reader sees of an act, from the newest kept one and the data's value now (SPEC section 5's table). */
@@ -195,11 +186,71 @@ export function showsOf(sent: Sent | null, sentValue: unknown, now: unknown, eq:
 
 /** The answers kept on a row for an adding question, newest first (a later pair of an entry is newer): the entry's time and the answer of each of its pairs for this row. */
 export function keptAdds(entries: readonly Entry[], key: string, pick: PickValue): { ts: string; a: unknown }[] {
-	const out: { ts: string; a: unknown; t: number; i: number }[] = [];
-	entries.forEach((e, i) => {
-		for (const p of pairsFor(e, key, pick).reverse()) out.push({ ts: String(e.ts), a: p.a, t: timeOf(e), i });
-	});
-	return out.sort((x, y) => y.t - x.t || y.i - x.i).map(({ ts, a }) => ({ ts, a }));
+	const bucket = bucketOf(entries, key, pick);
+	if (!bucket) return [];
+	// a later pair of an entry is newer than an earlier one
+	bucket.sorted ??= bucket.adds.slice().sort((x, y) => y.t - x.t || y.i - x.i || y.n - x.n);
+	return bucket.sorted.map(({ ts, a }) => ({ ts, a }));
+}
+
+/** One pair kept for a row: the entry's time and place, and the pair's place after it in the entry (`n`, counted over the whole entry). */
+interface Add {
+	ts: string;
+	a: unknown;
+	t: number;
+	i: number;
+	n: number;
+}
+
+/** What the entries kept for one act key on one row (the id as text): its newest act, and every pair with its entry's time and place. */
+interface Bucket {
+	sent: Sent;
+	/** The time and place of the entry that gave `sent`, to tell whether a later pair beats it. */
+	t: number;
+	i: number;
+	adds: Add[];
+	/** `adds` newest first, made the first time it is asked for. */
+	sorted?: Add[];
+}
+
+/**
+ * The acts of an activity's entries by act key, then by the row's id as text: one index for each entries array, made the first time a row
+ * asks and kept as long as the array is (an array is made when a note is read and is never changed after: a new read makes a new array),
+ * so that each row looks its acts up and does not loop over every entry. The rules are those of the loops this replaces: an entry's time
+ * is `timeOf`, a later entry wins a tie in time, a later pair of an entry wins, and a pair is any `{ pick, a }` under the key's list.
+ */
+const buckets = new WeakMap<readonly Entry[], Map<string, Map<string, Bucket>>>();
+
+function bucketOf(entries: readonly Entry[], key: string, pick: PickValue): Bucket | undefined {
+	let index = buckets.get(entries);
+	if (!index) {
+		const made = new Map<string, Map<string, Bucket>>();
+		index = made;
+		buckets.set(entries, made);
+		entries.forEach((e, i) => {
+			const t = timeOf(e);
+			let n = 0;
+			for (const k of Object.keys(e)) {
+				const list = e[k];
+				if (!Array.isArray(list)) continue;
+				const byRow = made.get(k) ?? new Map<string, Bucket>();
+				made.set(k, byRow);
+				for (const x of list) {
+					if (!pairOf(x)) continue;
+					const row = String(x.pick);
+					const sent: Sent = { ts: String(e.ts), a: x.a, was: x["was"], hasWas: Object.prototype.hasOwnProperty.call(x, "was") };
+					const add: Add = { ts: sent.ts, a: x.a, t, i, n: n++ };
+					const have = byRow.get(row);
+					if (!have) byRow.set(row, { sent, t, i, adds: [add] });
+					else {
+						if (t > have.t || (t === have.t && i >= have.i)) Object.assign(have, { sent, t, i });
+						have.adds.push(add);
+					}
+				}
+			}
+		});
+	}
+	return index.get(key)?.get(String(pick));
 }
 
 /* ---- adding and removing rows (rows-act.ts) ---- */

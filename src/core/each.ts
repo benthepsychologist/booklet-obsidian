@@ -88,7 +88,8 @@ export const askedOfRows = (act: Pick<Activity, "segments">, q: Question): boole
 export const samePick = (x: PickValue, y: PickValue, asText = false): boolean => (asText ? String(x) === String(y) : x === y);
 
 /** The first pair for a pick, compared exactly: a number and a string never match (`asText`: for a row's id, 5 and "5" match). */
-export const pairFor = (v: unknown, p: PickValue, asText = false): Pair | undefined => pairsOf(v).find((x) => samePick(x.pick, p, asText));
+export const pairFor = (v: unknown, p: PickValue, asText = false): Pair | undefined =>
+	Array.isArray(v) ? v.find((x): x is Pair => isPair(x) && samePick(x.pick, p, asText)) : undefined;
 
 /**
  * The answer with one pick's answer set to `a`: the pick's first pair has `a` replaced in place (its other keys, and

@@ -2164,6 +2164,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			const book = this.book;
 			// drawn again over rows the reader is looking at: the rows they have open, their scroll and their focus stay where they were
 			let planned: ReturnType<typeof planQuery> | null = null;
+			// the rows drawn before are gone with the box, and what they registered to be shown again with them: only a row drawn now registers
+			this.forgetRows(vkey);
 			draw(() => (planned = planQuery(book, s, { drawn: this.drawnAt, fileRows: (b) => this.files.rows(b), activity: a })), drawnOnce);
 			drawnOnce = true;
 			if (planned) this.keepWordsOfGoneRows(vkey, planned);
@@ -2172,13 +2174,18 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		this.onShow(`query:${s.line}`, show);
 	}
 
+	/** Takes out what the rows of one query registered to be shown again (row-ask.ts: a row's questions and its Finalize), each of which holds the plan it was drawn from. */
+	private forgetRows(vkey: string): void {
+		for (const k of [...this.widgets.keys()]) if (k.includes(`#row:${vkey}:`) || k.includes(`#finish:${vkey}:`)) this.widgets.delete(k);
+	}
+
 	/**
 	 * A row taken out of the data (the file was written again) while the reader had a box open on one of its fields: the box is gone with
 	 * the row, so the words in it are kept as an act at once, as leaving the box would have kept them, and nothing is left hanging. A row
 	 * that is only not drawn now (shut, filtered out) keeps its box for when it is drawn again.
 	 */
 	private keepWordsOfGoneRows(vkey: string, plan: ReturnType<typeof planQuery>): void {
-		if (plan.kind !== "rows") return;
+		if (plan.kind !== "rows" || !this.sessions.size) return;
 		const held = new Set((plan.set.all ?? plan.set.rows).flatMap((r) => (r.id === undefined ? [] : [String(r.id)])));
 		for (const s of [...this.sessions.values()]) if (s.vkey === vkey && s.cell && !s.cell.isConnected && !held.has(String(s.pick))) s.commit?.();
 	}
