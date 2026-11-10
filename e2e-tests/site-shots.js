@@ -9,8 +9,9 @@
 //            [--platforms computer,phone] [--schemes light,dark] [--keep] [--search <word>]
 //   --out         where the PNGs and shots.json go. The scratch vault and config folder of each run are made under <out>/.work-<platform>-<scheme>
 //                 (never ~/.config, never a real vault) and removed at the end of the run (--keep leaves them).
-//   --booklet     the note copied into the vault at step 6. Default: site-paper/static/downloads/samples/what-is-a-booklet.booklet.md of the
-//                 worktree beside this repository's, else /workspace/fleet/sites/bookletmd-site/static/downloads/samples/what-is-a-booklet.booklet.md.
+//   --booklet     the note copied into the vault at step 6. Default: the site's sample, at
+//                 /workspace/fleet/sites/bookletmd-site/static/downloads/samples/what-is-a-booklet.booklet.md (the bookletmd-site checkout on the
+//                 fleet box). Without that checkout, give --booklet; the run stops before it starts if the file is not there.
 //   --search      the word typed in the browser's search box (default Booklet; a word the directory lacks is how the fallback is tested).
 //   --plugin-dir  only used when the community plugin directory cannot be reached: the folder with main.js, manifest.json and styles.css that is
 //                 copied into the vault's .obsidian/plugins/booklet/. Default: /workspace/booklet-obsidian/test-vault/.obsidian/plugins/booklet.
@@ -50,14 +51,14 @@ const PLATFORMS = list(arg("platforms", "computer,phone")), SCHEMES = list(arg("
 for (const p of PLATFORMS) if (!["computer", "phone"].includes(p)) { console.error("unknown platform " + p); process.exit(2); }
 for (const s of SCHEMES) if (!["light", "dark"].includes(s)) { console.error("unknown scheme " + s); process.exit(2); }
 const SAMPLE = "static/downloads/samples/what-is-a-booklet.booklet.md";
-const sampleDefault = [path.join("/workspace/booklet-wt/site-paper", SAMPLE), path.join("/workspace/fleet/sites/bookletmd-site", SAMPLE)].find(f => fs.existsSync(f));
+const sampleDefault = path.join("/workspace/fleet/sites/bookletmd-site", SAMPLE);
 const opt = {
   obsidian: arg("obsidian"), out: arg("out"), keep: argv.includes("--keep"),
-  booklet: path.resolve(arg("booklet", sampleDefault || "")),
+  booklet: path.resolve(arg("booklet", sampleDefault)),
   pluginDir: path.resolve(arg("plugin-dir", "/workspace/booklet-obsidian/test-vault/.obsidian/plugins/booklet")),
 };
 if (!opt.obsidian || !opt.out) { console.error("needs --obsidian <binary> and --out <dir>; see the header of this file"); process.exit(2); }
-if (!fs.existsSync(opt.booklet)) { console.error("no booklet file at " + opt.booklet + " (give --booklet)"); process.exit(2); }
+if (!fs.existsSync(opt.booklet) || !fs.statSync(opt.booklet).isFile()) { console.error("no booklet file at " + opt.booklet + " (give --booklet)"); process.exit(2); }
 const OUT = path.resolve(opt.out), HOME_CONFIG = path.join(process.env.HOME || "", ".config");
 if (OUT === HOME_CONFIG || OUT.startsWith(HOME_CONFIG + path.sep)) { console.error("refusing to write under ~/.config"); process.exit(2); }
 const BOOKLET_NAME = path.basename(opt.booklet);
