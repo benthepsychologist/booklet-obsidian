@@ -1220,7 +1220,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 			file,
 			(text) => keepEntry(text, t.scope, id, { [key]: [pair] }, { ts: isoSecond(new Date()) }).text,
 			"The change was not kept.",
-			() => this.applyAct(key, pair, apply, path).finally(done),
+			() => void this.applyAct(key, pair, apply, path).finally(done),
 			() => {
 				done();
 				failed();

@@ -47,7 +47,6 @@ import {
 	type Row,
 	type Shows,
 	type AddField,
-	type DataRow,
 	type EditSpec,
 } from "./core";
 import { drawWidgetBody } from "./engines";
@@ -694,7 +693,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const ask = (): void => {
 			asking = true;
 			wrap.empty();
-			const n = rowsUnder(gone as DataRow);
+			const n = rowsUnder(gone);
 			wrap.createSpan({ cls: "booklet-row-remove-q", text: n ? `Remove this row and the ${n} ${n === 1 ? "row" : "rows"} under it?` : "Remove this row?" });
 			const yes = wrap.createEl("button", { cls: "booklet-row-act mod-warning booklet-row-remove-yes", attr: { type: "button" } });
 			yes.appendText("Remove");

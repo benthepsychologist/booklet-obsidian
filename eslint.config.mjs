@@ -2,7 +2,7 @@
 // src/ (the code), manifest.json (validate-manifest: required keys, the description's form, no forbidden words), package.json
 // (banned dependencies) and LICENSE (validate-license). Run it with: npm run lint
 // The directory's bot runs a stricter set than `recommended`: `prefer-active-doc` is off in `recommended` and on here.
-// Not linted: the tests, the e2e scripts and the build scripts (*.mjs), which are not plugin code and are not in the tsconfig.
+// Not linted: the tests, the e2e scripts and the build scripts (*.mjs, scripts/), which are not plugin code and are not in the tsconfig.
 import { defineConfig } from "eslint/config";
 import obsidianmd from "eslint-plugin-obsidianmd";
 import tseslint from "typescript-eslint";
@@ -35,7 +35,7 @@ const plainText = {
 };
 
 export default defineConfig([
-	{ ignores: ["main.js", "node_modules/**", "test/**", "e2e-tests/**", "test-vault/**", "*.mjs"] },
+	{ ignores: ["main.js", "node_modules/**", "test/**", "e2e-tests/**", "test-vault/**", "*.mjs", "scripts/**"] },
 	...obsidianmd.configs.recommended,
 	{
 		rules: { "obsidianmd/prefer-active-doc": "warn" },

@@ -156,11 +156,14 @@ export function nextNumber(parts: readonly IdPart[], ids: readonly (string | num
 	return top + 1;
 }
 
+/** What a box of the add form holds: never an object. */
+export type IdValue = string | number | boolean | null | undefined;
+
 /**
  * A value as a slug: accents removed (NFD, the combining marks dropped), lowercase; every run of characters other than letters (a to z),
  * digits and hyphens becomes one hyphen; leading and trailing hyphens go. Empty when nothing is left (日本語, an emoji).
  */
-export function slugOf(value: unknown): string {
+export function slugOf(value: IdValue): string {
 	const s = value === null || value === undefined ? "" : String(value);
 	return s
 		.normalize("NFD")
@@ -189,7 +192,7 @@ export interface IdInputs {
 	/** Every id of the block at every depth, and the ids of the adds still waiting in the note. */
 	ids: readonly (string | number)[];
 	/** The new row's values by field name (what the form was given), as words. */
-	values: Readonly<Record<string, unknown>>;
+	values: Readonly<Record<string, IdValue>>;
 	/** The parent row's id; undefined for a top row. */
 	parent?: string | number;
 	/** The moment of the add. */

@@ -59,13 +59,13 @@ export function addPairs(e: Entry, loose = false): AddPair[] {
 	if (!Array.isArray(v)) return [];
 	const out: AddPair[] = [];
 	for (const x of v as unknown[]) {
-		if (!isRowObj(x as DataRow) || !isPick((x as Record<string, unknown>)["pick"])) continue;
+		if (!isRowObj(x) || !isPick((x as Record<string, unknown>)["pick"])) continue;
 		const o = x as Record<string, unknown>;
 		if (!isBlockId(o["in"]) && !loose) continue;
 		if (o["under"] !== undefined && !isPick(o["under"])) continue;
 		const row: Record<string, DataValue> = {};
-		if (isRowObj(o["row"] as DataRow)) for (const [k, val] of Object.entries(o["row"] as Record<string, unknown>)) if (k !== "id" && isValue(val)) row[k] = val;
-		out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] as PickValue } : {}), row });
+		if (isRowObj(o["row"])) for (const [k, val] of Object.entries(o["row"] as Record<string, unknown>)) if (k !== "id" && isValue(val)) row[k] = val;
+		out.push({ in: isBlockId(o["in"]) ? o["in"] : "", pick: o["pick"] as PickValue, ...(o["under"] !== undefined ? { under: o["under"] } : {}), row });
 	}
 	return out;
 }
@@ -175,7 +175,7 @@ export function withPending(rows: DataRow[], entries: readonly Entry[], block: s
 		const have = held.get(key);
 		if (a.kind === "add") {
 			if (!have) adds.push(a);
-		} else if (have) out.removing.set(key, have.length === 1 && sameJson(have[0], (a.p as DeletePair).was) ? "waiting" : "refused");
+		} else if (have) out.removing.set(key, have.length === 1 && sameJson(have[0], a.p.was) ? "waiting" : "refused");
 	}
 	if (!adds.length) return out;
 	adds.sort((a, b) => a.t - b.t || a.i - b.i || a.j - b.j);
@@ -199,7 +199,7 @@ export function withPending(rows: DataRow[], entries: readonly Entry[], block: s
 		}
 		for (const [k, v] of Object.entries(c)) {
 			if (Array.isArray(v) && v.every(isRowObj)) {
-				const list = (v as DataRow[]).map(copy);
+				const list = v.map(copy);
 				c[k] = list;
 				for (let i = list.length - 1; i >= 0; i--) todo.push(list[i]!);
 			} else if (isRowObj(v)) {
