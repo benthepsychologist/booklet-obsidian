@@ -797,14 +797,56 @@ module.exports = function dashboardChecks(env) {
         const names = await jobs.locator(".booklet-row-remove-open").allInnerTexts();
         c.ok(names.join("|").replace(/\s+/g, " ") === "Remove Prune|Remove Stakes", `[${where}] each Remove is named by its row: ${JSON.stringify(names)}`);
 
-        // the looks: Paper pills the buttons and cards the form; Obsidian's own look draws Obsidian's button and a plain box
-        const look = async () => jobs.locator(".booklet-row-add-open").evaluate(b => { const cs = getComputedStyle(b); return { look: b.closest(".booklet-view").getAttribute("data-booklet-look"), radius: parseFloat(cs.borderTopLeftRadius) }; });
-        const paper = await look();
-        c.ok(/^paper/.test(paper.look) && paper.radius > 100, `[${where}] in the Paper look the Add button is a pill: ${JSON.stringify(paper)}`);
+        // the two controls a row always shows are small in every look: "+ Add" in words and a trash icon, no pill and no box (a touch screen keeps a full-size target, with nothing drawn around it)
+        const small = () => jobs.evaluate(q => {
+          const one = s => { const e = q.querySelector(s), r = e.getBoundingClientRect(), cs = getComputedStyle(e); return { w: Math.round(r.width), h: Math.round(r.height), border: parseFloat(cs.borderTopWidth), bg: cs.backgroundColor, svg: !!e.querySelector("svg") }; };
+          return { look: q.closest(".booklet-view").getAttribute("data-booklet-look"), add: one(".booklet-row-add-open"), rm: one(".booklet-row-remove-open") };
+        });
+        const quietOk = s => [s.add, s.rm].every(x => x.svg && x.border === 0 && /^rgba\(0, 0, 0, 0\)|transparent/.test(x.bg)) && (desk ? s.add.h <= 28 && s.rm.h <= 30 && s.rm.w <= 32 : s.rm.h >= 44 && s.rm.w >= 44);
+        const paper = await small();
+        c.ok(/^paper/.test(paper.look) && quietOk(paper), `[${where}] in the Paper look Add is a plus and a word and Remove a trash icon, neither drawn as a button: ${JSON.stringify(paper)}`);
+        c.ok((await jobs.locator(".booklet-row-add-open").innerText()).replace(/\s+/g, " ").startsWith("Add"), `[${where}] the word on the control is Add`);
         await o.evaluate(() => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = "obsidian"; }));
         await frames(o);
-        const obs = await look();
-        c.ok(obs.look === "obsidian" && obs.radius < 100, `[${where}] in Obsidian's own look it is Obsidian's button (its phone mode rounds it more), not a pill: ${JSON.stringify(obs)}`);
+        const obs = await small();
+        c.ok(obs.look === "obsidian" && quietOk(obs), `[${where}] the same in Obsidian's own look: ${JSON.stringify(obs)}`);
+        await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), paper.look);
+        await frames(o);
+
+        // a field being edited: one thin outline, no ring, the row no taller; a dropdown can be read when the Booklet look is set against Obsidian's theme
+        const relLum = rgb => { const [r, g, b] = rgb.match(/[\d.]+/g).slice(0, 3).map(n => { const v = Number(n) / 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+        const contrast = (a, b) => { const [x, y] = [relLum(a), relLum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+        const editing = async (field, tag) => {
+          const rowH = () => jobs.locator(`[data-booklet-edit='${field}']`).first().evaluate(c => Math.round(c.closest("tr").getBoundingClientRect().height));
+          const h0 = await rowH();
+          await jobs.locator(`[data-booklet-edit='${field}'] .booklet-edit-open`).first().click();
+          const box = jobs.locator(`[data-booklet-edit='${field}'] ${tag}.booklet-edit-box`).first();
+          await box.waitFor({ timeout: 4000 });
+          await box.hover();
+          await sleep(120);
+          const m = await box.evaluate(b => { const cs = getComputedStyle(b), r = b.getBoundingClientRect(); return { h: Math.round(r.height), border: parseFloat(cs.borderTopWidth), outline: cs.outlineStyle, shadow: cs.boxShadow, bg: cs.backgroundColor, color: cs.color, arrow: (cs.backgroundImage.match(/stroke=(?:%27|')(%23)?(\w+)/) || [])[2] }; });
+          const h1 = await rowH();
+          await o.page.keyboard.press("Escape");
+          await box.waitFor({ state: "detached", timeout: 4000 });
+          return { ...m, h0, h1 };
+        };
+        for (const lk of [paper.look, "obsidian"]) {
+          await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), lk);
+          await frames(o);
+          const text = await editing("title", "input");
+          c.ok(text.border === 1 && text.outline === "none" && text.shadow === "none" && (desk ? text.h <= 28 && text.h1 <= text.h0 + 1 : text.h >= 44), `[${where}, ${lk}] the box of a field being edited has one thin outline, no ring, and (on a desktop) leaves the row its height: ${JSON.stringify(text)}`);
+        }
+        const wasDark = await o.evaluate(() => document.body.classList.contains("theme-dark"));
+        for (const [scheme, lk, arrowWanted] of [["dark", "paper-light", "black"], ["light", "paper-dark", "white"], ["dark", "paper-dark", "white"], ["light", "paper-light", "black"]]) {
+          await o.setScheme(scheme);
+          await frames(o);
+          await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), lk);
+          await frames(o);
+          const sel = await editing("stage", "select");
+          c.ok(contrast(sel.bg, sel.color) >= 4.5 && sel.arrow === arrowWanted, `[${where}] Obsidian ${scheme}, ${lk}: a dropdown's words can be read on its background (${contrast(sel.bg, sel.color).toFixed(1)}:1) and its arrow follows the look: ${JSON.stringify(sel)}`);
+        }
+        await o.setScheme(wasDark ? "dark" : "light");
+        await frames(o);
         await o.evaluate(l => document.querySelectorAll(".booklet-view").forEach(el => { el.dataset.bookletLook = l; }), paper.look);
         await frames(o);
 

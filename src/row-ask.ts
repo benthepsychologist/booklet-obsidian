@@ -14,6 +14,7 @@
  * is a draft (the view's, as every draft is); typing in an edit box is the reader's until Enter or leaving the box keeps it as one act,
  * and is kept through a redraw of the rows (a data file read again) in `sessions`, so nothing typed is lost.
  */
+import { setIcon } from "obsidian";
 import {
 	ADD_KEY,
 	DELETE_KEY,
@@ -348,7 +349,7 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 				if (sess.text === "") sel.createEl("option", { value: "", text: "" });
 				for (const w of words) sel.createEl("option", { value: w, text: w });
 				box = sel;
-			} else box = cell.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr: spec.kind === "number" ? { inputmode: "decimal" } : {} });
+			} else box = cell.createEl("input", { cls: "booklet-text booklet-edit-box", type: spec.kind === "number" ? "number" : spec.kind === "date" ? "date" : "text", attr: spec.kind === "number" ? { inputmode: "decimal" } : spec.kind === "date" ? {} : { size: String(Math.min(30, Math.max(8, sess.text.length + 2))) } }); // `size`: a text box asks its column for the room of its words, not a browser's default width
 			box.setAttr("aria-labelledby", nameId);
 			box.setAttr("data-booklet-key", `${key}#${String(id)}`);
 			// the box's words as plain text, which is what prints (the box itself does not), and a place for a word to the reader
@@ -467,9 +468,11 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const title = parent ? "Add under this row" : "Add a row";
 		const closed = (): void => {
 			box.empty();
-			const b = box.createEl("button", { cls: "booklet-row-act booklet-row-add-open", attr: { type: "button" } });
-			b.appendText(title);
-			if (parent) b.createSpan({ cls: "booklet-sr", text: ` (${name})` });
+			// a plus and a word, Obsidian's icon button: the rest of the name ("a row", "this row" and which) is for a screen reader
+			const b = box.createEl("button", { cls: "clickable-icon booklet-row-act booklet-row-add-open", attr: { type: "button" } });
+			setIcon(b, "plus");
+			b.createSpan({ text: parent ? "Add under" : "Add" });
+			b.createSpan({ cls: "booklet-sr", text: parent ? ` this row (${name})` : " a row" });
 			b.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();
@@ -675,9 +678,10 @@ export function makeRowsUi(view: RowsView, a: Activity, vkey: string, block: Dat
 		const closed = (): void => {
 			asking = false;
 			wrap.empty();
-			const b = wrap.createEl("button", { cls: "booklet-row-act booklet-row-remove-open", attr: { type: "button" } });
-			b.appendText("Remove");
-			b.createSpan({ cls: "booklet-sr", text: ` ${name}` });
+			// a trash icon, Obsidian's icon button: a press asks first (below). aria-label gives a mouse Obsidian's tooltip; the hidden words are the same name
+			const b = wrap.createEl("button", { cls: "clickable-icon booklet-row-act booklet-row-remove-open", attr: { type: "button", "aria-label": `Remove ${name}` } });
+			setIcon(b, "trash-2");
+			b.createSpan({ cls: "booklet-sr", text: `Remove ${name}` });
 			b.addEventListener("click", (evt) => {
 				// a press never reaches the row's own disclosure
 				evt.preventDefault();

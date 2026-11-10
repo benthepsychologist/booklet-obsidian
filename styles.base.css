@@ -1322,6 +1322,34 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	font: inherit;
 }
 
+/* A field being edited in a row: a box the size of the words it replaced, with one thin outline. That it became a box says it is being edited, so it has no ring and
+   does not make the row taller. Not the add form's boxes, which are form fields. On a touch screen it keeps the full height of any control (the last rule). */
+.booklet-view .booklet-edit .booklet-edit-box {
+	box-sizing: border-box;
+	height: auto;
+	min-height: 0;
+	padding: 1px var(--size-2-2);
+	border: 1px solid var(--interactive-accent);
+	border-radius: var(--radius-s);
+	box-shadow: none;
+	line-height: inherit;
+}
+
+.booklet-view .booklet-edit select.booklet-edit-box {
+	padding-inline-end: 1.9em;
+}
+
+.booklet-view .booklet-edit .booklet-edit-box:focus,
+.booklet-view .booklet-edit .booklet-edit-box:focus-visible {
+	border-color: var(--interactive-accent);
+	box-shadow: none;
+	outline: none;
+}
+
+.is-mobile .booklet-view .booklet-edit .booklet-edit-box {
+	min-height: max(44px, var(--input-height));
+}
+
 /* a question asked of a row: in the row's open part, with its words; in a column, the heading says them */
 .booklet-row-asks {
 	display: flex;
@@ -1387,8 +1415,30 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	margin-top: var(--size-2-1);
 }
 
-/* adding and removing rows (row-ask.ts): the Add button, the form it opens, the Remove control with its question, and the row's waiting words.
-   Every button here is `.booklet-row-act`; the Paper look pills it with the rest (themes/structure.css, section 8), Obsidian's own look draws it as any button. */
+/* adding and removing rows (row-ask.ts): the Add control, the form it opens, the Remove control with its question, and the row's waiting words.
+   The two controls a row shows all the time are small: "+ Add" in quiet words and a trash icon. Both are Obsidian's `.clickable-icon`, which draws no button and which the
+   Paper look's pill leaves out (themes/structure.css, section 8), so they look the same in every look. The form's buttons and the question's answers are full buttons:
+   `.booklet-row-act` with the rest, pills in the Paper look. */
+.booklet-view .booklet-row-add-open.clickable-icon {
+	--icon-size: var(--icon-xs);
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-2-1);
+	width: auto;
+	padding: var(--size-2-1) var(--size-2-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-view .booklet-row-remove-open.clickable-icon {
+	--icon-size: var(--icon-s);
+	color: var(--text-muted);
+}
+
+.is-mobile .booklet-view .booklet-row-remove-open.clickable-icon {
+	min-width: 44px;
+}
+
 .booklet-row-add {
 	margin: var(--size-4-2) 0;
 }

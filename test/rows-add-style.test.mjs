@@ -79,3 +79,25 @@ test("the built sheet carries them", () => {
 	assert.ok(built.includes(mine.trim().slice(0, 200)));
 	assert.ok(built.includes(".booklet-view[data-booklet-look^=\"paper\"] .booklet-row-addform"));
 });
+
+test("Add and Remove are small in every look: Obsidian's icon button, a plus and a word, a trash icon", () => {
+	assert.match(rowAsk, /"clickable-icon booklet-row-act booklet-row-add-open"/);
+	assert.match(rowAsk, /setIcon\(b, "plus"\)/);
+	assert.match(rowAsk, /"clickable-icon booklet-row-act booklet-row-remove-open"/);
+	assert.match(rowAsk, /setIcon\(b, "trash-2"\)/);
+	assert.match(structure, /button:where\(:not\([^)]*\.clickable-icon\)\) \{\n\tmin-height: 44px/, "the Paper look's pill leaves the icon button out");
+});
+
+test("a field being edited in a row is a thin outline in both looks, and a touch screen keeps the full height", () => {
+	assert.match(base, /\.booklet-view \.booklet-edit \.booklet-edit-box \{[^}]*min-height: 0;[^}]*border: 1px solid/);
+	assert.match(base, /\.is-mobile \.booklet-view \.booklet-edit \.booklet-edit-box \{\n\tmin-height: max\(44px/);
+	assert.match(structure, /\.booklet-edit :is\(input, textarea, select\)\.booklet-edit-box \{[^}]*min-height: 0;[^}]*border: 1px solid var\(--bk-accent\)/);
+	assert.match(structure, /\.booklet-edit \.booklet-edit-box:focus-visible \{[^}]*outline: none/);
+});
+
+test("a dropdown in a Paper look takes the look's background and arrow, whatever Obsidian's own theme is", () => {
+	assert.match(structure, /--dropdown-background: var\(--bk-paper\);/);
+	assert.match(structure, /--dropdown-background-hover: var\(--bk-brand-wash\);/);
+	assert.match(structure, /\.booklet-view\[data-booklet-look="paper-light"\] \.dropdown \{\n\tbackground-image: url\([^\n]*stroke='black'/);
+	assert.match(structure, /\.booklet-view\[data-booklet-look="paper-dark"\] \.dropdown \{\n\tbackground-image: url\([^\n]*stroke='white'/);
+});
