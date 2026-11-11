@@ -181,6 +181,15 @@ function showsField(q: Query, key: string, held: boolean): boolean {
 /** The question for a design change (an id, an option, a field) on a booklet the reader refuses: it cannot be read, so nothing can be counted. */
 export const BLIND = "The reader can't open this booklet right now, so the panel can't count what this change touches. Change it anyway?";
 
+/**
+ * The settings of a Booklet line that `impactOf` counts a change to: the switches that decide whether an activity keeps entries or a
+ * question takes its reader's own words (`repeat`, `open`, `daily`) and the fields that decide how a question is asked or what its
+ * options are (`each:`, `menu:`). A change to one asks on a booklet the reader refuses, like an id, an option or a declared field.
+ */
+export function isCountedSetting(name: string): boolean {
+	return name === "repeat" || name === "open" || name === "daily" || name === "each" || name === "menu";
+}
+
 /** True when the reader refuses the note as it is, so `impactOf` has nothing to count and says "none" without having looked. */
 export const readerRefuses = (text: string): boolean => !parseBooklet(text).ok;
 

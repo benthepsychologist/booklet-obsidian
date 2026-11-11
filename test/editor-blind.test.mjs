@@ -78,3 +78,9 @@ test("[D] a design change on a booklet the reader opens asks nothing when it det
 	assert.equal(await writeNote(app, ed, good, next, true), true, "no question: a title is not something kept data points at");
 	assert.equal(document.querySelector(".booklet-blocks-ask"), null);
 });
+
+test("[D] the settings impactOf counts are the ones that ask on a refused booklet: repeat, open, daily, each, menu", () => {
+	const { isCountedSetting } = core;
+	for (const name of ["repeat", "open", "daily", "each", "menu"]) assert.equal(isCountedSetting(name), true, name);
+	for (const name of ["hidden", "icon", "min", "max", "step", "of", "required"]) assert.equal(isCountedSetting(name), false, name);
+});

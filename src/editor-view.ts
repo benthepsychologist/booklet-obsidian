@@ -17,6 +17,7 @@
 import { ItemView, MarkdownView, Notice, Platform, type Editor, type WorkspaceLeaf } from "obsidian";
 import { changeLine, removeField, removeOption, renameField, renameId, renameOption, type FieldBlock, type LineView, type OptionList, type SettingsModel } from "./core/editor-actions";
 import { analyse, panelModel } from "./core/editor-analysis";
+import { isCountedSetting } from "./core/editor-guard";
 import { removeWord, setFlag, setValue } from "./core/editor-line";
 import { type OutlineNode } from "./core/editor-outline";
 import { PIECE_GROUPS, piecesOf, type Piece } from "./core/editor-pieces";
@@ -296,10 +297,10 @@ export class EditorPanel extends ItemView {
 		b.createEl("p", { cls: "booklet-blocks-kind", text: `A ${m.kind} line, line ${line + 1}` });
 		if (!m.known) b.createEl("p", { cls: "booklet-blocks-hint", text: "The linter does not know this kind, so there is nothing to set." });
 		if (m.takesId) this.textRow(b, "Id", m.id ?? "", `id-${line}`, (val) => this.edit(line, text, (doc) => renameId(doc, line, val.trim()), true));
-		for (const f of m.flags) this.switchRow(b, f.name, f.on, `flag-${f.name}`, (on) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setFlag(p, f.name, on))));
+		for (const f of m.flags) this.switchRow(b, f.name, f.on, `flag-${f.name}`, (on) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setFlag(p, f.name, on)), isCountedSetting(f.name)));
 		for (const k of m.values) {
 			if (k.name === "icon") this.iconRow(b, k.value, line, text);
-			else this.textRow(b, k.name, k.value, `field-${k.name}`, (val) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setValue(p, k.name, val.trim()))), /^(min|max|step)$/.test(k.name));
+			else this.textRow(b, k.name, k.value, `field-${k.name}`, (val) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setValue(p, k.name, val.trim())), isCountedSetting(k.name)), /^(min|max|step)$/.test(k.name));
 		}
 		if (m.stray.length) {
 			b.createEl("p", { cls: "booklet-blocks-hint", text: "Words this kind does not take:" });
