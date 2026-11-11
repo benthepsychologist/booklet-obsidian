@@ -11,7 +11,7 @@
 import { walkRows } from "./editor-guard";
 import { parseLine, setId, strayWords, type Edit, type ParsedLine } from "./editor-line";
 import { LP, settingsOf } from "./editor-patterns";
-import { claimEnd, heldBy, heldWords, scan, type HeldBy, type Scan } from "./editor-scan";
+import { claimEnd, heldBy, heldWords, keyOf, scan, stateBefore, type HeldBy, type Scan, type Scope } from "./editor-scan";
 import { parseBooklet } from "./reader";
 import { removeMember, scanJson, splice, type JsonMember } from "./json-edit";
 import type { DataRow } from "./data";
@@ -147,7 +147,49 @@ export function renameId(doc: string, line: number, id: string, s: Scan = scan(d
 	for (const [key, where] of idClashes(r.text)) {
 		if (!was.has(key)) return { error: `\`${id}\` is already used in ${where}.` };
 	}
-	return r;
+	const other = siblingClash(s, line, id);
+	return other ? { error: other } : r;
+}
+
+/** Where a module's name goes in a sentence: "the module \"x\"", or the activities outside every module. */
+const inScope = (scope: Scope): string => (scope === null ? "the activities outside every module" : `the module "${scope}"`);
+
+/**
+ * The clashes the reader does not refuse but the linter calls errors (lint-booklet.py): a question, activity or menu given the id of a
+ * `booklet data` block of its module (a query could not tell them apart), a tab given the id of another tab of its activity or its
+ * module's opening, a page given the id of another page of its tab (a renderer would keep both and number the second). The reason, or
+ * null when the id is free.
+ */
+function siblingClash(s: Scan, line: number, id: string): string | null {
+	const it = s.items.find((x) => x.line === line);
+	if (!it || !id) return null;
+	if (it.type === "question" || it.type === "activity" || it.type === "menu") {
+		const st = stateBefore(s, line);
+		const scope = st.section === "content" ? st.mod : st.dataScope;
+		if (it.type === "menu" && scope === null && st.section !== "content") return null; // the menus every module shares have a table of their own
+		if (s.ids.dataBlocks.get(keyOf(scope))?.has(id)) return `\`${id}\` is already the id of a data block in ${inScope(scope)}, so a query could not tell them apart.`;
+		return null;
+	}
+	if (it.type === "tab") {
+		const twin = s.items.some((x) => x.type === "tab" && x.line !== line && x.tabPlace === it.tabPlace && x.tabId === id);
+		return twin ? `\`${id}\` is already the id of another tab in this ${it.where === "module" ? "module's opening" : "activity"}.` : null;
+	}
+	if (it.type === "page-named") {
+		// the pages of one tab: the items in order, a new activity or a tab of the activity starting a new set
+		let key = 0;
+		let mine = -1;
+		const pages: { line: number; key: number; pid: string | undefined }[] = [];
+		for (const x of s.items) {
+			if (x.type === "activity" || (x.type === "tab" && x.where === "activity")) key++;
+			if (x.type === "page-named") {
+				pages.push({ line: x.line, key, pid: x.pageId });
+				if (x.line === line) mine = key;
+			}
+		}
+		const twin = pages.some((x) => x.key === mine && x.line !== line && x.pid === id);
+		return twin ? `\`${id}\` is already the id of another page in this tab.` : null;
+	}
+	return null;
 }
 
 // ---------------------------------------------------------------- the declared fields of a data block
