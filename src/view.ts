@@ -279,9 +279,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private offscreen = false;
 	/** Text typed and not yet written, by question. */
 	private pending = new Map<string, Pending>();
-	/** The window this view is drawn in, and whether it has been told to close (the workspace's `window-close`). */
-	private homeWindow: Window | null = null;
-	private windowClosing = false;
+	/** The window this view is drawn in, once the workspace has said it is closing (`window-close`). */
+	private closingWindow: Window | null = null;
 	/** Words typed in a field that are not an answer yet (Add your own), by field: kept across drawings. */
 	private held = new Map<string, string>();
 	/** The note's design changed while the reader was in a field or pressing: the view is drawn again when they are done. */
@@ -459,10 +458,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// Obsidian's own audio and video elements load nothing before they are pressed, as far as the page can say so (media-view.ts)
 		const win = this.contentEl.ownerDocument.defaultView;
 		// a view in a pop-out window knows when that window is closing: what it has typed is written once the window is gone (write)
-		this.homeWindow = win;
 		this.registerEvent(
 			this.app.workspace.on("window-close", (_w, closing) => {
-				if (closing.document === this.contentEl.ownerDocument) this.windowClosing = true;
+				if (closing.document === this.contentEl.ownerDocument) this.closingWindow = closing;
 			}),
 		);
 		if (win && typeof win.MutationObserver === "function") {
@@ -546,6 +544,17 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	async saveTyped(): Promise<void> {
 		this.flushAll();
 		await this.writes;
+	}
+
+	/**
+	 * The quit event's task. The app closes a pop-out window as it quits, and Obsidian 1.11 throws "illegal access" (window-gone.ts) for a
+	 * note written as that window closes, so a view in a pop-out window lets its window finish closing, then writes. The quit waits
+	 * for the task.
+	 */
+	async saveTypedAtQuit(): Promise<void> {
+		const win = this.contentEl.ownerDocument.defaultView;
+		if (win && win !== window) await windowGone(win);
+		await this.saveTyped();
 	}
 
 	override async save(_clear?: boolean): Promise<void> {
@@ -2365,7 +2374,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// A pop-out window that is closing is let go first (window-gone.ts): Obsidian 1.11 throws a bare, uncaught "illegal access" in the
 		// main window when a note is written while a pop-out window is being closed (words typed in it are written as it closes). The
 		// write is the same, a moment later; the change is made on the note's text as it is then.
-		if (this.windowClosing) await windowGone(this.homeWindow);
+		if (this.closingWindow) await windowGone(this.closingWindow);
 		let result: string;
 		const md = markdownViewOf(this.app, file.path);
 		if (md) {

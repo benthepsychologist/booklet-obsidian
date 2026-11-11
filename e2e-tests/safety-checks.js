@@ -544,12 +544,51 @@ The garden is quiet today.
         await sleep(150);
         await o.evaluate(() => { window.__pop.getContainer().win.close(); });
         const d = await waitDisk(file, t => /typed in the other window and more/.test(t), 3000);
-        c.ok(d.ok, "words typed and the pop-out window closed 150 ms later: written at once (" + d.ms + " ms)");
+        // the view holds the write until the window reports closed (about 50 ms) and a margin: 2 s would be the wait that gave up, a window it never saw close
+        c.ok(d.ok && d.ms < 700, "words typed and the pop-out window closed 150 ms later: written as the window finished closing (" + d.ms + " ms, under 700)");
         const left = await leafTypes(o);
         for (let n = 0; n < 20 && !pop.isClosed(); n++) await sleep(100);
         c.ok(pop.isClosed() && !o.page.context().pages().includes(pop), "the pop-out window's page is gone from the browser's pages");
         c.ok(left.includes("booklet:" + EVERY), "the main window's booklet view is as it was: " + JSON.stringify(left));
       }
+    });
+    // (b2) the app quits while a pop-out window holds typing: closing the pop-out writes what was typed a moment after it closes (the view
+    // waits for the window to be gone), and quitting closes the pop-out too, so the words must still be on disk when the app is gone
+    await withApp("c40-popout-quit", async (o, vault) => {
+      const K = kit(env, EVERY), file = path.join(vault, EVERY);
+      const words = "typed in the pop-out as the app quits";
+      o.page.on("dialog", d => { d.accept().catch(() => {}); });   // Obsidian's unload prompt, as the window's close sets it off
+      await K.open(o, EVERY);
+      await o.evaluate(async () => { const l = app.workspace.openPopoutLeaf(); window.__pop = l; await l.openFile(app.vault.getAbstractFileByPath("Every kind.booklet.md")); await l.setViewState({ type: "booklet", state: { file: "Every kind.booklet.md", version: 2, screen: "activity:/kinds", part: 0 }, active: true }); });
+      let pop = null;
+      for (let n = 0; n < 40 && !pop; n++) { for (const p of o.page.context().pages()) if (p !== o.page && await p.evaluate(() => document.querySelectorAll(".booklet-page").length).catch(() => 0)) pop = p; if (!pop) await sleep(250); }
+      c.ok(!!pop, "(quit) a booklet note opened in a pop-out window draws there");
+      if (!pop) return;
+      // (no dialog handler on the pop-out page: the harness answering the pop-out's unload prompt as the window goes throws "illegal access" in the
+      // main window by itself, with no plugin typing involved; the prompt is the main window's, answered above)
+      const f = pop.locator(".booklet-kind-text textarea").first();
+      await f.click();
+      await pop.keyboard.type(words);
+      await sleep(150);
+      const pid = mainPid(o.port), log = path.join(WORK, "c40-popout-quit-events.log");
+      fs.rmSync(log, { force: true });
+      const before = thoughtsOnDisk(file);
+      await o.evaluate(log => { const fsx = require("fs"), t0 = Date.now(), w = m => fsx.appendFileSync(log, (Date.now() - t0) + " " + m + "\n"); app.workspace.on("quit", () => w("quit event")); app.workspace.on("window-close", () => w("window-close")); window.addEventListener("beforeunload", () => w("beforeunload")); setTimeout(() => require("electron").remote.getCurrentWindow().close(), 0); }, log).catch(() => {});
+      for (let i = 0; i < 60; i++) { try { process.kill(pid, 0); } catch (e) { break; } await sleep(100); }
+      const gone = (() => { try { process.kill(pid, 0); return false; } catch (e) { return true; } })();
+      const afterQuit = thoughtsOnDisk(file);
+      c.info("(quit) events: " + JSON.stringify(fs.existsSync(log) ? fs.readFileSync(log, "utf8") : "none"));
+      c.ok(gone, "(quit) the app quit (its process is gone)");
+      c.ok(before === "", "(quit) nothing of the words was on disk before the quit (they were typed 150 ms earlier): " + JSON.stringify(before));
+      await o.close();
+      const o2 = await relaunch(o, "c40-popout-quit-restart");
+      let shown = null;
+      try {
+        await K.open(o2, EVERY); await K.goTo(o2, "activity:/kinds");
+        shown = await o2.evaluate(sel => { const f = document.querySelector(sel + " .booklet-kind-text textarea, " + sel + " .booklet-kind-text input"); return f ? f.value : null; }, BOOK);
+      } finally { await o2.close(); }
+      c.ok(afterQuit === words, "(quit) typed in a pop-out window, the app quit 150 ms later: the words were on disk when the app was gone: " + JSON.stringify(afterQuit));
+      c.ok(thoughtsOnDisk(file) === words && shown === words, "(quit) and after starting again, the note holds them and the field shows them: " + JSON.stringify({ disk: thoughtsOnDisk(file), shown }));
     });
     // (c) two panes on one note, one of them in a stacked tab group
     await withApp("c40-panes", async (o, vault) => {

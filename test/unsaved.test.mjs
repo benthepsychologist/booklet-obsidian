@@ -88,3 +88,27 @@ test("the quit hook offers one task for a view with words typed, and it writes t
 	assert.equal(v.view.hasUnsaved(), false);
 	v.close();
 });
+
+test("the quit hook's task for a view in a pop-out window waits for that window to close before it writes (the app closes it as it quits)", async () => {
+	const v = open();
+	await v.settled();
+	const win = { closed: false };
+	// the view's document belongs to a window other than the main one
+	Object.defineProperty(v.view.contentEl.ownerDocument, "defaultView", { configurable: true, value: win });
+	try {
+		typeInto(v.view.contentEl.querySelector('[data-booklet-q="thoughts"] input'), "A made-up thought");
+		const quit = await quitHook([{ view: v.view }]);
+		const tasks = tasksList();
+		quit(tasks);
+		assert.equal(tasks.added.length, 1);
+		const task = tasks.added[0]();
+		await new Promise((r) => setTimeout(r, 120));
+		assert.equal(v.disk.writes, 0, "the words were written while the pop-out window was still open");
+		win.closed = true;
+		await task;
+		assert.match(v.disk.text, /A made-up thought/);
+	} finally {
+		delete v.view.contentEl.ownerDocument.defaultView;
+		v.close();
+	}
+});
