@@ -211,6 +211,11 @@ const ROW_REFUSED: Record<"add" | "delete", Partial<Record<ApplyWhy, string>>> =
 		"no write": WHOLE_REFUSAL["no write"],
 	},
 };
+/**
+ * What an add or a removal says when the change would make the note itself past what a reader reads (SPEC section 5, "What stops it": for data
+ * written in the booklet the changed file is the booklet), in place of WHOLE_REFUSAL's words about a file.
+ */
+const BOOKLET_TOO_BIG = "That would make the booklet too big to read (the limit is 5 MB), so it was not changed.";
 /** What an inline data block is called in a notice. */
 const INLINE_NAME = "the data block";
 /** How many kept entries an activity lists before "Show all". */
@@ -1242,6 +1247,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
 		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
+		else if (got.state === "refused" && got.why === "too big" && !apply.block.file) new Notice(`Booklet: change kept, but not written to ${got.name}, because the booklet would be too big to read (the limit is 5 MB).`);
 		else if (got.state === "refused") new Notice(got.why in WHOLE_REFUSAL ? `Booklet: change kept. ${WHOLE_REFUSAL[got.why as keyof typeof WHOLE_REFUSAL]}` : `Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why] ?? "the data changed"}.`);
 		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
@@ -1256,7 +1262,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written" || got.state === "same") return;
 		const lead = adding ? "the row was kept but not added to" : "the removal was kept, but no row was taken out of";
-		if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why] ?? "The data changed."}`);
+		if (got.state === "refused" && got.why === "too big" && !apply.block.file) new Notice(`Booklet: ${lead} ${got.name}. ${BOOKLET_TOO_BIG}`);
+		else if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why] ?? "The data changed."}`);
 		else new Notice(`Booklet: ${lead}${got.name ? ` ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
 

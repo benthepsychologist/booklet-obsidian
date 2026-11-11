@@ -15,6 +15,7 @@
  */
 import { pickOfRow, sameValue } from "./ask";
 import { chooseChildList, type DataRow } from "./data";
+import { DATA_FILE_MAX, utf8Length } from "./data-file";
 import { addRowEdit, removeRowEdit, scanJson, splice, type JsonMember, type JsonNode } from "./json-edit";
 import { splitLines } from "./lines";
 import { parseBooklet } from "./reader";
@@ -34,7 +35,7 @@ export type ApplyWhy =
 	| "clash"
 	/** A row nested too deeply to be compared. */
 	| "too deep"
-	/** The new text would pass the size a data file may be read at (data-files.ts). */
+	/** The new text would pass the size a reader reads (5 MB, SPEC section 5, "What stops it"): the data file's, or for a block written in the note, the whole note's. */
 	| "too big"
 	/** The block is not found in the note's own text now (in a callout or a comment, or gone): it cannot be changed from here. */
 	| "no write";
@@ -259,11 +260,16 @@ export function fenceInner(note: string, id: string, module: string | null): Fen
 /**
  * Runs an act on a block written in the note itself: `act` is given the text between the fences and returns the new text (or a refusal), and
  * only that text goes back; the rest of the note is not touched. A block the note does not hold in its own text now is "unreadable".
+ * A change that would make the note longer than a reader reads (DATA_FILE_MAX bytes of UTF-8, the whole note measured after the change, a byte
+ * order mark counted: SPEC section 5, "What stops it") is "too big" and nothing is written. An act that changes nothing is not held to it.
  */
 export function applyInFence(note: string, id: string, module: string | null, act: (inner: string) => ApplyResult): ApplyResult {
 	const span = fenceInner(note, id, module);
 	if (!span) return { ok: false, why: "no write" };
 	const r = act(span.text);
 	if (!r.ok) return r;
-	return { ok: true, text: r.text === span.text ? note : splice(note, span.from, span.to, r.text) };
+	if (r.text === span.text) return { ok: true, text: note };
+	const whole = splice(note, span.from, span.to, r.text);
+	if (utf8Length(whole) > DATA_FILE_MAX) return { ok: false, why: "too big" };
+	return { ok: true, text: whole };
 }
