@@ -547,13 +547,20 @@ async function round2(o, vault) {
   await sleep(1500);
   eq(sha("Refused.booklet.md"), s0, "...and the file's sha on disk is unchanged");
   await waitLine(o, "text");
+  // a switch impactOf does not count (`hidden`) does not ask; one it counts (`open`) does
+  await setCursor(o, lineOf(REFUSED, "[!text|why]")); await waitLine(o, "text");
+  await the(o, ".booklet-blocks-line input[data-key='flag-hidden']").check();
+  await sleep(500);
+  eq(await the(o, ".booklet-blocks-ask").count(), 0, "a switch the guard does not count (hidden) on the same booklet does not ask");
+  const flagged = await textOf("Refused.booklet.md");
+  eq(JSON.stringify(diffLines(REFUSED, flagged)), JSON.stringify([lineOf(REFUSED, "[!text|why]")]), "...and changes only that line");
+  await the(o, ".booklet-blocks-line input[data-key='flag-hidden']").uncheck(); await sleep(400);
+  eq(await textOf("Refused.booklet.md"), REFUSED, "...and turning it off gives the note back as it was");
   await setCursor(o, lineOf(REFUSED, "[!choice|feeling]")); await waitLine(o, "choice");
   await the(o, ".booklet-blocks-line input[data-key='flag-open']").check();
-  await sleep(500);
-  eq(await the(o, ".booklet-blocks-ask").count(), 0, "a flag change on the same booklet does not ask");
-  const flagged = await textOf("Refused.booklet.md");
-  eq(JSON.stringify(diffLines(REFUSED, flagged)), JSON.stringify([lineOf(REFUSED, "[!choice|feeling]")]), "...and changes only that line");
-  await the(o, ".booklet-blocks-line input[data-key='flag-open']").uncheck(); await sleep(400);
+  ok((await askText()).includes(BLIND), "a switch the guard counts (open) asks the blind question on a booklet the reader refuses");
+  await answer("Cancel");
+  eq(await textOf("Refused.booklet.md"), REFUSED, "...and Cancel leaves the note as it was");
   await setCursor(o, lineOf(REFUSED, "[!text|why]")); await waitLine(o, "text");
   await idBox().fill("reason"); await idBox().press("Enter");
   await askText(); await answer("Change");
@@ -650,6 +657,15 @@ async function round2(o, vault) {
     ok(after.indexOf("[!note]") > after.indexOf(hold) + hold.length - 1 && after.includes("[!note]"), `${what}: the piece goes after the block, not into it`);
     eq(lintFresh(text, after).join("; "), "", `${what}: the note lints with nothing new`);
   }
+  // a code block that never closes: refused, with the reason; and a math block is named as one in the panel
+  const open = FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\nText.\n\n```md\n> [!text|zz] X\n\nmore\n";
+  await setDoc(o, open, lineOf(open, "more")); await sleep(300);
+  await pieceButton(o, notePiece).click(); await sleep(300);
+  eq(await doc(o), open, "a click inside a code block that is never closed places nothing");
+  ok(!!(await sawNotice(o, /never closed, so a block placed here would land inside it/)), "...and says why");
+  const math = FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\n$$\nx\n\n> [!text|zz] X\n$$\n\n> [!text|text-1] Q\n\n> [!module|module-1 end]\n";
+  await setDoc(o, math, lineOf(math, "[!text|zz]")); await sleep(600);
+  ok(/inside a math block/.test(await the(o, ".booklet-blocks-line").innerText()), "the panel says a line inside $$ is in a math block, not a comment");
 }
 
 async function off(o, vault) {
