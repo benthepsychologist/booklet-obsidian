@@ -539,6 +539,7 @@ async function round2(o, vault) {
   await idBox().fill("reason"); await idBox().press("Enter");
   const t = await askText();
   ok(t.includes(BLIND), "an id rename on a booklet the reader refuses asks the blind question: " + t);
+  await shot(o, "round2-blind-question");
   eq(JSON.stringify(await the(o, ".booklet-blocks-ask button").allInnerTexts()), JSON.stringify(["Change", "Cancel"]), "...with Change and Cancel");
   eq(await o.evaluate(() => document.activeElement && document.activeElement.textContent), "Cancel", "...and opens on Cancel");
   await answer("Cancel");
@@ -571,7 +572,9 @@ async function round2(o, vault) {
     await o.evaluate(async from => {
       for (const l of app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet"))) l.detach();
       const f = app.vault.getAbstractFileByPath(from);
-      const one = app.workspace.getLeaf(), two = app.workspace.getLeaf("split", "vertical");
+      await new Promise(r => setTimeout(r, 300));
+      // the leaf left empty by the detaching (getLeaf() may hand back one that is just gone)
+      const one = app.workspace.getLeavesOfType("empty")[0] || app.workspace.getLeaf("tab"), two = app.workspace.createLeafBySplit(one, "vertical");
       for (const l of [one, two]) { await l.openFile(f); if (l.view.getViewType() !== "markdown") await app.plugins.plugins.booklet.setMode(l, "markdown"); }
       window.__pane2 = two;
       app.workspace.setActiveLeaf(one, { focus: true });
@@ -579,6 +582,7 @@ async function round2(o, vault) {
       app.workspace.setActiveLeaf(two, { focus: true });
       await new Promise(r => setTimeout(r, 400));
     }, from);
+    eq(await o.evaluate(() => app.workspace.getLeavesOfType("markdown").length), 2, `[${how}] ${from} is open in two Markdown panes`);
     const shaFrom = sha(from);
     // pane 2 moves to the other note
     await o.evaluate(async ({ how, target }) => {
@@ -593,9 +597,10 @@ async function round2(o, vault) {
     // no click on a pane after the move: the panel has only what Obsidian told it
     await cursorIn(target, lineOf(targetText, "[!text|text-1]"));
     await pieceButton(o, notePiece).click(); await sleep(400);
+    await shot(o, `round2-pane-moved-${how}`);
     const nowTarget = await textOf(target);
     ok(nowTarget && nowTarget !== targetText && nowTarget.includes("[!note]"), `[${how}] with the note in two panes and one pane moved to another note, a placed piece goes into the note that pane now shows (${target})`);
-    ok(await textOf(from) === fromText, `[${how}] ...and the note in the other pane (${from}) is as it was in the editor`);
+    eq(await textOf(from), fromText, `[${how}] ...and the note in the other pane (${from}) is as it was in the editor`);
     await sleep(1500);
     eq(sha(from), shaFrom, `[${how}] ...and ${from} on disk has the same sha`);
     ok(await savedAs(target, nowTarget), `[${how}] ...and ${target} on disk is what the editor shows`);
@@ -612,7 +617,8 @@ async function round2(o, vault) {
     for (const l of app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet"))) l.detach();
     window.__renames = [];
     app.vault.on("rename", (f, old) => window.__renames.push([f.path, old]));
-    const leaf = app.workspace.getLeaf();
+    await new Promise(r => setTimeout(r, 300));
+    const leaf = app.workspace.getLeavesOfType("empty")[0] || app.workspace.getLeaf("tab");
     await leaf.openFile(app.vault.getAbstractFileByPath("Folder/C.booklet.md"));
     if (leaf.view.getViewType() !== "markdown") await app.plugins.plugins.booklet.setMode(leaf, "markdown");
     app.workspace.setActiveLeaf(leaf, { focus: true });
@@ -623,6 +629,7 @@ async function round2(o, vault) {
   console.log("INFO  vault.on(\"rename\") fired " + renames.length + " time(s) for the folder rename: " + JSON.stringify(renames) + (renames.some(r => r[1] === "Folder/C.booklet.md") ? " (including the note inside the folder)" : " (not for the note inside the folder: only the folder)"));
   await cursorIn("Folder2/C.booklet.md", lineOf(C, "[!text|text-1]"));
   await pieceButton(o, notePiece).click(); await sleep(400);
+  await shot(o, "round2-folder-renamed");
   const renamedText = await textOf("Folder2/C.booklet.md");
   ok(renamedText && renamedText !== C && renamedText.includes("[!note]"), "after the folder holding the open note is renamed, a placed piece changes the renamed note");
   ok(await savedAs("Folder2/C.booklet.md", renamedText), "...and the renamed file on disk is what the editor shows");
