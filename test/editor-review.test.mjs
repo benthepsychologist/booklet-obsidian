@@ -191,6 +191,17 @@ test("[6] a cursor in the properties places a piece after them, never inside", (
 	}
 });
 
+test("[6] with no blank line under the properties, a cursor in them still places the piece right after them", () => {
+	const tight = swap(HELD, "---\n\n> [!module|mood] Mood", "---\n> [!module|mood] Mood");
+	for (const line of [1, 4]) {
+		const { text } = put(tight, line);
+		const lines = text.split("\n");
+		assert.deepEqual(lines.slice(0, 7), tight.split("\n").slice(0, 7), "the properties are as they were");
+		assert.equal(lines[7], "");
+		assert.equal(lines[8], "> [!note] Title of the note");
+	}
+});
+
 // ---------------------------------------------------------------- 8. a booklet the reader refuses
 
 test("[8] a booklet the reader refuses says so at the top, with the reader's reason, instead of 'detaches nothing'", () => {

@@ -74,6 +74,7 @@ export class EditorPanel extends ItemView {
 	/** The front matter block in the palette, and the line that says why it cannot be used when the note has properties. */
 	private frontButton: HTMLButtonElement | null = null;
 	private frontWhy: HTMLElement | null = null;
+	private frontName = "";
 	private holds!: HTMLElement;
 	private about!: HTMLElement;
 	private add!: Section;
@@ -226,7 +227,7 @@ export class EditorPanel extends ItemView {
 		if (on) b.removeAttribute("aria-disabled");
 		else b.setAttribute("aria-disabled", "true");
 		b.title = on ? "" : HAS_FRONT;
-		b.setAttribute("aria-label", on ? "Add Front matter (structure)" : `Add Front matter (structure). Not available: ${HAS_FRONT}`);
+		b.setAttribute("aria-label", on ? this.frontName : `${this.frontName}. Not available: ${HAS_FRONT}`);
 		this.frontWhy?.toggleClass("booklet-blocks-hidden", on);
 	}
 
@@ -244,6 +245,7 @@ export class EditorPanel extends ItemView {
 				const btn = this.drawPiece(row, p, g.title);
 				if (p.front) {
 					this.frontButton = btn;
+					this.frontName = btn.getAttribute("aria-label") ?? "";
 					this.frontWhy = group.createDiv({ cls: "booklet-blocks-hint booklet-blocks-hidden", text: HAS_FRONT });
 				}
 			}

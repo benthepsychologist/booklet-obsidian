@@ -209,6 +209,7 @@ export function idWord(s: string): string {
 
 /** check_format: the body starts after the second `---` when the first line is `---`. */
 export function frontMatterEnd(lines: readonly string[]): number {
+	// (`trim()` takes a byte-order mark off the first line, as the reader does)
 	if (!lines.length || at(lines, 0).trim() !== "---") return 0;
 	let i = 1;
 	while (i < lines.length && at(lines, i).trim() !== "---") i++;
@@ -293,8 +294,6 @@ const BEFORE_ALL: ScanState = { section: "content", mod: null, dataScope: null, 
 
 export function scan(text: string): Scan {
 	const original = text.replace(/\r\n/g, "\n").split("\n");
-	// a byte-order mark in front of the first line is not part of it (the reader takes it off too)
-	if ((original[0] ?? "").charCodeAt(0) === 0xfeff) original[0] = (original[0] ?? "").slice(1);
 	const lines = original.slice(); // a group's body is unquoted in place below, as the linter does; `original` is kept
 	const bodyStart = frontMatterEnd(lines);
 	const hasFrontMatter = bodyStart > 0;

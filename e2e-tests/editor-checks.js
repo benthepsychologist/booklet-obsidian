@@ -12,6 +12,10 @@
 //             (python3 lint-booklet.py), the title selected; a piece dragged onto the editor; a setting changed and only its line
 //             differs; the icon picker; each data guard asked, cancelled and then accepted, with the records section and the rows
 //             byte for byte as they were; every control named and reachable; editor mode off with nothing left behind
+//   review    what the cold review of the first build found, in the real editor: nothing placed in (by a click or a drop), and no setting
+//             offered on, the records section; a blank line inside a fence, a data block or a comment, or between a question and its list,
+//             takes a piece after the block; an id rename that would make a duplicate is refused with its reason and the note unchanged;
+//             the front matter piece goes at the top of a note with no properties, and is unavailable, with its reason, in one that has them
 //   phone     Obsidian's phone mode in a 390 px window: editor mode from the command, a piece placed by a tap, the note linted
 // Screenshots go to <out>/shots/. Prints PASS/FAIL lines and exits 1 on any FAIL.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
@@ -175,6 +179,15 @@ async function openMarkdownOnly(o, rel) {
 const wrap = o => { o.locator = (sel, opts) => o.page.locator(sel, opts); return o; };
 const the = (o, sel, opts) => o.page.locator(sel, opts);
 
+// Obsidian 1.14 draws notices in a window of their own, not in the main document: an empty probe notice says which document that is
+const notices = o => o.evaluate(() => {
+  const probe = new window.Notice("", 1), d = probe.containerEl ? probe.containerEl.ownerDocument : document;
+  const out = [...new Set([document, d])].flatMap(doc => [...doc.querySelectorAll(".notice")].map(n => n.textContent)).filter(t => t);
+  probe.hide();
+  return out;
+});
+const sawNotice = async (o, re, ms = 5000) => { const end = Date.now() + ms; while (Date.now() < end) { const n = (await notices(o)).find(t => re.test(t)); if (n) return n; await sleep(100); } return null; };
+
 // ---------------------------------------------------------------- the checks
 async function desktop(o, vault) {
   // -- the command and the Booklet view's button
@@ -190,6 +203,8 @@ async function desktop(o, vault) {
   ok(await o.evaluate(() => { const l = app.workspace.getLeavesOfType("booklet-blocks"); return l.length === 1 && l[0].getRoot() === app.workspace.rightSplit; }), "the button turns editor mode on: the panel is open in the right side bar");
   ok(await o.evaluate(() => app.workspace.getLeavesOfType("markdown").length >= 1), "from the reading page, the note's Markdown is opened beside it to place blocks in");
   await sleep(500);
+  const lay = await o.evaluate(() => { const w = s => { const e = document.querySelector(s); return e ? Math.round(e.getBoundingClientRect().width) : null; }; return { window: innerWidth, left_sidebar: w(".mod-left-split"), booklet: w(".workspace-leaf-content[data-type='booklet']"), markdown: w(".workspace-leaf-content[data-type='markdown']"), panel: w(".workspace-leaf-content[data-type='booklet-blocks']"), right_sidebar: w(".mod-right-split") }; });
+  console.log("INFO  widths in px after editor mode is turned on from the reading page: " + JSON.stringify(lay));
   eq((await the(o, ".booklet-blocks-holds").innerText()).trim(), "This booklet holds 12 kept entries, 2 saved answers and 5 rows. Changing an id, an option or a field can detach them.", "the top line states what the booklet holds");
   eq(fs.readFileSync(path.join(vault, "Held.booklet.md"), "utf8"), before, "turning editor mode on writes nothing");
   eq(await the(o, ".view-action[aria-label='Editor mode']").first().getAttribute("aria-pressed"), "true", "the button now says it is pressed");
@@ -390,6 +405,101 @@ async function guards(o, vault) {
   eq(records(disk), records(HELD), "on disk, after all of that, the records section is exactly as it began");
 }
 
+async function review(o, vault) {
+  await openMarkdownOnly(o, "Held.booklet.md");
+  await turnOn(o);
+  await sleep(500);
+  const heldLines = HELD.split("\n");
+  const recStart = heldLines.findIndex(l => l === "%%"), recEnd = heldLines.lastIndexOf("%%");
+  const textPiece = PIECES.find(f => f.file === "Q - text.md"), notePiece = PIECES.find(f => f.file === "Reading - note.md"), frontPiece = PIECES.find(f => f.file === "Structure - front matter.md");
+  const lintFresh = (before, after) => { const b = lint(before), a = lint(after); return fresh(b.errors.concat(b.warnings), a.errors.concat(a.warnings)); };
+  const records = t => t.slice(t.indexOf("\n%%\n> [!records]"));
+
+  // 1. the records section is never a place for a piece
+  let said = null;
+  for (const line of [recStart, recStart + 3, recStart + 15, recEnd]) {
+    await setDoc(o, HELD, line); await sleep(250);
+    await pieceButton(o, textPiece).click(); await sleep(250);
+    eq(await doc(o), HELD, `a click with the cursor on line ${line + 1}, in the records section, places nothing`);
+    said = said || await sawNotice(o, /records section holds kept data/);
+  }
+  ok(!!said, "...and says why: " + JSON.stringify(said));
+  // Live Preview folds a comment away; source mode shows the records section's lines to drop on
+  await o.evaluate(async () => { const v = app.workspace.getLeavesOfType("markdown").map(l => l.view).find(v => v.editor && v.file); await v.setState({ ...v.getState(), mode: "source", source: true }, { history: false }); });
+  await setDoc(o, HELD, 0); await sleep(500);
+  await pieceButton(o, textPiece).dragTo(the(o, ".workspace-leaf-content[data-type='markdown'] .cm-line", { hasText: "> [!records|mood] Mood" }).first());
+  await sleep(400);
+  eq(await doc(o), HELD, "a piece dragged onto a line of the records section places nothing either");
+  await setDoc(o, HELD, lineOf(HELD, "[!module|mood end]")); await sleep(250);
+  await pieceButton(o, notePiece).click(); await sleep(250);
+  const above = await doc(o);
+  ok(above !== HELD && lineOf(above, "[!note]") > lineOf(above, "[!module|mood end]") && lineOf(above, "[!note]") < lineOf(above, "[!records]") && records(above) === records(HELD), "a piece placed just above the records section goes above it, and the section is the same bytes");
+  eq(lintFresh(HELD, above).join("; "), "", "...and the note lints with nothing new");
+
+  // 2. no settings are offered for a line in the records section (or in a code fence)
+  await setDoc(o, HELD, lineOf(HELD, "> [!records|mood] Mood")); await sleep(500);
+  const recPanel = await the(o, ".booklet-blocks-line").innerText();
+  eq(await the(o, ".booklet-blocks-line input").count(), 0, "with the cursor on a records line the panel offers no field, no id and no switch");
+  ok(/records section\. That section is kept data, and the panel doesn't change it\./.test(recPanel), "...and says the records section is kept data: " + JSON.stringify(recPanel.slice(0, 120)));
+  const fenced = FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\n```md\n> [!choice|example] Example?\n- [ ] One\n```\n\n> [!module|module-1 end]\n";
+  await setDoc(o, fenced, lineOf(fenced, "[!choice|example]")); await sleep(500);
+  eq(await the(o, ".booklet-blocks-line input").count(), 0, "a Booklet-looking line inside a code block offers no settings");
+  ok(/inside a code block/.test(await the(o, ".booklet-blocks-line").innerText()), "...and says why");
+  await setDoc(o, HELD, lineOf(HELD, "[!text|why]")); await waitLine(o, "text");
+  ok(await the(o, ".booklet-blocks-line input[data-key^='id-']").count() === 1, "the same panel offers the id on a Booklet line outside the records section");
+
+  // 3 and 4. a blank line that is part of a block takes the piece after the block
+  const cases = [
+    ["a blank line inside a code fence", FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\nBefore.\n\n```js\nlet a = 1;\n\nlet b = 2;\n```\n\nAfter.\n\n> [!module|module-1 end]\n", "let a = 1;", 1, "```js\nlet a = 1;\n\nlet b = 2;\n```\n\n> [!note]"],
+    ["a blank line inside a data block's JSON", HELD.replace('{ "fields"', '\n{ "fields"'), "```booklet data", 1, "^things\n\n> [!note]"],
+    ["a blank line inside a multi-paragraph %% comment", FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\n%%\nfirst paragraph\n\nsecond paragraph\n%%\n\nAfter.\n\n> [!module|module-1 end]\n", "first paragraph", 1, "second paragraph\n%%\n\n> [!note]"],
+    ["a blank line between a fence and its ^id", FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\n```booklet data\n{ \"fields\": {\"t\": \"T\"}, \"rows\": [] }\n```\n\n^d\n\nAfter.\n\n> [!module|module-1 end]\n", "^d", -1, "^d\n\n> [!note]"],
+    ["the blank line between a question and its list", HELD, "> [!scale|energy]", 1, "0. None\n1. Some\n2. Lots\n\n> [!note]"],
+  ];
+  for (const [what, text, needle, off, want] of cases) {
+    await setDoc(o, text, lineOf(text, needle) + off); await sleep(250);
+    await pieceButton(o, notePiece).click(); await sleep(250);
+    const after = await doc(o);
+    ok(after.includes(want) && after !== text, `${what}: the piece goes after the block, not into it`);
+    eq(lintFresh(text, after).join("; "), "", "...and the note lints with nothing new");
+  }
+  await setDoc(o, HELD, lineOf(HELD, "> [!scale|energy]") + 1); await sleep(250);
+  await pieceButton(o, notePiece).click(); await sleep(250);
+  eq((await doc(o)).includes("> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n"), true, "the scale keeps its anchors under it, in one piece");
+
+  // 5. an id rename that would make a duplicate
+  await setDoc(o, HELD, lineOf(HELD, "[!text|why]")); await waitLine(o, "text");
+  const idBox = the(o, ".booklet-blocks-line input[data-key^='id-']");
+  await idBox.fill("feeling"); await idBox.press("Enter");
+  const dup = await sawNotice(o, /already used in the module/);
+  ok(dup && /`feeling` is already used in the module "mood"\./.test(dup), "renaming the question `why` to `feeling`, which the module uses, is refused and says why: " + JSON.stringify(dup));
+  eq(await doc(o), HELD, "...and the note is unchanged");
+  eq(await the(o, ".booklet-blocks-ask").count(), 0, "...with no question asked (nothing was going to be written)");
+  await setDoc(o, HELD, lineOf(HELD, "[!activity|once]")); await waitLine(o, "activity");
+  const idBox2 = the(o, ".booklet-blocks-line input[data-key^='id-']");
+  await idBox2.fill("log"); await idBox2.press("Enter");
+  ok(!!(await sawNotice(o, /`log` is already used in the module "mood"\./)), "an activity renamed to another activity's id in the same module is refused too");
+  eq(await doc(o), HELD, "...and the note is unchanged");
+
+  // 6. the front matter piece
+  const frontBtn = the(o, `.booklet-blocks-piece:text-is(${JSON.stringify(frontPiece.label)})`); // its name changes when it is unavailable
+  await setDoc(o, BLANK, lineOf(BLANK, "Some words.")); await sleep(500);
+  eq(await frontBtn.getAttribute("aria-disabled"), "true", "in a note that has properties the front matter block is still listed, marked unavailable");
+  ok(/properties already/.test(await the(o, ".booklet-blocks-hint:not(.booklet-blocks-hidden)", { hasText: "properties already" }).first().innerText()), "...and its reason is shown under the group");
+  await frontBtn.click({ force: true }); await sleep(250); // aria-disabled, so still pressable: Playwright's own check of "enabled" is waived
+  eq(await doc(o), BLANK, "a click on it changes nothing in a note that has properties");
+  ok(!!(await sawNotice(o, /properties already/)), "...and says why");
+  await openMarkdownOnly(o, "Plain.md");
+  await setDoc(o, "Hello\n\nWorld\n", 2); await sleep(500);
+  ok((await frontBtn.getAttribute("aria-disabled")) === null, "in a note with no properties the front matter block is available");
+  await frontBtn.click(); await sleep(300);
+  const withFront = await doc(o);
+  ok(withFront.startsWith("---\nbooklet: ") && withFront.endsWith("Hello\n\nWorld\n"), "with the cursor on the last line it goes at the very top, not where the cursor is: " + JSON.stringify(withFront.slice(0, 60)));
+  await sleep(500);
+  eq(await frontBtn.getAttribute("aria-disabled"), "true", "and the note having properties now, the block becomes unavailable");
+  await shot(o, "review-front-matter");
+}
+
 async function off(o, vault) {
   const sha = f => require("crypto").createHash("sha256").update(fs.readFileSync(path.join(vault, f))).digest("hex");
   const s0 = sha("Held.booklet.md");
@@ -457,6 +567,7 @@ async function phone(o, vault) {
   const run = async (name, fn) => { if (ONLY.length && !ONLY.includes(name)) return; console.log(`\n== ${name} (Obsidian ${VERSION})`); await session(name, async (o, v) => fn(wrap(o), v)); };
   await run("desktop", desktop);
   await run("guards", guards);
+  await run("review", review);
   await run("off", off);
   await run("phone", phone);
   console.log(`\n${passes} passed, ${fails} failed. Screenshots: ${SHOTS}`);
