@@ -160,6 +160,8 @@ test("daily needs repeat: it is refused alone, written after repeat, and goes wh
 	assert.equal(daily, "> [!activity|a1 hidden icon:x repeat daily] T");
 	assert.equal(setFlag(parseLine(daily), "repeat", false).text, "> [!activity|a1 hidden icon:x] T");
 	assert.equal(setFlag(parseLine(daily), "daily", false).text, rep);
+	// with other words after `repeat`, `daily` still goes right after it
+	assert.equal(setFlag(parseLine("> [!activity|a1 repeat hidden icon:x] T"), "daily", true).text, "> [!activity|a1 repeat daily hidden icon:x] T");
 });
 
 test("a line that needs an id and has none takes no bare word until the id is written; a key:value word is a setting, not an id", () => {

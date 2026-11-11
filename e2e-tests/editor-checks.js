@@ -1,6 +1,9 @@
 // The editing panel ("Booklet blocks") and editor mode, in the real Obsidian, on a scratch vault copy.
 //
-//   PLAYWRIGHT=<node_modules> node editor-checks.js --obsidian <the obsidian binary> --out <folder> [--only A,B,...]
+//   PLAYWRIGHT=<node_modules> node editor-checks.js --obsidian <the obsidian binary> --out <folder> [--only desktop,guards,off,phone]
+//                                                   [--plugin <folder with main.js, manifest.json, styles.css>] [--pieces <regex>]
+// --plugin names the plugin build to put in the vault (the repository root, as built by `npm run build`, by default): a build without the
+// panel fails the first checks, which is how the script is shown to test something.
 //
 // Each session is a fresh launch on its own copy of a made-up vault (the plugin as built in the repository root, a booklet that holds
 // kept entries and rows, and a small blank one) with its own scratch config folder, all under <out>/work-<time>/. Nothing here
@@ -19,6 +22,7 @@ const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ?
 const OBSIDIAN = arg("obsidian"), OUT = path.resolve(arg("out", "editor-checks-out")), ONLY = (arg("only", "") || "").split(",").filter(Boolean);
 const LINTER = process.env.BOOKLET_LINTER || "/workspace/booklet/lint-booklet.py";
 const REPO = path.join(__dirname, "..");
+const PLUGIN = path.resolve(arg("plugin", REPO));
 if (!OBSIDIAN) { console.error("--obsidian <binary> is required"); process.exit(2); }
 const WORK = path.join(OUT, "work-" + Date.now()), SHOTS = path.join(OUT, "shots");
 fs.mkdirSync(WORK, { recursive: true }); fs.mkdirSync(SHOTS, { recursive: true });
@@ -40,7 +44,7 @@ function makeVault() {
   const dir = path.join(WORK, "s" + ++sessions), vault = path.join(dir, "vault"), plug = path.join(vault, ".obsidian/plugins/booklet");
   fs.mkdirSync(plug, { recursive: true });
   fs.writeFileSync(path.join(vault, ".obsidian/community-plugins.json"), '["booklet"]');
-  for (const f of ["main.js", "manifest.json", "styles.css"]) fs.copyFileSync(path.join(REPO, f), path.join(plug, f));
+  for (const f of ["main.js", "manifest.json", "styles.css"]) fs.copyFileSync(path.join(PLUGIN, f), path.join(plug, f));
   fs.writeFileSync(path.join(vault, "Blank.booklet.md"), BLANK);
   fs.writeFileSync(path.join(vault, "Held.booklet.md"), HELD);
   fs.writeFileSync(path.join(vault, "Plain.md"), "# Plain\n\nNot a booklet.\n");
