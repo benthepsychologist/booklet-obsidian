@@ -16,7 +16,7 @@ const lineOf = (text, needle) => text.split("\n").findIndex((l) => l.includes(ne
 test("[C] a question cannot take the id of a data block in its module, and the note is left as it was", () => {
 	const doc = FM + "> [!activity|a] A\n\n> [!text|q] Q\n\n" + BLOCK("things");
 	const r = renameId(doc, lineOf(doc, "[!text|q]"), "things");
-	assert.match(r.error ?? "", /already the id of a data block in the activities outside every module/);
+	assert.match(r.error ?? "", /already the id of a data block in the part of the booklet outside every module/);
 	assert.equal(renameId(doc, lineOf(doc, "[!text|q]"), "other").text, doc.replace("[!text|q]", "[!text|other]"));
 });
 
@@ -54,4 +54,18 @@ test("[C] a page cannot take the id of another page of its tab; the pages of ano
 test("[C] a page named only by its title takes that title's id: a page cannot take it either", () => {
 	const doc = FM + "> [!activity|a] A\n\n> [!page] Plain title\n\n> [!page|p2] P2\n";
 	assert.match(renameId(doc, lineOf(doc, "[!page|p2]"), "plain-title").error ?? "", /another page/);
+});
+
+test("[C] a copy line is held to it too: the linter keeps copy ids in the same table as questions", () => {
+	const doc = FM + "> [!activity|a] A\n\n> [!text|q] Q\n\n> [!copy|c1 of:q] C\n\n" + BLOCK("things");
+	assert.match(renameId(doc, lineOf(doc, "[!copy|c1"), "things").error ?? "", /already the id of a data block/);
+	assert.equal("error" in renameId(doc, lineOf(doc, "[!copy|c1"), "other"), false);
+});
+
+test("[C] a menu outside every module is in the linter's table of shared menus: a bare data block does not clash with it", () => {
+	const doc = FM + "> [!menu|m1] Menu\n- a\n- b\n\n> [!activity|a] A\n\n> [!text|q] Q\n\n" + BLOCK("things");
+	assert.equal("error" in renameId(doc, lineOf(doc, "[!menu|m1]"), "things"), false, "allowed, as the linter allows it");
+	// a menu in a module is in the module's table, and does clash
+	const m = FM + "> [!module|mm] M\n\n> [!menu|m1] Menu\n- a\n- b\n\n> [!activity|a] A\n\n" + BLOCK("things") + "\n> [!module|mm end]\n";
+	assert.match(renameId(m, lineOf(m, "[!menu|m1]"), "things").error ?? "", /data block in the module "mm"/);
 });

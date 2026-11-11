@@ -151,22 +151,23 @@ export function renameId(doc: string, line: number, id: string, s: Scan = scan(d
 	return other ? { error: other } : r;
 }
 
-/** Where a module's name goes in a sentence: "the module \"x\"", or the activities outside every module. */
-const inScope = (scope: Scope): string => (scope === null ? "the activities outside every module" : `the module "${scope}"`);
+/** Where a module's name goes in a sentence: "the module \"x\"", or the part of the booklet outside every module. */
+const inScope = (scope: Scope): string => (scope === null ? "the part of the booklet outside every module" : `the module "${scope}"`);
 
 /**
- * The clashes the reader does not refuse but the linter calls errors (lint-booklet.py): a question, activity or menu given the id of a
- * `booklet data` block of its module (a query could not tell them apart), a tab given the id of another tab of its activity or its
- * module's opening, a page given the id of another page of its tab (a renderer would keep both and number the second). The reason, or
- * null when the id is free.
+ * The clashes the reader does not refuse but the linter calls errors (lint-booklet.py): a question, activity, copy line or menu given
+ * the id of a `booklet data` block of its module (a query could not tell them apart), a tab given the id of another tab of its
+ * activity or its module's opening, a page given the id of another page of its tab (a renderer would keep both and number the second).
+ * The reason, or null when the id is free.
  */
 function siblingClash(s: Scan, line: number, id: string): string | null {
 	const it = s.items.find((x) => x.line === line);
 	if (!it || !id) return null;
-	if (it.type === "question" || it.type === "activity" || it.type === "menu") {
+	if (it.type === "question" || it.type === "activity" || it.type === "menu" || (it.type === "callout" && it.kind === "copy")) {
 		const st = stateBefore(s, line);
 		const scope = st.section === "content" ? st.mod : st.dataScope;
-		if (it.type === "menu" && scope === null && st.section !== "content") return null; // the menus every module shares have a table of their own
+		// a menu with no module is kept by the linter in a table of its own (the menus every module shares), which no data block is in
+		if (it.type === "menu" && scope === null) return null;
 		if (s.ids.dataBlocks.get(keyOf(scope))?.has(id)) return `\`${id}\` is already the id of a data block in ${inScope(scope)}, so a query could not tell them apart.`;
 		return null;
 	}
