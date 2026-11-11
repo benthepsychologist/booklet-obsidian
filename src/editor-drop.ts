@@ -2,16 +2,17 @@
  * Dragging a piece from the panel onto the editor (desktop). The piece is dragged with its file name under a data type of our own, so
  * a drop anywhere else puts nothing in a note. The editor hears the drop through Obsidian's `editor-drop` event: the line under the
  * pointer is where the piece goes, by the same plan as a click with the cursor on that line (editor-place.ts `planDrop`), so it lands
- * on its own lines, gets fresh ids and has its title selected. A drop on a note that is not a booklet places nothing.
+ * on its own lines, gets fresh ids and has its title selected. It is written by the same path as a click (editor-write.ts), so the
+ * same refusals and the same guard apply: a drop on a note that is not a booklet, or on the records section, places nothing.
  *
  * The line under the pointer is asked of the editor's CodeMirror view (`posAtCoords`), which Obsidian's Editor object carries as `cm`
  * but does not document; it is called through a narrow type of its own, so the plugin imports nothing from CodeMirror. Without it the
  * piece goes where the cursor is.
  */
-import { Notice, type Editor } from "obsidian";
+import type { App, Editor } from "obsidian";
 import { PIECES } from "./core/editor-pieces";
-import { applyPlan, planDrop } from "./core/editor-place";
-import { isBookletText } from "./core/editor-scan";
+import type { InsertPlan } from "./core/editor-place";
+import { placePiece } from "./editor-write";
 
 /** The data type a piece is dragged under: the file name of the piece. */
 export const PIECE_MIME = "application/x-booklet-piece";
@@ -36,21 +37,11 @@ export function allowDrop(e: DragEvent): void {
 	if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
 }
 
-/** The drop of a piece on an editor: place it, and say the event is handled. */
-export function dropPiece(e: DragEvent, editor: Editor): void {
-	if (e.defaultPrevented || !carries(e)) return;
+/** The drop of a piece on an editor: say the event is handled, and place the piece (the promise says what was written, or null). */
+export function dropPiece(app: App, e: DragEvent, editor: Editor): Promise<InsertPlan | null> | null {
+	if (e.defaultPrevented || !carries(e)) return null;
 	e.preventDefault();
 	const piece = PIECES.find((p) => p.file === e.dataTransfer?.getData(PIECE_MIME));
-	if (!piece) return;
-	const text = editor.getValue();
-	if (!isBookletText(text) && !(piece.front && !text.startsWith("---"))) {
-		new Notice("Blocks go into a booklet note. This note has no `booklet:` line in its properties.");
-		return;
-	}
-	const plan = planDrop(text, lineUnder(editor, e), piece.text);
-	if (applyPlan(text, plan) === text) return;
-	editor.replaceRange(plan.text, plan.from);
-	editor.setSelection(plan.anchor, plan.head);
-	editor.scrollIntoView({ from: plan.anchor, to: plan.head }, true);
-	editor.focus();
+	if (!piece) return null;
+	return placePiece(app, editor, piece, lineUnder(editor, e));
 }

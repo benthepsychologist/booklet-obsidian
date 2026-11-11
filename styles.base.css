@@ -3299,6 +3299,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	height: auto;
 }
 
+/* the front matter block when the note has properties already: still there, and unavailable (its reason is under the group) */
+.booklet-blocks-piece.is-disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
 .booklet-blocks-row {
 	display: flex;
 	align-items: center;

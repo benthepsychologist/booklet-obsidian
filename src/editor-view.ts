@@ -15,17 +15,17 @@
  * and the sections are `<details>`. The words are English; the plugin does not localise.
  */
 import { ItemView, MarkdownView, Notice, Platform, type Editor, type WorkspaceLeaf } from "obsidian";
-import { changeLine, fieldBlockAt, minimalChange, optionsAt, removeField, removeOption, renameField, renameOption, settingsModel, type FieldBlock, type OptionList, type SettingsModel } from "./core/editor-actions";
-import { holdings, holdingsLine, impactOf } from "./core/editor-guard";
-import { type Edit, type ParsedLine, removeWord, setFlag, setId, setValue } from "./core/editor-line";
-import { flatten, outline, type OutlineNode } from "./core/editor-outline";
+import { changeLine, removeField, removeOption, renameField, renameId, renameOption, type FieldBlock, type LineView, type OptionList, type SettingsModel } from "./core/editor-actions";
+import { analyse, panelModel } from "./core/editor-analysis";
+import { removeWord, setFlag, setValue } from "./core/editor-line";
+import { type OutlineNode } from "./core/editor-outline";
 import { PIECE_GROUPS, piecesOf, type Piece } from "./core/editor-pieces";
-import { applyPlan, planInsert } from "./core/editor-place";
-import { problemsOf, type Problem } from "./core/editor-problems";
-import { isBookletText } from "./core/editor-scan";
+import { HAS_FRONT } from "./core/editor-place";
+import { type Problem } from "./core/editor-problems";
 import { PIECE_MIME } from "./editor-drop";
-import { askToChange, pickIcon } from "./editor-modals";
-import type { EditorSide } from "./editor-side";
+import { pickIcon } from "./editor-modals";
+import { forEachWindow, type EditorSide } from "./editor-side";
+import { placePiece, writeNote } from "./editor-write";
 
 export const PANEL_TYPE = "booklet-blocks";
 
@@ -70,8 +70,10 @@ class Section {
 }
 
 export class EditorPanel extends ItemView {
-	private target: MarkdownView | null;
 	private timer: number | null = null;
+	/** The front matter block in the palette, and the line that says why it cannot be used when the note has properties. */
+	private frontButton: HTMLButtonElement | null = null;
+	private frontWhy: HTMLElement | null = null;
 	private holds!: HTMLElement;
 	private about!: HTMLElement;
 	private add!: Section;
@@ -86,7 +88,6 @@ export class EditorPanel extends ItemView {
 		private readonly side: EditorSide,
 	) {
 		super(leaf);
-		this.target = side.lastMarkdown;
 	}
 
 	getViewType(): string {
@@ -116,17 +117,12 @@ export class EditorPanel extends ItemView {
 		this.drawPalette();
 
 		const ws = this.app.workspace;
-		this.registerEvent(
-			ws.on("active-leaf-change", (leaf) => {
-				const v = leaf?.view;
-				if (v instanceof MarkdownView) this.target = v;
-				this.refreshSoon();
-			}),
-		);
+		this.registerEvent(ws.on("active-leaf-change", () => this.refreshSoon()));
 		this.registerEvent(ws.on("editor-change", () => this.refreshSoon()));
 		this.registerEvent(ws.on("file-open", () => this.refreshSoon()));
 		this.registerEvent(ws.on("layout-change", () => this.refreshSoon()));
-		this.registerDomEvent(activeDocument, "selectionchange", () => this.refreshSoon());
+		// the cursor moves in the editor of any window, a popout's included
+		forEachWindow(this, this.app, (doc) => this.registerDomEvent(doc, "selectionchange", () => this.refreshSoon()));
 		this.register(() => {
 			if (this.timer !== null) window.clearTimeout(this.timer);
 		});
@@ -141,15 +137,12 @@ export class EditorPanel extends ItemView {
 
 	// ---------------------------------------------------------------- what the panel is looking at
 
-	/** The Markdown view the panel writes to, if it is still open. */
+	/**
+	 * The Markdown view the panel writes to, found in the workspace each time (the panel keeps no view of its own, so one restored from
+	 * the saved layout, or left over from a pane that has been closed, never holds on to anything Obsidian has let go).
+	 */
 	private live(): MarkdownView | null {
-		const t = this.target;
-		if (!t) return null;
-		let found = false;
-		this.app.workspace.iterateAllLeaves((l) => {
-			if (l.view === t) found = true;
-		});
-		return found && t.file ? t : null;
+		return this.side.markdownView();
 	}
 
 	private refreshSoon(): void {
@@ -172,58 +165,69 @@ export class EditorPanel extends ItemView {
 		const view = this.live();
 		const ed = view?.editor;
 		const doc = ed?.getValue() ?? "";
-		const booklet = !!view && isBookletText(doc);
 
 		if (!view || !ed) {
-			this.holds.setText(this.side.lastBooklet ? "A booklet is open as a reading page. Its Markdown is where blocks are placed." : "Open a booklet note in the editor to place blocks.");
+			const src = this.side.bookletOpen();
+			this.holds.setText(src ? "A booklet is open as a reading page. Its Markdown is where blocks are placed." : "Open a booklet note in the editor to place blocks.");
 			this.about.empty();
-			const src = this.side.lastBooklet;
-			if (src?.file) {
+			if (src) {
 				const b = this.about.createEl("button", { text: "Open this note's Markdown", attr: { "aria-label": "Open this note's Markdown beside the page, to place blocks in it" } });
 				b.addEventListener("click", () => void this.side.openMarkdownOf(src));
 			}
+			this.frontAvailable(true);
 			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
 			return;
 		}
 		this.about.empty();
 		this.about.setText(`Note: ${view.file?.basename ?? ""}`);
-		if (!booklet) {
+
+		// the note is read once for this refresh: the reader's reading and the scan, and all that is drawn comes from them
+		const a = analyse(doc);
+		const cursor = ed.getCursor();
+		const m = panelModel(a, cursor.line);
+		this.frontAvailable(!a.scan.hasFrontMatter);
+		if (!m.booklet) {
 			this.holds.setText("This note is not a booklet: it has no `booklet:` line in its properties. The front matter block under Structure makes a note with no properties one.");
 			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
 			return;
 		}
-		this.holds.setText(holdingsLine(holdings(doc)));
+		this.holds.setText(m.holds);
 
-		const cursor = ed.getCursor();
-		const lines = doc.split("\n");
-		const text = lines[cursor.line] ?? "";
+		const text = a.text.split("\n")[cursor.line] ?? "";
 
 		// This line
-		const model = settingsModel(text);
 		this.line.show(true);
-		this.line.update(`${cursor.line}\u0000${text}`, (b) => this.drawSettings(b, model, cursor.line, text));
+		this.line.update(`${cursor.line}\u0000${m.line.held ?? ""}\u0000${text}`, (b) => this.drawSettings(b, m.line, cursor.line, text));
 
 		// Options
-		const opts = optionsAt(doc, cursor.line);
-		this.options.show(!!opts);
-		this.options.update(JSON.stringify(opts), (b) => (opts ? this.drawOptions(b, opts, cursor.line) : undefined));
+		this.options.show(!!m.options);
+		this.options.update(JSON.stringify(m.options), (b) => (m.options ? this.drawOptions(b, m.options, cursor.line) : undefined));
 
 		// Data fields
-		const block = fieldBlockAt(doc, cursor.line);
-		this.fields.show(!!block);
-		this.fields.update(JSON.stringify(block), (b) => (block ? this.drawFields(b, block, cursor.line) : undefined));
+		this.fields.show(!!m.block);
+		this.fields.update(JSON.stringify(m.block), (b) => (m.block ? this.drawFields(b, m.block, cursor.line) : undefined));
 
 		// Outline and problems
-		const flat = flatten(outline(doc));
 		this.tree.show(true);
-		this.tree.update(flat.map((f) => `${f.depth}|${f.node.line}|${nodeText(f.node)}`).join("\n"), (b) => this.drawOutline(b, flat));
-		const problems = problemsOf(doc);
+		this.tree.update(m.outline.map((f) => `${f.depth}|${f.node.line}|${nodeText(f.node)}`).join("\n"), (b) => this.drawOutline(b, m.outline));
 		this.problems.show(true);
 		this.problems.update(
-			JSON.stringify(problems),
-			(b) => this.drawProblems(b, problems),
-			problems.length ? `Problems (${problems.length})` : "Problems",
+			JSON.stringify(m.problems),
+			(b) => this.drawProblems(b, m.problems),
+			m.problems.length ? `Problems (${m.problems.length})` : "Problems",
 		);
+	}
+
+	/** The front matter block goes at the top of a note that has no properties: with properties it stays in the palette, unavailable, and says why. */
+	private frontAvailable(on: boolean): void {
+		const b = this.frontButton;
+		if (!b) return;
+		b.toggleClass("is-disabled", !on);
+		if (on) b.removeAttribute("aria-disabled");
+		else b.setAttribute("aria-disabled", "true");
+		b.title = on ? "" : HAS_FRONT;
+		b.setAttribute("aria-label", on ? "Add Front matter (structure)" : `Add Front matter (structure). Not available: ${HAS_FRONT}`);
+		this.frontWhy?.toggleClass("booklet-blocks-hidden", on);
 	}
 
 	// ---------------------------------------------------------------- add a block
@@ -236,20 +240,27 @@ export class EditorPanel extends ItemView {
 			const group = b.createDiv({ cls: "booklet-blocks-group", attr: { role: "group", "aria-label": g.title } });
 			group.createDiv({ cls: "booklet-blocks-group-title", text: g.title });
 			const row = group.createDiv({ cls: "booklet-blocks-pieces" });
-			for (const p of piecesOf(g.id)) this.drawPiece(row, p, g.title);
+			for (const p of piecesOf(g.id)) {
+				const btn = this.drawPiece(row, p, g.title);
+				if (p.front) {
+					this.frontButton = btn;
+					this.frontWhy = group.createDiv({ cls: "booklet-blocks-hint booklet-blocks-hidden", text: HAS_FRONT });
+				}
+			}
 		}
 	}
 
-	private drawPiece(into: HTMLElement, p: Piece, groupTitle: string): void {
+	private drawPiece(into: HTMLElement, p: Piece, groupTitle: string): HTMLButtonElement {
 		const b = into.createEl("button", { cls: "booklet-blocks-piece", text: p.label, attr: { type: "button", "aria-label": `Add ${p.label} (${groupTitle.toLowerCase()})` } });
 		b.addEventListener("click", () => this.place(p));
-		if (Platform.isMobile) return;
+		if (Platform.isMobile) return b;
 		b.draggable = true;
 		b.addEventListener("dragstart", (e) => {
 			if (!e.dataTransfer) return;
 			e.dataTransfer.setData(PIECE_MIME, p.file);
 			e.dataTransfer.effectAllowed = "copy";
 		});
+		return b;
 	}
 
 	private place(p: Piece): void {
@@ -259,18 +270,9 @@ export class EditorPanel extends ItemView {
 			new Notice("Open a booklet note in the editor first.");
 			return;
 		}
-		const before = ed.getValue();
-		// a note that is not a booklet takes one piece, its front matter, and only when it has no properties yet
-		if (!isBookletText(before) && !(p.front && !before.startsWith("---"))) {
-			new Notice(p.front ? "This note has properties already. Add `booklet:` with the format version to them." : "This note is not a booklet: it has no `booklet:` line in its properties.");
-			return;
-		}
-		const plan = planInsert(before, ed.getCursor(), p.text);
-		void this.write(ed, before, applyPlan(before, plan)).then((done) => {
-			if (!done) return;
+		void placePiece(this.app, ed, p, null).then((plan) => {
+			if (!plan) return;
 			this.app.workspace.setActiveLeaf(view.leaf, { focus: true });
-			ed.setSelection(plan.anchor, plan.head);
-			ed.scrollIntoView({ from: plan.anchor, to: plan.head }, true);
 			ed.focus();
 			if (Platform.isMobile) this.app.workspace.rightSplit.collapse();
 			this.refreshSoon();
@@ -279,18 +281,23 @@ export class EditorPanel extends ItemView {
 
 	// ---------------------------------------------------------------- the line under the cursor
 
-	private drawSettings(b: HTMLElement, m: SettingsModel | null, line: number, text: string): void {
+	private drawSettings(b: HTMLElement, v: LineView, line: number, text: string): void {
+		const m: SettingsModel | null = v.model;
+		if (v.held) {
+			b.createEl("p", { cls: "booklet-blocks-hint", text: v.why });
+			return;
+		}
 		if (!m) {
 			b.createEl("p", { cls: "booklet-blocks-hint", text: "Put the cursor on a Booklet line (one that starts `> [!`) to change its settings." });
 			return;
 		}
 		b.createEl("p", { cls: "booklet-blocks-kind", text: `A ${m.kind} line, line ${line + 1}` });
 		if (!m.known) b.createEl("p", { cls: "booklet-blocks-hint", text: "The linter does not know this kind, so there is nothing to set." });
-		if (m.takesId) this.textRow(b, "Id", m.id ?? "", `id-${line}`, (v) => this.edit(line, text, (p) => setId(p, v.trim())));
-		for (const f of m.flags) this.switchRow(b, f.name, f.on, `flag-${f.name}`, (on) => this.edit(line, text, (p) => setFlag(p, f.name, on)));
-		for (const v of m.values) {
-			if (v.name === "icon") this.iconRow(b, v.value, line, text);
-			else this.textRow(b, v.name, v.value, `field-${v.name}`, (val) => this.edit(line, text, (p) => setValue(p, v.name, val.trim())), /^(min|max|step)$/.test(v.name));
+		if (m.takesId) this.textRow(b, "Id", m.id ?? "", `id-${line}`, (val) => this.edit(line, text, (doc) => renameId(doc, line, val.trim())));
+		for (const f of m.flags) this.switchRow(b, f.name, f.on, `flag-${f.name}`, (on) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setFlag(p, f.name, on))));
+		for (const k of m.values) {
+			if (k.name === "icon") this.iconRow(b, k.value, line, text);
+			else this.textRow(b, k.name, k.value, `field-${k.name}`, (val) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setValue(p, k.name, val.trim()))), /^(min|max|step)$/.test(k.name));
 		}
 		if (m.stray.length) {
 			b.createEl("p", { cls: "booklet-blocks-hint", text: "Words this kind does not take:" });
@@ -298,7 +305,7 @@ export class EditorPanel extends ItemView {
 				const row = b.createDiv({ cls: "booklet-blocks-row" });
 				row.createEl("code", { text: s.text });
 				const rm = row.createEl("button", { text: "Remove", attr: { type: "button", "aria-label": `Remove the word ${s.text} from this line`, "data-key": `stray-${s.index}` } });
-				rm.addEventListener("click", () => this.edit(line, text, (p) => removeWord(p, s.index)));
+				rm.addEventListener("click", () => this.edit(line, text, (doc) => changeLine(doc, line, (p) => removeWord(p, s.index))));
 			}
 		}
 		if (!m.any) b.createEl("p", { cls: "booklet-blocks-hint", text: `A ${m.kind} line has no id, switches or fields.` });
@@ -329,17 +336,17 @@ export class EditorPanel extends ItemView {
 		row.createEl("label", { text: "Icon", attr: { for: id } });
 		const input = row.createEl("input", { type: "text", attr: { id, "data-key": "field-icon" } });
 		input.value = value;
-		input.addEventListener("change", () => this.edit(line, text, (p) => setValue(p, "icon", input.value.trim())));
+		input.addEventListener("change", () => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setValue(p, "icon", input.value.trim()))));
 		const pick = row.createEl("button", { text: "Choose", attr: { type: "button", "aria-label": "Choose an icon from the list", "data-key": "pick-icon" } });
 		pick.addEventListener("click", () => {
 			void pickIcon(this.app, value).then((icon) => {
-				if (icon !== null) this.edit(line, text, (p) => setValue(p, "icon", icon));
+				if (icon !== null) this.edit(line, text, (doc) => changeLine(doc, line, (p) => setValue(p, "icon", icon)));
 			});
 		});
 	}
 
 	/** Change the line the panel drew its controls from: only if the note still has that line there. */
-	private edit(line: number, shown: string, edit: (p: ParsedLine) => Edit): void {
+	private edit(line: number, shown: string, make: (doc: string) => { text: string } | { error: string }): void {
 		const ed = this.live()?.editor;
 		if (!ed) return;
 		const before = ed.getValue();
@@ -349,7 +356,7 @@ export class EditorPanel extends ItemView {
 			this.refresh();
 			return;
 		}
-		const r = changeLine(before, line, edit);
+		const r = make(before);
 		if ("error" in r) {
 			new Notice(r.error);
 			this.line.forget();
@@ -420,21 +427,9 @@ export class EditorPanel extends ItemView {
 
 	// ---------------------------------------------------------------- the one way the panel writes
 
-	/**
-	 * Make the note `after`, replacing only the bytes that differ. A change that would detach kept entries, saved answers or rows asks
-	 * first and names how many it touches; Cancel leaves the note as it is. Returns whether the note was changed.
-	 */
-	private async write(ed: Editor, before: string, after: string): Promise<boolean> {
-		const c = minimalChange(before, after);
-		if (!c) return true;
-		const impacts = impactOf(before, after);
-		if (impacts.length && !(await askToChange(this.app, impacts))) return false;
-		if (ed.getValue() !== before) {
-			new Notice("The note changed while the question was open. Nothing was changed.");
-			return false;
-		}
-		ed.replaceRange(c.text, ed.offsetToPos(c.from), ed.offsetToPos(c.to));
-		return true;
+	/** Make the note `after` (editor-write.ts: only the bytes that differ, and the question first when it would detach kept data). */
+	private write(ed: Editor, before: string, after: string): Promise<boolean> {
+		return writeNote(this.app, ed, before, after);
 	}
 
 	// ---------------------------------------------------------------- outline and problems
