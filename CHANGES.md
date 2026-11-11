@@ -1,0 +1,8 @@
+# Changes
+
+This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
+
+## Unreleased
+
+- **A data block written in the note is not written past 5 MB.** SPEC section 5 ("What stops it") says the data is left alone when the changed file would be larger than a reader reads (5 MB); for data written in the booklet, the changed file is the booklet itself, measured whole in bytes (UTF-8, a byte-order mark counted) after the change. The plugin applied that limit only to data files. An edit, an added row or a removed row that would make the note larger than 5 MB is now kept as an entry but not written into the block, and the notice says so: "change kept, but not written to the data block, because the booklet would be too big to read (the limit is 5 MB)", or, for a row, "the row was kept but not added to the data block. That would make the booklet too big to read (the limit is 5 MB), so it was not changed." A change that changes nothing is not held to it. (`core/apply.ts` `applyInFence`, `view.ts`.)
+- **Test cases shared with the browser reader.** `test/apply-vectors.json` and `test/pending-vectors.json` are copies of the Booklet repository's files of the same names, made by running this plugin's core; `test/shared-row-cases.test.mjs` runs every case against the plugin. See the README, "Shared test cases". `test/lone-cr.test.mjs` pins that a carriage return alone ends no line (front matter included), as in the renderer.

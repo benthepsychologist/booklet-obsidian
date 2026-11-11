@@ -663,6 +663,46 @@ test("a write that would take a data file past 5 MB writes nothing and says so",
 	v.close();
 });
 
+/** The garden note with a pad in its first row, so that the whole note is `bytes` long in UTF-8 (the note, not the block: SPEC section 5, "What stops it"). */
+function paddedNote(bytes) {
+	const make = (pad) => note({ data: { ...DATA, rows: [{ ...DATA.rows[0], pad }, DATA.rows[1]] } });
+	const at = Buffer.byteLength(make(""), "utf8");
+	return make("x".repeat(bytes - at));
+}
+
+test("a block in the note: an add that would take the whole note past 5 MB writes nothing, keeps the entry, and the notice says the booklet would be too big", async () => {
+	const MAX = 5 * 1024 * 1024;
+	const text = paddedNote(MAX - 30);
+	assert.equal(Buffer.byteLength(text, "utf8"), MAX - 30);
+	const v = await garden(text);
+	await addMulch(v);
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-1", "j-4"], "the block is as it was");
+	assert.deepEqual(said(), ["Booklet: the row was kept but not added to the data block. That would make the booklet too big to read (the limit is 5 MB), so it was not changed."]);
+	v.close();
+});
+
+test("a block in the note: a removal that would leave the whole note past 5 MB is not written either, and says the booklet would be too big", async () => {
+	const MAX = 5 * 1024 * 1024;
+	const v = await garden(paddedNote(MAX - 30));
+	click(v.q().querySelector('[data-booklet-remove="j-4"] .booklet-row-remove-open'));
+	click(v.q().querySelector(".booklet-row-remove-yes"));
+	await v.after();
+	assert.equal(v.kept().length, 1);
+	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-1", "j-4"]);
+	assert.deepEqual(said(), ["Booklet: the removal was kept, but no row was taken out of the data block. That would make the booklet too big to read (the limit is 5 MB), so it was not changed."]);
+	v.close();
+});
+
+test("a block in the note: a note with room to spare takes the add (the limit is the note's, not the block's)", async () => {
+	const MAX = 5 * 1024 * 1024;
+	const v = await garden(paddedNote(MAX - 4000));
+	await addMulch(v);
+	assert.deepEqual(blockRows(v).map((r) => r.id), ["j-1", "j-4", "j-5"], "written");
+	assert.deepEqual(said(), []);
+	v.close();
+});
+
 test("a data block the plugin cannot write (inside a callout) draws no Add, no Remove, and no edit boxes", async () => {
 	const inCallout = note().replace(/```booklet data\n(.*)\n```\n\^jobs/, (_m, json) => `> [!group] Hid\n> \`\`\`booklet data\n> ${json}\n> \`\`\`\n> ^jobs`);
 	assert.notEqual(inCallout, note(), "the block is in a callout");
