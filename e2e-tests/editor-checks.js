@@ -1,6 +1,6 @@
 // The editing panel ("Booklet blocks") and editor mode, in the real Obsidian, on a scratch vault copy.
 //
-//   PLAYWRIGHT=<node_modules> node editor-checks.js --obsidian <the obsidian binary> --out <folder> [--only desktop,guards,off,phone]
+//   PLAYWRIGHT=<node_modules> node editor-checks.js --obsidian <the obsidian binary> --out <folder> [--only desktop,guards,review,round2,off,phone]
 //                                                   [--plugin <folder with main.js, manifest.json, styles.css>] [--pieces <regex>]
 // --plugin names the plugin build to put in the vault (the repository root, as built by `npm run build`, by default): a build without the
 // panel fails the first checks, which is how the script is shown to test something.
@@ -16,6 +16,12 @@
 //             offered on, the records section; a blank line inside a fence, a data block or a comment, or between a question and its list,
 //             takes a piece after the block; an id rename that would make a duplicate is refused with its reason and the note unchanged;
 //             the front matter piece goes at the top of a note with no properties, and is unavailable, with its reason, in one that has them
+//   round2    the second review round, in the real editor: on a booklet the reader refuses, an id rename from the panel asks "The reader
+//             can't open this booklet right now ..." (Cancel leaves the file's bytes alone) and a flag change does not ask; with a note
+//             open in two panes and one of them moved to another note (by openFile, and by openLinkText) a placed piece goes into the
+//             note that pane now shows, and a folder rename does not lose the note (whether vault.on("rename") fired for the note inside
+//             the folder is logged as INFO); a `<!--` block with a blank line in it and a `> [!group]` inside a code fence take a piece
+//             after them, the hidden bytes unchanged and the note linting clean
 //   phone     Obsidian's phone mode in a 390 px window: editor mode from the command, a piece placed by a tap, the note linted
 // Screenshots go to <out>/shots/. Prints PASS/FAIL lines and exits 1 on any FAIL.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
@@ -500,6 +506,145 @@ async function review(o, vault) {
   await shot(o, "review-front-matter");
 }
 
+async function round2(o, vault) {
+  const sha = f => require("crypto").createHash("sha256").update(fs.readFileSync(path.join(vault, f))).digest("hex");
+  const create = (rel, text) => o.evaluate(async ({ rel, text }) => {
+    const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : null;
+    if (dir && !app.vault.getAbstractFileByPath(dir)) await app.vault.createFolder(dir);
+    const f = await app.vault.create(rel, text);
+    await new Promise(r => { const t = setInterval(() => { const c = app.metadataCache.getFileCache(f); if (c && c.frontmatter) { clearInterval(t); r(); } }, 50); setTimeout(r, 6000); });
+    return f.path;
+  }, { rel, text });
+  const notePiece = PIECES.find(f => f.file === "Reading - note.md");
+  const lintFresh = (before, after) => { const b = lint(before), a = lint(after); return fresh(b.errors.concat(b.warnings), a.errors.concat(a.warnings)); };
+  const BLIND = "The reader can't open this booklet right now, so the panel can't count what this change touches. Change it anyway?";
+  const askText = async () => { await o.page.waitForSelector(".booklet-blocks-ask", { timeout: 5000 }); return (await the(o, ".booklet-blocks-ask").innerText()).replace(/\s+/g, " "); };
+  const answer = async word => { await the(o, ".booklet-blocks-ask button", { hasText: new RegExp("^" + word + "$") }).click(); await o.page.waitForFunction(() => !document.querySelector(".booklet-blocks-ask"), null, { timeout: 4000 }); await sleep(150); };
+  /** The text a Markdown pane shows for a note, and a pane's cursor, by the note's path (a pane is found in the workspace each time). */
+  const textOf = rel => o.evaluate(rel => { const l = app.workspace.getLeavesOfType("markdown").find(l => l.view.file && l.view.file.path === rel); return l ? l.view.editor.getValue() : null; }, rel);
+  const cursorIn = (rel, line) => o.evaluate(({ rel, line }) => { const l = app.workspace.getLeavesOfType("markdown").find(l => l.view.file && l.view.file.path === rel); l.view.editor.setCursor({ line, ch: 0 }); }, { rel, line });
+  const savedAs = async (rel, want, ms = 6000) => { const end = Date.now() + ms; while (Date.now() < end) { if (fs.readFileSync(path.join(vault, rel), "utf8") === want) return true; await sleep(150); } return false; };
+
+  // -- D. a booklet the reader refuses
+  const REFUSED = HELD.replace("> [!module|mood end]\n", "");
+  await create("Refused.booklet.md", REFUSED);
+  ok(REFUSED !== HELD, "the refused booklet is Held.booklet.md with its module never closed");
+  const s0 = sha("Refused.booklet.md");
+  await openMarkdownOnly(o, "Refused.booklet.md");
+  await turnOn(o);
+  await sleep(500);
+  ok(/can't be opened|cannot be opened|can't open|refus/i.test(await the(o, ".booklet-blocks").innerText()), "the panel says at the top that the reader refuses this booklet");
+  await setCursor(o, lineOf(REFUSED, "[!text|why]")); await waitLine(o, "text");
+  const idBox = () => the(o, ".booklet-blocks-line input[data-key^='id-']");
+  await idBox().fill("reason"); await idBox().press("Enter");
+  const t = await askText();
+  ok(t.includes(BLIND), "an id rename on a booklet the reader refuses asks the blind question: " + t);
+  eq(JSON.stringify(await the(o, ".booklet-blocks-ask button").allInnerTexts()), JSON.stringify(["Change", "Cancel"]), "...with Change and Cancel");
+  eq(await o.evaluate(() => document.activeElement && document.activeElement.textContent), "Cancel", "...and opens on Cancel");
+  await answer("Cancel");
+  eq(await textOf("Refused.booklet.md"), REFUSED, "Cancel leaves the note as it was");
+  await sleep(1500);
+  eq(sha("Refused.booklet.md"), s0, "...and the file's sha on disk is unchanged");
+  await waitLine(o, "text");
+  await setCursor(o, lineOf(REFUSED, "[!choice|feeling]")); await waitLine(o, "choice");
+  await the(o, ".booklet-blocks-line input[data-key='flag-open']").check();
+  await sleep(500);
+  eq(await the(o, ".booklet-blocks-ask").count(), 0, "a flag change on the same booklet does not ask");
+  const flagged = await textOf("Refused.booklet.md");
+  eq(JSON.stringify(diffLines(REFUSED, flagged)), JSON.stringify([lineOf(REFUSED, "[!choice|feeling]")]), "...and changes only that line");
+  await the(o, ".booklet-blocks-line input[data-key='flag-open']").uncheck(); await sleep(400);
+  await setCursor(o, lineOf(REFUSED, "[!text|why]")); await waitLine(o, "text");
+  await idBox().fill("reason"); await idBox().press("Enter");
+  await askText(); await answer("Change");
+  eq(JSON.stringify(diffLines(REFUSED, await textOf("Refused.booklet.md"))), JSON.stringify([lineOf(REFUSED, "[!text|why]")]), "Change on the question writes the one line");
+
+  // -- E. the note the panel writes to follows the pane
+  const A = FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\nNote A.\n\n> [!text|text-1] First question\n\n> [!module|module-1 end]\n";
+  const B = A.replace("Note A.", "Note B.");
+  await create("A.booklet.md", A);
+  await create("B.booklet.md", B);
+  await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet"))) l.detach(); });
+  for (const how of ["openFile", "openLinkText"]) {
+    const target = how === "openFile" ? "B.booklet.md" : "A.booklet.md", from = how === "openFile" ? "A.booklet.md" : "B.booklet.md";
+    const [fromText, targetText] = how === "openFile" ? [A, B] : [B, A];
+    // the note `from` in two panes, in Markdown
+    await o.evaluate(async from => {
+      for (const l of app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet"))) l.detach();
+      const f = app.vault.getAbstractFileByPath(from);
+      const one = app.workspace.getLeaf(), two = app.workspace.getLeaf("split", "vertical");
+      for (const l of [one, two]) { await l.openFile(f); if (l.view.getViewType() !== "markdown") await app.plugins.plugins.booklet.setMode(l, "markdown"); }
+      window.__pane2 = two;
+      app.workspace.setActiveLeaf(one, { focus: true });
+      await new Promise(r => setTimeout(r, 400));
+      app.workspace.setActiveLeaf(two, { focus: true });
+      await new Promise(r => setTimeout(r, 400));
+    }, from);
+    const shaFrom = sha(from);
+    // pane 2 moves to the other note
+    await o.evaluate(async ({ how, target }) => {
+      const two = window.__pane2;
+      if (how === "openFile") await two.openFile(app.vault.getAbstractFileByPath(target));
+      else await app.workspace.openLinkText(target, "", false);
+      await new Promise(r => setTimeout(r, 500));
+      const view = app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet")).find(l => l.view.file && l.view.file.path === target);
+      if (view && view.view.getViewType() !== "markdown") await app.plugins.plugins.booklet.setMode(view, "markdown");
+      await new Promise(r => setTimeout(r, 500));
+    }, { how, target });
+    // no click on a pane after the move: the panel has only what Obsidian told it
+    await cursorIn(target, lineOf(targetText, "[!text|text-1]"));
+    await pieceButton(o, notePiece).click(); await sleep(400);
+    const nowTarget = await textOf(target);
+    ok(nowTarget && nowTarget !== targetText && nowTarget.includes("[!note]"), `[${how}] with the note in two panes and one pane moved to another note, a placed piece goes into the note that pane now shows (${target})`);
+    ok(await textOf(from) === fromText, `[${how}] ...and the note in the other pane (${from}) is as it was in the editor`);
+    await sleep(1500);
+    eq(sha(from), shaFrom, `[${how}] ...and ${from} on disk has the same sha`);
+    ok(await savedAs(target, nowTarget), `[${how}] ...and ${target} on disk is what the editor shows`);
+    eq(lintFresh(targetText, nowTarget).join("; "), "", `[${how}] ...and it lints with nothing new`);
+    // put the notes back for the next round
+    await o.evaluate(async ({ rel, text }) => { await app.vault.modify(app.vault.getAbstractFileByPath(rel), text); }, { rel: target, text: targetText });
+    await sleep(400);
+  }
+
+  // a folder renamed with the open note inside it
+  const C = A.replace("Note A.", "Note C.");
+  await create("Folder/C.booklet.md", C);
+  await o.evaluate(async () => {
+    for (const l of app.workspace.getLeavesOfType("markdown").concat(app.workspace.getLeavesOfType("booklet"))) l.detach();
+    window.__renames = [];
+    app.vault.on("rename", (f, old) => window.__renames.push([f.path, old]));
+    const leaf = app.workspace.getLeaf();
+    await leaf.openFile(app.vault.getAbstractFileByPath("Folder/C.booklet.md"));
+    if (leaf.view.getViewType() !== "markdown") await app.plugins.plugins.booklet.setMode(leaf, "markdown");
+    app.workspace.setActiveLeaf(leaf, { focus: true });
+    await new Promise(r => setTimeout(r, 500));
+  });
+  await o.evaluate(async () => { await app.fileManager.renameFile(app.vault.getAbstractFileByPath("Folder"), "Folder2"); await new Promise(r => setTimeout(r, 800)); });
+  const renames = await o.evaluate(() => window.__renames);
+  console.log("INFO  vault.on(\"rename\") fired " + renames.length + " time(s) for the folder rename: " + JSON.stringify(renames) + (renames.some(r => r[1] === "Folder/C.booklet.md") ? " (including the note inside the folder)" : " (not for the note inside the folder: only the folder)"));
+  await cursorIn("Folder2/C.booklet.md", lineOf(C, "[!text|text-1]"));
+  await pieceButton(o, notePiece).click(); await sleep(400);
+  const renamedText = await textOf("Folder2/C.booklet.md");
+  ok(renamedText && renamedText !== C && renamedText.includes("[!note]"), "after the folder holding the open note is renamed, a placed piece changes the renamed note");
+  ok(await savedAs("Folder2/C.booklet.md", renamedText), "...and the renamed file on disk is what the editor shows");
+  eq(fs.existsSync(path.join(vault, "Folder")), false, "...and no note was written under the old folder name");
+
+  // -- A+B. what holds a line, in the real editor
+  await openMarkdownOnly(o, "Blank.booklet.md");
+  const cases = [
+    ["a `<!--` block with a blank line inside, the cursor on the line before the blank", FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\n<!--\nold idea\n\n> [!text|zz] X\n-->\n\n> [!text|text-1] First question\n\n> [!module|module-1 end]\n", "old idea", /<!--[\s\S]*?-->/],
+    ["a `> [!group]` written inside a code fence, the cursor on its body", FRONT + "> [!module|module-1] M\n\n> [!activity|activity-1] An activity\n\nA group looks like this:\n\n```md\n> [!group] Example\n> body one\n> body two\n```\n\nAfter.\n\n> [!module|module-1 end]\n", "> body two", /```md[\s\S]*?```/],
+  ];
+  for (const [what, text, needle, hidden] of cases) {
+    await setDoc(o, text, lineOf(text, needle)); await sleep(300);
+    await pieceButton(o, notePiece).click(); await sleep(300);
+    const after = await doc(o);
+    const hold = hidden.exec(text)[0];
+    ok(after.includes(hold), `${what}: the hidden block's bytes are unchanged`);
+    ok(after.indexOf("[!note]") > after.indexOf(hold) + hold.length - 1 && after.includes("[!note]"), `${what}: the piece goes after the block, not into it`);
+    eq(lintFresh(text, after).join("; "), "", `${what}: the note lints with nothing new`);
+  }
+}
+
 async function off(o, vault) {
   const sha = f => require("crypto").createHash("sha256").update(fs.readFileSync(path.join(vault, f))).digest("hex");
   const s0 = sha("Held.booklet.md");
@@ -568,6 +713,7 @@ async function phone(o, vault) {
   await run("desktop", desktop);
   await run("guards", guards);
   await run("review", review);
+  await run("round2", round2);
   await run("off", off);
   await run("phone", phone);
   console.log(`\n${passes} passed, ${fails} failed. Screenshots: ${SHOTS}`);
