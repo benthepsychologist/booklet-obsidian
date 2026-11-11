@@ -222,7 +222,7 @@ test("[10] the panel's model is made from one reading: a reading handed in is th
 	const real = core.analyse(HELD);
 	// a made-up reading that differs from the text in what it holds: if the model read the text again it would not show this
 	const fakeBook = { ...real.book, ok: false, refusal: "A sentinel refusal." };
-	const fakeScan = { ...real.scan, regions: [], items: [], lines: real.scan.lines };
+	const fakeScan = { ...real.scan, regions: [], holders: [], items: [], lines: real.scan.lines };
 	const m = core.panelModel({ ...real, book: fakeBook, scan: fakeScan }, 43);
 	assert.match(m.holds, /A sentinel refusal/, "the top line comes from the book it was given");
 	assert.ok(m.problems.some((p) => p.why === "A sentinel refusal."), "the problems come from it too");

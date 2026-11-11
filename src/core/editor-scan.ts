@@ -15,7 +15,7 @@
  * the module's ids, and neither is in `scoped`. Plain TypeScript: nothing here imports Obsidian.
  */
 import { LP, LINTER_NO_ID, LINTER_QUESTIONS } from "./editor-patterns";
-import { bodyEnd, fenceEnd } from "./lines";
+import { bodyEnd, FENCE_OPEN, fenceEnd, visibleLines } from "./lines";
 
 export const SHARED = "\0shared";
 export type Scope = string | null;
@@ -283,6 +283,8 @@ export interface Scan {
 	items: ScanItem[];
 	ids: ScanIds;
 	regions: RecordsRegion[];
+	/** What holds lines of the note: the records section, code fences, comments (see `holdersOf`). */
+	holders: Holder[];
 	stateAt: ScanState[];
 	initialState: ScanState;
 }
@@ -553,7 +555,7 @@ export function scan(text: string): Scan {
 		mark(i, i + 1);
 		i++;
 	}
-	return { lines: original, bodyStart, hasFrontMatter, implicit, items, ids, regions, stateAt, initialState: stateAt[0] ?? st };
+	return { lines: original, bodyStart, hasFrontMatter, implicit, items, ids, regions, holders: holdersOf(original, bodyStart, regions), stateAt, initialState: stateAt[0] ?? st };
 }
 
 /** The state a line inserted before line `at` would be in: the state after the line above it. */
@@ -575,41 +577,60 @@ export function isBookletText(text: string): boolean {
 
 // ---------------------------------------------------------------- what holds a line
 
-/** How many `%%` marks a line has: an odd number opens or closes an Obsidian comment. */
-export const percentMarks = (line: string): number => (line.match(/%%/g) ?? []).length;
+/** The index of the line after a fence's closing line and the `^id` line that follows it (blank lines between them included), if there is one. */
+export function afterFence(lines: readonly string[], close: number): number {
+	let m = close + 1;
+	while (m < lines.length && blank(lines[m])) m++;
+	return m < lines.length && LP.BLOCK_ID.test(at(lines, m).trim()) ? m + 1 : close + 1;
+}
 
 /**
- * The `%%` comments that run over more than one line, each from the line that opens it to the line that closes it (both ends inside;
- * an unclosed one runs to the last line). Fences are skipped, and so are the records regions: a comment that opens a records region is
- * the region's own, not a comment of the note.
+ * A run of lines the booklet's own text is not in: the records section (kept data), a code fence with its `^id`, or a comment of any
+ * kind (`%%`, `<!-- -->`) or a `$$` or `<pre>` block over several lines. `from` is the first line of it (a comment's opening line has
+ * the text before the mark), `inside` the first line that is held, `end` the last. A piece never goes between `from` and `end`.
  */
-export function commentSpans(s: Scan): { start: number; end: number }[] {
-	const out: { start: number; end: number }[] = [];
-	const lines = s.lines;
-	const regionAt = new Map(s.regions.map((r) => [r.start, r]));
-	let i = s.bodyStart;
+export interface Holder {
+	kind: "records" | "fence" | "comment";
+	from: number;
+	inside: number;
+	end: number;
+}
+
+/**
+ * The holders of a list of lines, found as the reader finds them: `visibleLines` (lines.ts) says which lines start inside a comment, a
+ * `<pre>` or a `$$` block, and knows what the panel used to guess at: an inline code span holding `%%`, a mark with no closer after
+ * it (which matches nothing), the other kinds of comment. `skip` marks the lines of the records section (see recordsRegions), which
+ * are not scanned. `from` is the first line read (after the front matter).
+ */
+export function holdersOf(lines: readonly string[], from = 0, regions: readonly RecordsRegion[] = []): Holder[] {
+	const skip = lines.map(() => false);
+	for (const r of regions) for (let k = r.start; k <= r.end && k < skip.length; k++) skip[k] = true;
+	const { hidden } = visibleLines(lines, from, skip);
+	const out: Holder[] = regions.map((r) => ({ kind: "records", from: r.start, inside: r.start, end: Math.min(r.end, lines.length - 1) }));
+	let i = from;
 	while (i < lines.length) {
-		const reg = regionAt.get(i);
-		if (reg) {
-			i = reg.end + 1;
+		if (skip[i]) {
+			i++;
 			continue;
 		}
-		const ln = at(lines, i);
-		const f = LP.FENCE_LINE.exec(ln);
-		if (f) {
-			i = fenceEnd(lines, i, f[1] ?? "") + 1;
-			continue;
-		}
-		if (percentMarks(ln) % 2 === 1) {
-			let j = i + 1;
-			while (j < lines.length && percentMarks(at(lines, j)) % 2 === 0) j++;
-			out.push({ start: i, end: Math.min(j, lines.length - 1) });
+		if (hidden[i]) {
+			let j = i;
+			while (j + 1 < lines.length && hidden[j + 1] && !skip[j + 1]) j++;
+			out.push({ kind: "comment", from: Math.max(from, i - 1), inside: i, end: j });
 			i = j + 1;
+			continue;
+		}
+		const f = FENCE_OPEN.exec(at(lines, i));
+		if (f) {
+			const close = fenceEnd(lines, i, f[1] ?? "");
+			const end = close >= lines.length ? lines.length - 1 : afterFence(lines, close) - 1;
+			out.push({ kind: "fence", from: i, inside: i, end });
+			i = end + 1;
 			continue;
 		}
 		i++;
 	}
-	return out;
+	return out.sort((a, b) => a.from - b.from);
 }
 
 export type HeldBy = "records" | "fence" | "comment";
@@ -619,10 +640,8 @@ export type HeldBy = "records" | "fence" | "comment";
  * what is inside), or a `%%` comment. A Booklet-looking line in any of them is not a line of the booklet.
  */
 export function heldBy(s: Scan, line: number): HeldBy | null {
-	if (s.regions.some((r) => line >= r.start && line <= r.end)) return "records";
-	if (s.items.some((it) => it.type === "fence" && it.end !== undefined && line >= it.line && line <= it.end)) return "fence";
-	if (commentSpans(s).some((c) => line >= c.start && line <= c.end)) return "comment";
-	return null;
+	const h = s.holders.find((x) => line >= x.inside && line <= x.end);
+	return h ? h.kind : null;
 }
 
 /** Why the panel offers nothing for a line that something holds, in a sentence. */

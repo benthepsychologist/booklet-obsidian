@@ -25,8 +25,8 @@
  */
 import { instantiate } from "./editor-ids";
 import { LP } from "./editor-patterns";
-import { bodyEnd, fenceEnd } from "./lines";
-import { claimEnd, percentMarks, scan, stateBefore } from "./editor-scan";
+import { bodyEnd } from "./lines";
+import { claimEnd, holdersOf, scan, stateBefore, type Holder } from "./editor-scan";
 
 const NOT_IN_GROUP = new Set(["module", "activity", "tab", "page", "row", "data", "records"]);
 const at = (lines: readonly string[], i: number): string => lines[i] ?? "";
@@ -53,44 +53,8 @@ export function groupAround(lines: readonly string[], c: number): { head: number
 	return { head: j, end: bodyEnd(lines, j) };
 }
 
-/** The index of the line after a fence's closing line and the `^id` line that follows it (blank lines between them included), if there is one. */
-function afterFence(lines: readonly string[], close: number): number {
-	let m = close + 1;
-	while (m < lines.length && !at(lines, m).trim()) m++;
-	return m < lines.length && LP.BLOCK_ID.test(at(lines, m).trim()) ? m + 1 : close + 1;
-}
-
-/**
- * The index after the fence (with its `^id`) or the `%%` comment that holds line c, whether c is blank or not, or -1 when none does.
- * A comment is any run from a line with an odd number of `%%` marks to the next such line.
- */
-export function holderEnd(lines: readonly string[], c: number): number {
-	let k = 0;
-	while (k < lines.length && k <= c) {
-		const f = LP.FENCE_LINE.exec(at(lines, k));
-		if (f) {
-			const end = afterFence(lines, fenceEnd(lines, k, f[1] ?? ""));
-			if (c < end) return end;
-			k = end;
-			continue;
-		}
-		if (percentMarks(at(lines, k)) % 2 === 1) {
-			let j = k + 1;
-			while (j < lines.length && percentMarks(at(lines, j)) % 2 === 0) j++;
-			const end = Math.min(j + 1, lines.length);
-			if (c < end) return end;
-			k = end;
-			continue;
-		}
-		k++;
-	}
-	return -1;
-}
-
-/** The index after the block that holds line c, among `lines` (one level of the document: the top, or a group's body). */
+/** The index after the block that holds line c, among `lines` (one level of the document: the top, or a group's body). Not for a line a holder holds: `placement` asks the holders first. */
 export function blockEnd(lines: readonly string[], c: number): number {
-	const held = holderEnd(lines, c);
-	if (held >= 0) return held;
 	if (LP.BLOCK_ID.test(at(lines, c).trim())) return c + 1;
 
 	// a Booklet line, or a line one claims (a blank line between a question and its list is the question's)
@@ -120,10 +84,22 @@ export interface Placement {
 	localAt?: number;
 }
 
-/** Where the block goes. `inGroup` is whether the piece may sit in a group. */
-export function placement(lines: readonly string[], c: number, inGroup: boolean): Placement {
+/**
+ * Where the block goes. `inGroup` is whether the piece may sit in a group. `holds` are the holders of `lines` (see `holdersOf`), found
+ * as the reader finds them; what holds line c comes first, in a group's body as at the top, so a piece never lands in a fence, a
+ * comment or a block the reader does not read. A result that would reach into a later holder stops at its first line.
+ */
+export function placement(lines: readonly string[], c: number, inGroup: boolean, holds: readonly Holder[] = holdersOf(lines)): Placement {
 	c = Math.max(0, Math.min(c, lines.length - 1));
-	const g = inGroup ? groupAround(lines, c) : null;
+	const held = holds.find((h) => c >= h.from && c <= h.end);
+	const around = groupAround(lines, c);
+	// what holds the line comes first, unless it lies wholly inside a group's body (the group's own placement, below, then finds it there)
+	if (held && !(around && around.head < held.from && held.end < around.end)) return { at: held.end + 1, depth: 0 };
+	const clamp = (to: number): number => {
+		const h = holds.find((x) => x.from > c && x.from < to);
+		return h ? h.from : to;
+	};
+	const g = inGroup ? around : null;
 	if (g) {
 		// the group's body, read with one `>` less, then placed recursively (a group inside a group)
 		const body = lines.slice(g.head + 1, g.end).map((l) => l.replace(LP.QUOTE, ""));
@@ -132,10 +108,9 @@ export function placement(lines: readonly string[], c: number, inGroup: boolean)
 	}
 	if (inGroup === false) {
 		// a piece that cannot go in a group, with the cursor in one: after the whole group
-		const h = groupAround(lines, c);
-		if (h) return { at: h.end, depth: 0 };
+		if (around) return { at: around.end, depth: 0 };
 	}
-	return { at: blockEnd(lines, c), depth: 0 };
+	return { at: clamp(blockEnd(lines, c)), depth: 0 };
 }
 
 export const quoteLine = (line: string, depth: number): string => (depth === 0 ? line : line === "" ? ">" + " >".repeat(depth - 1) : "> ".repeat(depth) + line);
@@ -187,10 +162,7 @@ export function planInsert(docText: string, cursor: Pos, pieceText: string): Ins
 		// the cursor in the properties: the piece goes after them
 		pl = { at: Math.min(doc.bodyStart, lines.length), depth: 0 };
 	} else {
-		pl = placement(lines, c, fits);
-		// a piece placed above the records section stops at its first line, however far the block reached
-		const reg = doc.regions.find((r) => c < r.start && pl.depth === 0 && pl.at > r.start);
-		if (reg) pl = { at: reg.start, depth: 0 };
+		pl = placement(lines, c, fits, doc.holders);
 	}
 	const state = stateBefore(doc, pl.at);
 	const inst = instantiate(pieceText, doc, state);
