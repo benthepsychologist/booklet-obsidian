@@ -203,7 +203,7 @@ const ROW_REFUSED: Record<"add" | "delete", Partial<Record<ApplyWhy, string>>> =
 		"no write": WHOLE_REFUSAL["no write"],
 	},
 	delete: {
-		changed: "Changed since you drew it.",
+		changed: "Changed since it was shown.",
 		ambiguous: "More than one row has that id.",
 		"no place": "That row stands in no list of rows, so it cannot be taken out.",
 		unreadable: "The data cannot be read as data now.",

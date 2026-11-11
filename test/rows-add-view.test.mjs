@@ -524,7 +524,7 @@ test("a row changed since the reader drew it: the removal is kept, nothing is re
 	assert.equal(v.file(), changed, "nothing was removed");
 	assert.equal(v.kept().length, 1, "the removal is kept");
 	assert.equal(said().length, 1);
-	assert.match(said()[0], /Changed since you drew it\./);
+	assert.match(said()[0], /Changed since it was shown\./);
 	assert.match(v.names().join("|"), /Changed elsewhere · You asked to remove this; it changed since\./, "and says in words that it changed");
 	assert.equal(v.q().querySelector('.booklet-row-state[data-state="changed"]') !== null, true);
 	// the row is there as it is now, so the reader can ask again: the new entry's `was` is the row as it stands, and it is removed
