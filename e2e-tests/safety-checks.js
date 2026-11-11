@@ -263,6 +263,7 @@ ${BAD_DRAFT}
         await K.goTo(o, "activity:/kinds");
         const field = o.page.locator(BOOK + " .booklet-kind-text textarea, " + BOOK + " .booklet-kind-text input").first();
         await field.click();
+        const sourceBytes = fs.statSync(file).size;   // the note as the check's copy of the vault holds it, before anything is typed
         const t0 = Date.now(), times = await typing(o, field);
         const pid = mainPid(o.port);
         const killAt = Date.now() - t0;
@@ -272,6 +273,17 @@ ${BAD_DRAFT}
         const gone = (() => { try { process.kill(pid, 0); return false; } catch (e) { return true; } })();
         const exitedAfter = Date.now() - times[times.length - 1];   // from the last key to the process being gone
         const afterStop = thoughtsOnDisk(file);
+        // The note must come out of the stop whole: its front matter there and no shorter than it was. Obsidian writes a note by truncating it and then
+        // writing it (not atomically), so a stop that lands in that gap (under a millisecond, measured) leaves it empty or cut short; that is said here, in words,
+        // not found as a relaunch that waits 30 s for a booklet that is not there.
+        const note = fs.readFileSync(file);
+        const whole = note.length >= sourceBytes && note.toString("utf8").startsWith("---");
+        c.ok(whole, "(" + label + ") after the stop the note is whole: it starts with its front matter and is not shorter than before (" + note.length + " bytes, was " + sourceBytes + (note.length === 0 ? ": EMPTY, a write the stop cut off between Obsidian's truncating the note and writing it, or one that wrote nothing" : "") + ")");
+        if (!whole) {
+          await o.close();
+          result = { times, killAt, onDisk, afterStop, shown: null, final: thoughtsOnDisk(file), gone, exitedAfter };
+          return;
+        }
         await o.close();
         const o2 = await relaunch(o, "c38-" + label + "-restart");
         let shown = null;
