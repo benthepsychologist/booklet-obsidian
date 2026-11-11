@@ -82,7 +82,11 @@ export interface Placement {
 	depth: number;
 	local?: string[];
 	localAt?: number;
+	/** Why nothing can go here: the cursor is in a code block that never closes (see `UNCLOSED`). */
+	refused?: string;
 }
+
+export const UNCLOSED = "This code block is never closed, so a block placed here would land inside it. Close it first.";
 
 /**
  * Where the block goes. `inGroup` is whether the piece may sit in a group. `holds` are the holders of `lines` (see `holdersOf`), found
@@ -94,7 +98,7 @@ export function placement(lines: readonly string[], c: number, inGroup: boolean,
 	const held = holds.find((h) => c >= h.from && c <= h.end);
 	const around = groupAround(lines, c);
 	// what holds the line comes first, unless it lies wholly inside a group's body (the group's own placement, below, then finds it there)
-	if (held && !(around && around.head < held.from && held.end < around.end)) return { at: held.end + 1, depth: 0 };
+	if (held && !(around && around.head < held.from && held.end < around.end)) return { at: held.end + 1, depth: 0, ...(held.unclosed ? { refused: UNCLOSED } : {}) };
 	const clamp = (to: number): number => {
 		const h = holds.find((x) => x.from > c && x.from < to);
 		return h ? h.from : to;
@@ -104,7 +108,7 @@ export function placement(lines: readonly string[], c: number, inGroup: boolean,
 		// the group's body, read with one `>` less, then placed recursively (a group inside a group)
 		const body = lines.slice(g.head + 1, g.end).map((l) => l.replace(LP.QUOTE, ""));
 		const inner = placement(body, c - g.head - 1, inGroup);
-		return { at: g.head + 1 + inner.at, depth: inner.depth + 1, local: body, localAt: inner.at };
+		return { at: g.head + 1 + inner.at, depth: inner.depth + 1, local: body, localAt: inner.at, ...(inner.refused ? { refused: inner.refused } : {}) };
 	}
 	if (inGroup === false) {
 		// a piece that cannot go in a group, with the cursor in one: after the whole group
@@ -163,6 +167,7 @@ export function planInsert(docText: string, cursor: Pos, pieceText: string): Ins
 		pl = { at: Math.min(doc.bodyStart, lines.length), depth: 0 };
 	} else {
 		pl = placement(lines, c, fits, doc.holders);
+		if (pl.refused) return nothing(pl.refused);
 	}
 	const state = stateBefore(doc, pl.at);
 	const inst = instantiate(pieceText, doc, state);

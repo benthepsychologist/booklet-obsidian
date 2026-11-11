@@ -135,3 +135,44 @@ test("[A] a single-line comment holds nothing: the line after it places and edit
 	assert.equal(scan(doc).holders.length, 0);
 	assert.equal(settingsAt(doc, idx(doc, "[!text|q]")).model.id, "q");
 });
+
+test("[F] a code block that never closes is refused for a click inside it, with the reason, and nothing is written", () => {
+	const doc = FM + "> [!activity|a] A\n\nText.\n\n```md\n> [!text|zz] X\n\nmore\n";
+	const { UNCLOSED } = core;
+	assert.match(UNCLOSED, /never closed/);
+	for (const line of [idx(doc, "```md"), idx(doc, "[!text|zz]"), idx(doc, "more")]) {
+		const plan = planInsert(doc, { line, ch: 0 }, NOTE.text);
+		assert.equal(plan.refused, UNCLOSED, `line ${line}`);
+		assert.equal(applyPlan(doc, plan), doc);
+	}
+	// a click above it still places, and stops above the open fence
+	const above = put(doc, idx(doc, "Text."));
+	assert.equal(above.plan.refused, undefined);
+	assert.ok(above.lines.indexOf("> [!note] Title of the note") < above.lines.indexOf("```md"));
+});
+
+test("[F] a closed code block is not refused, and a code block never closed inside a group is refused too", () => {
+	const closed = FM + "> [!activity|a] A\n\n```md\nx\n```\n\nAfter.\n";
+	assert.equal(planInsert(closed, { line: idx(closed, "x"), ch: 0 }, NOTE.text).refused, undefined);
+	const inGroup = FM + "> [!activity|a] A\n\n> [!group] G\n> ```md\n> open\n> more\n";
+	assert.equal(planInsert(inGroup, { line: idx(inGroup, "> open"), ch: 0 }, NOTE.text).refused, core.UNCLOSED);
+});
+
+test("[G] the panel names what holds a line: a code block, a comment, a math block, preformatted text", () => {
+	const at = (text, needle) => settingsAt(text, text.split("\n").findIndex((l) => l === needle));
+	const wrap = (body) => FM + "> [!activity|a] A\n\n" + body + "\n\n> [!text|q] Q\n";
+	const fence = at(wrap("```md\n> [!text|zz] X\n```"), "> [!text|zz] X");
+	const comment = at(wrap("<!--\nold\n\n> [!text|zz] X\n-->"), "> [!text|zz] X");
+	const percent = at(wrap("%%\nold\n\n> [!text|zz] X\n%%"), "> [!text|zz] X");
+	const math = at(wrap("$$\nx\n\n> [!text|zz] X\n$$"), "> [!text|zz] X");
+	const pre = at(wrap("<pre>\nx\n\n> [!text|zz] X\n</pre>"), "> [!text|zz] X");
+	assert.deepEqual([fence, comment, percent, math, pre].map((v) => v.held), ["fence", "comment", "comment", "math", "pre"]);
+	assert.match(fence.why, /inside a code block/);
+	assert.match(comment.why, /inside a comment/);
+	assert.match(percent.why, /inside a comment/);
+	assert.match(math.why, /inside a math block/);
+	assert.match(pre.why, /inside preformatted text/);
+	// a mark closed on the line before the open one: the open one names the region
+	const mixed = at(wrap("<!-- a --> $$\nx\n\n> [!text|zz] X\n$$"), "> [!text|zz] X");
+	assert.equal(mixed.held, "math");
+});

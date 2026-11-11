@@ -590,10 +590,28 @@ export function afterFence(lines: readonly string[], close: number): number {
  * the text before the mark), `inside` the first line that is held, `end` the last. A piece never goes between `from` and `end`.
  */
 export interface Holder {
-	kind: "records" | "fence" | "comment";
+	kind: "records" | "fence" | "comment" | "math" | "pre";
 	from: number;
 	inside: number;
 	end: number;
+	/** A fence that never closes: it runs to the end of the note, so nothing can be placed in it or after it. */
+	unclosed?: boolean;
+}
+
+/**
+ * What kind of region the opener line of a hidden run opened: a comment (`<!--` or `%%`), a math block (`$$`) or preformatted text
+ * (`<pre>`). The marks closed on the line itself are taken out first; the mark left is the one the run belongs to.
+ */
+function openerKind(line: string): "comment" | "math" | "pre" {
+	let t = line.replace(/`+[^`]*`+/g, "");
+	for (let n = 0; n < 8; n++) {
+		const next = t.replace(/<!--[\s\S]*?-->|%%[\s\S]*?%%|\$\$[\s\S]*?\$\$|<pre[\s>][\s\S]*?<\/pre>/gi, "");
+		if (next === t) break;
+		t = next;
+	}
+	const m = /<!--|%%|<pre[\s>]|\$\$/i.exec(t);
+	const mark = (m?.[0] ?? "").toLowerCase();
+	return mark === "$$" ? "math" : mark.startsWith("<pre") ? "pre" : "comment";
 }
 
 /**
@@ -616,7 +634,7 @@ export function holdersOf(lines: readonly string[], from = 0, regions: readonly 
 		if (hidden[i]) {
 			let j = i;
 			while (j + 1 < lines.length && hidden[j + 1] && !skip[j + 1]) j++;
-			out.push({ kind: "comment", from: Math.max(from, i - 1), inside: i, end: j });
+			out.push({ kind: openerKind(at(lines, i - 1)), from: Math.max(from, i - 1), inside: i, end: j });
 			i = j + 1;
 			continue;
 		}
@@ -624,7 +642,7 @@ export function holdersOf(lines: readonly string[], from = 0, regions: readonly 
 		if (f) {
 			const close = fenceEnd(lines, i, f[1] ?? "");
 			const end = close >= lines.length ? lines.length - 1 : afterFence(lines, close) - 1;
-			out.push({ kind: "fence", from: i, inside: i, end });
+			out.push({ kind: "fence", from: i, inside: i, end, ...(close >= lines.length ? { unclosed: true } : {}) });
 			i = end + 1;
 			continue;
 		}
@@ -633,21 +651,21 @@ export function holdersOf(lines: readonly string[], from = 0, regions: readonly 
 	return out.sort((a, b) => a.from - b.from);
 }
 
-export type HeldBy = "records" | "fence" | "comment";
+export type HeldBy = Holder["kind"];
 
 /**
  * What holds this line, when it is not the booklet's own text: the records section (kept data), a code fence (its fence lines and
- * what is inside), or a `%%` comment. A Booklet-looking line in any of them is not a line of the booklet.
+ * what is inside), a comment, a math block or preformatted text. A Booklet-looking line in any of them is not a line of the booklet.
  */
 export function heldBy(s: Scan, line: number): HeldBy | null {
 	const h = s.holders.find((x) => line >= x.inside && line <= x.end);
 	return h ? h.kind : null;
 }
 
+const KIND_WORDS: Record<Exclude<HeldBy, "records">, string> = { fence: "a code block", comment: "a comment", math: "a math block", pre: "preformatted text" };
+
 /** Why the panel offers nothing for a line that something holds, in a sentence. */
 export const heldWords = (h: HeldBy): string =>
 	h === "records"
 		? "This line is in the records section. That section is kept data, and the panel doesn't change it."
-		: h === "fence"
-			? "This line is inside a code block, so the reader does not take it for a line of the booklet. The panel doesn't change it."
-			: "This line is inside a comment, so the reader does not take it for a line of the booklet. The panel doesn't change it.";
+		: `This line is inside ${KIND_WORDS[h]}, so the reader does not take it for a line of the booklet. The panel doesn't change it.`;
