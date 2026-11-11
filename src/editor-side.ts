@@ -7,7 +7,7 @@
  * note's Markdown beside it, since that is where blocks are placed. Turning it off closes the panel and nothing else; the notes are
  * as they were. There is no setting that hides it.
  */
-import { MarkdownView, type App, type Component, type Plugin, type TFile, type WorkspaceLeaf } from "obsidian";
+import { MarkdownView, type App, type Component, type Plugin, type TAbstractFile, type TFile, type WorkspaceLeaf } from "obsidian";
 import { EditorMode } from "./core/editor-mode";
 import { allowDrop, dropPiece } from "./editor-drop";
 import { EditorPanel, PANEL_TYPE } from "./editor-view";
@@ -59,11 +59,20 @@ export class EditorSide {
 			} else if (v instanceof BookletView && v.file) this.bookletPath = v.file.path;
 		};
 		p.registerEvent(ws.on("active-leaf-change", follow));
+		// a pane that opens another note (a link, the quick switcher) keeps its leaf, so no leaf change is heard: the file-open is
+		p.registerEvent(ws.on("file-open", () => follow(ws.getMostRecentLeaf())));
 		p.registerEvent(ws.on("layout-change", () => this.sync()));
+		// a note renamed, or a folder renamed: the typings do not say whether Obsidian then also announces each note inside it, so a path
+		// under the old folder name is moved here, and a note announced after that no longer matches its old path (nothing is moved twice)
+		const moved = (path: string | null, file: TAbstractFile, old: string): string | null => {
+			if (path === null) return null;
+			if (path === old) return file.path;
+			return path.startsWith(old + "/") ? file.path + path.slice(old.length) : path;
+		};
 		p.registerEvent(
 			p.app.vault.on("rename", (file, old) => {
-				if (this.markdownPath === old) this.markdownPath = file.path;
-				if (this.bookletPath === old) this.bookletPath = file.path;
+				this.markdownPath = moved(this.markdownPath, file, old);
+				this.bookletPath = moved(this.bookletPath, file, old);
 			}),
 		);
 		ws.onLayoutReady(() => {

@@ -148,3 +148,66 @@ test("[13] the drop's dragover listener is on every window's document", () => {
 	assert.deepEqual(on, ["later", "main", "popout"]);
 	assert.ok(w.dom.every((d) => d.opts?.capture === true));
 });
+
+// ---------------------------------------------------------------- second fix round, item E
+
+test("[E] a pane that opens another note keeps its leaf: the panel follows the file-open", () => {
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	const a = markdown("A.md", w.main);
+	const leaf = w.add(a);
+	w.ws.recent = leaf;
+	w.emit("active-leaf-change", leaf);
+	assert.equal(side.markdownPath, "A.md");
+	// the same leaf now shows B (a link was followed): no active-leaf-change is heard, only the file-open
+	a.file = { path: "B.md" };
+	w.emit("file-open", { path: "B.md" });
+	assert.equal(side.markdownPath, "B.md");
+	assert.equal(side.markdownView(), a);
+});
+
+test("[E] a file-open for a note that is not the pane in focus (an embed, a null file) leaves the panel on the pane in focus", () => {
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	const a = markdown("A.md", w.main);
+	const leaf = w.add(a);
+	w.ws.recent = leaf;
+	w.emit("active-leaf-change", leaf);
+	w.emit("file-open", { path: "Embedded.md" });
+	w.emit("file-open", null);
+	assert.equal(side.markdownPath, "A.md");
+});
+
+test("[E] a file-open on a booklet's reading page follows it as the reading page, and clears nothing else", () => {
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	const page = reading("C.booklet.md", w.main);
+	const leaf = w.add(page);
+	w.ws.recent = leaf;
+	w.emit("file-open", { path: "C.booklet.md" });
+	assert.equal(side.bookletPath, "C.booklet.md");
+});
+
+test("[E] a folder rename moves the paths under it, whether or not each note is announced after it", () => {
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	side.markdownPath = "Course/Week 1/Note.md";
+	side.bookletPath = "Course/Week 1/Note.booklet.md";
+	const renamed = (file, old) => w.vaultHandlers.rename.forEach((fn) => fn(file, old));
+	renamed({ path: "Class/Week 1" }, "Course/Week 1"); // the folder only
+	assert.equal(side.markdownPath, "Class/Week 1/Note.md");
+	assert.equal(side.bookletPath, "Class/Week 1/Note.booklet.md");
+	// each note announced as well, after the folder: its old path no longer matches, nothing moves twice
+	renamed({ path: "Class/Week 1/Note.md" }, "Course/Week 1/Note.md");
+	assert.equal(side.markdownPath, "Class/Week 1/Note.md");
+	// a folder whose name only starts the same is not a parent
+	renamed({ path: "Other" }, "Class/Week 1/No");
+	assert.equal(side.markdownPath, "Class/Week 1/Note.md");
+	// the whole top folder
+	renamed({ path: "Classes" }, "Class");
+	assert.equal(side.markdownPath, "Classes/Week 1/Note.md");
+});
