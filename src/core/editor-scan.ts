@@ -293,6 +293,8 @@ const BEFORE_ALL: ScanState = { section: "content", mod: null, dataScope: null, 
 
 export function scan(text: string): Scan {
 	const original = text.replace(/\r\n/g, "\n").split("\n");
+	// a byte-order mark in front of the first line is not part of it (the reader takes it off too)
+	if ((original[0] ?? "").charCodeAt(0) === 0xfeff) original[0] = (original[0] ?? "").slice(1);
 	const lines = original.slice(); // a group's body is unquoted in place below, as the linter does; `original` is kept
 	const bodyStart = frontMatterEnd(lines);
 	const hasFrontMatter = bodyStart > 0;
@@ -563,7 +565,7 @@ export function stateBefore(s: Scan, at: number): ScanState {
 
 /** Does this text open with front matter that has a `booklet:` line? */
 export function isBookletText(text: string): boolean {
-	const lines = text.replace(/\r\n/g, "\n").split("\n");
+	const lines = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").split("\n");
 	if (!lines.length || (lines[0] ?? "").replace(/\s+$/, "") !== "---") return false;
 	for (const ln of lines.slice(1)) {
 		if (ln.replace(/\s+$/, "") === "---") return false;
@@ -571,3 +573,63 @@ export function isBookletText(text: string): boolean {
 	}
 	return false;
 }
+
+// ---------------------------------------------------------------- what holds a line
+
+/** How many `%%` marks a line has: an odd number opens or closes an Obsidian comment. */
+export const percentMarks = (line: string): number => (line.match(/%%/g) ?? []).length;
+
+/**
+ * The `%%` comments that run over more than one line, each from the line that opens it to the line that closes it (both ends inside;
+ * an unclosed one runs to the last line). Fences are skipped, and so are the records regions: a comment that opens a records region is
+ * the region's own, not a comment of the note.
+ */
+export function commentSpans(s: Scan): { start: number; end: number }[] {
+	const out: { start: number; end: number }[] = [];
+	const lines = s.lines;
+	const regionAt = new Map(s.regions.map((r) => [r.start, r]));
+	let i = s.bodyStart;
+	while (i < lines.length) {
+		const reg = regionAt.get(i);
+		if (reg) {
+			i = reg.end + 1;
+			continue;
+		}
+		const ln = at(lines, i);
+		const f = LP.FENCE_LINE.exec(ln);
+		if (f) {
+			i = fenceEnd(lines, i, f[1] ?? "") + 1;
+			continue;
+		}
+		if (percentMarks(ln) % 2 === 1) {
+			let j = i + 1;
+			while (j < lines.length && percentMarks(at(lines, j)) % 2 === 0) j++;
+			out.push({ start: i, end: Math.min(j, lines.length - 1) });
+			i = j + 1;
+			continue;
+		}
+		i++;
+	}
+	return out;
+}
+
+export type HeldBy = "records" | "fence" | "comment";
+
+/**
+ * What holds this line, when it is not the booklet's own text: the records section (kept data), a code fence (its fence lines and
+ * what is inside), or a `%%` comment. A Booklet-looking line in any of them is not a line of the booklet.
+ */
+export function heldBy(s: Scan, line: number): HeldBy | null {
+	if (s.regions.some((r) => line >= r.start && line <= r.end)) return "records";
+	if (s.items.some((it) => it.type === "fence" && it.end !== undefined && line >= it.line && line <= it.end)) return "fence";
+	if (commentSpans(s).some((c) => line >= c.start && line <= c.end)) return "comment";
+	return null;
+}
+
+/** Why the panel offers nothing for a line that something holds, in a sentence. */
+export const heldWords = (h: HeldBy): string =>
+	h === "records"
+		? "This line is in the records section. That section is kept data, and the panel doesn't change it."
+		: h === "fence"
+			? "This line is inside a code block, so the reader does not take it for a line of the booklet. The panel doesn't change it."
+			: "This line is inside a comment, so the reader does not take it for a line of the booklet. The panel doesn't change it.";

@@ -112,13 +112,39 @@ test("taking `open` off a question touches the entries that hold a reader's own 
 
 test("renaming a declared field touches the rows that carry it; so does removing it", () => {
 	const renamed = swap(HELD, '"kind": "Kind"', '"group": "Kind"');
-	assert.deepEqual(impactOf(HELD, renamed).map((i) => [i.kind, i.what, i.rows]), [["field", "The field `kind` of `things`", 5]]);
+	assert.deepEqual(impactOf(HELD, renamed).map((i) => [i.kind, i.what, i.rows, i.views]), [["field", "The field `kind` of `things`", 5, 1]], "the query that lists no fields shows it");
 	const removed = swap(HELD, ', "done": "Done" }', " }");
-	assert.deepEqual(impactOf(HELD, removed).map((i) => [i.kind, i.what, i.rows]), [["field", "The field `done` of `things`", 5]]);
-	assert.equal(impactWords(impactOf(HELD, removed)[0]), "The field `done` of `things` touches 5 rows.");
+	assert.deepEqual(impactOf(HELD, removed).map((i) => [i.kind, i.what, i.rows, i.views]), [["field", "The field `done` of `things`", 5, 1]]);
+	assert.equal(impactWords(impactOf(HELD, removed)[0]), "The field `done` of `things` touches 5 rows and 1 view that shows this field.");
 });
 
-test("a field no row carries touches nothing", () => {
+const QUERY = "```booklet query\nfrom: things\nas: table\n```";
+const withQuery = (lines) => swap(HELD, QUERY, "```booklet query\n" + lines + "\n```");
+
+test("a view that names a field counts when the field is renamed or removed, by whatever way it names it", () => {
+	const gone = (text, field) => impactOf(text, swap(text, `"${field}": "${field[0].toUpperCase()}${field.slice(1)}"`, `"${field}2": "X"`));
+	const views = (text, field) => gone(text, field).map((i) => i.views);
+	// a view that lists the field, one that groups by it, one that gives it a role, one that locks it
+	assert.deepEqual(views(withQuery("from: things\nfields: title, kind"), "kind"), [1]);
+	assert.deepEqual(views(withQuery("from: things\nfields: title\ngroup: kind"), "kind"), [1]);
+	assert.deepEqual(views(withQuery("from: things\nfields: title\nbadge: kind"), "kind"), [1]);
+	assert.deepEqual(views(withQuery("from: things\nfields: title, done\nreadonly: kind"), "kind"), [1]);
+	// a view that lists other fields, or reads another block, is not touched
+	assert.deepEqual(views(withQuery("from: things\nfields: title, done"), "kind"), [0]);
+	assert.deepEqual(views(withQuery("from: log\nfields: kind"), "kind"), [0]);
+	// two views, counted together
+	const two = swap(HELD, QUERY, "```booklet query\nfrom: things\nfields: kind\n```\n\n```booklet query\nfrom: things\nas: list\n```");
+	assert.equal(impactWords(gone(two, "kind")[0]), "The field `kind` of `things` touches 5 rows and 2 views that show this field.");
+});
+
+test("a field no row carries touches nothing, unless a view names it", () => {
+	const unused = swap(HELD, '"done": "Done" }', '"done": "Done", "spare": "Spare" }');
+	assert.deepEqual(impactOf(unused, swap(unused, ', "spare": "Spare"', "")), [], "a view that lists no fields shows nothing for it");
+	const named = swap(unused, QUERY, "```booklet query\nfrom: things\nfields: title, spare\n```");
+	assert.deepEqual(impactOf(named, swap(named, ', "spare": "Spare"', "")).map((i) => [i.rows, i.views]), [[0, 1]]);
+});
+
+test("a field no row carries touches nothing (the old case, kept)", () => {
 	const unused = swap(HELD, '"done": "Done" }', '"done": "Done", "spare": "Spare" }');
 	assert.deepEqual(impactOf(unused, swap(unused, ', "spare": "Spare"', "")), []);
 });
@@ -139,8 +165,13 @@ test("the panel's line edits are what the guards see: id, `repeat`, `menu:` and 
 	assert.ok(impactOf(HELD, swap(HELD, "> [!choice|feeling] How do you feel?", rename.text)).length > 0);
 	const repeatOff = setFlag(line("> [!activity|log repeat] A mood log"), "repeat", false);
 	assert.ok(impactOf(HELD, swap(HELD, "> [!activity|log repeat] A mood log", repeatOff.text)).length > 0);
+	// `menu:` on a choice that has options of its own changes nothing the answers were kept for
 	const menu = setValue(line("> [!choice|feeling] How do you feel?"), "menu", "nowhere");
-	assert.ok(Array.isArray(impactOf(HELD, swap(HELD, "> [!choice|feeling] How do you feel?", menu.text))));
+	assert.deepEqual(impactOf(HELD, swap(HELD, "> [!choice|feeling] How do you feel?", menu.text)), []);
+	// the same edit on a choice that takes its options from a shared menu leaves the 12 kept entries' picks with no option behind them
+	const shared = swap(swap(HELD, "- [ ] Calm\n- [ ] Tense\n- [ ] Low\n", ""), "> [!choice|feeling] How do you feel?", "> [!choice|feeling menu:moods] How do you feel?");
+	const withMenu = swap(shared, "> [!activity|once] Said once", "> [!menu|moods]\n- Calm\n- Tense\n- Low\n\n> [!activity|once] Said once");
+	assert.deepEqual(impactOf(withMenu, swap(withMenu, "menu:moods", "menu:nowhere")).map((i) => [i.kind, i.what, i.entries, i.answers]), [["id", "The question id `feeling`", 12, 0]], "the reader does not draw a question whose menu is not there, so its 12 kept entries lose their question");
 });
 
 // ---- what no longer matches (the problems list)
@@ -171,9 +202,11 @@ test("a saved answer for a question that is gone is a leftover; so is one for an
 	assert.match(leftovers(swap(HELD, "2. Lots\n", "")).map((x) => x.why).join("\n"), /1 saved answer/);
 });
 
-test("records under a records line that names no module are leftovers", () => {
-	const l = leftovers(HELD.replaceAll("> [!module|mood", "> [!module|other"));
-	assert.ok(l.some((x) => /records line that names no module/.test(x.why)));
+test("records under a records line that names no module are reported once: by the reader, not again as a leftover", () => {
+	const renamed = HELD.replaceAll("> [!module|mood", "> [!module|other");
+	assert.deepEqual(leftovers(renamed).filter((x) => /records line that names no module/.test(x.why)), []);
+	const says = core.problemsOf(renamed).filter((p) => /names "mood", which is no module of this file|no module of this file/.test(p.why));
+	assert.equal(says.length, 1, JSON.stringify(says));
 });
 
 test("rows with a field the block does not declare are leftovers", () => {

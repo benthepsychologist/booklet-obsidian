@@ -39,6 +39,7 @@ export * from "./editor-place";
 export * from "./editor-outline";
 export * from "./editor-guard";
 export * from "./editor-problems";
+export * from "./editor-analysis";
 export * from "./editor-pieces";
 export * from "./linter-tables";
 export * from "./pieces-table";

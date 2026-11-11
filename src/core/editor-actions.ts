@@ -9,17 +9,22 @@
  * Obsidian.
  */
 import { walkRows } from "./editor-guard";
-import { parseLine, strayWords, type Edit, type ParsedLine } from "./editor-line";
+import { parseLine, setId, strayWords, type Edit, type ParsedLine } from "./editor-line";
 import { LP, settingsOf } from "./editor-patterns";
-import { claimEnd, scan } from "./editor-scan";
+import { claimEnd, heldBy, heldWords, scan, type HeldBy, type Scan } from "./editor-scan";
+import { parseBooklet } from "./reader";
 import { removeMember, scanJson, splice, type JsonMember } from "./json-edit";
 import type { DataRow } from "./data";
 
-/** The note with one line's text replaced (the line is 0-based; the other lines are not touched). */
+/**
+ * The note with one line's text replaced (the line is 0-based; the other lines are not touched). A line that ended in `\r` (a note
+ * with Windows line endings) still does: `text` is the line's words, and the line's own ending stays as it was.
+ */
 export function replaceLine(doc: string, line: number, text: string): string {
 	const lines = doc.split("\n");
 	if (line < 0 || line >= lines.length) return doc;
-	lines[line] = text;
+	const cr = (lines[line] ?? "").endsWith("\r") && !text.endsWith("\r");
+	lines[line] = cr ? text + "\r" : text;
 	return lines.join("\n");
 }
 
@@ -83,14 +88,66 @@ export function settingsModel(lineText: string): SettingsModel | null {
 	};
 }
 
+/** What the panel shows for the line under the cursor: its settings, or why it offers none. */
+export interface LineView {
+	/** The settings of the Booklet line, or null when the line is not one or something holds it. */
+	model: SettingsModel | null;
+	/** What holds the line (the records section, a code fence, a comment): the panel offers nothing there. */
+	held: HeldBy | null;
+	/** One sentence saying why there is nothing to change, when `held` is set. */
+	why: string;
+}
+
+/**
+ * The line under the cursor, read in the whole note: a line that looks like a Booklet line inside the records section, a code fence
+ * or a comment is not one (the reader and the linter skip it), so it has no settings here and the panel says why.
+ */
+export function settingsAt(doc: string, line: number, s: Scan = scan(doc)): LineView {
+	const held = heldBy(s, line);
+	if (held) return { model: null, held, why: heldWords(held) };
+	return { model: settingsModel(doc.split("\n")[line] ?? ""), held: null, why: "" };
+}
+
 /** A line changed by `edit`: the note after, or why not. The note is the same but for that line. */
-export function changeLine(doc: string, line: number, edit: (p: ParsedLine) => Edit): { text: string } | { error: string } {
+export function changeLine(doc: string, line: number, edit: (p: ParsedLine) => Edit, s: Scan = scan(doc)): { text: string } | { error: string } {
+	const held = heldBy(s, line);
+	if (held) return { error: heldWords(held) };
 	const lines = doc.split("\n");
 	const p = parseLine(lines[line] ?? "");
 	if (!p) return { error: "That line is not a Booklet line." };
 	const e = edit(p);
 	if ("error" in e) return e;
 	return { text: replaceLine(doc, line, e.text) };
+}
+
+/** What the reader says about an id used twice, as it reads the note: the id and where it is used. */
+const TWICE = /the (?:module )?id "([^"]*)" is used twice in (.+?)\.$/;
+
+function idClashes(text: string): Map<string, string> {
+	const b = parseBooklet(text);
+	const out = new Map<string, string>();
+	for (const m of [b.refusal ?? "", ...b.problems]) {
+		const t = TWICE.exec(m.replace(/^Line \d+: /, ""));
+		if (t?.[1] !== undefined) out.set(`${t[1]}\u0000${t[2] ?? ""}`, t[2] ?? "");
+	}
+	return out;
+}
+
+/**
+ * Rename the id of the Booklet line at `line`. An id the reader would find used twice in the same place (a module's ids, the
+ * activities outside every module, the menus every module shares, the module ids of the file) is refused, and the note is not
+ * changed: the reader refuses a whole booklet that uses an id twice. The reader's own reading decides, so its scopes are the ones used
+ * here, not a second copy of them.
+ */
+export function renameId(doc: string, line: number, id: string, s: Scan = scan(doc)): { text: string } | { error: string } {
+	const r = changeLine(doc, line, (p) => setId(p, id), s);
+	if ("error" in r) return r;
+	if (r.text === doc) return r;
+	const was = idClashes(doc);
+	for (const [key, where] of idClashes(r.text)) {
+		if (!was.has(key)) return { error: `\`${id}\` is already used in ${where}.` };
+	}
+	return r;
 }
 
 // ---------------------------------------------------------------- the declared fields of a data block
@@ -115,8 +172,7 @@ interface Located {
 	json: Record<string, unknown>;
 }
 
-function locate(doc: string, cursor: number): Located | null {
-	const s = scan(doc);
+function locate(doc: string, cursor: number, s: Scan = scan(doc)): Located | null {
 	for (const it of s.items) {
 		if (it.type !== "fence" || !/^booklet[ \t]+data\b/i.test(it.info ?? "") || it.end === undefined) continue;
 		const last = it.blockLine ?? it.end;
@@ -145,8 +201,8 @@ function locate(doc: string, cursor: number): Located | null {
 }
 
 /** The data block that holds the line, with its declared fields, or null (no block there, no declared fields, or JSON that does not read). */
-export function fieldBlockAt(doc: string, cursor: number): FieldBlock | null {
-	return locate(doc, cursor)?.block ?? null;
+export function fieldBlockAt(doc: string, cursor: number, s: Scan = scan(doc)): FieldBlock | null {
+	return locate(doc, cursor, s)?.block ?? null;
 }
 
 const idFormatNames = (json: Record<string, unknown>, key: string): boolean => {
@@ -166,9 +222,11 @@ function fieldMembers(body: string): { fields: Extract<ReturnType<typeof scanJso
 	return { fields, target: (key) => [...fields.members].reverse().find((m) => m.key === key) };
 }
 
+/** The note with the lines between a block's fences replaced by `body`, each ending as the fence line above them does. */
 const withBody = (doc: string, b: Located["block"], body: string): string => {
 	const lines = doc.split("\n");
-	return [...lines.slice(0, b.line + 1), ...body.split("\n"), ...lines.slice(b.end)].join("\n");
+	const cr = (lines[b.line] ?? "").endsWith("\r") ? "\r" : "";
+	return [...lines.slice(0, b.line + 1), ...body.split("\n").map((l) => l + cr), ...lines.slice(b.end)].join("\n");
 };
 
 /** Rename a declared field in the block that holds the line: its declaration only; the rows keep the key they have. */
@@ -229,7 +287,8 @@ const stripQuotes = (line: string, n: number): string => {
 };
 
 /** The options of the choice, multi or scale that holds the line (its own line or one of the lines it claims), or null. */
-export function optionsAt(doc: string, cursor: number): OptionList | null {
+export function optionsAt(doc: string, cursor: number, s: Scan = scan(doc)): OptionList | null {
+	if (heldBy(s, cursor)) return null; // a question written in a code block, a comment or the records section is not one
 	const lines = doc.split("\n");
 	for (let j = Math.min(cursor, lines.length - 1); j >= 0; j--) {
 		const p = parseLine(lines[j] ?? "");

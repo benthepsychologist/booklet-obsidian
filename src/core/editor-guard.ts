@@ -13,7 +13,7 @@
  * nothing here imports Obsidian.
  */
 import { childRowsOf, type DataRow } from "./data";
-import { parseBooklet, questionsOf, type Booklet, type Question } from "./reader";
+import { parseBooklet, questionsOf, type Booklet, type Question, type Query } from "./reader";
 import { holdsSomething } from "./shape";
 
 /** What a note holds, counted. */
@@ -80,6 +80,15 @@ export function holdingsLine(h: Holdings): string {
 	return w ? `This booklet holds ${w}. Changing an id, an option or a field can detach them.` : "This booklet holds no kept entries, answers or rows yet, so a change here detaches nothing.";
 }
 
+/**
+ * The top line for a note read once. A booklet the reader refuses (a module never closed, an id used twice) has no counts to give:
+ * the line says so with the reader's reason, instead of the "detaches nothing" line, which would be untrue.
+ */
+export function holdingsLineOf(book: Booklet): string {
+	if (!book.ok) return `The reader can't open this booklet yet: ${(book.refusal ?? "it refuses the note").replace(/\.$/, "")}. The data warnings can't count entries until that's fixed.`;
+	return holdingsLine(holdingsOf(book));
+}
+
 // ---------------------------------------------------------------- what a change would detach
 
 export interface Impact {
@@ -92,6 +101,8 @@ export interface Impact {
 	answers: number;
 	/** Data rows it touches. */
 	rows: number;
+	/** `booklet query` blocks that show the field (a field change only). */
+	views?: number;
 }
 
 interface Located {
@@ -146,6 +157,25 @@ function heldFor(book: Booklet, l: Located): Held {
 		draft: d?.[l.question.id],
 		hasDraft: !!d && own(d, l.question.id) && holdsSomething(d[l.question.id]),
 	};
+}
+
+/** Every `booklet query` block of the booklet, in file order. */
+function queriesOf(book: Booklet): Query[] {
+	const out: Query[] = [];
+	for (const a of book.activities) for (const seg of a.segments) if (seg.type === "query") out.push(seg.query);
+	return out;
+}
+
+/**
+ * Does this query show the field `key` of the data block it reads: it lists it, groups or nests by it, gives it a role, or locks it?
+ * A query that lists no fields shows every declared field, but a field no row holds a value for shows nothing (`held` says whether
+ * some row does).
+ */
+function showsField(q: Query, key: string, held: boolean): boolean {
+	if (q.fields === null ? held : q.fields.includes(key)) return true;
+	if (q.group === key || q.parent === key) return true;
+	if (Object.values(q.roles).includes(key)) return true;
+	return Array.isArray(q.readonly) && q.readonly.includes(key);
 }
 
 /**
@@ -248,13 +278,15 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 			continue;
 		}
 		if (!d.fields || !now.fields) continue;
+		const queries = queriesOf(before).filter((q) => q.from === d.id);
 		for (const key of Object.keys(d.fields)) {
 			if (own(now.fields, key)) continue;
 			let using = 0;
 			walkRows(d.rows, (r) => {
 				if (own(r, key)) using++;
 			});
-			if (using) impacts.push({ kind: "field", what: `The field \`${key}\` of \`${d.id}\``, entries: 0, answers: 0, rows: using });
+			const views = queries.filter((q) => showsField(q, key, using > 0)).length;
+			if (using || views) impacts.push({ kind: "field", what: `The field \`${key}\` of \`${d.id}\``, entries: 0, answers: 0, rows: using, views });
 		}
 	}
 	return impacts;
@@ -275,6 +307,7 @@ export function impactWords(i: Impact): string {
 	if (i.entries) parts.push(plural(i.entries, "kept entry", "kept entries"));
 	if (i.answers) parts.push(plural(i.answers, "saved answer", "saved answers"));
 	if (i.rows) parts.push(plural(i.rows, "row", "rows"));
+	if (i.views) parts.push(plural(i.views, "view that shows this field", "views that show this field"));
 	const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : (parts[0] ?? "nothing");
 	return `${i.what} touches ${list}.`;
 }
@@ -302,11 +335,8 @@ export function leftoversOf(book: Booklet): Leftover[] {
 	for (const b of book.records.blocks) {
 		if (!b.value) continue;
 		const line = b.start;
-		if (b.scope === null) {
-			const n = b.what === "entries" ? (Array.isArray(b.value["items"]) ? b.value["items"].length : 0) : Object.keys(b.value).length;
-			out.push({ line, count: Math.max(n, 1), why: `${b.what} under a records line that names no module of this booklet` });
-			continue;
-		}
+		// records under a line that names no module of this booklet are reported once already, by the reader (records.problems)
+		if (b.scope === null) continue;
 		if (b.what === "entries") {
 			const items = Array.isArray(b.value["items"]) ? (b.value["items"] as unknown[]) : [];
 			if (!acts.has(`${b.scope}\u0000${b.name}`)) {
