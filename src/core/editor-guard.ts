@@ -237,9 +237,9 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 	}
 
 	// data blocks: a block id that is gone, a declared field that is gone
-	const blocksAfter = new Map(after.data.map((d) => [`${d.module ?? ""}\u0000${d.id}`, d]));
+	// a block is the same block when its id is still there (a module renamed carries its blocks with it)
 	for (const d of before.data) {
-		const now = blocksAfter.get(`${d.module ?? ""}\u0000${d.id}`);
+		const now = after.data.find((x) => x.id === d.id && x.module === d.module) ?? after.data.find((x) => x.id === d.id);
 		const rows = rowCount(d.rows);
 		if (!now) {
 			let entries = 0;
