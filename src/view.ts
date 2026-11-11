@@ -146,6 +146,8 @@ export const VIEW_TYPE = "booklet";
 /** What the view needs from the plugin. */
 export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
+	/** Editor mode (the editing panel): the button in this view's header turns it on and off. Not there in the tests that do not draw it. */
+	editor?: { mode: { readonly on: boolean; onChange(fn: (on: boolean) => void): () => void }; toggle(): Promise<void> };
 	/** The plugin's own manifest: the notice at the top of a note says which version of the plugin is reading it. */
 	manifest: { version: string };
 	/** The sites the reader has allowed media from (settings.ts): the gate reads it, and the allow card edits it. */
@@ -409,6 +411,16 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	override onload(): void {
 		super.onload();
 		this.addAction("file-text", "Show Markdown", () => void this.host.setMode(this.leaf, "markdown"));
+		const editor = this.host.editor;
+		if (editor) {
+			const button = this.addAction("pencil", "Editor mode", () => void editor.toggle());
+			const show = (on: boolean) => {
+				button.toggleClass("is-active", on);
+				button.setAttribute("aria-pressed", String(on));
+			};
+			show(editor.mode.on);
+			this.register(editor.mode.onChange(show));
+		}
 		// A drawing that waits (see update) is made once the reader has left the field and no press is under way. A
 		// press moves focus out of a field before its click, so the button under the pointer is kept until the click.
 		this.registerDomEvent(this.contentEl, "focusout", () => this.settleSoon(0));

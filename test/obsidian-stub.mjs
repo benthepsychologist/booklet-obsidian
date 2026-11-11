@@ -86,6 +86,49 @@ export class TextFileView extends Component {
 	setEphemeralState() {}
 }
 
+/** A view in a pane (the editing panel): a content element in the document; the real one has more. */
+export const ItemView = (globalThis.__bookletStubItemView ??= class ItemView extends Component {
+	constructor(leaf) {
+		super();
+		this.leaf = leaf;
+		this.app = leaf.app;
+		this.containerEl = document.body.createDiv({ cls: "workspace-leaf-content" });
+		this.contentEl = this.containerEl.createDiv({ cls: "view-content" });
+	}
+	addAction() {
+		return this.containerEl.createDiv();
+	}
+});
+
+/** A dialog: opening it puts its content in the document, closing it takes it out and calls onClose. */
+export class Modal extends Component {
+	constructor(app) {
+		super();
+		this.app = app;
+		this.modalEl = document.createElement("div");
+		this.titleEl = this.modalEl.createDiv();
+		this.contentEl = this.modalEl.createDiv();
+		this.scope = new Scope();
+	}
+	open() {
+		document.body.appendChild(this.modalEl);
+		this.onOpen();
+	}
+	close() {
+		this.modalEl.remove();
+		this.onClose();
+	}
+	setTitle(t) {
+		this.titleEl.textContent = t;
+		return this;
+	}
+	onOpen() {}
+	onClose() {}
+}
+
+/** What the plugin asks of the platform. */
+export const Platform = { isMobile: false, isDesktop: true };
+
 /** A plugin: what main.ts's onload calls on itself, doing nothing (a test hands onload an app that records what it is given). */
 export class Plugin extends Component {
 	constructor(app, manifest) {

@@ -32,7 +32,8 @@ import { SHARED, keyOf, scan, type Scan, type ScanState } from "./editor-scan";
 
 // a placeholder word: `new-` and more letters, digits and dashes, standing on its own
 const WORD = "new-[A-Za-z0-9]+(?:-[A-Za-z0-9]+)*";
-export const TOKEN = new RegExp("(?<![A-Za-z0-9-])" + WORD + "(?![A-Za-z0-9-])", "g");
+// group 1 is what stands before the word (nothing, or one character that is not part of a word: no lookbehind, which older iOS lacks), group 2 the word
+export const TOKEN = new RegExp("(^|[^A-Za-z0-9-])(" + WORD + ")(?![A-Za-z0-9-])", "g");
 const WHOLE = new RegExp("^" + WORD + "$");
 const isToken = (w: unknown): w is string => typeof w === "string" && WHOLE.test(w);
 
@@ -163,7 +164,7 @@ export function instantiate(pieceText: string, doc: Scan, state: ScanState): Ins
 		for (const it of tscan.items) if (it.type === "data" && isToken(it.names) && !(it.names in assigned)) assigned[it.names] = state.lastModule;
 	}
 
-	const out = text.replace(TOKEN, (tok) => (Object.prototype.hasOwnProperty.call(assigned, tok) ? (assigned[tok] ?? tok) : tok));
+	const out = text.replace(TOKEN, (_all, lead: string, tok: string) => lead + (Object.prototype.hasOwnProperty.call(assigned, tok) ? (assigned[tok] ?? tok) : tok));
 	const lines = out.split("\n");
 	nameTabs(lines, doc, state, assigned);
 	const left: string[] = [];
@@ -182,8 +183,10 @@ export function instantiate(pieceText: string, doc: Scan, state: ScanState): Ins
 	}
 	lines.forEach((ln, k) => {
 		for (const m of ln.matchAll(TOKEN)) {
-			left.push(m[0]);
-			if (!selection) selection = { line: k, ch: m.index ?? 0, endCh: (m.index ?? 0) + m[0].length };
+			const tok = m[2] ?? "";
+			const ch = (m.index ?? 0) + (m[1] ?? "").length;
+			left.push(tok);
+			if (!selection) selection = { line: k, ch, endCh: ch + tok.length };
 		}
 	});
 	return { text: lines.join("\n"), assigned, left, selection };

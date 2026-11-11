@@ -9,6 +9,7 @@ import { moveDevice } from "./listen-store";
 import { ListenWriter } from "./listen-writer";
 import { NowPlaying } from "./now-playing";
 import { BookletView, VIEW_TYPE } from "./view";
+import { EditorSide } from "./editor-side";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
 export default class BookletPlugin extends Plugin {
@@ -18,6 +19,8 @@ export default class BookletPlugin extends Plugin {
 	media = new MediaAllows(null, () => {});
 	/** Keeps a playing element going when its page goes, and writes its place when it stops (now-playing.ts, listen-writer.ts). */
 	nowPlaying!: NowPlaying;
+	/** Editor mode: the editing panel, its command and its drop (editor-side.ts). */
+	editor = new EditorSide(this);
 
 	override async onload(): Promise<void> {
 		// a data.json that cannot be read must not stop the plugin loading (the booklets would open as plain Markdown, with no word why): it starts with empty lists, says so, and leaves the file alone until she changes a list
@@ -54,6 +57,7 @@ export default class BookletPlugin extends Plugin {
 		);
 		this.registerView(VIEW_TYPE, (leaf) => new BookletView(leaf, this));
 		installViewSwitch(this, VIEW_TYPE);
+		this.editor.install();
 
 		this.addCommand({
 			id: "toggle-view",

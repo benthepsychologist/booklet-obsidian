@@ -3230,3 +3230,145 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--text-muted);
 	opacity: 1;
 }
+
+/*
+ * The editing panel ("Booklet blocks", in the side bar). Obsidian's own variables only, like the rest of this file. Its native
+ * controls (buttons, inputs, checkboxes, details) are reached by keyboard and named for a screen reader in editor-view.ts.
+ */
+.booklet-blocks {
+	padding: var(--size-4-2) var(--size-4-3) var(--size-4-8);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-blocks-holds {
+	padding: var(--size-2-3) var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.booklet-blocks-about,
+.booklet-blocks-hint {
+	color: var(--text-muted);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-blocks-kind {
+	font-weight: var(--font-semibold);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-blocks-section {
+	border-top: 1px solid var(--background-modifier-border);
+	padding: var(--size-4-1) 0;
+}
+
+.booklet-blocks-section > summary {
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+	padding: var(--size-2-2) 0;
+}
+
+.booklet-blocks-hidden {
+	display: none;
+}
+
+.booklet-blocks-group-title {
+	color: var(--text-muted);
+	margin: var(--size-4-2) 0 var(--size-2-2);
+}
+
+.booklet-blocks-pieces {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.booklet-blocks button {
+	min-height: var(--input-height);
+}
+
+.booklet-blocks-piece {
+	text-align: left;
+	cursor: grab;
+}
+
+.booklet-blocks-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin: var(--size-2-3) 0;
+}
+
+.booklet-blocks-row > label {
+	min-width: 5em;
+}
+
+.booklet-blocks-row > input[type="text"] {
+	flex: 1 1 8em;
+	min-width: 0;
+}
+
+.booklet-blocks-count {
+	color: var(--text-muted);
+}
+
+.booklet-blocks-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.booklet-blocks-jump {
+	display: block;
+	width: 100%;
+	text-align: left;
+	background: transparent;
+	box-shadow: none;
+	height: auto;
+	white-space: normal;
+}
+
+.booklet-blocks-jump:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-blocks-depth-1 { padding-left: var(--size-4-3); }
+.booklet-blocks-depth-2 { padding-left: calc(var(--size-4-3) * 2); }
+.booklet-blocks-depth-3 { padding-left: calc(var(--size-4-3) * 3); }
+.booklet-blocks-depth-4 { padding-left: calc(var(--size-4-3) * 4); }
+.booklet-blocks-depth-5 { padding-left: calc(var(--size-4-3) * 5); }
+.booklet-blocks-depth-6 { padding-left: calc(var(--size-4-3) * 6); }
+
+.booklet-blocks-problem-why {
+	display: block;
+}
+
+.booklet-blocks-problem-line {
+	display: block;
+	color: var(--text-muted);
+	overflow-wrap: anywhere;
+}
+
+.booklet-blocks-leftover .booklet-blocks-problem-why {
+	color: var(--text-warning, var(--text-normal));
+}
+
+.booklet-blocks-icon-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-blocks-icon {
+	width: var(--input-height);
+	padding: 0;
+}
+
+.booklet-blocks-icon.is-current {
+	border: 2px solid var(--interactive-accent);
+}

@@ -33,6 +33,7 @@ async function loadPlugin() {
 			seen.views.push({ type, make });
 		}
 		registerEvent() {}
+		registerDomEvent() {}
 		register() {}
 		async loadData() {
 			return null;
@@ -71,12 +72,12 @@ test("the plugin's id, its command id and its view type are the ones the README 
 	const { seen } = await loadPlugin();
 	assert.deepEqual(
 		seen.commands.map((c) => c.id),
-		["toggle-view"],
+		["editor-mode", "toggle-view"],
 		"the commands: a new one may be added (then this list grows), but `toggle-view` stays as it is",
 	);
 	assert.deepEqual(
 		seen.views.map((v) => v.type),
-		["booklet"],
+		["booklet", "booklet-blocks"],
 		"the view types",
 	);
 	assert.ok(seen.commands.every((c) => typeof c.name === "string" && c.name), "every command has a name");

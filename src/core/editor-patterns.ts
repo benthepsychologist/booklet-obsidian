@@ -34,8 +34,9 @@ export function pyRegExp(source: string, flags = ""): RegExp {
 			if (nx === "d") out += "\\p{Nd}";
 			else if (nx === "s") out += inClass ? PY_SPACE : "[" + PY_SPACE + "]";
 			else if (nx === "S" && !inClass) out += "[^" + PY_SPACE + "]";
-			else if (nx === "b" && !inClass) out += "(?:(?<=[" + PY_WORD + "])(?![" + PY_WORD + "])|(?<![" + PY_WORD + "])(?=[" + PY_WORD + "]))";
 			else if (SYNTAX.includes(nx) || "tnrfv".includes(nx) || /[1-9]/.test(nx)) out += "\\" + nx; // the same in both
+			// a boundary after a literal word character is "no word character next": written so, as older iOS has no lookbehind
+			else if (nx === "b" && !inClass && /[A-Za-z0-9_]/.test(source.charAt(i - 2)) && source.charAt(i - 3) !== "\\") out += "(?![" + PY_WORD + "])";
 			else if (nx === "-") out += inClass ? "\\-" : "-";
 			else if (/[ !"#%&',:;<=>@_`~]/.test(nx)) out += nx; // a mark escaped without need: the mark itself
 			else throw new Error("booklet: the pattern " + JSON.stringify(source) + " uses \\" + nx + ", which this plugin does not read as Python does");

@@ -42,3 +42,4 @@ export * from "./editor-problems";
 export * from "./editor-pieces";
 export * from "./linter-tables";
 export * from "./pieces-table";
+export * from "./editor-actions";
