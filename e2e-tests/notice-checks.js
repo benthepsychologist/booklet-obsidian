@@ -193,7 +193,7 @@ B words.
         view: typeof app.viewRegistry.viewByType["booklet"],
       }));
       c.ok(names.manifest === "booklet" && names.command && names.view === "function", `the plugin id is booklet, the command booklet:toggle-view is registered and the view type booklet is: ${JSON.stringify(names)}`);
-      c.ok(JSON.stringify(names.commands) === JSON.stringify(["booklet:toggle-view"]), `the plugin's commands: ${JSON.stringify(names.commands)} (a new one may be added; this one stays)`);
+      c.ok(JSON.stringify(names.commands) === JSON.stringify(["booklet:editor-mode", "booklet:toggle-view"]), `the plugin's commands: ${JSON.stringify(names.commands)} (a new one may be added, booklet:editor-mode is the editing panel's; this one stays)`);
 
       // the command toggles the note between the booklet view and Markdown, both ways
       await open(o, TWO);
