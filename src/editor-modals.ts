@@ -4,7 +4,7 @@
  */
 import { Modal, setIcon, type App } from "obsidian";
 import { BOOKLET_ICONS } from "./booklet-icons";
-import { impactWords, type Impact } from "./core/editor-guard";
+import { BLIND, impactWords, type Impact } from "./core/editor-guard";
 
 class AskToChange extends Modal {
 	private done = false;
@@ -12,6 +12,7 @@ class AskToChange extends Modal {
 	constructor(
 		app: App,
 		private readonly impacts: Impact[],
+		private readonly blind: boolean,
 		private readonly settle: (change: boolean) => void,
 	) {
 		super(app);
@@ -21,10 +22,13 @@ class AskToChange extends Modal {
 		this.setTitle("Change this?");
 		const el = this.contentEl;
 		el.addClass("booklet-blocks-ask");
-		el.createEl("p", { text: "This change would leave kept data in this booklet not matching what it was kept for:" });
-		const list = el.createEl("ul");
-		for (const i of this.impacts) list.createEl("li", { text: impactWords(i) });
-		el.createEl("p", { text: "The kept entries, answers and rows stay in the note as they are. The panel does not delete or rewrite them." });
+		if (this.blind) el.createEl("p", { text: BLIND });
+		else {
+			el.createEl("p", { text: "This change would leave kept data in this booklet not matching what it was kept for:" });
+			const list = el.createEl("ul");
+			for (const i of this.impacts) list.createEl("li", { text: impactWords(i) });
+			el.createEl("p", { text: "The kept entries, answers and rows stay in the note as they are. The panel does not delete or rewrite them." });
+		}
 		const buttons = el.createDiv({ cls: "modal-button-container" });
 		const change = buttons.createEl("button", { text: "Change", cls: "mod-warning", attr: { "aria-label": "Change it, and leave the kept data not matching" } });
 		const cancel = buttons.createEl("button", { text: "Cancel", attr: { "aria-label": "Cancel, and leave the note as it is" } });
@@ -48,9 +52,9 @@ class AskToChange extends Modal {
 	}
 }
 
-/** Asks before a change that would detach kept data; true when she chose Change. */
-export function askToChange(app: App, impacts: Impact[]): Promise<boolean> {
-	return new Promise((resolve) => new AskToChange(app, impacts, resolve).open());
+/** Asks before a change that would detach kept data, or (`blind`) that cannot be counted because the reader refuses the booklet; true when she chose Change. */
+export function askToChange(app: App, impacts: Impact[], blind = false): Promise<boolean> {
+	return new Promise((resolve) => new AskToChange(app, impacts, blind, resolve).open());
 }
 
 class IconPicker extends Modal {

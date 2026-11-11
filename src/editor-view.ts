@@ -295,7 +295,7 @@ export class EditorPanel extends ItemView {
 		}
 		b.createEl("p", { cls: "booklet-blocks-kind", text: `A ${m.kind} line, line ${line + 1}` });
 		if (!m.known) b.createEl("p", { cls: "booklet-blocks-hint", text: "The linter does not know this kind, so there is nothing to set." });
-		if (m.takesId) this.textRow(b, "Id", m.id ?? "", `id-${line}`, (val) => this.edit(line, text, (doc) => renameId(doc, line, val.trim())));
+		if (m.takesId) this.textRow(b, "Id", m.id ?? "", `id-${line}`, (val) => this.edit(line, text, (doc) => renameId(doc, line, val.trim()), true));
 		for (const f of m.flags) this.switchRow(b, f.name, f.on, `flag-${f.name}`, (on) => this.edit(line, text, (doc) => changeLine(doc, line, (p) => setFlag(p, f.name, on))));
 		for (const k of m.values) {
 			if (k.name === "icon") this.iconRow(b, k.value, line, text);
@@ -348,7 +348,7 @@ export class EditorPanel extends ItemView {
 	}
 
 	/** Change the line the panel drew its controls from: only if the note still has that line there. */
-	private edit(line: number, shown: string, make: (doc: string) => { text: string } | { error: string }): void {
+	private edit(line: number, shown: string, make: (doc: string) => { text: string } | { error: string }, design = false): void {
 		const ed = this.live()?.editor;
 		if (!ed) return;
 		const before = ed.getValue();
@@ -365,7 +365,7 @@ export class EditorPanel extends ItemView {
 			this.refresh();
 			return;
 		}
-		void this.write(ed, before, r.text).then((done) => {
+		void this.write(ed, before, r.text, design).then((done) => {
 			if (!done) this.line.forget();
 			this.refresh();
 		});
@@ -420,7 +420,7 @@ export class EditorPanel extends ItemView {
 			this.refresh();
 			return;
 		}
-		void this.write(ed, before, r.text).then((done) => {
+		void this.write(ed, before, r.text, true).then((done) => {
 			if (!done) section.forget();
 			this.line.forget();
 			this.refresh();
@@ -430,8 +430,8 @@ export class EditorPanel extends ItemView {
 	// ---------------------------------------------------------------- the one way the panel writes
 
 	/** Make the note `after` (editor-write.ts: only the bytes that differ, and the question first when it would detach kept data). */
-	private write(ed: Editor, before: string, after: string): Promise<boolean> {
-		return writeNote(this.app, ed, before, after);
+	private write(ed: Editor, before: string, after: string, design = false): Promise<boolean> {
+		return writeNote(this.app, ed, before, after, design);
 	}
 
 	// ---------------------------------------------------------------- outline and problems

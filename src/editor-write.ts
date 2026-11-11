@@ -9,18 +9,23 @@
  */
 import { Notice, type App, type Editor } from "obsidian";
 import { minimalChange } from "./core/editor-actions";
-import { impactOf } from "./core/editor-guard";
+import { impactOf, readerRefuses } from "./core/editor-guard";
 import type { Piece } from "./core/editor-pieces";
 import { applyPlan, planInsert, type InsertPlan } from "./core/editor-place";
 import { isBookletText, scan } from "./core/editor-scan";
 import { askToChange } from "./editor-modals";
 
-/** Returns whether the note was changed (or needed no change). Cancel, or a note that changed while the question was open, changes nothing. */
-export async function writeNote(app: App, ed: Editor, before: string, after: string): Promise<boolean> {
+/**
+ * Returns whether the note was changed (or needed no change). Cancel, or a note that changed while the question was open, changes
+ * nothing. `design` is a change to an id, an option or a declared field: on a booklet the reader refuses nothing can be counted (the
+ * guard finds none because it cannot look), so that change asks too, in words that say so.
+ */
+export async function writeNote(app: App, ed: Editor, before: string, after: string, design = false): Promise<boolean> {
 	const c = minimalChange(before, after);
 	if (!c) return true;
-	const impacts = impactOf(before, after);
-	if (impacts.length && !(await askToChange(app, impacts))) return false;
+	const blind = design && readerRefuses(before);
+	const impacts = blind ? [] : impactOf(before, after);
+	if ((blind || impacts.length) && !(await askToChange(app, impacts, blind))) return false;
 	if (ed.getValue() !== before) {
 		new Notice("The note changed while the question was open. Nothing was changed.");
 		return false;

@@ -178,6 +178,12 @@ function showsField(q: Query, key: string, held: boolean): boolean {
 	return Array.isArray(q.readonly) && q.readonly.includes(key);
 }
 
+/** The question for a design change (an id, an option, a field) on a booklet the reader refuses: it cannot be read, so nothing can be counted. */
+export const BLIND = "The reader can't open this booklet right now, so the panel can't count what this change touches. Change it anyway?";
+
+/** True when the reader refuses the note as it is, so `impactOf` has nothing to count and says "none" without having looked. */
+export const readerRefuses = (text: string): boolean => !parseBooklet(text).ok;
+
 /**
  * What the change from `before` to `after` would leave not matching, with counts. A change is the whole note read twice, so it does
  * not matter which control made it. Empty when it detaches nothing. Counts are of what exists in `before`.
