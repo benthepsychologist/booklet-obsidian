@@ -60,7 +60,7 @@ export class EditorSide {
 		};
 		p.registerEvent(ws.on("active-leaf-change", follow));
 		// a pane that opens another note (a link, the quick switcher) keeps its leaf, so no leaf change is heard: the file-open is
-		p.registerEvent(ws.on("file-open", () => follow(ws.getMostRecentLeaf())));
+		p.registerEvent(ws.on("file-open", (file) => follow(file ? this.leafShowing(file.path) : null)));
 		p.registerEvent(ws.on("layout-change", () => this.sync()));
 		// a note renamed, or a folder renamed: the typings do not say whether Obsidian then also announces each note inside it, so a path
 		// under the old folder name is moved here, and a note announced after that no longer matches its old path (nothing is moved twice)
@@ -79,6 +79,28 @@ export class EditorSide {
 			follow(ws.getMostRecentLeaf());
 			this.sync();
 		});
+	}
+
+	/**
+	 * The leaf that shows a note just opened, in whichever window it is: the active one when it shows it, else the most recent one of the
+	 * main window, else any leaf that does. (`getMostRecentLeaf()` with no argument looks only in the main window, and a note opened in a
+	 * pop-out would be missed.)
+	 */
+	private leafShowing(path: string): WorkspaceLeaf | null {
+		const ws = this.plugin.app.workspace;
+		const shows = (leaf: WorkspaceLeaf | null): boolean => {
+			const v = leaf?.view;
+			return (v instanceof MarkdownView || v instanceof BookletView) && v.file?.path === path;
+		};
+		const active = ws.getActiveViewOfType(MarkdownView)?.leaf ?? ws.getActiveViewOfType(BookletView)?.leaf ?? null;
+		if (shows(active)) return active;
+		const recent = ws.getMostRecentLeaf();
+		if (shows(recent)) return recent;
+		let found: WorkspaceLeaf | null = null;
+		ws.iterateAllLeaves((l) => {
+			if (!found && shows(l)) found = l;
+		});
+		return found;
 	}
 
 	/**

@@ -211,3 +211,50 @@ test("[E] a folder rename moves the paths under it, whether or not each note is 
 	renamed({ path: "Classes" }, "Class");
 	assert.equal(side.markdownPath, "Classes/Week 1/Note.md");
 });
+
+test("[4] a file-open in a pop-out window is followed: the leaf that shows the file, in whichever window, not only the main window's", () => {
+	const pop = doc("pop");
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	const inMain = markdown("Main.md", w.main);
+	const inPop = markdown("Pop.md", pop);
+	const lMain = w.add(inMain);
+	const lPop = w.add(inPop);
+	inMain.leaf = lMain;
+	inPop.leaf = lPop;
+	w.ws.recent = lMain; // getMostRecentLeaf() looks in the main window only
+	w.emit("active-leaf-change", lMain);
+	assert.equal(side.markdownPath, "Main.md");
+	// the pop-out's pane is the active one, and shows Pop.md
+	w.ws.active = inPop;
+	w.emit("file-open", { path: "Pop.md" });
+	assert.equal(side.markdownPath, "Pop.md", "the active leaf, in the pop-out");
+	// not active (another window has the focus), but still the one that shows the file
+	w.ws.active = null;
+	side.markdownPath = "Main.md";
+	w.emit("file-open", { path: "Pop.md" });
+	assert.equal(side.markdownPath, "Pop.md", "found by looking through every window's leaves");
+	// a file no leaf shows (an embed) leaves it alone
+	w.emit("file-open", { path: "Embedded.md" });
+	assert.equal(side.markdownPath, "Pop.md");
+});
+
+test("[4] a note open as Markdown in one window and as a reading page in another: the file-open follows the active one", () => {
+	const pop = doc("pop");
+	const w = world();
+	const side = new EditorSide(w.plugin);
+	side.install();
+	const md = markdown("Same.md", pop);
+	const page = reading("Same.md", w.main);
+	const lMd = w.add(md);
+	const lPage = w.add(page);
+	md.leaf = lMd;
+	page.leaf = lPage;
+	side.markdownPath = "Other.md";
+	w.ws.recent = null;
+	w.ws.active = page;
+	w.emit("file-open", { path: "Same.md" });
+	assert.equal(side.bookletPath, "Same.md", "the reading page was the active one");
+	assert.equal(side.markdownPath, "Other.md", "the Markdown pane is not taken for it");
+});
