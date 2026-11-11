@@ -16,20 +16,41 @@ import { BookletView, VIEW_TYPE } from "./view";
 
 /**
  * Call `hear` with the document of the main window, of every popout window already open, and of each one that opens later. A listener
- * a panel or a drop needs is put on every window's document, since a note can be edited in a popout. `owner` is the component the
- * listeners belong to: its own cleanup removes them.
+ * a panel or a drop needs is put on every window's document, since a note can be edited in a popout. `hear` returns how to take its
+ * listeners off. A window that is closing lets go of them at once (the workspace's `window-close`, while the window is still there):
+ * a listener left on a document that is gone is not touched again. `owner` is the component the listeners belong to: its own cleanup
+ * lets go of those of the windows still open.
  */
-export function forEachWindow(owner: Component, app: App, hear: (doc: Document) => void): void {
-	const seen = new Set<Document>();
+export function forEachWindow(owner: Component, app: App, hear: (doc: Document) => () => void): void {
+	const release = new Map<Document, () => void>();
+	const closed = new Set<Document>();
 	const add = (doc: Document): void => {
-		if (seen.has(doc)) return;
-		seen.add(doc);
-		hear(doc);
+		if (release.has(doc) || closed.has(doc)) return;
+		release.set(doc, hear(doc));
 	};
 	add(activeDocument);
 	// the popouts the saved layout has open are there once the layout is ready (at once, when it is already)
 	app.workspace.onLayoutReady(() => app.workspace.iterateAllLeaves((l) => add(l.view.containerEl.ownerDocument)));
 	owner.registerEvent(app.workspace.on("window-open", (_win, win) => add(win.document)));
+	owner.registerEvent(
+		app.workspace.on("window-close", (_win, win) => {
+			const off = release.get(win.document);
+			if (!off) return;
+			release.delete(win.document);
+			closed.add(win.document);
+			off();
+		}),
+	);
+	owner.register(() => {
+		for (const off of release.values()) off();
+		release.clear();
+	});
+}
+
+/** A listener on a document, taken off by the function it returns (for `forEachWindow`). */
+export function listenOn<K extends keyof DocumentEventMap>(doc: Document, type: K, fn: (evt: DocumentEventMap[K]) => void, options?: AddEventListenerOptions): () => void {
+	doc.addEventListener(type, fn, options);
+	return () => doc.removeEventListener(type, fn, options);
 }
 
 export class EditorSide {
@@ -48,7 +69,7 @@ export class EditorSide {
 		const ws = p.app.workspace;
 		p.registerView(PANEL_TYPE, (leaf) => new EditorPanel(leaf, this));
 		// a piece dragged from the panel onto an editor (editor-drop.ts), in any window
-		forEachWindow(p, p.app, (doc) => p.registerDomEvent(doc, "dragover", allowDrop, { capture: true }));
+		forEachWindow(p, p.app, (doc) => listenOn(doc, "dragover", allowDrop, { capture: true }));
 		p.registerEvent(ws.on("editor-drop", (evt, editor) => void dropPiece(p.app, evt, editor)));
 		p.addCommand({ id: "editor-mode", name: "Editor mode", callback: () => void this.toggle() });
 		const follow = (leaf: WorkspaceLeaf | null) => {

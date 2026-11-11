@@ -12,7 +12,17 @@ import assert from "node:assert/strict";
 const { EditorSide, forEachWindow, BookletView } = await import("./.build/view.mjs");
 const { MarkdownView } = await import("./obsidian-stub.mjs");
 
-const doc = (name) => ({ name });
+/** A document that keeps the listeners put on it. */
+const doc = (name) => {
+	const d = { name, listeners: [] };
+	d.addEventListener = (type, fn, opts) => d.listeners.push({ type, fn, opts });
+	d.removeEventListener = (type, fn) => {
+		const i = d.listeners.findIndex((l) => l.type === type && l.fn === fn);
+		if (i >= 0) d.listeners.splice(i, 1);
+		else d.removedTwice = (d.removedTwice ?? 0) + 1;
+	};
+	return d;
+};
 const markdown = (path, ownerDocument) => {
 	const v = Object.create(MarkdownView.prototype);
 	v.file = { path };
@@ -44,12 +54,12 @@ function world(main = doc("main")) {
 		getMostRecentLeaf: () => ws.recent,
 		getActiveViewOfType: (cls) => (ws.active instanceof cls ? ws.active : null),
 	};
-	const dom = [];
+	const unload = [];
 	const plugin = {
 		app: { workspace: ws, vault: { on: (name, fn) => ((vaultHandlers[name] ??= []).push(fn), { name }) } },
 		registerView() {},
 		registerEvent() {},
-		registerDomEvent: (d, type, fn, opts) => dom.push({ doc: d, type, opts }),
+		register: (fn) => unload.push(fn),
 		addCommand() {},
 	};
 	const emit = (name, ...args) => (handlers[name] ?? []).forEach((fn) => fn(...args));
@@ -58,7 +68,7 @@ function world(main = doc("main")) {
 		leaves.push(leaf);
 		return leaf;
 	};
-	return { ws, plugin, emit, add, dom, vaultHandlers, main };
+	return { ws, plugin, emit, add, unload, vaultHandlers, main };
 }
 
 test("[7] editor mode keeps paths, never views: the note last in focus is a path, and the view is found again each time", () => {
@@ -131,7 +141,7 @@ test("[13] a listener is put on the document of the main window, of each popout 
 	const popout = doc("popout");
 	w.add(markdown("P.md", popout));
 	const heard = [];
-	forEachWindow({ registerEvent() {} }, w.plugin.app, (d) => heard.push(d.name));
+	forEachWindow({ registerEvent() {}, register() {} }, w.plugin.app, (d) => (heard.push(d.name), () => {}));
 	assert.deepEqual(heard.sort(), ["main", "popout"]);
 	w.emit("window-open", {}, { document: doc("later") });
 	w.emit("window-open", {}, { document: popout });
@@ -140,13 +150,46 @@ test("[13] a listener is put on the document of the main window, of each popout 
 
 test("[13] the drop's dragover listener is on every window's document", () => {
 	const w = world();
-	w.add(markdown("P.md", doc("popout")));
+	const popout = doc("popout");
+	w.add(markdown("P.md", popout));
 	const side = new EditorSide(w.plugin);
 	side.install();
-	w.emit("window-open", {}, { document: doc("later") });
-	const on = w.dom.filter((d) => d.type === "dragover").map((d) => d.doc.name).sort();
-	assert.deepEqual(on, ["later", "main", "popout"]);
-	assert.ok(w.dom.every((d) => d.opts?.capture === true));
+	for (const d of [w.main, popout]) {
+		assert.deepEqual(d.listeners.map((l) => l.type), ["dragover"], `${d.name}: open when the plugin installed`);
+		assert.equal(d.listeners[0].opts?.capture, true);
+	}
+	const later = doc("later");
+	w.emit("window-open", {}, { document: later });
+	assert.deepEqual(later.listeners.map((l) => l.type), ["dragover"], "a window that opens later");
+});
+
+test("[13] a window that closes lets go of the listeners on its document, and they are not touched again when the plugin unloads", () => {
+	const w = world();
+	const popout = doc("popout");
+	w.add(markdown("P.md", popout));
+	const side = new EditorSide(w.plugin);
+	side.install();
+	assert.equal(popout.listeners.length, 1);
+	w.emit("window-close", {}, { document: popout });
+	assert.equal(popout.listeners.length, 0, "taken off as the window closes");
+	assert.equal(w.main.listeners.length, 1, "the main window keeps its own");
+	w.emit("window-open", {}, { document: popout }); // a closed window is not heard again
+	assert.equal(popout.listeners.length, 0);
+	w.unload.forEach((fn) => fn());
+	assert.equal(popout.removedTwice, undefined, "the closed window's document is not touched at unload");
+	assert.equal(w.main.listeners.length, 0, "the windows still open are let go at unload");
+});
+
+test("[13] the panel's listener is let go with its window too: forEachWindow returns what `hear` returns to the close", () => {
+	const w = world();
+	const popout = doc("popout");
+	w.add(markdown("P.md", popout));
+	const released = [];
+	forEachWindow({ registerEvent() {}, register() {} }, w.plugin.app, (d) => () => released.push(d.name));
+	w.emit("window-close", {}, { document: popout });
+	assert.deepEqual(released, ["popout"]);
+	w.emit("window-close", {}, { document: popout });
+	assert.deepEqual(released, ["popout"], "once");
 });
 
 // ---------------------------------------------------------------- second fix round, item E

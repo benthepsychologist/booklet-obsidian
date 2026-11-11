@@ -140,6 +140,7 @@ import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, p
 import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
 import type { LeafMode } from "./switch";
+import { windowGone } from "./window-gone";
 
 export const VIEW_TYPE = "booklet";
 
@@ -278,6 +279,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private offscreen = false;
 	/** Text typed and not yet written, by question. */
 	private pending = new Map<string, Pending>();
+	/** The window this view is drawn in, and whether it has been told to close (the workspace's `window-close`). */
+	private homeWindow: Window | null = null;
+	private windowClosing = false;
 	/** Words typed in a field that are not an answer yet (Add your own), by field: kept across drawings. */
 	private held = new Map<string, string>();
 	/** The note's design changed while the reader was in a field or pressing: the view is drawn again when they are done. */
@@ -454,6 +458,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		});
 		// Obsidian's own audio and video elements load nothing before they are pressed, as far as the page can say so (media-view.ts)
 		const win = this.contentEl.ownerDocument.defaultView;
+		// a view in a pop-out window knows when that window is closing: what it has typed is written once the window is gone (write)
+		this.homeWindow = win;
+		this.registerEvent(
+			this.app.workspace.on("window-close", (_w, closing) => {
+				if (closing.document === this.contentEl.ownerDocument) this.windowClosing = true;
+			}),
+		);
 		if (win && typeof win.MutationObserver === "function") {
 			const watch = new win.MutationObserver((records) => {
 				for (const r of records)
@@ -2351,6 +2362,10 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private async write(file: TFile, change: (text: string) => string): Promise<void> {
+		// A pop-out window that is closing is let go first (window-gone.ts): Obsidian 1.11 throws a bare, uncaught "illegal access" in the
+		// main window when a note is written while a pop-out window is being closed (words typed in it are written as it closes). The
+		// write is the same, a moment later; the change is made on the note's text as it is then.
+		if (this.windowClosing) await windowGone(this.homeWindow);
 		let result: string;
 		const md = markdownViewOf(this.app, file.path);
 		if (md) {

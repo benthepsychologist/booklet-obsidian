@@ -25,7 +25,7 @@ import { HAS_FRONT } from "./core/editor-place";
 import { type Problem } from "./core/editor-problems";
 import { PIECE_MIME } from "./editor-drop";
 import { pickIcon } from "./editor-modals";
-import { forEachWindow, type EditorSide } from "./editor-side";
+import { forEachWindow, listenOn, type EditorSide } from "./editor-side";
 import { placePiece, writeNote } from "./editor-write";
 
 export const PANEL_TYPE = "booklet-blocks";
@@ -124,7 +124,7 @@ export class EditorPanel extends ItemView {
 		this.registerEvent(ws.on("file-open", () => this.refreshSoon()));
 		this.registerEvent(ws.on("layout-change", () => this.refreshSoon()));
 		// the cursor moves in the editor of any window, a popout's included
-		forEachWindow(this, this.app, (doc) => this.registerDomEvent(doc, "selectionchange", () => this.refreshSoon()));
+		forEachWindow(this, this.app, (doc) => listenOn(doc, "selectionchange", () => this.refreshSoon()));
 		this.register(() => {
 			if (this.timer !== null) window.clearTimeout(this.timer);
 		});
