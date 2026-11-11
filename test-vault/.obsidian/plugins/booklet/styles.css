@@ -3293,6 +3293,10 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-blocks-piece {
 	text-align: left;
 	cursor: grab;
+	/* a long label wraps inside the panel's width */
+	white-space: normal;
+	max-width: 100%;
+	height: auto;
 }
 
 .booklet-blocks-row {
@@ -3371,6 +3375,24 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-blocks-icon.is-current {
 	border: 2px solid var(--interactive-accent);
+}
+
+/* on a phone every control of the panel is at least 44 px high, and a switch is pressed by its words as well as its box */
+.is-mobile .booklet-blocks summary,
+.is-mobile .booklet-blocks button,
+.is-mobile .booklet-blocks input[type="text"],
+.is-mobile .booklet-blocks-row > label {
+	min-height: 44px;
+}
+
+.is-mobile .booklet-blocks summary,
+.is-mobile .booklet-blocks-row > label {
+	display: flex;
+	align-items: center;
+}
+
+.booklet-blocks {
+	overflow-wrap: anywhere;
 }
 
 /* ===== themes/fonts.css ===== */

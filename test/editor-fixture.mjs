@@ -15,7 +15,7 @@ export const ROWS = [
 	{ id: "e", title: "Read", kind: "health", done: "no" },
 ];
 
-export const DATA_FENCE = `\`\`\`booklet data\n{ "fields": { "title": { "label": "Title", "edit": "text" }, "kind": "Kind", "done": "Done" },\n  "rows": ${JSON.stringify(ROWS)} }\n\`\`\``;
+export const DATA_FENCE = `\`\`\`booklet data\n{ "fields": { "title": "Title", "kind": "Kind", "done": "Done" },\n  "rows": ${JSON.stringify(ROWS)} }\n\`\`\``;
 
 export const HELD = bookletAround(
 	[

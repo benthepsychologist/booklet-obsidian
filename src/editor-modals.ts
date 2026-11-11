@@ -30,7 +30,8 @@ class AskToChange extends Modal {
 		const cancel = buttons.createEl("button", { text: "Cancel", attr: { "aria-label": "Cancel, and leave the note as it is" } });
 		change.addEventListener("click", () => this.finish(true));
 		cancel.addEventListener("click", () => this.finish(false));
-		cancel.focus();
+		// Obsidian puts the focus on the first button when a dialog opens: Cancel is the one to start on
+		window.setTimeout(() => cancel.focus(), 0);
 	}
 
 	private finish(change: boolean): void {

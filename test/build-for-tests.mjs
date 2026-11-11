@@ -35,7 +35,7 @@ await esbuild.build({
 });
 await esbuild.build({ ...pluginOptions(true), outfile: "test/.build/main.js", logLevel: "warning" });
 await esbuild.build({
-	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main"; export { MediaAllows } from "./src/settings";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main"; export { MediaAllows } from "./src/settings"; export { dropPiece, allowDrop, carries, lineUnder, PIECE_MIME } from "./src/editor-drop";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",

@@ -43,7 +43,7 @@ export function dropPiece(e: DragEvent, editor: Editor): void {
 	const piece = PIECES.find((p) => p.file === e.dataTransfer?.getData(PIECE_MIME));
 	if (!piece) return;
 	const text = editor.getValue();
-	if (!isBookletText(text)) {
+	if (!isBookletText(text) && !(piece.front && !text.startsWith("---"))) {
 		new Notice("Blocks go into a booklet note. This note has no `booklet:` line in its properties.");
 		return;
 	}

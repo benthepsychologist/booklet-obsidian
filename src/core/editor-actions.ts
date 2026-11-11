@@ -10,8 +10,8 @@
  */
 import { walkRows } from "./editor-guard";
 import { parseLine, strayWords, type Edit, type ParsedLine } from "./editor-line";
-import { settingsOf } from "./editor-patterns";
-import { scan } from "./editor-scan";
+import { LP, settingsOf } from "./editor-patterns";
+import { claimEnd, scan } from "./editor-scan";
 import { removeMember, scanJson, splice, type JsonMember } from "./json-edit";
 import type { DataRow } from "./data";
 
@@ -198,4 +198,85 @@ export function removeField(doc: string, cursor: number, key: string): { text: s
 	const cut = removeMember(inner, key);
 	if (cut === null) return { error: "That block's fields could not be read." };
 	return { text: withBody(doc, at.block, splice(at.body, parts.fields.start, parts.fields.end, cut)) };
+}
+
+// ---------------------------------------------------------------- the options of a choice, multi or scale
+
+export interface OptionItem {
+	/** 0-based line of the option (a task line `- [ ] words`, or a scale's `0. words`). */
+	line: number;
+	/** The position the reader's answer stores: a choice's number from 1, a scale's anchor number. */
+	position: number;
+	/** The words. */
+	text: string;
+	/** The last line the option takes: replies written under it belong to it. */
+	end: number;
+}
+
+export interface OptionList {
+	/** The question's own line. */
+	head: number;
+	kind: "choice" | "multi" | "scale";
+	id: string | null;
+	items: OptionItem[];
+}
+
+const quoteCount = (s: string): number => (s.match(/>/g) ?? []).length;
+const stripQuotes = (line: string, n: number): string => {
+	let out = line;
+	for (let k = 0; k < n; k++) out = out.replace(/^>[ \t]?/, "");
+	return out;
+};
+
+/** The options of the choice, multi or scale that holds the line (its own line or one of the lines it claims), or null. */
+export function optionsAt(doc: string, cursor: number): OptionList | null {
+	const lines = doc.split("\n");
+	for (let j = Math.min(cursor, lines.length - 1); j >= 0; j--) {
+		const p = parseLine(lines[j] ?? "");
+		if (!p) {
+			// a question's options sit just under it: only lines of a quote or a list or a blank can be among them
+			if ((lines[j] ?? "").trim() === "" && j < cursor && !(lines[j + 1] ?? "").trim()) return null;
+			continue;
+		}
+		if (p.kind !== "choice" && p.kind !== "multi" && p.kind !== "scale") return null;
+		const n = quoteCount(p.quotes);
+		const rest = lines.slice(j).map((l) => stripQuotes(l, n));
+		const end = j + claimEnd(p.kind, rest, 0);
+		if (cursor >= end) return null;
+		const items: OptionItem[] = [];
+		const pattern = p.kind === "scale" ? LP.NUMBERED : LP.TASK;
+		for (let k = j + 1; k < end; k++) {
+			const l = rest[k - j] ?? "";
+			const m = pattern.exec(l);
+			if (!m) continue;
+			const text = p.kind === "scale" ? (m[2] ?? "") : l.slice(m[0].length);
+			items.push({ line: k, position: p.kind === "scale" ? Number(m[1]) : items.length + 1, text, end: k });
+		}
+		items.forEach((it, i) => (it.end = (items[i + 1]?.line ?? end) - 1));
+		return items.length ? { head: j, kind: p.kind, id: p.id, items } : null;
+	}
+	return null;
+}
+
+/** The note with one option's words changed: the marker, the number and the quote marks in front of it stay. */
+export function renameOption(doc: string, cursor: number, line: number, words: string): { text: string } | { error: string } {
+	const list = optionsAt(doc, cursor);
+	const item = list?.items.find((i) => i.line === line);
+	if (!list || !item) return { error: "That is not an option of the question here." };
+	const w = words.trim();
+	if (!w) return { error: "An option cannot be empty." };
+	if (/[\r\n]/.test(w)) return { error: "An option is one line." };
+	const text = doc.split("\n")[line] ?? "";
+	return { text: replaceLine(doc, line, text.slice(0, text.length - item.text.length) + w) };
+}
+
+/** The note without one option (and the replies written under it). The last option stays: a question keeps at least one. */
+export function removeOption(doc: string, cursor: number, line: number): { text: string } | { error: string } {
+	const list = optionsAt(doc, cursor);
+	const item = list?.items.find((i) => i.line === line);
+	if (!list || !item) return { error: "That is not an option of the question here." };
+	if (list.items.length === 1) return { error: "A question keeps at least one option." };
+	const lines = doc.split("\n");
+	lines.splice(item.line, item.end - item.line + 1);
+	return { text: lines.join("\n") };
 }

@@ -15,6 +15,8 @@ export interface Piece extends PieceSource {
 	kinds: string[];
 	/** The `as:` of each query it holds. */
 	views: string[];
+	/** It is a note's front matter: the one piece that can go into a note that is not a booklet yet. */
+	front: boolean;
 }
 
 /** The groups as the panel lists them, in order, with their headings. */
@@ -26,7 +28,7 @@ export const PIECE_GROUPS: readonly { id: PieceGroup; title: string }[] = [
 	{ id: "views", title: "Views of data" },
 ];
 
-function holds(text: string): { kinds: string[]; views: string[] } {
+function holds(text: string): { kinds: string[]; views: string[]; front: boolean } {
 	const kinds: string[] = [];
 	const views: string[] = [];
 	const s = scan(text);
@@ -42,7 +44,7 @@ function holds(text: string): { kinds: string[]; views: string[] } {
 		const as = body.map((x) => /^as:[ \t]*(\S+)/i.exec(x)?.[1]).find(Boolean);
 		views.push((as ?? "").toLowerCase());
 	}
-	return { kinds, views };
+	return { kinds, views, front: s.hasFrontMatter };
 }
 
 export const PIECES: readonly Piece[] = PIECE_SOURCES.map((p) => ({ ...p, ...holds(p.text) }));

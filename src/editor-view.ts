@@ -15,7 +15,7 @@
  * and the sections are `<details>`. The words are English; the plugin does not localise.
  */
 import { ItemView, MarkdownView, Notice, Platform, type Editor, type WorkspaceLeaf } from "obsidian";
-import { changeLine, fieldBlockAt, minimalChange, removeField, renameField, settingsModel, type FieldBlock, type SettingsModel } from "./core/editor-actions";
+import { changeLine, fieldBlockAt, minimalChange, optionsAt, removeField, removeOption, renameField, renameOption, settingsModel, type FieldBlock, type OptionList, type SettingsModel } from "./core/editor-actions";
 import { holdings, holdingsLine, impactOf } from "./core/editor-guard";
 import { type Edit, type ParsedLine, removeWord, setFlag, setId, setValue } from "./core/editor-line";
 import { flatten, outline, type OutlineNode } from "./core/editor-outline";
@@ -76,6 +76,7 @@ export class EditorPanel extends ItemView {
 	private about!: HTMLElement;
 	private add!: Section;
 	private line!: Section;
+	private options!: Section;
 	private fields!: Section;
 	private tree!: Section;
 	private problems!: Section;
@@ -108,6 +109,7 @@ export class EditorPanel extends ItemView {
 		this.about = el.createDiv({ cls: "booklet-blocks-about" });
 		this.add = new Section(el, "Add a block", true, "booklet-blocks-add");
 		this.line = new Section(el, "This line", true, "booklet-blocks-line");
+		this.options = new Section(el, "Options", true, "booklet-blocks-options");
 		this.fields = new Section(el, "Data fields", true, "booklet-blocks-fields");
 		this.tree = new Section(el, "Outline", false, "booklet-blocks-outline");
 		this.problems = new Section(el, "Problems", false, "booklet-blocks-problems");
@@ -180,14 +182,14 @@ export class EditorPanel extends ItemView {
 				const b = this.about.createEl("button", { text: "Open this note's Markdown", attr: { "aria-label": "Open this note's Markdown beside the page, to place blocks in it" } });
 				b.addEventListener("click", () => void this.side.openMarkdownOf(src));
 			}
-			for (const s of [this.line, this.fields, this.tree, this.problems]) s.show(false);
+			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
 			return;
 		}
 		this.about.empty();
 		this.about.setText(`Note: ${view.file?.basename ?? ""}`);
 		if (!booklet) {
-			this.holds.setText("This note is not a booklet: it has no `booklet:` line in its properties.");
-			for (const s of [this.line, this.fields, this.tree, this.problems]) s.show(false);
+			this.holds.setText("This note is not a booklet: it has no `booklet:` line in its properties. The front matter block under Structure makes a note with no properties one.");
+			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
 			return;
 		}
 		this.holds.setText(holdingsLine(holdings(doc)));
@@ -200,6 +202,11 @@ export class EditorPanel extends ItemView {
 		const model = settingsModel(text);
 		this.line.show(true);
 		this.line.update(`${cursor.line}\u0000${text}`, (b) => this.drawSettings(b, model, cursor.line, text));
+
+		// Options
+		const opts = optionsAt(doc, cursor.line);
+		this.options.show(!!opts);
+		this.options.update(JSON.stringify(opts), (b) => (opts ? this.drawOptions(b, opts, cursor.line) : undefined));
 
 		// Data fields
 		const block = fieldBlockAt(doc, cursor.line);
@@ -253,8 +260,9 @@ export class EditorPanel extends ItemView {
 			return;
 		}
 		const before = ed.getValue();
-		if (!isBookletText(before)) {
-			new Notice("This note is not a booklet: it has no `booklet:` line in its properties.");
+		// a note that is not a booklet takes one piece, its front matter, and only when it has no properties yet
+		if (!isBookletText(before) && !(p.front && !before.startsWith("---"))) {
+			new Notice(p.front ? "This note has properties already. Add `booklet:` with the format version to them." : "This note is not a booklet: it has no `booklet:` line in its properties.");
 			return;
 		}
 		const plan = planInsert(before, ed.getCursor(), p.text);
@@ -354,6 +362,24 @@ export class EditorPanel extends ItemView {
 		});
 	}
 
+	// ---------------------------------------------------------------- the options of a choice, multi or scale
+
+	private drawOptions(b: HTMLElement, list: OptionList, cursor: number): void {
+		b.createEl("p", { cls: "booklet-blocks-kind", text: `Options of ${list.kind} ${list.id ?? ""}`.trim() });
+		b.createEl("p", { cls: "booklet-blocks-hint", text: "Kept answers are stored by position. Removing or renaming an option can detach the answers that chose it." });
+		const what = list.kind === "scale" ? "Anchor" : "Option";
+		for (const item of list.items) {
+			const row = b.createDiv({ cls: "booklet-blocks-row" });
+			const id = `booklet-blocks-${++uid}`;
+			row.createEl("label", { text: `${what} ${item.position}`, attr: { for: id } });
+			const input = row.createEl("input", { type: "text", attr: { id, "data-key": `opt-${item.line}` } });
+			input.value = item.text;
+			input.addEventListener("change", () => this.editNote(this.options, (doc) => renameOption(doc, cursor, item.line, input.value)));
+			const rm = row.createEl("button", { text: "Remove", attr: { type: "button", "aria-label": `Remove ${what.toLowerCase()} ${item.position}, ${item.text}`, "data-key": `orm-${item.line}` } });
+			rm.addEventListener("click", () => this.editNote(this.options, (doc) => removeOption(doc, cursor, item.line)));
+		}
+	}
+
 	// ---------------------------------------------------------------- the declared fields of a data block
 
 	private drawFields(b: HTMLElement, block: FieldBlock, cursor: number): void {
@@ -366,26 +392,27 @@ export class EditorPanel extends ItemView {
 			row.createEl("label", { text: "Field", attr: { for: id } });
 			const input = row.createEl("input", { type: "text", attr: { id, "data-key": `fkey-${key}` } });
 			input.value = key;
-			input.addEventListener("change", () => this.editFields((doc) => renameField(doc, cursor, key, input.value.trim())));
+			input.addEventListener("change", () => this.editNote(this.fields, (doc) => renameField(doc, cursor, key, input.value.trim())));
 			row.createSpan({ cls: "booklet-blocks-count", text: used === 1 ? "1 row" : `${used} rows` });
 			const rm = row.createEl("button", { text: "Remove", attr: { type: "button", "aria-label": `Remove the field ${key} from the declaration (${used} ${used === 1 ? "row holds" : "rows hold"} it)`, "data-key": `frm-${key}` } });
-			rm.addEventListener("click", () => this.editFields((doc) => removeField(doc, cursor, key)));
+			rm.addEventListener("click", () => this.editNote(this.fields, (doc) => removeField(doc, cursor, key)));
 		}
 	}
 
-	private editFields(make: (doc: string) => { text: string } | { error: string }): void {
+	/** A change to the note that is not one line: made from the note as it is now, asked about first if it detaches data. */
+	private editNote(section: Section, make: (doc: string) => { text: string } | { error: string }): void {
 		const ed = this.live()?.editor;
 		if (!ed) return;
 		const before = ed.getValue();
 		const r = make(before);
 		if ("error" in r) {
 			new Notice(r.error);
-			this.fields.forget();
+			section.forget();
 			this.refresh();
 			return;
 		}
 		void this.write(ed, before, r.text).then((done) => {
-			if (!done) this.fields.forget();
+			if (!done) section.forget();
 			this.line.forget();
 			this.refresh();
 		});

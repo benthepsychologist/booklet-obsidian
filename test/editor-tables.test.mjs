@@ -118,3 +118,7 @@ test("every piece uses only placeholders the panel knows how to make (`new-` wor
 	const labels = PIECES.map((p) => `${p.group}/${p.label}`);
 	assert.equal(new Set(labels).size, labels.length);
 });
+
+test("the front matter is the one piece that goes into a note that is not a booklet yet", () => {
+	assert.deepEqual(core.PIECES.filter((p) => p.front).map((p) => p.file), ["Structure - front matter.md"]);
+});

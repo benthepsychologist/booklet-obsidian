@@ -8,8 +8,9 @@ import assert from "node:assert/strict";
 import { core } from "./helpers.mjs";
 import { HELD, ROWS } from "./editor-fixture.mjs";
 
-const { minimalChange, applyChange, replaceLine, settingsModel, changeLine, setFlag, setValue, setId, fieldBlockAt, renameField, removeField, impactOf, parseBooklet } = core;
+const { optionsAt, renameOption, removeOption, minimalChange, applyChange, replaceLine, settingsModel, changeLine, setFlag, setValue, setId, fieldBlockAt, renameField, removeField, impactOf, parseBooklet } = core;
 
+const bookletAroundDoc = (body) => core.FORMAT_VERSION && `---\nbooklet: "${core.FORMAT_VERSION}"\nid: local/made-up\ntitle: T\nlang: en\nversion: "0.1"\n---\n\n${body}`;
 const lineOf = (text, needle) => text.split("\n").findIndex((l) => l.includes(needle));
 const recordsOf = (text) => text.slice(text.indexOf("%%"));
 const dataFence = (text) => /```booklet data\n([\s\S]*?)\n```/.exec(text)[1];
@@ -146,4 +147,68 @@ test("a rename or a removal that cannot be made says why and writes nothing", ()
 test("a note's lines are replaced by number and the rest is left alone", () => {
 	assert.equal(replaceLine("a\nb\nc", 1, "X"), "a\nX\nc");
 	assert.equal(replaceLine("a\nb\nc", 9, "X"), "a\nb\nc");
+});
+
+// ---------------------------------------------------------------- the options of a choice or a scale
+
+test("the options of a choice are read from the question's line or from any of its option lines", () => {
+	const head = lineOf(HELD, "[!choice|feeling]");
+	for (const at of [head, head + 1, head + 3]) {
+		const o = optionsAt(HELD, at);
+		assert.equal(o.kind, "choice");
+		assert.equal(o.id, "feeling");
+		assert.deepEqual(o.items.map((i) => [i.line - head, i.position, i.text]), [[1, 1, "Calm"], [2, 2, "Tense"], [3, 3, "Low"]]);
+	}
+	// the line after the options, and a text question, have none
+	assert.equal(optionsAt(HELD, head + 4), null);
+	assert.equal(optionsAt(HELD, lineOf(HELD, "[!text|why]")), null);
+	const sc = optionsAt(HELD, lineOf(HELD, "[!scale|energy]"));
+	assert.deepEqual(sc.items.map((i) => [i.position, i.text]), [[0, "None"], [1, "Some"], [2, "Lots"]]);
+});
+
+test("an option is renamed in place: the marker and every other byte stay, and the guard counts the entries that picked it", () => {
+	const head = lineOf(HELD, "[!choice|feeling]");
+	const r = renameOption(HELD, head, head + 2, "Worried");
+	assert.ok("text" in r, JSON.stringify(r));
+	assert.equal(r.text, HELD.replace("- [ ] Tense", "- [ ] Worried"));
+	assert.equal(minimalChange(HELD, r.text).text, "Worried");
+	// four of the twelve entries chose the second option
+	assert.deepEqual(impactOf(HELD, r.text).map((i) => [i.kind, i.entries, i.answers]), [["option", 4, 0]]);
+	// a scale anchor: its number stays
+	const at = lineOf(HELD, "[!scale|energy]");
+	const sc = renameOption(HELD, at, lineOf(HELD, "2. Lots"), "Plenty");
+	assert.equal(sc.text, HELD.replace("2. Lots", "2. Plenty"));
+	assert.deepEqual(impactOf(HELD, sc.text).map((i) => [i.kind, i.entries, i.answers]), [["option", 0, 1]]);
+});
+
+test("an option removed shifts the ones after it, and the guard counts every entry that picked one of them", () => {
+	const head = lineOf(HELD, "[!choice|feeling]");
+	const r = removeOption(HELD, head, head + 1);
+	assert.equal(r.text, HELD.replace("- [ ] Calm\n", ""));
+	// the entries that chose 1, 2 and 3 each now point at another option or at none
+	assert.deepEqual(impactOf(HELD, r.text).map((i) => [i.kind, i.entries]), [["option", 12]]);
+	// the last option cannot go, and a line that is not an option is refused
+	const one = HELD.replace("- [ ] Tense\n- [ ] Low\n", "");
+	assert.match(removeOption(one, head, head + 1).error, /at least one/);
+	assert.match(removeOption(HELD, head, head + 9).error, /not an option/);
+	assert.match(renameOption(HELD, head, head + 1, "  ").error, /cannot be empty/);
+});
+
+test("options inside a group keep the group's quote marks, and replies go with the option they answer", () => {
+	const doc = bookletAroundDoc([
+		"> [!activity|a] A",
+		"",
+		"> [!group] Step",
+		">",
+		"> > [!choice|c] Pick",
+		"> - [ ] One",
+		">   - a reply to one",
+		"> - [ ] Two",
+		"",
+	].join("\n"));
+	const head = lineOf(doc, "[!choice|c]");
+	const o = optionsAt(doc, head);
+	assert.deepEqual(o.items.map((i) => i.text), ["One", "Two"]);
+	assert.equal(renameOption(doc, head, head + 3, "Deux").text, doc.replace("- [ ] Two", "- [ ] Deux"));
+	assert.equal(removeOption(doc, head, head + 1).text, doc.replace("> - [ ] One\n>   - a reply to one\n", ""));
 });
