@@ -547,14 +547,14 @@ async function round2(o, vault) {
   await sleep(1500);
   eq(sha("Refused.booklet.md"), s0, "...and the file's sha on disk is unchanged");
   await waitLine(o, "text");
-  // a switch impactOf does not count (`hidden`) does not ask; one it counts (`open`) does
+  // a switch impactOf does not count (`long`) does not ask; one it counts (`open`) does
   await setCursor(o, lineOf(REFUSED, "[!text|why]")); await waitLine(o, "text");
-  await the(o, ".booklet-blocks-line input[data-key='flag-hidden']").check();
+  await the(o, ".booklet-blocks-line input[data-key='flag-long']").check();
   await sleep(500);
-  eq(await the(o, ".booklet-blocks-ask").count(), 0, "a switch the guard does not count (hidden) on the same booklet does not ask");
+  eq(await the(o, ".booklet-blocks-ask").count(), 0, "a switch the guard does not count (long) on the same booklet does not ask");
   const flagged = await textOf("Refused.booklet.md");
   eq(JSON.stringify(diffLines(REFUSED, flagged)), JSON.stringify([lineOf(REFUSED, "[!text|why]")]), "...and changes only that line");
-  await the(o, ".booklet-blocks-line input[data-key='flag-hidden']").uncheck(); await sleep(400);
+  await the(o, ".booklet-blocks-line input[data-key='flag-long']").uncheck(); await sleep(400);
   eq(await textOf("Refused.booklet.md"), REFUSED, "...and turning it off gives the note back as it was");
   await setCursor(o, lineOf(REFUSED, "[!choice|feeling]")); await waitLine(o, "choice");
   await the(o, ".booklet-blocks-line input[data-key='flag-open']").check();
