@@ -171,17 +171,57 @@ test("a counted word is two keys; French takes zero and one as the singular", ()
 	assert.equal(tn("confirm.lines", 12, "en"), "12 lines");
 });
 
-test("the Design view's table: every entry has English and only the three slots; none is empty", () => {
+test("the Design view's table: every entry has English, Spanish and French and only those three slots; none is empty", () => {
 	const keys = Object.keys(DESIGN_STRINGS);
 	assert.ok(keys.length > 100);
 	for (const k of keys) {
 		const e = DESIGN_STRINGS[k];
 		assert.ok(typeof e.en === "string" && e.en.trim(), `${k} has English`);
 		for (const slot of Object.keys(e)) assert.ok(["en", "es", "fr"].includes(slot), `${k} has an odd slot ${slot}`);
-		assert.equal(e.es, undefined, `${k}: Spanish is left for /localize`);
-		assert.equal(e.fr, undefined, `${k}: French is left for /localize`);
+		assert.ok(typeof e.es === "string" && e.es.trim(), `${k} has Spanish`);
+		assert.ok(typeof e.fr === "string" && e.fr.trim(), `${k} has French`);
 	}
-	assert.equal(t("undo", "fr"), "Undo", "a table with no French shows English");
+	assert.equal(t("undo", "fr"), "Annuler");
+	assert.equal(t("undo", "es"), "Deshacer");
+	assert.equal(t("undo", "en"), "Undo");
+});
+
+test("a Spanish or French string keeps every {placeholder} and every `backtick span` of its English, the same ones", () => {
+	const names = (s) => (s.match(/\{[A-Za-z0-9_.]+\}/g) || []).sort().join(",");
+	const spans = (s) => (s.match(/`[^`]*`/g) || []).join(",");
+	for (const [k, e] of Object.entries(DESIGN_STRINGS)) {
+		for (const lang of ["es", "fr"]) {
+			assert.equal(names(e[lang]), names(e.en), `${k} (${lang}): placeholders`);
+			assert.equal(spans(e[lang]), spans(e.en), `${k} (${lang}): backtick spans`);
+		}
+	}
+});
+
+test("a counted word has both its .one and its .other, in English, Spanish and French", () => {
+	const keys = Object.keys(DESIGN_STRINGS);
+	const bases = new Set(keys.filter((k) => /\.(one|other)$/.test(k)).map((k) => k.replace(/\.(one|other)$/, "")));
+	assert.ok(bases.has("confirm.lines") && bases.size >= 1);
+	for (const b of bases) {
+		assert.ok(DESIGN_STRINGS[`${b}.one`] && DESIGN_STRINGS[`${b}.other`], `${b} has .one and .other`);
+		for (const lang of ["en", "es", "fr"]) for (const f of ["one", "other"]) assert.match(DESIGN_STRINGS[`${b}.${f}`][lang], /\{n\}/, `${b}.${f} (${lang}) shows its count`);
+	}
+	for (const k of keys) if (/\.(one|other)$/.test(k)) assert.ok(bases.has(k.replace(/\.(one|other)$/, "")), k);
+});
+
+test("French takes 0 and 1 as the singular, Spanish only 1; the real table says so in each language", () => {
+	assert.equal(tn("confirm.lines", 0, "fr"), DESIGN_STRINGS["confirm.lines.one"].fr.replace("{n}", "0"));
+	assert.equal(tn("confirm.lines", 1, "fr"), DESIGN_STRINGS["confirm.lines.one"].fr.replace("{n}", "1"));
+	assert.equal(tn("confirm.lines", 2, "fr"), DESIGN_STRINGS["confirm.lines.other"].fr.replace("{n}", "2"));
+	assert.equal(tn("confirm.lines", 0, "es"), DESIGN_STRINGS["confirm.lines.other"].es.replace("{n}", "0"));
+	assert.equal(tn("confirm.lines", 1, "es"), DESIGN_STRINGS["confirm.lines.one"].es.replace("{n}", "1"));
+	assert.equal(tn("confirm.lines", 5, "es"), DESIGN_STRINGS["confirm.lines.other"].es.replace("{n}", "5"));
+});
+
+test("a key with no Spanish or French still shows its English (a test-only entry, not the real table)", () => {
+	const table = { ...DESIGN_STRINGS, "test.only": { en: "Only in English {x}" } };
+	assert.equal(say(table, "es", "test.only", { x: 1 }), "Only in English 1");
+	assert.equal(say(table, "fr", "test.only", { x: 2 }), "Only in English 2");
+	assert.equal(say(table, "fr", "undo"), "Annuler", "the real keys still speak French beside it");
 });
 
 test("every level has its one plain-words line, once, in the table", () => {

@@ -498,11 +498,12 @@ test("the plugin sets no default hotkey anywhere: no command and no manifest ent
 	assert.doesNotMatch(src, /hotkeys\s*:/);
 });
 
-test("the popup takes its text from the string table, with Spanish and French slots empty so English shows", () => {
+test("the popup takes its text from the string table, in Spanish and French as well as English", () => {
 	const { DESIGN_STRINGS, t } = core;
 	for (const k of Object.keys(DESIGN_STRINGS).filter((x) => /^(cat|keys|draw|cmd)\./.test(x))) {
 		assert.ok(DESIGN_STRINGS[k].en.length > 0, k);
-		assert.equal(DESIGN_STRINGS[k].es, undefined, `${k}: no Spanish yet`);
-		assert.equal(t(k, "es"), t(k, "en"), `${k}: English shows`);
+		assert.ok(DESIGN_STRINGS[k].es && DESIGN_STRINGS[k].fr, `${k}: has Spanish and French`);
+		assert.equal(t(k, "es"), DESIGN_STRINGS[k].es, `${k}: Spanish shows`);
+		assert.equal(t(k, "fr"), DESIGN_STRINGS[k].fr, `${k}: French shows`);
 	}
 });
