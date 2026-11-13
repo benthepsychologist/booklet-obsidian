@@ -2,7 +2,7 @@
  * A Design view open on a note, for the tests of stage C (the inert drawings, the catalogue and the keys): the same rig as test/design-view.test.mjs
  * has, made once here. Not a test file (no `.test.mjs`), so `node --test` does not run it.
  */
-import { window as w, click, words, testApp, testKeymap } from "./dom.mjs";
+import { window as w, click, words, testApp } from "./dom.mjs";
 import assert from "node:assert/strict";
 import { lineOf } from "./design-fixtures.mjs";
 
@@ -19,7 +19,7 @@ export function openDesign(text, { path = "Note.booklet.md" } = {}) {
 	view.load();
 	view.setViewData(text, true);
 	const el = view.contentEl;
-	const keymap = testKeymap();
+	const keymap = app.keymap; // the app's own, so a scope the view pushes itself is on the same stack as the one pushed here
 	keymap.pushScope(view.scope);
 	const all = (sel, from = el) => [...from.querySelectorAll(sel)];
 	const o = {

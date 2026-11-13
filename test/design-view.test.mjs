@@ -967,3 +967,16 @@ test("the plugin registers the Design view beside the others, and the command id
 	assert.deepEqual(cmds, ["editor-mode", "toggle-view", "design-add-piece", "design-add-structure", "design-add-questions", "design-add-reading", "design-add-views", "design-add-data"]);
 	plugin.onunload();
 });
+
+test("no member of the Design view or the Booklet view is named after one the real TextFileView puts on every instance (found in the real app: a method `dirty` was hidden by the base class's boolean, and the editor never opened)", () => {
+	// the instance fields of the real TextFileView, read in Obsidian 1.14.5 and 1.11.7 (check 64); the stub holds the ones this view could meet
+	const real = ["_loaded", "_events", "_children", "icon", "navigation", "app", "leaf", "containerEl", "canDropAnywhere", "leftSidebarToggleEl", "headerEl", "contentEl", "backButtonEl", "forwardButtonEl", "titleParentEl", "titleEl", "titleContainerEl", "actionsEl", "moreOptionsButtonEl", "allowNoFile", "fileBeingRenamed", "lastSavedData", "saving", "saveAgain", "isPlaintext", "data", "dirty", "requestSave"];
+	const overrides = new Set(["constructor", "onload", "getDisplayText", "getIcon", "onPaneMenu", "getViewType", "getViewData", "setViewData", "clear", "save", "onunload", "onOpen", "onClose", "getState", "setState", "getEphemeralState", "setEphemeralState", "onLoadFile", "onUnloadFile", "onResize"]);
+	for (const View of [DesignView, BookletView]) {
+		const own = Object.getOwnPropertyNames(View.prototype).filter((n) => !overrides.has(n));
+		assert.deepEqual(own.filter((n) => real.includes(n)), [], `${View.name} has a method named like an instance field of TextFileView`);
+	}
+	// the stub carries the real fields, so a view that reads one of its own fields of that name sees the base's value, as in the app
+	const probe = new DesignView({ app: testApp({ text: BARE, writes: 0 }) }, { setMode: async () => {} });
+	for (const k of ["dirty", "saving", "saveAgain", "isPlaintext", "lastSavedData"]) assert.ok(k in probe, `the stub's TextFileView has ${k}`);
+});

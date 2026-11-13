@@ -68,6 +68,14 @@ export class TextFileView extends Component {
 		this.app = leaf.app;
 		this.file = null;
 		this.data = "";
+		// what the real TextFileView puts on every instance (read from Obsidian 1.14.5 and 1.11.7 in the real app, check 64): a view of
+		// ours must not name a member of its own after one of these, or the instance's value hides it (a method `dirty` did, in the real app only)
+		this.lastSavedData = null;
+		this.saving = false;
+		this.saveAgain = false;
+		this.isPlaintext = true;
+		this.dirty = false;
+		this.requestSave = () => {};
 		this.containerEl = document.body.createDiv({ cls: "workspace-leaf-content" });
 		this.contentEl = this.containerEl.createDiv({ cls: "view-content" });
 	}

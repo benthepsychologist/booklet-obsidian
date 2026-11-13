@@ -151,25 +151,38 @@ export function testApp(disk, more = {}) {
  */
 export function testKeymap(win = w) {
 	const scopes = [];
+	// a handler's modifiers as the app reads them: null is any, [] none, "Mod" is Ctrl or Cmd, "Ctrl", "Meta", "Alt" and "Shift" themselves
+	const matches = (h, evt) => {
+		if (h.key !== evt.key) return false;
+		if (h.modifiers === null) return true;
+		const have = new Set([...(evt.ctrlKey ? ["Ctrl"] : []), ...(evt.metaKey ? ["Meta"] : []), ...(evt.altKey ? ["Alt"] : []), ...(evt.shiftKey ? ["Shift"] : [])]);
+		const want = new Set(h.modifiers.map((m) => (m === "Mod" ? (have.has("Meta") ? "Meta" : "Ctrl") : m)));
+		return want.size === have.size && [...want].every((m) => have.has(m));
+	};
 	win.addEventListener(
 		"keydown",
 		(evt) => {
-			const mods = evt.ctrlKey || evt.metaKey || evt.altKey || evt.shiftKey;
 			for (let s = scopes.at(-1); s; s = s.parent) {
-				const h = s.handlers.find((x) => x.key === evt.key && (x.modifiers === null || (x.modifiers.length === 0 && !mods)));
+				const h = s.handlers.find((x) => matches(x, evt));
 				if (h && h.func(evt, {}) === false) {
 					evt.preventDefault();
 					evt.stopPropagation();
 					return;
 				}
 			}
+			// the end of the chain is the app's root scope, whose catch-all runs the user's and the default hotkeys. Ctrl or Cmd with Enter is
+			// "open link in new tab", which the app takes whatever has the focus (seen in the real app): the page never hears that chord
+			if (evt.key === "Enter" && (evt.ctrlKey || evt.metaKey) && !evt.altKey && !evt.shiftKey) {
+				evt.preventDefault();
+				evt.stopPropagation();
+			}
 		},
 		true,
 	);
 	return {
 		scopes,
-		pushScope: (s) => void scopes.push(s),
-		popScope: (s) => void scopes.splice(scopes.indexOf(s), 1),
+		pushScope: (s) => void (scopes.at(-1) !== s && scopes.push(s)),
+		popScope: (s) => void (scopes.includes(s) && scopes.splice(scopes.indexOf(s), 1)),
 	};
 }
 

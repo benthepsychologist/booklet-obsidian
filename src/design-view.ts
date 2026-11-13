@@ -244,6 +244,8 @@ export class DesignView extends LockedTextView {
 	/** The small Markdown editor, when one is open; at most one, and it stays open on its block while another is selected. */
 	private edit: Editing | null = null;
 	private editorUi: { box: HTMLElement; area: HTMLTextAreaElement; state: HTMLElement } | null = null;
+	/** The scope that holds Ctrl/Cmd+Enter for the small editor while its box has the focus (see `holdSaveKey`). */
+	private saveScope: Scope | null = null;
 	/** Whether the outline is open: null until a person has opened or closed it (then it opens when the pane is wide). */
 	private outlineOpen: boolean | null = null;
 	private problemsOpen = false;
@@ -283,6 +285,7 @@ export class DesignView extends LockedTextView {
 		this.register(() => {
 			if (this.followTimer !== null) window.clearTimeout(this.followTimer);
 			this.followTimer = null;
+			this.releaseSaveKey();
 			this.drop();
 		});
 		this.history.onChange(() => this.showUndo());
@@ -351,6 +354,7 @@ export class DesignView extends LockedTextView {
 		this.catOpen.clear();
 		this.popup = null;
 		this.edit = null;
+		this.releaseSaveKey();
 		this.editorUi = null;
 		this.contentEl.empty();
 	}
@@ -391,6 +395,7 @@ export class DesignView extends LockedTextView {
 		const el = this.contentEl;
 		const top = el.scrollTop;
 		const typing = this.rememberEditor();
+		this.releaseSaveKey();
 		this.drop();
 		this.renderer = this.addChild(new Component());
 		el.empty();
@@ -1036,7 +1041,7 @@ export class DesignView extends LockedTextView {
 		return control === this.boxes.get(keyOf(at))?.querySelector(":scope > .booklet-design-head .booklet-design-pick");
 	}
 
-	private dirty(): boolean {
+	private hasDraft(): boolean {
 		return !!this.edit && this.edit.draft !== this.edit.base.join("\n");
 	}
 
@@ -1048,7 +1053,7 @@ export class DesignView extends LockedTextView {
 			return;
 		}
 		if (this.edit && !this.editsNode(n)) {
-			if (this.dirty()) {
+			if (this.hasDraft()) {
 				this.say(ui("editor.busy"));
 				return;
 			}
@@ -1086,10 +1091,10 @@ export class DesignView extends LockedTextView {
 		const e = this.editorUi;
 		const ed = this.edit;
 		if (!e || !ed) return;
-		const dirty = this.dirty();
-		e.state.setText(dirty ? ui(ed.armed ? "editor.armed" : "editor.unsaved") : "");
-		e.box.toggleClass("is-unsaved", dirty);
-		e.box.toggleClass("is-armed", dirty && ed.armed);
+		const changed = this.hasDraft();
+		e.state.setText(changed ? ui(ed.armed ? "editor.armed" : "editor.unsaved") : "");
+		e.box.toggleClass("is-unsaved", changed);
+		e.box.toggleClass("is-armed", changed && ed.armed);
 		e.area.rows = Math.min(30, Math.max(3, e.area.value.split("\n").length + 1));
 	}
 
@@ -1114,12 +1119,15 @@ export class DesignView extends LockedTextView {
 		save.disabled = !n;
 		this.editorUi = { box: host, area, state };
 		this.showEditorState();
+		area.addEventListener("focus", () => this.holdSaveKey());
+		area.addEventListener("blur", () => this.releaseSaveKey());
 		area.addEventListener("input", () => {
 			ed.draft = area.value;
 			ed.armed = false;
 			this.showEditorState();
 		});
-		// keys in the box are the box's own: the view's hotkeys do not hear them (see `keyPress`); only these two are the editor's
+		// keys in the box are the box's own: the view's hotkeys do not hear them (see `keyPress`); only Escape is the editor's here, and
+		// Ctrl or Cmd with Enter, which Obsidian's own hotkeys take before the box hears it (see `holdSaveKey`), but is kept as a fallback
 		area.addEventListener("keydown", (evt) => {
 			if (evt.key === "Escape") {
 				evt.preventDefault();
@@ -1135,11 +1143,33 @@ export class DesignView extends LockedTextView {
 		cancel.addEventListener("click", () => this.cancelEditor());
 	}
 
+	/**
+	 * Ctrl+Enter or Cmd+Enter saves the editor. Obsidian's own default hotkey for that chord ("open link in new tab") is run by the app's
+	 * key map in the capture phase of the window and stops the event, so the box never hears it (found in the real app: a listener on the box
+	 * alone never saved). The chord is therefore held by a scope of the view's own, put on the app's stack only while the box has the focus, and
+	 * taken off when the box loses it, is drawn again or is gone: no other key of Obsidian's is touched outside that moment.
+	 */
+	private holdSaveKey(): void {
+		if (!this.saveScope) {
+			const scope = new Scope(this.scope ?? this.app.scope);
+			scope.register(["Mod"], "Enter", () => {
+				void this.saveEditor();
+				return false;
+			});
+			this.saveScope = scope;
+		}
+		this.app.keymap.pushScope(this.saveScope);
+	}
+
+	private releaseSaveKey(): void {
+		if (this.saveScope) this.app.keymap.popScope(this.saveScope);
+	}
+
 	/** Esc: with nothing changed it closes; with changes the first Esc keeps them as Unsaved and the second throws them away. */
 	private escEditor(): void {
 		const ed = this.edit;
 		if (!ed) return;
-		if (this.dirty() && !ed.armed) {
+		if (this.hasDraft() && !ed.armed) {
 			ed.armed = true;
 			this.showEditorState();
 			return;
@@ -1149,7 +1179,7 @@ export class DesignView extends LockedTextView {
 
 	/** Cancel: the editor closes and what was changed in it is thrown away (the label says so). */
 	private cancelEditor(): void {
-		const was = this.dirty();
+		const was = this.hasDraft();
 		this.edit = null;
 		if (was) this.message = ui("editor.discarded");
 		else this.message = "";

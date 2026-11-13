@@ -383,6 +383,30 @@ test("Ctrl+Enter and Cmd+Enter in the box save, as the Save button does", async 
 	}
 });
 
+test("the Ctrl/Cmd+Enter scope is on the app's key stack only while the box has the focus, and is gone when the box blurs, is drawn again or the view closes", async () => {
+	const v = rig(FULL);
+	const stack = v.app.keymap.scopes;
+	const base = stack.length;
+	v.select("question", "[!text|spent]");
+	v.key("Enter");
+	assert.equal(w.document.activeElement, v.area(), "the box has the focus");
+	assert.equal(stack.length, base + 1, "one scope is added over the view's");
+	// the focus leaves the box: Mod+Enter is the app's again (the page hears nothing of it, as in the real app)
+	v.area().blur();
+	assert.equal(stack.length, base, "taken off at blur");
+	v.area().focus();
+	assert.equal(stack.length, base + 1, "and put back when the focus returns");
+	v.area().focus();
+	assert.equal(stack.length, base + 1, "never twice");
+	click(v.button("Cancel"));
+	assert.equal(stack.length, base, "gone when the editor closes");
+	v.select("question", "[!text|spent]");
+	v.key("Enter");
+	assert.equal(stack.length, base + 1);
+	v.close();
+	assert.equal(stack.length, 0, "and nothing is left on the stack when the view closes");
+});
+
 test("Cancel throws the changes away, says so, and writes nothing; the editor closes", async () => {
 	const v = rig(FULL);
 	v.select("question", "[!text|spent]");
