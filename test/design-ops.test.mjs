@@ -259,9 +259,11 @@ test("deleting reports what it would leave not matching, with counts, and does n
 	assert.equal(mod.impact[0].what, "The module id `mood`");
 	assert.ok(mod.impact[0].entries >= 12);
 	const once = deleteBlock(HELD, d.node("once"));
-	// the guard says an activity's own kept entries and drafts, and what the data block loses; an answer to a question that goes with the
-	// activity is not counted by it (editor-guard.ts: "said with the activity"), so `energy`'s one answer is not in this list
-	assert.deepEqual(once.impact.map((i) => [i.what, i.rows]), [["The data block `things`", 5]]);
+	// the activity's own kept entries and drafts (none here), the answer kept once for `energy`, which goes with it, and what the data block loses
+	assert.deepEqual(once.impact.map((i) => [i.what, i.entries, i.answers, i.rows]), [
+		["The activity id `once`", 0, 1, 0],
+		["The data block `things`", 0, 0, 5],
+	]);
 	// what holds nothing detaches nothing
 	assert.deepEqual(deleteBlock(HELD, d.node("why")).impact.map((i) => i.what), ["The question id `why`"], "a question that was answered");
 	assert.deepEqual(deleteBlock(HELD, d.first("query")).impact, []);

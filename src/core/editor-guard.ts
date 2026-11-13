@@ -219,12 +219,22 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 		if (entries || answers) impacts.push({ kind: "id", what: `The module id \`${m.id}\``, entries, answers, rows: 0 });
 	}
 
-	// an activity id that is gone (its module still there): its kept entries and drafts
+	// an activity id that is gone (its module still there): its kept entries and drafts, and the answers kept once for the questions
+	// that went with it. An answer is kept under its module and question id, not its activity, so one whose question id still stands
+	// in that module (the activity was renamed, or the question moved) is not detached; and one id is counted once.
+	const questionsAfter = new Set(questionsOfBook(after).map((l) => `${l.scope}\u0000${l.question.id}`));
 	for (const a of before.activities) {
 		if (actsAfter.has(`${a.scope}\u0000${a.id}`)) continue;
 		if (a.scope && !modsAfter.has(a.scope)) continue; // said with the module
 		const entries = (before.records.entries[a.scope]?.[a.id] ?? []).length;
-		const answers = Object.values(before.records.drafts[a.scope]?.[a.id] ?? {}).filter(holdsSomething).length;
+		let answers = Object.values(before.records.drafts[a.scope]?.[a.id] ?? {}).filter(holdsSomething).length;
+		const counted = new Set<string>();
+		for (const l of qBefore) {
+			const k = `${l.scope}\u0000${l.question.id}`;
+			if (l.scope !== a.scope || l.act !== a.id || questionsAfter.has(k) || counted.has(k)) continue;
+			counted.add(k);
+			if (heldFor(before, l).hasAnswer) answers++;
+		}
 		if (entries || answers) impacts.push({ kind: "id", what: `The activity id \`${a.id}\``, entries, answers, rows: 0 });
 	}
 
