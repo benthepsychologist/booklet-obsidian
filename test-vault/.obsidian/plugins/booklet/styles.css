@@ -3804,6 +3804,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	overflow-wrap: anywhere;
 }
 
+/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": this title is a question the reader answers ("Delete this question?", longer in Spanish and French), so it wraps */
+.booklet-design-ask-card .modal-title {
+	max-width: none;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+/* and the close button sits over the title's end on a phone: the words keep clear of it, so a "?" is never hidden behind the X */
+.is-mobile .booklet-design-ask-card .modal-title {
+	box-sizing: border-box;
+	padding-inline: var(--size-4-12);
+}
+
 /*
  * The Design view, stage D: the outline and the lists of what the reader cannot read (a column beside the tree on a wide pane, folded above
  * it on a narrow one), a selected block's settings (Obsidian's own setting rows), and the small Markdown editor (a plain textarea).
