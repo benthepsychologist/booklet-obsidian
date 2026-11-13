@@ -35,7 +35,7 @@ await esbuild.build({
 });
 await esbuild.build({ ...pluginOptions(true), outfile: "test/.build/main.js", logLevel: "warning" });
 await esbuild.build({
-	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main"; export { MediaAllows } from "./src/settings"; export { dropPiece, allowDrop, carries, lineUnder, PIECE_MIME } from "./src/editor-drop"; export { placePiece, writeNote } from "./src/editor-write"; export { EditorSide, forEachWindow } from "./src/editor-side"; export { windowGone, SETTLE } from "./src/window-gone";', resolveDir: ".", loader: "ts" },
+	stdin: { contents: 'export * from "./src/view"; export { default as BookletPlugin } from "./src/main"; export { MediaAllows } from "./src/settings"; export { dropPiece, allowDrop, carries, lineUnder, PIECE_MIME } from "./src/editor-drop"; export { placePiece, writeNote } from "./src/editor-write"; export { EditorSide, forEachWindow } from "./src/editor-side"; export { windowGone, SETTLE } from "./src/window-gone"; export { DesignView, DESIGN_VIEW_TYPE } from "./src/design-view"; export { installViewSwitch, setLeafMode, leafModeFor, isBookletFile } from "./src/switch"; export { WorkspaceLeaf, Modal } from "obsidian";', resolveDir: ".", loader: "ts" },
 	bundle: true,
 	format: "esm",
 	platform: "neutral",

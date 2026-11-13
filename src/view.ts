@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, Notice, Scope, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, Scope, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -124,7 +124,9 @@ import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
 import { Listens, locate } from "./listen-view";
-import { markdownViewOf, replaceInEditor } from "./markdown-view";
+import { markdownViewOf } from "./markdown-view";
+import { LockedTextView, writeThrough } from "./note-view";
+import { MODE_ICONS, iconName, ui } from "./design-text";
 import type { ViewListen } from "./listen-writer";
 import type { LiftFrom, NowPlaying } from "./now-playing";
 import { keepFurthest, loadFurthest } from "./listen-store";
@@ -268,7 +270,7 @@ function endOfDay(d: Date): number {
 	return e.getTime();
 }
 
-export class BookletView extends TextFileView implements QuestionHost, ScreenHost, RowsView {
+export class BookletView extends LockedTextView implements QuestionHost, ScreenHost, RowsView {
 	/** The note's text as last read or written by this view: what getViewData returns. */
 	private text = "";
 	private book: Booklet | null = null;
@@ -398,11 +400,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		leaf: WorkspaceLeaf,
 		private readonly host: ViewHost,
 	) {
+		// TextFileView's own save path is switched off in LockedTextView: this view never writes the whole file, every write goes
+		// through the core on the note's fresh text (see write()).
 		super(leaf);
-		// TextFileView's own save path writes getViewData() over the whole file, after a 2-second debounce
-		// and when the view closes. This view never writes the whole file, so both are switched off here and
-		// in save() below: every write goes through the core on the note's fresh text (see write()).
-		this.requestSave = () => {};
 		this.listens = new Listens({
 			app: () => this.app,
 			path: () => (this.file ? this.file.path : null),
@@ -419,6 +419,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	override onload(): void {
 		super.onload();
 		this.addAction("file-text", "Show Markdown", () => void this.host.setMode(this.leaf, "markdown"));
+		this.addAction(iconName(MODE_ICONS.design, "pencil"), ui("mode.design"), () => void this.host.setMode(this.leaf, "design"));
 		const editor = this.host.editor;
 		if (editor) {
 			const button = this.addAction("pencil", "Editor mode", () => void editor.toggle());
@@ -560,10 +561,6 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const win = this.contentEl.ownerDocument.defaultView;
 		if (win && win !== window) await windowGone(win);
 		await this.saveTyped();
-	}
-
-	override async save(_clear?: boolean): Promise<void> {
-		// Deliberately nothing: see the constructor.
 	}
 
 	getViewType(): string {
@@ -937,6 +934,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					this.viewLook = flipViewLook(this.host.media.look(), this.isDark(), this.viewLook);
 					this.applyLook();
 				}),
+		);
+		menu.addItem((item) =>
+			item
+				.setTitle(ui("mode.design"))
+				.setIcon(iconName(MODE_ICONS.design, "pencil"))
+				.setSection("pane")
+				.onClick(() => void this.host.setMode(this.leaf, "design")),
 		);
 		super.onPaneMenu(menu, source);
 	}
@@ -2382,29 +2386,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		// main window when a note is written while a pop-out window is being closed (words typed in it are written as it closes). The
 		// write is the same, a moment later; the change is made on the note's text as it is then.
 		if (this.closingWindow) await windowGone(this.closingWindow);
-		let result: string;
-		const md = markdownViewOf(this.app, file.path);
-		if (md) {
-			// The note is also open as Markdown. Its editor holds what was typed there and is not saved yet,
-			// so the change goes into that editor, as the smallest edit (only the records region differs),
-			// and the Markdown view saves it. Obsidian's guidelines: use the Editor for an open note.
-			const editor = md.editor;
-			const before = editor.getValue();
-			replaceInEditor(md, before, change(before));
-			result = editor.getValue();
-		} else {
-			// Atomic read-modify-write of the note on disk: the change runs on the fresh text, never on this view's copy.
-			let failure: unknown = null;
-			result = await this.app.vault.process(file, (fresh) => {
-				try {
-					return change(fresh);
-				} catch (e) {
-					failure = e;
-					return fresh;
-				}
-			});
-			if (failure) throw failure instanceof Error ? failure : new Error("The answer could not be written.");
-		}
+		// into an open Markdown pane's editor, or `vault.process` on the fresh text (note-view.ts)
+		const result = await writeThrough(this.app, file, change, "The answer could not be written.");
 		if (this.file !== file) return;
 		// the text written can carry a change the view had not seen (words typed in a Markdown pane, not yet saved)
 		const designChanged = designKey(result) !== designKey(this.text);

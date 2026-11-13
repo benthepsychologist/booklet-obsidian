@@ -3400,3 +3400,239 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-blocks {
 	overflow-wrap: anywhere;
 }
+
+/*
+ * The Design view (design-view.ts): the note as the tree the format is. Each level has a rail of its own colour, an indent, an icon and a
+ * one-line saying what it is. Every action is a visible button, so a phone has them all; nothing depends on hover. Drawn from Obsidian's own
+ * variables, so it follows any theme.
+ */
+.booklet-design {
+	padding: var(--size-4-3) var(--size-4-4) var(--size-4-12);
+	overflow-wrap: anywhere;
+}
+
+.booklet-design-bar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin-bottom: var(--size-4-2);
+}
+
+.booklet-design-banner,
+.booklet-design-status:not(:empty) {
+	margin-block: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.booklet-design-crumb {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+	margin-bottom: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-design-crumb-item {
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+}
+
+.booklet-design-crumb-item[aria-current="true"] {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-tree {
+	container-type: inline-size;
+}
+
+.booklet-design-node {
+	--design-rail: var(--background-modifier-border);
+	margin-block: var(--size-4-2);
+	padding-inline-start: var(--size-4-3);
+	border-inline-start: var(--size-2-3) solid var(--design-rail);
+}
+
+.booklet-design-node.is-level-booklet {
+	--design-rail: var(--interactive-accent);
+}
+
+.booklet-design-node.is-level-module {
+	--design-rail: var(--color-purple);
+}
+
+.booklet-design-node.is-level-module-tab {
+	--design-rail: var(--color-pink);
+}
+
+.booklet-design-node.is-level-activity {
+	--design-rail: var(--color-blue);
+}
+
+.booklet-design-node.is-level-activity-tab {
+	--design-rail: var(--color-cyan);
+}
+
+.booklet-design-node.is-level-page {
+	--design-rail: var(--color-green);
+}
+
+.booklet-design-node.is-level-block {
+	--design-rail: var(--text-faint);
+}
+
+.booklet-design-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-2);
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-s);
+}
+
+.booklet-design-node.is-selected > .booklet-design-head {
+	background: var(--background-modifier-hover);
+	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
+}
+
+.booklet-design-icon {
+	display: inline-flex;
+	color: var(--design-rail);
+}
+
+.booklet-design-icon svg {
+	width: var(--icon-m);
+	height: var(--icon-m);
+}
+
+.booklet-design-pick {
+	display: inline-flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-2);
+	flex: 1 1 8em;
+	min-width: 0;
+	text-align: start;
+	height: auto;
+	background: transparent;
+	box-shadow: none;
+}
+
+.booklet-design-kind {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+}
+
+.booklet-design-name {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.booklet-design-more {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+}
+
+.booklet-design-what {
+	margin: var(--size-2-2) var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-fold {
+	margin: var(--size-2-2) var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-lines {
+	margin: var(--size-2-2) var(--size-4-2);
+	padding: var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-small);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.booklet-design-prose {
+	margin: var(--size-2-2) var(--size-4-2);
+}
+
+.booklet-design-body {
+	padding-inline-start: var(--size-4-3);
+}
+
+.booklet-design-empty,
+.booklet-design-needs {
+	margin: var(--size-4-2) 0;
+	color: var(--text-muted);
+}
+
+.booklet-design-addrow {
+	margin-block: var(--size-4-2);
+}
+
+.booklet-design-panel {
+	margin-top: var(--size-4-2);
+	padding: var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-design-addkind {
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	text-transform: uppercase;
+}
+
+.booklet-design-addbuttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin-top: var(--size-2-3);
+}
+
+/* a narrow pane (a phone, or a split): less indent, and the actions take a line of their own */
+@container (max-width: 30em) {
+	.booklet-design-node {
+		padding-inline-start: var(--size-2-3);
+	}
+
+	.booklet-design-body {
+		padding-inline-start: var(--size-2-3);
+	}
+
+	.booklet-design-actions {
+		flex: 1 1 100%;
+	}
+}
+
+/* on a phone every control of the view is at least 44 px high and wide */
+.is-mobile .booklet-design button,
+.is-mobile .booklet-design summary {
+	min-height: 44px;
+	min-width: 44px;
+}
+
+.is-mobile .booklet-design summary {
+	display: flex;
+	align-items: center;
+}
+
+.booklet-design-ask p {
+	overflow-wrap: anywhere;
+}

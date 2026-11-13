@@ -77,8 +77,8 @@ test("the plugin's id, its command id and its view type are the ones the README 
 	);
 	assert.deepEqual(
 		seen.views.map((v) => v.type),
-		["booklet", "booklet-blocks"],
-		"the view types",
+		["booklet", "booklet-design", "booklet-blocks"],
+		"the view types: the Design view (1.6.0) is added beside the two there were; `booklet` stays as it is",
 	);
 	assert.ok(seen.commands.every((c) => typeof c.name === "string" && c.name), "every command has a name");
 	assert.equal(seen.settingTabs.length, 1, "the plugin has one settings tab (the sites media may load from); a setting changes how the view looks or which sites media loads from, and never what is written to a note");

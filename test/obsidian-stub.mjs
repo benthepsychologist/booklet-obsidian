@@ -126,6 +126,11 @@ export class Modal extends Component {
 	onClose() {}
 }
 
+/** The language Obsidian is in ("en" unless a test sets `globalThis.__bookletStubLanguage`). */
+export function getLanguage() {
+	return globalThis.__bookletStubLanguage ?? "en";
+}
+
 /** What the plugin asks of the platform. */
 export const Platform = { isMobile: false, isDesktop: true };
 
@@ -477,10 +482,14 @@ export function setIcon(el, id) {
 	el.appendChild(svg);
 }
 
-/** An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. */
+/**
+ * An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. A test that draws icons
+ * sets `globalThis.__bookletStubIcons` to a Set of the names Obsidian is to have (the Design view tests model an Obsidian whose set lacks
+ * the newer names).
+ */
 const ICONS = new Set(["heart", "sun", "moon", "book-open", "check"]);
 export function getIcon(name) {
-	if (!ICONS.has(name)) return null;
+	if (!(globalThis.__bookletStubIcons ?? ICONS).has(name)) return null;
 	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 	svg.setAttribute("data-icon", name);
 	return svg;

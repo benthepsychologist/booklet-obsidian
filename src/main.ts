@@ -9,12 +9,14 @@ import { moveDevice } from "./listen-store";
 import { ListenWriter } from "./listen-writer";
 import { NowPlaying } from "./now-playing";
 import { BookletView, VIEW_TYPE } from "./view";
+import { DESIGN_VIEW_TYPE, DesignView } from "./design-view";
+import { MODE_ICONS, iconName, ui } from "./design-text";
 import { EditorSide } from "./editor-side";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
 export default class BookletPlugin extends Plugin {
-	/** The "Open as booklet" button added to Markdown views of booklet notes. */
-	private markdownActions = new Map<MarkdownView, HTMLElement>();
+	/** The "Open as booklet" and "Open in Design view" buttons added to Markdown views of booklet notes. */
+	private markdownActions = new Map<MarkdownView, HTMLElement[]>();
 	/** The sites the reader has allowed media from (settings.ts), loaded from the plugin's data before any view is made. */
 	media = new MediaAllows(null, () => {});
 	/** Keeps a playing element going when its page goes, and writes its place when it stops (now-playing.ts, listen-writer.ts). */
@@ -56,18 +58,20 @@ export default class BookletPlugin extends Plugin {
 			}),
 		);
 		this.registerView(VIEW_TYPE, (leaf) => new BookletView(leaf, this));
-		installViewSwitch(this, VIEW_TYPE);
+		this.registerView(DESIGN_VIEW_TYPE, (leaf) => new DesignView(leaf, this));
+		installViewSwitch(this, { booklet: VIEW_TYPE, design: DESIGN_VIEW_TYPE }, () => this.media.openIn());
 		this.editor.install();
 
 		this.addCommand({
 			id: "toggle-view",
 			name: "Toggle between the note view and Markdown",
 			checkCallback: (checking) => {
-				const bv = this.app.workspace.getActiveViewOfType(BookletView);
+				const bv = this.app.workspace.getActiveViewOfType(BookletView) ?? this.app.workspace.getActiveViewOfType(DesignView);
 				const mv = bv ? null : this.app.workspace.getActiveViewOfType(MarkdownView);
 				const view = bv ?? (mv && isBookletFile(this.app, mv.file) ? mv : null);
 				if (!view) return false;
-				if (!checking) void this.setMode(view.leaf, bv ? "markdown" : "booklet");
+				// back to the note's words, and from them to the view the settings name (the Booklet view unless she chose the Design view)
+				if (!checking) void this.setMode(view.leaf, bv ? "markdown" : this.media.openIn());
 				return true;
 			},
 		});
@@ -76,7 +80,7 @@ export default class BookletPlugin extends Plugin {
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {
 				if (source === "link-context-menu" || !leaf || !(file instanceof TFile)) return;
 				const v = leaf.view;
-				if (v instanceof MarkdownView && v.file === file && isBookletFile(this.app, file))
+				if (v instanceof MarkdownView && v.file === file && isBookletFile(this.app, file)) {
 					menu.addItem((item) =>
 						item
 							.setTitle("Open as booklet")
@@ -84,6 +88,14 @@ export default class BookletPlugin extends Plugin {
 							.setSection("pane")
 							.onClick(() => void this.setMode(leaf, "booklet")),
 					);
+					menu.addItem((item) =>
+						item
+							.setTitle(ui("mode.design"))
+							.setIcon(iconName(MODE_ICONS.design, "pencil"))
+							.setSection("pane")
+							.onClick(() => void this.setMode(leaf, "design")),
+					);
+				}
 			}),
 		);
 
@@ -129,24 +141,27 @@ export default class BookletPlugin extends Plugin {
 
 	override onunload(): void {
 		this.nowPlaying.dispose();
-		for (const el of this.markdownActions.values()) el.remove();
+		for (const els of this.markdownActions.values()) for (const el of els) el.remove();
 		this.markdownActions.clear();
 		// leave each note open, as Markdown, rather than in a view that is no longer there
-		for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) {
-			const v = leaf.view;
-			if (!(v instanceof BookletView) || !v.file) continue;
-			setLeafMode(leaf, v.file.path, "markdown");
-			void leaf.setViewState({ type: "markdown", state: leaf.getViewState().state });
-		}
+		for (const type of [VIEW_TYPE, DESIGN_VIEW_TYPE])
+			for (const leaf of this.app.workspace.getLeavesOfType(type)) {
+				const v = leaf.view;
+				if (!(v instanceof BookletView || v instanceof DesignView) || !v.file) continue;
+				setLeafMode(leaf, v.file.path, "markdown");
+				void leaf.setViewState({ type: "markdown", state: leaf.getViewState().state });
+			}
 	}
 
 	/** The toggle: shows the leaf's note as a booklet or as Markdown, and remembers the choice for that leaf. */
 	async setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void> {
+		// a pane Obsidian has not loaded yet is a placeholder: its view is no FileView until it is loaded
+		await leaf.loadIfDeferred();
 		const v = leaf.view;
 		if (!(v instanceof FileView) || !v.file) return;
 		setLeafMode(leaf, v.file.path, mode);
 		const now = leaf.getViewState();
-		await leaf.setViewState({ ...now, type: mode === "markdown" ? "markdown" : VIEW_TYPE, state: { ...now.state, file: v.file.path } }, { focus: true });
+		await leaf.setViewState({ ...now, type: mode === "markdown" ? "markdown" : mode === "design" ? DESIGN_VIEW_TYPE : VIEW_TYPE, state: { ...now.state, file: v.file.path } }, { focus: true });
 	}
 
 	/** "Back to the page" in the now-playing bar: the note is shown as a booklet at the page the media was started on (the pane that has the note, else a new tab). */
@@ -172,15 +187,19 @@ export default class BookletPlugin extends Plugin {
 			seen.add(v);
 			const want = isBookletFile(this.app, v.file);
 			const have = this.markdownActions.get(v);
-			if (want && !have) this.markdownActions.set(v, v.addAction("book-open", "Open as booklet", () => void this.setMode(leaf, "booklet")));
+			if (want && !have)
+				this.markdownActions.set(v, [
+					v.addAction("book-open", "Open as booklet", () => void this.setMode(leaf, "booklet")),
+					v.addAction(iconName(MODE_ICONS.design, "pencil"), ui("mode.design"), () => void this.setMode(leaf, "design")),
+				]);
 			else if (!want && have) {
-				have.remove();
+				for (const el of have) el.remove();
 				this.markdownActions.delete(v);
 			}
 		});
-		for (const [v, el] of this.markdownActions)
+		for (const [v, els] of this.markdownActions)
 			if (!seen.has(v)) {
-				el.remove();
+				for (const el of els) el.remove();
 				this.markdownActions.delete(v);
 			}
 	}

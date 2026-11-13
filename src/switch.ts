@@ -1,15 +1,22 @@
 /*
  * The view switch. Obsidian has no API for "open a .md note whose front matter has a key in my view",
  * so this wraps WorkspaceLeaf.prototype.setViewState the way the Kanban and Excalidraw plugins do
- * (with monkey-around): a `markdown` view state for a booklet note becomes a Booklet view state,
- * unless the toggle set that leaf to Markdown for that note.
+ * (with monkey-around): a `markdown` view state for a booklet note becomes a Booklet view state or a
+ * Design view state, unless a button set that leaf to Markdown for that note. A leaf nobody has set
+ * opens a booklet in the mode the settings name ("Open booklets in"), the Booklet view by default.
  */
 import { around } from "monkey-around";
 import { WorkspaceLeaf, type App, type Plugin, type TFile, type ViewState } from "obsidian";
 
-export type LeafMode = "booklet" | "markdown";
+export type LeafMode = "booklet" | "markdown" | "design";
 
-/** The mode the toggle set on a leaf, for the note it was showing. A leaf showing another note has none. */
+/** The view type each mode opens a note in; Markdown's is Obsidian's own. */
+export interface ModeViews {
+	booklet: string;
+	design: string;
+}
+
+/** The mode a button set on a leaf, for the note it was showing. A leaf showing another note has none. */
 const modes = new WeakMap<WorkspaceLeaf, { path: string; mode: LeafMode }>();
 
 export function setLeafMode(leaf: WorkspaceLeaf, path: string, mode: LeafMode): void {
@@ -31,8 +38,11 @@ export function isBookletFile(app: App, file: TFile | null | undefined): boolean
 	return (typeof v === "string" && v.trim() !== "") || typeof v === "number";
 }
 
-/** Installs the switch; it is removed when the plugin unloads. */
-export function installViewSwitch(plugin: Plugin, viewType: string): void {
+/**
+ * Installs the switch; it is removed when the plugin unloads. `views` names the view type of each mode, and `opensIn` says which of the
+ * two a leaf nobody has chosen for opens in (read at each opening, so a change in the settings takes effect at once).
+ */
+export function installViewSwitch(plugin: Plugin, views: ModeViews, opensIn: () => "booklet" | "design" = () => "booklet"): void {
 	const app = plugin.app;
 	let active = true;
 	const uninstall = around(WorkspaceLeaf.prototype, {
@@ -42,8 +52,8 @@ export function installViewSwitch(plugin: Plugin, viewType: string): void {
 				if (active && state.type === "markdown" && typeof path === "string") {
 					const m = modes.get(this);
 					if (m && m.path !== path) modes.delete(this); // the leaf shows another note: its mode resets
-					if (leafModeFor(this, path) !== "markdown" && isBookletFile(app, app.vault.getFileByPath(path)))
-						return next.call(this, { ...state, type: viewType }, eState);
+					const mode = leafModeFor(this, path) ?? opensIn();
+					if (mode !== "markdown" && isBookletFile(app, app.vault.getFileByPath(path))) return next.call(this, { ...state, type: views[mode] }, eState);
 				}
 				return next.call(this, state, eState);
 			};
