@@ -84,7 +84,8 @@ function lint(css) {
 	for (const { prop, value, selector, at } of decls) {
 		const where = `${selector} { ${prop}: ${value} }`;
 		if (/:has\(/i.test(selector)) faults.push(`:has() in ${selector}`);
-		if (prop === "font-family") faults.push(`font-family in ${selector}`);
+		// a font family is the theme's; the one exception is the user's own monospace choice (Appearance > Monospace font), which a code box such as the Design view's Markdown editor uses
+		if (prop === "font-family" && value.trim() !== "var(--font-monospace)") faults.push(`font-family in ${selector}`);
 		if (/!\s*important/i.test(value) && !at.some((a) => /prefers-reduced-motion/.test(a))) faults.push(`!important outside reduced motion: ${where}`);
 		// what is left of a value once its variables are taken out: a colour written out is found in it
 		const bare = value.replace(/var\(\s*--[\w-]+\s*(?:,[^()]*)?\)/g, "var()");
@@ -130,6 +131,7 @@ test("the checker refuses what the look rules out", () => {
 		"a named colour after a length": ".a { border: 1px solid black; }",
 		"a named colour in a mix": ".a { background: color-mix(in srgb, var(--x) 70%, black); }",
 		"a font family": ".a { font-family: var(--font-text); }",
+		"a font family written out, even a monospace one": ".a { font-family: Menlo, monospace; }",
 		"important": ".a { color: var(--text-normal) !important; }",
 		"important in a media query that is not reduced motion": "@media (min-width: 10px) { .a { color: var(--x) !important; } }",
 		":has()": ".a:has(.b) { color: var(--x); }",
@@ -149,6 +151,7 @@ test("the checker lets through what the look is made of", () => {
 		"a mix in @supports": "@supports (color: color-mix(in srgb, red, blue)) { .a { background: color-mix(in srgb, var(--color-green) 18%, transparent); } }",
 		"rgb of a variable": ".a { --c: rgb(var(--callout-color)); }",
 		"transparent and currentColor": ".a { background: transparent; border-color: currentColor; color: inherit; }",
+		"the user's own monospace font": ".a { font-family: var(--font-monospace); }",
 		"a ring": ".a { box-shadow: inset 0 0 0 2px var(--color-green); }",
 		"a ring with a variable width": ".a { box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent); }",
 		"no shadow": ".a { box-shadow: none; }",

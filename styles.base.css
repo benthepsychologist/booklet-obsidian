@@ -3347,47 +3347,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--text-muted);
 }
 
-.booklet-blocks-list {
-	list-style: none;
-	margin: 0;
-	padding: 0;
-}
-
-.booklet-blocks-jump {
-	display: block;
-	width: 100%;
-	text-align: left;
-	background: transparent;
-	box-shadow: none;
-	height: auto;
-	white-space: normal;
-}
-
-.booklet-blocks-jump:hover {
-	background: var(--background-modifier-hover);
-}
-
-.booklet-blocks-depth-1 { padding-left: var(--size-4-3); }
-.booklet-blocks-depth-2 { padding-left: calc(var(--size-4-3) * 2); }
-.booklet-blocks-depth-3 { padding-left: calc(var(--size-4-3) * 3); }
-.booklet-blocks-depth-4 { padding-left: calc(var(--size-4-3) * 4); }
-.booklet-blocks-depth-5 { padding-left: calc(var(--size-4-3) * 5); }
-.booklet-blocks-depth-6 { padding-left: calc(var(--size-4-3) * 6); }
-
-.booklet-blocks-problem-why {
-	display: block;
-}
-
-.booklet-blocks-problem-line {
-	display: block;
-	color: var(--text-muted);
-	overflow-wrap: anywhere;
-}
-
-.booklet-blocks-leftover .booklet-blocks-problem-why {
-	color: var(--text-warning, var(--text-normal));
-}
-
 .booklet-blocks-icon-grid {
 	display: flex;
 	flex-wrap: wrap;
@@ -3836,4 +3795,175 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-design-ask p {
 	overflow-wrap: anywhere;
+}
+
+/*
+ * The Design view, stage D: the outline and the lists of what the reader cannot read (a column beside the tree on a wide pane, folded above
+ * it on a narrow one), a selected block's settings (Obsidian's own setting rows), and the small Markdown editor (a plain textarea).
+ */
+.booklet-design-layout {
+	container-type: inline-size;
+	container-name: booklet-design;
+}
+
+.booklet-design-main {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+}
+
+.booklet-design-side {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	min-width: 0;
+}
+
+.booklet-design-side details {
+	padding: var(--size-2-3) var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-design-side summary {
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-outline-list,
+.booklet-design-trouble-list {
+	list-style: none;
+	margin: var(--size-2-3) 0 0;
+	padding: 0;
+}
+
+.booklet-design-jump {
+	display: block;
+	width: 100%;
+	height: auto;
+	text-align: start;
+	white-space: normal;
+	background: transparent;
+	box-shadow: none;
+}
+
+.booklet-design-jump:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-depth-1 { padding-inline-start: var(--size-4-3); }
+.booklet-design-depth-2 { padding-inline-start: calc(var(--size-4-3) * 2); }
+.booklet-design-depth-3 { padding-inline-start: calc(var(--size-4-3) * 3); }
+.booklet-design-depth-4 { padding-inline-start: calc(var(--size-4-3) * 4); }
+.booklet-design-depth-5 { padding-inline-start: calc(var(--size-4-3) * 5); }
+.booklet-design-depth-6 { padding-inline-start: calc(var(--size-4-3) * 6); }
+
+.booklet-design-trouble-why,
+.booklet-design-trouble-line {
+	display: block;
+}
+
+.booklet-design-trouble-line {
+	color: var(--text-muted);
+	overflow-wrap: anywhere;
+}
+
+.booklet-design-leftover .booklet-design-trouble-why {
+	color: var(--text-warning, var(--text-normal));
+}
+
+.booklet-design-hint {
+	margin-block: var(--size-2-3);
+	color: var(--text-muted);
+}
+
+.booklet-design-settings {
+	margin-block: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-3);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+}
+
+.booklet-design-textarea {
+	display: block;
+	width: 100%;
+	min-height: 4em;
+	max-height: 60vh;
+	field-sizing: content;
+	font-family: var(--font-monospace);
+	resize: vertical;
+}
+
+.booklet-design-editor-help {
+	margin-bottom: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-editor-moved {
+	margin-bottom: var(--size-4-2);
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-error);
+}
+
+.booklet-design-editor-state:not(:empty) {
+	margin-block: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-2);
+	border-inline-start: var(--size-2-3) solid var(--text-warning, var(--interactive-accent));
+	background: var(--background-secondary);
+}
+
+.booklet-design-settings.is-armed .booklet-design-editor-state:not(:empty) {
+	border-inline-start-color: var(--text-error);
+}
+
+.booklet-design-editor-buttons {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-2);
+}
+
+/* a wide pane: the outline stands beside the tree and stays in view while the tree scrolls */
+@container booklet-design (min-width: 56em) {
+	.booklet-design-main {
+		flex-direction: row;
+		align-items: flex-start;
+	}
+
+	.booklet-design-side {
+		position: sticky;
+		top: 0;
+		flex: 0 0 18em;
+		max-height: 100vh;
+		overflow-y: auto;
+	}
+
+	.booklet-design-tree {
+		flex: 1 1 0;
+		min-width: 0;
+	}
+}
+
+/* a narrow pane: a setting's control takes a line of its own, so nothing needs a sideways scroll */
+@container (max-width: 30em) {
+	.booklet-design-settings .setting-item {
+		flex-wrap: wrap;
+	}
+
+	.booklet-design-settings .setting-item-info,
+	.booklet-design-settings .setting-item-control {
+		flex: 1 1 100%;
+	}
+
+	.booklet-design-settings .setting-item-control {
+		justify-content: flex-start;
+	}
+
+	.booklet-design-settings input[type="text"] {
+		width: 100%;
+	}
 }

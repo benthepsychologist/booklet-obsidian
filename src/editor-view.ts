@@ -6,8 +6,8 @@
  *              (desktop) at the line it is dropped on (editor-drop.ts)
  *   This line  with the cursor on a Booklet line: its id, its switches and its fields, an icon picker; a change rewrites that line only
  *   Data fields  with the cursor in a data block: its declared fields, renamed or taken out of the declaration (rows are never written)
- *   Outline    modules, activities, tabs, pages and questions; a click jumps to the line
- *   Problems   lines the reader cannot read, with why, and kept data that matches nothing now; a click jumps to the line
+ *
+ * The outline and the list of lines the reader cannot read used to be sections here; they are in the Design view now (design-view.ts).
  *
  * Everything the panel writes is the note's text before and after (core/editor-actions.ts); the editor is given only the bytes that
  * differ, and before a change that would detach kept data the panel asks (editor-modals.ts). The records section and the data rows are
@@ -19,10 +19,8 @@ import { changeLine, removeField, removeOption, renameField, renameId, renameOpt
 import { analyse, panelModel } from "./core/editor-analysis";
 import { isCountedSetting } from "./core/editor-guard";
 import { removeWord, setFlag, setValue } from "./core/editor-line";
-import { type OutlineNode } from "./core/editor-outline";
 import { PIECE_GROUPS, piecesOf, type Piece } from "./core/editor-pieces";
 import { HAS_FRONT } from "./core/editor-place";
-import { type Problem } from "./core/editor-problems";
 import { PIECE_MIME } from "./editor-drop";
 import { pickIcon } from "./editor-modals";
 import { forEachWindow, listenOn, type EditorSide } from "./editor-side";
@@ -82,8 +80,6 @@ export class EditorPanel extends ItemView {
 	private line!: Section;
 	private options!: Section;
 	private fields!: Section;
-	private tree!: Section;
-	private problems!: Section;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -114,8 +110,6 @@ export class EditorPanel extends ItemView {
 		this.line = new Section(el, "This line", true, "booklet-blocks-line");
 		this.options = new Section(el, "Options", true, "booklet-blocks-options");
 		this.fields = new Section(el, "Data fields", true, "booklet-blocks-fields");
-		this.tree = new Section(el, "Outline", false, "booklet-blocks-outline");
-		this.problems = new Section(el, "Problems", false, "booklet-blocks-problems");
 		this.drawPalette();
 
 		const ws = this.app.workspace;
@@ -177,7 +171,7 @@ export class EditorPanel extends ItemView {
 				b.addEventListener("click", () => void this.side.openMarkdownOf(src));
 			}
 			this.frontAvailable(true);
-			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
+			for (const s of [this.line, this.options, this.fields]) s.show(false);
 			return;
 		}
 		this.about.empty();
@@ -190,7 +184,7 @@ export class EditorPanel extends ItemView {
 		this.frontAvailable(!a.scan.hasFrontMatter);
 		if (!m.booklet) {
 			this.holds.setText("This note is not a booklet: it has no `booklet:` line in its properties. The front matter block under Structure makes a note with no properties one.");
-			for (const s of [this.line, this.options, this.fields, this.tree, this.problems]) s.show(false);
+			for (const s of [this.line, this.options, this.fields]) s.show(false);
 			return;
 		}
 		this.holds.setText(m.holds);
@@ -208,16 +202,6 @@ export class EditorPanel extends ItemView {
 		// Data fields
 		this.fields.show(!!m.block);
 		this.fields.update(JSON.stringify(m.block), (b) => (m.block ? this.drawFields(b, m.block, cursor.line) : undefined));
-
-		// Outline and problems
-		this.tree.show(true);
-		this.tree.update(m.outline.map((f) => `${f.depth}|${f.node.line}|${nodeText(f.node)}`).join("\n"), (b) => this.drawOutline(b, m.outline));
-		this.problems.show(true);
-		this.problems.update(
-			JSON.stringify(m.problems),
-			(b) => this.drawProblems(b, m.problems),
-			m.problems.length ? `Problems (${m.problems.length})` : "Problems",
-		);
 	}
 
 	/** The front matter block goes at the top of a note that has no properties: with properties it stays in the palette, unavailable, and says why. */
@@ -434,62 +418,4 @@ export class EditorPanel extends ItemView {
 	private write(ed: Editor, before: string, after: string, design = false): Promise<boolean> {
 		return writeNote(this.app, ed, before, after, design);
 	}
-
-	// ---------------------------------------------------------------- outline and problems
-
-	private jump(line: number): void {
-		const view = this.live();
-		const ed = view?.editor;
-		if (!view || !ed) return;
-		const pos = { line, ch: 0 };
-		this.app.workspace.setActiveLeaf(view.leaf, { focus: true });
-		ed.setCursor(pos);
-		ed.scrollIntoView({ from: pos, to: pos }, true);
-		ed.focus();
-		if (Platform.isMobile) this.app.workspace.rightSplit.collapse();
-	}
-
-	private drawOutline(b: HTMLElement, flat: { node: OutlineNode; depth: number }[]): void {
-		if (!flat.length) {
-			b.createEl("p", { cls: "booklet-blocks-hint", text: "Nothing to list yet." });
-			return;
-		}
-		const list = b.createEl("ul", { cls: "booklet-blocks-list", attr: { "aria-label": "Outline of the booklet" } });
-		for (const { node, depth } of flat) {
-			const li = list.createEl("li", { cls: `booklet-blocks-depth-${Math.min(depth, 6)}` });
-			const label = nodeText(node);
-			const btn = li.createEl("button", { text: label, cls: `booklet-blocks-jump booklet-blocks-type-${node.type}`, attr: { type: "button", "aria-label": `${label}, line ${node.line + 1}. Go to it.` } });
-			btn.addEventListener("click", () => this.jump(node.line));
-		}
-	}
-
-	private drawProblems(b: HTMLElement, problems: Problem[]): void {
-		if (!problems.length) {
-			b.createEl("p", { cls: "booklet-blocks-hint", text: "No problems found." });
-			return;
-		}
-		const list = b.createEl("ul", { cls: "booklet-blocks-list", attr: { "aria-label": "Problems in the booklet" } });
-		for (const p of problems) {
-			const li = list.createEl("li", { cls: `booklet-blocks-problem booklet-blocks-${p.kind}` });
-			const where = p.line === null ? "The whole note" : `Line ${p.line + 1}`;
-			const words = `${where}: ${p.why}`;
-			if (p.line === null) {
-				li.createSpan({ text: words });
-				continue;
-			}
-			const line = p.line;
-			const btn = li.createEl("button", { cls: "booklet-blocks-jump", attr: { type: "button", "aria-label": `${words}. Go to the line.` } });
-			btn.createSpan({ cls: "booklet-blocks-problem-why", text: words });
-			if (p.text) btn.createEl("code", { cls: "booklet-blocks-problem-line", text: p.text });
-			btn.addEventListener("click", () => this.jump(line));
-		}
-	}
-}
-
-/** The words for an outline node: what it is, its id, its title. */
-function nodeText(n: OutlineNode): string {
-	const what = n.type === "question" ? (n.kind ?? "question") : n.type === "group" ? "group" : n.type;
-	const id = n.id ? ` ${n.id}` : "";
-	const label = n.label ? `: ${n.label}` : "";
-	return `${what}${id}${label}`;
 }

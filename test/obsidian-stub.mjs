@@ -12,7 +12,8 @@
  *                                     tab's own display() fills it); `app` and `plugin` are kept.
  *   Setting                           every method is a chainable no-op that records itself: `Setting.calls` is the list of
  *                                     { id, method, args } across every Setting made (`Setting.reset()` empties it); `setting.calls`
- *                                     is the same for one. addText, addTextArea, addButton, addToggle, addDropdown and
+ *                                     is the same for one. `Setting.made` is every Setting made, in order, so a test can find a row of a
+ *                                     form by its name. addText, addTextArea, addButton, addToggle, addDropdown and
  *                                     addSlider call their callback with a component that records too, and a test drives it:
  *                                     `component.change(value)` runs the onChange handler, `component.click()` the onClick handler;
  *                                     an input event on `component.inputEl` and a click on `component.buttonEl` run them too.
@@ -275,11 +276,15 @@ let settingCount = 0;
 export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 	/** Every call on every Setting, in order: { id, method, args }. */
 	static calls = [];
+	/** Every Setting made, in order (a test finds a row by its name and drives its components). */
+	static made = [];
 	static reset() {
 		Setting.calls.length = 0;
+		Setting.made.length = 0;
 	}
 	constructor(containerEl) {
 		this.id = ++settingCount;
+		Setting.made.push(this);
 		this.containerEl = containerEl;
 		this.calls = [];
 		this.components = [];

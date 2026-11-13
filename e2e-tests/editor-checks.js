@@ -300,23 +300,8 @@ async function desktop(o, vault) {
   await o.page.keyboard.press("Space"); await sleep(200);
   ok((await doc(o)).includes("[!activity|first-activity icon:book-open repeat]"), "Space on a focused switch turns it on (keyboard)");
 
-  // -- the outline and the problems
-  await setDoc(o, BLANK + "\n> [!text|bad hidden] A setting the kind does not take\n", 0);
-  await sleep(500);
-  await the(o, ".booklet-blocks-outline > summary").click();
-  await the(o, ".booklet-blocks-problems > summary").click();
-  await sleep(300);
-  const outlineText = await the(o, ".booklet-blocks-outline").innerText();
-  ok(/module module-1/.test(outlineText) && /activity activity-1/.test(outlineText) && /text text-1/.test(outlineText), "the outline lists the module, the activity and the question");
-  const problemsText = await the(o, ".booklet-blocks-problems").innerText();
-  ok(/Problems \(\d+\)/.test(problemsText) && /hidden/.test(problemsText), "the problems list names the line the reader cannot read, and why");
-  await shot(o, "outline-problems");
-  await the(o, ".booklet-blocks-outline .booklet-blocks-jump", { hasText: "text text-1" }).click();
-  await sleep(200);
-  eq(await cursorLine(o), lineOf(BLANK + "\n", "[!text|text-1]"), "a click on an outline entry puts the cursor on its line");
-  await the(o, ".booklet-blocks-problems .booklet-blocks-jump").first().click();
-  await sleep(200);
-  eq(await o.evaluate(() => { const v = app.workspace.getLeavesOfType("markdown").map(l => l.view).find(v => v.editor && v.file); return v.editor.getValue().split("\n")[v.editor.getCursor().line]; }), "> [!text|bad hidden] A setting the kind does not take", "a click on a problem puts the cursor on its line");
+  // The outline and the list of lines the reader cannot read moved from this panel into the Design view (stage D): they are checked in
+  // test/design-editor.test.mjs, and the panel no longer carries them.
 }
 
 async function guards(o, vault) {
@@ -347,11 +332,7 @@ async function guards(o, vault) {
   eq(JSON.stringify(diffLines(HELD, afterId)), JSON.stringify([at("[!activity|log repeat]")]), "Change rewrites the one line");
   eq(records(afterId), records(HELD), "...and the records section is the same bytes (the kept entries are not moved, rewritten or deleted)");
   eq(fence(afterId, "entries"), fence(HELD, "entries"), "...the 12 kept entries are still in the note exactly as written");
-  await sleep(500);
-  ok(/Problems \(\d+\)/.test(await the(o, ".booklet-blocks-problems > summary").innerText()), "the problems list now shows the leftovers: kept entries that match nothing");
-  await the(o, ".booklet-blocks-problems > summary").click(); await sleep(200);
-  const probs = await the(o, ".booklet-blocks-problems").innerText();
-  ok(/12 kept entries for the activity `log`/.test(probs), "...and says which: " + probs.replace(/\s+/g, " ").slice(0, 160));
+  // (the leftovers the change creates are listed in the Design view now, not in this panel)
 
   // 2. a question id
   await setDoc(o, HELD, at("[!text|why]")); await waitLine(o, "text");

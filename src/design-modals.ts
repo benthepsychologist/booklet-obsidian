@@ -1,6 +1,6 @@
 /*
- * The Design view's one question: before a delete or a move that would leave kept data not matching, what will go, with counts, and
- * a yes or a no. A person may delete her own work freely, so this never blocks: it says, and asks. The answer is a promise that
+ * The Design view's one question: before a delete, a move or a change that would leave kept data not matching (or the reader unable to
+ * open the booklet), what it touches, with counts, and a yes or a no. A person may delete her own work freely, so this never blocks: it says, and asks. The answer is a promise that
  * settles when the dialog closes (Escape and a click outside are no).
  */
 import { Modal, type App } from "obsidian";
@@ -8,13 +8,13 @@ import { impactWords, type Impact } from "./core";
 import { ui } from "./design-text";
 
 export interface Ask {
-	/** "delete" or "move": the words of the title and the yes button. */
-	how: "delete" | "move";
+	/** "delete", "move" or "change": the words of the title and the yes button. */
+	how: "delete" | "move" | "change";
 	/** The kind of block, in words ("Module"). */
 	kind: string;
 	/** What it is called, quoted ("Money"). */
 	name: string;
-	/** How many lines of the note it takes with it, in words ("12 lines"). */
+	/** How many lines of the note it takes with it, in words ("12 lines"); "" for a change, which rewrites only some of a block's lines. */
 	lines: string;
 	impacts: Impact[];
 	/** The reader could not open the note, so nothing was counted. */
@@ -22,6 +22,10 @@ export interface Ask {
 	/** Other things the change leaves, in words (core's notes). */
 	notes: string[];
 }
+
+const TITLE = { delete: "confirm.title.delete", move: "confirm.title.move", change: "confirm.title.change" } as const;
+const LEAD = { delete: "confirm.lead.delete", move: "confirm.lead.move", change: "confirm.lead.change" } as const;
+const YES = { delete: "confirm.yes.delete", move: "confirm.yes.move", change: "confirm.yes.change" } as const;
 
 class AskDesign extends Modal {
 	private done = false;
@@ -36,10 +40,10 @@ class AskDesign extends Modal {
 
 	override onOpen(): void {
 		const a = this.ask;
-		this.setTitle(ui(a.how === "delete" ? "confirm.title.delete" : "confirm.title.move", { kind: a.kind.toLowerCase() }));
+		this.setTitle(ui(TITLE[a.how], { kind: a.kind.toLowerCase() }));
 		const el = this.contentEl;
 		el.addClass("booklet-design-ask");
-		el.createEl("p", { text: `${ui(a.how === "delete" ? "confirm.lead.delete" : "confirm.lead.move", { name: a.name })} (${a.lines})` });
+		el.createEl("p", { text: ui(LEAD[a.how], { name: a.name }) + (a.lines ? ` (${a.lines})` : "") });
 		if (a.blind) el.createEl("p", { text: ui("confirm.blind") });
 		else if (a.impacts.length) {
 			el.createEl("p", { text: ui("confirm.touches") });
@@ -54,7 +58,7 @@ class AskDesign extends Modal {
 		}
 		el.createEl("p", { text: ui("confirm.undo") });
 		const buttons = el.createDiv({ cls: "modal-button-container" });
-		const yes = buttons.createEl("button", { text: ui(a.how === "delete" ? "confirm.yes.delete" : "confirm.yes.move"), cls: "mod-warning" });
+		const yes = buttons.createEl("button", { text: ui(YES[a.how]), cls: "mod-warning" });
 		const no = buttons.createEl("button", { text: ui("confirm.no") });
 		yes.addEventListener("click", () => this.finish(true));
 		no.addEventListener("click", () => this.finish(false));
@@ -76,7 +80,7 @@ class AskDesign extends Modal {
 	}
 }
 
-/** Asks before a delete or a move that reports kept data it would leave not matching; true when she said yes. */
+/** Asks before a delete, a move or a change that reports kept data it would leave not matching (or a booklet the reader could not open); true when she said yes. */
 export function askDesign(app: App, ask: Ask): Promise<boolean> {
 	return new Promise((resolve) => new AskDesign(app, ask, resolve).open());
 }

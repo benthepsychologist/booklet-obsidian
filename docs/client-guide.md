@@ -33,7 +33,7 @@ Add-ons do not update by themselves.
 
 ## Good to know
 
-- If you write booklets, the command **Booklet: Editor mode** (or the pencil button on a booklet's view) opens a *Booklet blocks* panel beside the note: add a piece at the cursor, change the settings of the line the cursor is on, and see an outline and the problems. Before it changes something that your readers' saved answers or rows depend on, it says how many it touches and asks. The panel is in English only. Like any edit made in Obsidian's editor, a change made from the panel saves the note with LF line endings.
+- If you write booklets, the command **Booklet: Editor mode** (or the pencil button on a booklet's view) opens a *Booklet blocks* panel beside the note: add a piece at the cursor and change the settings of the line the cursor is on. The outline and the list of lines the reader cannot read are in the Design view. Before it changes something that your readers' saved answers or rows depend on, it says how many it touches and asks. The panel is in English only. Like any edit made in Obsidian's editor, a change made from the panel saves the note with LF line endings.
 - Booklet is tested on a computer, and each release is tried on an iPhone. It has not been tried on Android.
 - If something looks wrong, tell whoever gave you your Booklet notes. Do not delete the note: your answers are in it.
 
