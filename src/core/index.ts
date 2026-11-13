@@ -51,3 +51,5 @@ export * from "./design-keys";
 export * from "./design-undo";
 export * from "./design-strings";
 export * from "./design-model";
+export * from "./design-catalogue";
+export * from "./design-popup";
