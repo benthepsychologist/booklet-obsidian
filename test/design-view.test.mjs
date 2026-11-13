@@ -440,8 +440,8 @@ test("a click selects a block and the breadcrumb names every level down to it; a
 test("a press on a block that is not on one of its buttons selects it, the innermost block of those around the press", () => {
 	const v = open(FULL);
 	const q = v.box("question", "[!text|left]");
-	click(q.querySelector(":scope > .booklet-design-lines"));
-	assert.ok(q.classList.contains("is-selected"), "the card is selected");
+	click(q.querySelector(":scope > .booklet-design-drawn .booklet-prompt"));
+	assert.ok(q.classList.contains("is-selected"), "a press on the drawing selects the block");
 	assert.equal(v.all(".booklet-design-node.is-selected").length, 1, "and none of the blocks around it");
 	// a press on a button does what the button does, and selects nothing by the way
 	click(v.act(v.box("module", "[!module|money]"), "up"));
@@ -466,16 +466,16 @@ test("words are drawn by Obsidian's renderer, and the renderer's Component is un
 	assert.equal(v.made[1].unloaded, true, "and the last goes with the view");
 });
 
-test("every other block is a small card: its kind, its id and its Markdown lines, exactly as written", () => {
+test("a block is a drawing or a labelled card: its kind and id in a head, its Markdown lines exactly as written (in a fold under a drawing)", () => {
 	const v = open(FULL);
 	const q = v.box("question", "[!text|spent]");
 	assert.equal(words(q.querySelector(":scope > .booklet-design-head .booklet-design-kind")), "Question");
 	assert.match(words(q.querySelector(":scope > .booklet-design-head .booklet-design-more")), /text/);
 	assert.match(words(q.querySelector(":scope > .booklet-design-head .booklet-design-more")), /spent/);
-	// the hint under a question is one of the question's own lines, and is drawn with it
-	assert.equal(q.querySelector(":scope > .booklet-design-lines").textContent, "> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.");
+	// the hint under a question is one of the question's own lines, and is in its fold with it (the question itself is drawn, stage C)
+	assert.equal(q.querySelector(":scope > .booklet-design-fold pre").textContent, "> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.");
 	const tip = v.box("callout", "[!tip]");
-	assert.equal(tip.querySelector(":scope > .booklet-design-lines").textContent, "> [!tip] Start here\n> A reading callout in the booklet's opening.");
+	assert.equal(tip.querySelector(":scope > .booklet-design-fold pre").textContent, "> [!tip] Start here\n> A reading callout in the booklet's opening.");
 	const fence = v.all('.booklet-design-node[data-kind="fence"]')[0];
 	assert.match(fence.querySelector(":scope > .booklet-design-lines").textContent, /^```booklet data/);
 	// a group draws what it holds inside it, and shows its own opening lines in a fold
@@ -515,10 +515,16 @@ test("a note that is no booklet yet says so, and an empty one is drawn", () => {
 
 /* ======================================================================== the strict + Add ======================================================================== */
 
-/** The kinds and pieces the open panel of a container shows. */
-const panel = (box) => {
+/** Opens every group of the catalogue in a box's open panel (the groups are folded until pressed), and gives back what is now in the panel. */
+const openGroups = (box) => {
 	const p = box.querySelector(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-panel");
-	return p ? [...p.querySelectorAll(".booklet-design-addgroup")].map((g) => ({ kind: g.getAttribute("data-kind"), pieces: [...g.querySelectorAll("button")].map((b) => b.getAttribute("data-piece")) })) : null;
+	if (p) for (const h of p.querySelectorAll(".booklet-design-cathead")) if (h.getAttribute("aria-expanded") === "false") click(h);
+	return p;
+};
+/** The pieces the open panel of a container lists, in every group, as the files they come from. */
+const panel = (box) => {
+	const p = openGroups(box);
+	return p ? [...p.querySelectorAll("button.booklet-design-piece")].map((b) => b.getAttribute("data-piece")) : null;
 };
 const addButton = (box) => box.querySelector(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-add");
 
@@ -532,8 +538,9 @@ test("+ Add lists only what the format allows in that container, and draws the s
 			click(addButton(box));
 			const fresh = v.all(".booklet-design-node").find((b) => b.getAttribute("data-kind") === n.kind && b.getAttribute("data-start") === String(n.start));
 			assert.equal(addButton(fresh).getAttribute("aria-expanded"), "true");
-			const want = addChoices(n).groups.map((g) => ({ kind: g.kind, pieces: g.pieces.map((p) => p.file) }));
-			assert.deepEqual(panel(fresh), want.length ? want : [], `${name}: ${n.kind} at ${n.start}`);
+			// every legal piece is listed, once, in one of the four groups, and nothing else is
+			const want = [...new Set(addChoices(n).groups.flatMap((g) => g.pieces.map((p) => p.file)))];
+			assert.deepEqual([...panel(fresh)].sort(), [...want].sort(), `${name}: ${n.kind} at ${n.start}`);
 			// every button on it is legal where it would go
 			for (const g of addChoices(n).groups) for (const p of g.pieces) assert.ok(canPlacePiece(g.position, [...PIECES, WORDS_PIECE].find((x) => x.file === p.file)).ok);
 			click(addButton(fresh));
@@ -544,9 +551,12 @@ test("+ Add lists only what the format allows in that container, and draws the s
 
 test("illegal parts are not on the list: no module in a module, no question in a booklet, no page under a page", () => {
 	const v = open(FULL);
+	// the kinds of place a container's open catalogue lists (each part carries the kind of place it goes to)
 	const kinds = (box) => {
 		click(addButton(box));
-		return panel(v.all(`.booklet-design-node[data-kind="${box.getAttribute("data-kind")}"]`).find((b) => b.getAttribute("data-start") === box.getAttribute("data-start"))).map((g) => g.kind);
+		const open = v.all(`.booklet-design-node[data-kind="${box.getAttribute("data-kind")}"]`).find((b) => b.getAttribute("data-start") === box.getAttribute("data-start"));
+		panel(open);
+		return [...new Set([...open.querySelectorAll(".booklet-design-panel .booklet-design-catitem")].map((i) => i.getAttribute("data-place")))];
 	};
 	const mod = kinds(v.box("module", "[!module|money]"));
 	assert.ok(mod.includes("activity"));
@@ -567,9 +577,9 @@ test("a container with nothing in it says what to add; a part that needs an acti
 	const needs = words(fresh.querySelector(".booklet-design-needs"));
 	assert.match(needs, /page/i);
 	assert.match(needs, /activity/i);
-	const kinds = panel(fresh).map((g) => g.kind);
-	assert.ok(kinds.includes("activity"), "the activity is on offer");
-	assert.ok(!kinds.includes("page"), "the page is not");
+	const files = panel(fresh);
+	assert.ok(files.includes("Structure - activity.md"), "the activity is on offer");
+	assert.ok(!files.includes("Structure - page.md"), "the page is not");
 	v.close();
 	// each other empty container says its own words
 	const w = open(bookletAround("> [!activity|a] A\n\n> [!page|p] P\n\n"));
@@ -590,6 +600,7 @@ test("choosing a piece writes exactly what the operation makes, as one write, an
 	const expected = insertPiece(before, g.position, choice);
 	assert.equal(expected.ok, true);
 	click(addButton(v.box("page", "[!page|map")));
+	openGroups(v.box("page", "[!page|map"));
 	await v.press(v.box("page", "[!page|map").querySelector(`button[data-piece="${choice.file}"]`));
 	assert.equal(v.disk.writes, 1, "one vault.process write");
 	assertMinimal(before, v.disk.text, expected.text);
@@ -829,6 +840,7 @@ test("Undo and Redo put back the exact bytes, in order, and are on only when the
 	const t1 = v.disk.text;
 	assert.notEqual(t1, t0);
 	click(addButton(v.all('.booklet-design-node[data-kind="booklet"]')[0]));
+	openGroups(v.all('.booklet-design-node[data-kind="booklet"]')[0]);
 	const choice = piece("Structure - activity.md") ?? PIECES.find((p) => p.label === "activity");
 	await v.press(v.all('.booklet-design-panel button').find((b) => b.getAttribute("data-piece") === choice.file));
 	const t2 = v.disk.text;
@@ -909,7 +921,10 @@ test("a second press while a change is under way waits for it: two clicks make o
 
 test("every action is a visible button with its words: no hover, no drag, no key is needed", () => {
 	const v = open(FULL);
-	const buttons = v.all("button");
+	// (the buttons inside an inert drawing are the reader's, drawn switched off: they are no action of this view)
+	const drawn = v.all(".booklet-sample button");
+	assert.ok(drawn.length > 0 && drawn.every((b) => b.disabled), "a drawn question's buttons are all off");
+	const buttons = v.all("button").filter((b) => !b.closest(".booklet-sample"));
 	assert.ok(buttons.length > 40);
 	for (const b of buttons) {
 		assert.equal(b.getAttribute("type"), "button");
@@ -949,6 +964,6 @@ test("the plugin registers the Design view beside the others, and the command id
 	plugin.addSettingTab = () => {};
 	await plugin.onload();
 	assert.deepEqual(registered.map((r) => r.type), ["booklet", "booklet-design", "booklet-blocks"]);
-	assert.deepEqual(cmds, ["editor-mode", "toggle-view"]);
+	assert.deepEqual(cmds, ["editor-mode", "toggle-view", "design-add-piece", "design-add-structure", "design-add-questions", "design-add-reading", "design-add-views", "design-add-data"]);
 	plugin.onunload();
 });

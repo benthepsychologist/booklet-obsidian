@@ -174,7 +174,8 @@ test("a look's variables are set once, on the view, and the sheet, group and blo
 	for (const [name, value] of Object.entries(defaults)) {
 		const set = decls.filter((d) => d.prop === name);
 		assert.equal(set.length, 1, `${name} is declared once`);
-		assert.equal(set[0].selector, ".booklet-view", `${name} is declared on .booklet-view`);
+		// the Design view's inert drawings (.booklet-sample) take the same five in the same rule, so the set is still one
+		assert.deepEqual(set[0].selector.split(/\s*,\s*/), [".booklet-view", ".booklet-sample"], `${name} is declared on .booklet-view (and the inert drawings)`);
 		assert.equal(set[0].value, value, `${name} defaults to Obsidian's ${value}`);
 	}
 	const used = (name, selector) => decls.some((d) => d.selector.split(/\s*,\s*/).includes(selector) && d.value.includes(`var(${name})`));

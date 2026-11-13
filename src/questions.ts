@@ -77,13 +77,18 @@ export interface QuestionHost {
 	redrawSoon(): void;
 	/** Follows the drawn `listen` questions' media (listen-view.ts). */
 	listens: Listens;
+	/**
+	 * Hands the host something to undo when what is drawn is taken away (a matrix's resize observer). A host that draws once and keeps the page
+	 * (the Booklet view, which disconnects such a thing when its box has left the page) need not have it; the Design view's inert drawings do.
+	 */
+	own?(dispose: () => void): void;
 }
 
 /**
  * The members of a host that a host made for one copy of a question (each-question.ts) or for one row (row-ask.ts) hands on unchanged to
  * the host it was made from. The rest (the answer, what is typed, where the earlier words come from, and the rest that are the copy's own) the maker writes.
  */
-export const passedOn = (host: QuestionHost): Pick<QuestionHost, "md" | "mdBlock" | "keepOwn" | "pressTarget" | "heldOf" | "hold" | "reshow" | "uid" | "redrawSoon" | "listens"> => ({
+export const passedOn = (host: QuestionHost): Pick<QuestionHost, "md" | "mdBlock" | "keepOwn" | "pressTarget" | "heldOf" | "hold" | "reshow" | "uid" | "redrawSoon" | "listens" | "own"> => ({
 	md: (markdown, el) => host.md(markdown, el),
 	mdBlock: (markdown, el) => host.mdBlock(markdown, el),
 	keepOwn: (key, t, commit) => host.keepOwn(key, t, commit),
@@ -94,6 +99,7 @@ export const passedOn = (host: QuestionHost): Pick<QuestionHost, "md" | "mdBlock
 	uid: () => host.uid(),
 	redrawSoon: () => host.redrawSoon(),
 	listens: host.listens,
+	own: (dispose) => host.own?.(dispose),
 });
 
 export const keyOf = (t: Target, q: Question): string => `${t.scope}/${t.activity.id}/${q.id}`;

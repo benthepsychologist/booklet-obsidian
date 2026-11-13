@@ -2,7 +2,9 @@
  * The Design view: the third way to open a booklet note, beside the Booklet view (the reading page) and Markdown. It draws the note as the
  * tree the format is (design-tree.ts): the booklet's opening, modules, their tabs, activities, their tabs, pages and blocks, each level
  * with its own icon, indent, rail and one line saying what it is, and lets a person add, delete and move parts without writing a line of
- * Markdown. It is stage B1: the tree drawn, a strict "+ Add", and changes written through the plugin's one write path.
+ * Markdown. Stage B1 drew the tree, a strict "+ Add" and the changes. Stage C draws a question and a reading callout inert, as a reader sees
+ * them (design-sample.ts); lists what "+ Add" offers as a catalogue in four folded groups, each part with a live sample and its keys; and
+ * adds the nested hotkeys: a letter opens a popup on a group, a second picks a part, Enter adds it at the selected block's legal place.
  *
  * It never writes the whole file (note-view.ts). Every change is a smallest-byte replacement of the note (core/design-ops.ts, then
  * `minimalChange`), written into an open Markdown pane's editor or with `vault.process`; nothing else is touched or tidied. The view
@@ -10,41 +12,60 @@
  * editor's undo. A person may delete her own work freely: a delete or a move that would leave kept data not matching says what, with
  * counts, and asks; it never blocks.
  */
-import { Component, MarkdownRenderer, Scope, type Menu, type WorkspaceLeaf } from "obsidian";
+import { Component, Scope, type Menu, type WorkspaceLeaf } from "obsidian";
 import {
 	DesignHistory,
+	KEY_GROUPS,
+	PIECES,
 	WORDS_PIECE,
 	addChoices,
+	blockDrawing,
 	blockLines,
+	catalogueListing,
 	containerAdds,
 	crumbOf,
 	deleteBlock,
 	iconNamesOf,
+	hasRemoteMedia,
 	insertPiece,
 	isBookletText,
 	isContainer,
+	isLaterKind,
 	levelOf,
 	minimalChange,
 	moveBlock,
 	moveTargets,
 	nameOf,
 	needsAsking,
+	listingOf,
 	parseDesign,
+	placeFor,
+	popupFor,
+	stepPopup,
 	walkDesign,
 	whyImmovable,
 	type AddGroup,
+	type Activity,
 	type AddPiece,
+	type CatalogueId,
+	type CatalogueListing,
 	type DesignKey,
 	type DesignKind,
 	type DesignNode,
 	type Level,
 	type OpResult,
+	type Piece,
 	type PlaceKind,
+	type PopupRow,
+	type PopupState,
+	type Question,
 } from "./core";
 import { askDesign } from "./design-modals";
+import { drawInertQuestion, drawInertReading, questionOfPiece, questionsByLine, renderWords, type InertOptions } from "./design-sample";
 import { MODE_ICONS, iconEl, iconName, ui, uin } from "./design-text";
 import { markdownViewOf } from "./markdown-view";
 import { LockedTextView, writeThrough } from "./note-view";
+import { calloutColourIsTriplet } from "./reading";
 import type { LeafMode } from "./switch";
 
 export const DESIGN_VIEW_TYPE = "booklet-design";
@@ -130,10 +151,18 @@ const capital = (s: string): string => (s ? s[0]?.toUpperCase() + s.slice(1) : s
 /** A node's place in the drawing: its kind and first line (no two nodes share both). */
 const keyOf = (n: DesignNode): string => `${n.kind}@${n.start}`;
 
-/** Is a field of text, or anything a person types in, where the keys go? Then a key is hers, not the view's. */
-function typing(el: Element | null): boolean {
-	return !!el && el.matches("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+/** Is this a field of text, or anything a person types in, or inside one? Then a key is hers, not the view's. */
+export function isEditable(el: Element | null): boolean {
+	return !!el && typeof el.closest === "function" && el.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])") !== null;
 }
+
+/** The keys the view's scope listens on: letters and digits for the popup's letters, and the keys that drive it. A key outside the popup is left alone. */
+const POPUP_KEYS: readonly string[] = [..."abcdefghijklmnopqrstuvwxyz123456789", " ", "Backspace", "Enter", "Escape", "ArrowUp", "ArrowDown"];
+
+const CAT_TITLE: Readonly<Record<CatalogueId, DesignKey>> = { structure: "cat.structure.title", questions: "cat.questions.title", reading: "cat.reading.title", "views-data": "cat.views-data.title" };
+const CAT_BLURB: Readonly<Record<CatalogueId, DesignKey>> = { structure: "cat.structure.blurb", questions: "cat.questions.blurb", reading: "cat.reading.blurb", "views-data": "cat.views-data.blurb" };
+
+const spaced = (keys: string): string => keys.split("").join(" ");
 
 export class DesignView extends LockedTextView {
 	/** The note's text as last read or written by this view: what getViewData returns. */
@@ -160,6 +189,17 @@ export class DesignView extends LockedTextView {
 	/** The block `sel` names in the tree drawn now. */
 	private selected: DesignNode | null = null;
 	private followTimer: number | null = null;
+	/** The catalogue's groups that are open, by container and group: a group is drawn (its samples with it) only while it is in here. */
+	private readonly catOpen = new Set<string>();
+	/** What each open group's samples are owned by, so closing the group (or drawing again) unloads them and everything they hold. */
+	private readonly catParts = new Map<string, Component>();
+	/** Where the key popup stands, or null when it is closed. */
+	private popup: PopupState | null = null;
+	private popupEl: HTMLElement | null = null;
+	/** The questions of the note by their line, with their activities, found once for each drawing. */
+	private questions = new Map<number, { activity: Activity; question: Question }>();
+	/** Obsidian gives a callout's colour as a triplet (see reading.ts): said to every inert drawing. */
+	private triplet = false;
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -178,6 +218,14 @@ export class DesignView extends LockedTextView {
 		this.scope ??= new Scope(this.app.scope);
 		this.scope.register(["Mod"], "z", (evt) => this.undoKey(evt, "undo"));
 		this.scope.register(["Mod", "Shift"], "z", (evt) => this.undoKey(evt, "redo"));
+		// the nested hotkeys: a scope of this view, never a command hotkey. Each key acts only when no field of text has the focus and no
+		// modifier is held, so a key typed into a field (the small editor, a later stage) is the field's. What the scope does when a user has
+		// bound the same key herself, and whether it hears a bare letter while a field has the focus, is not known without the real app: the
+		// handler therefore checks the key's own target and the focused element before it acts, and passes the key on otherwise.
+		for (const key of POPUP_KEYS) {
+			this.scope.register([], key, (evt) => this.keyPress(evt, key));
+			if (/^[a-z]$/.test(key)) this.scope.register(["Shift"], key, (evt) => this.keyPress(evt, key));
+		}
 		// words typed in a Markdown pane of the same note are in its editor before they are saved: this view follows them
 		this.registerEvent(
 			this.app.workspace.on("editor-change", (_editor, info) => {
@@ -234,6 +282,8 @@ export class DesignView extends LockedTextView {
 		if (clear) {
 			this.sel = null;
 			this.adding.clear();
+			this.catOpen.clear();
+			this.popup = null;
 			this.history.clear();
 			this.message = "";
 		} else if (data === this.text && this.root) return; // Obsidian hands the view its own write back: nothing to draw
@@ -249,11 +299,15 @@ export class DesignView extends LockedTextView {
 		this.history.clear();
 		this.sel = null;
 		this.adding.clear();
+		this.catOpen.clear();
+		this.popup = null;
 		this.contentEl.empty();
 	}
 
 	/** The renderer's Component: made for a drawing and unloaded at the next, so its work never outlives what it drew. */
 	private drop(): void {
+		for (const part of this.catParts.values()) part.unload();
+		this.catParts.clear();
 		if (!this.renderer) return;
 		const old = this.renderer;
 		this.renderer = null;
@@ -294,7 +348,11 @@ export class DesignView extends LockedTextView {
 		this.selected = this.find(root);
 		if (!this.selected) this.sel = null;
 
+		this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
+		this.triplet = calloutColourIsTriplet(el);
 		this.drawBar(el);
+		this.popupEl = el.createDiv({ cls: "booklet-design-popup-host" });
+		this.showPopup();
 		if (!isBookletText(this.text)) el.createDiv({ cls: "booklet-design-banner", text: ui("note.notBooklet") });
 		this.crumbEl = el.createEl("nav", { cls: "booklet-design-crumb", attr: { "aria-label": ui("crumb.label") } });
 		this.statusEl = el.createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
@@ -312,6 +370,14 @@ export class DesignView extends LockedTextView {
 		this.redoBtn = bar.createEl("button", { text: ui("redo"), cls: "booklet-design-redo", attr: { type: "button", title: ui("redo.title") } });
 		this.undoBtn.addEventListener("click", () => void this.stepBack("undo"));
 		this.redoBtn.addEventListener("click", () => void this.stepBack("redo"));
+		// every keyboard action has a button: a phone has no hover and may have no keyboard
+		const add = bar.createEl("button", { text: ui("keys.addPiece"), cls: "booklet-design-addpiece", attr: { type: "button", title: ui("keys.addPiece.title") } });
+		add.addEventListener("click", () => this.openCatalogue());
+		const groups = bar.createDiv({ cls: "booklet-design-groupbar", attr: { role: "group", "aria-label": ui("keys.bar") } });
+		for (const g of KEY_GROUPS) {
+			const b = groups.createEl("button", { text: g.title, cls: "booklet-design-group", attr: { type: "button", "data-key": g.key, "aria-label": ui("keys.group.label", { group: g.title, key: g.key }), title: g.blurb } });
+			b.addEventListener("click", () => this.openKeys(g.key));
+		}
 	}
 
 	private showUndo(): void {
@@ -413,18 +479,23 @@ export class DesignView extends LockedTextView {
 		fold.createEl("pre", { cls: "booklet-design-lines", text: lines.join("\n") });
 	}
 
+	/** The options every inert drawing of this view is made with: what owns it, where the note is, and where it goes. */
+	private inertOptions(into: HTMLElement, owner: Component): InertOptions {
+		return { app: this.app, owner, sourcePath: this.file?.path ?? "", into, triplet: this.triplet };
+	}
+
 	private drawLeaf(box: HTMLElement, n: DesignNode): void {
 		if (n.kind === "records") {
 			box.createDiv({ cls: "booklet-design-what", text: ui("card.records") });
 			return;
 		}
 		const lines = blockLines(this.text, n);
+		const renderer = this.renderer;
 		if (n.kind === "prose") {
 			// words are drawn as Obsidian draws Markdown; the Component is the drawing's, unloaded at the next
 			const words = box.createDiv({ cls: "booklet-design-prose markdown-rendered" });
 			const markdown = lines.join("\n");
-			const renderer = this.renderer;
-			if (renderer) void MarkdownRenderer.render(this.app, markdown, words, this.file?.path ?? "", renderer).catch(() => words.setText(markdown));
+			if (renderer) renderWords(this.app, renderer, markdown, words, this.file?.path ?? "");
 			else words.setText(markdown);
 			return;
 		}
@@ -436,7 +507,31 @@ export class DesignView extends LockedTextView {
 			box.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("card.lines") }, text: raw.join("\n") });
 			return;
 		}
-		// every other block is a small labelled card in this stage: its kind, id and Markdown lines
+		// a block the drawing code draws is drawn as a reader sees it with nothing answered, and cannot be answered here; its lines stay one fold away
+		const how = blockDrawing(n);
+		const found = how === "question" ? this.questions.get(n.start) : undefined;
+		let later = n.kind === "question" && isLaterKind(n.detail);
+		let remote = false;
+		if (renderer && how === "question" && found) {
+			const into = box.createDiv({ cls: "booklet-design-drawn", attr: { role: "group", "aria-label": ui("draw.label") } });
+			if (drawInertQuestion(this.inertOptions(into, renderer), found.activity, found.question)) {
+				this.drawLines(box, n, "draw.fold");
+				return;
+			}
+			into.remove();
+			later = later || found.question.each !== null;
+		} else if (renderer && how === "reading") {
+			remote = hasRemoteMedia(lines.join("\n"));
+			if (!remote) {
+				const into = box.createDiv({ cls: "booklet-design-drawn", attr: { role: "group", "aria-label": ui("draw.label") } });
+				drawInertReading(this.inertOptions(into, renderer), lines.join("\n"));
+				this.drawLines(box, n, "draw.fold");
+				return;
+			}
+		}
+		// a labelled card: its kind, id and Markdown lines (a listen, a widget, a question asked for each pick and every view of data stay one in this beta)
+		if (later) box.createDiv({ cls: "booklet-design-what", text: ui("draw.later") });
+		else if (remote) box.createDiv({ cls: "booklet-design-what", text: ui("draw.remote") });
 		box.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("card.lines") }, text: lines.join("\n") });
 	}
 
@@ -458,22 +553,193 @@ export class DesignView extends LockedTextView {
 		if (open) this.drawPanel(row, n);
 	}
 
-	/** Only what is legal where it would go (core/design-model.ts `addChoices`); a part that waits on another says which. */
+	/**
+	 * The catalogue: only what is legal where it would go (core/design-model.ts `addChoices`, so no illegal part is ever listed); a part that
+	 * waits on another says which. The parts are laid out in four groups, each folded to its name and one sentence and opened on a press;
+	 * only an open group is drawn, with each part's live sample, so closed groups cost nothing.
+	 */
 	private drawPanel(row: HTMLElement, n: DesignNode): void {
 		const choices = addChoices(n);
-		const panel = row.createDiv({ cls: "booklet-design-panel", attr: { role: "group", "aria-label": ui("add.panel") } });
+		const panel = row.createDiv({ cls: "booklet-design-panel", attr: { role: "group", "aria-label": ui("cat.label") } });
 		for (const f of choices.first) panel.createDiv({ cls: "booklet-design-needs", text: ui("add.needs", { kind: ui(PLACE_KEY[f.kind]).toLowerCase(), first: ui(PLACE_KEY[f.first]).toLowerCase() }) });
 		if (!choices.groups.length && !choices.first.length) panel.createDiv({ cls: "booklet-design-needs", text: ui("add.nothing") });
-		for (const g of choices.groups) {
-			const group = panel.createDiv({ cls: "booklet-design-addgroup", attr: { "data-kind": g.kind } });
-			group.createDiv({ cls: "booklet-design-addkind", text: ui(PLACE_KEY[g.kind]) });
-			const buttons = group.createDiv({ cls: "booklet-design-addbuttons" });
-			for (const p of g.pieces) {
-				const label = p.file === WORDS_PIECE.file ? ui("piece.words") : p.label;
-				const b = buttons.createEl("button", { text: capital(label), cls: "booklet-design-piece", attr: { type: "button", "data-piece": p.file } });
-				b.addEventListener("click", () => void this.add(n, g, p, label));
-			}
+		for (const g of catalogueListing(choices, PIECES)) this.drawCatGroup(panel, n, g);
+	}
+
+	private drawCatGroup(panel: HTMLElement, n: DesignNode, g: CatalogueListing): void {
+		const id = `${keyOf(n)}|${g.id}`;
+		const wrap = panel.createDiv({ cls: "booklet-design-catgroup", attr: { "data-group": g.id } });
+		const title = ui(CAT_TITLE[g.id]);
+		const blurb = ui(CAT_BLURB[g.id]);
+		const head = wrap.createEl("button", { cls: "booklet-design-cathead", attr: { type: "button", "aria-expanded": String(this.catOpen.has(id)), "aria-label": ui("cat.open.label", { group: title, blurb }) } });
+		head.createSpan({ cls: "booklet-design-cattitle", text: title });
+		head.createSpan({ cls: "booklet-design-catblurb", text: blurb });
+		const fill = (): void => {
+			wrap.querySelector(":scope > .booklet-design-catbody")?.remove();
+			this.catParts.get(id)?.unload();
+			this.catParts.delete(id);
+			const open = this.catOpen.has(id);
+			head.setAttribute("aria-expanded", String(open));
+			wrap.toggleClass("is-open", open);
+			if (!open) return;
+			// the samples belong to a Component of their own, so closing the group lets go of them and of every observer they made
+			const owner = this.renderer?.addChild(new Component());
+			if (owner) this.catParts.set(id, owner);
+			const body = wrap.createDiv({ cls: "booklet-design-catbody" });
+			for (const e of g.entries) this.drawCatEntry(body, n, e, owner ?? null);
+		};
+		head.addEventListener("click", () => {
+			if (this.catOpen.has(id)) this.catOpen.delete(id);
+			else this.catOpen.add(id);
+			fill();
+		});
+		if (this.catOpen.has(id)) fill();
+	}
+
+	private drawCatEntry(body: HTMLElement, n: DesignNode, e: CatalogueListing["entries"][number], owner: Component | null): void {
+		const label = e.file === WORDS_PIECE.file ? ui("piece.words") : e.label;
+		const name = capital(label);
+		const item = body.createDiv({ cls: "booklet-design-catitem", attr: { "data-entry": e.file, "data-place": e.place.kind } });
+		const head = item.createDiv({ cls: "booklet-design-catitem-head" });
+		head.createSpan({ cls: "booklet-design-catlabel", text: name });
+		head.createSpan({ cls: "booklet-design-catkeys", text: e.keys ? ui("cat.keys", { keys: spaced(e.keys) }) : ui("cat.nokeys") });
+		const add = head.createEl("button", { text: ui("cat.add"), cls: "booklet-design-piece", attr: { type: "button", "data-piece": e.file, "aria-label": ui("cat.add.label", { name }) } });
+		add.addEventListener("click", () => void this.add(n, e.place, e, label));
+		// its sample: drawn from the piece's own text, which is fixed local content; a piece with no drawing is its Markdown, labelled
+		const sample = item.createDiv({ cls: "booklet-design-catsample" });
+		if (owner && e.sample === "question") {
+			const q = questionOfPiece(e.text);
+			sample.setAttribute("aria-label", ui("cat.sample.label", { name }));
+			sample.setAttribute("role", "group");
+			if (q && drawInertQuestion(this.inertOptions(sample, owner), q.activity, q.question)) return;
+		} else if (owner && e.sample === "reading") {
+			sample.setAttribute("aria-label", ui("cat.sample.label", { name }));
+			sample.setAttribute("role", "group");
+			drawInertReading(this.inertOptions(sample, owner), e.text.trimEnd());
+			return;
 		}
+		sample.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("cat.card.label", { name }) }, text: e.text.trimEnd() });
+	}
+
+	/** Opens the catalogue of the container the selection is in (the booklet when nothing is selected), and puts the focus on its first group. */
+	openCatalogue(): void {
+		const root = this.root;
+		if (!root) return;
+		const at = this.selected ?? root;
+		const container = isContainer(at) ? at : (at.parent ?? root);
+		this.adding.add(keyOf(container));
+		this.draw();
+		this.boxes.get(keyOf(container))?.querySelector<HTMLElement>(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-cathead")?.focus();
+	}
+
+	/* ---- the key popup: a letter picks a group, a second a part, Enter adds it where the selection's legal place is ---- */
+
+	/** Opens the popup on a group (or on the groups, with null). */
+	openKeys(groupKey: string | null = null): void {
+		this.popup = popupFor(groupKey);
+		this.showPopup();
+	}
+
+	private closeKeys(): void {
+		this.popup = null;
+		this.showPopup();
+	}
+
+	/** One key of the scope. It acts only in a view with no field of text focused and no modifier held; every other key goes on to whatever it was for. */
+	private keyPress(evt: KeyboardEvent, key: string): false | undefined {
+		const doc = this.contentEl.ownerDocument;
+		if (isEditable(evt.target as Element | null) || isEditable(doc.activeElement)) return undefined;
+		if (evt.ctrlKey || evt.metaKey || evt.altKey) return undefined;
+		if (!this.popup) {
+			// closed: only a group's letter does anything (Shift and every other key are not the view's)
+			const g = evt.shiftKey ? undefined : KEY_GROUPS.find((x) => x.key === key);
+			if (!g) return undefined;
+			this.openKeys(g.key);
+			return false;
+		}
+		// open: Enter and Space on a button of the popup itself are that button's; everywhere else they are the popup's
+		const target = evt.target as Element | null;
+		if ((key === "Enter" || key === " ") && target && typeof target.closest === "function" && target.closest(".booklet-design-popup button")) return undefined;
+		const step = stepPopup(this.popup, key);
+		this.popup = step.state;
+		if (step.choose) void this.chooseRow(step.choose);
+		else this.showPopup();
+		return false;
+	}
+
+	/** Where a piece would go for the keys, from the tree drawn now and the block selected. */
+	private placeOf(piece: Piece): ReturnType<typeof placeFor> {
+		return this.root ? placeFor(this.root, this.selected, piece) : { ok: false, reason: "There is nothing drawn yet." };
+	}
+
+	/** Takes a row of the popup: adds its piece, or says why it cannot go here and leaves the popup as it is. */
+	private chooseRow(row: PopupRow): Promise<void> {
+		const piece = row.piece;
+		if (!piece) return Promise.resolve();
+		const name = capital(piece.label);
+		const placed = this.placeOf(piece);
+		if (!placed.ok) {
+			this.say(ui("keys.refused", { name, reason: placed.reason }));
+			this.showPopup();
+			return Promise.resolve();
+		}
+		return this.addAt(placed.position, piece, piece.label, null);
+	}
+
+	private showPopup(): void {
+		const host = this.popupEl;
+		if (!host) return;
+		host.empty();
+		const state = this.popup;
+		if (!state) return;
+		const list = listingOf(state);
+		const box = host.createDiv({ cls: "booklet-design-popup", attr: { role: "group", "aria-label": ui("keys.label") } });
+		const head = box.createDiv({ cls: "booklet-design-popup-head" });
+		head.createSpan({ cls: "booklet-design-popup-title", text: ui("keys.title") });
+		const back = head.createEl("button", { text: ui("keys.back"), cls: "booklet-design-popup-back", attr: { type: "button" } });
+		back.addEventListener("click", () => {
+			if (!this.popup) return;
+			this.popup = this.popup.rest || this.popup.group ? stepPopup(this.popup, "Backspace").state : null;
+			this.showPopup();
+		});
+		const close = head.createEl("button", { text: ui("keys.close"), cls: "booklet-design-popup-close", attr: { type: "button" } });
+		close.addEventListener("click", () => this.closeKeys());
+		box.createDiv({ cls: "booklet-design-popup-hint", text: ui("keys.hint") });
+		const gname = list.group?.title ?? "";
+		const typed = list.typed.trim();
+		const line = list.mode === "groups" ? ui("keys.groups") : list.mode === "pieces" ? ui("keys.in", { group: gname }) : list.mode === "variants" ? ui("keys.variants", { name: capital(list.rows[0]?.label ?? "") }) : list.rows.length ? ui("keys.filter", { typed }) : ui("keys.none", { typed });
+		box.createDiv({ cls: "booklet-design-popup-line", text: line, attr: { role: "status", "aria-live": "polite" } });
+		const ul = box.createEl("ul", { cls: "booklet-design-popup-rows" });
+		list.rows.forEach((r, i) => {
+			const li = ul.createEl("li", { cls: ["booklet-design-popup-item", ...(i === list.cursor ? ["is-cursor"] : [])] });
+			const placed = r.piece ? this.placeOf(r.piece) : null;
+			const b = li.createEl("button", {
+				cls: "booklet-design-popup-row",
+				attr: {
+					type: "button",
+					"data-keys": r.keys.replace(/ /g, ""),
+					...(r.piece ? { "data-piece": r.piece.file } : {}),
+					...(i === list.cursor ? { "aria-current": "true" } : {}),
+					"aria-label": r.opens ? ui("keys.group.label", { group: r.label, key: r.keys }) : ui("keys.pick.label", { name: capital(r.label), keys: r.keys || "Enter" }),
+				},
+			});
+			b.createSpan({ cls: "booklet-design-popup-keys", text: r.keys || "↵" });
+			b.createSpan({ cls: "booklet-design-popup-label", text: capital(r.label) });
+			if (r.detail && r.opens) b.createSpan({ cls: "booklet-design-popup-detail", text: r.detail });
+			else if (r.detail && list.mode === "filter") b.createSpan({ cls: "booklet-design-popup-detail", text: r.detail });
+			if (placed && !placed.ok) {
+				b.disabled = true;
+				li.addClass("is-disabled");
+				li.createDiv({ cls: "booklet-design-popup-why", text: ui("keys.disabled", { reason: placed.reason }) });
+			}
+			b.addEventListener("click", () => {
+				if (!this.popup) return;
+				if (r.opens) {
+					this.popup = popupFor(r.opens);
+					this.showPopup();
+				} else void this.chooseRow(r);
+			});
+		});
 	}
 
 	private drawCrumb(): void {
@@ -507,6 +773,8 @@ export class DesignView extends LockedTextView {
 			box?.querySelector(":scope > .booklet-design-head .booklet-design-pick")?.setAttribute("aria-pressed", "true");
 		}
 		this.drawCrumb();
+		// the popup says which parts can go where the selection is
+		if (this.popup) this.showPopup();
 	}
 
 	private say(words: string): void {
@@ -526,9 +794,15 @@ export class DesignView extends LockedTextView {
 	}
 
 	private add(container: DesignNode, group: AddGroup, piece: AddPiece, label: string): Promise<void> {
+		return this.addAt(group.position, piece, label, keyOf(container));
+	}
+
+	/** Puts a piece at a position of the tree drawn now: the one insertion, from the catalogue and from the keys alike. `closes` is the container whose catalogue shuts. */
+	private addAt(position: AddGroup["position"], piece: Pick<AddPiece, "file" | "text">, label: string, closes: string | null): Promise<void> {
 		return this.later(async () => {
-			this.adding.delete(keyOf(container));
-			const op = insertPiece(this.text, group.position, { file: piece.file, text: piece.text });
+			if (closes) this.adding.delete(closes);
+			this.popup = null;
+			const op = insertPiece(this.text, position, { file: piece.file, text: piece.text });
 			await this.carryOut(op, { how: "add", name: capital(label), select: "lines" });
 		});
 	}
@@ -633,7 +907,7 @@ export class DesignView extends LockedTextView {
 
 	private undoKey(evt: KeyboardEvent, which: "undo" | "redo"): false | undefined {
 		// in a field the key is the field's: the view does nothing and the key goes on to it
-		if (typing(this.contentEl.ownerDocument.activeElement)) return undefined;
+		if (isEditable(evt.target as Element | null) || isEditable(this.contentEl.ownerDocument.activeElement)) return undefined;
 		evt.preventDefault();
 		void this.stepBack(which);
 		return false;

@@ -8,8 +8,10 @@
  * that cannot mix draws the plain one.
  */
 
-/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view */
-.booklet-view {
+/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view.
+   An inert drawing in the Design view (.booklet-sample, design-sample.ts) takes the same five, in Obsidian's own look. */
+.booklet-view,
+.booklet-sample {
 	--booklet-card-bg: var(--background-secondary);
 	--booklet-card-border: var(--background-modifier-border);
 	--booklet-card-radius: var(--radius-l);
@@ -194,7 +196,8 @@
 }
 
 /* a text field inside a card in a dark theme: the theme's stronger border, so the box can be seen */
-.theme-dark .booklet-view .booklet-text {
+.theme-dark .booklet-view .booklet-text,
+.theme-dark .booklet-sample .booklet-text {
 	border-color: var(--background-modifier-border-focus);
 }
 
@@ -2520,7 +2523,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
  * the view says which with the class booklet-callout-triplet (calloutColourIsTriplet in reading.ts), and --booklet-callout-colour is the colour
  * in either format. The format's own kinds (diff, law, opinion) set --booklet-callout-colour from a theme colour directly.
  */
-.booklet-view .callout {
+.booklet-view .callout,
+.booklet-sample .callout {
 	--booklet-callout-colour: var(--callout-color);
 	background-color: var(--background-secondary);
 	border: var(--border-width) solid var(--background-modifier-border);
@@ -2528,18 +2532,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	border-radius: var(--booklet-card-radius);
 }
 
-.booklet-view.booklet-callout-triplet .callout {
+.booklet-view.booklet-callout-triplet .callout,
+.booklet-sample.booklet-callout-triplet .callout {
 	--booklet-callout-colour: rgb(var(--callout-color));
 }
 
 /* a callout's title (Obsidian's own, drawn in the plugin's view only) is a row of picture, words and fold arrow that does not wrap: at 200% text on a
    320 px phone a folded "Transcript" is wider than its box and the arrow lands past the window. The row may wrap, which it does only when it must. */
-.booklet-view .callout-title {
+.booklet-view .callout-title,
+.booklet-sample .callout-title {
 	flex-wrap: wrap;
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.booklet-view .callout {
+	.booklet-view .callout,
+	.booklet-sample .callout {
 		background-color: color-mix(in srgb, var(--booklet-callout-colour) 10%, var(--background-primary));
 		border-block-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
 		border-inline-end-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
@@ -2550,44 +2557,56 @@ button.booklet-edit-open:not(.clickable-icon):hover {
    Their own edge is the dashed, double or dotted line; their words stay in the theme's text colour, and their picture takes the kind's colour. */
 .booklet-view .callout[data-callout="diff"] .callout-title,
 .booklet-view .callout[data-callout="law"] .callout-title,
-.booklet-view .callout[data-callout="opinion"] .callout-title {
+.booklet-view .callout[data-callout="opinion"] .callout-title,
+.booklet-sample .callout[data-callout="diff"] .callout-title,
+.booklet-sample .callout[data-callout="law"] .callout-title,
+.booklet-sample .callout[data-callout="opinion"] .callout-title {
 	color: var(--text-normal);
 }
 
 .booklet-view .callout[data-callout="diff"] .callout-icon svg,
 .booklet-view .callout[data-callout="law"] .callout-icon svg,
-.booklet-view .callout[data-callout="opinion"] .callout-icon svg {
+.booklet-view .callout[data-callout="opinion"] .callout-icon svg,
+.booklet-sample .callout[data-callout="diff"] .callout-icon svg,
+.booklet-sample .callout[data-callout="law"] .callout-icon svg,
+.booklet-sample .callout[data-callout="opinion"] .callout-icon svg {
 	color: var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="diff"] {
+.booklet-view .callout[data-callout="diff"],
+.booklet-sample .callout[data-callout="diff"] {
 	--booklet-callout-colour: var(--color-cyan);
 	--callout-icon: lucide-git-compare;
 	border-inline-start: var(--size-4-1) dashed var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="law"] {
+.booklet-view .callout[data-callout="law"],
+.booklet-sample .callout[data-callout="law"] {
 	--booklet-callout-colour: var(--text-normal);
 	--callout-icon: lucide-scale;
 	border-inline-start: var(--size-4-1) double var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="opinion"] {
+.booklet-view .callout[data-callout="opinion"],
+.booklet-sample .callout[data-callout="opinion"] {
 	--booklet-callout-colour: var(--color-pink);
 	--callout-icon: lucide-message-circle;
 	border-inline-start: var(--size-4-1) dotted var(--booklet-callout-colour);
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.booklet-view .callout[data-callout="diff"] {
+	.booklet-view .callout[data-callout="diff"],
+	.booklet-sample .callout[data-callout="diff"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
 	}
 
-	.booklet-view .callout[data-callout="law"] {
+	.booklet-view .callout[data-callout="law"],
+	.booklet-sample .callout[data-callout="law"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 60%, transparent);
 	}
 
-	.booklet-view .callout[data-callout="opinion"] {
+	.booklet-view .callout[data-callout="opinion"],
+	.booklet-sample .callout[data-callout="opinion"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
 	}
 }
@@ -3223,6 +3242,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 /* a hint in a box is text and is read: Obsidian's faint grey (2.3 to 1 on white in its default theme) gives way to the muted text colour (6.8 to 1) */
 .booklet-view input::placeholder,
+.booklet-sample input::placeholder,
+.booklet-sample textarea::placeholder,
 .booklet-view textarea::placeholder,
 .booklet-view .search-input-container input::placeholder,
 .booklet-allow-card input::placeholder,
@@ -3604,6 +3625,186 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	flex-wrap: wrap;
 	gap: var(--size-2-3);
 	margin-top: var(--size-2-3);
+}
+
+/*
+ * An inert drawing (design-sample.ts): a question or a reading callout drawn as a reader sees it, for the tree and the catalogue. No press,
+ * focus or pointer lands in it: a press on it goes to the block under it, which selects it. The five look variables and the callout rules
+ * are shared with .booklet-view above (Obsidian's own look: the Booklet themes are a choice of the Booklet view alone).
+ */
+.booklet-sample {
+	pointer-events: none;
+	cursor: default;
+}
+
+.booklet-sample .booklet-question {
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-sample-part {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design-drawn {
+	margin: var(--size-2-2) var(--size-4-2);
+}
+
+.booklet-design-addpiece,
+.booklet-design-group {
+	white-space: nowrap;
+}
+
+.booklet-design-groupbar {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+}
+
+/* the catalogue: four groups, each a headline and one sentence, opened on a press */
+.booklet-design-catgroup {
+	margin-top: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+}
+
+.booklet-design-cathead {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-3);
+	width: 100%;
+	height: auto;
+	padding: var(--size-4-2) var(--size-4-3);
+	text-align: start;
+	background: transparent;
+	box-shadow: none;
+}
+
+.booklet-design-cathead::before {
+	content: "▸";
+	color: var(--text-muted);
+}
+
+.booklet-design-catgroup.is-open > .booklet-design-cathead::before {
+	content: "▾";
+}
+
+.booklet-design-cattitle {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+}
+
+.booklet-design-catblurb {
+	flex: 1 1 14em;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	white-space: normal;
+}
+
+.booklet-design-catbody {
+	padding: 0 var(--size-4-3) var(--size-4-3);
+}
+
+.booklet-design-catitem {
+	margin-top: var(--size-4-3);
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-catitem-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-3);
+}
+
+.booklet-design-catlabel {
+	flex: 1 1 8em;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-catkeys,
+.booklet-design-popup-keys {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-catsample {
+	margin-top: var(--size-4-2);
+}
+
+/* the key popup: kept in view while the tree scrolls under it */
+.booklet-design-popup-host {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+}
+
+.booklet-design-popup {
+	margin-bottom: var(--size-4-2);
+	padding: var(--size-4-3);
+	border: var(--border-width) solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	max-height: 70vh;
+	overflow-y: auto;
+}
+
+.booklet-design-popup-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-2);
+}
+
+.booklet-design-popup-title {
+	flex: 1 1 8em;
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-popup-hint,
+.booklet-design-popup-line {
+	margin-top: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-popup-rows {
+	margin: var(--size-4-2) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.booklet-design-popup-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-2);
+	width: 100%;
+	height: auto;
+	text-align: start;
+	background: transparent;
+	box-shadow: none;
+	white-space: normal;
+}
+
+.booklet-design-popup-item.is-cursor > .booklet-design-popup-row {
+	background: var(--background-modifier-hover);
+	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
+}
+
+.booklet-design-popup-detail,
+.booklet-design-popup-why {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-popup-why {
+	margin: 0 var(--size-4-2) var(--size-2-3);
+}
+
+.booklet-design-popup-item.is-disabled .booklet-design-popup-label {
+	color: var(--text-faint);
 }
 
 /* a narrow pane (a phone, or a split): less indent, and the actions take a line of their own */

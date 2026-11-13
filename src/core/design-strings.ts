@@ -111,7 +111,6 @@ export const DESIGN_STRINGS = {
 	"act.select.label": en("Select {name}"),
 
 	// ---- what a container says it can take
-	"add.panel": en("What can be added here"),
 	"add.needs": en("A {kind} needs another part first: {first}."),
 	"add.nothing": en("Nothing can be added here."),
 	"place.front-matter": en("Front matter"),
@@ -143,6 +142,53 @@ export const DESIGN_STRINGS = {
 	"empty.group": en(EMPTY_TEXT["group"] ?? ""),
 	"empty.row": en(EMPTY_TEXT["row"] ?? ""),
 	"empty.data-section": en(EMPTY_TEXT["data-section"] ?? ""),
+
+	// ---- the catalogue: the parts a container can take, in four folded groups, each with live samples
+	"cat.label": en("Parts that can be added here"),
+	"cat.structure.title": en("Structure"),
+	"cat.structure.blurb": en("The parts a booklet is built of: modules, activities, tabs, pages and rows."),
+	"cat.questions.title": en("Questions"),
+	"cat.questions.blurb": en("What a reader answers: choices, text, numbers, scales, dates and matrices."),
+	"cat.reading.title": en("Reading aids"),
+	"cat.reading.blurb": en("Things to read: callouts, hints, quotes, citations and words."),
+	"cat.views-data.title": en("Views and data"),
+	"cat.views-data.blurb": en("Rows and figures a booklet keeps, and the tables, lists, cards, tiles, bars and lines that show them."),
+	"cat.open.label": en("{group}: {blurb}"),
+	"cat.keys": en("Keys: {keys}"),
+	"cat.nokeys": en("No keys"),
+	"cat.add": en("Add"),
+	"cat.add.label": en("Add {name}"),
+	"cat.sample.label": en("A sample of {name}"),
+	"cat.card.label": en("The Markdown of {name}"),
+
+	// ---- how a block in the tree is drawn, and why one is only its Markdown
+	"draw.label": en("How this block looks to a reader, with nothing answered"),
+	"draw.fold": en("Its lines in the note"),
+	"draw.later": en("This is shown as its Markdown for now. A later beta draws it."),
+	"draw.remote": en("This points at media on another site, so it is not drawn here and nothing is fetched. It is shown as its Markdown."),
+
+	// ---- the keys: a first letter picks a group, a second a part, Enter adds it
+	"keys.title": en("Add a part by keys"),
+	"keys.label": en("Add a part: pick a letter, or type a word to narrow the list"),
+	"keys.hint": en("Press a letter to pick. Type a word to narrow the list. Arrow keys move, Enter adds the highlighted part, Escape closes."),
+	"keys.groups": en("Pick a group:"),
+	"keys.in": en("{group}: pick a part."),
+	"keys.variants": en("{name}: Enter adds it as it is, or pick a variant."),
+	"keys.filter": en("Parts that match “{typed}”:"),
+	"keys.none": en("Nothing matches “{typed}”. Backspace takes a letter back."),
+	"keys.back": en("Back"),
+	"keys.close": en("Close"),
+	"keys.refused": en("{name} cannot go here: {reason}"),
+	"keys.pick.label": en("Add {name} ({keys})"),
+	"keys.group.label": en("{group} ({key})"),
+	"keys.disabled": en("Not here: {reason}"),
+	"keys.bar": en("Add a part by group"),
+	"keys.addPiece": en("Add part…"),
+	"keys.addPiece.title": en("Open the list of parts that can be added here"),
+
+	// ---- the palette commands (no default keys: a person may bind her own)
+	"cmd.addPiece": en("Design view: add a part…"),
+	"cmd.group": en("Design view: add from {group}…"),
 
 	// ---- the question before a change that touches kept data
 	"confirm.title.delete": en("Delete this {kind}?"),

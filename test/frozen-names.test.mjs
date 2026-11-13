@@ -72,7 +72,7 @@ test("the plugin's id, its command id and its view type are the ones the README 
 	const { seen } = await loadPlugin();
 	assert.deepEqual(
 		seen.commands.map((c) => c.id),
-		["editor-mode", "toggle-view"],
+		["editor-mode", "toggle-view", "design-add-piece", "design-add-structure", "design-add-questions", "design-add-reading", "design-add-views", "design-add-data"],
 		"the commands: a new one may be added (then this list grows), but `toggle-view` stays as it is",
 	);
 	assert.deepEqual(

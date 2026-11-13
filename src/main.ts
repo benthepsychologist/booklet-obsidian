@@ -11,6 +11,7 @@ import { NowPlaying } from "./now-playing";
 import { BookletView, VIEW_TYPE } from "./view";
 import { DESIGN_VIEW_TYPE, DesignView } from "./design-view";
 import { MODE_ICONS, iconName, ui } from "./design-text";
+import { KEY_GROUPS, t } from "./core";
 import { EditorSide } from "./editor-side";
 import { installViewSwitch, isBookletFile, setLeafMode, type LeafMode } from "./switch";
 
@@ -75,6 +76,17 @@ export default class BookletPlugin extends Plugin {
 				return true;
 			},
 		});
+
+		// the Design view's parts, by palette: no default key on any of them (the directory linter warns on one, and a person binds her own).
+		// Named in English, as the plugin's other commands are: a command's name is fixed when it is registered.
+		const designView = (checking: boolean, act: (v: DesignView) => void): boolean => {
+			const v = this.app.workspace.getActiveViewOfType(DesignView);
+			if (!v) return false;
+			if (!checking) act(v);
+			return true;
+		};
+		this.addCommand({ id: "design-add-piece", name: t("cmd.addPiece", "en"), checkCallback: (checking) => designView(checking, (v) => v.openCatalogue()) });
+		for (const g of KEY_GROUPS) this.addCommand({ id: `design-add-${g.id}`, name: t("cmd.group", "en", { group: g.title }), checkCallback: (checking) => designView(checking, (v) => v.openKeys(g.key)) });
 
 		this.registerEvent(
 			this.app.workspace.on("file-menu", (menu, file, source, leaf) => {

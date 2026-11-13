@@ -367,7 +367,8 @@ test("view: a mark with no note is drawn as written and flagged; a mark in a tit
 test("reading kinds: diff, law and opinion are drawn in their own colour, picture and border, in the booklet view, in Obsidian's own callout variables", () => {
 	const css = readFileSync(join(ROOT, "styles.css"), "utf8");
 	for (const [kind, icon, border] of [["diff", "git-compare", "dashed"], ["law", "scale", "double"], ["opinion", "message-circle", "dotted"]]) {
-		const rule = new RegExp(`\\.booklet-view \\.callout\\[data-callout="${kind}"\\]\\s*\\{([^}]*)\\}`).exec(css);
+		// (the Design view's inert drawings, .booklet-sample, share each rule: the same selector, named after the view's)
+		const rule = new RegExp(`\\.booklet-view \\.callout\\[data-callout="${kind}"\\](?:,\\s*\\.booklet-sample \\.callout\\[data-callout="${kind}"\\])?\\s*\\{([^}]*)\\}`).exec(css);
 		assert.ok(rule, `a rule for ${kind}`);
 		assert.match(rule[1], new RegExp(`--callout-icon: lucide-${icon};`));
 		// 0.13.0: the kind's colour is a theme colour, whole (the callout colour of an Obsidian is a triplet in one and a colour in another), and the
@@ -376,8 +377,8 @@ test("reading kinds: diff, law and opinion are drawn in their own colour, pictur
 		assert.doesNotMatch(rule[1], /--callout-color/, "the kind does not set Obsidian's own callout colour, whose format differs between Obsidians");
 		assert.match(rule[1], new RegExp(`border-inline-start: [^;]*${border}`));
 	}
-	assert.match(css, /\.booklet-view \.callout \{[^}]*background-color: var\(--background-secondary\);/, "a plain fill first, for an Obsidian that cannot mix");
-	assert.match(css, /@supports[^{]*\{\s*\.booklet-view \.callout \{[^}]*background-color: color-mix\(in srgb, var\(--booklet-callout-colour\) 10%, var\(--background-primary\)\);/, "the tint is its colour mixed a tenth into the page");
+	assert.match(css, /\.booklet-view \.callout(?:,\s*\.booklet-sample \.callout)? \{[^}]*background-color: var\(--background-secondary\);/, "a plain fill first, for an Obsidian that cannot mix");
+	assert.match(css, /@supports[^{]*\{\s*\.booklet-view \.callout(?:,\s*\.booklet-sample \.callout)? \{[^}]*background-color: color-mix\(in srgb, var\(--booklet-callout-colour\) 10%, var\(--background-primary\)\);/, "the tint is its colour mixed a tenth into the page");
 	assert.match(css, /\.is-mobile \.booklet-view button\.booklet-cite-mark \{\s*min-height: 0;/, "a phone's 44px button height would stretch the line a mark stands in");
 });
 
