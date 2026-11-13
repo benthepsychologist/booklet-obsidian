@@ -44,3 +44,7 @@ export * from "./editor-pieces";
 export * from "./linter-tables";
 export * from "./pieces-table";
 export * from "./editor-actions";
+export * from "./design-tree";
+export * from "./design-places";
+export * from "./design-ops";
+export * from "./design-keys";

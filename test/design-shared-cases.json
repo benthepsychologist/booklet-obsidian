@@ -1,0 +1,533 @@
+{
+	"about": "Text-in, expected-out cases for the Design view's core: the tree outline, the kinds that may stand at a line, and the four operations. A node is selected by the 0-based line it starts on, a position by the 0-based line it sits above, a piece by its file name in the pieces table. Any other implementation of the Design view (a linter, a hosted renderer) can run this file and must give the same answers.",
+	"cases": [
+		{
+			"name": "outline: every level, with module tabs, pages, a group, a row, data and records",
+			"kind": "outline",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\nWelcome to the booklet.\n\n> [!tip] Start here\n> A reading callout in the booklet's opening.\n\n> [!module|money] Money\n\nWords in the module's opening.\n\n> [!notice]\n> license: Free to share.\n\n> [!tab|now] This month\n\nShown above this month's activities.\n\n> [!tab|learn] Learn\n\n> [!activity|spending tab:now repeat] Spending\n> half an hour\n\nWhat you spent.\n\n> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.\n\n> [!activity|why tab:learn] Why a budget helps\n\n> [!tab|read] Reading\n\n> [!page|map icon:footprints] The map\n\nWhere things are.\n\n***\n\nA second part.\n\n> [!page|parent:map] Choosing\n\n> [!tab|do] Doing\n\n> [!group] Step one\n> Say what you did.\n>\n> > [!choice|did] Did you?\n> - [ ] Yes\n> - [ ] No\n\n> [!row]\n\n### Left\n\n> [!text|left] Left?\n\n### Right\n\nWords on the right.\n\n> [!row|end]\n\n> [!module|money end] End of Money\n\n> [!activity|bare] A bare activity\n\n> [!number|n1] How many?\n\n> [!data|money] Data for Money\n\n```booklet data\n{ \"fields\": { \"label\": \"Label\" }, \"rows\": [ { \"label\": \"one\" } ] }\n```\n^rows\n\n%%\n> [!records|money] Money\n\n```booklet answers\n{ \"spent\": \"a lot\" }\n```\n%%\n",
+			"expected": [
+				"booklet - 0-92",
+				"  front-matter - 0-8",
+				"  prose - 8-10",
+				"  callout:tip - 10-13",
+				"  module money 13-73",
+				"    prose - 15-17",
+				"    notice - 17-20",
+				"    module-tab now 20-24",
+				"      prose - 22-24",
+				"    module-tab learn 24-26",
+				"    activity spending 26-36",
+				"      prose - 29-31",
+				"      question:text spent 31-36",
+				"    activity why 36-71",
+				"      activity-tab read 38-50",
+				"        page map 40-48",
+				"          prose - 42-44",
+				"          page-break - 44-46",
+				"          prose - 46-48",
+				"        page choosing 48-50",
+				"      activity-tab do 50-71",
+				"        group - 52-59",
+				"          prose - 53-55",
+				"          question:choice did 55-58",
+				"        row - 59-71",
+				"          prose - 61-63",
+				"          question:text left 63-65",
+				"          prose - 65-67",
+				"          prose - 67-69",
+				"  activity bare 73-77",
+				"    question:number n1 75-77",
+				"  data-section money 77-84",
+				"    fence rows 79-84",
+				"  records - 84-92"
+			]
+		},
+		{
+			"name": "outline: a module of one activity",
+			"kind": "outline",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|solo] Solo\n\n> [!tab|only] Only tab\n\n> [!activity|a] The one activity\n\n> [!text|q] A question\n\n> [!module|solo end]\n",
+			"expected": [
+				"booklet - 0-18",
+				"  front-matter - 0-8",
+				"  module solo 8-18",
+				"    module-tab only 10-12",
+				"    activity a 12-16",
+				"      question:text q 14-16"
+			]
+		},
+		{
+			"name": "outline: bare activities",
+			"kind": "outline",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"expected": [
+				"booklet - 0-19",
+				"  front-matter - 0-8",
+				"  activity one 8-12",
+				"    question:text a 10-12",
+				"  activity two 12-19",
+				"    question:scale s 14-19"
+			]
+		},
+		{
+			"name": "outline: a note with no activity line",
+			"kind": "outline",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\nSome words.\n\n> [!text|q1] A question\n\n> [!tab|b] Second\n\n> [!page|p1] A page\n\nPage words.\n",
+			"expected": [
+				"booklet - 0-18",
+				"  front-matter - 0-8",
+				"  activity - 8-18",
+				"    prose - 8-10",
+				"    question:text q1 10-12",
+				"    activity-tab b 12-18",
+				"      page p1 14-18",
+				"        prose - 16-18"
+			]
+		},
+		{
+			"name": "outline: a group holds a question",
+			"kind": "outline",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"expected": [
+				"booklet - 0-17",
+				"  front-matter - 0-8",
+				"  activity a 8-17",
+				"    group - 10-15",
+				"      prose - 11-13",
+				"      question:text g1 13-14",
+				"    question:text q 15-17"
+			]
+		},
+		{
+			"name": "outline: Windows line endings read the same",
+			"kind": "outline",
+			"text": "---\r\nbooklet: \"0.20\"\r\nid: local/made-up\r\ntitle: A made-up booklet\r\nlang: en\r\nversion: \"0.1\"\r\n---\r\n\r\n> [!activity|one] One\r\n\r\n> [!text|a] A\r\n\r\n> [!activity|two repeat] Two\r\n\r\n> [!scale|s] How much?\r\n\r\n0. None\r\n1. Lots\r\n",
+			"expected": [
+				"booklet - 0-19",
+				"  front-matter - 0-8",
+				"  activity one 8-12",
+				"    question:text a 10-12",
+				"  activity two 12-19",
+				"    question:scale s 14-19"
+			]
+		},
+		{
+			"name": "legal: before a module's first activity (module opening)",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\nWelcome to the booklet.\n\n> [!tip] Start here\n> A reading callout in the booklet's opening.\n\n> [!module|money] Money\n\nWords in the module's opening.\n\n> [!notice]\n> license: Free to share.\n\n> [!tab|now] This month\n\nShown above this month's activities.\n\n> [!tab|learn] Learn\n\n> [!activity|spending tab:now repeat] Spending\n> half an hour\n\nWhat you spent.\n\n> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.\n\n> [!activity|why tab:learn] Why a budget helps\n\n> [!tab|read] Reading\n\n> [!page|map icon:footprints] The map\n\nWhere things are.\n\n***\n\nA second part.\n\n> [!page|parent:map] Choosing\n\n> [!tab|do] Doing\n\n> [!group] Step one\n> Say what you did.\n>\n> > [!choice|did] Did you?\n> - [ ] Yes\n> - [ ] No\n\n> [!row]\n\n### Left\n\n> [!text|left] Left?\n\n### Right\n\nWords on the right.\n\n> [!row|end]\n\n> [!module|money end] End of Money\n\n> [!activity|bare] A bare activity\n\n> [!number|n1] How many?\n\n> [!data|money] Data for Money\n\n```booklet data\n{ \"fields\": { \"label\": \"Label\" }, \"rows\": [ { \"label\": \"one\" } ] }\n```\n^rows\n\n%%\n> [!records|money] Money\n\n```booklet answers\n{ \"spent\": \"a lot\" }\n```\n%%\n",
+			"line": 20,
+			"expected": [
+				"module-tab",
+				"menu",
+				"data-block",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "legal: between questions in an activity",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\nWelcome to the booklet.\n\n> [!tip] Start here\n> A reading callout in the booklet's opening.\n\n> [!module|money] Money\n\nWords in the module's opening.\n\n> [!notice]\n> license: Free to share.\n\n> [!tab|now] This month\n\nShown above this month's activities.\n\n> [!tab|learn] Learn\n\n> [!activity|spending tab:now repeat] Spending\n> half an hour\n\nWhat you spent.\n\n> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.\n\n> [!activity|why tab:learn] Why a budget helps\n\n> [!tab|read] Reading\n\n> [!page|map icon:footprints] The map\n\nWhere things are.\n\n***\n\nA second part.\n\n> [!page|parent:map] Choosing\n\n> [!tab|do] Doing\n\n> [!group] Step one\n> Say what you did.\n>\n> > [!choice|did] Did you?\n> - [ ] Yes\n> - [ ] No\n\n> [!row]\n\n### Left\n\n> [!text|left] Left?\n\n### Right\n\nWords on the right.\n\n> [!row|end]\n\n> [!module|money end] End of Money\n\n> [!activity|bare] A bare activity\n\n> [!number|n1] How many?\n\n> [!data|money] Data for Money\n\n```booklet data\n{ \"fields\": { \"label\": \"Label\" }, \"rows\": [ { \"label\": \"one\" } ] }\n```\n^rows\n\n%%\n> [!records|money] Money\n\n```booklet answers\n{ \"spent\": \"a lot\" }\n```\n%%\n",
+			"line": 36,
+			"expected": [
+				"activity",
+				"question",
+				"copy",
+				"row",
+				"group",
+				"query",
+				"menu",
+				"data-block",
+				"page-break",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "legal: inside a group, after its words",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"line": 13,
+			"expected": [
+				"question",
+				"copy",
+				"group",
+				"query",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "legal: at the top of the booklet",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"line": 8,
+			"expected": [
+				"theme",
+				"module",
+				"activity",
+				"menu",
+				"data-block",
+				"data-section",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "legal: in a tab of an activity",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\nWelcome to the booklet.\n\n> [!tip] Start here\n> A reading callout in the booklet's opening.\n\n> [!module|money] Money\n\nWords in the module's opening.\n\n> [!notice]\n> license: Free to share.\n\n> [!tab|now] This month\n\nShown above this month's activities.\n\n> [!tab|learn] Learn\n\n> [!activity|spending tab:now repeat] Spending\n> half an hour\n\nWhat you spent.\n\n> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.\n\n> [!activity|why tab:learn] Why a budget helps\n\n> [!tab|read] Reading\n\n> [!page|map icon:footprints] The map\n\nWhere things are.\n\n***\n\nA second part.\n\n> [!page|parent:map] Choosing\n\n> [!tab|do] Doing\n\n> [!group] Step one\n> Say what you did.\n>\n> > [!choice|did] Did you?\n> - [ ] Yes\n> - [ ] No\n\n> [!row]\n\n### Left\n\n> [!text|left] Left?\n\n### Right\n\nWords on the right.\n\n> [!row|end]\n\n> [!module|money end] End of Money\n\n> [!activity|bare] A bare activity\n\n> [!number|n1] How many?\n\n> [!data|money] Data for Money\n\n```booklet data\n{ \"fields\": { \"label\": \"Label\" }, \"rows\": [ { \"label\": \"one\" } ] }\n```\n^rows\n\n%%\n> [!records|money] Money\n\n```booklet answers\n{ \"spent\": \"a lot\" }\n```\n%%\n",
+			"line": 52,
+			"expected": [
+				"page",
+				"question",
+				"copy",
+				"row",
+				"group",
+				"query",
+				"menu",
+				"data-block",
+				"page-break",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "legal: at the end of the note",
+			"kind": "legal",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"line": 19,
+			"expected": [
+				"theme",
+				"module",
+				"activity",
+				"question",
+				"copy",
+				"row",
+				"group",
+				"query",
+				"menu",
+				"data-block",
+				"data-section",
+				"page-break",
+				"callout",
+				"text"
+			]
+		},
+		{
+			"name": "insert: a choice after a question, ids made",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"at": {
+				"line": 12
+			},
+			"piece": "Q - choice.md",
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!choice|choice-1] Your question here\n- [ ] First option\n- [ ] Second option\n- [ ] Third option\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "insert: a note at the very top of an activity",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"at": {
+				"line": 9
+			},
+			"piece": "Reading - note.md",
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!note] Title of the note\n> The words of the note.\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "insert: into a group, quoted for it",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"at": {
+				"line": 14
+			},
+			"piece": "Q - date.md",
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n>\n> > [!date|date-1] Your question here\n\n> [!text|q] Q\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "insert: Windows line endings kept",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\r\nbooklet: \"0.20\"\r\nid: local/made-up\r\ntitle: A made-up booklet\r\nlang: en\r\nversion: \"0.1\"\r\n---\r\n\r\n> [!activity|one] One\r\n\r\n> [!text|a] A\r\n\r\n> [!activity|two repeat] Two\r\n\r\n> [!scale|s] How much?\r\n\r\n0. None\r\n1. Lots\r\n",
+			"at": {
+				"line": 12
+			},
+			"piece": "Q - choice.md",
+			"expected": {
+				"ok": true,
+				"text": "---\r\nbooklet: \"0.20\"\r\nid: local/made-up\r\ntitle: A made-up booklet\r\nlang: en\r\nversion: \"0.1\"\r\n---\r\n\r\n> [!activity|one] One\r\n\r\n> [!text|a] A\r\n\r\n> [!choice|choice-1] Your question here\r\n- [ ] First option\r\n- [ ] Second option\r\n- [ ] Third option\r\n\r\n> [!activity|two repeat] Two\r\n\r\n> [!scale|s] How much?\r\n\r\n0. None\r\n1. Lots\r\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "insert: a module inside a module is refused",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"at": {
+				"line": 14
+			},
+			"piece": "Structure - module.md",
+			"expected": {
+				"ok": false,
+				"reason": "A module stands at the top of the booklet, never inside another module, an activity or a data section (SPEC section 3)."
+			}
+		},
+		{
+			"name": "insert: a question in a module's opening is refused",
+			"kind": "op",
+			"op": "insert",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"at": {
+				"line": 10
+			},
+			"piece": "Q - text.md",
+			"expected": {
+				"ok": false,
+				"reason": "A question belongs inside an activity. It is not offered in a module's opening."
+			}
+		},
+		{
+			"name": "delete: a question",
+			"kind": "op",
+			"op": "delete",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"node": {
+				"line": 10
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "delete: a module with its closing line",
+			"kind": "op",
+			"op": "delete",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"node": {
+				"line": 8
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "delete: a group with its body",
+			"kind": "op",
+			"op": "delete",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"node": {
+				"line": 10
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!text|q] Q\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "delete: an activity with kept entries says what it detaches",
+			"kind": "op",
+			"op": "delete",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|mood] Mood\n\n> [!activity|log repeat] A mood log\n\n> [!choice|feeling] How do you feel?\n- [ ] Calm\n- [ ] Tense\n- [ ] Low\n\n> [!text|why] Why?\n\n> [!activity|once] Said once\n\n> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n\n```booklet data\n{ \"fields\": { \"title\": \"Title\", \"kind\": \"Kind\", \"done\": \"Done\" },\n  \"rows\": [{\"id\":\"a\",\"title\":\"Water the plants\",\"kind\":\"chore\",\"done\":\"no\"},{\"id\":\"b\",\"title\":\"Write the report\",\"kind\":\"work\",\"done\":\"no\"},{\"id\":\"c\",\"title\":\"Call a friend\",\"kind\":\"people\",\"done\":\"yes\"},{\"id\":\"d\",\"title\":\"Walk\",\"kind\":\"health\",\"done\":\"yes\"},{\"id\":\"e\",\"title\":\"Read\",\"kind\":\"health\",\"done\":\"no\"}] }\n```\n^things\n\n```booklet query\nfrom: things\nas: table\n```\n\n> [!module|mood end]\n\n%%\n> [!records] App record — do not edit below this line\n\n> [!records|mood] Mood\n\n```booklet answers\n{ \"energy\": 2 }\n```\n\n```booklet entries log\n{\"items\": [\n{\"ts\": \"2026-10-01T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 1\"},\n{\"ts\": \"2026-10-02T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 2\"},\n{\"ts\": \"2026-10-03T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 3\"},\n{\"ts\": \"2026-10-04T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 4\"},\n{\"ts\": \"2026-10-05T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 5\"},\n{\"ts\": \"2026-10-06T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 6\"},\n{\"ts\": \"2026-10-07T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 7\"},\n{\"ts\": \"2026-10-08T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 8\"},\n{\"ts\": \"2026-10-09T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 9\"},\n{\"ts\": \"2026-10-10T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 10\"},\n{\"ts\": \"2026-10-11T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 11\"},\n{\"ts\": \"2026-10-12T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 12\"}\n]}\n```\n\n```booklet draft log\n{ \"why\": \"half a thought\" }\n```\n%%\n",
+			"node": {
+				"line": 10
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|mood] Mood\n\n> [!activity|once] Said once\n\n> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n\n```booklet data\n{ \"fields\": { \"title\": \"Title\", \"kind\": \"Kind\", \"done\": \"Done\" },\n  \"rows\": [{\"id\":\"a\",\"title\":\"Water the plants\",\"kind\":\"chore\",\"done\":\"no\"},{\"id\":\"b\",\"title\":\"Write the report\",\"kind\":\"work\",\"done\":\"no\"},{\"id\":\"c\",\"title\":\"Call a friend\",\"kind\":\"people\",\"done\":\"yes\"},{\"id\":\"d\",\"title\":\"Walk\",\"kind\":\"health\",\"done\":\"yes\"},{\"id\":\"e\",\"title\":\"Read\",\"kind\":\"health\",\"done\":\"no\"}] }\n```\n^things\n\n```booklet query\nfrom: things\nas: table\n```\n\n> [!module|mood end]\n\n%%\n> [!records] App record — do not edit below this line\n\n> [!records|mood] Mood\n\n```booklet answers\n{ \"energy\": 2 }\n```\n\n```booklet entries log\n{\"items\": [\n{\"ts\": \"2026-10-01T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 1\"},\n{\"ts\": \"2026-10-02T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 2\"},\n{\"ts\": \"2026-10-03T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 3\"},\n{\"ts\": \"2026-10-04T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 4\"},\n{\"ts\": \"2026-10-05T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 5\"},\n{\"ts\": \"2026-10-06T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 6\"},\n{\"ts\": \"2026-10-07T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 7\"},\n{\"ts\": \"2026-10-08T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 8\"},\n{\"ts\": \"2026-10-09T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 9\"},\n{\"ts\": \"2026-10-10T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 10\"},\n{\"ts\": \"2026-10-11T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 11\"},\n{\"ts\": \"2026-10-12T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 12\"}\n]}\n```\n\n```booklet draft log\n{ \"why\": \"half a thought\" }\n```\n%%\n",
+				"impact": [
+					"The activity id `log`: 12 entries, 1 answers, 0 rows"
+				]
+			}
+		},
+		{
+			"name": "delete: the records section is refused",
+			"kind": "op",
+			"op": "delete",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|mood] Mood\n\n> [!activity|log repeat] A mood log\n\n> [!choice|feeling] How do you feel?\n- [ ] Calm\n- [ ] Tense\n- [ ] Low\n\n> [!text|why] Why?\n\n> [!activity|once] Said once\n\n> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n\n```booklet data\n{ \"fields\": { \"title\": \"Title\", \"kind\": \"Kind\", \"done\": \"Done\" },\n  \"rows\": [{\"id\":\"a\",\"title\":\"Water the plants\",\"kind\":\"chore\",\"done\":\"no\"},{\"id\":\"b\",\"title\":\"Write the report\",\"kind\":\"work\",\"done\":\"no\"},{\"id\":\"c\",\"title\":\"Call a friend\",\"kind\":\"people\",\"done\":\"yes\"},{\"id\":\"d\",\"title\":\"Walk\",\"kind\":\"health\",\"done\":\"yes\"},{\"id\":\"e\",\"title\":\"Read\",\"kind\":\"health\",\"done\":\"no\"}] }\n```\n^things\n\n```booklet query\nfrom: things\nas: table\n```\n\n> [!module|mood end]\n\n%%\n> [!records] App record — do not edit below this line\n\n> [!records|mood] Mood\n\n```booklet answers\n{ \"energy\": 2 }\n```\n\n```booklet entries log\n{\"items\": [\n{\"ts\": \"2026-10-01T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 1\"},\n{\"ts\": \"2026-10-02T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 2\"},\n{\"ts\": \"2026-10-03T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 3\"},\n{\"ts\": \"2026-10-04T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 4\"},\n{\"ts\": \"2026-10-05T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 5\"},\n{\"ts\": \"2026-10-06T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 6\"},\n{\"ts\": \"2026-10-07T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 7\"},\n{\"ts\": \"2026-10-08T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 8\"},\n{\"ts\": \"2026-10-09T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 9\"},\n{\"ts\": \"2026-10-10T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 10\"},\n{\"ts\": \"2026-10-11T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 11\"},\n{\"ts\": \"2026-10-12T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 12\"}\n]}\n```\n\n```booklet draft log\n{ \"why\": \"half a thought\" }\n```\n%%\n",
+			"node": {
+				"line": 40
+			},
+			"expected": {
+				"ok": false,
+				"reason": "The records section holds kept data, and the view never deletes it. Take the block apart in the Markdown if you mean to."
+			}
+		},
+		{
+			"name": "move: a question down within its activity",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"node": {
+				"line": 12
+			},
+			"to": {
+				"line": 16
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q2] Q2\n\n> [!text|q1] Q1\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "move: a question into another module's activity",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"node": {
+				"line": 12
+			},
+			"to": {
+				"line": 22
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!text|q1] Q1\n\n> [!module|m2 end]\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "move: a module above another",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"node": {
+				"line": 18
+			},
+			"to": {
+				"line": 8
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "move: into a group is quoted for it",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"node": {
+				"line": 15
+			},
+			"to": {
+				"line": 14
+			},
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n>\n> > [!text|q] Q\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "move: a block into itself is refused",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"node": {
+				"line": 10
+			},
+			"to": {
+				"line": 13
+			},
+			"expected": {
+				"ok": false,
+				"reason": "A block cannot be moved into itself."
+			}
+		},
+		{
+			"name": "move: a module into an activity is refused",
+			"kind": "op",
+			"op": "move",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|m1] M1\n\n> [!activity|a] A\n\n> [!text|q1] Q1\n\n> [!text|q2] Q2\n\n> [!module|m1 end]\n\n> [!module|m2] M2\n\n> [!activity|b] B\n\n> [!module|m2 end]\n",
+			"node": {
+				"line": 18
+			},
+			"to": {
+				"line": 14
+			},
+			"expected": {
+				"ok": false,
+				"reason": "A module stands at the top of the booklet, never inside another module, an activity or a data section (SPEC section 3)."
+			}
+		},
+		{
+			"name": "change: an id renamed on a question with kept entries says what it detaches",
+			"kind": "op",
+			"op": "change",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|mood] Mood\n\n> [!activity|log repeat] A mood log\n\n> [!choice|feeling] How do you feel?\n- [ ] Calm\n- [ ] Tense\n- [ ] Low\n\n> [!text|why] Why?\n\n> [!activity|once] Said once\n\n> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n\n```booklet data\n{ \"fields\": { \"title\": \"Title\", \"kind\": \"Kind\", \"done\": \"Done\" },\n  \"rows\": [{\"id\":\"a\",\"title\":\"Water the plants\",\"kind\":\"chore\",\"done\":\"no\"},{\"id\":\"b\",\"title\":\"Write the report\",\"kind\":\"work\",\"done\":\"no\"},{\"id\":\"c\",\"title\":\"Call a friend\",\"kind\":\"people\",\"done\":\"yes\"},{\"id\":\"d\",\"title\":\"Walk\",\"kind\":\"health\",\"done\":\"yes\"},{\"id\":\"e\",\"title\":\"Read\",\"kind\":\"health\",\"done\":\"no\"}] }\n```\n^things\n\n```booklet query\nfrom: things\nas: table\n```\n\n> [!module|mood end]\n\n%%\n> [!records] App record — do not edit below this line\n\n> [!records|mood] Mood\n\n```booklet answers\n{ \"energy\": 2 }\n```\n\n```booklet entries log\n{\"items\": [\n{\"ts\": \"2026-10-01T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 1\"},\n{\"ts\": \"2026-10-02T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 2\"},\n{\"ts\": \"2026-10-03T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 3\"},\n{\"ts\": \"2026-10-04T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 4\"},\n{\"ts\": \"2026-10-05T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 5\"},\n{\"ts\": \"2026-10-06T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 6\"},\n{\"ts\": \"2026-10-07T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 7\"},\n{\"ts\": \"2026-10-08T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 8\"},\n{\"ts\": \"2026-10-09T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 9\"},\n{\"ts\": \"2026-10-10T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 10\"},\n{\"ts\": \"2026-10-11T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 11\"},\n{\"ts\": \"2026-10-12T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 12\"}\n]}\n```\n\n```booklet draft log\n{ \"why\": \"half a thought\" }\n```\n%%\n",
+			"node": {
+				"line": 12
+			},
+			"lines": [
+				"> [!choice|mood-now] How do you feel?",
+				"- [ ] Calm",
+				"- [ ] Tense",
+				"- [ ] Low"
+			],
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!module|mood] Mood\n\n> [!activity|log repeat] A mood log\n\n> [!choice|mood-now] How do you feel?\n- [ ] Calm\n- [ ] Tense\n- [ ] Low\n\n> [!text|why] Why?\n\n> [!activity|once] Said once\n\n> [!scale|energy] How much energy?\n\n0. None\n1. Some\n2. Lots\n\n```booklet data\n{ \"fields\": { \"title\": \"Title\", \"kind\": \"Kind\", \"done\": \"Done\" },\n  \"rows\": [{\"id\":\"a\",\"title\":\"Water the plants\",\"kind\":\"chore\",\"done\":\"no\"},{\"id\":\"b\",\"title\":\"Write the report\",\"kind\":\"work\",\"done\":\"no\"},{\"id\":\"c\",\"title\":\"Call a friend\",\"kind\":\"people\",\"done\":\"yes\"},{\"id\":\"d\",\"title\":\"Walk\",\"kind\":\"health\",\"done\":\"yes\"},{\"id\":\"e\",\"title\":\"Read\",\"kind\":\"health\",\"done\":\"no\"}] }\n```\n^things\n\n```booklet query\nfrom: things\nas: table\n```\n\n> [!module|mood end]\n\n%%\n> [!records] App record — do not edit below this line\n\n> [!records|mood] Mood\n\n```booklet answers\n{ \"energy\": 2 }\n```\n\n```booklet entries log\n{\"items\": [\n{\"ts\": \"2026-10-01T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 1\"},\n{\"ts\": \"2026-10-02T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 2\"},\n{\"ts\": \"2026-10-03T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 3\"},\n{\"ts\": \"2026-10-04T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 4\"},\n{\"ts\": \"2026-10-05T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 5\"},\n{\"ts\": \"2026-10-06T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 6\"},\n{\"ts\": \"2026-10-07T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 7\"},\n{\"ts\": \"2026-10-08T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 8\"},\n{\"ts\": \"2026-10-09T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 9\"},\n{\"ts\": \"2026-10-10T09:00:00Z\", \"feeling\": 1, \"why\": \"Day 10\"},\n{\"ts\": \"2026-10-11T09:00:00Z\", \"feeling\": 2, \"why\": \"Day 11\"},\n{\"ts\": \"2026-10-12T09:00:00Z\", \"feeling\": 3, \"why\": \"Day 12\"}\n]}\n```\n\n```booklet draft log\n{ \"why\": \"half a thought\" }\n```\n%%\n",
+				"impact": [
+					"The question id `feeling`: 12 entries, 0 answers, 0 rows"
+				]
+			}
+		},
+		{
+			"name": "change: lines inside a group are written with its marks",
+			"kind": "op",
+			"op": "change",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1] In group\n\n> [!text|q] Q\n",
+			"node": {
+				"line": 13
+			},
+			"lines": [
+				"> [!text|g1 long] Changed",
+				"hello"
+			],
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|a] A\n\n> [!group] G\n> words\n>\n> > [!text|g1 long] Changed\n> hello\n\n> [!text|q] Q\n",
+				"impact": []
+			}
+		},
+		{
+			"name": "change: the lines a block has already change nothing",
+			"kind": "op",
+			"op": "change",
+			"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+			"node": {
+				"line": 10
+			},
+			"lines": [
+				"> [!text|a] A"
+			],
+			"expected": {
+				"ok": true,
+				"text": "---\nbooklet: \"0.20\"\nid: local/made-up\ntitle: A made-up booklet\nlang: en\nversion: \"0.1\"\n---\n\n> [!activity|one] One\n\n> [!text|a] A\n\n> [!activity|two repeat] Two\n\n> [!scale|s] How much?\n\n0. None\n1. Lots\n",
+				"impact": []
+			}
+		}
+	]
+}

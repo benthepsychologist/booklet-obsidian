@@ -277,6 +277,8 @@ export interface ScanIds {
 
 export interface Scan {
 	lines: string[];
+	/** The lines as the reader reads them: `lines`, with a group's body unquoted in place (one `>` off each, once per group around it). The same count and numbering as `lines`. */
+	read: string[];
 	bodyStart: number;
 	hasFrontMatter: boolean;
 	implicit: boolean;
@@ -555,7 +557,7 @@ export function scan(text: string): Scan {
 		mark(i, i + 1);
 		i++;
 	}
-	return { lines: original, bodyStart, hasFrontMatter, implicit, items, ids, regions, holders: holdersOf(original, bodyStart, regions), stateAt, initialState: stateAt[0] ?? st };
+	return { lines: original, read: lines, bodyStart, hasFrontMatter, implicit, items, ids, regions, holders: holdersOf(original, bodyStart, regions), stateAt, initialState: stateAt[0] ?? st };
 }
 
 /** The state a line inserted before line `at` would be in: the state after the line above it. */
