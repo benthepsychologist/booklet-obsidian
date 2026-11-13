@@ -225,9 +225,10 @@ test("[10] the panel's model is made from one reading: a reading handed in is th
 	const fakeScan = { ...real.scan, regions: [], holders: [], items: [], lines: real.scan.lines };
 	const m = core.panelModel({ ...real, book: fakeBook, scan: fakeScan }, 43);
 	assert.match(m.holds, /A sentinel refusal/, "the top line comes from the book it was given");
-	assert.ok(m.problems.some((p) => p.why === "A sentinel refusal."), "the problems come from it too");
+	// (the panel's problems list and outline were here: both are the Design view's now, and the same "one reading" check of them is in
+	// test/design-outline.test.mjs; the panel's model no longer carries them)
+	assert.equal("problems" in m || "outline" in m, false, "the panel's model has neither the problems nor the outline");
 	assert.notEqual(m.line.held, "records", "the line holder comes from the scan it was given (no regions)");
-	assert.deepEqual(m.outline, [], "the outline comes from the scan it was given (no items)");
 	const honest = core.panelModel(real, 43);
 	assert.equal(honest.line.held, "records");
 	assert.equal(honest.options, null);

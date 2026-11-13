@@ -249,3 +249,24 @@ export function setId(p: ParsedLine, id: string): Edit {
 	}
 	return { text: p.text.slice(0, p.idStart) + id + p.text.slice(p.idEnd) };
 }
+
+/** Why a title cannot be written, or null: a title is the rest of one line. */
+export function titleProblem(title: string): string | null {
+	return /[\r\n]/.test(title) ? "A title is one line." : null;
+}
+
+/**
+ * Set the title after the bracket, or take it off when it is "". An existing title is replaced where it stands, so the fold marker and
+ * the spaces written before it stay; a line with no title gets one space and the title. A title that begins with `+` or `-` right
+ * after the bracket would be read as the fold marker, so it gets a space in front.
+ */
+export function setTitle(p: ParsedLine, title: string): Edit {
+	const bad = titleProblem(title);
+	if (bad) return { error: bad };
+	if (title === p.title) return { text: p.text };
+	const head = p.text.slice(0, p.titleStart);
+	if (title === "") return { text: head.replace(/[ \t]+$/, "") };
+	if (p.title === "") return { text: head.replace(/[ \t]+$/, "") + " " + title };
+	const space = /^[+-]/.test(title) && !/[ \t]$/.test(head) ? " " : "";
+	return { text: head + space + title };
+}

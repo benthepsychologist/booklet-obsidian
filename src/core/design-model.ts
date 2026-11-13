@@ -150,5 +150,5 @@ export function moveTargets(n: DesignNode): MoveTargets {
 	return { up: up && mayStand(n, up) ? up : null, down: down && mayStand(n, down) ? down : null };
 }
 
-/** A change that counted something it would leave not matching, or could not count, is asked about first. */
-export const needsAsking = (op: Pick<OpDone, "impact" | "blind">): boolean => op.blind || op.impact.length > 0;
+/** A change that counted something it would leave not matching, could not count, or would leave the reader unable to open the note, is asked about first. */
+export const needsAsking = (op: Pick<OpDone, "impact" | "blind" | "breaks">): boolean => op.blind || op.impact.length > 0 || !!op.breaks;

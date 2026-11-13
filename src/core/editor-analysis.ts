@@ -1,13 +1,11 @@
 /*
  * One reading of the note for one refresh of the panel. The panel used to read the note five times over (the counts, the outline, the
  * problems, the options, the declared fields): `analyse` reads it once, as the plugin's reader and as the linter's scan, and
- * `panelModel` makes everything the panel draws from that one reading and the cursor's line. Plain TypeScript: nothing here imports
- * Obsidian.
+ * `panelModel` makes everything the panel draws from that one reading and the cursor's line. (The outline and the list of lines the
+ * reader cannot read are the Design view's now: core/design-outline.ts.) Plain TypeScript: nothing here imports Obsidian.
  */
 import { fieldBlockAt, optionsAt, settingsAt, type FieldBlock, type LineView, type OptionList } from "./editor-actions";
 import { holdingsLineOf } from "./editor-guard";
-import { flatten, outlineOf, type OutlineNode } from "./editor-outline";
-import { problemsOfBook, type Problem } from "./editor-problems";
 import { isBookletText, scan, type Scan } from "./editor-scan";
 import { parseBooklet, type Booklet } from "./reader";
 
@@ -33,8 +31,6 @@ export interface PanelModel {
 	line: LineView;
 	options: OptionList | null;
 	block: FieldBlock | null;
-	outline: { node: OutlineNode; depth: number }[];
-	problems: Problem[];
 }
 
 /** Everything the panel draws for a note read once, with the cursor on `line` (0-based). */
@@ -45,7 +41,5 @@ export function panelModel(a: Analysis, line: number): PanelModel {
 		line: settingsAt(a.text, line, a.scan),
 		options: optionsAt(a.text, line, a.scan),
 		block: fieldBlockAt(a.text, line, a.scan),
-		outline: flatten(outlineOf(a.scan)),
-		problems: problemsOfBook(a.book, a.lines),
 	};
 }

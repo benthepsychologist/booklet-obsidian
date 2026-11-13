@@ -24,6 +24,7 @@ import { LP } from "./editor-patterns";
 import { quoteLine } from "./editor-place";
 import { scan, stateBefore } from "./editor-scan";
 import { checkDesign, isContainer, parseDesign, walkDesign, type DesignNode } from "./design-tree";
+import { parseBooklet } from "./reader";
 import { ancestorsOf, canPlacePiece, checkNeed, needOfNode, needsOf, placeCheck, positionLine, type DesignPosition } from "./design-places";
 import type { Piece } from "./editor-pieces";
 
@@ -40,6 +41,8 @@ export interface OpDone {
 	readable: boolean;
 	/** Things the change leaves that are worth saying (pages whose parent goes, activities whose module tab goes). */
 	notes: string[];
+	/** Set by `changeLines` when the reader could open the note before and cannot after: the reader's own reason. The shell asks before it writes. */
+	breaks?: string;
 	/** The lines the new or moved block has in the new text (start, end exclusive; its blank pad lines are outside it). */
 	lines?: { start: number; end: number };
 	/** An inserted piece's ids: each placeholder and what it became. */
@@ -283,23 +286,41 @@ function ownCore(raw: readonly string[], node: DesignNode): { start: number; end
 	return { start: node.start, end: Math.max(end, node.start + 1) };
 }
 
+/** Why a block has no lines of its own to change, or null (`changeLines` refuses for the same reasons). */
+export function whyUnchangeable(n: DesignNode): string | null {
+	if (n.kind === "booklet" || !n.parent) return "The booklet itself has no lines of its own to change.";
+	if (n.kind === "records") return "The records section holds kept data, and the view never writes it.";
+	if (n.implicit === true) return "This activity has no lines of its own: it is the whole note.";
+	return null;
+}
+
 /**
  * Replace a block's own lines (see `blockLines`: written without the `>` marks of the groups around it) and nothing else. The blank lines
- * after the block, every other block and every line ending stay as they were. The result reports what the change would leave not matching
- * (an id renamed, an option taken out) and whether the reader can still open the note, so the shell can ask before it writes.
+ * after the block, every other block and every line ending stay as they were, and so does every line of the block that the new lines
+ * leave as it was: such a line keeps its exact bytes (a trailing space, a bare `>` inside a group, a line ending of its own), so only
+ * the lines that differ are written. The result reports what the change would leave not matching (an id renamed, an option taken out)
+ * and whether the reader can still open the note, so the shell can ask before it writes: `breaks` says why when it could, and cannot now.
  */
 export function changeLines(text: string, node: DesignNode, newLines: readonly string[]): OpResult {
 	const raw = text.split("\n");
 	const root = ancestorsOf(node)[0];
 	if (!root || !fits(root, raw)) return refuse(STALE);
-	if (node.kind === "booklet" || !node.parent) return refuse("The booklet itself has no lines of its own to change.");
-	if (node.kind === "records") return refuse("The records section holds kept data, and the view never writes it.");
-	if (node.implicit === true) return refuse("This activity has no lines of its own: it is the whole note.");
+	const why = whyUnchangeable(node);
+	if (why) return refuse(why);
 	if (!newLines.length) return refuse("A block with no lines is a deleted block: delete it instead.");
-	const depth = quoteDepth(node.parent);
+	const parent = node.parent as DesignNode;
+	const depth = quoteDepth(parent);
 	const r = ownCore(raw, node);
 	const crlf = (raw[r.start] ?? "").endsWith("\r") || crlfNear(raw, r.start);
-	const body = newLines.map((l) => quoteLine(l.replace(/\r$/, ""), depth) + (crlf ? "\r" : ""));
+	const old = raw.slice(r.start, r.end);
+	const plain = newLines.map((l) => l.replace(/\r$/, ""));
+	const same = (i: number, j: number): boolean => requote(old[i] ?? "", depth, 0).replace(/\r$/, "") === plain[j];
+	// the lines at the start and at the end that the new text leaves as they were keep the bytes they have
+	let head = 0;
+	while (head < old.length && head < plain.length && same(head, head)) head++;
+	let tail = 0;
+	while (tail < old.length - head && tail < plain.length - head && same(old.length - 1 - tail, plain.length - 1 - tail)) tail++;
+	const body = plain.map((l, j) => (j < head ? (old[j] ?? "") : j >= plain.length - tail ? (old[old.length - (plain.length - j)] ?? "") : quoteLine(l, depth) + (crlf ? "\r" : "")));
 	const lines = raw.slice(0, r.start).concat(body, raw.slice(r.end));
 	// the note's last line, if it had no line ending, keeps having none
 	if (r.end >= raw.length && crlf && !(raw[raw.length - 1] ?? "").endsWith("\r")) {
@@ -307,5 +328,11 @@ export function changeLines(text: string, node: DesignNode, newLines: readonly s
 		if (l.endsWith("\r")) lines[lines.length - 1] = l.slice(0, -1);
 	}
 	const after = lines.join("\n");
-	return done(text, after, { impact: impactOf(text, after), blind: readerRefuses(text), lines: { start: r.start, end: r.start + body.length } });
+	const out = done(text, after, { impact: impactOf(text, after), blind: readerRefuses(text), lines: { start: r.start, end: r.start + body.length } });
+	if (out.change && !out.blind && !out.readable) {
+		const reason = parseBooklet(after).refusal;
+		out.breaks = reason ?? "The reader cannot open the booklet as it would be.";
+		out.notes = [...out.notes, `After this change the reader cannot open the booklet: ${out.breaks}`];
+	}
+	return out;
 }
