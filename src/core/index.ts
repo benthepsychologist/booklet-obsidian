@@ -48,3 +48,6 @@ export * from "./design-tree";
 export * from "./design-places";
 export * from "./design-ops";
 export * from "./design-keys";
+export * from "./design-undo";
+export * from "./design-strings";
+export * from "./design-model";

@@ -158,8 +158,8 @@ export function insertPiece(text: string, position: DesignPosition, piece: Pick<
 
 // ---------------------------------------------------------------- delete
 
-/** Why a block cannot be taken out or moved, or null. */
-function immovable(n: DesignNode, what: string): string | null {
+/** Why a block cannot be taken out or moved, or null (`what` is "deleted" or "moved"). The shell offers its buttons only where this is null. */
+export function whyImmovable(n: DesignNode, what: "deleted" | "moved"): string | null {
 	if (!n.parent) return `The booklet itself cannot be ${what}.`;
 	if (n.kind === "front-matter") return `The front matter makes the note a booklet and is not ${what} by the view.`;
 	if (n.implicit === true) return `This activity is the whole note (it has no activity line), so it cannot be ${what}.`;
@@ -192,7 +192,7 @@ export function deleteBlock(text: string, node: DesignNode): OpResult {
 	const raw = text.split("\n");
 	const root = ancestorsOf(node)[0];
 	if (!root || !fits(root, raw)) return refuse(STALE);
-	const why = immovable(node, "deleted");
+	const why = whyImmovable(node, "deleted");
 	if (why) return refuse(why);
 	const after = raw.slice(0, node.start).concat(raw.slice(node.end)).join("\n");
 	return done(text, after, { impact: impactOf(text, after), blind: readerRefuses(text), notes: danglingAfterRemoving(node) });
@@ -220,7 +220,7 @@ export function moveBlock(text: string, node: DesignNode, position: DesignPositi
 	const raw = text.split("\n");
 	const root = ancestorsOf(node)[0];
 	if (!root || !fits(root, raw) || ancestorsOf(position.parent)[0] !== root) return refuse(STALE);
-	const why = immovable(node, "moved");
+	const why = whyImmovable(node, "moved");
 	if (why) return refuse(why);
 	if (ancestorsOf(position.parent).includes(node)) return refuse("A block cannot be moved into itself.");
 	const line = positionLine(position);

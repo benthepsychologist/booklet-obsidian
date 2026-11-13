@@ -422,7 +422,8 @@ export interface ContainerAdds {
 	empty: string | null;
 }
 
-const EMPTY: Readonly<Record<string, string>> = {
+/** What a container with nothing in it says, by its kind (the view shows it through its string table, whose English is these words). */
+export const EMPTY_TEXT: Readonly<Record<string, string>> = {
 	booklet: "This booklet is empty. Add a module, or an activity.",
 	module: "This module is empty. Add an activity.",
 	"module-tab": "This module tab has no words. Add some prose, or give an activity `tab:` with its id.",
@@ -445,7 +446,7 @@ export function containerAdds(node: DesignNode): ContainerAdds {
 		else if (r.needs && node.kind === "module") first.push({ kind: k, first: r.needs });
 	}
 	const bare = node.children.length === 0 || (node.kind === "booklet" && node.children.every((c) => c.kind === "front-matter" || (c.kind === "activity" && c.implicit === true && c.children.length === 0)));
-	return { kinds, first, empty: bare ? (EMPTY[node.kind] ?? null) : null };
+	return { kinds, first, empty: bare ? (EMPTY_TEXT[node.kind] ?? null) : null };
 }
 
 // ---------------------------------------------------------------- pieces
