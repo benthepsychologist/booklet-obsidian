@@ -41,6 +41,7 @@ class AskDesign extends Modal {
 	override onOpen(): void {
 		const a = this.ask;
 		this.setTitle(ui(TITLE[a.how], { kind: a.kind.toLowerCase() }));
+		this.modalEl.addClass("booklet-design-ask-card");
 		const el = this.contentEl;
 		el.addClass("booklet-design-ask");
 		el.createEl("p", { text: ui(LEAD[a.how], { name: a.name }) + (a.lines ? ` (${a.lines})` : "") });

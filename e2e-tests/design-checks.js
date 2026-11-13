@@ -1,4 +1,4 @@
-// Checks 64 to 69 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
+// Checks 64 to 71 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
 // note or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -11,12 +11,13 @@
 //      Ctrl+Enter, a note changed on disk meanwhile), the outline and the lines the reader cannot read; each write compared byte for byte
 //   68 the same writes with the note also open in a Markdown pane (they go through that editor; its buffer equals the disk)
 //   69 a phone (Obsidian's phone mode at 390 x 844) and the light and dark themes, with screenshots
+//   70 and 71 Obsidian in Spanish and in French: the view's words in that language, and each scene fits, at a desktop's width and on a phone
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { frames, mobile } = require("./waits");
 
 module.exports = function designChecks(env) {
-  const { withApp, Check, SHOTS, sleep, waitActiveType, launch, opt } = env;
+  const { withApp, Check, SHOTS, sleep, waitActiveType, launch, opt, SRC_VAULT } = env;
   const DV = ".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']", BV = ".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet']";
   const EVERY = "Every kind.booklet.md", CHECKIN = "Check-in.booklet.md", READING = "Reading and steps.booklet.md", KEPT = "Kept records.booklet.md", ORDINARY = "Ordinary note.md";
   const VER = (/obsidian-(\d+\.\d+\.\d+)/.exec(opt.obsidian || "") || [0, "x"])[1].replace(/\./g, "");
@@ -979,5 +980,146 @@ lang: en
     return c;
   }
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69 };
+  /* ================= CHECKS 70 AND 71 ================= */
+  // The Design view with Obsidian itself in Spanish (70) and in French (71): the language is Obsidian's own (localStorage "language", then
+  // the app reloads, as the Language setting does). Every scene is judged at a desktop's width and at Obsidian's phone mode (390 x 844), in the light theme.
+  const STRINGS_TS = path.join(SRC_VAULT, "..", "src", "core", "design-strings.ts");
+  /** The table's strings as the source file spells them: key -> {en, es, fr} (the `empty.*` keys take their English from core, so have none here). */
+  const tableOf = () => {
+    const out = {}, js = "\"(?:[^\"\\\\]|\\\\.)*\"";
+    const re = new RegExp("^\\t\"([^\"]+)\": tr\\((" + js + "), (" + js + "), (" + js + ")\\),$", "gm");
+    let m; const src = text(STRINGS_TS);
+    while ((m = re.exec(src))) out[m[1]] = { en: JSON.parse(m[2]), es: JSON.parse(m[3]), fr: JSON.parse(m[4]) };
+    return out;
+  };
+  /** What a person can read in the open Design view, its header, a dialog and the popup: every text, label and title, once each. */
+  const readable = o => o.evaluate(() => {
+    const vis = e => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && !e.closest("[hidden]") && !e.closest("details:not([open]) > :not(summary)") && !e.closest(".is-measuring"); };
+    const roots = [document.querySelector(".workspace-leaf.mod-active .view-header"), document.querySelector(".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']"), document.querySelector(".modal-container .modal")].filter(Boolean);
+    const seen = new Set(), out = [];
+    const add = (kind, s, e) => { s = (s || "").replace(/\s+/g, " ").trim(); if (!s) return; const k = kind + "|" + s; if (!seen.has(k)) { seen.add(k); out.push({ kind, text: s, cls: ((e.closest("[inert]") ? "drawn " : "") + (typeof e.className === "string" ? e.className : "")).trim().split(/\s+/).filter(x => /^drawn$|^booklet|^modal|^view/.test(x)).slice(0, 2).join(" ") }); } };
+    for (const r of roots) for (const e of [r, ...r.querySelectorAll("*")]) {
+      if (!vis(e)) continue;
+      if (e.getAttribute("aria-label")) add("label", e.getAttribute("aria-label"), e);
+      if (e.getAttribute("title")) add("title", e.getAttribute("title"), e);
+      if (e.getAttribute("placeholder")) add("placeholder", e.getAttribute("placeholder"), e);
+      if (e.tagName === "TEXTAREA" || e.tagName === "INPUT") add("value", e.value, e);
+      const own = [...e.childNodes].filter(n => n.nodeType === 3).map(n => n.textContent).join(" ");
+      if (own.trim()) add("text", own, e);
+    }
+    return out;
+  });
+  /** Anything of the view, its dialog or its popup that is cut off, wider than its box or off the screen. */
+  const fitOf = o => o.evaluate(() => {
+    const W = window.innerWidth;
+    const vis = e => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && !e.closest("[inert]") && !e.closest("[hidden]") && !e.closest("details:not([open]) > :not(summary)") && !e.closest(".is-measuring"); };
+    const name = e => e.tagName.toLowerCase() + (typeof e.className === "string" && e.className ? "." + e.className.trim().split(/\s+/).slice(0, 2).join(".") : "") + "(" + (e.getAttribute("aria-label") || e.textContent || "").trim().replace(/\s+/g, " ").slice(0, 30) + ")";
+    const roots = [document.querySelector(".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']"), document.querySelector(".modal-container .modal")].filter(Boolean);
+    const clipped = [], off = [];
+    for (const r of roots) for (const e of r.querySelectorAll("*")) {
+      if (!vis(e)) continue;
+      const cs = getComputedStyle(e), clips = ["hidden", "clip"].includes(cs.overflowX) || cs.textOverflow === "ellipsis";
+      const own = /^(INPUT|TEXTAREA)$/.test(e.tagName) || !!e.closest(".view-header-title"); // a field's own text scrolls; the note's file name in the header is Obsidian's
+      const isCtl = /^(BUTTON|SUMMARY|LABEL)$/.test(e.tagName) || /booklet-design-(add|pick|act|cat|key)/.test(e.className || "");
+      if (!own && (clips || isCtl) && e.scrollWidth > e.clientWidth + 1 && e.clientWidth > 0 && cs.display !== "inline") clipped.push(name(e) + " " + e.scrollWidth + ">" + e.clientWidth);
+      if ((cs.overflowY === "hidden" || cs.overflowY === "clip") && e.scrollHeight > e.clientHeight + 1 && e.clientHeight > 0) clipped.push(name(e) + " tall " + e.scrollHeight + ">" + e.clientHeight);
+      const b = e.getBoundingClientRect();
+      if (b.right > W + 1 || b.left < -1) { let scrolled = false; for (let p = e.parentElement; p && !roots.includes(p); p = p.parentElement) { const ox = getComputedStyle(p).overflowX; if (ox === "auto" || ox === "scroll" || ox === "hidden" || ox === "clip") scrolled = true; } if (!scrolled) off.push(name(e) + " " + Math.round(b.left) + ".." + Math.round(b.right)); }
+    }
+    const vc = document.querySelector(".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design'] .view-content");
+    return { W, clipped: clipped.slice(0, 8), clippedCount: clipped.length, off: off.slice(0, 8), offCount: off.length, sideways: vc ? vc.scrollWidth - vc.clientWidth : 0, docSideways: document.documentElement.scrollWidth - W };
+  });
+
+  async function languageCheck(n, code, label, expect) {
+    const c = new Check(n, `the Design view with Obsidian in ${label} (localStorage language "${code}", then a reload): the mode buttons, toolbar, tree, "+ Add" catalogue, key popup, confirm dialog, form and editor are in ${label} (nothing a translated key still shows in English, no {placeholder} left showing), and each fits at a desktop's width and at Obsidian's phone mode (390 x 844), light theme; screenshots and the readable text of each scene are kept`);
+    const table = tableOf();
+    c.ok(Object.keys(table).length > 150, `read the table from design-strings.ts: ${Object.keys(table).length} keys with their three strings in the file`);
+    // a translated key still shown as its English: the English must be one whole text, label or title on screen, and differ from the translation
+    const english = Object.entries(table).filter(([k, v]) => v.en !== v[code] && !/\{/.test(v.en) && v.en.length >= 4).map(([k, v]) => ({ k, en: v.en }));
+    await withApp("c" + n, async (o, vault) => {
+      await o.setScheme("light");
+      await o.evaluate(code => { localStorage.setItem("language", code); }, code);
+      await o.evaluate(() => { app.commands.executeCommandById("app:reload"); });
+      await o.page.waitForFunction(code => !!(window.app && app.workspace && app.workspace.layoutReady) && window.i18next && window.i18next.language === code, code, { timeout: 40000, polling: 100 });
+      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+      c.ok(await o.evaluate(() => window.i18next.language) === code, `Obsidian is in ${label} (i18next language ${code})`);
+      const every = path.join(vault, EVERY), kept = path.join(vault, KEPT), E0 = text(every), K0 = text(kept);
+      const fruit = lineOf(E0, "[!choice|fruit]"), actLine = lineOf(E0, "[!activity|tally"), colour = lineOf(K0, "[!choice|colour]");
+      const judge = async (where, scene, tagWidth) => {
+        const items = await readable(o), fit = await fitOf(o);
+        fs.writeFileSync(path.join(SHOTS, `design-${code}-${tagWidth}-${scene}-text-${VER}.json`), JSON.stringify(items, null, 1));
+        // the drawings of a question (the renderer's own words, in an inert sample), the hotkey group names and the pieces' labels are English in their own files (known, not translated in this release): a table string
+        // that happens to read the same there is not a leak; anywhere else it is
+        const BY_DESIGN = /^drawn |booklet-design-(group|popup-label)\b/;
+        const wrong = english.filter(e => items.some(i => i.text === e.en && !BY_DESIGN.test(i.cls))).map(e => e.k);
+        const holes = items.filter(i => /\{\w+\}/.test(i.text)).map(i => i.text.slice(0, 60));
+        c.ok(wrong.length === 0, `${where}: no translated key shows in English (${items.length} texts read)${wrong.length ? ": " + wrong.join(", ") : ""}`);
+        c.ok(holes.length === 0, `${where}: no {placeholder} left showing${holes.length ? ": " + JSON.stringify(holes) : ""}`);
+        c.ok(fit.clippedCount === 0 && fit.offCount === 0 && fit.sideways <= 1 && fit.docSideways <= 1, `${where}: nothing cut off, nothing off the screen, no sideways scroll${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""} (view ${fit.sideways}, page ${fit.docSideways} px wider than its box)`);
+        await shot(o, `${code}-${tagWidth}-${scene}`);
+        return items;
+      };
+      const scenes = async tagWidth => {
+        await openDesign(o, EVERY);
+        await sleep(300);
+        const items0 = await judge(`${tagWidth} tree`, "tree", tagWidth);
+        const texts = items0.map(i => i.text);
+        c.ok(texts.includes(expect.undo) && texts.includes(expect.redo), `${tagWidth}: the toolbar says ${JSON.stringify(expect.undo)} and ${JSON.stringify(expect.redo)}`);
+        const hdr = await headerOf(o);
+        c.ok(hdr.buttons.some(b => b.label === expect.toBooklet) && hdr.buttons.some(b => b.label === expect.toMarkdown), `${tagWidth}: the header buttons are ${JSON.stringify(expect.toBooklet)} and ${JSON.stringify(expect.toMarkdown)} (found ${JSON.stringify(hdr.buttons.map(b => b.label))})`);
+        // + Add and the catalogue
+        const addBtn = `${box("activity", actLine)} > .booklet-design-body > .booklet-design-addrow .booklet-design-add`;
+        await o.page.locator(addBtn).scrollIntoViewIfNeeded();
+        c.ok((await o.page.locator(addBtn).first().textContent()).trim() === expect.add, `${tagWidth}: the add button reads ${JSON.stringify(expect.add)}`);
+        await o.page.locator(addBtn).click(); await sleep(400);
+        const head = `${DV} .booklet-design-catgroup[data-group='questions'] .booklet-design-cathead`;
+        await o.page.locator(head).click(); await sleep(700);
+        await o.page.locator(head).scrollIntoViewIfNeeded();
+        await judge(`${tagWidth} catalogue with Questions open`, "catalogue", tagWidth);
+        await o.page.keyboard.press("Escape"); await sleep(300);
+        // the popup by keys
+        await o.page.locator(pickOf("activity", actLine)).click(); await sleep(300);
+        await o.evaluate(() => { const b = document.activeElement; if (b && b.blur) b.blur(); });
+        await o.page.keyboard.press("s"); await sleep(400);
+        const pop = await o.evaluate(() => !!document.querySelector(".workspace-leaf.mod-active .booklet-design-popup"));
+        c.ok(pop, `${tagWidth}: the key s opens the popup`);
+        if (pop) await judge(`${tagWidth} key popup`, "popup", tagWidth);
+        await o.page.keyboard.press("Escape"); await sleep(300);
+        // the form and the editor
+        await clickPick(o, "question", fruit);
+        await o.page.locator(`${box("question", fruit)} .booklet-design-settings`).scrollIntoViewIfNeeded();
+        await judge(`${tagWidth} form`, "form", tagWidth);
+        await o.page.locator(pickOf("question", fruit)).focus(); await o.page.keyboard.press("Enter"); await sleep(500);
+        c.ok((await state(o)).editor, `${tagWidth}: Enter opens the Markdown editor`);
+        await judge(`${tagWidth} editor`, "editor", tagWidth);
+        await o.page.keyboard.press("Escape"); await sleep(300);
+        // the confirm dialog, on Kept records (a kept answer is touched)
+        await openDesign(o, KEPT);
+        await clickPick(o, "question", colour);
+        await o.page.locator(act("question", colour, "delete")).click();
+        c.ok(await waitModal(o, true), `${tagWidth}: Delete on a question with a kept answer asks`);
+        const mi = await modalInfo(o);
+        c.ok(mi && mi.buttons.includes(expect.cancel) && mi.buttons.includes(expect.yes), `${tagWidth}: the dialog's buttons are ${JSON.stringify(expect.cancel)} and ${JSON.stringify(expect.yes)} (found ${JSON.stringify(mi && mi.buttons)})`);
+        c.info(`${tagWidth} dialog title: ` + JSON.stringify(await o.evaluate(() => { const t = document.querySelector(".modal-container .modal .modal-title"), cs = getComputedStyle(t), r = t.getBoundingClientRect(); const rg = document.createRange(); rg.selectNodeContents(t); return { text: t.textContent, w: Math.round(r.width), h: Math.round(r.height), sw: t.scrollWidth, cw: t.clientWidth, sh: t.scrollHeight, ch: t.clientHeight, ov: cs.overflow, ws: cs.whiteSpace, to: cs.textOverflow, lines: new Set([...rg.getClientRects()].map(x => Math.round(x.top))).size }; })));
+        const under = await o.evaluate(() => { const t = document.querySelector(".modal-container .modal .modal-title"), x = document.querySelector(".modal-container .modal .modal-header-button"); if (!t || !x) return null; const rg = document.createRange(); rg.selectNodeContents(t); const b = x.getBoundingClientRect(); return [...rg.getClientRects()].some(r => r.width > 0 && r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top); });
+        c.ok(under === false, `${tagWidth}: the dialog's title does not run under its close button${under === null ? " (no close button found)" : ""}`);
+        await judge(`${tagWidth} confirm dialog`, "confirm", tagWidth);
+        await o.page.keyboard.press("Escape"); await waitModal(o, false); await sleep(200);
+        c.ok(text(kept) === K0 && text(every) === E0, `${tagWidth}: closing the dialog writes nothing`);
+      };
+      await scenes("desktop");
+      const narrowed = await o.page.setViewportSize({ width: 390, height: 844 }).then(() => true, e => String(e).slice(0, 120));
+      c.ok(narrowed === true, "the window is 390 x 844: " + narrowed);
+      await mobile(o, true);
+      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+      c.ok(await o.evaluate(() => window.i18next.language) === code, `still in ${label} in phone mode`);
+      await scenes("phone");
+      c.ok(text(kept) === K0 && text(every) === E0, "nothing was written to either note during the run");
+    });
+    return c;
+  }
+  const check70 = () => languageCheck(70, "es", "Spanish", { undo: "Deshacer", redo: "Rehacer", add: "+ Agregar", cancel: "Cancelar", yes: "Borrar", toBooklet: "Abrir como cuadernillo", toMarkdown: "Mostrar Markdown" });
+  const check71 = () => languageCheck(71, "fr", "French", { undo: "Annuler", redo: "Rétablir", add: "+ Ajouter", cancel: "Ne pas modifier", yes: "Supprimer", toBooklet: "Ouvrir en carnet", toMarkdown: "Afficher le Markdown" });
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71 };
 };

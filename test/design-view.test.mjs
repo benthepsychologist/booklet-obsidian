@@ -917,6 +917,18 @@ test("a second press while a change is under way waits for it: two clicks make o
 	v.close();
 });
 
+test("the confirm dialog's title wraps and keeps clear of the close button on a phone (a long Spanish or French title is never cut or hidden)", () => {
+	const v = open(HELD);
+	click(v.act(v.box("activity", "[!activity|once"), "delete"));
+	assert.ok(dialog().closest(".booklet-design-ask-card"), "the dialog's own card carries the class its title rules hang on");
+	press(dialog(), "Cancel");
+	v.close();
+	const css = readFileSync(`${ROOT}/styles.base.css`, "utf8");
+	assert.match(css, /\.booklet-design-ask-card \.modal-title\s*\{[^}]*white-space:\s*normal[^}]*\}/, "the title wraps");
+	assert.match(css, /\.booklet-design-ask-card \.modal-title\s*\{[^}]*text-overflow:\s*clip/, "and is not ended with an ellipsis");
+	assert.match(css, /\.is-mobile \.booklet-design-ask-card \.modal-title\s*\{[^}]*padding-inline:/, "and on a phone keeps clear of the close button");
+});
+
 /* ======================================================================== phone, and a user who never opens it ======================================================================== */
 
 test("every action is a visible button with its words: no hover, no drag, no key is needed", () => {
