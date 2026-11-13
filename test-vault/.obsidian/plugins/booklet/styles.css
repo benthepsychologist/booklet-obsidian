@@ -3416,7 +3416,7 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--text-muted);
 }
 
-.booklet-design-crumb-item {
+.booklet-design .booklet-design-crumb-item {
 	background: transparent;
 	box-shadow: none;
 	color: var(--text-muted);
@@ -3490,10 +3490,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	height: var(--icon-m);
 }
 
-.booklet-design-pick {
+.booklet-design .booklet-design-pick {
 	display: inline-flex;
 	flex-wrap: wrap;
 	align-items: baseline;
+	justify-content: flex-start;
+	white-space: normal;
 	gap: var(--size-2-3) var(--size-4-2);
 	flex: 1 1 8em;
 	min-width: 0;
@@ -3626,10 +3628,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	border-radius: var(--radius-m);
 }
 
-.booklet-design-cathead {
+.booklet-design .booklet-design-cathead {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
+	justify-content: flex-start;
+	white-space: normal;
 	gap: var(--size-2-3) var(--size-4-3);
 	width: 100%;
 	height: auto;
@@ -3734,10 +3738,13 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	list-style: none;
 }
 
-.booklet-design-popup-row {
+.booklet-design .booklet-design-popup-row {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: baseline;
+	align-content: center;
+	justify-content: flex-start;
+	padding-block: var(--size-4-1);
 	gap: var(--size-2-3) var(--size-4-2);
 	width: 100%;
 	height: auto;
