@@ -652,12 +652,20 @@ export class DesignView extends LockedTextView {
 				esc: () => this.escEditor(),
 				hold: () => this.holdSaveKey(),
 				release: () => this.releaseSaveKey(),
+				openMenu: (line) => this.openMenuBlock(line),
 			},
 			ed,
 			node,
 			parent,
 			where,
 		);
+	}
+
+	/** The shared menu a question names, opened in its own editor (a draft that is open stays: openEditor says so). */
+	private openMenuBlock(line: number): void {
+		const root = this.root;
+		const menu = root ? walkDesign(root).find((x) => x.kind === "menu" && x.start === line) : undefined;
+		if (menu) this.openEditor(menu);
 	}
 
 	/* ---- selecting and navigating ---- */

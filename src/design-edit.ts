@@ -28,6 +28,7 @@ import {
 } from "./core";
 import { drawBlockBody, type Drawer } from "./design-canvas-draw";
 import { pickIcon } from "./editor-modals";
+import { RowsPanel, type RowsState } from "./design-rows";
 import { questionOfPiece } from "./design-sample";
 import { ui } from "./design-text";
 import { kindName } from "./design-words";
@@ -50,6 +51,8 @@ export interface Editing {
 	caret: [number, number] | null;
 	/** Why the last change in the settings was refused, in words; "" when none was. */
 	refusal: string;
+	/** The question's own options, put away while it names a shared menu (the rows give them back when the menu is taken off again). */
+	stash?: string[] | null;
 }
 
 /** What the box asks of the view. */
@@ -65,6 +68,8 @@ export interface EditHost extends Drawer {
 	/** The box has the focus: Ctrl or Cmd with Enter is Save while it does (the view's scope). */
 	hold(): void;
 	release(): void;
+	/** Selects and opens the shared menu block that starts on this line of the note. */
+	openMenu(line: number): void;
 }
 
 /** How long a change in the Markdown waits before the settings and the preview follow it. */
@@ -86,6 +91,8 @@ export class EditorBox {
 	private readonly mark: HTMLElement;
 	private readonly refusal: HTMLElement;
 	private readonly formHost: HTMLElement;
+	private readonly rowsHost: HTMLElement;
+	private readonly rows: RowsPanel;
 	private readonly previewHost: HTMLElement | null;
 	private previewOwner: Component | null = null;
 	private followTimer: number | null = null;
@@ -117,6 +124,21 @@ export class EditorBox {
 			this.previewHost = sec.createDiv({ cls: "booklet-design-edit-previewhost" });
 		}
 		this.formHost = this.box.createDiv({ cls: "booklet-design-edit-section is-form booklet-design-settings" });
+		this.rowsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-rows booklet-design-rows booklet-design-settings" });
+		this.rows = new RowsPanel(
+			this.rowsHost,
+			{
+				note: () => host.text(),
+				start: () => node?.start ?? null,
+				lines: () => this.draftLines(),
+				put: (lines, quiet) => this.takeLines(lines, !quiet),
+				refuse: (reason, redraw) => this.refuse(reason, redraw),
+				stash: () => ed.stash ?? null,
+				setStash: (lines) => void (ed.stash = lines),
+				openMenu: (line) => host.openMenu(line),
+			},
+			() => ed.kind,
+		);
 		const md = this.box.createDiv({ cls: "booklet-design-edit-section is-markdown" });
 		md.createDiv({ cls: "booklet-design-edit-label", text: ui("edit.markdown") });
 		this.area = md.createEl("textarea", {
@@ -225,22 +247,23 @@ export class EditorBox {
 	}
 
 	/** The draft is now these lines: the box takes them, the rows read them again, the preview follows. */
-	private takeLines(lines: readonly string[]): void {
+	private takeLines(lines: readonly string[], draw = true): void {
 		this.ed.draft = lines.join("\n");
 		this.ed.armed = false;
 		this.ed.refusal = "";
 		this.refusal.setText("");
 		this.area.value = this.ed.draft;
 		this.showState();
-		this.drawForm();
+		// the rows a person is typing in are in step already, and are not drawn again under the caret
+		if (draw) this.drawForm();
 		this.schedulePreview();
 	}
 
-	private refuse(reason: string): void {
+	private refuse(reason: string, draw = true): void {
 		this.ed.refusal = ui("form.refused", { reason });
 		this.refusal.setText(this.ed.refusal);
 		// the row goes back to what the draft has
-		this.drawForm();
+		if (draw) this.drawForm();
 	}
 
 	/** One row of a Booklet line's settings changed. */
@@ -268,12 +291,14 @@ export class EditorBox {
 		const field = active && this.formHost.contains(active) ? (active.closest("[data-field]")?.getAttribute("data-field") ?? null) : null;
 		this.formHost.empty();
 		const lines = this.draftLines();
+		// the rows of a list come first: when they are offered they hold the shared menu, which the settings then leave out
+		const rows: RowsState = this.ed.kind === "front-matter" ? "none" : this.rows.draw(lines);
 		if (this.ed.kind === "front-matter") {
 			const form = frontMatterFormOfLines(lines);
 			if (form) this.drawFrontRows(form);
 		} else {
 			const form = formOfLine(lines[0] ?? "");
-			if (form) this.drawRows(form);
+			if (form) this.drawRows(form, rows === "rows");
 		}
 		this.formHost.toggleClass("is-empty", !this.formHost.childElementCount);
 		if (field) {
@@ -282,11 +307,12 @@ export class EditorBox {
 		}
 	}
 
-	private drawRows(form: Form): void {
+	private drawRows(form: Form, menuInRows = false): void {
 		const host = this.formHost;
 		new Setting(host).setName(ui("form.heading")).setHeading();
 		const change = (what: FormChange): void => this.change(what);
 		for (const f of form.fields) {
+			if (menuInRows && f.type === "value" && f.name === "menu") continue;
 			const row = new Setting(host);
 			if (f.type === "id" || f.type === "title") {
 				row.setName(ui(f.type === "id" ? "form.id" : "form.title")).setDesc(ui(f.type === "id" ? "form.id.desc" : "form.title.desc"));

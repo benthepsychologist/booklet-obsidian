@@ -47,6 +47,7 @@ export * from "./design-tree";
 export * from "./design-places";
 export * from "./design-ops";
 export * from "./design-form";
+export * from "./design-options";
 export * from "./design-outline";
 export * from "./design-keys";
 export * from "./design-undo";

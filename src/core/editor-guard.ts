@@ -269,6 +269,23 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 			if (held.hasDraft && hit(held.draft)) answers++;
 			if (entries || answers) impacts.push({ kind: "option", what: `The options of \`${l.question.id}\``, entries, answers, rows: 0 });
 		}
+		// a matrix: an answer is a list with one anchor number for each item, by position. An item that is not the same item at its place any
+		// more (taken out, moved, put before, reworded), or an anchor number whose words are not the same (taken out, reworded), changes
+		// what a kept answer says. Moving an anchor's line while it keeps its number changes nothing: the number is the answer.
+		if (l.question.kind === "matrix" && gone.question.kind === "matrix") {
+			const itemsWas = l.question.items.map((s) => s.trim());
+			const itemsNow = gone.question.items.map((s) => s.trim());
+			const anchorsWas = new Map(l.question.anchors.map((a) => [a.n, a.text.trim()]));
+			const anchorsNow = new Map(gone.question.anchors.map((a) => [a.n, a.text.trim()]));
+			const hit = (v: unknown): boolean =>
+				Array.isArray(v) && v.some((n, i) => typeof n === "number" && itemsWas[i] !== undefined && (itemsWas[i] !== itemsNow[i] || anchorsWas.get(n) !== anchorsNow.get(n)));
+			let entries = 0;
+			let answers = 0;
+			for (const e of held.entries) if (hit(e[l.question.id])) entries++;
+			if (held.hasAnswer && hit(held.answer)) answers++;
+			if (held.hasDraft && hit(held.draft)) answers++;
+			if (entries || answers) impacts.push({ kind: "option", what: `The items and anchors of \`${l.question.id}\``, entries, answers, rows: 0 });
+		}
 		if (l.question.open && !gone.question.open) {
 			const strings = (v: unknown): boolean => (Array.isArray(v) ? v : [v]).some((x) => typeof x === "string");
 			const entries = held.entries.filter((e) => strings(e[l.question.id])).length;

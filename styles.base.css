@@ -4496,6 +4496,122 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	width: 100%;
 }
 
+/* ---- the rows of a choice, a menu and a matrix, in the editor in place ---- */
+.booklet-design-rows.is-empty {
+	display: none;
+}
+
+.booklet-design-rows-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	margin-block: var(--size-4-2);
+}
+
+.booklet-design-optrow {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.booklet-design-rows-main {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-design-rows-num {
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.booklet-design-rows-main .booklet-design-rows-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-design-rows-input.booklet-design-rows-number {
+	flex: 0 0 5em;
+	width: 5em;
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.booklet-design-rows-input[aria-invalid="true"] {
+	border-color: var(--text-error);
+}
+
+.booklet-design-rows-controls,
+.booklet-design-reply {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-design-reply .booklet-design-rows-input {
+	flex: 1 1 10em;
+	min-width: 0;
+}
+
+.booklet-design-rows-replies {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	padding-inline-start: var(--size-4-6);
+}
+
+.booklet-design-rows-switch[aria-checked="true"] {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-rows-switch[aria-checked="true"]::before {
+	content: "\2713\00a0";
+}
+
+.booklet-design-rows-usedby,
+.booklet-design-rows-usesmenu {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-block: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-design-rows-none {
+	color: var(--text-muted);
+}
+
+/* a menu's name can be long ("None: the question has its own options"): the picker never makes the box wider than the pane */
+.booklet-design-rows .setting-item-control {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.booklet-design-rows select {
+	max-width: 100%;
+}
+
+.booklet-design-rows > .booklet-design-rows-button {
+	margin-block-end: var(--size-4-3);
+}
+
+.booklet-design-rows-refused {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+}
+
 /* tints mixed from a theme colour: the plain fill above is what an Obsidian that cannot mix draws */
 @supports (color: color-mix(in srgb, red, blue)) {
 	.booklet-design-nav-row.is-current {
@@ -4597,6 +4713,42 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design.is-phone summary {
 	display: flex;
 	align-items: center;
+}
+
+/* the rows' fields and the shared menu's picker are as high as the buttons beside them on a phone: no control of the rows is under 44 px */
+/* a row's buttons are two to a line on a phone (the pane is narrow, and four 44 px buttons would each take a line) */
+.is-mobile .booklet-design .booklet-design-rows-controls,
+.booklet-design.is-phone .booklet-design-rows-controls {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.is-mobile .booklet-design .booklet-design-rows-controls > button,
+.booklet-design.is-phone .booklet-design-rows-controls > button {
+	white-space: normal;
+	padding-inline: var(--size-4-1);
+	text-align: center;
+}
+
+.is-mobile .booklet-design .booklet-design-rows-controls > .booklet-design-rows-switch,
+.booklet-design.is-phone .booklet-design-rows-controls > .booklet-design-rows-switch,
+.is-mobile .booklet-design .booklet-design-rows-controls > button:last-child,
+.booklet-design.is-phone .booklet-design-rows-controls > button:last-child {
+	grid-column: 1 / -1;
+}
+
+/* a row's buttons keep an edge on a phone, where the theme draws them without one on the row's own grey */
+.is-mobile .booklet-design .booklet-design-rows button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]) {
+	border: var(--border-width) solid var(--background-modifier-border-hover);
+}
+
+.is-mobile .booklet-design .booklet-design-rows input[type="text"],
+.is-mobile .booklet-design .booklet-design-rows select,
+.booklet-design.is-phone .booklet-design-rows input[type="text"],
+.booklet-design.is-phone .booklet-design-rows select {
+	min-height: 44px;
+	box-sizing: border-box;
 }
 
 .is-mobile .booklet-design .booklet-design-slot,
