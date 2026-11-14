@@ -40,6 +40,7 @@ import {
 	moveTargets,
 	nameOf,
 	navEntries,
+	navigableNodes,
 	needsAsking,
 	needsOf,
 	parseDesign,
@@ -126,7 +127,7 @@ export class DesignView extends LockedTextView {
 	/** The page drawn now, and the slots it has. */
 	private canvas: Canvas | null = null;
 	private drawn: DrawnPage | null = null;
-	private readonly history = new DesignHistory();
+	private readonly history = new DesignHistory<Selection | null>();
 	private renderer: Component | null = null;
 	private shellEl: HTMLElement | null = null;
 	private leftEl: HTMLElement | null = null;
@@ -1184,15 +1185,19 @@ export class DesignView extends LockedTextView {
 			}
 		}
 		const before = this.text;
+		const was = this.sel ? { ...this.sel } : null; // where the person stood before this step: undo takes them back there
 		const landed = await this.commit(before, op.text, how.stale);
 		if (!landed) return false;
-		this.history.record(before, op.text);
 		this.text = op.text;
 		this.data = op.text;
 		if (how.select === "lines") this.sel = op.lines ? { start: op.lines.start, kind: null } : null;
 		else if (how.select !== "keep") this.sel = how.select;
+		this.history.record(before, op.text, { before: was, after: this.sel ? { ...this.sel } : null });
 		if (how.closeEditor) this.edit = null;
-		this.say([ui(how.how === "add" ? "status.added" : how.how === "delete" ? "status.deleted" : how.how === "move" ? "status.moved" : "status.changed", { name: how.name }), ...op.notes].join(" "));
+		const said = ui(how.how === "add" ? "status.added" : how.how === "delete" ? "status.deleted" : how.how === "move" ? "status.moved" : "status.changed", { name: how.name });
+		// every line ends its sentence after the name; a name that ends its own (a question, a sentence) is not given a second stop
+		const line = /[.?!…]$/.test(how.name) && said.endsWith(`${how.name}.`) ? said.slice(0, -1) : said;
+		this.say([line, ...op.notes].join(" "));
 		this.draw();
 		this.focusSelected();
 		return true;
@@ -1264,8 +1269,23 @@ export class DesignView extends LockedTextView {
 			else this.history.settleRedo();
 			this.text = plan.text;
 			this.data = plan.text;
+			// back where the person stood: before the step for an undo, after it for a redo
+			if (plan.mark !== undefined) this.sel = this.reachable(plan.mark, plan.text);
 			this.say(ui(undo ? "status.undone" : "status.redone"));
 			this.draw();
 		});
+	}
+
+	/**
+	 * The selection to go back to, if the note still has it: the same line holding the same kind of block. When it does not (the note was
+	 * changed since, or the step is one that took the block away), the nearest page around that line, and the booklet only when no page is.
+	 */
+	private reachable(sel: Selection | null, text: string): Selection | null {
+		if (!sel) return null;
+		const root = parseDesign(text);
+		const all = walkDesign(root);
+		if (all.some((n) => n.parent !== null && n.start === sel.start && (sel.kind === null || n.kind === sel.kind))) return sel;
+		const page = navigableNodes(root).filter((n) => n.start <= sel.start && sel.start < n.end).pop();
+		return page ? { start: page.start, kind: page.kind } : null;
 	}
 }

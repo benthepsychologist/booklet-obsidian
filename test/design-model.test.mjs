@@ -190,10 +190,10 @@ test("the Design view's table: every entry has English and only the three slots;
 		assert.ok(typeof e.fr === "string" && e.fr.trim(), `${k} has French`);
 	}
 	const waiting = AWAITING_LOCALIZE(keys);
-	assert.ok(waiting.length > 0 && waiting.length < keys.length, "some keys wait for /localize, most do not");
-	// a key still waiting shows its English in every language
-	assert.equal(t("page.edit", "fr"), "Edit settings");
-	assert.equal(t("page.edit", "es"), "Edit settings");
+	assert.ok(waiting.length < keys.length, "most keys are translated (any that still wait for /localize are listed in AWAITING_LOCALIZE's result)");
+	// a key still waiting shows its English in every language; none waits now, so the canvas keys are checked as translated
+	assert.equal(t("page.edit", "fr"), "Modifier les réglages");
+	assert.equal(t("page.edit", "es"), "Editar ajustes");
 	assert.equal(t("undo", "fr"), "Annuler");
 	assert.equal(t("undo", "es"), "Deshacer");
 	assert.equal(t("undo", "en"), "Undo");

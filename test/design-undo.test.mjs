@@ -151,3 +151,22 @@ test("the fingerprint tells notes apart by length and by content", () => {
 	assert.notEqual(fingerprint(""), fingerprint("\n"));
 	void lineOf;
 });
+
+test("a step keeps what the shell asked it to remember: undo gives back the mark from before the step, redo the mark from after it", () => {
+	const h = new DesignHistory();
+	const b = step2(h, BARE, deleteBlock(BARE, node(BARE, "two")).text, { before: "was", after: "is" });
+	const u = h.planUndo(b);
+	assert.equal(u.ok && u.mark, "was");
+	h.settleUndo();
+	const r = h.planRedo(BARE);
+	assert.equal(r.ok && r.mark, "is");
+	const plain = new DesignHistory();
+	const c = step(plain, BARE, deleteBlock(BARE, node(BARE, "two")).text);
+	const p = plain.planUndo(c);
+	assert.equal(p.ok && p.mark, undefined, "a step recorded with no marks gives none");
+});
+
+function step2(h, before, after, marks) {
+	h.record(before, after, marks);
+	return after;
+}

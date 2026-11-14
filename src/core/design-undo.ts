@@ -31,13 +31,22 @@ export interface UndoStep {
 	/** The note's fingerprint before the step and after it. */
 	before: string;
 	after: string;
+	/** What the shell asked to have back with the step: where the person was before it and after it (the history keeps it, never reads it). */
+	marks?: Marks;
 }
 
-export type UndoPlan = { ok: true; change: Change; text: string } | { ok: false; reason: "empty" | "changed" };
+/** What the shell wants remembered with a step, whatever its own shape: the view's selection from before the step, and from after it. */
+export interface Marks<S = unknown> {
+	before: S;
+	after: S;
+}
+
+/** An undo or redo that can be done, with the `marks` of the step: undo is given the view as it was before the step, redo as it was after it. */
+export type UndoPlan<S = unknown> = { ok: true; change: Change; text: string; mark: S | undefined } | { ok: false; reason: "empty" | "changed" };
 
 const apply = (text: string, from: number, take: number, put: string): string => text.slice(0, from) + put + text.slice(from + take);
 
-export class DesignHistory {
+export class DesignHistory<S = unknown> {
 	private undos: UndoStep[] = [];
 	private redos: UndoStep[] = [];
 	private listeners = new Set<() => void>();
@@ -69,12 +78,12 @@ export class DesignHistory {
 	 * A change the view wrote: the note was `before`, and is `after`. A new change ends the redo line. A change made on a note other than
 	 * the one the last step left (something else edited it in between) cuts the steps before it off: they could not be replayed on it.
 	 */
-	record(before: string, after: string): void {
+	record(before: string, after: string, marks?: Marks<S>): void {
 		const c = minimalChange(before, after);
 		if (!c) return;
 		const last = this.undos[this.undos.length - 1];
 		if (last && last.after !== fingerprint(before)) this.undos = [];
-		this.undos.push({ from: c.from, removed: before.slice(c.from, c.to), inserted: c.text, before: fingerprint(before), after: fingerprint(after) });
+		this.undos.push({ from: c.from, removed: before.slice(c.from, c.to), inserted: c.text, before: fingerprint(before), after: fingerprint(after), marks });
 		this.redos = [];
 		this.told();
 	}
@@ -87,15 +96,21 @@ export class DesignHistory {
 		this.told();
 	}
 
-	private plan(step: UndoStep | undefined, current: string, from: "after" | "before"): UndoPlan {
+	private plan(step: UndoStep | undefined, current: string, from: "after" | "before"): UndoPlan<S> {
 		if (!step) return { ok: false, reason: "empty" };
 		const [take, put] = from === "after" ? [step.inserted, step.removed] : [step.removed, step.inserted];
 		if (fingerprint(current) !== step[from] || current.slice(step.from, step.from + take.length) !== take) return { ok: false, reason: "changed" };
-		return { ok: true, change: { from: step.from, to: step.from + take.length, text: put }, text: apply(current, step.from, take.length, put) };
+		const marks = step.marks as Marks<S> | undefined;
+		return {
+			ok: true,
+			change: { from: step.from, to: step.from + take.length, text: put },
+			text: apply(current, step.from, take.length, put),
+			mark: marks ? (from === "after" ? marks.before : marks.after) : undefined,
+		};
 	}
 
 	/** What undoing the last step would do to `current`, the note as it is now. Nothing moves until `settleUndo`. */
-	planUndo(current: string): UndoPlan {
+	planUndo(current: string): UndoPlan<S> {
 		return this.plan(this.undos[this.undos.length - 1], current, "after");
 	}
 
@@ -106,7 +121,7 @@ export class DesignHistory {
 		this.told();
 	}
 
-	planRedo(current: string): UndoPlan {
+	planRedo(current: string): UndoPlan<S> {
 		return this.plan(this.redos[this.redos.length - 1], current, "before");
 	}
 

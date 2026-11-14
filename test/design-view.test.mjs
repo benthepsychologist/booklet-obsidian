@@ -848,6 +848,128 @@ test("a note changed outside the view since the step is not undone over: the vie
 	v.close();
 });
 
+/** Where the person is: the breadcrumb (the page and the block) and the blocks drawn selected. */
+const whereIs = (v) => ({ crumb: v.crumb(), selected: v.all(".booklet-design-block.is-selected").map((b) => `${b.getAttribute("data-kind")}@${b.getAttribute("data-start")}`) });
+
+const THREE_QUESTIONS = bookletAround(
+	["> [!module|m] M", "", "> [!tab|t] T", "", "> [!activity|a] A", "", "> [!text|q1] Which tools?", "", "> [!text|q2] Which fruit would you pack?", "", "> [!text|q3] Third one.", "", "> [!module|m end]", ""].join("\n"),
+);
+
+test("Undo of a move, a delete and an add takes the person back to the page and the block they were on; Redo to where the step left them", async () => {
+	const v = open(THREE_QUESTIONS);
+	v.go("A");
+	const t0 = v.disk.text;
+	// a move: the question is selected, moved down; undo selects it where it was, redo where it went
+	v.pick("question", "[!text|q1]");
+	const w0 = whereIs(v);
+	assert.deepEqual(w0.selected, [`question@${lineOf(t0, "[!text|q1]")}`]);
+	await v.press(v.act(v.block("question", "[!text|q1]"), "down"));
+	const t1 = v.disk.text;
+	assert.notEqual(t1, t0);
+	const w1 = whereIs(v);
+	assert.notDeepEqual(w1.selected, w0.selected, "the block moved, so its line did");
+	await v.press(v.undo());
+	assert.equal(v.disk.text, t0);
+	assert.deepEqual(whereIs(v), w0, "undo of a move: the same page, the same block selected, not the booklet's front page");
+	assert.equal(v.crumb().at(-1), w0.crumb.at(-1));
+	await v.press(v.redo());
+	assert.equal(v.disk.text, t1);
+	assert.deepEqual(whereIs(v), w1, "redo of a move: where the move left them");
+	await v.press(v.undo());
+	// the same by the keys
+	const undoKey = v.view.scope.handlers.find((h) => h.key === "z" && JSON.stringify(h.modifiers) === JSON.stringify(["Mod"]))?.func;
+	await v.press(v.redo());
+	doc.activeElement?.blur?.();
+	undoKey(new w.KeyboardEvent("keydown", { key: "z", cancelable: true }));
+	await v.view.whenIdle();
+	assert.equal(v.disk.text, t0);
+	assert.deepEqual(whereIs(v), w0, "Ctrl+Z does the same");
+
+	// a delete: the block was selected; undo gives it back, selected; redo leaves the page where a delete does
+	v.pick("question", "[!text|q2]");
+	const d0 = whereIs(v);
+	await v.press(v.act(v.block("question", "[!text|q2]"), "delete"));
+	const d1 = whereIs(v);
+	assert.equal(v.disk.text.includes("q2"), false);
+	await v.press(v.undo());
+	assert.equal(v.disk.text, t0);
+	assert.deepEqual(whereIs(v), d0, "undo of a delete");
+	await v.press(v.redo());
+	assert.deepEqual(whereIs(v), d1, "redo of a delete");
+	await v.press(v.undo());
+
+	// an add: with q3 selected, a new question is added; undo goes back to q3 selected, redo to the new block
+	v.pick("question", "[!text|q3]");
+	const a0 = whereIs(v);
+	const choice = piece("Q - choice.md");
+	click(v.tile(choice.file));
+	await v.press(v.slots().find((s) => s.classList.contains("is-lit")));
+	const a1 = whereIs(v);
+	assert.notDeepEqual(a1.selected, a0.selected, "the new block is selected");
+	await v.press(v.undo());
+	assert.equal(v.disk.text, t0);
+	assert.deepEqual(whereIs(v), a0, "undo of an add");
+	await v.press(v.redo());
+	assert.deepEqual(whereIs(v), a1, "redo of an add");
+	v.close();
+});
+
+test("Undo from another page of the booklet goes back to the page the step was made on", async () => {
+	const v = open(THREE_QUESTIONS);
+	v.go("A");
+	v.pick("question", "[!text|q1]");
+	const w0 = whereIs(v);
+	await v.press(v.act(v.block("question", "[!text|q1]"), "down"));
+	v.go("T"); // the person goes elsewhere before undoing
+	assert.notDeepEqual(v.crumb(), w0.crumb);
+	await v.press(v.undo());
+	assert.deepEqual(whereIs(v), w0);
+	v.close();
+});
+
+test("a selection that the note no longer holds falls back to the nearest page around that line, and to the booklet only when no page is there", () => {
+	const v = open(THREE_QUESTIONS);
+	const text = v.disk.text;
+	const q2 = lineOf(text, "[!text|q2]");
+	const act = walkDesign(parseDesign(text)).find((n) => n.kind === "activity");
+	const reach = (sel) => v.view.reachable(sel, text);
+	assert.deepEqual(reach({ start: q2, kind: "question" }), { start: q2, kind: "question" }, "still there: kept");
+	assert.deepEqual(reach({ start: q2, kind: null }), { start: q2, kind: null }, "a line alone: kept when a block starts there");
+	assert.deepEqual(reach({ start: q2, kind: "callout" }), { start: act.start, kind: "activity" }, "another kind of block there now: the page around it");
+	assert.deepEqual(reach({ start: q2 + 1, kind: "question" }), { start: act.start, kind: "activity" }, "no block starts there now: the page around it");
+	assert.equal(reach({ start: 9999, kind: "question" }), null, "outside every page: the booklet");
+	assert.equal(reach(null), null);
+	v.close();
+});
+
+test("a status line does not put a full stop after a name that already ends in a question mark or a stop", async () => {
+	const v = open(THREE_QUESTIONS);
+	v.go("A");
+	v.pick("question", "[!text|q2]");
+	await v.press(v.act(v.block("question", "[!text|q2]"), "down"));
+	assert.equal(v.status(), "Moved Question: Which fruit would you pack?");
+	await v.press(v.undo());
+	v.pick("question", "[!text|q3]");
+	await v.press(v.act(v.block("question", "[!text|q3]"), "up"));
+	assert.equal(v.status(), "Moved Question: Third one.");
+	await v.press(v.undo());
+	v.pick("question", "[!text|q2]");
+	await v.press(v.act(v.block("question", "[!text|q2]"), "delete"));
+	assert.equal(v.status(), "Deleted Question: Which fruit would you pack?");
+	v.pick("question", "[!text|q1]");
+	await v.press(v.act(v.block("question", "[!text|q1]"), "delete"));
+	assert.equal(v.status(), "Deleted Question: Which tools?");
+	v.close();
+});
+
+test("a status line still ends in a stop after a name that does not end in one", async () => {
+	const v = open(BARE);
+	click(v.navItem(v.navLabels()[1]));
+	await v.press(v.act(v.card("activity", "[!activity|one"), "delete"));
+	assert.match(v.status(), /^Deleted Activity: .*[^.?!]\.$/);
+	v.close();
+});
+
 test("mod+z and mod+shift+z undo and redo when no field has the focus, and are left to the field when one has", async () => {
 	const v = open(BARE);
 	click(v.navItem(v.navLabels()[1]));

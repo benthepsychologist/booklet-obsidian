@@ -439,7 +439,7 @@ test("Save rewrites only those lines: a changed line of the block's Markdown goe
 	assert.equal(v.area(), null, "closed");
 	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent long] What did you spend this week?");
 	onlyLines(before, v.disk.text, q);
-	assert.match(v.status(), /^Changed Question: What did you spend\?\./, "names the block as it was drawn when the change was made");
+	assert.match(v.status(), /^Changed Question: What did you spend\?(?!\.)/, "names the block as it was drawn when the change was made");
 	assert.deepEqual(v.selected(), ["question@" + q], "the block stays selected");
 	// a line added to the block's Markdown: the note grows by that line and nothing else moves
 	v.open("question", "[!text|spent");
