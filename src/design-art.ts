@@ -1,6 +1,6 @@
 /*
  * The pictures on the Design view's Add tiles: one for every piece in pieces/. A tile LOOKS like the thing it adds, or at least
- * indicates it. Plain TypeScript: no Obsidian import, no DOM, no innerHTML (the plugin directory's checker rejects innerHTML), so
+ * indicates it. Plain TypeScript: no Obsidian import, no DOM, no HTML strings (the plugin directory's checker rejects them), so
  * the artwork is DATA. The view turns an `svg` art into SVG elements with createSvg (tag, attrs, children) and an `icon` art into
  * one of Obsidian's own (lucide) icons by name.
  *
