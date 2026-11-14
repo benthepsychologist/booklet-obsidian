@@ -171,16 +171,29 @@ test("a counted word is two keys; French takes zero and one as the singular", ()
 	assert.equal(tn("confirm.lines", 12, "en"), "12 lines");
 });
 
-test("the Design view's table: every entry has English, Spanish and French and only those three slots; none is empty", () => {
+/**
+ * The keys the canvas rebuild added, which have English only until /localize has put Spanish and French beside them. The list is
+ * exactly the entries with no Spanish or French: a key leaves it by being translated, and a new key joins it only by being written
+ * in English alone. An entry with one of the two and not the other is a fault.
+ */
+const AWAITING_LOCALIZE = (keys) => keys.filter((k) => DESIGN_STRINGS[k].es === undefined && DESIGN_STRINGS[k].fr === undefined);
+
+test("the Design view's table: every entry has English and only the three slots; none is empty; Spanish and French come together", () => {
 	const keys = Object.keys(DESIGN_STRINGS);
 	assert.ok(keys.length > 100);
 	for (const k of keys) {
 		const e = DESIGN_STRINGS[k];
 		assert.ok(typeof e.en === "string" && e.en.trim(), `${k} has English`);
 		for (const slot of Object.keys(e)) assert.ok(["en", "es", "fr"].includes(slot), `${k} has an odd slot ${slot}`);
+		if (AWAITING_LOCALIZE([k]).length) continue;
 		assert.ok(typeof e.es === "string" && e.es.trim(), `${k} has Spanish`);
 		assert.ok(typeof e.fr === "string" && e.fr.trim(), `${k} has French`);
 	}
+	const waiting = AWAITING_LOCALIZE(keys);
+	assert.ok(waiting.length > 0 && waiting.length < keys.length, "some keys wait for /localize, most do not");
+	// a key still waiting shows its English in every language
+	assert.equal(t("page.edit", "fr"), "Edit settings");
+	assert.equal(t("page.edit", "es"), "Edit settings");
 	assert.equal(t("undo", "fr"), "Annuler");
 	assert.equal(t("undo", "es"), "Deshacer");
 	assert.equal(t("undo", "en"), "Undo");
@@ -191,6 +204,7 @@ test("a Spanish or French string keeps every {placeholder} and every `backtick s
 	const spans = (s) => (s.match(/`[^`]*`/g) || []).join(",");
 	for (const [k, e] of Object.entries(DESIGN_STRINGS)) {
 		for (const lang of ["es", "fr"]) {
+			if (e[lang] === undefined) continue; // waits for /localize
 			assert.equal(names(e[lang]), names(e.en), `${k} (${lang}): placeholders`);
 			assert.equal(spans(e[lang]), spans(e.en), `${k} (${lang}): backtick spans`);
 		}
@@ -203,7 +217,9 @@ test("a counted word has both its .one and its .other, in English, Spanish and F
 	assert.ok(bases.has("confirm.lines") && bases.size >= 1);
 	for (const b of bases) {
 		assert.ok(DESIGN_STRINGS[`${b}.one`] && DESIGN_STRINGS[`${b}.other`], `${b} has .one and .other`);
-		for (const lang of ["en", "es", "fr"]) for (const f of ["one", "other"]) assert.match(DESIGN_STRINGS[`${b}.${f}`][lang], /\{n\}/, `${b}.${f} (${lang}) shows its count`);
+		// a counted word that waits for /localize has English only, both forms together
+		const langs = AWAITING_LOCALIZE([`${b}.one`, `${b}.other`]).length ? ["en"] : ["en", "es", "fr"];
+		for (const lang of langs) for (const f of ["one", "other"]) assert.match(DESIGN_STRINGS[`${b}.${f}`][lang], /\{n\}/, `${b}.${f} (${lang}) shows its count`);
 	}
 	for (const k of keys) if (/\.(one|other)$/.test(k)) assert.ok(bases.has(k.replace(/\.(one|other)$/, "")), k);
 });
@@ -224,12 +240,9 @@ test("a key with no Spanish or French still shows its English (a test-only entry
 	assert.equal(say(table, "fr", "undo"), "Annuler", "the real keys still speak French beside it");
 });
 
-test("every level has its one plain-words line, once, in the table", () => {
-	for (const l of LEVELS) {
-		assert.ok(DESIGN_STRINGS[`level.${l}`], `level.${l}`);
-		assert.ok(DESIGN_STRINGS[`what.${l}`], `what.${l}`);
-	}
-	assert.equal(DESIGN_STRINGS["what.module"].en, "A module is a unit of the booklet. It holds activities.");
+test("every level has its name in the table, once", () => {
+	for (const l of LEVELS) assert.ok(DESIGN_STRINGS[`level.${l}`], `level.${l}`);
+	assert.equal(DESIGN_STRINGS["level.module"].en, "Module");
 });
 
 test("every key the Design view's code asks for is in the table, and every key in the table is asked for", () => {
@@ -237,12 +250,12 @@ test("every key the Design view's code asks for is in the table, and every key i
 	let code = "";
 	for (const f of files) code += readFileSync(`${ROOT}/src/${f}`, "utf8");
 	const used = new Set([...code.matchAll(/\b(?:ui|uin|t|tn)\(\s*"([a-z][\w.-]*)"/g)].map((m) => m[1]));
-	for (const k of used) assert.ok(k === "confirm.lines" || DESIGN_STRINGS[k], `the code asks for ${k}, which the table lacks`);
+	for (const k of used) assert.ok(DESIGN_STRINGS[k] || (DESIGN_STRINGS[`${k}.one`] && DESIGN_STRINGS[`${k}.other`]), `the code asks for ${k}, which the table lacks`);
 	// a key may be chosen by a condition (`how === "delete" ? "confirm.yes.delete" : ...`) or through a map from a kind, so a key counts as asked
 	// for when its text stands in the code as a string
 	const unused = Object.keys(DESIGN_STRINGS).filter((k) => !code.includes(`"${k}"`) && !/\.(one|other)$/.test(k));
 	assert.deepEqual(unused, [], "a key nothing asks for is dead weight");
-	for (const k of ["confirm.lines.one", "confirm.lines.other"]) assert.ok(DESIGN_STRINGS[k]);
+	for (const k of ["confirm.lines", "card.tabs", "card.pages", "card.questions"]) assert.ok(DESIGN_STRINGS[`${k}.one`] && DESIGN_STRINGS[`${k}.other`]);
 });
 
 test("the fixtures the other tests share still read as before", () => {

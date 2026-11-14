@@ -1,85 +1,81 @@
 /*
- * The Design view: the third way to open a booklet note, beside the Booklet view (the reading page) and Markdown. It draws the note as the
- * tree the format is (design-tree.ts): the booklet's opening, modules, their tabs, activities, their tabs, pages and blocks, each level
- * with its own icon, indent, rail and one line saying what it is, and lets a person add, delete and move parts without writing a line of
- * Markdown. Stage B1 drew the tree, a strict "+ Add" and the changes. Stage C draws a question and a reading callout inert, as a reader sees
- * them (design-sample.ts); lists what "+ Add" offers as a catalogue in four folded groups, each part with a live sample and its keys; and
- * adds the nested hotkeys: a letter opens a popup on a group, a second picks a part, Enter adds it at the selected block's legal place.
+ * The Design view: the third way to open a booklet note, beside the Booklet view (the reading page) and Markdown. It is a page you edit,
+ * drawn the way a reader sees it: a left column of two tabs and a canvas that shows ONE PAGE of the booklet at a time.
+ *
+ *   Outline tab   the navigator (design-nav.ts): the booklet's settings, the booklet, modules, tabs, activities and pages; and what the reader
+ *                 says of the note (lines it cannot read, kept data that matches nothing). A press selects an entry and the canvas draws it
+ *   Add tab       the palette (design-palette.ts): every piece the format has as a picture tile, a Common row, and the place a clicked "+" is.
+ *                 Placing works like chess: pick a tile and the places it may go light up, or click a "+" and only the tiles that may go
+ *                 there stay lit; a tile can also be dragged. Letters still work (a group's, then a piece's): they pick a tile, Enter places it
+ *   canvas        the page (design-canvas-draw.ts): words, questions and callouts as a reader sees them, a friendly card for what is not drawn
+ *                 yet, a "+" between blocks, the parts of a container as cards. A press on a block selects it AND opens it in place
+ *                 (design-edit.ts): a preview, its settings, its Markdown, Cancel and Save; a small bar floats on the selected block
  *
  * It never writes the whole file (note-view.ts). Every change is a smallest-byte replacement of the note (core/design-ops.ts, then
- * `minimalChange`), written into an open Markdown pane's editor or with `vault.process`; nothing else is touched or tidied. The view
- * keeps its own undo and redo of those replacements (core/design-undo.ts), since a `vault.process` write is not documented to join an
- * editor's undo. A person may delete her own work freely: a delete or a move that would leave kept data not matching says what, with
- * counts, and asks; it never blocks.
+ * `minimalChange`), written into an open Markdown pane's editor or with `vault.process`; nothing else is touched or tidied. The view keeps
+ * its own undo and redo of those replacements (core/design-undo.ts), since a `vault.process` write is not documented to join an editor's
+ * undo. A person may delete her own work freely: a delete or a move that would leave kept data not matching says what, with counts, and
+ * asks; it never blocks. A draft in an editor is never thrown away by a drawing, a selection, a move or an undo: it stays until it is saved
+ * or cancelled. Every drawing of a question or a callout is inert, and the view fetches nothing.
  *
- * Stage D: a selected block shows its settings as native Obsidian rows (the id, title, switches and fields the side panel's settings
- * model already knows, core/design-form.ts); a change rewrites only the block's opening line. "Edit as Markdown" (or Enter) opens just
- * the block's own lines in a plain textarea in place, with Save and Cancel; closing it never throws a draft away silently. And the
- * outline and the list of lines the reader cannot read, which were sections of the side panel, are drawn here (core/design-outline.ts),
- * each entry selecting its block.
+ * This file owns the state (the note, the selection, the draft, the piece picked, the place chosen, the open panel); the other files draw
+ * what it hands them and report presses back.
  */
-import { Component, Scope, Setting, type Menu, type WorkspaceLeaf } from "obsidian";
+import { Component, Platform, Scope, type Menu, type WorkspaceLeaf } from "obsidian";
 import {
 	DesignHistory,
 	KEY_GROUPS,
-	PIECES,
 	WORDS_PIECE,
-	addChoices,
-	blockDrawing,
 	blockLines,
-	catalogueListing,
-	changeForm,
+	bookletTitleOf,
+	canvasOf,
 	changeLines,
-	containerAdds,
 	crumbOf,
 	deleteBlock,
-	outlineEntries,
-	formOf,
-	iconNamesOf,
-	hasRemoteMedia,
 	insertPiece,
 	isBookletText,
-	isContainer,
-	isLaterKind,
-	levelOf,
+	listingOf,
 	minimalChange,
 	moveBlock,
 	moveTargets,
 	nameOf,
+	navEntries,
 	needsAsking,
-	listingOf,
+	needsOf,
 	parseDesign,
 	placeFor,
 	popupFor,
 	problemsOf,
+	slotAccepts,
+	slotPositionFor,
 	stepPopup,
+	tileState,
 	troublesOf,
 	walkDesign,
-	whyImmovable,
 	whyUnchangeable,
-	type AddGroup,
 	type Activity,
-	type AddPiece,
 	type CatalogueId,
-	type CatalogueListing,
+	type Canvas,
 	type DesignKey,
 	type DesignKind,
 	type DesignNode,
-	type Form,
-	type FormChange,
-	type Level,
+	type NavEntry,
 	type OpResult,
-	type Piece,
-	type PlaceKind,
 	type PopupRow,
 	type PopupState,
 	type Question,
+	type Slot,
 	type Trouble,
 } from "./core";
 import { askDesign } from "./design-modals";
-import { pickIcon } from "./editor-modals";
-import { drawInertQuestion, drawInertReading, questionOfPiece, questionsByLine, renderWords, type InertOptions } from "./design-sample";
-import { MODE_ICONS, iconEl, iconName, ui, uin } from "./design-text";
+import { drawPage, paintSlot, whereWords, type DrawnPage, type PageCtx, type SlotMode } from "./design-canvas-draw";
+import { EditorBox, type Editing } from "./design-edit";
+import { drawNav, drawTroubles, foldKeys, type NavCtx } from "./design-nav";
+import { drawPalette, groupOfKey, paintPieceButton, paintWhere, pieceByFile, pieceName, type PaletteHandle, type PalettePiece } from "./design-palette";
+import { drawIcon } from "./design-picture";
+import { questionsByLine } from "./design-sample";
+import { MODE_ICONS, iconName, ui, uin } from "./design-text";
+import { capital, kindName, quietNames, titledOf } from "./design-words";
 import { markdownViewOf } from "./markdown-view";
 import { LockedTextView, writeThrough } from "./note-view";
 import { calloutColourIsTriplet } from "./reading";
@@ -91,118 +87,32 @@ export interface DesignHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
 }
 
-const LEVEL_KEY: Readonly<Record<Level, DesignKey>> = {
-	booklet: "level.booklet",
-	module: "level.module",
-	"module-tab": "level.module-tab",
-	activity: "level.activity",
-	"activity-tab": "level.activity-tab",
-	page: "level.page",
-	block: "level.block",
-};
-
-const WHAT_KEY: Readonly<Record<Level, DesignKey>> = {
-	booklet: "what.booklet",
-	module: "what.module",
-	"module-tab": "what.module-tab",
-	activity: "what.activity",
-	"activity-tab": "what.activity-tab",
-	page: "what.page",
-	block: "what.block",
-};
-
-const KIND_KEY: Readonly<Partial<Record<DesignKind, DesignKey>>> = {
-	"front-matter": "kind.front-matter",
-	"data-section": "kind.data-section",
-	records: "kind.records",
-	group: "kind.group",
-	row: "kind.row",
-	question: "kind.question",
-	callout: "kind.callout",
-	notice: "kind.notice",
-	menu: "kind.menu",
-	query: "kind.query",
-	fence: "kind.fence",
-	"page-break": "kind.page-break",
-	prose: "kind.prose",
-	comment: "kind.comment",
-	"as-written": "kind.as-written",
-};
-
-const PLACE_KEY: Readonly<Record<PlaceKind, DesignKey>> = {
-	"front-matter": "place.front-matter",
-	theme: "place.theme",
-	module: "place.module",
-	activity: "place.activity",
-	"module-tab": "place.module-tab",
-	"activity-tab": "place.activity-tab",
-	page: "place.page",
-	question: "place.question",
-	copy: "place.copy",
-	row: "place.row",
-	group: "place.group",
-	query: "place.query",
-	menu: "place.menu",
-	"data-block": "place.data-block",
-	"data-section": "place.data-section",
-	notice: "place.notice",
-	"page-break": "place.page-break",
-	callout: "place.callout",
-	text: "place.text",
-};
-
-const EMPTY_KEY: Readonly<Partial<Record<DesignKind, DesignKey>>> = {
-	booklet: "empty.booklet",
-	module: "empty.module",
-	"module-tab": "empty.module-tab",
-	activity: "empty.activity",
-	"activity-tab": "empty.activity-tab",
-	page: "empty.page",
-	group: "empty.group",
-	row: "empty.row",
-	"data-section": "empty.data-section",
-};
-
-const capital = (s: string): string => (s ? s[0]?.toUpperCase() + s.slice(1) : s);
-
-/** A node's place in the drawing: its kind and first line (no two nodes share both). */
-const keyOf = (n: DesignNode): string => `${n.kind}@${n.start}`;
-
 /** Is this a field of text, or anything a person types in, or inside one? Then a key is hers, not the view's. */
 export function isEditable(el: Element | null): boolean {
 	return !!el && typeof el.closest === "function" && el.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])") !== null;
 }
 
-/** The keys the view's scope listens on: letters and digits for the popup's letters, and the keys that drive it. A key outside the popup is left alone. */
+/** The keys the view's scope listens on: letters and digits for the hotkeys, and the keys that drive them. A key outside them is left alone. */
 const POPUP_KEYS: readonly string[] = [..."abcdefghijklmnopqrstuvwxyz123456789", " ", "Backspace", "Enter", "Escape", "ArrowUp", "ArrowDown"];
-
-const CAT_TITLE: Readonly<Record<CatalogueId, DesignKey>> = { structure: "cat.structure.title", questions: "cat.questions.title", reading: "cat.reading.title", "views-data": "cat.views-data.title" };
-const CAT_BLURB: Readonly<Record<CatalogueId, DesignKey>> = { structure: "cat.structure.blurb", questions: "cat.questions.blurb", reading: "cat.reading.blurb", "views-data": "cat.views-data.blurb" };
-
-/** The words of the two lists of what the reader says about the note. */
-const TROUBLE_KEYS = {
-	problems: { title: "problems.title", count: "problems.title.count", label: "problems.label", none: "problems.none" },
-	leftovers: { title: "leftovers.title", count: "leftovers.title.count", label: "leftovers.label", none: "leftovers.none" },
-} as const satisfies Record<string, Record<"title" | "count" | "label" | "none", DesignKey>>;
 
 const spaced = (keys: string): string => keys.split("").join(" ");
 
-/** A pane at least this wide (in pixels) opens with the outline showing; a narrower one folds it above the tree. */
-const WIDE = 900;
+/** A pane narrower than this (in pixels) is drawn as a phone is: the left column is a panel that slides over the canvas. */
+const NARROW = 700;
 
-/** The small Markdown editor, open on one block: kept across a drawing, so a draft is never lost to one. */
-interface Editing {
-	/** The block it is open on: its first line and its kind. */
+/** The mime type a tile carries while it is dragged. */
+const PIECE_MIME = "application/x-booklet-design-piece";
+
+/** The pieces that are a part of the booklet (a card of a container), not a block among its blocks: placing one leaves the view where it was. */
+const PART_NEEDS: ReadonlySet<string> = new Set(["module", "activity", "tab", "page", "data-section"]);
+
+type Tab = "outline" | "add";
+
+/** What is selected: a line, its kind when known (a line alone picks the outermost block that starts there), and whether only the first page of a part is drawn. */
+interface Selection {
 	start: number;
-	kind: DesignKind;
-	/** The block's own lines as they were when the editor opened. */
-	base: string[];
-	/** What is in the box. */
-	draft: string;
-	/** Esc was pressed once with changes: the next Esc throws them away. */
-	armed: boolean;
-	/** Where the caret was in the box, kept across a drawing. */
-	caret: [number, number] | null;
+	kind: DesignKind | null;
+	firstPage?: boolean;
 }
 
 export class DesignView extends LockedTextView {
@@ -210,46 +120,64 @@ export class DesignView extends LockedTextView {
 	private text = "";
 	/** The tree of `text`, made at each drawing: the nodes the buttons act on. */
 	private root: DesignNode | null = null;
-	/** The block selected: its first line, and its kind when known (a line alone picks the outermost block that starts there). */
-	private sel: { start: number; kind: DesignKind | null } | null = null;
+	private sel: Selection | null = null;
+	/** The node `sel` names in the tree drawn now (null is the booklet). */
+	private selected: DesignNode | null = null;
+	/** The page drawn now, and the slots it has. */
+	private canvas: Canvas | null = null;
+	private drawn: DrawnPage | null = null;
 	private readonly history = new DesignHistory();
-	/** The containers whose "+ Add" is open, by `keyOf`. */
-	private readonly adding = new Set<string>();
 	private renderer: Component | null = null;
-	private readonly boxes = new Map<string, HTMLElement>();
+	private shellEl: HTMLElement | null = null;
+	private leftEl: HTMLElement | null = null;
+	private scrollEl: HTMLElement | null = null;
 	private crumbEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
+	private armedEl: HTMLElement | null = null;
+	private scrimEl: HTMLElement | null = null;
+	private menuBtn: HTMLButtonElement | null = null;
 	private undoBtn: HTMLButtonElement | null = null;
 	private redoBtn: HTMLButtonElement | null = null;
+	private palette: PaletteHandle | null = null;
 	/** What the view last said, kept across a drawing. */
 	private message = "";
+	/** The status line is saying which keys have been typed. */
+	private keysSaid = false;
 	/** A change is under way (a question open, a write landing): another press waits for it to finish. */
 	private busy: Promise<void> | null = null;
-	/** The presses a block has already taken (a press goes up through the blocks around it). */
-	private readonly claimed = new WeakSet<Event>();
-	/** The block `sel` names in the tree drawn now. */
-	private selected: DesignNode | null = null;
-	private followTimer: number | null = null;
-	/** The catalogue's groups that are open, by container and group: a group is drawn (its samples with it) only while it is in here. */
-	private readonly catOpen = new Set<string>();
-	/** What each open group's samples are owned by, so closing the group (or drawing again) unloads them and everything they hold. */
-	private readonly catParts = new Map<string, Component>();
-	/** Where the key popup stands, or null when it is closed. */
-	private popup: PopupState | null = null;
-	private popupEl: HTMLElement | null = null;
 	/** The questions of the note by their line, with their activities, found once for each drawing. */
 	private questions = new Map<number, { activity: Activity; question: Question }>();
 	/** Obsidian gives a callout's colour as a triplet (see reading.ts): said to every inert drawing. */
 	private triplet = false;
-	/** The small Markdown editor, when one is open; at most one, and it stays open on its block while another is selected. */
+	private bookletTitle = "";
+	private followTimer: number | null = null;
+
+	/** The in-place editor's draft, when a block is open; at most one, and it stays on the screen until it is saved or cancelled. */
 	private edit: Editing | null = null;
-	private editorUi: { box: HTMLElement; area: HTMLTextAreaElement; state: HTMLElement } | null = null;
-	/** The scope that holds Ctrl/Cmd+Enter for the small editor while its box has the focus (see `holdSaveKey`). */
+	private editor: EditorBox | null = null;
+	/** The scope that holds Ctrl/Cmd+Enter for the editor while its box has the focus (see `holdSaveKey`). */
 	private saveScope: Scope | null = null;
-	/** Whether the outline is open: null until a person has opened or closed it (then it opens when the pane is wide). */
-	private outlineOpen: boolean | null = null;
+
+	/** The left column's tab, and what each tab remembers. */
+	private tab: Tab = "outline";
+	private readonly folds = new Set<string>();
+	private readonly groupsOpen = new Map<CatalogueId, boolean>();
 	private problemsOpen = false;
 	private leftoversOpen = false;
+	private troubled: { text: string; list: Trouble[] } | null = null;
+
+	/** The piece picked (by its file), the "+" a person clicked (by its id) and whether a tile is being dragged. */
+	private armed: string | null = null;
+	private target: string | null = null;
+	private dragging = false;
+	/** Where the hotkeys stand, or null when they are closed. */
+	private popup: PopupState | null = null;
+
+	/** The pane is narrow (set from its width), and the left column is open as a panel. */
+	private narrow = false;
+	private panelOpen = false;
+	/** The page last drawn (its kind and line), to keep the scroll when the same page is drawn again. */
+	private pageKey = "";
 
 	constructor(
 		leaf: WorkspaceLeaf,
@@ -268,10 +196,10 @@ export class DesignView extends LockedTextView {
 		this.scope ??= new Scope(this.app.scope);
 		this.scope.register(["Mod"], "z", (evt) => this.undoKey(evt, "undo"));
 		this.scope.register(["Mod", "Shift"], "z", (evt) => this.undoKey(evt, "redo"));
-		// the nested hotkeys: a scope of this view, never a command hotkey. Each key acts only when no field of text has the focus and no
-		// modifier is held, so a key typed into a field (the small editor, a later stage) is the field's. What the scope does when a user has
-		// bound the same key herself, and whether it hears a bare letter while a field has the focus, is not known without the real app: the
-		// handler therefore checks the key's own target and the focused element before it acts, and passes the key on otherwise.
+		// the hotkeys: a scope of this view, never a command hotkey. Each key acts only when no field of text has the focus and no
+		// modifier is held, so a key typed into a field (the editor's box) is the field's. What the scope does when a user has bound the
+		// same key herself, and whether it hears a bare letter while a field has the focus, is not known without the real app: the handler
+		// therefore checks the key's own target and the focused element before it acts, and passes the key on otherwise.
 		for (const key of POPUP_KEYS) {
 			this.scope.register([], key, (evt) => this.keyPress(evt, key));
 			if (/^[a-z]$/.test(key)) this.scope.register(["Shift"], key, (evt) => this.keyPress(evt, key));
@@ -282,6 +210,15 @@ export class DesignView extends LockedTextView {
 				if (this.file && info.file === this.file) this.followSoon();
 			}),
 		);
+		// a pane narrower than a tablet draws the left column as a panel (a phone is one whatever its width)
+		if (typeof ResizeObserver !== "undefined") {
+			const watch = new ResizeObserver((entries) => {
+				const w = entries[0]?.contentRect.width ?? this.contentEl.clientWidth;
+				this.setNarrow(w > 0 && w < NARROW);
+			});
+			watch.observe(this.contentEl);
+			this.register(() => watch.disconnect());
+		}
 		this.register(() => {
 			if (this.followTimer !== null) window.clearTimeout(this.followTimer);
 			this.followTimer = null;
@@ -332,10 +269,10 @@ export class DesignView extends LockedTextView {
 		if (md && live && live !== data) data = live;
 		if (clear) {
 			this.sel = null;
-			this.adding.clear();
-			this.catOpen.clear();
-			this.popup = null;
 			this.edit = null;
+			this.armed = this.target = null;
+			this.popup = null;
+			this.panelOpen = false;
 			this.history.clear();
 			this.message = "";
 		} else if (data === this.text && this.root) return; // Obsidian hands the view its own write back: nothing to draw
@@ -350,19 +287,22 @@ export class DesignView extends LockedTextView {
 		this.drop();
 		this.history.clear();
 		this.sel = null;
-		this.adding.clear();
-		this.catOpen.clear();
-		this.popup = null;
 		this.edit = null;
+		this.armed = this.target = null;
+		this.popup = null;
+		this.root = null;
+		this.canvas = null;
+		this.drawn = null;
 		this.releaseSaveKey();
-		this.editorUi = null;
 		this.contentEl.empty();
 	}
 
-	/** The renderer's Component: made for a drawing and unloaded at the next, so its work never outlives what it drew. */
+	/** Lets go of everything a drawing made: the editor's timers and drawings, the palette's sample, and the renderer's Component. */
 	private drop(): void {
-		for (const part of this.catParts.values()) part.unload();
-		this.catParts.clear();
+		this.editor?.dispose();
+		this.editor = null;
+		this.palette?.dispose();
+		this.palette = null;
 		if (!this.renderer) return;
 		const old = this.renderer;
 		this.renderer = null;
@@ -389,59 +329,133 @@ export class DesignView extends LockedTextView {
 		while (this.busy) await this.busy;
 	}
 
+	/* ---- the phone: the left column as a panel ---- */
+
+	private get phone(): boolean {
+		return this.narrow || Platform.isPhone;
+	}
+
+	private setNarrow(narrow: boolean): void {
+		if (narrow === this.narrow) return;
+		this.narrow = narrow;
+		if (!narrow) this.panelOpen = false;
+		if (this.root) this.draw();
+	}
+
+	/** The panel's state shown: the left column and the scrim, hidden or not, and the menu button's `aria-expanded`. */
+	private showPanel(): void {
+		const open = this.phone && this.panelOpen;
+		if (this.leftEl) this.leftEl.hidden = this.phone && !open;
+		if (this.scrimEl) this.scrimEl.hidden = !open;
+		this.menuBtn?.setAttribute("aria-expanded", String(open));
+		this.shellEl?.toggleClass("has-panel", open);
+	}
+
+	private openPanel(): void {
+		if (!this.phone || this.panelOpen) return;
+		this.panelOpen = true;
+		this.showPanel();
+	}
+
+	private closePanel(): void {
+		if (!this.panelOpen) return;
+		this.panelOpen = false;
+		this.showPanel();
+	}
+
 	/* ---- drawing ---- */
+
+	/** Puts the focus back on the control that had it (by its `data-focus`), after a drawing took the element away. */
+	private keepFocus(work: () => void): void {
+		const doc = this.contentEl.ownerDocument;
+		const at = doc.activeElement;
+		const had = at && this.contentEl.contains(at) ? at.getAttribute("data-focus") : null;
+		work();
+		if (!had) return;
+		const again = Array.from(this.contentEl.querySelectorAll<HTMLElement>("[data-focus]")).find((e) => e.getAttribute("data-focus") === had);
+		again?.focus();
+	}
 
 	private draw(): void {
 		const el = this.contentEl;
-		const top = el.scrollTop;
-		const typing = this.rememberEditor();
+		const top = this.scrollEl?.scrollTop ?? 0;
+		const typing = this.editor?.remember() ?? false;
 		this.releaseSaveKey();
-		this.drop();
-		this.renderer = this.addChild(new Component());
-		el.empty();
-		this.boxes.clear();
-		const root = parseDesign(this.text);
-		this.root = root;
-		this.selected = this.find(root);
-		if (!this.selected) this.sel = null;
+		this.keepFocus(() => {
+			this.drop();
+			this.renderer = this.addChild(new Component());
+			el.empty();
+			el.toggleClass("is-phone", this.phone);
+			const root = parseDesign(this.text);
+			this.root = root;
+			this.selected = this.find(root);
+			if (!this.selected) this.sel = null;
+			this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
+			this.triplet = calloutColourIsTriplet(el);
+			this.bookletTitle = bookletTitleOf(this.text);
+			const canvas = canvasOf(root, this.selected, { firstPage: this.sel?.firstPage === true, title: this.bookletTitle });
+			this.canvas = canvas;
 
-		this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
-		this.triplet = calloutColourIsTriplet(el);
-		this.drawBar(el);
-		this.popupEl = el.createDiv({ cls: "booklet-design-popup-host" });
-		this.showPopup();
-		if (!isBookletText(this.text)) el.createDiv({ cls: "booklet-design-banner", text: ui("note.notBooklet") });
-		this.crumbEl = el.createEl("nav", { cls: "booklet-design-crumb", attr: { "aria-label": ui("crumb.label") } });
-		this.statusEl = el.createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
-		this.statusEl.setText(this.message);
-		// an editor whose block is no longer where it was keeps its text on the screen, above the tree
-		this.editorUi = null;
-		if (this.edit && !walkDesign(root).some((n) => this.editsNode(n))) this.drawEditor(el.createDiv({ cls: "booklet-design-settings is-editor is-detached" }), null);
-		const layout = el.createDiv({ cls: "booklet-design-layout" });
-		const main = layout.createDiv({ cls: "booklet-design-main" });
-		this.drawSide(main, root);
-		const tree = main.createDiv({ cls: "booklet-design-tree" });
-		this.drawNode(tree, root);
-		this.drawCrumb();
-		this.showUndo();
-		el.scrollTop = top;
-		if (typing) this.focusEditor();
+			const shell = el.createDiv({ cls: "booklet-design-shell" });
+			this.shellEl = shell;
+			this.leftEl = shell.createEl("aside", { cls: "booklet-design-left", attr: { id: "booklet-design-left" } });
+			this.scrimEl = shell.createEl("button", { cls: "booklet-design-scrim", attr: { type: "button", "aria-label": ui("panel.close") } });
+			this.scrimEl.addEventListener("click", () => this.closePanel());
+			const main = shell.createDiv({ cls: "booklet-design-main" });
+			this.drawTop(main);
+			this.statusEl = main.createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
+			this.statusEl.setText(this.message);
+			if (!isBookletText(this.text)) main.createDiv({ cls: "booklet-design-banner", text: ui("note.notBooklet") });
+			this.armedEl = main.createDiv({ cls: "booklet-design-armedbar", attr: { role: "status" } });
+			this.armedEl.hidden = true;
+			const scroll = main.createDiv({ cls: "booklet-design-scroll" });
+			this.scrollEl = scroll;
+
+			// a draft whose block is not on this page (or not in the note any more) keeps its text on the screen, above the page
+			if (this.edit) {
+				const node = walkDesign(root).find((n) => this.editsNode(n)) ?? null;
+				if (!node) this.drawEditorBox(scroll, null, "gone");
+				else if (!this.onPage(canvas, node)) this.drawEditorBox(scroll, node, "detached");
+			}
+			this.drawn = drawPage(scroll, canvas, this.pageCtx(root));
+			// a place a person chose belongs to the page it was chosen on
+			if (this.target && !this.slotById(this.target)) this.target = null;
+			for (const { slot, el: slotEl } of this.drawn.slots) this.wireSlot(slotEl, slot);
+			this.drawLeft();
+			this.repaint();
+			this.showPanel();
+			this.drawCrumb();
+			this.showUndo();
+			quietNames(el);
+		});
+		const key = this.canvas ? `${this.canvas.holder.kind}@${this.canvas.holder.start}|${this.canvas.firstPage}` : "";
+		if (this.scrollEl) this.scrollEl.scrollTop = key === this.pageKey ? top : 0;
+		this.pageKey = key;
+		if (typing) this.editor?.focus();
 	}
 
-	private drawBar(parent: HTMLElement): void {
-		const bar = parent.createDiv({ cls: "booklet-design-bar", attr: { role: "toolbar", "aria-label": ui("toolbar.label") } });
+	/** Is this node drawn on the page (it is the page, the settings, or inside one of its blocks)? */
+	private onPage(canvas: Canvas, n: DesignNode): boolean {
+		if (n === canvas.holder || n === canvas.focus) return true;
+		return [...canvas.blocks, ...canvas.later].some((b) => walkDesign(b).includes(n));
+	}
+
+	private drawTop(main: HTMLElement): void {
+		const top = main.createDiv({ cls: "booklet-design-top" });
+		if (this.phone) {
+			const menu = top.createEl("button", { cls: "booklet-design-menubutton", attr: { type: "button", "aria-label": ui("panel.show"), "aria-expanded": "false", "aria-controls": "booklet-design-left" } });
+			if (!drawIcon(menu, ["panel-left", "menu", "list"])) menu.setText("☰");
+			menu.addEventListener("click", () => (this.panelOpen ? this.closePanel() : this.openPanel()));
+			this.menuBtn = menu;
+		} else this.menuBtn = null;
+		const bar = top.createDiv({ cls: "booklet-design-bar", attr: { role: "toolbar", "aria-label": ui("toolbar.label") } });
 		this.undoBtn = bar.createEl("button", { text: ui("undo"), cls: "booklet-design-undo", attr: { type: "button", title: ui("undo.title") } });
 		this.redoBtn = bar.createEl("button", { text: ui("redo"), cls: "booklet-design-redo", attr: { type: "button", title: ui("redo.title") } });
 		this.undoBtn.addEventListener("click", () => void this.stepBack("undo"));
 		this.redoBtn.addEventListener("click", () => void this.stepBack("redo"));
-		// every keyboard action has a button: a phone has no hover and may have no keyboard
-		const add = bar.createEl("button", { text: ui("keys.addPiece"), cls: "booklet-design-addpiece", attr: { type: "button", title: ui("keys.addPiece.title") } });
-		add.addEventListener("click", () => this.openCatalogue());
-		const groups = bar.createDiv({ cls: "booklet-design-groupbar", attr: { role: "group", "aria-label": ui("keys.bar") } });
-		for (const g of KEY_GROUPS) {
-			const b = groups.createEl("button", { text: g.title, cls: "booklet-design-group", attr: { type: "button", "data-key": g.key, "aria-label": ui("keys.group.label", { group: g.title, key: g.key }), title: g.blurb } });
-			b.addEventListener("click", () => this.openKeys(g.key));
-		}
+		// named by a hidden line, not by an aria-label (Obsidian would show that as a tooltip over the trail)
+		const crumbName = top.createSpan({ cls: "booklet-design-sr", text: ui("crumb.label"), attr: { id: "booklet-design-crumb-name" } });
+		this.crumbEl = top.createEl("nav", { cls: "booklet-design-crumb", attr: { "aria-labelledby": crumbName.id } });
 	}
 
 	private showUndo(): void {
@@ -456,362 +470,14 @@ export class DesignView extends LockedTextView {
 		return walkDesign(root).find((n) => n.parent !== null && n.start === s.start && (s.kind === null || n.kind === s.kind)) ?? null;
 	}
 
-	private kindName(n: DesignNode): string {
-		const level = levelOf(n);
-		return ui(level === "block" ? (KIND_KEY[n.kind] ?? "level.block") : LEVEL_KEY[level]);
-	}
-
-	/** What a node is called: its title or id; the booklet is called what its note is. */
-	private called(n: DesignNode): string {
-		return n.parent ? nameOf(n) : (this.file?.basename ?? "");
-	}
-
-	/** What a block is called on screen: its kind, and its title or id when it has one. */
 	private titled(n: DesignNode): string {
-		const name = this.called(n);
-		return name ? `${this.kindName(n)}: ${name}` : this.kindName(n);
+		return titledOf(n, this.bookletTitle, this.file?.basename ?? "");
 	}
 
-	private drawNode(parent: HTMLElement, n: DesignNode): void {
-		const level = levelOf(n);
-		const container = isContainer(n);
-		const selected = this.selected === n;
-		const box = parent.createDiv({
-			cls: ["booklet-design-node", `is-level-${level}`, `is-kind-${n.kind}`, container ? "is-container" : "is-leaf", ...(selected ? ["is-selected"] : [])],
-			attr: { "data-kind": n.kind, "data-level": level, "data-start": String(n.start), role: "group", "aria-label": this.titled(n) },
-		});
-		this.boxes.set(keyOf(n), box);
-		// a press anywhere on a block that is not on a control of its own selects it; of nested blocks, the innermost
-		box.addEventListener("click", (evt) => {
-			if (this.claimed.has(evt)) return;
-			// (the target is an element of whichever window the view is in, so it is not tested with `instanceof`)
-			const hit = evt.target as Element | null;
-			if (hit && typeof hit.closest === "function" && hit.closest("button, summary, a, input, textarea, select, .booklet-design-settings, .booklet-design-side")) return;
-			this.claimed.add(evt);
-			this.select(n);
-		});
-
-		const head = box.createDiv({ cls: "booklet-design-head" });
-		const icon = head.createSpan({ cls: "booklet-design-icon", attr: { "aria-hidden": "true" } });
-		const svg = iconEl(iconNamesOf(n));
-		if (svg) icon.appendChild(svg);
-		const pick = head.createEl("button", { cls: "booklet-design-pick", attr: { type: "button", "aria-pressed": String(selected), "aria-label": ui("act.select.label", { name: this.titled(n) }) } });
-		pick.createSpan({ cls: "booklet-design-kind", text: this.kindName(n), attr: { title: ui(WHAT_KEY[level]) } });
-		const name = this.called(n);
-		pick.createSpan({ cls: "booklet-design-name", text: name || ui("card.untitled") });
-		// what a card shows of a block the view does not draw yet: its kind, as the format names it, and its id
-		const more = [n.kind === "question" || n.kind === "callout" || n.kind === "fence" ? n.detail : "", n.id && n.id !== name ? n.id : ""].filter(Boolean).join(" · ");
-		if (more) head.createSpan({ cls: "booklet-design-more", text: more });
-		pick.addEventListener("click", () => this.select(n));
-		this.drawActions(head, n);
-		this.placeSettings(box, n);
-
-		if (container) {
-			box.createDiv({ cls: "booklet-design-what", text: ui(WHAT_KEY[level]) });
-			if (n.parent) this.drawLines(box, n, "card.fold");
-			const body = box.createDiv({ cls: "booklet-design-body" });
-			for (const c of n.children) this.drawNode(body, c);
-			this.drawAdd(body, n);
-		} else this.drawLeaf(box, n);
-	}
-
-	/** Delete, Move up and Move down: visible buttons, no hover and no drag, so a phone has every one. Not where the view never touches the block. */
-	private drawActions(head: HTMLElement, n: DesignNode): void {
-		const movable = !!n.parent && !whyImmovable(n, "moved");
-		const deletable = !!n.parent && !whyImmovable(n, "deleted");
-		if (!movable && !deletable) return;
-		const acts = head.createDiv({ cls: "booklet-design-actions", attr: { role: "group", "aria-label": this.titled(n) } });
-		if (movable) {
-			const to = moveTargets(n);
-			const up = acts.createEl("button", { text: ui("act.up"), cls: "booklet-design-up", attr: { type: "button", "aria-label": ui("act.up.label", { name: this.titled(n) }) } });
-			const down = acts.createEl("button", { text: ui("act.down"), cls: "booklet-design-down", attr: { type: "button", "aria-label": ui("act.down.label", { name: this.titled(n) }) } });
-			up.disabled = !to.up;
-			down.disabled = !to.down;
-			up.addEventListener("click", () => void this.move(n, to.up));
-			down.addEventListener("click", () => void this.move(n, to.down));
-		}
-		if (deletable) {
-			const del = acts.createEl("button", { text: ui("act.delete"), cls: "booklet-design-delete", attr: { type: "button", "aria-label": ui("act.delete.label", { name: this.titled(n) }) } });
-			del.addEventListener("click", () => void this.remove(n));
-		}
-	}
-
-	/** A block's own lines, as the note has them, in a fold: nothing the view draws is hidden from the person who wants to see the Markdown. */
-	private drawLines(box: HTMLElement, n: DesignNode, label: DesignKey): void {
-		const lines = blockLines(this.text, n);
-		const fold = box.createEl("details", { cls: "booklet-design-fold" });
-		fold.createEl("summary", { text: ui(label) });
-		fold.createEl("pre", { cls: "booklet-design-lines", text: lines.join("\n") });
-	}
-
-	/** The options every inert drawing of this view is made with: what owns it, where the note is, and where it goes. */
-	private inertOptions(into: HTMLElement, owner: Component): InertOptions {
-		return { app: this.app, owner, sourcePath: this.file?.path ?? "", into, triplet: this.triplet };
-	}
-
-	private drawLeaf(box: HTMLElement, n: DesignNode): void {
-		if (n.kind === "records") {
-			box.createDiv({ cls: "booklet-design-what", text: ui("card.records") });
-			return;
-		}
-		const lines = blockLines(this.text, n);
-		const renderer = this.renderer;
-		if (n.kind === "prose") {
-			// words are drawn as Obsidian draws Markdown; the Component is the drawing's, unloaded at the next
-			const words = box.createDiv({ cls: "booklet-design-prose markdown-rendered" });
-			const markdown = lines.join("\n");
-			if (renderer) renderWords(this.app, renderer, markdown, words, this.file?.path ?? "");
-			else words.setText(markdown);
-			return;
-		}
-		// text the view cannot read is shown exactly as the note has it, `>` marks of any group around it included
-		if (n.kind === "as-written") {
-			box.createDiv({ cls: "booklet-design-what", text: n.detail ? `${ui("card.asWritten")} ${n.detail}` : ui("card.asWritten") });
-			const raw = this.text.split("\n").slice(n.start, n.end).map((l) => l.replace(/\r$/, ""));
-			while (raw.length > 1 && !(raw[raw.length - 1] ?? "").trim()) raw.pop();
-			box.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("card.lines") }, text: raw.join("\n") });
-			return;
-		}
-		// a block the drawing code draws is drawn as a reader sees it with nothing answered, and cannot be answered here; its lines stay one fold away
-		const how = blockDrawing(n);
-		const found = how === "question" ? this.questions.get(n.start) : undefined;
-		let later = n.kind === "question" && isLaterKind(n.detail);
-		let remote = false;
-		if (renderer && how === "question" && found) {
-			const into = box.createDiv({ cls: "booklet-design-drawn", attr: { role: "group", "aria-label": ui("draw.label") } });
-			if (drawInertQuestion(this.inertOptions(into, renderer), found.activity, found.question)) {
-				this.drawLines(box, n, "draw.fold");
-				return;
-			}
-			into.remove();
-			later = later || found.question.each !== null;
-		} else if (renderer && how === "reading") {
-			remote = hasRemoteMedia(lines.join("\n"));
-			if (!remote) {
-				const into = box.createDiv({ cls: "booklet-design-drawn", attr: { role: "group", "aria-label": ui("draw.label") } });
-				drawInertReading(this.inertOptions(into, renderer), lines.join("\n"));
-				this.drawLines(box, n, "draw.fold");
-				return;
-			}
-		}
-		// a labelled card: its kind, id and Markdown lines (a listen, a widget, a question asked for each pick and every view of data stay one in this beta)
-		if (later) box.createDiv({ cls: "booklet-design-what", text: ui("draw.later") });
-		else if (remote) box.createDiv({ cls: "booklet-design-what", text: ui("draw.remote") });
-		box.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("card.lines") }, text: lines.join("\n") });
-	}
-
-	/** What a container says it holds nothing and what to add, then its "+ Add". */
-	private drawAdd(body: HTMLElement, n: DesignNode): void {
-		const k = keyOf(n);
-		const adds = containerAdds(n);
-		const emptyKey = EMPTY_KEY[n.kind];
-		if (adds.empty !== null && emptyKey) body.createDiv({ cls: "booklet-design-empty", text: ui(emptyKey) });
-		const row = body.createDiv({ cls: "booklet-design-addrow" });
-		const open = this.adding.has(k);
-		const button = row.createEl("button", { text: ui("act.add"), cls: "booklet-design-add", attr: { type: "button", "aria-expanded": String(open), "aria-label": ui("act.add.label", { name: this.titled(n) }) } });
-		button.addEventListener("click", () => {
-			if (this.adding.has(k)) this.adding.delete(k);
-			else this.adding.add(k);
-			this.draw();
-			this.boxes.get(k)?.querySelector<HTMLElement>(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-add")?.focus();
-		});
-		if (open) this.drawPanel(row, n);
-	}
-
-	/**
-	 * The catalogue: only what is legal where it would go (core/design-model.ts `addChoices`, so no illegal part is ever listed); a part that
-	 * waits on another says which. The parts are laid out in four groups, each folded to its name and one sentence and opened on a press;
-	 * only an open group is drawn, with each part's live sample, so closed groups cost nothing.
-	 */
-	private drawPanel(row: HTMLElement, n: DesignNode): void {
-		const choices = addChoices(n);
-		const panel = row.createDiv({ cls: "booklet-design-panel", attr: { role: "group", "aria-label": ui("cat.label") } });
-		for (const f of choices.first) panel.createDiv({ cls: "booklet-design-needs", text: ui("add.needs", { kind: ui(PLACE_KEY[f.kind]).toLowerCase(), first: ui(PLACE_KEY[f.first]).toLowerCase() }) });
-		if (!choices.groups.length && !choices.first.length) panel.createDiv({ cls: "booklet-design-needs", text: ui("add.nothing") });
-		for (const g of catalogueListing(choices, PIECES)) this.drawCatGroup(panel, n, g);
-	}
-
-	private drawCatGroup(panel: HTMLElement, n: DesignNode, g: CatalogueListing): void {
-		const id = `${keyOf(n)}|${g.id}`;
-		const wrap = panel.createDiv({ cls: "booklet-design-catgroup", attr: { "data-group": g.id } });
-		const title = ui(CAT_TITLE[g.id]);
-		const blurb = ui(CAT_BLURB[g.id]);
-		const head = wrap.createEl("button", { cls: "booklet-design-cathead", attr: { type: "button", "aria-expanded": String(this.catOpen.has(id)), "aria-label": ui("cat.open.label", { group: title, blurb }) } });
-		head.createSpan({ cls: "booklet-design-cattitle", text: title });
-		head.createSpan({ cls: "booklet-design-catblurb", text: blurb });
-		const fill = (): void => {
-			wrap.querySelector(":scope > .booklet-design-catbody")?.remove();
-			this.catParts.get(id)?.unload();
-			this.catParts.delete(id);
-			const open = this.catOpen.has(id);
-			head.setAttribute("aria-expanded", String(open));
-			wrap.toggleClass("is-open", open);
-			if (!open) return;
-			// the samples belong to a Component of their own, so closing the group lets go of them and of every observer they made
-			const owner = this.renderer?.addChild(new Component());
-			if (owner) this.catParts.set(id, owner);
-			const body = wrap.createDiv({ cls: "booklet-design-catbody" });
-			for (const e of g.entries) this.drawCatEntry(body, n, e, owner ?? null);
-		};
-		head.addEventListener("click", () => {
-			if (this.catOpen.has(id)) this.catOpen.delete(id);
-			else this.catOpen.add(id);
-			fill();
-		});
-		if (this.catOpen.has(id)) fill();
-	}
-
-	private drawCatEntry(body: HTMLElement, n: DesignNode, e: CatalogueListing["entries"][number], owner: Component | null): void {
-		const label = e.file === WORDS_PIECE.file ? ui("piece.words") : e.label;
-		const name = capital(label);
-		const item = body.createDiv({ cls: "booklet-design-catitem", attr: { "data-entry": e.file, "data-place": e.place.kind } });
-		const head = item.createDiv({ cls: "booklet-design-catitem-head" });
-		head.createSpan({ cls: "booklet-design-catlabel", text: name });
-		head.createSpan({ cls: "booklet-design-catkeys", text: e.keys ? ui("cat.keys", { keys: spaced(e.keys) }) : ui("cat.nokeys") });
-		const add = head.createEl("button", { text: ui("cat.add"), cls: "booklet-design-piece", attr: { type: "button", "data-piece": e.file, "aria-label": ui("cat.add.label", { name }) } });
-		add.addEventListener("click", () => void this.add(n, e.place, e, label));
-		// its sample: drawn from the piece's own text, which is fixed local content; a piece with no drawing is its Markdown, labelled
-		const sample = item.createDiv({ cls: "booklet-design-catsample" });
-		if (owner && e.sample === "question") {
-			const q = questionOfPiece(e.text);
-			sample.setAttribute("aria-label", ui("cat.sample.label", { name }));
-			sample.setAttribute("role", "group");
-			if (q && drawInertQuestion(this.inertOptions(sample, owner), q.activity, q.question)) return;
-		} else if (owner && e.sample === "reading") {
-			sample.setAttribute("aria-label", ui("cat.sample.label", { name }));
-			sample.setAttribute("role", "group");
-			drawInertReading(this.inertOptions(sample, owner), e.text.trimEnd());
-			return;
-		}
-		sample.createEl("pre", { cls: "booklet-design-lines", attr: { "aria-label": ui("cat.card.label", { name }) }, text: e.text.trimEnd() });
-	}
-
-	/** Opens the catalogue of the container the selection is in (the booklet when nothing is selected), and puts the focus on its first group. */
-	openCatalogue(): void {
-		const root = this.root;
-		if (!root) return;
-		const at = this.selected ?? root;
-		const container = isContainer(at) ? at : (at.parent ?? root);
-		this.adding.add(keyOf(container));
-		this.draw();
-		this.boxes.get(keyOf(container))?.querySelector<HTMLElement>(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-cathead")?.focus();
-	}
-
-	/* ---- the key popup: a letter picks a group, a second a part, Enter adds it where the selection's legal place is ---- */
-
-	/** Opens the popup on a group (or on the groups, with null). */
-	openKeys(groupKey: string | null = null): void {
-		this.popup = popupFor(groupKey);
-		this.showPopup();
-	}
-
-	private closeKeys(): void {
-		this.popup = null;
-		this.showPopup();
-	}
-
-	/** One key of the scope. It acts only in a view with no field of text focused and no modifier held; every other key goes on to whatever it was for. */
-	private keyPress(evt: KeyboardEvent, key: string): false | undefined {
-		const doc = this.contentEl.ownerDocument;
-		if (isEditable(evt.target as Element | null) || isEditable(doc.activeElement)) return undefined;
-		if (evt.ctrlKey || evt.metaKey || evt.altKey) return undefined;
-		if (!this.popup) {
-			// Enter on the selected block opens its Markdown in place (not when the key is a button's or a link's own press)
-			if (key === "Enter" && !evt.shiftKey) {
-				const at = this.selected;
-				if (!at || whyUnchangeable(at) || !this.enterIsFree(evt.target as Element | null, at)) return undefined;
-				this.openEditor(at);
-				return false;
-			}
-			// closed: only a group's letter does anything (Shift and every other key are not the view's)
-			const g = evt.shiftKey ? undefined : KEY_GROUPS.find((x) => x.key === key);
-			if (!g) return undefined;
-			this.openKeys(g.key);
-			return false;
-		}
-		// open: Enter and Space on a button of the popup itself are that button's; everywhere else they are the popup's
-		const target = evt.target as Element | null;
-		if ((key === "Enter" || key === " ") && target && typeof target.closest === "function" && target.closest(".booklet-design-popup button")) return undefined;
-		const step = stepPopup(this.popup, key);
-		this.popup = step.state;
-		if (step.choose) void this.chooseRow(step.choose);
-		else this.showPopup();
-		return false;
-	}
-
-	/** Where a piece would go for the keys, from the tree drawn now and the block selected. */
-	private placeOf(piece: Piece): ReturnType<typeof placeFor> {
-		return this.root ? placeFor(this.root, this.selected, piece) : { ok: false, reason: "There is nothing drawn yet." };
-	}
-
-	/** Takes a row of the popup: adds its piece, or says why it cannot go here and leaves the popup as it is. */
-	private chooseRow(row: PopupRow): Promise<void> {
-		const piece = row.piece;
-		if (!piece) return Promise.resolve();
-		const name = capital(piece.label);
-		const placed = this.placeOf(piece);
-		if (!placed.ok) {
-			this.say(ui("keys.refused", { name, reason: placed.reason }));
-			this.showPopup();
-			return Promise.resolve();
-		}
-		return this.addAt(placed.position, piece, piece.label, null);
-	}
-
-	private showPopup(): void {
-		const host = this.popupEl;
-		if (!host) return;
-		host.empty();
-		const state = this.popup;
-		if (!state) return;
-		const list = listingOf(state);
-		const box = host.createDiv({ cls: "booklet-design-popup", attr: { role: "group", "aria-label": ui("keys.label") } });
-		const head = box.createDiv({ cls: "booklet-design-popup-head" });
-		head.createSpan({ cls: "booklet-design-popup-title", text: ui("keys.title") });
-		const back = head.createEl("button", { text: ui("keys.back"), cls: "booklet-design-popup-back", attr: { type: "button" } });
-		back.addEventListener("click", () => {
-			if (!this.popup) return;
-			this.popup = this.popup.rest || this.popup.group ? stepPopup(this.popup, "Backspace").state : null;
-			this.showPopup();
-		});
-		const close = head.createEl("button", { text: ui("keys.close"), cls: "booklet-design-popup-close", attr: { type: "button" } });
-		close.addEventListener("click", () => this.closeKeys());
-		box.createDiv({ cls: "booklet-design-popup-hint", text: ui("keys.hint") });
-		const gname = list.group?.title ?? "";
-		const typed = list.typed.trim();
-		const line = list.mode === "groups" ? ui("keys.groups") : list.mode === "pieces" ? ui("keys.in", { group: gname }) : list.mode === "variants" ? ui("keys.variants", { name: capital(list.rows[0]?.label ?? "") }) : list.rows.length ? ui("keys.filter", { typed }) : ui("keys.none", { typed });
-		box.createDiv({ cls: "booklet-design-popup-line", text: line, attr: { role: "status", "aria-live": "polite" } });
-		const ul = box.createEl("ul", { cls: "booklet-design-popup-rows" });
-		list.rows.forEach((r, i) => {
-			const li = ul.createEl("li", { cls: ["booklet-design-popup-item", ...(i === list.cursor ? ["is-cursor"] : [])] });
-			const placed = r.piece ? this.placeOf(r.piece) : null;
-			const b = li.createEl("button", {
-				cls: "booklet-design-popup-row",
-				attr: {
-					type: "button",
-					"data-keys": r.keys.replace(/ /g, ""),
-					...(r.piece ? { "data-piece": r.piece.file } : {}),
-					...(i === list.cursor ? { "aria-current": "true" } : {}),
-					"aria-label": r.opens ? ui("keys.group.label", { group: r.label, key: r.keys }) : ui("keys.pick.label", { name: capital(r.label), keys: r.keys || "Enter" }),
-				},
-			});
-			b.createSpan({ cls: "booklet-design-popup-keys", text: r.keys || "↵" });
-			b.createSpan({ cls: "booklet-design-popup-label", text: capital(r.label) });
-			if (r.detail && r.opens) b.createSpan({ cls: "booklet-design-popup-detail", text: r.detail });
-			else if (r.detail && list.mode === "filter") b.createSpan({ cls: "booklet-design-popup-detail", text: r.detail });
-			if (placed && !placed.ok) {
-				b.disabled = true;
-				li.addClass("is-disabled");
-				li.createDiv({ cls: "booklet-design-popup-why", text: ui("keys.disabled", { reason: placed.reason }) });
-			}
-			b.addEventListener("click", () => {
-				if (!this.popup) return;
-				if (r.opens) {
-					this.popup = popupFor(r.opens);
-					this.showPopup();
-				} else void this.chooseRow(r);
-			});
-		});
+	private say(words: string): void {
+		this.message = words;
+		this.keysSaid = false;
+		this.statusEl?.setText(words);
 	}
 
 	private drawCrumb(): void {
@@ -822,325 +488,589 @@ export class DesignView extends LockedTextView {
 		const trail = crumbOf(this.selected ?? root);
 		trail.forEach((n, i) => {
 			if (i) nav.createSpan({ cls: "booklet-design-crumb-sep", text: "›", attr: { "aria-hidden": "true" } });
-			const label = this.titled(n);
-			const b = nav.createEl("button", { text: label, cls: "booklet-design-crumb-item", attr: { type: "button" } });
+			const b = nav.createEl("button", { text: this.titled(n), cls: "booklet-design-crumb-item", attr: { type: "button" } });
 			if (i === trail.length - 1) b.setAttribute("aria-current", "true");
-			b.addEventListener("click", () => this.select(n));
+			b.addEventListener("click", () => this.navigate(n));
 		});
 	}
 
-	private select(n: DesignNode): void {
+	/* ---- the left column ---- */
+
+	private drawLeft(): void {
+		const left = this.leftEl;
+		const root = this.root;
+		if (!left || !root) return;
+		this.keepFocus(() => {
+			this.palette?.dispose();
+			this.palette = null;
+			left.empty();
+			const head = left.createDiv({ cls: "booklet-design-lefthead" });
+			const title = head.createSpan({ cls: "booklet-design-lefttitle", text: this.file?.basename ?? ui("view.name"), attr: { id: "booklet-design-left-title" } });
+			// named by what it shows, not by an aria-label: Obsidian would show that as a tooltip over the whole column
+			left.setAttribute("aria-labelledby", title.id);
+			const close = head.createEl("button", { cls: "booklet-design-panelclose", attr: { type: "button", "aria-label": ui("panel.close") } });
+			if (!drawIcon(close, ["x"])) close.setText("×");
+			close.addEventListener("click", () => this.closePanel());
+
+			const tabs = left.createDiv({ cls: "booklet-design-tabs", attr: { role: "tablist", "aria-label": ui("tabs.label") } });
+			const order: Tab[] = ["outline", "add"];
+			for (const t of order) {
+				const b = tabs.createEl("button", {
+					text: ui(t === "outline" ? "tab.outline" : "tab.add"),
+					cls: "booklet-design-tab",
+					attr: { type: "button", role: "tab", "aria-selected": String(this.tab === t), tabindex: this.tab === t ? "0" : "-1", "data-tab": t, "data-focus": `tab:${t}`, id: `booklet-design-tab-${t}`, "aria-controls": "booklet-design-pane" },
+				});
+				b.addEventListener("click", () => this.setTab(t));
+				b.addEventListener("keydown", (evt) => {
+					const at = order.indexOf(this.tab);
+					const to = evt.key === "ArrowRight" ? order[(at + 1) % order.length] : evt.key === "ArrowLeft" ? order[(at + order.length - 1) % order.length] : evt.key === "Home" ? order[0] : evt.key === "End" ? order[order.length - 1] : undefined;
+					if (!to) return;
+					evt.preventDefault();
+					evt.stopPropagation();
+					this.setTab(to, true);
+				});
+			}
+			const pane = left.createDiv({ cls: ["booklet-design-pane", `is-${this.tab}`], attr: { role: "tabpanel", id: "booklet-design-pane", "aria-labelledby": `booklet-design-tab-${this.tab}` } });
+			if (this.tab === "outline") this.drawOutline(pane, root);
+			else this.drawAdd(pane);
+			quietNames(left);
+		});
+	}
+
+	private setTab(tab: Tab, focus = false): void {
+		this.tab = tab;
+		this.drawLeft();
+		this.repaint();
+		if (focus) this.leftEl?.querySelector<HTMLElement>(`[data-tab="${tab}"]`)?.focus();
+	}
+
+	private drawOutline(pane: HTMLElement, root: DesignNode): void {
+		const entries = navEntries(root, { title: this.bookletTitle || this.file?.basename || "" });
+		const ctx: NavCtx = {
+			entries,
+			isCurrent: (e) => this.isCurrent(e),
+			isFolded: (k) => this.folds.has(k),
+			fold: (k) => {
+				if (this.folds.has(k)) this.folds.delete(k);
+				else this.folds.add(k);
+				this.drawLeft();
+			},
+			select: (e) => this.pressEntry(e),
+		};
+		drawNav(pane.createDiv({ cls: "booklet-design-navwrap" }), ctx);
+		// what the reader says of the note: only a booklet is read
+		const foot = pane.createDiv({ cls: "booklet-design-navfoot" });
+		if (!this.troubled || this.troubled.text !== this.text) {
+			const list = isBookletText(this.text) ? troublesOf(root, problemsOf(this.text)) : [];
+			this.troubled = { text: this.text, list };
+		}
+		const list = this.troubled.list;
+		drawTroubles(
+			foot,
+			list.filter((t) => t.problem.kind !== "leftover"),
+			"problems",
+			{ open: this.problemsOpen, remember: (o) => void (this.problemsOpen = o), go: (n) => this.reveal(n) },
+		);
+		drawTroubles(
+			foot,
+			list.filter((t) => t.problem.kind === "leftover"),
+			"leftovers",
+			{ open: this.leftoversOpen, remember: (o) => void (this.leftoversOpen = o), go: (n) => this.reveal(n) },
+		);
+	}
+
+	private isCurrent(e: NavEntry): boolean {
+		const c = this.canvas;
+		if (!c) return false;
+		if (e.kind === "settings") return c.focus?.kind === "front-matter";
+		if (c.focus?.kind === "front-matter") return false;
+		if (e.kind === "first-page") return c.firstPage && c.holder === e.holder;
+		return !c.firstPage && e.node === c.holder;
+	}
+
+	private drawAdd(pane: HTMLElement): void {
+		const keyed = this.popup?.group ? groupOfKey(this.popup.group) : null;
+		this.palette = drawPalette(pane, {
+			app: this.app,
+			sourcePath: "",
+			triplet: this.triplet,
+			shell: this.shellEl ?? pane,
+			owner: () => this.renderer,
+			phone: this.phone,
+			isOpen: (id) => this.groupsOpen.get(id) ?? id === "questions",
+			toggle: (id) => {
+				this.groupsOpen.set(id, !(this.groupsOpen.get(id) ?? id === "questions"));
+				this.drawLeft();
+				this.repaint();
+			},
+			keyed,
+			press: (piece) => this.pressPiece(piece),
+			dragStart: (piece, evt) => this.dragStart(piece, evt),
+			dragEnd: () => this.dragEnd(),
+		});
+	}
+
+	/* ---- the page ---- */
+
+	private pageCtx(root: DesignNode): PageCtx {
+		return {
+			app: this.app,
+			sourcePath: this.file?.path ?? "",
+			triplet: this.triplet,
+			text: this.text,
+			root,
+			owner: this.renderer ?? new Component(),
+			bookletTitle: this.bookletTitle,
+			noteName: this.file?.basename ?? "",
+			questionAt: (line) => this.questions.get(line),
+			isOpen: (n) => this.editsNode(n),
+			pressBlock: (n) => this.openEditor(n),
+			openCard: (n) => this.navigate(n),
+			editNode: (n) => this.openEditor(n),
+			move: (n, to) => void this.move(n, to),
+			remove: (n) => void this.remove(n),
+			drawEditor: (host, n) => this.drawEditorBox(host, n, "here"),
+			linesOf: (n) => blockLines(this.text, n),
+			writtenOf: (n) => this.text.split("\n").slice(n.start, n.end).map((l) => l.replace(/\r$/, "")),
+		};
+	}
+
+	private drawEditorBox(parent: HTMLElement, node: DesignNode | null, where: "here" | "detached" | "gone"): void {
+		const ed = this.edit;
+		if (!ed) return;
+		this.editor?.dispose();
+		this.editor = new EditorBox(
+			{
+				app: this.app,
+				sourcePath: this.file?.path ?? "",
+				triplet: this.triplet,
+				text: () => this.text,
+				owner: () => this.renderer,
+				save: () => void this.saveEditor(),
+				cancel: () => this.cancelEditor(),
+				esc: () => this.escEditor(),
+				hold: () => this.holdSaveKey(),
+				release: () => this.releaseSaveKey(),
+			},
+			ed,
+			node,
+			parent,
+			where,
+		);
+	}
+
+	/* ---- selecting and navigating ---- */
+
+	/** Draws the page of a node (the booklet's when it is the booklet). An editor with changes stays open, drawn above the page. */
+	private navigate(n: DesignNode, firstPage = false): void {
 		const root = this.root;
 		if (!root) return;
-		const before = this.selected;
-		if (before === n || (before === null && n === root)) return;
-		this.sel = n === root ? null : { start: n.start, kind: n.kind };
-		this.selected = n === root ? null : n;
-		if (before) {
-			this.boxes.get(keyOf(before))?.removeClass("is-selected");
-			this.boxes.get(keyOf(before))?.querySelector(":scope > .booklet-design-head .booklet-design-pick")?.setAttribute("aria-pressed", "false");
-			this.boxes.get(keyOf(before))?.querySelector(":scope > .booklet-design-settings.is-form")?.remove();
-		}
-		const box = this.boxes.get(keyOf(n));
-		if (n !== root) {
-			box?.addClass("is-selected");
-			box?.querySelector(":scope > .booklet-design-head .booklet-design-pick")?.setAttribute("aria-pressed", "true");
-			this.placeSettings(box, n);
-		}
-		this.drawCrumb();
-		// the popup says which parts can go where the selection is
-		if (this.popup) this.showPopup();
+		this.sel = n === root && !firstPage ? null : { start: n.start, kind: n.kind, ...(firstPage ? { firstPage: true } : {}) };
+		this.closeCleanEditor();
+		this.unfoldTo(n);
+		this.closePanel();
+		this.draw();
 	}
 
-	private say(words: string): void {
-		this.message = words;
-		this.statusEl?.setText(words);
+	/** An editor with nothing changed in it is closed when the person goes elsewhere; one with changes stays (a draft is never dropped). */
+	private closeCleanEditor(): void {
+		if (this.edit && !this.hasDraft()) this.edit = null;
 	}
 
-	/* ---- the outline and the lines the reader cannot read: the side panel's two lists, here, each entry selecting its block ---- */
-
-	private outlineLabel(n: DesignNode): string {
-		const what = n.kind === "question" ? n.detail || this.kindName(n) : this.kindName(n);
-		const head = [what, n.id ?? ""].filter(Boolean).join(" ");
-		return n.label.trim() ? `${head}: ${n.label.trim()}` : head;
-	}
-
-	private drawSide(parent: HTMLElement, root: DesignNode): void {
-		const side = parent.createEl("aside", { cls: "booklet-design-side", attr: { "aria-label": ui("side.label") } });
-		const outline = side.createEl("details", { cls: "booklet-design-outline" });
-		outline.open = this.outlineOpen ?? this.contentEl.clientWidth >= WIDE;
-		outline.createEl("summary", { text: ui("outline.title") });
-		outline.addEventListener("toggle", () => void (this.outlineOpen = outline.open));
-		const entries = outlineEntries(root);
-		if (!entries.length) outline.createEl("p", { cls: "booklet-design-hint", text: ui("outline.none") });
-		else {
-			const list = outline.createEl("ul", { cls: "booklet-design-outline-list", attr: { "aria-label": ui("outline.label") } });
-			for (const { node, depth } of entries) {
-				const li = list.createEl("li", { cls: `booklet-design-depth-${Math.min(depth, 6)}` });
-				const label = this.outlineLabel(node);
-				const b = li.createEl("button", { text: label, cls: ["booklet-design-jump", `booklet-design-type-${node.kind}`], attr: { type: "button", "data-start": String(node.start), "aria-label": ui("outline.go", { name: label }) } });
-				b.addEventListener("click", () => this.reveal(node));
-			}
-		}
-		// what the reader says of the note: only a booklet is read
-		const troubles = isBookletText(this.text) ? troublesOf(root, problemsOf(this.text)) : [];
-		const unread = troubles.filter((t) => t.problem.kind !== "leftover");
-		const left = troubles.filter((t) => t.problem.kind === "leftover");
-		this.drawTroubles(side, unread, "problems", this.problemsOpen, (open) => void (this.problemsOpen = open));
-		this.drawTroubles(side, left, "leftovers", this.leftoversOpen, (open) => void (this.leftoversOpen = open));
-	}
-
-	private drawTroubles(side: HTMLElement, list: readonly Trouble[], name: "problems" | "leftovers", open: boolean, remember: (open: boolean) => void): void {
-		const det = side.createEl("details", { cls: `booklet-design-${name}`, attr: { "data-count": String(list.length) } });
-		det.open = open;
-		const words = TROUBLE_KEYS[name];
-		det.createEl("summary", { text: list.length ? ui(words.count, { n: list.length }) : ui(words.title) });
-		det.addEventListener("toggle", () => remember(det.open));
-		if (!list.length) {
-			det.createEl("p", { cls: "booklet-design-hint", text: ui(words.none) });
+	private pressEntry(e: NavEntry): void {
+		if (e.kind === "settings") {
+			const front = this.root?.children.find((c) => c.kind === "front-matter");
+			if (front) this.openEditor(front);
 			return;
 		}
-		const ul = det.createEl("ul", { cls: "booklet-design-trouble-list", attr: { "aria-label": ui(words.label) } });
-		for (const { problem: p, node } of list) {
-			const li = ul.createEl("li", { cls: `booklet-design-trouble booklet-design-${p.kind}` });
-			const where = p.line === null ? ui("problems.note") : ui("problems.line", { n: p.line + 1 });
-			const words = `${where}: ${p.why}`;
-			if (!node) {
-				li.createSpan({ text: words });
-				continue;
-			}
-			const b = li.createEl("button", { cls: "booklet-design-jump", attr: { type: "button", "data-start": String(node.start), "aria-label": ui("problems.go", { where, why: p.why }) } });
-			b.createSpan({ cls: "booklet-design-trouble-why", text: words });
-			if (p.text) b.createEl("code", { cls: "booklet-design-trouble-line", text: p.text });
-			b.addEventListener("click", () => this.reveal(node));
-		}
+		if (e.kind === "first-page") return this.navigate(e.holder, true);
+		this.navigate(e.node ?? e.holder);
 	}
 
-	/** Selects a block and brings it into view, with the focus on its name. */
+	/** Selects a block and brings it into view, with the focus on it. */
 	private reveal(n: DesignNode): void {
 		const root = this.root;
 		if (!root) return;
-		this.select(n);
-		if (n === root) {
-			this.contentEl.scrollTop = 0;
-			return;
-		}
-		const box = this.boxes.get(keyOf(n));
+		this.sel = n === root ? null : { start: n.start, kind: n.kind };
+		this.closeCleanEditor();
+		this.unfoldTo(n);
+		this.closePanel();
+		this.draw();
+		const box = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-block, .booklet-design-page")).find((b) => b.getAttribute("data-start") === String(n.start) && b.getAttribute("data-kind") === n.kind);
 		box?.scrollIntoView?.({ block: "center" });
-		box?.querySelector<HTMLElement>(":scope > .booklet-design-head .booklet-design-pick")?.focus();
+		box?.focus();
 	}
 
-	/* ---- a selected block's settings: native rows, each change one rewrite of the block's opening line ---- */
-
-	private editsNode(n: DesignNode): boolean {
-		return !!this.edit && this.edit.start === n.start && this.edit.kind === n.kind;
+	/** The navigator's folds above a node are opened, so the entry that is drawn is one that can be seen. */
+	private unfoldTo(n: DesignNode): void {
+		const root = this.root;
+		if (!root) return;
+		const entries = navEntries(root, { title: this.bookletTitle });
+		const keys = foldKeys(entries);
+		for (const a of crumbOf(n)) {
+			const at = entries.findIndex((e) => e.node === a);
+			if (at >= 0) this.folds.delete(keys[at] ?? "");
+		}
 	}
 
-	/** Puts the block's settings under its head: the editor when one is open on it, else the form when it is the selected block. */
-	private placeSettings(box: HTMLElement | undefined, n: DesignNode): void {
-		if (!box) return;
-		const editing = this.editsNode(n);
-		if (!editing && this.selected !== n) return;
-		if (box.querySelector(":scope > .booklet-design-settings")) return;
-		const host = box.createDiv({ cls: ["booklet-design-settings", editing ? "is-editor" : "is-form"] });
-		box.querySelector(":scope > .booklet-design-head")?.after(host);
-		if (editing) this.drawEditor(host, n);
-		else this.drawForm(host, n);
+	/* ---- placing: a piece picked, a "+" clicked, a tile dragged ---- */
+
+	private slotById(id: string): Slot | undefined {
+		return this.drawn?.slots.find((s) => s.slot.id === id)?.slot;
 	}
 
-	private drawForm(host: HTMLElement, n: DesignNode): void {
-		host.setAttribute("role", "group");
-		host.setAttribute("aria-label", ui("form.label", { name: this.titled(n) }));
-		new Setting(host).setName(ui("form.heading")).setHeading();
-		const why = whyUnchangeable(n);
-		if (why) {
-			host.createEl("p", { cls: "booklet-design-hint", text: why });
+	private armedPiece(): PalettePiece | null {
+		return this.armed ? (pieceByFile(this.armed) ?? null) : null;
+	}
+
+	/** The state every tile, chip and slot shows, from what is picked and what is chosen. Nothing is redrawn. */
+	private repaint(): void {
+		const root = this.root;
+		const canvas = this.canvas;
+		if (!root || !canvas || !this.drawn) return;
+		const piece = this.armedPiece();
+		const target = this.target ? this.slotById(this.target) : undefined;
+		for (const { slot, el } of this.drawn.slots) {
+			let mode: SlotMode = "idle";
+			if (target && target.id === slot.id) mode = "target";
+			else if (piece && !target && slotAccepts(root, slot, piece).ok) mode = "lit";
+			paintSlot(el, mode, slot, canvas);
+		}
+		for (const el of Array.from(this.contentEl.querySelectorAll<HTMLElement>("[data-piece]"))) {
+			const p = pieceByFile(el.getAttribute("data-piece") ?? "");
+			if (!p) continue;
+			const st = tileState(root, canvas, p, target?.id);
+			paintPieceButton(el, { ok: st.ok, reason: st.ok ? "" : st.reason, armed: this.armed === p.file });
+		}
+		const card = this.contentEl.querySelector<HTMLElement>("[data-where-card]");
+		if (card) paintWhere(card, target ? whereWords(target, this.text) : null);
+		const bar = this.armedEl;
+		if (bar) {
+			bar.empty();
+			bar.hidden = !piece;
+			if (piece) {
+				bar.createSpan({ text: ui("armed.banner", { name: pieceName(piece) }) });
+				const back = bar.createEl("button", { cls: "booklet-design-putback", text: ui("armed.back"), attr: { type: "button" } });
+				back.addEventListener("click", () => this.cancelPlacing());
+			}
+		}
+	}
+
+	/** Lets go of a picked piece, a chosen "+" and the keys. Gives whether there was anything to let go of. */
+	private cancelPlacing(): boolean {
+		const had = this.armed !== null || this.target !== null || this.popup !== null;
+		this.armed = null;
+		this.target = null;
+		this.popup = null;
+		this.dragging = false;
+		if (!had) return false;
+		if (this.keysSaid) this.say("");
+		if (this.tab === "add") this.drawLeft();
+		this.repaint();
+		return true;
+	}
+
+	/** A tile or a chip was pressed. */
+	private pressPiece(piece: PalettePiece): void {
+		const root = this.root;
+		const canvas = this.canvas;
+		if (!root || !canvas) return;
+		this.popup = null;
+		const target = this.target ? this.slotById(this.target) : undefined;
+		const st = tileState(root, canvas, piece, target?.id);
+		if (!st.ok) {
+			this.say(ui("pal.off", { name: pieceName(piece), reason: st.reason }));
+			this.repaint();
 			return;
 		}
-		const form = formOf(this.text, n);
-		if (!form) host.createEl("p", { cls: "booklet-design-hint", text: ui("form.none") });
-		else this.drawRows(host, n, form);
-		new Setting(host)
-			.setClass("booklet-design-edit-md")
-			.addButton((b) =>
-				b
-					.setButtonText(ui("form.editMarkdown"))
-					.setTooltip(ui("form.editMarkdown.title"))
-					.onClick(() => this.openEditor(n)),
-			);
+		// a "+" was clicked first: the piece goes there at once
+		if (target) {
+			void this.placeAt(target, piece);
+			return;
+		}
+		// a tile picked first: the places it may go light up (a second press puts it back)
+		if (this.armed === piece.file) this.armed = null;
+		else {
+			this.armed = piece.file;
+			this.say("");
+			this.closePanel();
+		}
+		this.repaint();
 	}
 
-	private drawRows(host: HTMLElement, n: DesignNode, form: Form): void {
-		const change = (what: FormChange, field: string): void => void this.formChange(n, what, field);
-		for (const f of form.fields) {
-			const row = new Setting(host);
-			if (f.type === "id" || f.type === "title") {
-				row.setName(ui(f.type === "id" ? "form.id" : "form.title")).setDesc(ui(f.type === "id" ? "form.id.desc" : "form.title.desc"));
-				row.settingEl.setAttribute("data-field", f.type);
-				row.addText((c) => {
-					c.setValue(f.value);
-					// a change is made when the box is left or Enter is pressed, never on each key typed: an id change may ask first
-					c.inputEl.addEventListener("change", () => change({ what: f.type, value: c.inputEl.value.trim() }, f.type));
-				});
-			} else if (f.type === "flag") {
-				row.setName(f.name);
-				row.settingEl.setAttribute("data-field", f.name);
-				row.addToggle((c) => c.setValue(f.on).onChange((on) => change({ what: "flag", name: f.name, on }, f.name)));
-			} else {
-				row.setName(f.icon ? ui("form.icon") : f.name);
-				row.settingEl.setAttribute("data-field", f.name);
-				row.addText((c) => {
-					c.setValue(f.value);
-					if (f.numeric) c.inputEl.inputMode = "decimal";
-					c.inputEl.addEventListener("change", () => change({ what: "value", name: f.name, value: c.inputEl.value.trim() }, f.name));
-				});
-				if (f.icon)
-					row.addButton((b) => {
-						b.setButtonText(ui("form.icon.choose")).onClick(() => {
-							void pickIcon(this.app, f.value).then((icon) => {
-								if (icon !== null) change({ what: "value", name: "icon", value: icon }, f.name);
-							});
-						});
-						b.buttonEl.setAttribute("aria-label", ui("form.icon.choose.label"));
-					});
+	/** A "+" on the page was pressed: with a piece picked it places it (if it may go there); else it becomes the place to add at. */
+	private pressSlot(slot: Slot): void {
+		const root = this.root;
+		if (!root) return;
+		const piece = this.armedPiece();
+		if (piece) {
+			const may = slotAccepts(root, slot, piece);
+			if (!may.ok) {
+				this.say(ui("pal.off", { name: pieceName(piece), reason: may.reason }));
+				return;
 			}
+			void this.placeAt(slot, piece);
+			return;
 		}
-		if (form.stray.length) {
-			new Setting(host).setName(ui("form.stray")).setHeading();
-			for (const w of form.stray) {
-				const row = new Setting(host).setName(w.text);
-				row.settingEl.setAttribute("data-field", `stray-${w.index}`);
-				row.addButton((b) => {
-					b.setButtonText(ui("form.stray.remove")).onClick(() => change({ what: "stray", index: w.index }, `stray-${w.index}`));
-					b.buttonEl.setAttribute("aria-label", ui("form.stray.remove.label", { word: w.text }));
-				});
-			}
+		this.target = this.target === slot.id ? null : slot.id;
+		this.popup = null;
+		if (this.target) {
+			this.tab = "add";
+			this.openPanel();
+			this.drawLeft();
 		}
+		this.repaint();
 	}
 
-	/** One row's change: the block's opening line rewritten and nothing else; refused with a reason, or asked about, as any change is. */
-	private formChange(n: DesignNode, change: FormChange, field: string): Promise<void> {
+	/** Puts a piece in a slot of the page: the one insertion, from a press, a drop and Enter alike. Adds never ask. */
+	private placeAt(slot: Slot, piece: PalettePiece): Promise<void> {
 		return this.later(async () => {
-			const op = changeForm(this.text, n, change);
-			await this.carryOut(op, { how: "change", name: this.titled(n), node: n, select: { start: n.start, kind: n.kind }, focus: field });
+			const part = PART_NEEDS.has(needsOf(piece)[0] ?? "");
+			this.armed = this.target = null;
+			this.popup = null;
+			this.dragging = false;
+			this.closePanel();
+			const op = insertPiece(this.text, slotPositionFor(slot, piece), { file: piece.file, text: piece.text });
+			// the new block is selected; a new part of the booklet (a tab, a page, an activity) is a card of this page, and the view stays on it
+			await this.carryOut(op, { how: "add", name: capital(piece.file === WORDS_PIECE.file ? ui("piece.words") : piece.label), select: part ? "keep" : "lines" });
 		});
 	}
 
-	/** Puts the focus on a row of the form (by its field name), on its first control. */
-	private focusField(field: string): void {
-		const row = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-settings [data-field]")).find((e) => e.getAttribute("data-field") === field);
-		row?.querySelector<HTMLElement>("input, textarea, select, button, [tabindex]")?.focus();
+	/** Puts a piece where the keys say: the chosen "+", else the selected block's legal place. */
+	private placeKeyed(piece: PalettePiece): Promise<void> {
+		const root = this.root;
+		const name = pieceName(piece);
+		if (!root) return Promise.resolve();
+		const target = this.target ? this.slotById(this.target) : undefined;
+		if (target) {
+			const may = slotAccepts(root, target, piece);
+			if (!may.ok) {
+				this.say(ui("keys.refused", { name, reason: may.reason }));
+				return Promise.resolve();
+			}
+			return this.placeAt(target, piece);
+		}
+		const placed = placeFor(root, this.selected, piece);
+		if (!placed.ok) {
+			this.say(ui("keys.refused", { name, reason: placed.reason }));
+			this.repaint();
+			return Promise.resolve();
+		}
+		return this.later(async () => {
+			const part = PART_NEEDS.has(needsOf(piece)[0] ?? "");
+			this.armed = this.target = null;
+			this.popup = null;
+			this.closePanel();
+			const op = insertPiece(this.text, placed.position, { file: piece.file, text: piece.text });
+			await this.carryOut(op, { how: "add", name: capital(name), select: part ? "keep" : "lines" });
+		});
 	}
 
-	/* ---- the small Markdown editor: a plain textarea on one block's own lines, in place ---- */
+	/** The listeners of a "+": a press, and the three events of a drop. */
+	private wireSlot(el: HTMLElement, slot: Slot): void {
+		el.addEventListener("click", () => this.pressSlot(slot));
+		const dragged = (): PalettePiece | null => (this.dragging ? this.armedPiece() : null);
+		const may = (): boolean => {
+			const p = dragged();
+			return !!p && !!this.root && slotAccepts(this.root, slot, p).ok;
+		};
+		el.addEventListener("dragover", (evt) => {
+			// a place that may not take the piece shows nothing and takes nothing
+			if (!may()) return;
+			evt.preventDefault();
+			if (evt.dataTransfer) evt.dataTransfer.dropEffect = "copy";
+			el.addClass("is-over");
+		});
+		el.addEventListener("dragleave", () => el.removeClass("is-over"));
+		el.addEventListener("drop", (evt) => {
+			el.removeClass("is-over");
+			const p = dragged();
+			if (!p || !may()) return;
+			evt.preventDefault();
+			void this.placeAt(slot, p);
+		});
+	}
 
-	/** May Enter open the editor here? Not when it is a button's, a link's or a field's own press, other than the name of the selected block. */
-	private enterIsFree(target: Element | null, at: DesignNode): boolean {
-		const control = target && typeof target.closest === "function" ? target.closest("button, a, summary, input, select, textarea, [contenteditable]") : null;
-		if (!control) return true;
-		return control === this.boxes.get(keyOf(at))?.querySelector(":scope > .booklet-design-head .booklet-design-pick");
+	private dragStart(piece: PalettePiece, evt: DragEvent): void {
+		this.dragging = true;
+		this.armed = piece.file;
+		this.target = null;
+		if (evt.dataTransfer) {
+			evt.dataTransfer.setData(PIECE_MIME, piece.file);
+			evt.dataTransfer.setData("text/plain", pieceName(piece));
+			evt.dataTransfer.effectAllowed = "copy";
+		}
+		this.repaint();
+	}
+
+	private dragEnd(): void {
+		if (!this.dragging) return;
+		this.dragging = false;
+		this.armed = null;
+		this.repaint();
+	}
+
+	/* ---- the hotkeys: a group's letter, then a piece's letters, Enter places it; Esc lets go ---- */
+
+	/** Opens the hotkeys on a group (or on the groups, with null). */
+	openKeys(groupKey: string | null = null): void {
+		this.popup = popupFor(groupKey);
+		this.keysChanged();
+	}
+
+	/** Shows the Add tab (the command "Add part"), with the focus on its first group. */
+	openCatalogue(): void {
+		this.tab = "add";
+		this.openPanel();
+		this.drawLeft();
+		this.repaint();
+		this.leftEl?.querySelector<HTMLElement>(".booklet-design-pal-head, .booklet-design-commonchip")?.focus();
+	}
+
+	/** What the keys typed so far mean: the Add tab with their group marked, the piece they reach picked, and the keys said in the status line. */
+	private keysChanged(): void {
+		const p = this.popup;
+		if (p?.group) {
+			const g = groupOfKey(p.group);
+			if (g) this.groupsOpen.set(g, true);
+		}
+		if (p) {
+			this.tab = "add";
+			this.openPanel();
+		}
+		const list = p ? listingOf(p) : null;
+		const reached = p && list && p.group && list.mode !== "groups" && (p.rest !== "" || p.cursor !== null) ? (list.rows[list.cursor]?.piece ?? null) : null;
+		this.armed = reached ? reached.file : null;
+		this.say(p ? ui("keys.pending", { keys: spaced(p.group ?? "") + (p.rest ? ` ${spaced(p.rest.replace(/ /g, ""))}` : "") }) : "");
+		this.keysSaid = !!p;
+		this.drawLeft();
+		this.repaint();
+	}
+
+	/** One key of the scope. It acts only in a view with no field of text focused and no modifier held; every other key goes on to whatever it was for. */
+	private keyPress(evt: KeyboardEvent, key: string): false | undefined {
+		const doc = this.contentEl.ownerDocument;
+		if (isEditable(evt.target as Element | null) || isEditable(doc.activeElement)) return undefined;
+		if (evt.ctrlKey || evt.metaKey || evt.altKey) return undefined;
+		const target = evt.target as Element | null;
+		if (key === "Escape") {
+			if (this.cancelPlacing()) return false;
+			if (this.panelOpen) {
+				this.closePanel();
+				return false;
+			}
+			if (this.edit) {
+				this.escEditor();
+				return false;
+			}
+			return undefined;
+		}
+		if (!this.popup) {
+			if (key === "Enter" && !evt.shiftKey) {
+				// a picked piece is placed at the chosen "+", else at the selected block's legal place (not when Enter is a button's own press)
+				const piece = this.armedPiece();
+				if (piece && !this.isControl(target)) {
+					void this.placeKeyed(piece);
+					return false;
+				}
+				// Enter on the selected block opens its Markdown in place (not when the key is a button's or a link's own press)
+				const at = this.selected;
+				if (!at || whyUnchangeable(at) || !this.enterIsFree(target, at)) return undefined;
+				this.openEditor(at);
+				return false;
+			}
+			// closed: only a group's letter does anything (Shift and every other key are not the view's)
+			const g = evt.shiftKey ? undefined : KEY_GROUPS.find((x) => x.key === key);
+			if (!g) return undefined;
+			this.openKeys(g.key);
+			return false;
+		}
+		// open: Enter and Space on a tile are that tile's own press; everywhere else they are the keys'
+		if ((key === "Enter" || key === " ") && target && typeof target.closest === "function" && target.closest(".booklet-design-tile, .booklet-design-commonchip, .booklet-design-pal-head")) return undefined;
+		const step = stepPopup(this.popup, key);
+		this.popup = step.state;
+		if (step.choose) void this.chooseRow(step.choose);
+		else this.keysChanged();
+		return false;
+	}
+
+	private isControl(el: Element | null): boolean {
+		return !!el && typeof el.closest === "function" && el.closest("button, a, summary, input, select, textarea, [contenteditable]") !== null;
+	}
+
+	/** Enter on the keys: places the piece the row stands for, at the chosen "+" or at the selected block's legal place, or says why not. */
+	private chooseRow(row: PopupRow): Promise<void> {
+		const piece = row.piece;
+		if (!piece) return Promise.resolve();
+		return this.placeKeyed(piece);
+	}
+
+	/* ---- the editor in place ---- */
+
+	private editsNode(n: DesignNode): boolean {
+		return !!this.edit && this.edit.start === n.start && this.edit.kind === n.kind;
 	}
 
 	private hasDraft(): boolean {
 		return !!this.edit && this.edit.draft !== this.edit.base.join("\n");
 	}
 
-	/** Opens the block's own lines in the editor. With another block's editor open and changed, says so and does nothing: a draft is never dropped to make room. */
+	/** May Enter open the editor here? Not when it is a button's, a link's or a field's own press (other than the selected block itself). */
+	private enterIsFree(target: Element | null, at: DesignNode): boolean {
+		const control = target && typeof target.closest === "function" ? target.closest("button, a, summary, input, select, textarea, [contenteditable]") : null;
+		if (!control) return true;
+		const box = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-block")).find((b) => b.getAttribute("data-start") === String(at.start));
+		return control === box;
+	}
+
+	/**
+	 * Selects a block and opens its own lines in the editor, in place. With another block's editor open and changed, says so and does
+	 * nothing: a draft is never dropped to make room. A block the view never changes is selected and nothing opens.
+	 */
 	private openEditor(n: DesignNode): void {
-		const why = whyUnchangeable(n);
-		if (why) {
-			this.say(why);
+		if (this.edit && this.editsNode(n)) {
+			this.sel = { start: n.start, kind: n.kind };
+			this.editor?.focus();
 			return;
 		}
-		if (this.edit && !this.editsNode(n)) {
-			if (this.hasDraft()) {
-				this.say(ui("editor.busy"));
-				return;
-			}
-			this.edit = null;
+		if (this.edit && this.hasDraft()) {
+			this.say(ui("editor.busy"));
+			return;
 		}
-		if (!this.edit) {
-			const base = blockLines(this.text, n);
-			this.edit = { start: n.start, kind: n.kind, base, draft: base.join("\n"), armed: false, caret: null };
-		}
+		this.edit = null;
+		const why = whyUnchangeable(n);
 		this.sel = { start: n.start, kind: n.kind };
+		if (why) {
+			this.say(why);
+			this.draw();
+			return;
+		}
+		const base = blockLines(this.text, n);
+		this.edit = { start: n.start, kind: n.kind, base, draft: base.join("\n"), armed: false, caret: null, refusal: "" };
+		this.closePanel();
 		this.draw();
-		this.focusEditor();
+		this.editor?.focus();
 	}
 
-	private focusEditor(): void {
-		const ui2 = this.editorUi;
-		const ed = this.edit;
-		if (!ui2 || !ed) return;
-		ui2.area.focus();
-		if (ed.caret) ui2.area.setSelectionRange(ed.caret[0], ed.caret[1]);
-	}
-
-	/** Reads where the caret is before a drawing, and whether the box had the focus (it gets it back). */
-	private rememberEditor(): boolean {
-		const ui2 = this.editorUi;
-		const ed = this.edit;
-		if (!ui2 || !ed || !ui2.area.isConnected) return false;
-		ed.draft = ui2.area.value;
-		const had = ui2.area.ownerDocument.activeElement === ui2.area;
-		if (had) ed.caret = [ui2.area.selectionStart, ui2.area.selectionEnd];
-		return had;
-	}
-
-	private showEditorState(): void {
-		const e = this.editorUi;
-		const ed = this.edit;
-		if (!e || !ed) return;
-		const changed = this.hasDraft();
-		e.state.setText(changed ? ui(ed.armed ? "editor.armed" : "editor.unsaved") : "");
-		e.box.toggleClass("is-unsaved", changed);
-		e.box.toggleClass("is-armed", changed && ed.armed);
-		e.area.rows = Math.min(30, Math.max(3, e.area.value.split("\n").length + 1));
-	}
-
-	private drawEditor(host: HTMLElement, n: DesignNode | null): void {
+	/** Esc: with nothing changed it closes; with changes the first Esc keeps them as Unsaved and the second throws them away. */
+	private escEditor(): void {
 		const ed = this.edit;
 		if (!ed) return;
-		const name = n ? this.titled(n) : ui("editor.detached.name");
-		host.setAttribute("role", "group");
-		host.setAttribute("aria-label", ui("editor.label", { name }));
-		host.createDiv({ cls: "booklet-design-editor-help", text: ui("editor.help") });
-		if (!n) host.createDiv({ cls: "booklet-design-editor-moved", text: ui("editor.moved") });
-		const area = host.createEl("textarea", {
-			cls: "booklet-design-textarea",
-			attr: { "aria-label": ui("editor.textarea", { name }), spellcheck: "false", autocapitalize: "off", autocomplete: "off", autocorrect: "off", rows: "3" },
-		});
-		area.value = ed.draft;
-		area.spellcheck = false;
-		const state = host.createDiv({ cls: "booklet-design-editor-state", attr: { role: "status", "aria-live": "polite", "aria-label": ui("editor.status") } });
-		const bar = host.createDiv({ cls: "booklet-design-editor-buttons" });
-		const save = bar.createEl("button", { text: ui("editor.save"), cls: ["mod-cta", "booklet-design-save"], attr: { type: "button", title: ui("editor.save.title") } });
-		const cancel = bar.createEl("button", { text: ui("editor.cancel"), cls: "booklet-design-cancel", attr: { type: "button", title: ui("editor.cancel.title") } });
-		save.disabled = !n;
-		this.editorUi = { box: host, area, state };
-		this.showEditorState();
-		area.addEventListener("focus", () => this.holdSaveKey());
-		area.addEventListener("blur", () => this.releaseSaveKey());
-		area.addEventListener("input", () => {
-			ed.draft = area.value;
-			ed.armed = false;
-			this.showEditorState();
-		});
-		// keys in the box are the box's own: the view's hotkeys do not hear them (see `keyPress`); only Escape is the editor's here, and
-		// Ctrl or Cmd with Enter, which Obsidian's own hotkeys take before the box hears it (see `holdSaveKey`), but is kept as a fallback
-		area.addEventListener("keydown", (evt) => {
-			if (evt.key === "Escape") {
-				evt.preventDefault();
-				evt.stopPropagation();
-				this.escEditor();
-			} else if (evt.key === "Enter" && (evt.ctrlKey || evt.metaKey)) {
-				evt.preventDefault();
-				evt.stopPropagation();
-				void this.saveEditor();
-			}
-		});
-		save.addEventListener("click", () => void this.saveEditor());
-		cancel.addEventListener("click", () => this.cancelEditor());
+		if (this.hasDraft() && !ed.armed) {
+			ed.armed = true;
+			this.editor?.showState();
+			return;
+		}
+		this.cancelEditor();
+	}
+
+	/** Cancel: the editor closes and what was changed in it is thrown away (the label says so). The block stays selected. */
+	private cancelEditor(): void {
+		const was = this.hasDraft();
+		this.edit = null;
+		this.message = was ? ui("editor.discarded") : "";
+		this.draw();
+		this.focusSelected();
 	}
 
 	/**
@@ -1165,34 +1095,12 @@ export class DesignView extends LockedTextView {
 		if (this.saveScope) this.app.keymap.popScope(this.saveScope);
 	}
 
-	/** Esc: with nothing changed it closes; with changes the first Esc keeps them as Unsaved and the second throws them away. */
-	private escEditor(): void {
-		const ed = this.edit;
-		if (!ed) return;
-		if (this.hasDraft() && !ed.armed) {
-			ed.armed = true;
-			this.showEditorState();
-			return;
-		}
-		this.cancelEditor();
-	}
-
-	/** Cancel: the editor closes and what was changed in it is thrown away (the label says so). */
-	private cancelEditor(): void {
-		const was = this.hasDraft();
-		this.edit = null;
-		if (was) this.message = ui("editor.discarded");
-		else this.message = "";
-		this.draw();
-		this.focusSelected();
-	}
-
 	private saveEditor(): Promise<void> {
 		return this.later(async () => {
 			const ed = this.edit;
 			const root = this.root;
 			if (!ed || !root) return;
-			this.rememberEditor();
+			this.editor?.remember();
 			const node = walkDesign(root).find((n) => n.parent !== null && this.editsNode(n));
 			if (!node) {
 				this.say(ui("editor.moved"));
@@ -1221,20 +1129,6 @@ export class DesignView extends LockedTextView {
 		return run;
 	}
 
-	private add(container: DesignNode, group: AddGroup, piece: AddPiece, label: string): Promise<void> {
-		return this.addAt(group.position, piece, label, keyOf(container));
-	}
-
-	/** Puts a piece at a position of the tree drawn now: the one insertion, from the catalogue and from the keys alike. `closes` is the container whose catalogue shuts. */
-	private addAt(position: AddGroup["position"], piece: Pick<AddPiece, "file" | "text">, label: string, closes: string | null): Promise<void> {
-		return this.later(async () => {
-			if (closes) this.adding.delete(closes);
-			this.popup = null;
-			const op = insertPiece(this.text, position, { file: piece.file, text: piece.text });
-			await this.carryOut(op, { how: "add", name: capital(label), select: "lines" });
-		});
-	}
-
 	private remove(n: DesignNode): Promise<void> {
 		return this.later(async () => {
 			const op = deleteBlock(this.text, n);
@@ -1246,7 +1140,9 @@ export class DesignView extends LockedTextView {
 		return this.later(async () => {
 			if (!to) return;
 			const op = moveBlock(this.text, n, to);
-			await this.carryOut(op, { how: "move", name: this.titled(n), node: n, select: "lines" });
+			// a part of the booklet is a card of this page, and the page stays; a block is selected where it lands
+			const card = !!this.canvas?.cards.includes(n);
+			await this.carryOut(op, { how: "move", name: this.titled(n), node: n, select: card ? "keep" : "lines" });
 		});
 	}
 
@@ -1257,7 +1153,7 @@ export class DesignView extends LockedTextView {
 	 */
 	private async carryOut(
 		op: OpResult,
-		how: { how: "add" | "delete" | "move" | "change"; name: string; node?: DesignNode; select: "lines" | { start: number; kind: DesignKind }; focus?: string; closeEditor?: boolean; stale?: DesignKey },
+		how: { how: "add" | "delete" | "move" | "change"; name: string; node?: DesignNode; select: "lines" | "keep" | { start: number; kind: DesignKind }; closeEditor?: boolean; stale?: DesignKey },
 	): Promise<boolean> {
 		this.message = "";
 		if (!op.ok) {
@@ -1274,8 +1170,8 @@ export class DesignView extends LockedTextView {
 		if (how.how !== "add" && needsAsking(op) && how.node) {
 			const yes = await askDesign(this.app, {
 				how: how.how,
-				kind: this.kindName(how.node),
-				name: `“${nameOf(how.node) || this.kindName(how.node)}”`,
+				kind: kindName(how.node),
+				name: `“${nameOf(how.node) || kindName(how.node)}”`,
 				lines: how.how === "change" ? "" : uin("confirm.lines", this.lineCount(how.node)),
 				impacts: op.impact,
 				blind: op.blind,
@@ -1293,12 +1189,12 @@ export class DesignView extends LockedTextView {
 		this.history.record(before, op.text);
 		this.text = op.text;
 		this.data = op.text;
-		this.sel = how.select === "lines" ? (op.lines ? { start: op.lines.start, kind: null } : null) : how.select;
+		if (how.select === "lines") this.sel = op.lines ? { start: op.lines.start, kind: null } : null;
+		else if (how.select !== "keep") this.sel = how.select;
 		if (how.closeEditor) this.edit = null;
 		this.say([ui(how.how === "add" ? "status.added" : how.how === "delete" ? "status.deleted" : how.how === "move" ? "status.moved" : "status.changed", { name: how.name }), ...op.notes].join(" "));
 		this.draw();
-		if (how.focus) this.focusField(how.focus);
-		else this.focusSelected();
+		this.focusSelected();
 		return true;
 	}
 
@@ -1310,10 +1206,12 @@ export class DesignView extends LockedTextView {
 		return end - n.start;
 	}
 
+	/** The focus goes to the selected block, so a keyboard user keeps their place (not when an editor has it). */
 	private focusSelected(): void {
-		const root = this.root;
-		if (!root) return;
-		this.boxes.get(keyOf(this.selected ?? root))?.querySelector<HTMLElement>(":scope > .booklet-design-head .booklet-design-pick")?.focus();
+		const sel = this.selected;
+		if (!sel || this.editor) return;
+		const box = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-block")).find((b) => b.getAttribute("data-start") === String(sel.start) && b.getAttribute("data-kind") === sel.kind);
+		box?.focus();
 	}
 
 	/**
@@ -1366,7 +1264,6 @@ export class DesignView extends LockedTextView {
 			else this.history.settleRedo();
 			this.text = plan.text;
 			this.data = plan.text;
-			this.sel = null;
 			this.say(ui(undo ? "status.undone" : "status.redone"));
 			this.draw();
 		});

@@ -81,11 +81,13 @@ const KINDS = bookletAround(
 	].join("\n"),
 );
 
-const inertOf = (v, id) => v.all(`.booklet-design-node[data-kind="question"]`).find((b) => b.querySelector(`[data-booklet-q="${id}"]`));
+/** The block of the page drawn now that holds the inert drawing of question `id`. */
+const inertOf = (v, id) => v.all(`.booklet-design-block[data-kind="question"]`).find((b) => b.querySelector(`[data-booklet-q="${id}"]`));
 const controls = (el) => [...el.querySelectorAll("button, input, textarea, select")];
 
-test("every question kind the drawing code has is drawn in the tree as a reader sees it, inside an inert wrapper, with every control off", () => {
+test("every question kind the drawing code has is drawn on its page as a reader sees it, inside an inert wrapper, with every control off", () => {
 	const v = openDesign(KINDS);
+	v.go("Every kind");
 	for (const id of ["c", "m", "mx", "l", "t", "tl", "n", "s", "d", "fromMenu", "own"]) {
 		const box = inertOf(v, id);
 		assert.ok(box, `${id} is drawn`);
@@ -95,11 +97,8 @@ test("every question kind the drawing code has is drawn in the tree as a reader 
 		assert.ok(wrap.classList.contains("booklet-sample-question"));
 		assert.ok(controls(wrap).length > 0, `${id}: has controls`);
 		assert.ok(controls(wrap).every((c) => c.disabled), `${id}: every control is off`);
-		// the head still shows kind and id; the lines are one fold away, exactly as written
-		assert.equal(words(box.querySelector(":scope > .booklet-design-head .booklet-design-kind")), "Question");
-		assert.match(words(box.querySelector(":scope > .booklet-design-head .booklet-design-more")), new RegExp(id));
-		assert.ok(box.querySelector(":scope > .booklet-design-fold pre").textContent.includes(`[!`), `${id}: its Markdown`);
-		assert.equal(box.querySelector(":scope > .booklet-design-lines"), null, `${id}: no card, a drawing`);
+		// a drawing is the whole of the block: no head, no card, and no Markdown under it
+		assert.equal(box.querySelector("pre, .booklet-design-friendly, .booklet-design-lines"), null, `${id}: no card, a drawing`);
 	}
 	// what each draws: the options, the anchors, the items
 	assert.deepEqual([...inertOf(v, "c").querySelectorAll("button.booklet-choice")].map(words), ["Cats", "Dogs"]);
@@ -114,29 +113,36 @@ test("every question kind the drawing code has is drawn in the tree as a reader 
 	v.close();
 });
 
-test("listen, widget and each stay labelled cards with their Markdown, and say that a later beta draws them", () => {
+test("listen, widget and each stay friendly cards that say a later beta draws them, and show no Markdown", () => {
 	const v = openDesign(KINDS);
-	for (const id of ["lst", "eachq"]) {
-		const box = v.all(`.booklet-design-node[data-kind="question"]`).find((b) => b.querySelector(":scope > .booklet-design-head .booklet-design-more")?.textContent.includes(id));
-		assert.ok(box, `${id} is on the page`);
+	v.go("Every kind");
+	for (const [id, line] of [["lst", "[!listen|lst]"], ["eachq", "[!text|eachq"]]) {
+		const box = v.block("question", line);
 		assert.equal(box.querySelector(".booklet-sample"), null, `${id}: nothing drawn`);
 		assert.equal(box.querySelector(".booklet-question, input, textarea, button.booklet-choice"), null, `${id}: no question drawn, no field, no option`);
-		assert.match(words(box.querySelector(":scope > .booklet-design-what")), /A later beta draws it/);
-		assert.match(box.querySelector(":scope > .booklet-design-lines").textContent, /^> \[!(listen|text)\|/);
+		const card = box.querySelector(".booklet-design-friendly");
+		assert.ok(card, `${id}: a card`);
+		assert.equal(words(card.querySelector(".booklet-design-friendly-kind")), "Question");
+		assert.match(words(card.querySelector(".booklet-design-friendly-detail")), new RegExp(id));
+		assert.match(words(card.querySelector(".booklet-design-friendly-note")), /drawn in a later beta/);
+		assert.ok(card.querySelector(".booklet-design-friendly-art svg"), `${id}: a picture`);
+		assert.equal(box.querySelector("pre"), null, `${id}: never Markdown`);
 	}
 	v.close();
 	// and a widget, from the piece's own text
 	const widget = PIECES.find((p) => p.file === "Q - widget (grid).md");
 	const note = bookletAround("> [!activity|a] A\n\n" + widget.text.replace(/new-/g, "w-"));
 	const w2 = openDesign(note);
-	const box = w2.all('.booklet-design-node[data-kind="question"]')[0];
+	w2.go("A");
+	const box = w2.all('.booklet-design-block[data-kind="question"]')[0];
 	assert.equal(box.querySelector(".booklet-sample"), null);
-	assert.match(words(box.querySelector(":scope > .booklet-design-what")), /later beta/);
-	assert.match(box.querySelector(":scope > .booklet-design-lines").textContent, /\[!widget\|w-id\]/);
+	assert.match(words(box.querySelector(".booklet-design-friendly-note")), /later beta/);
+	assert.match(words(box.querySelector(".booklet-design-friendly-detail")), /w-id/);
+	assert.equal(box.querySelector("pre"), null);
 	w2.close();
 });
 
-test("reading callouts are rendered as callouts; a copy button, a menu and a view of data stay labelled cards", () => {
+test("reading callouts are rendered as callouts; a copy button, a menu and a view of data stay friendly cards", () => {
 	const seen = [];
 	globalThis.__bookletStubRender = (markdown, el) => {
 		seen.push(markdown);
@@ -144,35 +150,46 @@ test("reading callouts are rendered as callouts; a copy button, a menu and a vie
 	};
 	try {
 		const v = openDesign(KINDS);
-		const tip = v.all('.booklet-design-node[data-kind="callout"]').find((b) => b.querySelector(":scope > .booklet-design-lines, :scope > .booklet-design-fold")?.textContent.includes("A tip"));
+		v.go("Every kind");
+		const tip = v.block("callout", "[!tip] A tip");
 		const wrap = tip.querySelector(":scope > .booklet-design-drawn > .booklet-sample-reading");
 		assert.ok(wrap, "the tip is drawn");
 		assert.ok(wrap.hasAttribute("inert"));
 		assert.ok(seen.includes("> [!tip] A tip\n> Some words in the tip."), "through MarkdownRenderer.render, from the block's own lines");
 		assert.equal(words(wrap), "> [!tip] A tip > Some words in the tip.");
-		const copy = v.all('.booklet-design-node[data-kind="callout"]').find((b) => b.querySelector(":scope > .booklet-design-lines")?.textContent.includes("[!copy"));
-		assert.ok(copy, "the copy button is a card");
+		const copy = v.block("callout", "[!copy|cp");
 		assert.equal(copy.querySelector(".booklet-sample"), null);
-		const menu = v.all('.booklet-design-node[data-kind="menu"]')[0];
-		assert.ok(menu.querySelector(":scope > .booklet-design-lines"));
+		assert.equal(words(copy.querySelector(".booklet-design-friendly-kind")), "Copy button");
+		assert.equal(copy.querySelector("pre"), null, "the copy button is a card");
+		const menu = v.block("menu", "[!menu|menu1]");
+		assert.equal(words(menu.querySelector(".booklet-design-friendly-kind")), "Menu");
+		assert.equal(menu.querySelector("pre"), null);
 		v.close();
 		// views and data stay cards
 		const full = openDesign(FULL);
-		for (const n of full.all('.booklet-design-node[data-kind="fence"]')) assert.ok(n.querySelector(":scope > .booklet-design-lines"));
+		full.go("Data for Money");
+		const fences = full.all('.booklet-design-block[data-kind="fence"], .booklet-design-block[data-kind="query"]');
+		assert.ok(fences.length >= 1);
+		for (const n of fences) {
+			assert.ok(n.querySelector(".booklet-design-friendly"));
+			assert.equal(n.querySelector("pre"), null);
+		}
 		full.close();
 	} finally {
 		delete globalThis.__bookletStubRender;
 	}
 });
 
-test("a reading callout that points at media on another site is shown as its Markdown, and nothing is fetched", () => {
+test("a reading callout that points at media on another site is a card, and nothing is fetched", () => {
 	const text = bookletAround("> [!activity|a] A\n\n> [!note] A picture\n> ![alt](https://example.org/p.png)\n\nWords ![x](https://example.org/q.png) of prose.\n");
 	const requests = [];
 	const v = openDesign(text);
-	const note = v.all('.booklet-design-node[data-kind="callout"]')[0];
+	v.go("A");
+	const note = v.all('.booklet-design-block[data-kind="callout"]')[0];
 	assert.equal(note.querySelector(".booklet-sample"), null, "not drawn");
-	assert.match(words(note.querySelector(":scope > .booklet-design-what")), /nothing is fetched/);
-	assert.match(note.querySelector(":scope > .booklet-design-lines").textContent, /https:\/\/example\.org\/p\.png/);
+	assert.match(words(note.querySelector(".booklet-design-friendly-note")), /nothing is fetched/);
+	assert.equal(note.querySelector("pre"), null, "and it is a card, not Markdown");
+	assert.equal(note.querySelector("img"), null);
 	// the prose too is words, not a fetch
 	assert.equal(v.all(".booklet-design-prose img").length, 0);
 	assert.deepEqual(requests, []);
@@ -181,6 +198,7 @@ test("a reading callout that points at media on another site is shown as its Mar
 
 test("no live control writes: presses and events at every control change nothing, the note is byte-identical, and no write reaches the vault", () => {
 	const v = openDesign(KINDS);
+	v.go("Every kind");
 	const before = v.disk.text;
 	const wraps = v.all(".booklet-sample-question");
 	assert.ok(wraps.length >= 11);
@@ -220,6 +238,7 @@ test("the stand-in host is the guard that holds when the others do not: a call s
 
 test("a reader's kept answers are never shown in a drawing: a note that holds answers and entries is drawn empty", () => {
 	const v = openDesign(FULL);
+	v.go("Spending");
 	assert.match(FULL, /"spent": "a lot"/, "the note holds an answer");
 	const spent = inertOf(v, "spent");
 	assert.equal(spent.querySelector("input.booklet-text").value, "");
@@ -241,10 +260,13 @@ test("an observer made for a matrix is let go of with the drawing: made and live
 	const obs = observerCount();
 	try {
 		const v = openDesign(KINDS);
-		assert.equal(obs.made, 1, "one matrix, one observer");
-		for (let i = 0; i < 20; i++) v.view.setViewData(v.view.getViewData() + (i % 2 ? "" : ""), true);
-		assert.equal(obs.made, 21, "a new one at each of the 21 drawings");
-		assert.equal(obs.live, 1, "only the last drawing's is connected");
+		// the view's own watcher of its pane's width is one observer, made once; the booklet's page draws no matrix
+		assert.equal(obs.made, 1, "the pane's own observer");
+		v.go("Every kind");
+		assert.equal(obs.made, 2, "one matrix, one observer");
+		for (let i = 0; i < 20; i++) v.go("Every kind");
+		assert.equal(obs.made, 22, "a new one at each of the 21 drawings of that page");
+		assert.equal(obs.live, 2, "only the last drawing's is connected, and the pane's");
 		v.close();
 		assert.equal(obs.live, 0, "none when the view is gone");
 		assert.equal(obs.made, obs.disconnected);

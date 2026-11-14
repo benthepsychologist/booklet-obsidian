@@ -3,7 +3,7 @@
  * language Obsidian is in to it, and finds icons in Obsidian's set.
  */
 import { getIcon, getLanguage } from "obsidian";
-import { langOf, t, tn, type DesignKey, type Lang } from "./core";
+import { langOf, t, tn, type DesignKey, type Lang, type PluralKey } from "./core";
 
 /** The language Obsidian is in, as far as the table has it (English otherwise). */
 export const lang = (): Lang => langOf(getLanguage());
@@ -11,8 +11,8 @@ export const lang = (): Lang => langOf(getLanguage());
 /** A string of the Design view in the language Obsidian is in. */
 export const ui = (key: DesignKey, vars?: Readonly<Record<string, string | number>>): string => t(key, lang(), vars);
 
-/** A counted string of the Design view (`confirm.lines`). */
-export const uin = (key: "confirm.lines", n: number): string => tn(key, n, lang());
+/** A counted string of the Design view (`confirm.lines`, `card.tabs` and the like). */
+export const uin = (key: PluralKey, n: number): string => tn(key, n, lang());
 
 /** The first icon of the list that Obsidian's set has, or `fallback`: an icon name newer than the floor release is not drawn as a hole. */
 export function iconName(candidates: readonly string[], fallback: string): string {

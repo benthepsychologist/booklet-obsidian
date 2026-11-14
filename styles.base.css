@@ -3382,503 +3382,283 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /*
- * The Design view (design-view.ts): the note as the tree the format is. Each level has a rail of its own colour, an indent, an icon and a
- * one-line saying what it is. Every action is a visible button, so a phone has them all; nothing depends on hover. Drawn from Obsidian's own
- * variables, so it follows any theme.
+ * The Design view (design-view.ts): a canvas for one page of the booklet at a time, with a left column of two tabs (Outline and Add).
+ * Drawn from Obsidian's own variables, so it follows any theme, light or dark. Every control is a real button; nothing depends on hover.
+ * Nothing here sets a position or a size from a script: the sample popover and the floating bar stand where this sheet puts them.
  */
 .booklet-design {
-	padding: var(--size-4-3) var(--size-4-4) var(--size-4-12);
+	/* the look every drawing of the view shares, from the theme (design-art.ts reads these) */
+	--bd-ink: var(--text-normal);
+	--bd-ink-soft: var(--text-muted);
+	--bd-paper: var(--background-primary);
+	--bd-accent: var(--interactive-accent);
+	--bd-callout-tip: var(--color-cyan);
+	--bd-callout-hint: var(--color-cyan);
+	--bd-callout-note: var(--color-blue);
+	--bd-callout-warning: var(--color-orange);
+	--bd-callout-example: var(--color-purple);
+	--bd-callout-solution: var(--color-green);
+	--bd-callout-law: var(--color-red);
+	--bd-callout-diff: var(--color-yellow);
+	--bd-callout-opinion: var(--color-pink);
+	--bd-callout-question: var(--color-orange);
+	--bd-callout-quote: var(--text-faint);
+	--bd-callout-citation: var(--text-muted);
+	--bd-left: 300px;
+	padding: 0;
+	overflow: hidden;
 	overflow-wrap: anywhere;
 }
 
-.booklet-design-bar {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2-3);
-	margin-bottom: var(--size-4-2);
-}
-
-.booklet-design-banner,
-.booklet-design-status:not(:empty) {
-	margin-block: var(--size-4-2);
-	padding: var(--size-4-2) var(--size-4-3);
-	border-radius: var(--radius-m);
-	background: var(--background-secondary);
-	color: var(--text-normal);
-}
-
-.booklet-design-crumb {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--size-2-2);
-	margin-bottom: var(--size-4-2);
-	color: var(--text-muted);
-}
-
-.booklet-design .booklet-design-crumb-item {
-	background: transparent;
-	box-shadow: none;
-	color: var(--text-muted);
-}
-
-.booklet-design-crumb-item[aria-current="true"] {
-	color: var(--text-normal);
-	font-weight: var(--font-semibold);
-}
-
-.booklet-design-tree {
-	container-type: inline-size;
-}
-
-.booklet-design-node {
-	--design-rail: var(--background-modifier-border);
-	margin-block: var(--size-4-2);
-	padding-inline-start: var(--size-4-3);
-	border-inline-start: var(--size-2-3) solid var(--design-rail);
-}
-
-.booklet-design-node.is-level-booklet {
-	--design-rail: var(--interactive-accent);
-}
-
-.booklet-design-node.is-level-module {
-	--design-rail: var(--color-purple);
-}
-
-.booklet-design-node.is-level-module-tab {
-	--design-rail: var(--color-pink);
-}
-
-.booklet-design-node.is-level-activity {
-	--design-rail: var(--color-blue);
-}
-
-.booklet-design-node.is-level-activity-tab {
-	--design-rail: var(--color-cyan);
-}
-
-.booklet-design-node.is-level-page {
-	--design-rail: var(--color-green);
-}
-
-.booklet-design-node.is-level-block {
-	--design-rail: var(--text-faint);
-}
-
-.booklet-design-head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--size-2-3) var(--size-4-2);
-	padding: var(--size-2-2) var(--size-4-2);
-	border-radius: var(--radius-s);
-}
-
-.booklet-design-node.is-selected > .booklet-design-head {
-	background: var(--background-modifier-hover);
-	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
-}
-
-.booklet-design-icon {
-	display: inline-flex;
-	color: var(--design-rail);
-}
-
-.booklet-design-icon svg {
-	width: var(--icon-m);
-	height: var(--icon-m);
-}
-
-.booklet-design .booklet-design-pick {
-	display: inline-flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	justify-content: flex-start;
-	white-space: normal;
-	gap: var(--size-2-3) var(--size-4-2);
-	flex: 1 1 8em;
-	min-width: 0;
-	text-align: start;
+/* the controls the view draws itself: Obsidian's own button look is taken off, each has its own */
+.booklet-design .booklet-design-tab,
+.booklet-design .booklet-design-nav-item,
+.booklet-design .booklet-design-nav-caret,
+.booklet-design .booklet-design-slot,
+.booklet-design .booklet-design-tile,
+.booklet-design .booklet-design-commonchip,
+.booklet-design .booklet-design-pal-head,
+.booklet-design .booklet-design-crumb-item,
+.booklet-design .booklet-design-iconbutton,
+.booklet-design .booklet-design-page-titlebutton,
+.booklet-design .booklet-design-menubutton,
+.booklet-design .booklet-design-panelclose,
+.booklet-design .booklet-design-jump {
 	height: auto;
 	background: transparent;
 	box-shadow: none;
+	color: inherit;
+	white-space: normal;
 }
 
-.booklet-design-kind {
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-	text-transform: uppercase;
-}
-
-.booklet-design-name {
-	font-weight: var(--font-semibold);
-	color: var(--text-normal);
-}
-
-.booklet-design-more {
-	color: var(--text-faint);
-	font-size: var(--font-ui-smaller);
-}
-
-.booklet-design-actions {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2-3);
-}
-
-.booklet-design-what {
-	margin: var(--size-2-2) var(--size-4-2);
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-}
-
-.booklet-design-fold {
-	margin: var(--size-2-2) var(--size-4-2);
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-}
-
-.booklet-design-lines {
-	margin: var(--size-2-2) var(--size-4-2);
-	padding: var(--size-4-2);
-	border-radius: var(--radius-s);
-	background: var(--background-secondary);
-	font-size: var(--font-ui-small);
-	white-space: pre-wrap;
-	overflow-wrap: anywhere;
-}
-
-.booklet-design-prose {
-	margin: var(--size-2-2) var(--size-4-2);
-}
-
-.booklet-design-body {
-	padding-inline-start: var(--size-4-3);
-}
-
-.booklet-design-empty,
-.booklet-design-needs {
-	margin: var(--size-4-2) 0;
-	color: var(--text-muted);
-}
-
-.booklet-design-addrow {
-	margin-block: var(--size-4-2);
-}
-
-.booklet-design-panel {
-	margin-top: var(--size-4-2);
-	padding: var(--size-4-3);
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-}
-
-.booklet-design-addkind {
-	margin-top: var(--size-4-2);
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-	text-transform: uppercase;
-}
-
-.booklet-design-addbuttons {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2-3);
-	margin-top: var(--size-2-3);
-}
-
-/*
- * An inert drawing (design-sample.ts): a question or a reading callout drawn as a reader sees it, for the tree and the catalogue. No press,
- * focus or pointer lands in it: a press on it goes to the block under it, which selects it. The five look variables and the callout rules
- * are shared with .booklet-view above (Obsidian's own look: the Booklet themes are a choice of the Booklet view alone).
- */
-.booklet-sample {
-	pointer-events: none;
-	cursor: default;
-}
-
-.booklet-sample .booklet-question {
-	margin: var(--size-4-2) 0;
-}
-
-.booklet-sample-part {
-	margin-top: var(--size-4-2);
-}
-
-.booklet-design-drawn {
-	margin: var(--size-2-2) var(--size-4-2);
-}
-
-.booklet-design-addpiece,
-.booklet-design-group {
+/* a name for assistive technology that is not shown (and not an aria-label, which Obsidian turns into a tooltip) */
+.booklet-design-sr {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
 	white-space: nowrap;
 }
 
-.booklet-design-groupbar {
+.booklet-design-shell {
+	position: relative;
 	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-2-3);
+	height: 100%;
+	min-height: 0;
 }
 
-/* the catalogue: four groups, each a headline and one sentence, opened on a press */
-.booklet-design-catgroup {
-	margin-top: var(--size-4-2);
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-}
-
-.booklet-design .booklet-design-cathead {
+/* ---- the left column ---- */
+.booklet-design-left {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	justify-content: flex-start;
-	white-space: normal;
-	gap: var(--size-2-3) var(--size-4-3);
-	width: 100%;
-	height: auto;
-	padding: var(--size-4-2) var(--size-4-3);
-	text-align: start;
-	background: transparent;
-	box-shadow: none;
+	flex: 0 0 var(--bd-left);
+	flex-direction: column;
+	min-height: 0;
+	border-inline-end: var(--border-width) solid var(--background-modifier-border);
+	background: var(--background-secondary);
 }
 
-.booklet-design-cathead::before {
-	content: "▸";
-	color: var(--text-muted);
+.booklet-design-left[hidden],
+.booklet-design-scrim[hidden],
+.booklet-design-armedbar[hidden] {
+	display: none;
 }
 
-.booklet-design-catgroup.is-open > .booklet-design-cathead::before {
-	content: "▾";
+.booklet-design-lefthead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-3) 0;
 }
 
-.booklet-design-cattitle {
+.booklet-design-lefttitle {
+	overflow: hidden;
 	font-weight: var(--font-semibold);
-	color: var(--text-normal);
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
-.booklet-design-catblurb {
-	flex: 1 1 14em;
+.booklet-design-panelclose,
+.booklet-design-menubutton,
+.booklet-design-scrim {
+	display: none;
+}
+
+.booklet-design-tabs {
+	display: flex;
+	margin: var(--size-4-3);
+	padding: var(--size-2-2);
+	border-radius: var(--radius-m);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .booklet-design-tab {
+	flex: 1;
+	padding: var(--size-4-1) 0;
+	border-radius: var(--radius-s);
 	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-	white-space: normal;
+	text-align: center;
 }
 
-.booklet-design-catbody {
-	padding: 0 var(--size-4-3) var(--size-4-3);
+.booklet-design .booklet-design-tab[aria-selected="true"] {
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
 }
 
-.booklet-design-catitem {
-	margin-top: var(--size-4-3);
-	padding-top: var(--size-4-2);
+.booklet-design-pane {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-design-pane.is-outline {
+	overflow: hidden;
+	padding: 0;
+}
+
+.booklet-design-navwrap {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-2);
+}
+
+.booklet-design-navfoot {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	max-height: 45%;
+	overflow-y: auto;
+	padding: var(--size-4-2);
 	border-top: var(--border-width) solid var(--background-modifier-border);
 }
 
-.booklet-design-catitem-head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--size-2-3) var(--size-4-3);
-}
-
-.booklet-design-catlabel {
-	flex: 1 1 8em;
-	font-weight: var(--font-semibold);
-}
-
-.booklet-design-catkeys,
-.booklet-design-popup-keys {
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-}
-
-.booklet-design-catsample {
-	margin-top: var(--size-4-2);
-}
-
-/* the key popup: kept in view while the tree scrolls under it */
-.booklet-design-popup-host {
-	position: sticky;
-	top: 0;
-	z-index: 2;
-}
-
-.booklet-design-popup {
-	margin-bottom: var(--size-4-2);
-	padding: var(--size-4-3);
-	border: var(--border-width) solid var(--interactive-accent);
+.booklet-design-navfoot details {
+	padding: var(--size-2-3) var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-primary);
-	max-height: 70vh;
-	overflow-y: auto;
 }
 
-.booklet-design-popup-head {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: center;
-	gap: var(--size-2-3) var(--size-4-2);
-}
-
-.booklet-design-popup-title {
-	flex: 1 1 8em;
+.booklet-design-navfoot summary {
+	cursor: pointer;
+	font-size: var(--font-ui-small);
 	font-weight: var(--font-semibold);
 }
 
-.booklet-design-popup-hint,
-.booklet-design-popup-line {
-	margin-top: var(--size-2-3);
-	color: var(--text-muted);
-	font-size: var(--font-ui-small);
-}
-
-.booklet-design-popup-rows {
-	margin: var(--size-4-2) 0 0;
+/* ---- the navigator ---- */
+.booklet-design-nav {
+	margin: 0;
 	padding: 0;
 	list-style: none;
 }
 
-.booklet-design .booklet-design-popup-row {
+.booklet-design-nav-row {
+	--bd-level: var(--text-faint);
 	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	align-content: center;
-	justify-content: flex-start;
-	padding-block: var(--size-4-1);
-	gap: var(--size-2-3) var(--size-4-2);
-	width: 100%;
-	height: auto;
-	text-align: start;
-	background: transparent;
-	box-shadow: none;
-	white-space: normal;
+	align-items: center;
+	border-radius: var(--radius-s);
+	padding-inline-start: calc(var(--bd-depth, 0) * var(--size-4-3));
 }
 
-.booklet-design-popup-item.is-cursor > .booklet-design-popup-row {
+.booklet-design-nav-row.is-depth-1 { --bd-depth: 1; }
+.booklet-design-nav-row.is-depth-2 { --bd-depth: 2; }
+.booklet-design-nav-row.is-depth-3 { --bd-depth: 3; }
+.booklet-design-nav-row.is-depth-4 { --bd-depth: 4; }
+.booklet-design-nav-row.is-depth-5 { --bd-depth: 5; }
+.booklet-design-nav-row.is-depth-6 { --bd-depth: 6; }
+.booklet-design-nav-row.is-depth-7 { --bd-depth: 7; }
+.booklet-design-nav-row.is-depth-8 { --bd-depth: 8; }
+
+.booklet-design-nav-row.is-level-booklet,
+.booklet-design-card.is-level-booklet,
+.booklet-design-page.is-level-booklet { --bd-level: var(--interactive-accent); }
+.booklet-design-nav-row.is-level-module,
+.booklet-design-card.is-level-module,
+.booklet-design-page.is-level-module { --bd-level: var(--color-purple); }
+.booklet-design-nav-row.is-level-module-tab,
+.booklet-design-card.is-level-module-tab,
+.booklet-design-page.is-level-module-tab { --bd-level: var(--color-pink); }
+.booklet-design-nav-row.is-level-activity,
+.booklet-design-card.is-level-activity,
+.booklet-design-page.is-level-activity { --bd-level: var(--color-blue); }
+.booklet-design-nav-row.is-level-activity-tab,
+.booklet-design-card.is-level-activity-tab,
+.booklet-design-page.is-level-activity-tab { --bd-level: var(--color-cyan); }
+.booklet-design-nav-row.is-level-page,
+.booklet-design-card.is-level-page,
+.booklet-design-page.is-level-page { --bd-level: var(--color-green); }
+
+.booklet-design-nav-row.is-current {
+	font-weight: var(--font-semibold);
 	background: var(--background-modifier-hover);
-	box-shadow: inset 0 0 0 var(--size-2-1) var(--interactive-accent);
 }
 
-.booklet-design-popup-detail,
-.booklet-design-popup-why {
+.booklet-design .booklet-design-nav-caret {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-5);
+	min-width: 0;
+	padding: 0;
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
 
-.booklet-design-popup-why {
-	margin: 0 var(--size-4-2) var(--size-2-3);
-}
-
-.booklet-design-popup-item.is-disabled .booklet-design-popup-label {
-	color: var(--text-faint);
-}
-
-/* a narrow pane (a phone, or a split): less indent, and the actions take a line of their own */
-@container (max-width: 30em) {
-	.booklet-design-node {
-		padding-inline-start: var(--size-2-3);
-	}
-
-	.booklet-design-body {
-		padding-inline-start: var(--size-2-3);
-	}
-
-	.booklet-design-actions {
-		flex: 1 1 100%;
-	}
-}
-
-/* on a phone every control of the view is at least 44 px high and wide */
-.is-mobile .booklet-design button,
-.is-mobile .booklet-design summary {
-	min-height: 44px;
-	min-width: 44px;
-}
-
-.is-mobile .booklet-design summary {
+.booklet-design .booklet-design-nav-item {
 	display: flex;
+	flex: 1;
 	align-items: center;
-}
-
-.booklet-design-ask p {
-	overflow-wrap: anywhere;
-}
-
-/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": this title is a question the reader answers ("Delete this question?", longer in Spanish and French), so it wraps */
-.booklet-design-ask-card .modal-title {
-	max-width: none;
-	overflow: visible;
-	overflow-wrap: anywhere;
-	text-overflow: clip;
-	white-space: normal;
-}
-
-/* and the close button sits over the title's end on a phone: the words keep clear of it, so a "?" is never hidden behind the X */
-.is-mobile .booklet-design-ask-card .modal-title {
-	box-sizing: border-box;
-	padding-inline: var(--size-4-12);
-}
-
-/*
- * The Design view, stage D: the outline and the lists of what the reader cannot read (a column beside the tree on a wide pane, folded above
- * it on a narrow one), a selected block's settings (Obsidian's own setting rows), and the small Markdown editor (a plain textarea).
- */
-.booklet-design-layout {
-	container-type: inline-size;
-	container-name: booklet-design;
-}
-
-.booklet-design-main {
-	display: flex;
-	flex-direction: column;
+	justify-content: flex-start;
 	gap: var(--size-4-2);
-}
-
-.booklet-design-side {
-	display: flex;
-	flex-direction: column;
-	gap: var(--size-2-3);
 	min-width: 0;
+	min-height: var(--size-4-8);
+	padding: var(--size-2-2) var(--size-4-1);
+	text-align: start;
 }
 
-.booklet-design-side details {
-	padding: var(--size-2-3) var(--size-4-2);
-	border: 1px solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
+.booklet-design-nav-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--bd-level);
 }
 
-.booklet-design-side summary {
-	cursor: pointer;
-	font-weight: var(--font-semibold);
+.booklet-design-nav-icon svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
 }
 
-.booklet-design-outline-list,
+.booklet-design-nav-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
 .booklet-design-trouble-list {
-	list-style: none;
 	margin: var(--size-2-3) 0 0;
 	padding: 0;
+	list-style: none;
 }
 
-.booklet-design-jump {
+.booklet-design .booklet-design-jump {
 	display: block;
 	width: 100%;
-	height: auto;
 	text-align: start;
-	white-space: normal;
-	background: transparent;
-	box-shadow: none;
 }
 
-.booklet-design-jump:hover {
+.booklet-design .booklet-design-jump:hover {
 	background: var(--background-modifier-hover);
 }
-
-.booklet-design-depth-1 { padding-inline-start: var(--size-4-3); }
-.booklet-design-depth-2 { padding-inline-start: calc(var(--size-4-3) * 2); }
-.booklet-design-depth-3 { padding-inline-start: calc(var(--size-4-3) * 3); }
-.booklet-design-depth-4 { padding-inline-start: calc(var(--size-4-3) * 4); }
-.booklet-design-depth-5 { padding-inline-start: calc(var(--size-4-3) * 5); }
-.booklet-design-depth-6 { padding-inline-start: calc(var(--size-4-3) * 6); }
 
 .booklet-design-trouble-why,
 .booklet-design-trouble-line {
@@ -3899,12 +3679,739 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--text-muted);
 }
 
-.booklet-design-settings {
-	margin-block: var(--size-4-2);
+/* ---- the add tab ---- */
+.booklet-design-where {
+	margin: 0 var(--size-4-1) var(--size-4-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-where.is-target {
+	border-style: solid;
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-where b {
+	display: block;
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-where i {
+	display: block;
+	font-style: normal;
+}
+
+.booklet-design-pal-label {
+	margin: var(--size-4-2) var(--size-4-1) var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	padding-inline: var(--size-4-1);
+}
+
+.booklet-design .booklet-design-commonchip {
 	padding: var(--size-2-3) var(--size-4-3);
-	border: 1px solid var(--background-modifier-border);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	background: var(--background-primary);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design .booklet-design-commonchip.is-armed,
+.booklet-design .booklet-design-tile.is-armed {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 var(--size-2-1) var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .is-off {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.booklet-design-pal-why {
+	min-height: 0;
+	margin: var(--size-2-3) var(--size-4-1) 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-pal-group {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design .booklet-design-pal-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	padding: var(--size-2-3) var(--size-4-1);
+	text-align: start;
+}
+
+.booklet-design-pal-group.is-keyed > .booklet-design-pal-head {
+	color: var(--interactive-accent);
+}
+
+.booklet-design-pal-title {
+	flex: 1;
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-pal-keys {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-pal-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(5.5em, 1fr));
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-1);
+}
+
+.booklet-design .booklet-design-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	padding: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-primary);
+	cursor: grab;
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+}
+
+.booklet-design-tile-art {
+	display: block;
+	width: 100%;
+	color: var(--text-muted);
+}
+
+.booklet-design-tile-art svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.booklet-design-tile-label {
+	line-height: 1.2;
+}
+
+.booklet-design-tile-key {
+	position: absolute;
+	top: var(--size-2-2);
+	right: var(--size-2-3);
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-samplepop {
+	position: absolute;
+	z-index: 5;
+	top: var(--size-4-12);
+	left: calc(var(--bd-left) + var(--size-4-2));
+	width: min(22em, 50%);
+	max-height: 70%;
+	overflow: auto;
+	padding: var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+	pointer-events: none;
+}
+
+.booklet-design-samplepop-art svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.booklet-design-samplepop-name {
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* ---- the main column ---- */
+.booklet-design-main {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+.booklet-design-top {
+	display: flex;
+	flex: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-4);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-bar {
+	display: flex;
+	gap: var(--size-2-3);
+}
+
+.booklet-design-crumb {
+	display: flex;
+	flex: 1 1 16em;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+	min-width: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design .booklet-design-crumb-item {
+	padding: var(--size-2-2) var(--size-4-1);
+	color: var(--text-muted);
+}
+
+.booklet-design-crumb-item[aria-current="true"] {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-banner,
+.booklet-design-status:not(:empty),
+.booklet-design-armedbar {
+	flex: none;
+	margin: var(--size-4-2) var(--size-4-4) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-armedbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	border: var(--border-width) solid var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-4-6) var(--size-4-4) var(--size-4-12);
+	background: var(--background-secondary-alt, var(--background-secondary));
+}
+
+/* ---- the page ---- */
+.booklet-design-page {
+	--bd-level: var(--text-faint);
+	max-width: 46rem;
+	margin: 0 auto var(--size-4-4);
+	padding: var(--size-4-6) var(--size-4-8) var(--size-4-4);
+	border-radius: var(--radius-l);
+	border-top: var(--size-2-3) solid var(--bd-level);
+	background: var(--bd-paper);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+.booklet-design-page-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-4);
+}
+
+.booklet-design-page-kind {
+	flex: 1 1 100%;
+	color: var(--bd-level);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.booklet-design-page-title {
+	flex: 1;
+	margin: 0;
+	font-size: var(--h1-size, 1.8em);
+}
+
+.booklet-design .booklet-design-page-titlebutton {
+	padding: 0;
+	font: inherit;
+	font-weight: inherit;
+	text-align: start;
+}
+
+.booklet-design-settings-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-design-page-body {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design-empty {
+	margin: var(--size-4-2) 0;
+	color: var(--text-muted);
+}
+
+/* ---- the slots: a faint line with a plus, stronger on hover and focus, lit or chosen while placing ---- */
+.booklet-design .booklet-design-slot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	min-height: var(--size-4-6);
+	padding: 0;
+	color: var(--text-faint);
+}
+
+.booklet-design-slot::before,
+.booklet-design-slot::after {
+	content: "";
+	flex: 1;
+	height: 0;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-slot.is-child::after {
+	display: none;
+}
+
+.booklet-design-slot-plus {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-5);
+	height: var(--size-4-5);
+	border: var(--border-width) solid var(--background-modifier-border-hover);
+	border-radius: 50%;
+	background: var(--background-primary);
+	line-height: 1;
+}
+
+.booklet-design-slot-words {
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-slot:hover,
+.booklet-design-slot:focus-visible {
+	color: var(--interactive-accent);
+}
+
+.booklet-design-slot:hover::before,
+.booklet-design-slot:hover::after,
+.booklet-design-slot:focus-visible::before,
+.booklet-design-slot:focus-visible::after {
+	border-top-color: var(--interactive-accent);
+}
+
+.booklet-design .booklet-design-slot.is-lit,
+.booklet-design .booklet-design-slot.is-over {
+	min-height: var(--size-4-8);
+	color: var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-slot.is-lit::before,
+.booklet-design-slot.is-lit::after,
+.booklet-design-slot.is-over::before,
+.booklet-design-slot.is-over::after {
+	border-top: var(--size-2-2) dashed var(--interactive-accent);
+}
+
+.booklet-design .booklet-design-slot.is-target {
+	min-height: var(--size-4-8);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-slot.is-target::before,
+.booklet-design-slot.is-target::after {
+	border-top: var(--size-2-2) solid var(--interactive-accent);
+}
+
+.booklet-design-slot.is-target .booklet-design-slot-plus {
+	border-color: var(--interactive-accent);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-slot.is-target .booklet-design-slot-words {
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* ---- a block ---- */
+.booklet-design-block {
+	position: relative;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--size-2-1) solid transparent;
+	border-radius: var(--radius-m);
+	cursor: pointer;
+}
+
+.booklet-design-block:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-block.is-selected {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-block.is-open {
+	cursor: default;
+}
+
+.booklet-design-block .booklet-design-block {
+	margin-block: var(--size-2-3);
+}
+
+.booklet-design-chip {
+	position: absolute;
+	top: calc(var(--size-4-3) * -1);
+	left: var(--size-4-3);
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-floatbar {
+	position: absolute;
+	z-index: 2;
+	top: calc(var(--size-4-4) * -1);
+	right: var(--size-4-3);
+	display: flex;
+	gap: var(--size-2-2);
+	padding: var(--size-2-2);
+	border: var(--border-width) solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+.booklet-design-cardbar {
+	display: flex;
+	gap: var(--size-2-2);
+}
+
+.booklet-design .booklet-design-iconbutton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-1);
+	min-width: var(--size-4-8);
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design .booklet-design-iconbutton:hover:not(:disabled) {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .booklet-design-iconbutton:disabled {
+	opacity: 0.4;
+}
+
+.booklet-design-iconbutton svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.booklet-design-iconbutton.booklet-design-delete {
+	color: var(--text-error);
+}
+
+.booklet-design-group-head {
+	display: flex;
+	gap: var(--size-4-2);
+	align-items: baseline;
+	margin-bottom: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-group-name {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.booklet-design-block.is-kind-group {
+	border-inline-start: var(--size-2-3) solid var(--background-modifier-border);
+}
+
+.booklet-design-group-body.is-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-3);
+}
+
+.booklet-design-group-body.is-row > * {
+	flex: 1 1 12em;
+	min-width: 0;
+}
+
+.booklet-design-prose {
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-design-drawn {
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-design-pagebreak {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-pagebreak::before,
+.booklet-design-pagebreak::after {
+	content: "";
+	flex: 1;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-comment {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	font-style: italic;
+}
+
+.booklet-design-friendly {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-4);
+	padding: var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.booklet-design-friendly-art {
+	display: flex;
+	flex: 0 0 5em;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.booklet-design-friendly-art svg {
+	width: 100%;
+	height: auto;
+	max-height: 4em;
+}
+
+.booklet-design-friendly-kind {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-friendly-detail,
+.booklet-design-friendly-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-what {
+	margin-bottom: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-lines {
+	margin: 0;
+	padding: var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-small);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* ---- the cards of a container's parts ---- */
+.booklet-design-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+	gap: var(--size-4-4);
+	margin-top: var(--size-4-4);
+}
+
+.booklet-design-card {
+	--bd-level: var(--text-faint);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+	padding: var(--size-4-3) var(--size-4-4);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-inline-start: var(--size-2-3) solid var(--bd-level);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+}
+
+.booklet-design-card-kind {
+	color: var(--bd-level);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-card-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-card-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-card-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design-chip-count {
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-l);
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-chip-count.is-keeps {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-later {
+	margin-top: var(--size-4-4);
+	opacity: 0.85;
+}
+
+/* ---- an inert drawing: a question or a reading callout drawn as a reader sees it. No press, focus or pointer lands in it ---- */
+.booklet-sample {
+	pointer-events: none;
+	cursor: default;
+}
+
+.booklet-sample .booklet-question {
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-sample-part {
+	margin-top: var(--size-4-2);
+}
+
+/* ---- the editor in place ---- */
+.booklet-design-editbox {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-3);
+	margin-block: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-4);
+	border: var(--size-2-1) solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	cursor: default;
+	text-align: start;
+}
+
+.booklet-design-editbox.is-detached {
+	border-style: dashed;
+}
+
+.booklet-design-edit-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-4-2) var(--size-4-4);
+}
+
+.booklet-design-edit-title,
+.booklet-design-edit-label {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.booklet-design-edit-title {
+	color: var(--interactive-accent);
+}
+
+.booklet-design-edit-mark:not(:empty) {
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-l);
+	font-size: var(--font-ui-smaller);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-edit-previewhost {
+	margin-top: var(--size-2-3);
+	padding: var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--bd-paper);
+	border: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-settings {
+	padding: 0;
 }
 
 .booklet-design-textarea {
@@ -3912,19 +4419,14 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	width: 100%;
 	min-height: 4em;
 	max-height: 60vh;
+	margin-top: var(--size-2-3);
 	field-sizing: content;
 	font-family: var(--font-monospace);
 	resize: vertical;
 }
 
-.booklet-design-editor-help {
-	margin-bottom: var(--size-4-2);
-	color: var(--text-muted);
-	font-size: var(--font-ui-smaller);
-}
-
+.booklet-design-edit-refusal:not(:empty),
 .booklet-design-editor-moved {
-	margin-bottom: var(--size-4-2);
 	padding: var(--size-4-2) var(--size-4-3);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
@@ -3932,60 +4434,167 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 .booklet-design-editor-state:not(:empty) {
-	margin-block: var(--size-4-2);
 	padding: var(--size-2-3) var(--size-4-2);
 	border-inline-start: var(--size-2-3) solid var(--text-warning, var(--interactive-accent));
 	background: var(--background-secondary);
 }
 
-.booklet-design-settings.is-armed .booklet-design-editor-state:not(:empty) {
+.booklet-design-editbox.is-armed .booklet-design-editor-state:not(:empty) {
 	border-inline-start-color: var(--text-error);
+}
+
+.booklet-design-edit-foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
+
+.booklet-design-edit-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
 }
 
 .booklet-design-editor-buttons {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var(--size-4-2);
-	margin-top: var(--size-4-2);
 }
 
-/* a wide pane: the outline stands beside the tree and stays in view while the tree scrolls */
-@container booklet-design (min-width: 56em) {
-	.booklet-design-main {
-		flex-direction: row;
-		align-items: flex-start;
+/* ---- the question before a change that touches kept data ---- */
+.booklet-design-ask p {
+	overflow-wrap: anywhere;
+}
+
+/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": this title is a question the reader answers ("Delete this question?", longer in Spanish and French), so it wraps */
+.booklet-design-ask-card .modal-title {
+	max-width: none;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+/* and the close button sits over the title's end on a phone: the words keep clear of it, so a "?" is never hidden behind the X */
+.is-mobile .booklet-design-ask-card .modal-title {
+	box-sizing: border-box;
+	padding-inline: var(--size-4-12);
+}
+
+/* a setting's control takes a line of its own on a narrow pane, so nothing needs a sideways scroll */
+.booklet-design-settings .setting-item {
+	flex-wrap: wrap;
+}
+
+.booklet-design-settings .setting-item-info,
+.booklet-design-settings .setting-item-control {
+	flex: 1 1 14em;
+}
+
+.booklet-design-settings input[type="text"] {
+	width: 100%;
+}
+
+/* tints mixed from a theme colour: the plain fill above is what an Obsidian that cannot mix draws */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-design-nav-row.is-current {
+		background: color-mix(in srgb, var(--bd-level) 16%, transparent);
 	}
 
-	.booklet-design-side {
-		position: sticky;
-		top: 0;
-		flex: 0 0 18em;
-		max-height: 100vh;
-		overflow-y: auto;
+	.booklet-design-where.is-target {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
 	}
 
-	.booklet-design-tree {
-		flex: 1 1 0;
-		min-width: 0;
+	.booklet-design .booklet-design-commonchip.is-armed,
+	.booklet-design .booklet-design-tile.is-armed {
+		background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+	}
+
+	.booklet-design-armedbar {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+	}
+
+	.booklet-design .booklet-design-slot.is-lit,
+	.booklet-design .booklet-design-slot.is-over {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+	}
+
+	.booklet-design-block.is-selected {
+		background: color-mix(in srgb, var(--interactive-accent) 5%, var(--bd-paper));
+	}
+
+	.booklet-design-chip-count.is-keeps {
+		background: color-mix(in srgb, var(--color-green) 18%, transparent);
+	}
+
+	.booklet-design-edit-mark:not(:empty) {
+		background: color-mix(in srgb, var(--color-orange) 22%, transparent);
 	}
 }
 
-/* a narrow pane: a setting's control takes a line of its own, so nothing needs a sideways scroll */
-@container (max-width: 30em) {
-	.booklet-design-settings .setting-item {
-		flex-wrap: wrap;
-	}
+/* ---- a phone, or a pane narrower than a tablet: the left column is a panel that slides over the canvas ---- */
+.booklet-design.is-phone .booklet-design-menubutton,
+.booklet-design.is-phone .booklet-design-panelclose {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
 
-	.booklet-design-settings .setting-item-info,
-	.booklet-design-settings .setting-item-control {
-		flex: 1 1 100%;
-	}
+.booklet-design.is-phone .booklet-design-left {
+	position: absolute;
+	z-index: 20;
+	inset-block: 0;
+	inset-inline-start: 0;
+	width: 90%;
+	max-width: 24em;
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
 
-	.booklet-design-settings .setting-item-control {
-		justify-content: flex-start;
-	}
+.booklet-design.is-phone .booklet-design-scrim {
+	position: absolute;
+	z-index: 10;
+	inset: 0;
+	display: block;
+	width: 100%;
+	border: 0;
+	border-radius: 0;
+	background: var(--background-modifier-cover);
+	opacity: 0.6;
+}
 
-	.booklet-design-settings input[type="text"] {
-		width: 100%;
-	}
+.booklet-design.is-phone .booklet-design-scrim[hidden] {
+	display: none;
+}
+
+.booklet-design.is-phone .booklet-design-page {
+	padding: var(--size-4-4);
+}
+
+.booklet-design.is-phone .booklet-design-scroll {
+	padding-inline: var(--size-4-2);
+}
+
+.booklet-design.is-phone .booklet-design-samplepop {
+	display: none;
+}
+
+/* on a phone every control of the view is at least 44 px high and wide */
+.is-mobile .booklet-design button,
+.is-mobile .booklet-design summary,
+.booklet-design.is-phone button,
+.booklet-design.is-phone summary {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.is-mobile .booklet-design summary,
+.booklet-design.is-phone summary {
+	display: flex;
+	align-items: center;
+}
+
+.is-mobile .booklet-design .booklet-design-slot,
+.booklet-design.is-phone .booklet-design-slot {
+	width: 100%;
 }

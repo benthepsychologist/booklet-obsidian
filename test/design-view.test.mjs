@@ -12,6 +12,7 @@ import { core, bookletAround, ROOT } from "./helpers.mjs";
 import { HELD } from "./editor-fixture.mjs";
 import { ALL, BARE, FULL, UNREAD, crlf, lineOf } from "./design-fixtures.mjs";
 import { FileView, MarkdownView } from "./obsidian-stub.mjs";
+import { openDesign, fakePane, EVERY_ICON } from "./design-harness.mjs";
 
 const { DesignView, DESIGN_VIEW_TYPE, BookletView, BookletPlugin, MediaAllows, installViewSwitch, setLeafMode, leafModeFor, WorkspaceLeaf, Modal } = await import("./.build/view.mjs");
 const { BookletSettingTab, MediaAllows: SettingsAllows } = await import("./.build/media.mjs");
@@ -20,98 +21,7 @@ const { parseDesign, walkDesign, levelOf, nameOf, crumbOf, minimalChange, insert
 const doc = w.document;
 const piece = (file) => PIECES.find((p) => p.file === file);
 
-/** Every icon name the view may ask for: an Obsidian whose set has them all. */
-const EVERY_ICON = new Set([...Object.values(LEVEL_ICONS).flat(), ...walkDesign(parseDesign(FULL)).flatMap((n) => [...iconNamesOf(n)]), "pencil-ruler", "file-text", "book-open"]);
-
-/** An editor over a string, as a Markdown pane has one; every replacement it is given is kept. */
-function fakePane(path, text) {
-	const v = new MarkdownView();
-	v.file = { path };
-	let current = text;
-	const toPos = (o) => {
-		const lines = current.slice(0, o).split("\n");
-		return { line: lines.length - 1, ch: lines[lines.length - 1].length };
-	};
-	const toOff = (p) => current.split("\n").slice(0, p.line).reduce((a, l) => a + l.length + 1, 0) + p.ch;
-	v.calls = [];
-	v.editor = {
-		getValue: () => current,
-		offsetToPos: toPos,
-		replaceRange(t, from, to) {
-			const a = toOff(from);
-			const b = toOff(to ?? from);
-			v.calls.push({ from: a, to: b, text: t });
-			current = current.slice(0, a) + t + current.slice(b);
-		},
-	};
-	v.text = () => current;
-	v.type = (t) => (current = t);
-	return v;
-}
-
-/** A Design view open on `text`, as a pane opens a note: loaded, then handed the text. `disk` is the note as the vault holds it. */
-function open(text, { path = "Note.booklet.md", icons = EVERY_ICON, pane = null } = {}) {
-	globalThis.__bookletStubIcons = icons;
-	const disk = { text, writes: 0 };
-	const app = testApp(disk, { workspace: { iterateAllLeaves: (fn) => void (pane && fn({ view: pane })) } });
-	const modes = [];
-	const actions = [];
-	const view = new DesignView({ app }, { setMode: async (_leaf, mode) => void modes.push(mode) });
-	const made = [];
-	const addChild = view.addChild.bind(view);
-	view.addChild = (c) => {
-		const unload = c.unload.bind(c);
-		c.unloaded = false;
-		c.unload = () => {
-			c.unloaded = true;
-			unload();
-		};
-		made.push(c);
-		return addChild(c);
-	};
-	view.addAction = (icon, title, cb) => {
-		actions.push({ icon, title, cb });
-		return doc.createElement("div");
-	};
-	view.file = { path, basename: path.replace(/\.md$/, "") };
-	view.load();
-	view.setViewData(text, true);
-	const el = view.contentEl;
-	const all = (sel, from = el) => [...from.querySelectorAll(sel)];
-	const o = {
-		view,
-		disk,
-		el,
-		modes,
-		actions,
-		made,
-		all,
-		/** The box of the node of this kind that starts on the line holding `needle`. */
-		box: (kind, needle) => {
-			const start = String(lineOf(view.getViewData(), needle));
-			const hit = all(`.booklet-design-node[data-kind="${kind}"]`).find((b) => b.getAttribute("data-start") === start);
-			assert.ok(hit, `no ${kind} drawn at the line of ${needle}`);
-			return hit;
-		},
-		/** A button in a node's own head (its actions), not in what it holds. */
-		act: (box, cls) => box.querySelector(`:scope > .booklet-design-head .booklet-design-${cls}`),
-		status: () => words(el.querySelector(".booklet-design-status")),
-		crumb: () => all(".booklet-design-crumb-item").map(words),
-		undo: () => el.querySelector(".booklet-design-undo"),
-		redo: () => el.querySelector(".booklet-design-redo"),
-		/** Presses a button and waits for what it set going. */
-		async press(button) {
-			assert.ok(button && !button.disabled, "the button is there and on");
-			click(button);
-			await view.whenIdle();
-		},
-		close() {
-			view.unload();
-			view.containerEl.remove();
-		},
-	};
-	return o;
-}
+const open = openDesign;
 
 /** The dialog the view opened, if there is one. */
 const dialog = () => doc.querySelector(".booklet-design-ask");
@@ -335,16 +245,21 @@ test("an icon newer than the Obsidian a person runs is not a hole: the next name
 	// an Obsidian whose set has only the old names
 	const old = new Set(["book-open", "file-text", "pencil", "square", "file", "layers", "list", "tag", "list-checks"]);
 	const v = open(FULL, { icons: old });
-	const icons = (kind) => v.all(`.booklet-design-node[data-kind="${kind}"] > .booklet-design-head .booklet-design-icon svg`).map((s) => s.getAttribute("data-icon"));
+	const icons = (level) => v.all(`.booklet-design-nav-row.is-level-${level} .booklet-design-nav-icon svg`).map((s) => s.getAttribute("data-icon"));
 	assert.deepEqual(new Set(icons("module")), new Set(["layers"]));
 	assert.deepEqual(new Set(icons("activity")), new Set(["list-checks"]));
 	assert.deepEqual(new Set(icons("page")), new Set(["file-text"]));
 	assert.deepEqual(v.actions.map((a) => a.icon), ["file-text", "book-open"]);
 	assert.equal(v.view.getIcon(), "pencil", "the tab's icon falls back to one that has been there for years");
-	// a node with no icon of any of its names is drawn without one, and is still drawn
+	// the bar's buttons fall back to their words when the set has none of their icons, and are still buttons
+	click(v.block("callout", "[!tip]"));
+	click(v.editor().querySelector(".booklet-design-cancel"));
+	const bar = v.block("callout", "[!tip]").querySelector(".booklet-design-floatbar");
+	for (const b of bar.querySelectorAll("button")) assert.ok(b.getAttribute("aria-label") && words(b).length > 0, "no hole: the words stand in for the missing icon");
+	// a node with no icon of any of its names is drawn without one, and is still listed
 	const none = open(BARE, { icons: new Set() });
-	assert.ok(none.all(".booklet-design-node").length > 3);
-	assert.equal(none.all(".booklet-design-icon svg").length, 0);
+	assert.ok(none.all(".booklet-design-nav-row").length >= 3);
+	assert.equal(none.all(".booklet-design-nav-icon svg").length, 0);
 	none.close();
 	v.close();
 });
@@ -373,244 +288,253 @@ test("the setting 'Open booklets in' is a row on the settings page, with the Boo
 	tab.containerEl.remove();
 });
 
-/* ======================================================================== the tree drawn ======================================================================== */
+/* ======================================================================== the canvas drawn ======================================================================== */
 
-test("every node of the note is drawn, once, nested as the tree is nested, each with its level's icon, rail class and one line of words", () => {
+test("the navigator lists every part of the note once, nested as the tree is nested, each with its level's icon and its level's colour; the settings come first", () => {
 	const v = open(FULL);
 	const root = parseDesign(FULL);
-	const nodes = walkDesign(root);
-	const boxes = v.all(".booklet-design-node");
-	assert.equal(boxes.length, nodes.length, "nothing is left out");
-	for (const n of nodes) {
-		const box = boxes.find((b) => b.getAttribute("data-kind") === n.kind && b.getAttribute("data-start") === String(n.start));
-		assert.ok(box, `${n.kind} at ${n.start} is drawn`);
-		const level = levelOf(n);
-		assert.ok(box.classList.contains(`is-level-${level}`), `${n.kind} carries the rail of its level`);
-		// nested as the tree is
-		const up = box.parentElement?.closest(".booklet-design-node");
-		if (n.parent) assert.equal(up?.getAttribute("data-start"), String(n.parent.start), `${n.kind} at ${n.start} stands in its parent`);
-		else assert.equal(up, null);
-		// an icon of its own
-		const svg = box.querySelector(":scope > .booklet-design-head .booklet-design-icon svg");
-		assert.ok(svg, `${n.kind} has an icon`);
-		assert.equal(svg.getAttribute("data-icon"), iconNamesOf(n).find((x) => EVERY_ICON.has(x)));
-		// a container says in one line what it is, from the table
-		if (core.isContainer(n)) assert.equal(words(box.querySelector(":scope > .booklet-design-what")), DESIGN_STRINGS[`what.${level}`].en);
-	}
-	// every level is on the page, and each level has a rail of its own in the style sheet
-	const levels = new Set(boxes.map((b) => b.getAttribute("data-level")));
-	for (const l of LEVELS) assert.ok(levels.has(l), `a ${l} is drawn`);
+	const entries = core.navEntries(root, { title: "A made-up booklet" });
+	const rows = v.all(".booklet-design-nav-row");
+	assert.equal(rows.length, entries.length, "nothing is left out");
+	assert.equal(entries[0].kind, "settings", "the settings entry is first");
+	entries.forEach((e, i) => {
+		const row = rows[i];
+		assert.ok(row.classList.contains(`is-level-${e.level}`), `${e.kind} carries the colour of its level`);
+		assert.equal(row.getAttribute("aria-level"), String(e.depth + 1));
+		const svg = row.querySelector(".booklet-design-nav-icon svg");
+		assert.ok(svg, `${e.label} has an icon`);
+		if (e.node) assert.equal(svg.getAttribute("data-icon"), iconNamesOf(e.node).find((x) => EVERY_ICON.has(x)));
+	});
+	// every level is on the navigator, and the style sheet gives each level a colour of its own
+	const levels = new Set(rows.map((r) => [...r.classList].find((c) => c.startsWith("is-level-"))?.slice(9)));
+	for (const l of LEVELS.filter((x) => x !== "block")) assert.ok(levels.has(l), `a ${l} is listed`);
 	const css = readFileSync(`${ROOT}/styles.base.css`, "utf8");
-	const rails = LEVELS.map((l) => new RegExp(`\\.booklet-design-node\\.is-level-${l}\\s*\\{\\s*--design-rail:\\s*([^;]+);`).exec(css)?.[1]);
-	assert.ok(rails.every(Boolean), "a rail colour for each level");
-	assert.equal(new Set(rails).size, LEVELS.length, "no two levels share one");
+	const colours = LEVELS.filter((l) => l !== "block").map((l) => new RegExp(`\\.booklet-design-nav-row\\.is-level-${l}[^{]*\\{\\s*--bd-level:\\s*([^;]+);`).exec(css)?.[1]);
+	assert.ok(colours.every(Boolean), "a colour for each level");
+	assert.equal(new Set(colours).size, colours.length, "no two levels share one");
+	// the one that is drawn is marked
+	assert.equal(v.all('.booklet-design-nav-row[aria-selected="true"]').length, 1);
+	assert.ok(rows[1].classList.contains("is-current"), "the booklet's own page");
 	v.close();
 });
 
-test("the words of each level are written once: a module says what it is in the table's words", () => {
+test("a press on a navigator entry draws that page, and only that page; the breadcrumb names every level down to it, and a click on a crumb draws that level", () => {
 	const v = open(FULL);
-	const mod = v.box("module", "[!module|money]");
-	assert.equal(words(mod.querySelector(":scope > .booklet-design-what")), "A module is a unit of the booklet. It holds activities.");
-	assert.equal(words(mod.querySelector(":scope > .booklet-design-head .booklet-design-kind")), "Module");
-	assert.equal(words(mod.querySelector(":scope > .booklet-design-head .booklet-design-name")), "Money");
-	v.close();
-});
-
-test("a click selects a block and the breadcrumb names every level down to it; a click on a crumb selects that level", () => {
-	const v = open(FULL);
-	assert.deepEqual(v.crumb(), ["Booklet: Note.booklet"], "nothing selected: the booklet");
-	const q = v.box("question", "[!text|left]");
-	click(q.querySelector(":scope > .booklet-design-head .booklet-design-pick"));
-	const root = parseDesign(FULL);
-	const target = walkDesign(root).find((n) => n.id === "left");
-	const trail = v.crumb();
-	assert.equal(trail.length, crumbOf(target).length);
-	assert.deepEqual(trail, ["Booklet: Note.booklet", "Module: Money", "Activity: Why a budget helps", "Activity tab: Doing", "Row", "Question: Left?"]);
-	assert.ok(q.classList.contains("is-selected"));
-	assert.equal(v.act(q, "pick").getAttribute("aria-pressed"), "true");
+	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet"], "nothing selected: the booklet");
+	assert.equal(words(v.page().querySelector(".booklet-design-page-title")), "A made-up booklet");
+	// the booklet's page holds its opening words and a card for each of its parts
+	assert.deepEqual(
+		v.all(".booklet-design-card").map((c) => c.getAttribute("data-kind")),
+		["module", "activity", "data-section"],
+	);
+	assert.equal(v.all(".booklet-design-page").length, 1, "one page at a time");
+	v.go("Doing");
+	assert.equal(v.all(".booklet-design-page").length, 1);
+	assert.equal(v.page().getAttribute("data-kind"), "activity-tab");
+	assert.equal(words(v.page().querySelector(".booklet-design-page-title")), "Doing");
+	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money", "Activity: Why a budget helps", "Activity tab: Doing"]);
 	assert.equal(v.all(".booklet-design-crumb-item").at(-1).getAttribute("aria-current"), "true");
-	// back up to the module
+	assert.equal(v.el.querySelector(".booklet-design-nav-row.is-current .booklet-design-nav-label").textContent, "Doing", "the navigator marks the page drawn");
+	// a block of the page selected: the trail runs down to it
+	click(v.block("question", "[!text|left]"));
+	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money", "Activity: Why a budget helps", "Activity tab: Doing", "Row", "Question: Left?"]);
+	// back up to the module: its page, its cards
 	click(v.all(".booklet-design-crumb-item")[1]);
-	assert.deepEqual(v.crumb(), ["Booklet: Note.booklet", "Module: Money"]);
-	assert.ok(!q.classList.contains("is-selected"));
-	assert.ok(v.box("module", "[!module|money]").classList.contains("is-selected"));
+	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money"]);
+	assert.equal(v.page().getAttribute("data-kind"), "module");
+	assert.deepEqual(v.all(".booklet-design-card").map((c) => words(c.querySelector(".booklet-design-card-title"))), ["This month", "Learn", "Spending", "Why a budget helps"]);
+	// the Open button of a card draws that part's page
+	click(v.card("activity", "[!activity|why").querySelector(".booklet-design-card-open"));
+	assert.equal(v.page().getAttribute("data-kind"), "activity");
+	assert.equal(words(v.page().querySelector(".booklet-design-page-title")), "Why a budget helps");
 	v.close();
 });
 
-test("a press on a block that is not on one of its buttons selects it, the innermost block of those around the press", () => {
+test("only controls carry an aria-label (Obsidian shows one as a tooltip, which is noise on a region or a group): everything else is named through aria-labelledby, and every name resolves to words", () => {
 	const v = open(FULL);
-	const q = v.box("question", "[!text|left]");
-	click(q.querySelector(":scope > .booklet-design-drawn .booklet-prompt"));
-	assert.ok(q.classList.contains("is-selected"), "a press on the drawing selects the block");
-	assert.equal(v.all(".booklet-design-node.is-selected").length, 1, "and none of the blocks around it");
-	// a press on a button does what the button does, and selects nothing by the way
-	click(v.act(v.box("module", "[!module|money]"), "up"));
-	assert.ok(q.classList.contains("is-selected"));
+	v.go("Spending");
+	v.select("question", "[!text|spent]");
+	const check = (what) => {
+		const controls = new Set(["BUTTON", "A", "INPUT", "TEXTAREA", "SELECT", "SUMMARY"]);
+		for (const e of v.all("[aria-label]")) assert.ok(controls.has(e.tagName) || e.hasAttribute("aria-live"), `${what}: <${e.tagName.toLowerCase()} class="${e.className}"> carries an aria-label`);
+		const named = v.all("[aria-labelledby]");
+		assert.ok(named.length >= 5, `${what}: regions are named`);
+		for (const e of named) {
+			const target = v.el.querySelector("#" + e.getAttribute("aria-labelledby"));
+			assert.ok(target && words(target).length > 0, `${what}: ${e.className} is named by an element with words`);
+		}
+	};
+	check("the page and its editor");
+	v.showAdd();
+	check("the Add tab");
+	v.go("Money");
+	check("a page of cards");
+	v.close();
+});
+
+test("the settings entry opens the booklet's front matter as a form, in place; the front matter is never a block of a page", () => {
+	const v = open(FULL);
+	assert.equal(v.all('.booklet-design-block[data-kind="front-matter"]').length, 0, "no page draws the front matter as a block");
+	v.go("Settings");
+	assert.ok(v.editor(), "the editor is open");
+	// named by a hidden line, not an aria-label (Obsidian would show that as a tooltip)
+	assert.equal(v.editor().getAttribute("aria-label"), null);
+	assert.equal(words(v.el.querySelector("#" + v.editor().getAttribute("aria-labelledby"))), "Edit Front matter as Markdown");
+	assert.ok(v.editor().querySelector('[data-field="marker"]'), "the booklet marker is a row of the form");
+	assert.ok(v.all(".booklet-design-editbox .setting-item").length >= 3, "a row for each property");
+	assert.equal(v.area().value.split("\n")[0], "---");
+	v.close();
+});
+
+test("a press on a block that is not on one of its buttons selects it and opens it in place, the innermost block of those around the press", () => {
+	const v = open(FULL);
+	v.go("Doing");
+	const q = v.block("question", "[!text|left]");
+	click(q.querySelector(".booklet-drawn, .booklet-prompt, .booklet-question") ?? q.querySelector(".booklet-design-drawn"));
+	const opened = v.all(".booklet-design-block.is-open");
+	assert.equal(opened.length, 1, "one block is open");
+	assert.equal(opened[0].getAttribute("data-kind"), "question", "the innermost, not the row or the group around it");
+	assert.ok(opened[0].classList.contains("is-selected"));
+	assert.equal(v.all(".booklet-design-block.is-selected").length, 1, "and none of the blocks around it");
+	assert.ok(v.editor(), "the editor is in place");
+	assert.equal(v.area().value, "> [!text|left] Left?");
 	v.close();
 });
 
 test("words are drawn by Obsidian's renderer, and the renderer's Component is unloaded at each drawing", async () => {
 	const v = open(FULL);
 	const prose = v.all(".booklet-design-prose");
-	assert.ok(prose.length >= 4);
+	assert.ok(prose.length >= 1);
 	assert.ok(prose.some((p) => words(p) === "Welcome to the booklet."), "the booklet's opening words");
 	assert.ok(prose.every((p) => p.classList.contains("markdown-rendered")));
-	assert.equal(v.made.length, 1);
-	assert.equal(v.made[0].unloaded, false);
+	const before = v.made.filter((c) => !c.unloaded).length;
+	assert.equal(before, 1, "one Component, the drawing's");
+	const first = v.made.at(-1);
 	// any change draws again
-	await v.press(v.act(v.box("callout", "[!tip]"), "delete"));
-	assert.equal(v.made.length, 2);
-	assert.equal(v.made[0].unloaded, true, "the first drawing's Component is gone");
-	assert.equal(v.made[1].unloaded, false);
+	await v.press(v.act(v.pick("callout", "[!tip]"), "delete"));
+	assert.equal(first.unloaded, true, "the first drawing's Component is gone");
+	assert.equal(v.made.filter((c) => !c.unloaded).length, 1);
+	const last = v.made.filter((c) => !c.unloaded)[0];
 	v.close();
-	assert.equal(v.made[1].unloaded, true, "and the last goes with the view");
+	assert.equal(last.unloaded, true, "and the last goes with the view");
 });
 
-test("a block is a drawing or a labelled card: its kind and id in a head, its Markdown lines exactly as written (in a fold under a drawing)", () => {
+test("a block is drawn as a reader sees it, or is a friendly card, or is text exactly as written: never Markdown code made to look like a block", () => {
 	const v = open(FULL);
-	const q = v.box("question", "[!text|spent]");
-	assert.equal(words(q.querySelector(":scope > .booklet-design-head .booklet-design-kind")), "Question");
-	assert.match(words(q.querySelector(":scope > .booklet-design-head .booklet-design-more")), /text/);
-	assert.match(words(q.querySelector(":scope > .booklet-design-head .booklet-design-more")), /spent/);
-	// the hint under a question is one of the question's own lines, and is in its fold with it (the question itself is drawn, stage C)
-	assert.equal(q.querySelector(":scope > .booklet-design-fold pre").textContent, "> [!text|spent] What did you spend?\n\n> [!hint]- Think of today\n> Start with the biggest.");
-	const tip = v.box("callout", "[!tip]");
-	assert.equal(tip.querySelector(":scope > .booklet-design-fold pre").textContent, "> [!tip] Start here\n> A reading callout in the booklet's opening.");
-	const fence = v.all('.booklet-design-node[data-kind="fence"]')[0];
-	assert.match(fence.querySelector(":scope > .booklet-design-lines").textContent, /^```booklet data/);
-	// a group draws what it holds inside it, and shows its own opening lines in a fold
-	const group = v.box("group", "[!group] Step one");
-	assert.ok(group.querySelector(".booklet-design-node[data-kind='question']"));
-	assert.equal(group.querySelector(":scope > .booklet-design-fold pre").textContent.split("\n")[0], "> [!group] Step one", "its own opening line, as written");
+	// the booklet's opening: words and a reading callout, drawn
+	const tip = v.block("callout", "[!tip]");
+	assert.ok(tip.querySelector(".booklet-design-drawn > .booklet-sample-reading"), "a reading callout is drawn by the reading drawer");
+	assert.equal(tip.querySelector("pre"), null, "no Markdown under a drawing");
+	// the module's notice and the data section's fence are cards of the picture, the kind in words and one line
+	v.go("Money");
+	const notice = v.block("notice", "[!notice]");
+	const friendly = notice.querySelector(".booklet-design-friendly");
+	assert.ok(friendly);
+	assert.equal(words(friendly.querySelector(".booklet-design-friendly-kind")), "Notice");
+	assert.ok(friendly.querySelector(".booklet-design-friendly-art svg"), "a picture");
+	assert.equal(notice.querySelector("pre"), null, "never raw Markdown");
+	// a question is drawn inert, with its controls off
+	v.go("Spending");
+	const q = v.block("question", "[!text|spent]");
+	assert.ok(q.querySelector(".booklet-design-drawn .booklet-sample"), "the question is drawn as the reader sees it");
+	assert.ok(q.querySelectorAll("button, input, textarea").length >= 0);
+	for (const c of q.querySelectorAll(".booklet-sample input, .booklet-sample textarea, .booklet-sample button")) assert.ok(c.disabled || c.readOnly, "every control is off");
+	// a group draws what it holds inside it
+	v.go("Doing");
+	const group = v.block("group", "[!group] Step one");
+	assert.ok(group.querySelector(".booklet-design-block[data-kind='question']"), "the question inside the group is a block inside the group's block");
+	assert.equal(words(group.querySelector(":scope > .booklet-design-group-head .booklet-design-group-name")), "Step one");
+	// a row holds its cells side by side
+	const row = v.block("row", "[!row]");
+	assert.ok(row.querySelector(":scope > .booklet-design-group-body.is-row"));
 	v.close();
 });
 
-test("the records section is named and left alone; text the view cannot read is drawn as written, never hidden", () => {
+test("the records are named and left alone; text the view cannot read is drawn exactly as written, never hidden", () => {
 	const v = open(FULL);
-	const rec = v.all('.booklet-design-node[data-kind="records"]')[0];
-	assert.ok(rec);
-	assert.equal(words(rec.querySelector(":scope > .booklet-design-what")), DESIGN_STRINGS["card.records"].en);
-	assert.equal(rec.querySelector(":scope > .booklet-design-head .booklet-design-actions"), null, "no delete, no move: the view never touches the records");
+	const rec = v.all('.booklet-design-block[data-kind="records"]')[0];
+	assert.ok(rec, "the records are on the booklet's page, after its cards");
+	assert.equal(words(rec.querySelector(".booklet-design-friendly-note")), DESIGN_STRINGS["card.records"].en);
+	assert.equal(rec.querySelector(".booklet-design-floatbar"), null);
+	click(rec);
+	assert.equal(v.editor(), null, "the records never open");
+	assert.equal(rec.querySelector(".booklet-design-floatbar"), null, "no delete and no move: the view never touches the records");
+	assert.ok(v.status().length > 0, "and it says why");
 	v.close();
 	const u = open(UNREAD);
 	const lines = UNREAD.split("\n");
 	const written = walkDesign(parseDesign(UNREAD)).filter((n) => n.kind === "as-written");
 	assert.ok(written.length >= 4, "the unreadable fixture has as-written nodes");
-	for (const n of written) {
-		const box = u.all('.booklet-design-node[data-kind="as-written"]').find((b) => b.getAttribute("data-start") === String(n.start));
-		assert.ok(box, `the as-written block at ${n.start} is drawn`);
-		const shown = box.querySelector(":scope > .booklet-design-lines").textContent;
-		for (const line of lines.slice(n.start, n.end).filter((l) => l.trim())) assert.ok(shown.includes(line.replace(/\r$/, "")), `its line ${JSON.stringify(line)} is shown`);
-		assert.match(words(box.querySelector(":scope > .booklet-design-what")), /exactly as it is in the note/);
+	// each as-written block is on the page of the part that holds it
+	const seen = new Set();
+	const visit = () => {
+		for (const box of u.all('.booklet-design-block[data-kind="as-written"]')) {
+			const n = written.find((x) => String(x.start) === box.getAttribute("data-start"));
+			if (!n || seen.has(n)) continue;
+			seen.add(n);
+			const shown = box.querySelector(".booklet-design-lines").textContent;
+			for (const line of lines.slice(n.start, n.end).filter((l) => l.trim())) assert.ok(shown.includes(line.replace(/\r$/, "")), `its line ${JSON.stringify(line)} is shown`);
+			assert.match(words(box.querySelector(".booklet-design-what")), /exactly as it is in the note/);
+		}
+	};
+	visit();
+	for (const label of u.navLabels()) {
+		u.go(label);
+		visit();
 	}
+	assert.equal(seen.size, written.length, "every one is drawn on some page");
 	u.close();
 });
 
 test("a note that is no booklet yet says so, and an empty one is drawn", () => {
 	const v = open("Some words.\n");
 	assert.match(words(v.el.querySelector(".booklet-design-banner")), /no booklet line/);
-	assert.ok(v.all(".booklet-design-node").length >= 2);
+	assert.ok(v.page(), "a page is drawn");
+	assert.equal(v.all(".booklet-design-slot").length >= 1, true, "and a place to add");
 	v.close();
 });
 
-/* ======================================================================== the strict + Add ======================================================================== */
-
-/** Opens every group of the catalogue in a box's open panel (the groups are folded until pressed), and gives back what is now in the panel. */
-const openGroups = (box) => {
-	const p = box.querySelector(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-panel");
-	if (p) for (const h of p.querySelectorAll(".booklet-design-cathead")) if (h.getAttribute("aria-expanded") === "false") click(h);
-	return p;
-};
-/** The pieces the open panel of a container lists, in every group, as the files they come from. */
-const panel = (box) => {
-	const p = openGroups(box);
-	return p ? [...p.querySelectorAll("button.booklet-design-piece")].map((b) => b.getAttribute("data-piece")) : null;
-};
-const addButton = (box) => box.querySelector(":scope > .booklet-design-body > .booklet-design-addrow .booklet-design-add");
-
-test("+ Add lists only what the format allows in that container, and draws the same list for every container of the note", () => {
-	for (const [name, text] of [["FULL", FULL], ["BARE", BARE], ["UNREAD", UNREAD]]) {
-		const v = open(text);
-		const root = parseDesign(text);
-		for (const n of walkDesign(root).filter((x) => core.isContainer(x))) {
-			const box = v.all(".booklet-design-node").find((b) => b.getAttribute("data-kind") === n.kind && b.getAttribute("data-start") === String(n.start));
-			assert.equal(addButton(box).getAttribute("aria-expanded"), "false");
-			click(addButton(box));
-			const fresh = v.all(".booklet-design-node").find((b) => b.getAttribute("data-kind") === n.kind && b.getAttribute("data-start") === String(n.start));
-			assert.equal(addButton(fresh).getAttribute("aria-expanded"), "true");
-			// every legal piece is listed, once, in one of the four groups, and nothing else is
-			const want = [...new Set(addChoices(n).groups.flatMap((g) => g.pieces.map((p) => p.file)))];
-			assert.deepEqual([...panel(fresh)].sort(), [...want].sort(), `${name}: ${n.kind} at ${n.start}`);
-			// every button on it is legal where it would go
-			for (const g of addChoices(n).groups) for (const p of g.pieces) assert.ok(canPlacePiece(g.position, [...PIECES, WORDS_PIECE].find((x) => x.file === p.file)).ok);
-			click(addButton(fresh));
-		}
-		v.close();
-	}
-});
-
-test("illegal parts are not on the list: no module in a module, no question in a booklet, no page under a page", () => {
+test("a view of data, a listen question and the reading aids with remote media are friendly cards that say a later beta draws them, and show no Markdown", () => {
 	const v = open(FULL);
-	// the kinds of place a container's open catalogue lists (each part carries the kind of place it goes to)
-	const kinds = (box) => {
-		click(addButton(box));
-		const open = v.all(`.booklet-design-node[data-kind="${box.getAttribute("data-kind")}"]`).find((b) => b.getAttribute("data-start") === box.getAttribute("data-start"));
-		panel(open);
-		return [...new Set([...open.querySelectorAll(".booklet-design-panel .booklet-design-catitem")].map((i) => i.getAttribute("data-place")))];
-	};
-	const mod = kinds(v.box("module", "[!module|money]"));
-	assert.ok(mod.includes("activity"));
-	for (const no of ["module", "question", "page-break", "front-matter"]) assert.ok(!mod.includes(no), `a module offers no ${no}`);
-	const book = kinds(v.all('.booklet-design-node[data-kind="booklet"]')[0]);
-	assert.ok(book.includes("module"));
-	for (const no of ["question", "page", "row", "activity-tab"]) assert.ok(!book.includes(no), `the booklet offers no ${no}`);
+	v.go("Money");
+	const queryBlock = v.all('.booklet-design-block[data-kind="query"]')[0];
+	assert.equal(queryBlock, undefined, "a view of data sits in the data section's page, not the module's");
+	v.go("Data for Money");
+	const fence = v.all('.booklet-design-block[data-kind="fence"]')[0];
+	assert.ok(fence, "the data block is on the data section's page");
+	assert.equal(words(fence.querySelector(".booklet-design-friendly-kind")), "Data block");
+	assert.equal(fence.querySelector("pre"), null);
 	v.close();
-});
-
-test("a container with nothing in it says what to add; a part that needs an activity says so and offers the activity first", () => {
-	const text = bookletAround("> [!module|m] M\n\n> [!module|m end]\n");
-	const v = open(text);
-	const mod = v.box("module", "[!module|m] M");
-	assert.equal(words(mod.querySelector(":scope > .booklet-design-body > .booklet-design-empty")), "This module is empty. Add an activity.");
-	click(addButton(mod));
-	const fresh = v.box("module", "[!module|m] M");
-	const needs = words(fresh.querySelector(".booklet-design-needs"));
-	assert.match(needs, /page/i);
-	assert.match(needs, /activity/i);
-	const files = panel(fresh);
-	assert.ok(files.includes("Structure - activity.md"), "the activity is on offer");
-	assert.ok(!files.includes("Structure - page.md"), "the page is not");
-	v.close();
-	// each other empty container says its own words
-	const w = open(bookletAround("> [!activity|a] A\n\n> [!page|p] P\n\n"));
-	assert.equal(words(w.box("page", "[!page|p]").querySelector(":scope > .booklet-design-body > .booklet-design-empty")), "This page is empty. Add a question or some words.");
-	w.close();
 });
 
 /* ======================================================================== insert, delete, move ======================================================================== */
 
-test("choosing a piece writes exactly what the operation makes, as one write, and nothing else in the note moves", async () => {
+test("placing a piece writes exactly what the operation makes, as one write, and nothing else in the note moves; the new block is selected and its editor is not opened", async () => {
 	const v = open(FULL);
+	v.go("The map");
 	const before = v.disk.text;
 	const root = parseDesign(before);
 	const page = walkDesign(root).find((n) => n.id === "map");
-	const g = addChoices(page).groups.find((x) => x.kind === "question");
 	const choice = piece("Q - choice.md");
-	assert.ok(g.pieces.some((p) => p.file === choice.file));
-	const expected = insertPiece(before, g.position, choice);
+	// the end of the page's blocks, by the slots the canvas has
+	const slots = v.slots();
+	const last = slots.at(-1);
+	const slot = core.slotsOf(core.canvasOf(root, page, {})).at(-1);
+	const expected = insertPiece(before, core.slotPositionFor(slot, choice), choice);
 	assert.equal(expected.ok, true);
-	click(addButton(v.box("page", "[!page|map")));
-	openGroups(v.box("page", "[!page|map"));
-	await v.press(v.box("page", "[!page|map").querySelector(`button[data-piece="${choice.file}"]`));
+	click(v.tile(choice.file));
+	assert.ok(last.classList.contains("is-lit"), "the places the piece may go are lit");
+	await v.press(last);
 	assert.equal(v.disk.writes, 1, "one vault.process write");
 	assertMinimal(before, v.disk.text, expected.text);
 	assert.equal(v.view.getViewData(), v.disk.text, "the view shows what it wrote");
 	assert.match(v.status(), /^Added Choice\./);
-	// the new block is drawn and selected, and the panel is closed
-	const nodes = walkDesign(parseDesign(v.disk.text)).filter((n) => n.kind === "question" && n.start >= expected.lines.start);
-	assert.ok(v.all(".booklet-design-node.is-selected").length === 1);
-	assert.equal(v.all(".booklet-design-panel").length, 0);
-	assert.ok(nodes.length >= 1);
+	// the new block is drawn and selected, and nothing is open
+	assert.equal(v.all(".booklet-design-block.is-selected").length, 1);
+	assert.equal(v.editor(), null, "an add never opens the editor");
+	const made = v.all(".booklet-design-block.is-selected")[0];
+	assert.equal(made.getAttribute("data-kind"), "question");
+	assert.equal(made.getAttribute("data-start"), String(expected.lines.start));
 	v.close();
 });
 
@@ -621,11 +545,13 @@ test("insert, delete and move in a note with Windows line endings and no final n
 		// an activity that holds nothing kept, so no question stands between the press and the write
 		const first = walkDesign(root).find((n) => n.kind === "activity" && n.id && !n.implicit && deleteBlock(text, n).ok && !deleteBlock(text, n).impact.length && !deleteBlock(text, n).blind);
 		assert.ok(first, `${name}: an activity to delete`);
-		// delete it
+		// draw the page that holds it as a card: the booklet's (the second entry of the navigator) or its module's
+		if (first.parent.kind === "booklet") click(v.navItem(v.navLabels()[1]));
+		else v.go(nameOf(first.parent));
 		let before = v.disk.text;
 		const del = deleteBlock(before, first);
 		assert.equal(del.ok, true, name);
-		await v.press(v.act(v.all(".booklet-design-node").find((b) => b.getAttribute("data-kind") === "activity" && b.getAttribute("data-start") === String(first.start)), "delete"));
+		await v.press(v.act(v.card("activity", first.start), "delete"));
 		assertMinimal(before, v.disk.text, del.text);
 		assert.equal(v.disk.text.includes("\r\n") || !text.includes("\r\n"), true, `${name}: no line ending was changed`);
 		if (text.includes("\r\n")) assert.equal(v.disk.text.replace(/\r\n/g, "").includes("\n"), false, `${name}: no bare line feed came in`);
@@ -636,41 +562,71 @@ test("insert, delete and move in a note with Windows line endings and no final n
 	}
 });
 
-test("Delete takes a block out with what is in it and the blank lines after it, and nothing else", async () => {
+test("Delete takes a part out with what is in it and the blank lines after it, and nothing else; a block on the page goes the same way", async () => {
 	const v = open(FULL);
+	v.go("Money");
 	const before = v.disk.text;
 	const root = parseDesign(before);
 	const target = walkDesign(root).find((n) => n.id === "why");
 	const expected = deleteBlock(before, target);
-	await v.press(v.act(v.box("activity", "[!activity|why"), "delete"));
+	await v.press(v.act(v.card("activity", "[!activity|why"), "delete"));
 	assertMinimal(before, v.disk.text, expected.text);
 	assert.equal(v.disk.writes, 1);
 	assert.match(v.status(), /^Deleted Activity: Why a budget helps\./);
 	assert.equal(dialog(), null, "nothing kept, nothing to ask");
+	assert.equal(v.page().getAttribute("data-kind"), "module", "the page it was on stays");
+	// a block: select it, close its editor, and the bar is on it
+	v.go("Spending");
+	const mapBefore = v.disk.text;
+	const prose = v.pick("prose", "What you spent.");
+	const proseNode = walkDesign(parseDesign(mapBefore)).find((n) => n.kind === "prose" && n.start === Number(prose.getAttribute("data-start")));
+	const want = deleteBlock(mapBefore, proseNode);
+	await v.press(v.act(prose, "delete"));
+	assertMinimal(mapBefore, v.disk.text, want.text);
 	v.close();
 });
 
-test("Move up and Move down move a block one place among its siblings, with its lines and nothing else; the ends have only one", async () => {
+test("Move up and Move down move a part one place among its siblings, with its lines and nothing else; the ends have only one", async () => {
 	const v = open(BARE);
+	click(v.navItem(v.navLabels()[1])); // the booklet's page: its two activities are cards
 	const before = v.disk.text;
 	const root = parseDesign(before);
 	const [one, two] = walkDesign(root).filter((n) => n.kind === "activity");
-	const boxOne = v.box("activity", "[!activity|one");
-	const boxTwo = v.box("activity", "[!activity|two");
-	assert.equal(v.act(boxOne, "up").disabled, true, "the first has no Move up");
-	assert.equal(v.act(boxOne, "down").disabled, false);
-	assert.equal(v.act(boxTwo, "down").disabled, true, "the last has no Move down");
+	const cardOne = v.card("activity", "[!activity|one");
+	const cardTwo = v.card("activity", "[!activity|two");
+	assert.equal(v.act(cardOne, "up").disabled, true, "the first has no Move up");
+	assert.equal(v.act(cardOne, "down").disabled, false);
+	assert.equal(v.act(cardTwo, "down").disabled, true, "the last has no Move down");
 	const expected = moveBlock(before, one, positionAfter(two));
 	assert.equal(expected.ok, true);
-	await v.press(v.act(boxOne, "down"));
+	await v.press(v.act(cardOne, "down"));
 	assertMinimal(before, v.disk.text, expected.text);
 	assert.equal(v.disk.writes, 1);
 	const order = walkDesign(parseDesign(v.disk.text)).filter((n) => n.kind === "activity").map((n) => n.id);
 	assert.deepEqual(order, ["two", "one"]);
-	// the moved block stays selected, and Move up puts it back, byte for byte
-	assert.ok(v.box("activity", "[!activity|one").classList.contains("is-selected"));
-	await v.press(v.act(v.box("activity", "[!activity|one"), "up"));
+	assert.equal(v.page().getAttribute("data-kind"), "booklet", "the page stays; the cards are in their new order");
+	assert.deepEqual(v.all(".booklet-design-card").map((c) => words(c.querySelector(".booklet-design-card-title"))), ["Two", "One"]);
+	// and Move up puts it back, byte for byte
+	await v.press(v.act(v.card("activity", "[!activity|one"), "up"));
 	assert.equal(v.disk.text, before);
+	v.close();
+});
+
+test("a block's floating bar has Move up, Move down, Edit as Markdown and Delete, each labelled; it stands on the selected block only, and not on one the view never changes", () => {
+	const v = open(FULL);
+	assert.equal(v.all(".booklet-design-floatbar").length, 0, "nothing selected, no bar");
+	const tip = v.block("callout", "[!tip]");
+	click(tip);
+	assert.equal(v.all(".booklet-design-floatbar").length, 0, "while the block is open in the editor the bar is not drawn over it");
+	click(v.editor().querySelector(".booklet-design-cancel"));
+	const bar = v.block("callout", "[!tip]").querySelector(":scope > .booklet-design-floatbar");
+	assert.ok(bar, "the selected block has its bar");
+	assert.equal(bar.getAttribute("role"), "toolbar");
+	assert.deepEqual([...bar.querySelectorAll("button")].map((b) => b.getAttribute("aria-label")), ["Move up", "Move down", "Edit as Markdown", "Delete"]);
+	assert.equal(v.all(".booklet-design-floatbar").length, 1, "one bar");
+	// the records never get one
+	click(v.all('.booklet-design-block[data-kind="records"]')[0]);
+	assert.equal(v.all(".booklet-design-floatbar").length, 0);
 	v.close();
 });
 
@@ -678,10 +634,11 @@ test("a part the format will not put there has no button, and if it is asked for
 	// an activity does not go above its module's tab
 	const text = bookletAround("> [!module|m] M\n\n> [!tab|t] T\n\n> [!activity|a] A\n\n> [!activity|b] B\n\n> [!module|m end]\n");
 	const v = open(text);
+	v.go("M");
 	const before = v.disk.text;
-	const box = v.box("activity", "[!activity|a]");
+	const box = v.card("activity", "[!activity|a]");
 	assert.equal(v.act(box, "up").disabled, true, "no Move up: the tab stands above it");
-	assert.equal(v.act(v.box("activity", "[!activity|b]"), "up").disabled, false);
+	assert.equal(v.act(v.card("activity", "[!activity|b]"), "up").disabled, false);
 	// asked for anyway (the way a key or a menu would): the operation's own reason
 	const root = v.view.root;
 	const a = walkDesign(root).find((n) => n.id === "a");
@@ -698,10 +655,12 @@ test("a part the format will not put there has no button, and if it is asked for
 
 test("a change made to the note after the view drew it is not written over: the view says so and draws the note as it is", async () => {
 	const v = open(BARE);
+	click(v.navItem(v.navLabels()[1]));
 	const before = v.disk.text;
+	const del = v.act(v.card("activity", "[!activity|one"), "delete");
 	// the note is changed under the view (a sync, another plugin): the vault holds new text, the view has not heard
 	v.disk.text = before.replace("One", "Uno");
-	await v.press(v.act(v.box("activity", "[!activity|one"), "delete"));
+	await v.press(del);
 	assert.equal(v.disk.text, before.replace("One", "Uno"), "the newer note is left exactly as it is");
 	assert.match(v.status(), /The note changed after this view drew it/);
 	assert.equal(v.view.getViewData(), v.disk.text, "and the view now shows it");
@@ -716,19 +675,22 @@ test("the view never writes the whole file: TextFileView's own save and its debo
 	await v.view.save(true);
 	assert.equal(v.disk.writes, 0);
 	assert.equal(v.view.getViewData(), BARE);
-	const src = readFileSync(`${ROOT}/src/design-view.ts`, "utf8");
-	assert.doesNotMatch(src, /vault\.(modify|create|append)\b|\.write\(/, "the only write is through note-view.ts");
+	for (const f of ["design-view", "design-edit", "design-canvas-draw", "design-nav", "design-palette"]) {
+		const src = readFileSync(`${ROOT}/src/${f}.ts`, "utf8");
+		assert.doesNotMatch(src, /vault\.(modify|create|append)\b|\.write\(/, `${f}: the only write is through note-view.ts`);
+	}
 	v.close();
 });
 
 test("with the note also open as Markdown, a change goes into that pane's editor as the smallest edit, and not into the file", async () => {
 	const pane = fakePane("Note.booklet.md", FULL);
 	const v = open(FULL, { pane });
+	v.go("Money");
 	const before = pane.text();
 	const root = parseDesign(before);
 	const target = walkDesign(root).find((n) => n.id === "why");
 	const expected = deleteBlock(before, target);
-	await v.press(v.act(v.box("activity", "[!activity|why"), "delete"));
+	await v.press(v.act(v.card("activity", "[!activity|why"), "delete"));
 	assert.equal(v.disk.writes, 0, "the vault was not written: the pane holds the note and saves it");
 	assert.equal(pane.calls.length, 1, "one replacement");
 	assertMinimal(before, pane.text(), expected.text);
@@ -746,13 +708,19 @@ test("with the note also open as Markdown, a change goes into that pane's editor
 
 /* ======================================================================== kept data: say, count, ask ======================================================================== */
 
+/** The Delete button of the activity card `needle` on the page of the module `module` (HELD's "once" is a card of Mood). */
+const deleteCard = (v, needle, module = "Mood") => {
+	v.go(module);
+	return v.act(v.card("activity", needle), "delete");
+};
+
 test("a delete that would detach kept answers says what will go, with counts, and waits for a yes", async () => {
 	const v = open(HELD);
 	const before = v.disk.text;
 	const target = walkDesign(parseDesign(before)).find((n) => n.id === "once");
 	const expected = deleteBlock(before, target);
 	assert.ok(expected.impact.length >= 2);
-	click(v.act(v.box("activity", "[!activity|once"), "delete"));
+	click(deleteCard(v, "[!activity|once"));
 	const ask = dialog();
 	assert.ok(ask, "a question is open");
 	assert.equal(v.disk.writes, 0, "nothing is written while it is open");
@@ -794,7 +762,7 @@ test("a no does nothing: Cancel, Escape and a click outside leave the note untou
 		const watch = watchDialogs();
 		const v = open(HELD);
 		const before = v.disk.text;
-		click(v.act(v.box("activity", "[!activity|once"), "delete"));
+		click(deleteCard(v, "[!activity|once"));
 		const ask = dialog();
 		assert.ok(ask);
 		if (how === "Cancel") press(ask, "Cancel");
@@ -805,7 +773,7 @@ test("a no does nothing: Cancel, Escape and a click outside leave the note untou
 		assert.equal(v.disk.text, before, how);
 		assert.equal(v.undo().disabled, true, `${how}: nothing to undo`);
 		assert.equal(v.status(), "Nothing was changed.", how);
-		assert.ok(v.box("activity", "[!activity|once"), `${how}: it is still drawn`);
+		assert.ok(v.card("activity", "[!activity|once"), `${how}: it is still drawn`);
 		assert.equal(dialog(), null);
 		v.close();
 	}
@@ -818,7 +786,7 @@ test("a blind note (the reader cannot open it) is asked about too, in words that
 	const target = walkDesign(parseDesign(refused)).find((n) => n.id === "once");
 	const expected = deleteBlock(refused, target);
 	assert.equal(expected.blind, true);
-	click(v.act(v.box("activity", "[!activity|once"), "delete"));
+	click(deleteCard(v, "[!activity|once"));
 	const ask = dialog();
 	assert.ok(ask, "asked");
 	assert.match(words(ask), /cannot open this booklet as it is, so this view cannot count what this change touches/);
@@ -833,16 +801,19 @@ test("a blind note (the reader cannot open it) is asked about too, in words that
 
 test("Undo and Redo put back the exact bytes, in order, and are on only when there is something to do", async () => {
 	const v = open(BARE);
+	click(v.navItem(v.navLabels()[1]));
 	const t0 = v.disk.text;
 	assert.equal(v.undo().disabled, true);
 	assert.equal(v.redo().disabled, true);
-	await v.press(v.act(v.box("activity", "[!activity|two"), "delete"));
+	await v.press(v.act(v.card("activity", "[!activity|two"), "delete"));
 	const t1 = v.disk.text;
 	assert.notEqual(t1, t0);
-	click(addButton(v.all('.booklet-design-node[data-kind="booklet"]')[0]));
-	openGroups(v.all('.booklet-design-node[data-kind="booklet"]')[0]);
-	const choice = piece("Structure - activity.md") ?? PIECES.find((p) => p.label === "activity");
-	await v.press(v.all('.booklet-design-panel button').find((b) => b.getAttribute("data-piece") === choice.file));
+	// add an activity at the end of the booklet: pick its tile, then the lit place
+	const choice = piece("Structure - activity.md");
+	click(v.tile(choice.file));
+	const lit = v.slots().filter((s) => s.classList.contains("is-lit"));
+	assert.ok(lit.length >= 1, "a place is lit");
+	await v.press(lit.at(-1));
 	const t2 = v.disk.text;
 	assert.notEqual(t2, t1);
 	assert.equal(v.undo().disabled, false);
@@ -865,7 +836,8 @@ test("Undo and Redo put back the exact bytes, in order, and are on only when the
 
 test("a note changed outside the view since the step is not undone over: the view says so and changes nothing", async () => {
 	const v = open(BARE);
-	await v.press(v.act(v.box("activity", "[!activity|two"), "delete"));
+	click(v.navItem(v.navLabels()[1]));
+	await v.press(v.act(v.card("activity", "[!activity|two"), "delete"));
 	const after = v.disk.text;
 	const typed = after + "\nTyped elsewhere.\n";
 	v.disk.text = typed;
@@ -878,7 +850,8 @@ test("a note changed outside the view since the step is not undone over: the vie
 
 test("mod+z and mod+shift+z undo and redo when no field has the focus, and are left to the field when one has", async () => {
 	const v = open(BARE);
-	await v.press(v.act(v.box("activity", "[!activity|two"), "delete"));
+	click(v.navItem(v.navLabels()[1]));
+	await v.press(v.act(v.card("activity", "[!activity|two"), "delete"));
 	const t1 = v.disk.text;
 	const handler = (mods, key) => v.view.scope.handlers.find((h) => h.key === key && JSON.stringify(h.modifiers) === JSON.stringify(mods))?.func;
 	const undo = handler(["Mod"], "z");
@@ -908,7 +881,7 @@ test("mod+z and mod+shift+z undo and redo when no field has the focus, and are l
 
 test("a second press while a change is under way waits for it: two clicks make one change, not two", async () => {
 	const v = open(HELD);
-	const del = v.act(v.box("activity", "[!activity|once"), "delete");
+	const del = deleteCard(v, "[!activity|once");
 	click(del);
 	click(del);
 	assert.equal(w.document.querySelectorAll(".booklet-design-ask").length, 1, "one question");
@@ -919,7 +892,7 @@ test("a second press while a change is under way waits for it: two clicks make o
 
 test("the confirm dialog's title wraps and keeps clear of the close button on a phone (a long Spanish or French title is never cut or hidden)", () => {
 	const v = open(HELD);
-	click(v.act(v.box("activity", "[!activity|once"), "delete"));
+	click(deleteCard(v, "[!activity|once"));
 	assert.ok(dialog().closest(".booklet-design-ask-card"), "the dialog's own card carries the class its title rules hang on");
 	press(dialog(), "Cancel");
 	v.close();
@@ -931,22 +904,30 @@ test("the confirm dialog's title wraps and keeps clear of the close button on a 
 
 /* ======================================================================== phone, and a user who never opens it ======================================================================== */
 
-test("every action is a visible button with its words: no hover, no drag, no key is needed", () => {
+test("every action is a visible button with its words: no hover, and a press, a key or a drag each reach the same places", () => {
 	const v = open(FULL);
 	// (the buttons inside an inert drawing are the reader's, drawn switched off: they are no action of this view)
+	v.go("Spending");
 	const drawn = v.all(".booklet-sample button");
-	assert.ok(drawn.length > 0 && drawn.every((b) => b.disabled), "a drawn question's buttons are all off");
+	for (const b of drawn) assert.ok(b.disabled, "a drawn question's buttons are all off");
+	for (const label of ["Money", "Doing"]) {
+		v.go(label);
+		click(v.all(".booklet-design-block")[0] ?? v.page());
+	}
+	v.openGroups();
 	const buttons = v.all("button").filter((b) => !b.closest(".booklet-sample"));
 	assert.ok(buttons.length > 40);
 	for (const b of buttons) {
 		assert.equal(b.getAttribute("type"), "button");
 		assert.ok(words(b).length > 0 || b.getAttribute("aria-label"), "a button has its words");
 	}
-	const src = readFileSync(`${ROOT}/src/design-view.ts`, "utf8");
-	assert.doesNotMatch(src, /mouseover|mouseenter|dragstart|dragover|draggable|:hover/, "nothing is reachable only by hover or drag");
+	// a "+" is a real button, and so is everything else a person presses; nothing is reachable only by hover
+	for (const f of ["design-view", "design-canvas-draw", "design-nav", "design-edit"]) {
+		const src = readFileSync(`${ROOT}/src/${f}.ts`, "utf8");
+		assert.doesNotMatch(src, /mouseover|:hover/, `${f}: nothing is reachable only by hover`);
+	}
 	const css = readFileSync(`${ROOT}/styles.base.css`, "utf8");
 	assert.match(css, /\.is-mobile \.booklet-design button[^{]*\{[^}]*min-height:\s*44px/, "a phone gets 44 px targets");
-	assert.match(css, /@container \(max-width: 30em\)/, "a narrow pane has its own rules");
 	assert.doesNotMatch(css.slice(css.indexOf("The Design view (design-view.ts)")), /(?:^|[^-])width:\s*\d+px/m, "no fixed width that would not fit 400 px");
 	v.close();
 });

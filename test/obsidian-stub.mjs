@@ -141,7 +141,14 @@ export function getLanguage() {
 }
 
 /** What the plugin asks of the platform. */
-export const Platform = { isMobile: false, isDesktop: true };
+// isPhone follows globalThis.__bookletStubPhone, because the bundles each hold their own copy of this module (see test/design-harness.mjs)
+export const Platform = {
+	isMobile: false,
+	isDesktop: true,
+	get isPhone() {
+		return globalThis.__bookletStubPhone === true;
+	},
+};
 
 /** A plugin: what main.ts's onload calls on itself, doing nothing (a test hands onload an app that records what it is given). */
 export class Plugin extends Component {

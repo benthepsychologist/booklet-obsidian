@@ -45,7 +45,14 @@ const firstLine = (text: string, node: DesignNode): string => blockLines(text, n
 /** The form of a block, or null when it has none (its first line is not a Booklet line, or the view never changes its lines). */
 export function formOf(text: string, node: DesignNode): Form | null {
 	if (whyUnchangeable(node)) return null;
-	const line = firstLine(text, node);
+	return formOfLine(firstLine(text, node));
+}
+
+/**
+ * The form of a Booklet line, or null when the line is not one: what `formOf` makes of a block's first line, and what the in-place
+ * editor makes of the first line of its draft, so the rows follow the draft as it is typed.
+ */
+export function formOfLine(line: string): Form | null {
 	const p = parseLine(line);
 	const m = settingsModel(line);
 	if (!p || !m) return null;
