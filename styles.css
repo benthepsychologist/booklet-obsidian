@@ -4737,6 +4737,14 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	grid-column: 1 / -1;
 }
 
+/* "Add a reply" sits in the indented column of replies: its words wrap, and take the same small side padding, so a longer translation is not clipped */
+.is-mobile .booklet-design .booklet-design-rows-replies > button,
+.booklet-design.is-phone .booklet-design-rows-replies > button {
+	white-space: normal;
+	padding-inline: var(--size-4-1);
+	text-align: center;
+}
+
 /* a row's buttons keep an edge on a phone, where the theme draws them without one on the row's own grey */
 .is-mobile .booklet-design .booklet-design-rows button:not([aria-checked="true"]),
 .booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]) {
