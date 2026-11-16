@@ -1,4 +1,4 @@
-// Check 24 of plugin-check.js: marking, a matrix and `each:`, in the real app. Every note is made up (test-vault "Study quiz").
+// Check 24 of plugin-check.js: marking, a matrix and `each:`, in the real app. Every note is made up (the fixture "Study quiz" of test/fixtures.mjs).
 //   right and wrong marked on a choice and a multi (with each option's reply), a matrix (a grid on a desktop, separate
 //   questions on a phone), and a question asked for each pick of another (`each:`), of several kinds.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.

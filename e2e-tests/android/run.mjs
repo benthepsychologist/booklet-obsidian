@@ -203,7 +203,7 @@ async function execute(o, sdk, image, shared) {
 		const stage = path.join(o.cache, "stage");
 		const plugin = await stagePlugin({ pluginDir: o.pluginDir, release: o.release, stageDir: path.join(stage, "plugin"), log });
 		const vaultDir = path.join(stage, "vault");
-		const written = buildVault({ testVault: path.join(repoRoot, "test-vault"), dest: vaultDir });
+		const written = buildVault({ dest: vaultDir });
 		log(`  plugin ${plugin.manifest.id} ${plugin.manifest.version} (minAppVersion ${plugin.manifest.minAppVersion}) from ${plugin.source}; vault notes added: ${written.join(", ")}`);
 		const apk = await getApk(o, log);
 		const appVersion = apk.apkVersion ?? o.obsidian; // the version the APK really is (1.14.5 has the 1.14.4 APK)

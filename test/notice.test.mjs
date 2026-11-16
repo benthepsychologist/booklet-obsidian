@@ -8,7 +8,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { openView, click, typeInto } from "./dom.mjs";
-import { core, corpusFiles, read } from "./helpers.mjs";
+import { core, corpusFiles } from "./helpers.mjs";
 
 const PLUGIN = "0.11.0";
 const UPDATE = "To update: Settings, Community plugins, Check for updates.";
@@ -255,14 +255,14 @@ test("the rest of the note still draws and takes answers; what is not read is by
 	v.close();
 });
 
-test("no note of the corpus or the test vault holds anything this view does not read, and none says anything of its marker", () => {
-	for (const file of corpusFiles()) {
-		const b = core.parseBooklet(read(file));
+test("no note of the corpus or the fixtures holds anything this view does not read, and none says anything of its marker", () => {
+	for (const { name, text } of corpusFiles()) {
+		const b = core.parseBooklet(text);
 		// an activity line takes no `parent:` setting in format 0.18 (a note that still uses it is listed for that); a theme block
 		// is a block the format defines and this view does not read yet (README: "themes")
 		const left = b.unread.filter((u) => !/an activity line takes no `parent:` setting/.test(u.why) && u.text !== "```booklet theme");
-		assert.deepEqual(left, [], file);
-		assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, file);
+		assert.deepEqual(left, [], name);
+		assert.equal(core.openingNotice({ ...b, unread: left }, PLUGIN), null, name);
 	}
 });
 

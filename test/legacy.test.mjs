@@ -1,14 +1,15 @@
 /*
  * A note with no page line is read, modelled and drawn in every place the view can show, and nothing is written to the note. The golden file
  * (legacy-golden.json) holds, for each such note, its reading and navigation model and a hash of the drawing of each place; test/legacy-structure.mjs
- * makes it and says how to make it again. It covers every note of the test vault that has no page line and no activity `parent:`, and made-up
+ * makes it and says how to make it again. It covers every fixture note (test/fixtures.mjs, the old test vault's) that has no page line and no activity `parent:`, and made-up
  * ones for what the vault lacks. A change to the reading, the navigation or the drawing shows here as a note and a place whose hash moved.
  */
 import "./fixed-date.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { EXTRA, drawnHash, modelOf, placesOf, vaultNotes } from "./legacy-structure.mjs";
+import { EXTRA, drawnHash, modelOf, placesOf } from "./legacy-structure.mjs";
+import { vaultNotes } from "./fixtures.mjs";
 
 const golden = JSON.parse(readFileSync(new URL("./legacy-golden.json", import.meta.url), "utf8"));
 const notes = { ...vaultNotes(), ...Object.fromEntries(Object.entries(EXTRA).map(([k, v]) => [`${k} (made up here)`, v])) };
@@ -32,6 +33,6 @@ for (const [name, want] of Object.entries(golden)) {
 	});
 }
 
-test("every note in the test vault that has no page line is in the golden file (a new note with no page line must be added to it)", () => {
+test("every fixture note that has no page line is in the golden file (a new note with no page line must be added to it)", () => {
 	for (const [name, text] of Object.entries(vaultNotes())) if (!/^>[ \t]?\[!page/m.test(text)) assert.ok(golden[name], `${name} has no page line and is not in legacy-golden.json`);
 });

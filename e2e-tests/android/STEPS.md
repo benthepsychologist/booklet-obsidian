@@ -95,7 +95,7 @@ You do not need to touch the emulator while it runs. During the audio checks it 
 
 My estimate, never timed on a Mac: **the first run 20 to 40 minutes** (it downloads the Obsidian app, 14.5 MB, and a matching ChromeDriver, creates the phone, and cold-boots it, which can take several minutes). **Later runs 10 to 15 minutes.** The script prints `[ 123s] ...` progress lines and a "Step n/6" heading, and every wait has a time limit, so it never hangs without saying where.
 
-1. Gets the plugin build, builds a vault from the repository's `test-vault` plus two made-up notes and a two-minute quiet tone, and downloads the Obsidian Android app from `github.com/obsidianmd/obsidian-releases` (kept in `e2e-tests/android/.cache/`, never committed).
+1. Gets the plugin build, builds a vault from the made-up notes of `test/fixtures.mjs` plus two more made-up notes and a two-minute quiet tone, and downloads the Obsidian Android app from `github.com/obsidianmd/obsidian-releases` (kept in `e2e-tests/android/.cache/`, never committed).
 2. Creates the phone (an "Android Virtual Device" named `booklet-android`, Pixel profile) if it does not exist, and starts it.
 3. Starts Appium and the test tool, which installs the app, the vault and Booklet and opens the vault.
 4. Runs the checks below.
@@ -109,7 +109,7 @@ Each check is PASS or FAIL with a screenshot. LIMIT means the emulator could not
 | Check | What it does |
 | - | - |
 | plugin-loads | Booklet is loaded and enabled; switches off and on again |
-| booklet-view | The test-vault Check-in note opens in the Booklet view |
+| booklet-view | The made-up Check-in note (from `test/fixtures.mjs`) opens in the Booklet view |
 | pages-menu | A made-up wiki shows its Pages button; the menu opens; no sideways scroll |
 | allow-card | The Allow list button opens the card; Close closes it |
 | now-playing | A tone plays; the now-playing bar stays through Next and Back |

@@ -12,9 +12,8 @@
  */
 import "./fixed-date.mjs";
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { core, ROOT } from "./helpers.mjs";
+import { core } from "./helpers.mjs";
+import { vaultNotes } from "./fixtures.mjs";
 import { pane } from "./pane.mjs";
 
 /** Made-up 0.16 notes the vault lacks: tabs with page breaks, and odd lines. */
@@ -73,16 +72,6 @@ export async function drawnHash(text, [screen, tab, part], path = "Note.booklet.
 	p.close();
 	return { sha: sha(html), ...state };
 }
-
-export const vaultNotes = () => {
-	const dir = join(ROOT, "test-vault");
-	return Object.fromEntries(
-		readdirSync(dir)
-			.filter((f) => f.endsWith(".booklet.md"))
-			.sort()
-			.map((f) => [f, readFileSync(join(dir, f), "utf8")]),
-	);
-};
 
 /** The whole structure: for each note, its model and the hash of every place's drawing. */
 export async function legacyStructure() {

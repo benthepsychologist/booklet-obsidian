@@ -7,6 +7,7 @@
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function navChecks(env) {
   const { withApp, Check, launch, opt, sleep, BOOK, read, SRC_VAULT, waitActiveType } = env;
@@ -801,7 +802,7 @@ A spade, a fork and a trowel are enough.
     const c = new Check(28, "the check-in as one activity with a wiki tab (made-up words): three tabs, the wiki walked page by page, a quiz tab of two named pages whose answers reach the draft, the dashboard tab, the finish only under the quiz tab; desktop and phone, light and dark");
     await withApp("c28", async (o, vault) => {
       const NOTE = "Check-in with a wiki.booklet.md", KEY = "activity:calm/check-in";
-      const text = fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", NOTE), "utf8");
+      const text = fixtureVault.text("page-notes/" + NOTE);
       put(vault, NOTE, text);
       await ready(o, NOTE);
       const page = () => o.evaluate(() => { const root = app.workspace.getLeavesOfType("booklet")[0].view.contentEl; const q = s => [...root.querySelectorAll(s)].map(x => x.textContent.trim()); return { tabs: q(".booklet-tabbtn"), on: q(".booklet-tabbtn.is-active")[0], title: q(".booklet-pagetitle"), pager: q(".booklet-pager > *"), at: q(".booklet-pager-at")[0] || "", finalize: root.querySelectorAll(".booklet-finalize").length, menu: q(".booklet-pagelist a"), questions: root.querySelectorAll("[data-booklet-q]").length, problems: q(".booklet-problems li") }; });

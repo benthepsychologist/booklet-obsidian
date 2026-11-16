@@ -13,11 +13,12 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, SKETCH, assertOutsideUnchanged, core, norm } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 import { pane } from "./pane.mjs";
 
 const { drawMarks, keepStepsOne, loadStepsOne, moveHeld, keepHeld, loadHeld } = await import("./.build/screens.mjs");
 
-const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
+const READING = fixtures.READING;
 const head = 'booklet: "0.20"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 /** A device store, as Obsidian's saveLocalStorage keeps one; `one` holds the steps one at a time. */

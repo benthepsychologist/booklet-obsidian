@@ -7,6 +7,7 @@
 const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
 const { quiet } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ? process.argv[i + 1] : d; };
 const opt = { obsidian: arg("obsidian"), out: arg("out"), vault: arg("vault", path.join(__dirname, "..", "test-vault")), tag: arg("tag", "run") };
@@ -18,7 +19,7 @@ const say = (...a) => console.log(...a);
 let pass = 0, fail = 0;
 const fact = (ok, text) => { ok ? pass++ : fail++; say((ok ? "PASS " : "FAIL ") + text); };
 
-const WALK = path.join(__dirname, "..", "test", "page-notes", "Screen reader walk");
+const WALK = fixtureVault.asset("Screen reader walk");   // the tone; the note is a fixture of test/fixtures.mjs
 const NOTE = "Screen reader walk.booklet.md";
 
 // in the page: the card's footer against what lies under it, and the callout against its box and the window
@@ -54,6 +55,7 @@ const CALLOUT = () => {
 };
 
 (async () => {
+  await fixtureVault.load();
   const dir = path.join(OUT, "work-" + Date.now()), vault = path.join(dir, "vault");
   fs.mkdirSync(path.join(vault, ".obsidian", "plugins", "booklet"), { recursive: true });
   for (const f of ["main.js", "manifest.json", "styles.css"]) fs.copyFileSync(path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", f), path.join(vault, ".obsidian", "plugins", "booklet", f));
@@ -61,7 +63,7 @@ const CALLOUT = () => {
   fs.writeFileSync(path.join(vault, ".obsidian", "community-plugins.json"), JSON.stringify(["booklet"]));
   fs.writeFileSync(path.join(vault, ".obsidian", "app.json"), JSON.stringify({ promptDelete: false }));
   fs.cpSync(path.join(WALK, "media"), path.join(vault, "media"), { recursive: true });
-  fs.copyFileSync(path.join(WALK, NOTE), path.join(vault, NOTE));
+  fs.writeFileSync(path.join(vault, NOTE), fixtureVault.text("page-notes/Screen reader walk/" + NOTE));
   const o = await launch({ obsidian: opt.obsidian, vault, configDir: path.join(dir, "cfg"), timeout: 90000 });
   const reap = () => {
     for (const d of fs.readdirSync("/proc")) if (/^\d+$/.test(d)) {

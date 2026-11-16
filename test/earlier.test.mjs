@@ -9,7 +9,7 @@
 import { openView, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { CHECKIN, core, corpusFiles, lint, norm, pythonAvailable, read } from "./helpers.mjs";
+import { CHECKIN, core, corpusFiles, lint, norm, pythonAvailable } from "./helpers.mjs";
 
 const S = "day-check";
 const A = "today";
@@ -151,17 +151,16 @@ test("settings a kind does not take are reported and ignored (SPEC section 4); n
 	assert.ok(core.parseBooklet(rec).problems.some((x) => x === "Line 14: a records line takes no `stray` setting, so it was ignored."), core.parseBooklet(rec).problems.join(" | "));
 });
 
-test("settings: on every booklet file of the corpus and the test vault, the plugin reports the settings a kind does not take where the linter does", { skip: !pythonAvailable() && "python3 or the linter is not here" }, () => {
+test("settings: on every booklet file of the corpus and the fixtures, the plugin reports the settings a kind does not take where the linter does", { skip: !pythonAvailable() && "python3 or the linter is not here" }, () => {
 	const files = corpusFiles();
 	assert.ok(files.length >= 5, `files: ${files.length}`);
-	for (const file of files) {
-		const text = read(file);
+	for (const { name, text } of files) {
 		const book = core.parseBooklet(text);
 		const said = (re, s) => [...s.matchAll(re)].map((m) => `${m[1]} ${m[2]} ${m[3].replace(/:$/, "").toLowerCase()}`);
 		const mine = [...book.problems, ...book.unread.map((u) => `Line ${u.line}: ${u.why}, so it was ignored.`)].flatMap((p) => said(/^Line (\d+): an? (\S+) line takes no `([^`]+)`/g, p));
-		const r = lint(text, file.split("/").pop());
+		const r = lint(text, name.split("/").pop());
 		const theirs = said(/line (\d+): an? (\S+) line takes no `([^`]+)`/g, r.out);
-		assert.deepEqual(mine.sort(), theirs.sort(), file);
+		assert.deepEqual(mine.sort(), theirs.sort(), name);
 	}
 });
 

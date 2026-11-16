@@ -1,10 +1,11 @@
-// The vault the emulated phone opens: the repository's test-vault (made-up notes) plus three made-up notes and a tone written here.
-// Nothing in it is about a real person. The plugin is NOT taken from test-vault/.obsidian: it comes from the build under test.
+// The vault the emulated phone opens: the made-up notes of test/fixtures.mjs that sit at a vault's root, plus three made-up notes and a tone
+// written here. Nothing in it is about a real person. The plugin is NOT taken from test-vault/.obsidian: it comes from the build under test.
 import fs from "node:fs";
 import path from "node:path";
+import { fixtureFiles } from "../../../test/fixtures.mjs";
 
 export const NOTES = Object.freeze({
-	view: "Check-in.booklet.md", // from test-vault: the note the Booklet view check opens
+	view: "Check-in.booklet.md", // a fixture of test/fixtures.mjs: the note the Booklet view check opens
 	listen: "Android listen.booklet.md",
 	pages: "Android pages.booklet.md",
 });
@@ -109,13 +110,13 @@ Most vegetables want six hours of direct sun.
 `;
 
 /**
- * Builds the vault in `dest` (made fresh). `testVault` is the repository's test-vault folder.
- * Returns the notes written, relative to the vault.
+ * Builds the vault in `dest` (made fresh): the fixtures that sit at a vault's root, then the notes and the tone made here.
+ * Returns the notes and the tone made here, relative to the vault.
  */
-export function buildVault({ testVault, dest }) {
-	if (!fs.existsSync(path.join(testVault, NOTES.view))) throw new Error(`${path.join(testVault, NOTES.view)} is missing: is --plugin-dir / the repository the Booklet plugin repository?`);
+export function buildVault({ dest }) {
 	fs.rmSync(dest, { recursive: true, force: true });
-	fs.cpSync(testVault, dest, { recursive: true, filter: (src) => path.relative(testVault, src).split(path.sep)[0] !== ".obsidian" });
+	fs.mkdirSync(dest, { recursive: true });
+	for (const f of fixtureFiles()) if (!f.path.includes("/")) fs.writeFileSync(path.join(dest, f.path), f.text);
 	const written = [];
 	const put = (rel, body) => {
 		fs.writeFileSync(path.join(dest, rel), body);

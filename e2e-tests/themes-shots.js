@@ -8,8 +8,8 @@
 //            --obsidian <binary> --config <scratch folder, never ~/.config> --out <dir> \
 //            [--vault ../test-vault] [--plugin-dir <folder with main.js, manifest.json, styles.css>] \
 //            [--looks paper-light,paper-dark,obsidian] [--sizes desktop,phone] [--only kinds,quiz] [--obsidian-scheme dark|light]
-//   The vault is always copied to a temp folder under --out/.work-<time> and the plugin files are installed into that copy, so
-//   nothing in the repository is written. --plugin-dir defaults to the repository root (run `node esbuild.config.mjs production` first);
+//   The vault is always copied to a temp folder under --out/.work-<time>, the made-up notes of test/fixtures.mjs are written into that copy
+//   and the plugin files are installed into it, so nothing in the repository is written. --plugin-dir defaults to the repository root (run `node esbuild.config.mjs production` first);
 //   for a before/after pass it a build of main, e.g. /workspace/booklet-obsidian/test-vault/.obsidian/plugins/booklet.
 //   Output: <out>/<screen>-<look>-<size>.png, one PASS/FAIL line per shot and a final count.
 // Compare: node themes-shots.js --compare <folderA> <folderB> [--looks obsidian] [--only screen,screen] [--max-diff N]
@@ -18,9 +18,10 @@
 //   Two runs of the same build can differ by a few dozen pixels (a slide-in or a caret caught mid-way): use --max-diff 100 to ignore that.
 //
 // Sizes: desktop is a 1100x800 window; phone is Obsidian's phone mode (`app.emulateMobile(true)`) at 390x844 with touch, as mobile-checks.js.
-// Screens (notes of test-vault): sketch-home, sketch-module, kinds, reading, quiz (one option picked so feedback shows),
+// Screens (made-up notes of test/fixtures.mjs): sketch-home, sketch-module, kinds, reading, quiz (one option picked so feedback shows),
 // kept (entries open), daily, pages-menu (a page tree with its menu open).
 const fs = require("fs"), path = require("path"), zlib = require("zlib");
+const fixtureVault = require("./fixture-vault");
 
 const argv = process.argv.slice(2);
 const arg = (k, d) => { const i = argv.indexOf("--" + k); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : d; };
@@ -208,6 +209,8 @@ async function applyLook(o, look) {
   const work = path.join(OUT, ".work-" + Date.now()), vault = path.join(work, "vault"), plug = path.join(vault, ".obsidian", "plugins", "booklet");
   fs.mkdirSync(OUT, { recursive: true });
   fs.cpSync(opt.vault, vault, { recursive: true });
+  await fixtureVault.load();
+  fixtureVault.writeNotes(vault);
   fs.mkdirSync(plug, { recursive: true });
   for (const f of ["main.js", "manifest.json", "styles.css"]) fs.copyFileSync(path.join(opt.pluginDir, f), path.join(plug, f));
   fs.writeFileSync(path.join(vault, ".obsidian", "community-plugins.json"), JSON.stringify(["booklet"]));

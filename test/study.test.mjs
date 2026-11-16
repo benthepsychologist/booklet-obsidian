@@ -1,6 +1,6 @@
 /*
  * Right and wrong marked (SPEC section 5, "`[x]` marks a correct option"), a matrix question,
- * and a question of any kind asked for each pick. They run over the test vault's made-up study quiz, in the view
+ * and a question of any kind asked for each pick. They run over the made-up study quiz fixture (test/fixtures.mjs), in the view
  * (test/dom.mjs), and over the core where the rule is one of reading or writing.
  *
  * Each rule has a test that fails without it; the last test of each group says which part of the code it pins.
@@ -8,12 +8,11 @@
 import { openView, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
+import { assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 import { testApp } from "./dom.mjs";
 
-const QUIZ = readFileSync(join(ROOT, "test-vault", "Study quiz.booklet.md"), "utf8");
+const QUIZ = fixtures.QUIZ;
 
 /** The study quiz open on one activity's screen. */
 function open(screen, text = QUIZ) {

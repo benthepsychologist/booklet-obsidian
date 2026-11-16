@@ -1,8 +1,8 @@
 // "Reduce motion" in a real Obsidian (plugin 1.0.3): with prefers-reduced-motion: reduce emulated, nothing the plugin draws may transition,
 // animate or scroll smoothly. Run by hand:
 //   PLAYWRIGHT=<node_modules> node reduced-motion-103.js --obsidian <binary> --out <dir> [--tag name] [--vault ../test-vault] [--dry] [--help]
-// Not part of plugin-check.js. One Obsidian at a time, on a scratch config and a vault made of the repository's made-up notes
-// (test-vault/Every kind, test/page-notes/Keyboard walk, Garden dashboards, Check-in with a wiki, and a Listening note with media).
+// Not part of plugin-check.js. One Obsidian at a time, on a scratch config and a vault made of the made-up notes of test/fixtures.mjs
+// (Every kind, Keyboard walk, Garden dashboards, Check-in with a wiki, and a Listening note with media).
 // (E2E_PORT_RANGE="9341-9349" keeps the debugging port inside a range of your own; drive.js reads it.)
 //
 // How. The media feature is set over the Chrome DevTools Protocol (Emulation.setEmulatedMedia, prefers-reduced-motion: reduce), and
@@ -30,17 +30,18 @@ const SRC_VAULT = path.resolve(opt.vault), OUT = path.resolve(opt.out);
 const REPO = path.join(__dirname, "..");
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const say = (...a) => console.log(...a);
-const read = f => fs.readFileSync(f, "utf8");
-const NOTE_FILES = {
-  "Every kind.booklet.md": path.join(REPO, "test-vault", "Every kind.booklet.md"),
-  "Keyboard walk.booklet.md": path.join(REPO, "test", "page-notes", "Keyboard walk.booklet.md"),
-  "Check-in with a wiki.booklet.md": path.join(REPO, "test", "page-notes", "Check-in with a wiki.booklet.md"),
-  "Garden dashboards.booklet.md": path.join(REPO, "test", "page-notes", "Garden dashboards.booklet.md"),
-  "media/tone.wav": path.join(REPO, "test", "page-notes", "Screen reader walk", "media", "tone.wav"),
+const fixtureVault = require("./fixture-vault");
+// the notes are fixtures of test/fixtures.mjs, by their path in a vault (loaded at the start of the run); the tone is a file in test/page-notes
+const NOTE_FIXTURES = {
+  "Every kind.booklet.md": "Every kind.booklet.md",
+  "Keyboard walk.booklet.md": "page-notes/Keyboard walk.booklet.md",
+  "Check-in with a wiki.booklet.md": "page-notes/Check-in with a wiki.booklet.md",
+  "Garden dashboards.booklet.md": "page-notes/Garden dashboards.booklet.md",
 };
+const TONE = fixtureVault.asset("Screen reader walk", "media", "tone.wav");
 
 if (dry) {
-  const need = [...["main.js", "manifest.json", "styles.css"].map(f => path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", f)), ...Object.values(NOTE_FILES)];
+  const need = [...["main.js", "manifest.json", "styles.css"].map(f => path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", f)), path.join(REPO, "test", "fixtures.mjs"), TONE];
   let bad = 0;
   for (const f of need) { const ok = fs.existsSync(f); if (!ok) bad++; say((ok ? "ok   " : "MISSING ") + f); }
   if (opt.obsidian) { const ok = fs.existsSync(path.resolve(opt.obsidian)); if (!ok) bad++; say((ok ? "ok   " : "MISSING ") + "obsidian binary " + path.resolve(opt.obsidian)); }
@@ -100,11 +101,13 @@ const MEASURE = roots => {
 };
 
 (async () => {
+  await fixtureVault.load();
   say("Obsidian:", opt.obsidian, "tag", opt.tag);
   const result = { tag: opt.tag, screens: [] };
   const files = ctx => {
     const f = { "Listening.booklet.md": listeningNote(ctx) };
-    for (const [rel, p] of Object.entries(NOTE_FILES)) f[rel] = rel.endsWith(".wav") ? fs.readFileSync(p) : read(p);
+    for (const [rel, fx] of Object.entries(NOTE_FIXTURES)) f[rel] = fixtureVault.text(fx);
+    f["media/tone.wav"] = fs.readFileSync(TONE);
     return f;
   };
   await withMedia("reduced-motion", { note: "Every kind.booklet.md", files, data: ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org"), ctx.host("media.example.org")], noteAllows: {} }) }, async (o, ctx) => {

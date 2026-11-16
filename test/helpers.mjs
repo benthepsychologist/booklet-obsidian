@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import assert from "node:assert/strict";
 import * as core from "./.build/core.mjs";
+import * as fixtures from "./fixtures.mjs";
 
 export { core };
 
@@ -23,13 +24,13 @@ export const LINTER = process.env.BOOKLET_LINTER || join(BOOKLET, "lint-booklet.
 export const STARTERS = process.env.BOOKLET_STARTERS || "";
 export const ROOT = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
 
-/** The sampler booklet the navigation tests open (made-up). */
-export const SKETCH = readFileSync(join(ROOT, "test-vault", "Learning to sketch.booklet.md"), "utf8");
+/** The sampler booklet the navigation tests open (made-up; see test/fixtures.mjs). */
+export const SKETCH = fixtures.SKETCH;
 /** The made-up check-in note (a repeating activity with a grid, a body map, and a question asked for each pick). */
-export const CHECKIN = readFileSync(join(ROOT, "test-vault", "Check-in.booklet.md"), "utf8");
+export const CHECKIN = fixtures.CHECKIN;
 
 /** The made-up wiki note the page-tree tests open: a check-in with a wiki tab, a quiz tab and a dashboard tab. */
-export const WIKI = readFileSync(join(ROOT, "test", "page-notes", "Check-in with a wiki.booklet.md"), "utf8");
+export const WIKI = fixtures.WIKI;
 /** The screen of its one activity. */
 export const WIKI_SCREEN = "activity:calm/check-in";
 /** A saved place of that screen with no page key: its part counts every part of the tab. */
@@ -100,7 +101,7 @@ export function assertOutsideUnchanged(orig, next, what = "") {
 }
 
 /**
- * The errors the reference linter is expected to report on a test-vault note, by its file name, and no others. The
+ * The errors the reference linter is expected to report on a fixture note, by its file name, and no others. The
  * format 0.17 linter reports none on any of them: the check-in note's `each:`, `earlier:` and `blue` and `purple`
  * cells, which the 0.15 linter reported, are format 0.16's. Every check that lints a note expects exactly these
  * (e2e-tests/plugin-check.js keeps the same list).
@@ -140,26 +141,25 @@ export const pythonAvailable = () => {
 	return !r.error && r.status === 0 && existsSync(LINTER);
 };
 
-/** The folders the corpus test reads, and whether each is there. The test vault is always there. */
+/** The external folders the corpus test reads, and whether each is there. The fixtures (test/fixtures.mjs) are always read too. */
 export function corpusDirs() {
 	return [
 		{ name: "booklet examples (BOOKLET_EXAMPLES)", dir: EXAMPLES, filter: (f) => f.endsWith(".booklet.md"), external: true },
 		{ name: "kit starters (BOOKLET_STARTERS)", dir: STARTERS, filter: (f) => f.endsWith(".md"), external: true },
-		{ name: "the test vault", dir: join(ROOT, "test-vault"), filter: (f) => f.endsWith(".booklet.md"), external: false },
-		{ name: "made-up page-tree notes (test/page-notes)", dir: join(ROOT, "test", "page-notes"), filter: (f) => f.endsWith(".booklet.md"), external: false },
-		// the listen demo's second note holds mistakes on purpose (it is for the opening notice), so only its clean note is in the corpus
-		{ name: "made-up screen-reader walk (test/page-notes/Screen reader walk)", dir: join(ROOT, "test", "page-notes", "Screen reader walk"), filter: (f) => f.endsWith(".booklet.md"), external: false },
-		{ name: "made-up listen demo (test/page-notes/Listen demo)", dir: join(ROOT, "test", "page-notes", "Listen demo"), filter: (f) => f.endsWith(".booklet.md") && !f.includes("with problems"), external: false },
 	].map((d) => ({ ...d, present: existsSync(d.dir) }));
 }
 
-/** Every booklet file the corpus test runs over: the external folders that are there, and the test vault. */
+/**
+ * Every booklet the corpus test runs over, as { name, text }: the external folders that are there, then every made-up fixture
+ * except the one that holds mistakes on purpose (the linter reports errors in it, as it should).
+ */
 export function corpusFiles() {
 	const out = [];
 	for (const d of corpusDirs()) {
 		if (!d.present) continue;
-		for (const f of readdirSync(d.dir).sort()) if (d.filter(f)) out.push(join(d.dir, f));
+		for (const f of readdirSync(d.dir).sort()) if (d.filter(f)) out.push({ name: `${d.dir.split("/").pop()}/${f}`, text: readFileSync(join(d.dir, f), "utf8") });
 	}
+	for (const f of fixtures.corpusFixtures()) out.push({ name: `fixtures/${f.path}`, text: f.text });
 	return out;
 }
 
