@@ -210,6 +210,9 @@ export class EditorBox {
 	private commitOnLeave(input: HTMLInputElement, commit: () => void): void {
 		input.addEventListener("input", () => void (this.pending = commit));
 		input.addEventListener("change", () => {
+			// `flush` is paying this row's typing now, and drawing the rows again takes the row out while it has the focus: the browser then
+			// reports the row left, and that must not pay it a second time (nor draw the rows again in the middle of drawing them)
+			if (this.flushing) return;
 			this.pending = null;
 			commit();
 		});
@@ -219,8 +222,16 @@ export class EditorBox {
 	flush(): void {
 		const owed = this.pending;
 		this.pending = null;
-		owed?.();
+		this.flushing = true;
+		try {
+			owed?.();
+		} finally {
+			this.flushing = false;
+		}
 	}
+
+	/** True while `flush` is paying a row's typing (see `commitOnLeave`). */
+	private flushing = false;
 
 	/** Reads the box into the draft (before a drawing), and gives whether the box had the focus. */
 	remember(): boolean {

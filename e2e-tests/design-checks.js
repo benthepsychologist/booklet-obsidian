@@ -1,4 +1,4 @@
-// Checks 64 to 72 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
+// Checks 64 to 73 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
 // note or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -18,6 +18,7 @@
 //   70 and 71 Obsidian in Spanish and in French: the view's words in that language, and each scene fits, at a desktop's width and on a phone
 //   72 the row editors of stage 2 (a choice or multi, a shared menu, a matrix): each write byte for byte, the ask on a change that moves a kept
 //      answer, a block the rows cannot show falls back to the Markdown, the phone's 44 px, light and dark, Spanish and French
+//   73 typing in a settings row and leaving it by Ctrl+Enter, by a real click on Save, by Esc (real keys and a real mouse, never fill): a title and an anchor number
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { frames, mobile } = require("./waits");
@@ -1944,5 +1945,121 @@ lang: en
     return c;
   }
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72 };
+  const closeAll = async o => { for (let i = 0; i < 3 && (await state(o)).editBox; i++) { await o.page.keyboard.press("Escape"); await sleep(250); } };
+
+  /* ================= CHECK 73 ================= */
+  // Typing in a settings row (the Title row, an anchor's number) and then leaving the box without leaving the row first, with REAL input only:
+  // Playwright's keyboard (keystrokes) and mouse (move, press, release at the Save button's centre), never fill() or a dispatched event for what is under test.
+  // Before commit f31ac2a a row's typing reached the draft only when the row was left, so Ctrl+Enter lost it, the first click on Save did nothing (the press
+  // took the focus out of the row, the box showed "Unsaved changes" and moved the buttons down, the release landed on nothing) and one Esc closed the box.
+  // On Linux Obsidian's Mod key is Control, so Ctrl+Enter is what is pressed; Cmd+Enter (Meta+Enter on a Mac) goes through a fallback keydown listener that a
+  // unit test covers and this check cannot press here. A write is counted with a vault "modify" listener on the note (the check's own, in the page).
+  async function check73() {
+    const c = new Check(73, "typing in a settings row and leaving the box at once, real keys and mouse: Ctrl+Enter saves the typed Title (one write, the note otherwise byte for byte), one real click on Save saves it on the first click and the buttons do not move under the press, one Esc keeps the box and says Unsaved (a second throws it away, nothing written), and a typed anchor number on a matrix with no kept answers is saved by Ctrl+Enter without asking (Cmd+Enter is not pressed: no Mac here)");
+    const NEWT = "Which fruit would you pick?", OLDT = "Which fruit would you take?";
+    const ARMED = "Unsaved. Esc again throws your changes away; Save writes them.";
+    const note73 = name => [
+      "---", "booklet: \"0.20\"", `id: booklet-test/typing-${name}`, `title: Typing ${name}`, "lang: en", "---", "",
+      "> [!module|m] Fruit", "", "> [!activity|a] Choosing", "",
+      `> [!choice|fruit] ${OLDT}`, "- [ ] Apple", "- [x] Pear", "",
+      "> [!matrix|sure] How sure are you of each topic?", "", "- Spring tides", "- Neap tides", "", "0. Not yet", "1. Sure", "",
+      "> [!module|m end]", "",
+    ].join("\n");
+    await withApp("c73", async (o, vault) => {
+      let seq = 0;
+      const mk = () => { const name = "s" + (++seq), rel = `Typing ${name}.booklet.md`, t = note73(name); return { rel, file: put(vault, rel, t), t }; };
+      const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); return n; };
+      const open = async (n, needle) => { await clickBlock(o, "question", lineOf(n.t, needle)); await sleep(150); };
+      const TITLE = `${DV} .booklet-design-settings [data-field='title'] input`, SAVE = `${DV} .booklet-design-save`;
+      const writes = async (n) => o.evaluate(rel => (window.__w73 || {})[rel] || 0, n.rel);
+      const arm = async (n) => { await o.evaluate(rel => { window.__w73 = window.__w73 || {}; window.__w73[rel] = 0; if (!window.__w73ref) window.__w73ref = app.vault.on("modify", f => { window.__w73[f.path] = (window.__w73[f.path] || 0) + 1; }); }, n.rel); };
+      /** What the box and the row say now, as a person sees it. */
+      const look = () => o.evaluate(sel => {
+        const g = s => document.querySelector(sel + " " + s), a = document.activeElement, sv = g(".booklet-design-save"), r = sv && sv.getBoundingClientRect();
+        return { state: (g(".booklet-design-editor-state") || {}).textContent || "", mark: (g(".booklet-design-edit-mark") || {}).textContent || "", focus: a ? (a.closest("[data-field]") ? a.closest("[data-field]").getAttribute("data-field") : (a.getAttribute("data-key") || a.className || a.tagName)) : null,
+          save: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null, draft0: ((g(".booklet-design-textarea") || {}).value || "").split("\n").filter(l => /\[!choice/.test(l))[0] || "" };
+      }, DV);
+      /** A real click into the Title row and real keystrokes that replace its words; the row is NOT left. */
+      const typeTitle = async () => { await o.page.locator(TITLE).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(NEWT); await sleep(200); };
+      const wantNew = n => sub(n.t, `[!choice|fruit] ${OLDT}`, `[!choice|fruit] ${NEWT}`);
+      const diffs = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
+
+      // ----- a. Ctrl+Enter at once
+      let n = await start(); await arm(n);
+      await open(n, "[!choice|fruit]");
+      c.ok(await o.page.locator(TITLE).inputValue() === OLDT, "the Title row of the choice reads " + JSON.stringify(OLDT));
+      await typeTitle();
+      let lk = await look();
+      c.info(`a: after typing, the row has the focus (${lk.focus}) and the draft's opening line reads ${JSON.stringify(lk.draft0)}; the row still owes its words`);
+      c.ok(lk.focus === "title" && await o.page.locator(TITLE).inputValue() === NEWT && text(n.file) === n.t, "a: the typed words are in the Title row, the focus is still there, nothing is written yet");
+      await shot(o, "typing-a-typed");
+      await o.page.keyboard.press("Control+Enter");
+      let r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
+      let st = await state(o), w = await writes(n);
+      c.ok(r.ok && text(n.file) === wantNew(n), `a: Ctrl+Enter at once wrote the typed title and nothing else (the whole expected note, byte for byte)${diffs(wantNew(n), text(n.file))}`);
+      c.ok(!st.editBox && !st.modal && /^Changed /.test(st.status), `a: the box closed, nothing was asked, and the status says what changed (${JSON.stringify(st.status)})`);
+      c.ok(w === 1, `a: exactly one write to the note (${w} modify events)`);
+      await shot(o, "typing-a-saved");
+      await closeAll(o);
+
+      // ----- b. one real click on Save
+      n = await start(); await arm(n);
+      await open(n, "[!choice|fruit]");
+      await typeTitle();
+      await o.page.locator(SAVE).scrollIntoViewIfNeeded(); await sleep(250);
+      lk = await look();
+      const before = lk.save;
+      c.ok(before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the Save button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the Title row still has the focus (${lk.focus})`);
+      await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
+      await o.page.mouse.down();
+      await sleep(250);
+      const during = await look();
+      c.ok(Math.abs(during.save.y - before.y) < 1 && Math.abs(during.save.x - before.x) < 1 && !/Unsaved changes/.test(during.mark) === !/Unsaved changes/.test(lk.mark), `b: while the button is held down the box did not move or change (Save at y ${Math.round(before.y)} then ${Math.round(during.save.y)}; the row kept the focus: ${during.focus}; mark ${JSON.stringify(lk.mark)} then ${JSON.stringify(during.mark)})`);
+      await shot(o, "typing-b-pressed");
+      await o.page.mouse.up();
+      r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
+      st = await state(o); w = await writes(n);
+      c.ok(r.ok && text(n.file) === wantNew(n), `b: the first and only click on Save wrote the typed title and nothing else, byte for byte${diffs(wantNew(n), text(n.file))}`);
+      c.ok(!st.editBox && !st.modal && /^Changed /.test(st.status) && w === 1, `b: the box closed on that click, status ${JSON.stringify(st.status)}, ${w} write(s)`);
+      await shot(o, "typing-b-saved");
+      await closeAll(o);
+
+      // ----- c. Escape once, then twice
+      n = await start(); await arm(n);
+      await open(n, "[!choice|fruit]");
+      await typeTitle();
+      await o.page.keyboard.press("Escape"); await sleep(400);
+      st = await state(o); lk = await look();
+      c.ok(st.editBox && lk.state === ARMED, `c: one Esc with typing in a row keeps the box open and says ${JSON.stringify(lk.state)}`);
+      c.ok(text(n.file) === n.t, "c: nothing is written by the first Esc");
+      await shot(o, "typing-c-armed");
+      await o.page.keyboard.press("Escape"); await sleep(500); await idle(o);
+      st = await state(o); w = await writes(n);
+      c.ok(!st.editBox && text(n.file) === n.t && w === 0, `c: the second Esc closes the box and throws the typing away (status ${JSON.stringify(st.status)}); the note is byte for byte as it was, ${w} write(s)`);
+      await shot(o, "typing-c-closed");
+      await closeAll(o);
+
+      // ----- d. a matrix anchor's number, Ctrl+Enter at once; no kept answers, so nothing is asked
+      n = await start(); await arm(n);
+      await open(n, "[!matrix|sure]");
+      const ins = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows input[data-key]")].map(e => e.getAttribute("data-key") + "=" + e.value).join("|"), DV);
+      c.ok(ins === "i0-text=Spring tides|i1-text=Neap tides|a0-number=0|a0-text=Not yet|a1-number=1|a1-text=Sure", "d: the matrix shows its two items and its two anchors as rows: " + ins);
+      const NUM = `${DV} .booklet-design-rows [data-key='a1-number']`;
+      await o.page.locator(NUM).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("4"); await sleep(200);
+      lk = await look();
+      c.ok(lk.focus === "a1-number" && await o.page.locator(NUM).inputValue() === "4" && text(n.file) === n.t, "d: the new number is typed in the anchor's field, the focus is still there, nothing is written yet");
+      await shot(o, "typing-d-typed");
+      await o.page.keyboard.press("Control+Enter");
+      r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
+      st = await state(o); w = await writes(n);
+      const wantD = sub(n.t, "1. Sure\n", "4. Sure\n");
+      c.ok(r.ok && text(n.file) === wantD, `d: Ctrl+Enter at once wrote the new anchor number (the words are unchanged) and nothing else, byte for byte${diffs(wantD, text(n.file))}`);
+      c.ok(!st.editBox && !st.modal && w === 1, `d: it asked nothing (no kept answers), the box closed, status ${JSON.stringify(st.status)}, ${w} write(s)`);
+      await shot(o, "typing-d-saved");
+      c.info("Cmd+Enter (Meta+Enter) is not pressed: on Linux Obsidian's Mod key is Control; the Meta path is a fallback keydown listener covered by a unit test");
+    });
+    return c;
+  }
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73 };
 };
