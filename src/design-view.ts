@@ -1065,6 +1065,8 @@ export class DesignView extends LockedTextView {
 	private escEditor(): void {
 		const ed = this.edit;
 		if (!ed) return;
+		// what a row was typed with and not yet left is part of the draft: Esc must find it there, so the first press asks before it is thrown away
+		this.editor?.flush();
 		if (this.hasDraft() && !ed.armed) {
 			ed.armed = true;
 			this.editor?.showState();
@@ -1075,6 +1077,7 @@ export class DesignView extends LockedTextView {
 
 	/** Cancel: the editor closes and what was changed in it is thrown away (the label says so). The block stays selected. */
 	private cancelEditor(): void {
+		this.editor?.flush();
 		const was = this.hasDraft();
 		this.edit = null;
 		this.message = was ? ui("editor.discarded") : "";

@@ -454,6 +454,64 @@ test("Save rewrites only those lines: a changed line of the block's Markdown goe
 	v.close();
 });
 
+/** Types into a text row without leaving it: the row has the typing, and the box has not been told (no `change` yet). */
+const typeStaying = (v, name, value) => {
+	const c = v.row(name).components[0];
+	c.inputEl.value = value;
+	c.inputEl.dispatchEvent(new w.Event("input", { bubbles: true }));
+	return c.inputEl;
+};
+
+test("typing in a settings row and pressing Ctrl or Cmd with Enter at once saves what was typed: the row is read, not just the draft", async () => {
+	for (const mods of [{ ctrlKey: true }, { metaKey: true }]) {
+		const v = rig(FULL);
+		v.go("Spending");
+		const act = lineOf(FULL, "[!activity|spending");
+		v.openPage();
+		typeStaying(v, "Title", "Money going out");
+		assert.equal(v.mark(), "", "the box has not been told yet");
+		const evt = new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...mods });
+		v.editor().dispatchEvent(evt);
+		await v.view.whenIdle();
+		assert.equal(v.disk.writes, 1, "written, not 'nothing was changed'");
+		assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat] Money going out");
+		assert.equal(v.editor(), null);
+		v.close();
+	}
+});
+
+test("a press on Save while a row still has typing in it writes it, and the press keeps the focus in the row so the box does not move under it", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	const act = lineOf(FULL, "[!activity|spending");
+	v.openPage();
+	const input = typeStaying(v, "Title", "Money going out");
+	input.focus();
+	const save = v.button("Save", v.editor());
+	const down = new w.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+	save.dispatchEvent(down);
+	assert.equal(down.defaultPrevented, true, "the button press does not take the focus out of the row (that would redraw the box and move the button)");
+	await v.save();
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat] Money going out");
+	v.close();
+});
+
+test("Esc and Cancel see typing a row still holds: the first Esc keeps it as Unsaved instead of closing, and Cancel says it was thrown away", () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.openPage();
+	typeStaying(v, "Title", "Money going out");
+	v.editor().dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	assert.notEqual(v.editor(), null, "the first Esc does not close a box holding typing");
+	assert.match(v.editorState(), /^Unsaved\. Esc again throws your changes away/);
+	v.press(v.button("Cancel", v.editor()));
+	assert.equal(v.editor(), null);
+	assert.equal(v.status(), "Your changes were thrown away.");
+	assert.equal(v.disk.writes, 0);
+	v.close();
+});
+
 test("Ctrl+Enter and Cmd+Enter in the box save, as the Save button does", async () => {
 	for (const mods of [{ ctrlKey: true }, { metaKey: true }]) {
 		const v = rig(FULL);

@@ -136,6 +136,7 @@ export class EditorBox {
 				stash: () => ed.stash ?? null,
 				setStash: (lines) => void (ed.stash = lines),
 				openMenu: (line) => host.openMenu(line),
+				commitOnLeave: (input, commit) => this.commitOnLeave(input, commit),
 			},
 			() => ed.kind,
 		);
@@ -187,6 +188,9 @@ export class EditorBox {
 			const to = evt.relatedTarget as Node | null;
 			if (!to || !this.box.contains(to)) host.release();
 		});
+		// a press on a button must not take the focus out of a row first: leaving the row makes the box show "Unsaved" and move the buttons down
+		// before the press is finished, and the click then lands on nothing. The click itself pays what the row owes (`remember`).
+		for (const b of [save, cancel]) b.addEventListener("mousedown", (evt) => evt.preventDefault());
 		save.addEventListener("click", () => host.save());
 		cancel.addEventListener("click", () => host.cancel());
 	}
@@ -199,8 +203,28 @@ export class EditorBox {
 		this.dropPreview();
 	}
 
+	/** What a row's typing still owes the draft: set when a row is typed in, run when the row is left, and run first by anything that reads the draft. */
+	private pending: (() => void) | null = null;
+
+	/** A row's value reaches the draft when the row is left or Enter is pressed (never at each key); until then it is owed, and `flush` pays it. */
+	private commitOnLeave(input: HTMLInputElement, commit: () => void): void {
+		input.addEventListener("input", () => void (this.pending = commit));
+		input.addEventListener("change", () => {
+			this.pending = null;
+			commit();
+		});
+	}
+
+	/** Puts a row's typing that is still owed into the draft (Save, Ctrl or Cmd with Enter and a redraw all read the draft, and must find it there). */
+	flush(): void {
+		const owed = this.pending;
+		this.pending = null;
+		owed?.();
+	}
+
 	/** Reads the box into the draft (before a drawing), and gives whether the box had the focus. */
 	remember(): boolean {
+		this.flush();
 		this.ed.draft = this.area.value;
 		const had = this.area.ownerDocument.activeElement === this.area;
 		if (had) this.ed.caret = [this.area.selectionStart, this.area.selectionEnd];
@@ -288,6 +312,8 @@ export class EditorBox {
 	private drawForm(): void {
 		const doc = this.formHost.ownerDocument;
 		const active = doc.activeElement;
+		// the rows are drawn again: what an old row owed belongs to a row that is gone
+		this.pending = null;
 		const field = active && this.formHost.contains(active) ? (active.closest("[data-field]")?.getAttribute("data-field") ?? null) : null;
 		this.formHost.empty();
 		const lines = this.draftLines();
@@ -320,7 +346,7 @@ export class EditorBox {
 				row.addText((c) => {
 					c.setValue(f.value);
 					// a change is made when the box is left or Enter is pressed, never on each key typed
-					c.inputEl.addEventListener("change", () => change({ what: f.type, value: c.inputEl.value.trim() }));
+					this.commitOnLeave(c.inputEl, () => change({ what: f.type, value: c.inputEl.value.trim() }));
 				});
 			} else if (f.type === "flag") {
 				row.setName(f.name);
@@ -332,7 +358,7 @@ export class EditorBox {
 				row.addText((c) => {
 					c.setValue(f.value);
 					if (f.numeric) c.inputEl.inputMode = "decimal";
-					c.inputEl.addEventListener("change", () => change({ what: "value", name: f.name, value: c.inputEl.value.trim() }));
+					this.commitOnLeave(c.inputEl, () => change({ what: "value", name: f.name, value: c.inputEl.value.trim() }));
 				});
 				if (f.icon)
 					row.addButton((b) => {
@@ -383,7 +409,7 @@ export class EditorBox {
 			}
 			row.addText((c) => {
 				c.setValue(f.value);
-				c.inputEl.addEventListener("change", () => this.changeFront(f.key, c.inputEl.value.trim()));
+				this.commitOnLeave(c.inputEl, () => this.changeFront(f.key, c.inputEl.value.trim()));
 			});
 		}
 		if (form.other.length) {

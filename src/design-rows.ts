@@ -56,6 +56,8 @@ export interface RowsIO {
 	setStash(lines: string[] | null): void;
 	/** Selects and opens the menu block that starts on this line. */
 	openMenu(line: number): void;
+	/** A typed value that is taken when its control is left: the box runs `commit` first when it is asked to read the draft, and forgets it after `commit` runs. */
+	commitOnLeave(input: HTMLInputElement, commit: () => void): void;
 }
 
 /** What the rows part shows: nothing (the draft is not such a block), the reason it has no rows, or the rows. */
@@ -270,7 +272,7 @@ export class RowsPanel {
 			const num = main.createEl("input", { cls: ["booklet-design-rows-input", "booklet-design-rows-number"], attr: { type: "text", inputmode: "numeric", "aria-label": ui("rows.anchor.number", { n }), "data-key": `a${i}-number`, autocomplete: "off" } });
 			num.value = a.number;
 			// a number is the answer that is kept: it is taken when the box is left or Enter is pressed, never at each key
-			num.addEventListener("change", () => this.edit({ what: "anchor-number", index: i, number: num.value.trim() }, `a${i}-number`));
+			this.io.commitOnLeave(num, () => this.edit({ what: "anchor-number", index: i, number: num.value.trim() }, `a${i}-number`));
 			this.textInput(main, `a${i}-text`, ui("rows.anchor.text", { n }), a.text, (v, el) => this.edit({ what: "anchor-text", index: i, text: v }, null, true, el));
 			const ctl = row.createDiv({ cls: "booklet-design-rows-controls" });
 			this.controls(ctl, "a", i, count, "anchor", (what, by) => {
