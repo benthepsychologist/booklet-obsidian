@@ -9,6 +9,7 @@ export const PARTS = [
 	"themes/tokens-paper-dark.css",
 	"themes/structure.css",
 	"themes/pictures.css",
+	"themes/design.css",
 ];
 
 export function buildStyles() {

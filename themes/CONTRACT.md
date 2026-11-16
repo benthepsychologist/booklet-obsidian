@@ -11,6 +11,14 @@
 `.booklet-view[data-booklet-look^="paper"] X`. Nothing outside `.booklet-view` is ever styled. No `!important`.
 Motion (transition, animation, transform on hover or press) only inside `@media (prefers-reduced-motion: no-preference)`.
 
+## The Design view's canvas
+
+The Design view's canvas (the scroll element `.booklet-design-scroll`, with the page and its edit box in it) carries `data-booklet-look` too, and in a
+paper look also the class `booklet-view`, so every rule above reaches what is drawn in it without a second selector; in the `obsidian` look it has the
+attribute and not the class, so no theme rule matches it (`src/design-view.ts` applyLook). `themes/design.css` holds what the Booklet view does not have:
+the page, the "+" slots, the floating bar and the edit box, and the Obsidian variables Obsidian fixes on the body (the settings rows). Same rules as
+structure.css. The look selector is a dropdown in the view's header bar; the left column, the header and the trail are outside the canvas and never take a look.
+
 ## Tokens (set in themes/tokens-paper-light.css and tokens-paper-dark.css, on `.booklet-view[data-booklet-look="paper-light"]` / `"paper-dark"`; used only by structure.css, pictures.css and fonts.css)
 
 | token | role |
@@ -48,6 +56,7 @@ the file) and defaults them to `--bk-brand`, `--bk-brand-wash` and `--bk-brand-t
 | --- | --- |
 | `src/look.ts`, `src/settings.ts`, `src/view.ts` (root attribute and menu), `src/main.ts`, `test/look.test.mjs` | switch |
 | `themes/structure.css` | structure |
+| `themes/design.css`, the look selector in `src/design-view.ts` | design view |
 | `themes/tokens-paper-light.css`, `themes/tokens-paper-dark.css`, `scripts/contrast.mjs`, `docs/themes-contrast.md` | tokens |
 | `themes/fonts.css`, `themes/pictures.css`, `src/spots.ts`, the picture drawing in `src/screens.ts` | pictures |
 | `e2e-tests/themes-shots.js` | harness |

@@ -56,6 +56,7 @@ export default class BookletPlugin extends Plugin {
 		this.register(
 			this.media.onLookChange(() => {
 				for (const leaf of this.app.workspace.getLeavesOfType(VIEW_TYPE)) if (leaf.view instanceof BookletView) leaf.view.applyLook();
+				for (const leaf of this.app.workspace.getLeavesOfType(DESIGN_VIEW_TYPE)) if (leaf.view instanceof DesignView) leaf.view.applyLook();
 			}),
 		);
 		this.registerView(VIEW_TYPE, (leaf) => new BookletView(leaf, this));

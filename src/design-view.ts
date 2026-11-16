@@ -79,6 +79,7 @@ import { MODE_ICONS, iconName, ui, uin } from "./design-text";
 import { capital, kindName, quietNames, titledOf } from "./design-words";
 import { markdownViewOf } from "./markdown-view";
 import { LockedTextView, writeThrough } from "./note-view";
+import { LOOKS, isLook, resolveDesignLook, type Look } from "./look";
 import { calloutColourIsTriplet } from "./reading";
 import type { LeafMode } from "./switch";
 
@@ -86,6 +87,8 @@ export const DESIGN_VIEW_TYPE = "booklet-design";
 
 export interface DesignHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
+	/** The plugin's settings, for the look the reader chose there (look.ts). */
+	readonly media: { look(): Look | undefined };
 }
 
 /** Is this a field of text, or anything a person types in, or inside one? Then a key is hers, not the view's. */
@@ -132,6 +135,10 @@ export class DesignView extends LockedTextView {
 	private shellEl: HTMLElement | null = null;
 	private leftEl: HTMLElement | null = null;
 	private scrollEl: HTMLElement | null = null;
+	/** The look selector in the header bar (drawn again with the bar). */
+	private lookEl: HTMLSelectElement | null = null;
+	/** What the look selector chose for this view alone: kept while the view lives, never saved; none until a choice, and the canvas then follows the settings. */
+	private lookChoice: Look | undefined;
 	private crumbEl: HTMLElement | null = null;
 	private statusEl: HTMLElement | null = null;
 	private armedEl: HTMLElement | null = null;
@@ -211,6 +218,8 @@ export class DesignView extends LockedTextView {
 				if (this.file && info.file === this.file) this.followSoon();
 			}),
 		);
+		// Obsidian's theme or its light and dark mode changed: a canvas whose look nobody chose takes the matching one
+		this.registerEvent(this.app.workspace.on("css-change", () => this.applyLook()));
 		// a pane narrower than a tablet draws the left column as a panel (a phone is one whatever its width)
 		if (typeof ResizeObserver !== "undefined") {
 			const watch = new ResizeObserver((entries) => {
@@ -411,6 +420,7 @@ export class DesignView extends LockedTextView {
 			this.armedEl.hidden = true;
 			const scroll = main.createDiv({ cls: "booklet-design-scroll" });
 			this.scrollEl = scroll;
+			this.applyLook();
 
 			// a draft whose block is not on this page (or not in the note any more) keeps its text on the screen, above the page
 			if (this.edit) {
@@ -454,9 +464,55 @@ export class DesignView extends LockedTextView {
 		this.redoBtn = bar.createEl("button", { text: ui("redo"), cls: "booklet-design-redo", attr: { type: "button", title: ui("redo.title") } });
 		this.undoBtn.addEventListener("click", () => void this.stepBack("undo"));
 		this.redoBtn.addEventListener("click", () => void this.stepBack("redo"));
+		this.drawLookSelect(bar);
 		// named by a hidden line, not by an aria-label (Obsidian would show that as a tooltip over the trail)
 		const crumbName = top.createSpan({ cls: "booklet-design-sr", text: ui("crumb.label"), attr: { id: "booklet-design-crumb-name" } });
 		this.crumbEl = top.createEl("nav", { cls: "booklet-design-crumb", attr: { "aria-labelledby": crumbName.id } });
+	}
+
+	/** The look selector: one dropdown of the three looks, named by a visible word, that changes the canvas of this view and nothing else. */
+	private drawLookSelect(bar: HTMLElement): void {
+		const label = bar.createEl("label", { cls: "booklet-design-look", attr: { title: ui("look.title") } });
+		label.createSpan({ cls: "booklet-design-look-label", text: ui("look.label") });
+		const select = label.createEl("select", { cls: ["dropdown", "booklet-design-look-select"] });
+		const words: Record<Look, string> = { "paper-light": ui("look.paper-light"), "paper-dark": ui("look.paper-dark"), obsidian: ui("look.obsidian") };
+		for (const look of LOOKS) select.createEl("option", { text: words[look], attr: { value: look } });
+		select.addEventListener("change", () => {
+			if (!isLook(select.value)) return;
+			this.lookChoice = select.value;
+			this.applyLook();
+		});
+		this.lookEl = select;
+		this.showLook();
+	}
+
+	/** Is the Obsidian this view is in dark? Asked of the view's own document, since a pop-out window has one of its own. */
+	private isDark(): boolean {
+		return this.contentEl.ownerDocument.body.classList.contains("theme-dark");
+	}
+
+	/** The look the canvas is drawn in now (look.ts). */
+	currentLook(): Look {
+		return resolveDesignLook(this.host.media.look(), this.isDark(), this.lookChoice);
+	}
+
+	/**
+	 * Puts the look on the canvas, for the CSS to read (the paper rules are written for `.booklet-view[data-booklet-look]`, so a canvas in a paper look
+	 * is a `.booklet-view`; in Obsidian's look it has neither the class nor a rule of its own and draws as it always did). Only the canvas: the left
+	 * column and the header stay in Obsidian's look. Done at each drawing, when the selector is used, and when the settings or Obsidian's theme change.
+	 */
+	applyLook(): void {
+		const look = this.currentLook();
+		const scroll = this.scrollEl;
+		if (scroll) {
+			scroll.setAttribute("data-booklet-look", look);
+			scroll.toggleClass("booklet-view", look !== "obsidian");
+		}
+		this.showLook();
+	}
+
+	private showLook(): void {
+		if (this.lookEl) this.lookEl.value = this.currentLook();
 	}
 
 	private showUndo(): void {

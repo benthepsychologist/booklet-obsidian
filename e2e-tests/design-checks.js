@@ -1,4 +1,4 @@
-// Checks 64 to 73 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
+// Checks 64 to 74 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
 // note or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -19,6 +19,8 @@
 //   72 the row editors of stage 2 (a choice or multi, a shared menu, a matrix): each write byte for byte, the ask on a change that moves a kept
 //      answer, a block the rows cannot show falls back to the Markdown, the phone's 44 px, light and dark, Spanish and French
 //   73 typing in a settings row and leaving it by Ctrl+Enter, by a real click on Save, by Esc (real keys and a real mouse, never fill): a title and an anchor number
+//   74 the canvas in Paper and petrol, light or dark, or in Obsidian's look: the look selector in the header, the page, a callout, a choice, a matrix and an open edit box in each of the three looks and
+//      both Obsidian modes (screenshots, the paper tokens or Obsidian's variables on the canvas, the left column and header unchanged, contrast of the edit box), and the selector on a phone
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { frames, mobile } = require("./waits");
@@ -2061,5 +2063,211 @@ lang: en
     return c;
   }
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73 };
+
+  /* ================= CHECK 74 ================= */
+  // The canvas drawn in the plugin's own looks. One made-up note; the Design view's canvas (the scroll element with the page on it) takes Paper and petrol
+  // light or dark, or Obsidian's look, from the selector in the header; the left column, the header and the trail stay in Obsidian's look.
+  const LOOKS74 = [["paper-light", "Paper and petrol: light"], ["paper-dark", "Paper and petrol: dark"], ["obsidian", "Obsidian"]];
+  const note74 = [
+    "---", "booklet: \"0.20\"", "id: booklet-test/looks", "title: Looks of the page", "lang: en", "---", "",
+    "> [!module|m] Feelings", "", "> [!activity|a] How it went", "",
+    "Some words to start with: **bold**, *slanted* and a [[Link]].", "",
+    "> [!note] A callout", "> Words in the callout, as a reader sees them.", "",
+    "> [!choice|where] Where are you right now?", "- [ ] Calm", "  - That is the settling system at work.", "- [x] Wound up", "  - That is the activating family.", "- [ ] Numb", "",
+    "> [!matrix|topics] How sure are you of each topic?", "", "- Spring tides", "- Neap tides", "", "0. Not yet", "1. Getting there", "2. Sure", "",
+    "> [!module|m end]", "",
+  ].join("\n");
+  const CV = `${DV} .booklet-design-scroll`, SEL74 = `${DV} .booklet-design-look-select`;
+  /** What the canvas, the left column and the header look like now, as computed styles; and the paper tokens or Obsidian's variables to compare with. */
+  const facts74 = o => o.evaluate(([cv, dvSel]) => {
+    const rgb = css => { const cx = (window.__c74cx ||= document.createElement("canvas").getContext("2d", { willReadFrequently: true })); cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = css; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return [d[0], d[1], d[2]].join(","); };
+    const scroll = document.querySelector(cv), dv = document.querySelector(dvSel);
+    const cs = e => getComputedStyle(e);
+    const probe = (host, prop) => { const p = host.ownerDocument.createElement("div"); p.setAttribute("style", `color:var(${prop});position:absolute;visibility:hidden`); host.appendChild(p); const c = cs(p).color; p.remove(); return rgb(c); };
+    const q = dv.querySelector(".booklet-design-scroll .booklet-sample-question .booklet-prompt, .booklet-design-scroll .booklet-sample-question .booklet-question-text, .booklet-design-scroll .booklet-sample-question");
+    const lookAttr = scroll.getAttribute("data-booklet-look");
+    const sel = dv.querySelector(".booklet-design-look-select");
+    return {
+      attr: lookAttr, isView: scroll.classList.contains("booklet-view"), select: sel ? sel.value : null,
+      canvasBg: rgb(cs(scroll).backgroundColor), questionInk: q ? rgb(cs(q).color) : null,
+      paper: probe(scroll, "--bk-paper"), ink: probe(scroll, "--bk-ink"), obsBg: probe(document.body, "--background-secondary-alt"), obsInk: probe(document.body, "--text-normal"),
+      left: [".booklet-design-left", ".booklet-design-top", ".booklet-design-crumb", ".booklet-design-tab[aria-selected='true']", ".booklet-design-undo"].map(s => { const e = dv.querySelector(s); if (!e) return s + ":none"; const c = cs(e); return [s, c.backgroundColor, c.color, c.fontFamily, c.fontSize, c.borderTopColor].join("|"); }),
+      pageBg: rgb(cs(dv.querySelector(".booklet-design-page")).backgroundColor), pageFont: cs(dv.querySelector(".booklet-design-page-title")).fontFamily,
+      callout: (() => { const e = dv.querySelector(".booklet-design-scroll .callout"); if (!e) return null; const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }, lum = k => { const [r, g, b] = rgb(k).split(",").map(Number); return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b); }, ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05); const body = e.querySelector(".callout-content, p") || e, c = cs(e); return { blend: c.mixBlendMode, onPage: Math.round(ratio(c.backgroundColor, cs(dv.querySelector(".booklet-design-page")).backgroundColor) * 100) / 100, text: Math.round(ratio(cs(body).color, c.backgroundColor) * 100) / 100 }; })(),
+    };
+  }, [CV, DV]);
+  /** Contrast of everything in the open edit box: each text against what is behind it (4.5), each control's edge or fill against what is behind it (3). */
+  const edit74 = (o, sel = `${DV} .booklet-design-editbox`, skip = ".booklet-design-edit-previewhost", only = null) => o.evaluate(([sel, skip, only]) => {
+    const root = document.querySelector(sel); if (!root) return null;
+    const cx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const px = css => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = css; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }; };
+    const over = (t, u) => ({ r: t.r * t.a + u.r * (1 - t.a), g: t.g * t.a + u.g * (1 - t.a), b: t.b * t.a + u.b * (1 - t.a), a: 1 });
+    const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = c => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+    const behind = (el, self) => { const chain = []; for (let p = self ? el : el.parentElement; p; p = p.parentElement) chain.push(p); let col = { r: 255, g: 255, b: 255, a: 1 }; for (let i = chain.length - 1; i >= 0; i--) { const b = px(getComputedStyle(chain[i]).backgroundColor); if (b.a > 0) col = over(b, col); } return col; };
+    const vis = e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none" && !e.closest("[hidden]") && !e.closest("[inert]") && !e.closest("details:not([open]) > :not(summary)"); };
+    const name = e => e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).slice(0, 2).join(".") : "") + (e.getAttribute("data-key") ? "[" + e.getAttribute("data-key") + "]" : "") + "(" + ((e.getAttribute("aria-label") || e.value || e.textContent || "").trim().slice(0, 18)) + ")";
+    const texts = [], controls = [], seen = new Set();
+    const isControl = e => e.matches("button, input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, select, [role=switch], [role=checkbox], .checkbox-container");
+    // the preview inside the box is an inert drawing of the reader's own page (it has its own check in 65): the box's own words and controls are measured
+    for (const e of root.querySelectorAll("*")) {
+      if (e.closest(skip) || !vis(e)) continue;
+      const cs = getComputedStyle(e), own = [...e.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).map(n => n.textContent.trim()).join(" ");
+      if (e.matches("input[type=checkbox], input[type=radio]") || parseFloat(cs.opacity) === 0) { /* a toggle's own box is measured as its container below */ } 
+      const live = e.matches("input[type=checkbox], input[type=radio]") || parseFloat(cs.opacity) === 0 ? "" : e.matches("input:not([type=hidden]), textarea, select") ? (e.value || e.placeholder || "x") : own;
+      if (live && !seen.has(e)) {
+        seen.add(e);
+        const under = behind(e, true), fg = over(px(cs.color), under), size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight) >= 700, large = size >= 24 || (size >= 18.66 && bold);
+        texts.push({ n: name(e), fg: hex(fg), bg: hex(under), ratio: Math.round(ratio(fg, under) * 100) / 100, need: large ? 3 : 4.5, disabled: !!e.disabled, ph: !e.value && !!e.placeholder });
+      }
+      if (only ? e.matches(only) : isControl(e)) {
+        const under = behind(e, false), fill = over(px(cs.backgroundColor), under), bw = parseFloat(cs.borderTopWidth) || 0, edge = bw > 0 && cs.borderTopStyle !== "none" ? over(px(cs.borderTopColor), under) : null;
+        const fr = ratio(fill, under), er = edge ? ratio(edge, under) : 0;
+        controls.push({ n: name(e), edge: edge ? hex(edge) : null, edgeRatio: Math.round(er * 100) / 100, fill: hex(fill), fillRatio: Math.round(fr * 100) / 100, under: hex(under), best: Math.round(Math.max(er, fr) * 100) / 100, role: e.getAttribute("role") || e.tagName.toLowerCase(), w: Math.round(e.getBoundingClientRect().width), h: Math.round(e.getBoundingClientRect().height) });
+      }
+    }
+    return { texts, controls };
+  }, [sel, skip, only]);
+  /** Scrolls the canvas (and only it: scrollIntoView would also move the panes around it) so that `sel` is at its top or middle. */
+  const toCanvas = (o, sel, block = "center") => o.evaluate(([cv, s, b]) => {
+    const sc = document.querySelector(cv), e = document.querySelector(s); if (!sc || !e) return;
+    for (let p = sc; p && p !== document.body; p = p.parentElement) if (p !== sc && p.scrollTop) p.scrollTop = 0;
+    const r = e.getBoundingClientRect(), c = sc.getBoundingClientRect();
+    sc.scrollTop += b === "start" ? r.top - c.top - 8 : r.top - c.top - (c.height - r.height) / 2;
+  }, [CV, sel, block]);
+  const shotEl = async (o, name, sel, block = "center") => { await toCanvas(o, sel, block); await sleep(250); await shot(o, name); };
+
+  async function check74() {
+    const c = new Check(74, "the canvas in its own looks: the Design view's page, callout, choice, matrix and open edit box drawn in Paper and petrol light, Paper and petrol dark and Obsidian's look, in both Obsidian modes, from a look selector in the header (a dropdown named \"Look\", keyboard operable, kept while the view lives, not saved); the paper tokens on the canvas and Obsidian's variables in Obsidian's look; the left column and the header unchanged by the selector; the edit box's text 4.5 to 1 and controls' edges 3 to 1 in both paper looks; on a phone the selector is reachable and 44 px; screenshots");
+    await withApp("c74", async (o, vault) => {
+      const vp0 = await o.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+      const rel = "Looks of the page.booklet.md";
+      const file = put(vault, rel, note74), T0 = text(file);
+      await openDesign(o, rel);
+      await goNav(o, "activity", lineOf(T0, "[!activity|a]"));
+      const pick = async look => { await o.page.selectOption(SEL74, look); await o.page.waitForFunction(([cv, l]) => document.querySelector(cv).getAttribute("data-booklet-look") === l, [CV, look], { timeout: 4000, polling: 30 }); await sleep(250); };
+      const sameness = {};
+      // ---- the selector itself
+      const names = await o.evaluate(sel => { const s = document.querySelector(sel), l = s.closest("label"); return { options: [...s.options].map(x => x.value + "=" + x.textContent), label: l ? l.textContent.trim().slice(0, 12) : null, tag: s.tagName, inBar: !!s.closest(".booklet-design-bar[role='toolbar']"), shown: s.getBoundingClientRect().width > 0 }; }, SEL74);
+      c.ok(names.tag === "SELECT" && names.shown && names.inBar && names.options.join("|") === LOOKS74.map(([v, t]) => v + "=" + t).join("|"), "the header's toolbar has a dropdown of the three looks, in the plugin's own words: " + JSON.stringify(names.options));
+      const accName = await o.page.locator(SEL74).evaluate(e => { const l = e.closest("label"); return l ? l.textContent.replace(e.textContent, "").trim() : ""; });
+      c.ok(accName === "Look", "the dropdown is named by the visible word " + JSON.stringify(accName));
+      // ---- by default: the look follows Obsidian's mode, with nothing chosen
+      await o.setScheme("light"); await sleep(400);
+      let f = await facts74(o);
+      c.ok(f.attr === "paper-light" && f.select === "paper-light" && f.isView, `nothing chosen, Obsidian light: the canvas is in Paper and petrol light and the dropdown says so (${f.attr}, ${f.select})`);
+      await o.setScheme("dark"); await sleep(500);
+      f = await facts74(o);
+      c.ok(f.attr === "paper-dark" && f.select === "paper-dark", `nothing chosen, Obsidian dark: the canvas follows to Paper and petrol dark (${f.attr}, ${f.select})`);
+      await o.setScheme("light"); await sleep(400);
+      // a choice is kept while the mode changes
+      await pick("obsidian");
+      await o.setScheme("dark"); await sleep(500);
+      f = await facts74(o);
+      c.ok(f.attr === "obsidian" && f.select === "obsidian" && !f.isView, `a choice (Obsidian) is kept when Obsidian's mode changes (${f.attr}); the canvas is not a .booklet-view in Obsidian's look`);
+      await o.setScheme("light"); await sleep(400);
+      // keyboard: the dropdown has the focus and the arrow keys change the look
+      await o.page.focus(SEL74); await o.page.keyboard.press("ArrowUp"); await sleep(300);
+      f = await facts74(o);
+      c.ok(f.attr === "paper-dark" && f.select === "paper-dark", `the dropdown works from the keyboard: the focus on it and the Up arrow took Obsidian's look to ${f.attr}`);
+      await o.page.keyboard.press("ArrowUp"); await sleep(300);
+      c.ok((await facts74(o)).attr === "paper-light", "and once more to Paper and petrol light");
+      c.ok(text(file) === T0, "choosing a look writes nothing to the note");
+      // a reload of the view starts from the default again (the choice is not saved)
+      // ---- every look in both modes
+      const SHOTS74 = [["head", `${CV} .booklet-design-page-head`, "start"], ["callout", `${CV} .callout`, "center"], ["choice", `${CV} .booklet-design-block[data-kind='question'] .booklet-sample-question, ${CV} .booklet-design-block[data-kind='question']`, "center"], ["matrix", `${CV} .booklet-design-block[data-kind='question'][data-start='${lineOf(T0, "[!matrix|topics]")}']`, "center"]];
+      const byLook = {};
+      for (const scheme of ["light", "dark"]) {
+        await o.setScheme(scheme); await sleep(500);
+        for (const [look] of LOOKS74) {
+          await pick(look);
+          await goNav(o, "activity", lineOf(T0, "[!activity|a]"));
+          const tag = `${look}-${scheme}`;
+          f = await facts74(o); byLook[tag] = f;
+          c.ok(f.attr === look && f.select === look && f.isView === (look !== "obsidian"), `${tag}: the canvas carries data-booklet-look=${look}`);
+          if (look === "obsidian") c.ok(f.canvasBg === f.obsBg && f.questionInk === f.obsInk, `${tag}: the canvas background (${f.canvasBg}) and the question text (${f.questionInk}) are Obsidian's own variables (${f.obsBg}, ${f.obsInk})`);
+          else c.ok(f.canvasBg === f.paper && f.questionInk === f.ink && f.paper !== f.obsBg, `${tag}: the canvas background (${f.canvasBg}) is --bk-paper (${f.paper}) and the question text (${f.questionInk}) is --bk-ink (${f.ink})`);
+          if (look !== "obsidian") c.ok(!!f.callout && f.callout.blend === "normal" && f.callout.text >= 4.5 && f.callout.onPage >= 1.05, `${tag}: the callout is drawn as it is (mix-blend-mode ${f.callout && f.callout.blend}, not blended into the sheet by Obsidian's mode), its words are ${f.callout && f.callout.text} to 1 on its tint and the tint shows against the page (${f.callout && f.callout.onPage} to 1)`);
+          for (const [name, sel, block] of SHOTS74) await shotEl(o, `looks-${tag}-${name}`, sel, block);
+          // an open edit box, with rows: the choice
+          await clickBlock(o, "question", lineOf(T0, "[!choice|where]")); await sleep(250);
+          const ed = await edit74(o);
+          byLook[tag].edit = ed;
+          await shotEl(o, `looks-${tag}-edit`, `${DV} .booklet-design-editbox`, "start");
+          await shotEl(o, `looks-${tag}-edit-rows`, `${DV} .booklet-design-rows`, "start");
+          if (look !== "obsidian") {
+            const lowText = ed.texts.filter(t => !t.disabled && t.ratio < t.need), lowCtl = ed.controls.filter(x => x.best < 3);
+            c.ok(ed.texts.length > 8 && lowText.length === 0, `${tag}: the open edit box's ${ed.texts.length} texts all reach their contrast (4.5 to 1)${lowText.length ? "; below: " + JSON.stringify(lowText.slice(0, 8)) : ""}`);
+            c.ok(ed.controls.length > 8 && lowCtl.length === 0, `${tag}: the open edit box's ${ed.controls.length} controls each have an edge or fill of 3 to 1 on what is behind them${lowCtl.length ? "; below: " + JSON.stringify(lowCtl.slice(0, 10)) : ""}`);
+          }
+          await closeAll(o);
+          await sleep(200);
+          // the selection outline, the floating bar and the "+" slots on a shut selected block
+          await o.evaluate(sel => { const e = document.querySelector(sel); if (e) e.scrollTop = 0; }, CV);
+          await selectBlock(o, "question", lineOf(T0, "[!choice|where]"));
+          await shotEl(o, `looks-${tag}-selected`, `${CV} .booklet-design-block.is-selected`, "center");
+          if (look !== "obsidian") {
+            // the page with a block selected (its outline, label and floating bar), the "+" slots and the page head: the canvas' own words and the plus marks
+            const pg = await edit74(o, CV, ".booklet-sample, [inert]", ".booklet-design-slot-plus, .booklet-design-floatbar");
+            const lowText = pg.texts.filter(t => !t.disabled && t.ratio < t.need), lowCtl = pg.controls.filter(x => x.best < 3);
+            c.ok(pg.texts.length > 10 && lowText.length === 0 && lowCtl.length === 0, `${tag}: the canvas' own words (${pg.texts.length}: kind label, title, chip, bar, cards) reach 4.5 to 1 and the ${pg.controls.length} controls drawn (slot plus marks, bar buttons) have an edge or fill of 3 to 1${lowText.length || lowCtl.length ? "; below: " + JSON.stringify([...lowText, ...lowCtl].slice(0, 8)) : ""}`);
+          }
+          await o.page.keyboard.press("Escape"); await sleep(150);
+        }
+      }
+      // the left column, the header and the trail do not change with the look
+      for (const scheme of ["light", "dark"]) {
+        const a = byLook[`paper-light-${scheme}`], b = byLook[`paper-dark-${scheme}`], d = byLook[`obsidian-${scheme}`];
+        c.ok(JSON.stringify(a.left) === JSON.stringify(b.left) && JSON.stringify(a.left) === JSON.stringify(d.left), `${scheme}: the left column, the header bar, the trail, a tab and Undo draw the same in all three looks`);
+      }
+      c.ok(byLook["paper-light-light"].canvasBg !== byLook["paper-dark-light"].canvasBg && byLook["paper-light-light"].canvasBg !== byLook["obsidian-light"].canvasBg, "the three looks draw three different canvases");
+      c.ok(byLook["paper-light-light"].canvasBg === byLook["paper-light-dark"].canvasBg && byLook["paper-dark-light"].canvasBg === byLook["paper-dark-dark"].canvasBg, "a paper look is the same canvas in a light and in a dark Obsidian");
+      c.ok(text(file) === T0, "nothing was written to the note by all of this");
+      // ---- a phone
+      await pick("paper-light");
+      const narrowed = await o.page.setViewportSize({ width: 390, height: 844 }).then(() => true, e => String(e).slice(0, 120));
+      c.ok(narrowed === true, "the window is 390 x 844: " + narrowed);
+      await mobile(o, true);
+      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+      if (await o.evaluate(() => app.workspace.getLeavesOfType("booklet-design").length) === 0) await openDesign(o, rel, "tab", true, false);
+      await o.page.waitForSelector(DV + " .booklet-design-page", { timeout: 15000 });
+      await idle(o); await warm(o);
+      await goNav(o, "activity", lineOf(T0, "[!activity|a]"));
+      const phoneSel = async label => {
+        const g = await o.evaluate(sel => { const s = document.querySelector(sel), r = s.getBoundingClientRect(), l = s.closest("label").getBoundingClientRect(), W = window.innerWidth, e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { w: Math.round(r.width), h: Math.round(r.height), lh: Math.round(l.height), left: Math.round(r.left), right: Math.round(r.right), top: Math.round(r.top), bottom: Math.round(r.bottom), W, hit: !!e && (e === s || s.contains(e)), mobile: document.body.classList.contains("is-mobile") }; }, SEL74);
+        c.ok(g.mobile && g.w >= 44 && g.h >= 44 && g.lh >= 44 && g.left >= 0 && g.right <= g.W && g.top >= 0 && g.hit, `${label}: on a phone the look dropdown is on the screen, ${g.w} x ${g.h} px (its label ${g.lh} px high), and a finger at its centre lands on it`);
+      };
+      await phoneSel("light");
+      const pf = await phoneFacts(o);
+      c.ok(pf.docScroll <= pf.W + 1 && pf.wideCount === 0, `the phone's header with the dropdown has no sideways scroll (page ${pf.docScroll} of ${pf.W} px)${pf.wideCount ? ": " + JSON.stringify(pf.wide) : ""}`);
+      c.ok(pf.small.filter(x => x.own).length === 0, `every control of the plugin's is at least 44 px (${pf.controls} looked at)${pf.small.length ? "; smaller: " + JSON.stringify(pf.small.slice(0, 6)) : ""}`);
+      for (const [look] of LOOKS74) {
+        await pick(look);
+        c.ok((await facts74(o)).attr === look, `phone: the dropdown set the canvas to ${look}`);
+        await shotEl(o, `looks-phone-${look}-choice`, `${CV} .booklet-design-block[data-kind='question']`, "center");
+        await o.evaluate(sel => { const e = document.querySelector(sel); if (e) e.scrollTop = 0; }, CV); await sleep(200);
+        await shot(o, `looks-phone-${look}-head`);
+        await clickBlock(o, "question", lineOf(T0, "[!choice|where]")); await sleep(250);
+        await shotEl(o, `looks-phone-${look}-edit`, `${DV} .booklet-design-editbox`, "start");
+        if (look !== "obsidian") {
+          const ed = await edit74(o);
+          const lowText = ed.texts.filter(t => !t.disabled && t.ratio < t.need), lowCtl = ed.controls.filter(x => x.best < 3);
+          c.ok(lowText.length === 0 && lowCtl.length === 0, `phone, ${look}: the open edit box keeps its contrast (${ed.texts.length} texts, ${ed.controls.length} controls)${lowText.length || lowCtl.length ? "; below: " + JSON.stringify([...lowText, ...lowCtl].slice(0, 6)) : ""}`);
+        }
+        await closeAll(o);
+      }
+      await o.setScheme("dark"); await sleep(500);
+      await pick("paper-dark"); await phoneSel("dark");
+      await shotEl(o, "looks-phone-paper-dark-dark-choice", `${CV} .booklet-design-block[data-kind='question']`, "center");
+      await o.setScheme("light"); await sleep(300);
+      await mobile(o, false);
+      await o.page.setViewportSize({ width: vp0.w, height: vp0.h });
+      c.ok(text(file) === T0, "nothing was written to the note on the phone either");
+    });
+    return c;
+  }
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74 };
 };

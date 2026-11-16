@@ -1092,6 +1092,6 @@ test("no member of the Design view or the Booklet view is named after one the re
 		assert.deepEqual(own.filter((n) => real.includes(n)), [], `${View.name} has a method named like an instance field of TextFileView`);
 	}
 	// the stub carries the real fields, so a view that reads one of its own fields of that name sees the base's value, as in the app
-	const probe = new DesignView({ app: testApp({ text: BARE, writes: 0 }) }, { setMode: async () => {} });
+	const probe = new DesignView({ app: testApp({ text: BARE, writes: 0 }) }, { setMode: async () => {}, media: { look: () => undefined } });
 	for (const k of ["dirty", "saving", "saveAgain", "isPlaintext", "lastSavedData"]) assert.ok(k in probe, `the stub's TextFileView has ${k}`);
 });

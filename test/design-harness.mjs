@@ -51,14 +51,18 @@ export function fakePane(path, text) {
 }
 
 /** A Design view open on `text`, as a pane opens a note: loaded, then handed the text. `disk` is the note as the vault holds it. */
-export function openDesign(text, { path = "Note.booklet.md", icons = EVERY_ICON, pane = null, phone = false } = {}) {
+export function openDesign(text, { path = "Note.booklet.md", icons = EVERY_ICON, pane = null, phone = false, look = undefined } = {}) {
 	globalThis.__bookletStubIcons = icons;
 	globalThis.__bookletStubPhone = phone;
 	const disk = { text, writes: 0 };
-	const app = testApp(disk, { workspace: { iterateAllLeaves: (fn) => void (pane && fn({ view: pane })) }, scope: { handlers: [], parent: null } });
+	/** The workspace events the view listens to, by name (`events.get("css-change")()` is Obsidian's theme or mode changing). */
+	const events = new Map();
+	const app = testApp(disk, { workspace: { iterateAllLeaves: (fn) => void (pane && fn({ view: pane })), on: (name, fn) => (events.set(name, fn), { name }) }, scope: { handlers: [], parent: null } });
 	const modes = [];
 	const actions = [];
-	const view = new DesignView({ app }, { setMode: async (_leaf, mode) => void modes.push(mode) });
+	/** What the plugin's settings hold for the look (the reader's choice there); a test changes it with `o.settings.look = ...`. */
+	const settings = { look };
+	const view = new DesignView({ app }, { setMode: async (_leaf, mode) => void modes.push(mode), media: { look: () => settings.look } });
 	const made = [];
 	const addChild = view.addChild.bind(view);
 	view.addChild = (c) => {
@@ -85,6 +89,8 @@ export function openDesign(text, { path = "Note.booklet.md", icons = EVERY_ICON,
 	const at = (n) => String(typeof n === "number" ? n : lineOf(view.getViewData(), n));
 	const o = {
 		view,
+		settings,
+		events,
 		disk,
 		el,
 		app,

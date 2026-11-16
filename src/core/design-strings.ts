@@ -61,6 +61,11 @@ export const DESIGN_STRINGS = {
 	"redo": tr("Redo", "Rehacer", "Rétablir"),
 	"undo.title": tr("Undo the last change made in this view", "Deshacer el último cambio hecho en esta vista", "Annuler le dernier changement fait dans cette vue"),
 	"redo.title": tr("Redo the change that was undone", "Rehacer el cambio que se deshizo", "Rétablir le changement qui a été annulé"),
+	"look.label": tr("Look", "Aspecto", "Apparence"),
+	"look.title": tr("How the page is drawn in this view. Only this view changes; the choice is not saved.", "Cómo se dibuja la página en esta vista. Solo cambia esta vista; la elección no se guarda.", "La façon dont la page est dessinée dans cette vue. Seule cette vue change ; le choix n’est pas enregistré."),
+	"look.paper-light": tr("Paper and petrol: light", "Papel y petróleo: claro", "Papier et pétrole : clair"),
+	"look.paper-dark": tr("Paper and petrol: dark", "Papel y petróleo: oscuro", "Papier et pétrole : sombre"),
+	"look.obsidian": tr("Obsidian", "Obsidian", "Obsidian"),
 	"crumb.label": tr("Where you are in the booklet", "Dónde estás en el cuadernillo", "Où vous êtes dans le carnet"),
 	"status.label": tr("What the view did", "Lo que hizo la vista", "Dernière action"),
 

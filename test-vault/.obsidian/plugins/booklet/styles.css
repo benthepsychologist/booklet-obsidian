@@ -3876,7 +3876,29 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-design-bar {
 	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--size-2-3);
+}
+
+/* the look selector (design-view.ts): a word and a dropdown, in Obsidian's own look like the rest of the header; it changes the canvas only */
+.booklet-design-look {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-inline-start: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-look-select {
+	max-width: 100%;
+}
+
+.is-mobile .booklet-design .booklet-design-look-select,
+.booklet-design.is-phone .booklet-design-look-select {
+	min-height: 44px;
+	box-sizing: border-box;
 }
 
 .booklet-design-crumb {
@@ -4713,6 +4735,13 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design.is-phone summary {
 	display: flex;
 	align-items: center;
+}
+
+/* the Paper looks on the canvas (themes/design.css) draw its slots, the buttons of its bars and the buttons of the edit box smaller than the paper pill's 44 px: on a phone they are 44 px again */
+.is-mobile .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button),
+.booklet-design.is-phone .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button) {
+	min-width: 44px;
+	min-height: 44px;
 }
 
 /* the rows' fields and the shared menu's picker are as high as the buttons beside them on a phone: no control of the rows is under 44 px */
@@ -6670,4 +6699,355 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-view[data-booklet-look^="paper"] .booklet-spot .l:not(.w),
 .booklet-view[data-booklet-look^="paper"] .booklet-spot .lw:not(.w) {
 	fill: none;
+}
+
+/* ===== themes/design.css ===== */
+/* Paper and petrol on the Design view's canvas (themes/CONTRACT.md).
+ *
+ * The canvas is the scroll element of the Design view (`.booklet-design-scroll`, design-view.ts). In a paper look it carries
+ * `data-booklet-look` and the class `booklet-view`, so tokens-paper-*.css and structure.css reach everything drawn in it (the reader's
+ * own pieces drawn inert, and Obsidian's colours, which structure.css points at the tokens). This file is what is left: the canvas'
+ * own pieces (the page, a block, a "+" slot, the floating bar, the edit box and its rows), which the Booklet view does not have.
+ * In Obsidian's look the canvas has neither the class nor the attribute, so nothing here matches it. The left column, the header and
+ * the trail are outside the canvas and keep Obsidian's look in every case.
+ *
+ * Same rules as structure.css: every selector begins `.booklet-view[data-booklet-look^="paper"]`; colour, radius, shadow and font come
+ * from the --bk-* tokens only; no priority flag; motion only inside prefers-reduced-motion: no-preference. A control a phone needs at
+ * 44 px is put back to 44 px in styles.base.css (the phone block of the Design view), which holds the `.is-mobile` and `.is-phone`
+ * parents these selectors cannot name.
+ */
+
+/* ---------- 1. the view's own variables: the canvas' drawings and pages read these ---------- */
+
+.booklet-view[data-booklet-look^="paper"].booklet-design-scroll {
+	--bd-ink: var(--bk-ink);
+	--bd-ink-soft: var(--bk-ink-soft);
+	--bd-paper: var(--bk-card);
+	--bd-accent: var(--bk-brand);
+	--bd-callout-tip: var(--bk-brand);
+	--bd-callout-hint: var(--bk-brand);
+	--bd-callout-note: var(--bk-sky);
+	--bd-callout-warning: var(--bk-sun);
+	--bd-callout-example: var(--bk-lilac);
+	--bd-callout-solution: var(--bk-sage);
+	--bd-callout-law: var(--bk-slate);
+	--bd-callout-diff: var(--bk-sun);
+	--bd-callout-opinion: var(--bk-rose);
+	--bd-callout-question: var(--bk-sun);
+	--bd-callout-quote: var(--bk-ink-soft);
+	--bd-callout-citation: var(--bk-ink-soft);
+	/* Obsidian's settings rows (the edit box's form) read their colours from variables Obsidian fixes on the body, which the ones structure.css sets on the view do not reach */
+	--setting-item-name-color: var(--bk-ink);
+	--setting-group-heading-color: var(--bk-ink);
+	--setting-items-background: var(--bk-card);
+	--setting-items-border-color: var(--bk-rule);
+	--setting-items-divider-color: var(--bk-rule);
+	--setting-items-radius: var(--bk-r-md);
+}
+
+/* Obsidian blends a callout into what is behind it by the mode it is in (darken in a light Obsidian, lighten in a dark one), which blots out a dark
+   sheet in a light Obsidian and a light one in a dark Obsidian; the canvas' own sheet is the one the callout is on, so it is drawn as it is */
+.booklet-view[data-booklet-look^="paper"].booklet-design-scroll .callout {
+	mix-blend-mode: normal;
+}
+
+/* a level's colour: the booklet is the brand and each part is one of the accents (the Obsidian look uses Obsidian's own palette) */
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-booklet {
+	--bd-level: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-module {
+	--bd-level: var(--bk-lilac);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-module-tab {
+	--bd-level: var(--bk-rose);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-activity {
+	--bd-level: var(--bk-sky);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-activity-tab {
+	--bd-level: var(--bk-sun);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-page {
+	--bd-level: var(--bk-sage);
+}
+
+/* ---------- 2. the page: a raised sheet on the paper ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page {
+	border-radius: var(--bk-r-lg);
+	background: var(--bk-card);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-kind {
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-title,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-card-title,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-group-name {
+	font-family: var(--bk-font-head);
+}
+
+/* the title is a button that opens the page's settings, drawn as the heading it is */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton:hover {
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	text-align: start;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton:hover {
+	text-decoration: underline;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-card {
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+}
+
+/* ---------- 3. the "+" slots: a quiet line with a small plus, not a pill ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover {
+	min-height: var(--size-4-6);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var(--bk-ink-soft);
+	font-family: var(--bk-font-body);
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible {
+	color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot::after {
+	border-top-color: var(--bk-rule);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot-plus {
+	border-color: var(--bk-edge);
+	background: var(--bk-card);
+	color: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over:hover {
+	min-height: var(--size-4-8);
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand-wash);
+	color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target:hover {
+	min-height: var(--size-4-8);
+	border-radius: var(--bk-r-sm);
+	background: transparent;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target .booklet-design-slot-plus {
+	border-color: var(--bk-brand);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target .booklet-design-slot-words {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* ---------- 4. a block: its outline, its label and its floating bar ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block {
+	border-radius: var(--bk-r-md);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block.is-selected {
+	border-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-floatbar {
+	border-color: var(--bk-brand);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	box-shadow: var(--bk-shadow);
+}
+
+/* the bar's buttons and a card's are flat: an icon (and a word) with a wash under the pointer, not the paper pill */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton:hover {
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-2);
+	border: 0;
+	border-radius: var(--bk-r-sm);
+	background: transparent;
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton:hover:not(:disabled) {
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton.booklet-design-delete {
+	color: var(--text-error);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip-count {
+	background: var(--bk-brand-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip-count.is-keeps {
+	background: var(--bk-sage-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-friendly {
+	border-color: var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-lines {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-paper);
+}
+
+/* ---------- 5. the edit box: the page's sheet, opened ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox {
+	border-color: var(--bk-brand);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-title {
+	color: var(--bk-brand);
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-mark:not(:empty) {
+	background: var(--bk-hmm-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-previewhost {
+	border-color: var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editor-state:not(:empty) {
+	border-inline-start-color: var(--bk-hmm-tile);
+	background: var(--bk-hmm-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox.is-armed .booklet-design-editor-state:not(:empty) {
+	border-inline-start-color: var(--bk-rose);
+}
+
+/* its fields: a boundary that can be seen (3 to 1), on the card of the row or on the box */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select) {
+	border: 1.5px solid var(--bk-edge);
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-paper);
+	color: var(--bk-ink);
+	box-shadow: none;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select):focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select):focus-visible {
+	border-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-rows-input[aria-invalid="true"] {
+	border-color: var(--bk-rose);
+}
+
+/* a row is a small card on the box; its buttons are the paper pills at the height of a field */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-optrow {
+	border-color: var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-refused {
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button {
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-4);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button.booklet-design-save {
+	padding-inline: var(--size-4-6);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-switch[aria-checked="true"],
+.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-switch[aria-checked="true"]:hover {
+	border-color: var(--bk-brand);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* ---------- 6. motion ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+	/* the paper pill gives a pixel under a press; the canvas' own buttons stay where they are, so a press that moves the pointer a little still ends on the button it began on (check 73) */
+	.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button:active,
+	.booklet-view[data-booklet-look^="paper"] button[class*="booklet-design-"]:active {
+		transform: none;
+	}
 }

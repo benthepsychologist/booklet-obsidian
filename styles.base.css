@@ -3876,7 +3876,29 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-design-bar {
 	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
 	gap: var(--size-2-3);
+}
+
+/* the look selector (design-view.ts): a word and a dropdown, in Obsidian's own look like the rest of the header; it changes the canvas only */
+.booklet-design-look {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-inline-start: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-look-select {
+	max-width: 100%;
+}
+
+.is-mobile .booklet-design .booklet-design-look-select,
+.booklet-design.is-phone .booklet-design-look-select {
+	min-height: 44px;
+	box-sizing: border-box;
 }
 
 .booklet-design-crumb {
@@ -4713,6 +4735,13 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design.is-phone summary {
 	display: flex;
 	align-items: center;
+}
+
+/* the Paper looks on the canvas (themes/design.css) draw its slots, the buttons of its bars and the buttons of the edit box smaller than the paper pill's 44 px: on a phone they are 44 px again */
+.is-mobile .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button),
+.booklet-design.is-phone .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button) {
+	min-width: 44px;
+	min-height: 44px;
 }
 
 /* the rows' fields and the shared menu's picker are as high as the buttons beside them on a phone: no control of the rows is under 44 px */
