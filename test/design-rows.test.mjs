@@ -112,6 +112,12 @@ function rig(text) {
 			return hit[0];
 		},
 		rowNames: () => Setting.made.filter((s) => s.settingEl.isConnected).map((s) => words(s.nameEl)),
+		/** The names of the strip under the words: the id, the flags and the values, in order. */
+		strip: () => o.all(".booklet-design-editbox .booklet-design-strip-item").map((e) => e.getAttribute("data-field")),
+		/** The control of the strip item of this name (a text input, or the switch of a flag). */
+		item: (name) => o.el.querySelector(`.booklet-design-editbox .booklet-design-strip-item[data-field="${name}"] :is(input, button[role="switch"])`),
+		/** The words of the block's title field. */
+		title: () => o.el.querySelector(".booklet-design-editbox .booklet-design-field.is-title"),
 		refusal: () => words(o.el.querySelector(".booklet-design-edit-refusal")),
 		button: (label, from = o.editor()) => [...from.querySelectorAll("button")].find((b) => words(b) === label),
 		dialog: () => doc.querySelector(".booklet-design-ask"),
@@ -129,7 +135,6 @@ function rig(text) {
 		},
 		/** The rows of the box, as the words each holds. */
 		texts: () => [...o.editor().querySelectorAll(".booklet-design-rows input[type=text]")].map((e) => e.value),
-		preview: () => words(o.editor().querySelector(".booklet-design-edit-previewhost")),
 		/** What the editor's Markdown says now, as lines. */
 		md: () => o.area().value.split("\n"),
 	};
@@ -168,7 +173,8 @@ test("a choice opens with its options as rows, each with its words, a correct sw
 	assert.equal(picker.options[""], "None: the question has its own options");
 	assert.equal(picker.value, "");
 	// `open` is a switch in the settings; the menu is not repeated there as a text row
-	assert.deepEqual(v.rowNames().filter((n) => ["open", "menu", "Title", "Id", "each", "earlier"].includes(n)), ["Id", "Title", "open", "each", "earlier"]);
+	assert.deepEqual(v.strip().filter((n) => ["open", "menu", "id", "each", "earlier"].includes(n)), ["id", "open", "each", "earlier"]);
+	assert.equal(v.title().value, "Where are you right now?", "and the title is the field above");
 	// the Markdown holds the block as it is
 	assert.equal(v.area().value.split("\n")[0], "> [!choice|where] Where are you right now?");
 	assert.equal(v.editor().querySelector(".booklet-design-edit-mark"), null, "no Unsaved mark: there is no draft");
@@ -191,7 +197,7 @@ test("typing in a row is applied when the row is left: one write, the Markdown a
 	assert.equal(v.disk.text.split("\n")[lineOf(before, "- [ ] Numb")], "- [ ] Flat");
 	assert.equal(v.input("Option 3: words"), input, "the row is the same row: it was not drawn again under the caret");
 	assert.equal(doc.activeElement, input);
-	assert.match(v.preview(), /Flat/, "the preview is drawn from the note");
+	assert.equal(v.editor().querySelector(".booklet-design-edit-previewhost"), null, "there is no preview: the block is the block");
 	await v.type("Option 2, reply 2: words", "Often useful.");
 	assert.equal(v.md()[5], "  - Often useful.");
 	assert.equal(v.disk.writes, 2, "one write for each");
@@ -481,7 +487,7 @@ test("a block the rows cannot show without changing it has the Markdown alone an
 	assert.match(words(rows.querySelector(".booklet-design-rows-refused")), /^The rows are not offered for this block, so it is edited in the Markdown below\. There is a line under the list that the rows cannot show/);
 	assert.equal(rows.querySelectorAll("input, button, select").length, 0);
 	assert.equal(v.area().value, ["> [!choice|odd] Odd one", "- [ ] One", "  - Said", "    and more"].join("\n"), "the Markdown is as written");
-	assert.ok(v.rowNames().includes("menu"), "the settings keep their own `menu` row where there is no picker");
+	assert.ok(v.strip().includes("menu"), "the strip keeps its own `menu` value where there is no picker");
 	v.close();
 });
 
@@ -498,8 +504,8 @@ test("leaving the Markdown reads the rows again; a text the rows cannot show rep
 	assert.equal(v.area().value, odd, "what was typed is still there");
 	await v.typeArea("> [!multi|odd open] Odd one\n- [ ] One\n  - Said\n- [ ] Two");
 	assert.deepEqual(v.texts(), ["One", "Said", "Two"]);
-	assert.ok(v.row("open"));
-	assert.equal(v.row("open").components[0].value, true);
+	assert.ok(v.item("open"));
+	assert.equal(v.item("open").getAttribute("aria-checked"), "true");
 	// a block that is turned into one the rows do not know has no rows part at all
 	await v.typeArea("> [!text|odd] Odd one");
 	assert.equal(v.editor().querySelector(".booklet-design-rows").classList.contains("is-empty"), true);

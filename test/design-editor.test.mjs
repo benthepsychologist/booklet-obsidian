@@ -1,11 +1,11 @@
 /*
  * The Design view's editor in place, and the outline's lists, run in node over jsdom with the stand-in for Obsidian.
  *
- * A click on a block (or on a page's "Edit settings") opens that block's own lines in a box where it stands: a live preview of the
- * block as the reader sees it, the settings as native setting rows, and the Markdown. The rows and the Markdown are two views of ONE
- * draft; nothing reaches the note until Save, which is one `changeLines` through the same guard as every other change. What this says
- * is what the view does with the pieces Obsidian is stood in for. How it looks, and how a soft keyboard behaves, is measured in the
- * real app, which this is not.
+ * A click on a block (or on a page's "Edit settings") opens that block where it stands: its title and its description are fields drawn
+ * in its own type, its other settings are a strip under them (its id, switches and values), and its Markdown waits in a section that is
+ * closed until it is opened. There is no draft, no preview and no Save: every change is written as it is made, through `changeLines` and
+ * the same guard as every other change. What this says is what the view does with the pieces Obsidian is stood in for. How it looks,
+ * and how a soft keyboard behaves, is measured in the real app, which this is not.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -33,22 +33,47 @@ function rig(text) {
 		open: (kind, needle) => o.select(kind, needle),
 		/** The page's own "Edit settings" button: the container's own lines open in the editor. */
 		openPage: () => click(o.el.querySelector(".booklet-design-page-head .booklet-design-page-edit")),
-		/** The form row (the Setting) of this name in the open editor. */
+		/** The form row (the Setting) of this name in the open editor: the front matter's rows are Settings. */
 		row: (name) => {
 			const hit = Setting.made.filter((s) => s.settingEl.isConnected && words(s.nameEl) === name);
 			assert.equal(hit.length, 1, `one row named ${name} (${hit.length})`);
 			return hit[0];
 		},
-		rowNames: () => Setting.made.filter((s) => s.settingEl.isConnected && s.settingEl.parentElement.classList.contains("booklet-design-settings")).map((s) => words(s.nameEl)),
-		/** Types into a text row and leaves it (the box's `change`): the change is applied to the note, and this waits for the write. */
+		/** The text control of a block's title ("Title"), description ("Description") or strip value ("Id", "Icon", a setting's name). */
+		control: (name) => {
+			const box = o.el.querySelector(".booklet-design-editbox");
+			if (!box) return null;
+			if (name === "Title") return box.querySelector(".booklet-design-field.is-title");
+			if (name === "Description") return box.querySelector(".booklet-design-field.is-desc");
+			const key = name === "Id" ? "id" : name === "Icon" ? "icon" : name;
+			return box.querySelector(`.booklet-design-strip-item[data-field="${key}"] input`);
+		},
+		/** The switch of the strip with this name. */
+		sw: (name) => o.el.querySelector(`.booklet-design-editbox .booklet-design-strip-item[data-field="${name}"] button[role="switch"]`),
+		/** The names of the controls of the box: the title, then the strip's items in order (the front matter's rows are Settings). */
+		rowNames: () => [
+			...(o.el.querySelector(".booklet-design-editbox .booklet-design-field.is-title") ? ["Title"] : []),
+			...o.all(".booklet-design-editbox .booklet-design-strip-item").map((e) => e.getAttribute("data-field")),
+			...Setting.made.filter((s) => s.settingEl.isConnected && s.settingEl.parentElement.classList.contains("booklet-design-settings")).map((s) => words(s.nameEl)),
+		],
+		/** Types into a text control and leaves it (the box's `change`): the change is applied to the note, and this waits for the write. */
 		async type(name, value) {
-			const c = m.row(name).components[0];
-			c.inputEl.value = value;
-			c.inputEl.dispatchEvent(new w.Event("change", { bubbles: true }));
+			const el = m.control(name);
+			if (el) {
+				el.value = value;
+				el.dispatchEvent(new w.Event("change", { bubbles: true }));
+			} else {
+				const c = m.row(name).components[0];
+				c.inputEl.value = value;
+				c.inputEl.dispatchEvent(new w.Event("change", { bubbles: true }));
+			}
 			await o.settle();
 		},
+		/** Presses a switch of the strip so it is `on` (nothing when it is already). */
 		async toggle(name, on) {
-			await m.row(name).components[0].change(on);
+			const b = m.sw(name);
+			assert.ok(b, `a switch named ${name}`);
+			if (b.getAttribute("aria-checked") !== String(on)) click(b);
 			await o.settle();
 		},
 		/** What the editor refused in its settings, in words (empty when nothing). */
@@ -71,9 +96,9 @@ function rig(text) {
 		},
 		/** Like `type`, for a change that is asked about: it does not wait for the question to be answered. */
 		async typeAsk(name, value) {
-			const c = m.row(name).components[0];
-			c.inputEl.value = value;
-			c.inputEl.dispatchEvent(new w.Event("change", { bubbles: true }));
+			const el = m.control(name);
+			el.value = value;
+			el.dispatchEvent(new w.Event("change", { bubbles: true }));
 			await new Promise((r) => setTimeout(r, 20));
 		},
 		/** Types into the Markdown box and leaves it (its `change`): applied, and this waits for the write. */
@@ -101,59 +126,70 @@ function onlyLines(before, after, ...lines) {
 
 /* ======================================================================== the box ======================================================================== */
 
-test("a press on a block opens it in place: a header, the reader's view of it, its settings as setting rows, its Markdown, and a hint that says every change applies as it is made; no Save and no Cancel; the page's own button opens the container's lines the same way", () => {
+test("a press on a block opens it in place: its title and description are fields in its own type, its settings a strip, its Markdown a closed section, and a hint that says every change applies as it is made; no preview, no Save, no Cancel; the page's own button opens the container's lines the same way", () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	const block = v.open("question", "[!text|spent]");
 	const box = v.editor();
 	assert.equal(box.parentElement, block, "in the block, in place");
-	assert.equal(words(box.querySelector(".booklet-design-edit-title")), "Editing: Question");
-	// as the reader sees it: the question drawn, inert
-	assert.equal(words(box.querySelector(".booklet-design-edit-section.is-preview .booklet-design-edit-label")), "As the reader sees it");
-	assert.ok(box.querySelector(".booklet-design-edit-previewhost [inert]"), "an inert drawing");
-	// the Markdown: just the block's own lines, spell-check off, labelled in words
+	assert.match(words(box.querySelector(":scope > .booklet-design-sr")), /^Editing Question/, "named for a screen reader");
+	// the words are fields where they are drawn: the title, then the description
 	const q = walkDesign(parseDesign(FULL)).find((n) => n.kind === "question" && n.id === "spent");
+	assert.equal(v.control("Title").value, "What did you spend?");
+	assert.equal(v.control("Title").getAttribute("aria-label"), "Title");
+	assert.ok(v.control("Description"), "a description field");
+	assert.equal(doc.activeElement, v.control("Title"), "the title has the focus");
+	// no preview of the block, no heading, no section labels
+	assert.equal(box.querySelector(".booklet-design-edit-previewhost"), null, "no preview");
+	assert.equal(box.querySelector(".booklet-design-edit-title"), null, "no heading");
+	assert.equal(box.querySelector(".is-preview"), null);
+	// the strip holds the id and the flags, in a toolbar with the block's own move and delete
+	assert.deepEqual(v.rowNames().slice(0, 3), ["Title", "id", "long"]);
+	assert.equal(v.control("Id").value, "spent");
+	assert.ok(v.sw("long"), "a flag is a switch");
+	assert.equal(v.sw("long").getAttribute("aria-checked"), "false");
+	// the Markdown: a closed section at the foot with the block's own lines, spell-check off, labelled in words
+	const md = box.querySelector("details.booklet-design-edit-md");
+	assert.ok(md && !md.open, "closed");
 	assert.equal(v.area().value, blockLines(FULL, q).join("\n"));
 	assert.equal(v.area().spellcheck, false);
 	assert.equal(v.area().getAttribute("spellcheck"), "false");
 	assert.match(v.area().getAttribute("aria-label"), /^Markdown of Question$/);
-	assert.equal(words(box.querySelector(".booklet-design-edit-section.is-markdown .booklet-design-edit-label")), "Markdown");
-	// the settings
-	assert.deepEqual(v.rowNames().slice(0, 4), ["Settings", "Id", "Title", "long"]);
+	assert.equal(words(md.querySelector("summary")), "Markdown");
 	// the foot: the hint says what the keys do. There is no draft, so nothing to save or cancel, and nothing says "Unsaved"
 	assert.equal(words(box.querySelector(".booklet-design-edit-hint")), en("edit.keys"));
 	assert.match(en("edit.keys"), /applied when you leave the field/);
 	assert.equal(box.querySelector(".booklet-design-editor-buttons"), null, "no Save and no Cancel");
 	assert.deepEqual([...box.querySelectorAll("button")].filter((b) => /^(Save|Cancel)$/.test(words(b))), []);
 	assert.equal(box.querySelector(".booklet-design-edit-mark"), null, "no Unsaved mark");
-	assert.equal(doc.activeElement, v.area(), "the box has the focus");
 	assert.equal(block.querySelector(":scope > .booklet-design-floatbar"), null, "the bar waits while the block is open");
 	assert.deepEqual(v.selected(), ["question@" + lineOf(FULL, "[!text|spent]")]);
-	// the page's own button: the container's opening lines, and no preview (a container has no drawing of its own)
-	press(v.area(), "Escape");
+	// the page's own button: the container's opening lines, with a title and a strip, and no preview (a container has no drawing of its own)
+	press(v.control("Title"), "Escape");
 	assert.equal(v.editor(), null, "Esc closes it");
 	v.go("Spending");
 	v.openPage();
 	assert.equal(v.editor().parentElement, v.page(), "in the page, under its title");
 	assert.equal(v.area().value, "> [!activity|spending tab:now repeat] Spending\n> half an hour");
-	assert.equal(words(v.editor().querySelector(".booklet-design-edit-title")), "Editing: Activity");
+	assert.match(words(v.editor().querySelector(":scope > .booklet-design-sr")), /^Editing Activity/);
+	assert.equal(v.control("Title").value, "Spending");
 	assert.equal(v.editor().querySelector(".is-preview"), null);
 	v.close();
 });
 
-test("the settings of an activity are the rows the settings model gives it, with the line's own values", () => {
+test("the settings of an activity are the strip the settings model gives it, with the line's own values", () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.openPage();
-	assert.deepEqual(v.rowNames(), ["Settings", "Id", "Title", "repeat", "daily", "hidden", "Icon", "status", "tab", "entries"]);
-	assert.equal(v.row("Id").components[0].inputEl.value, "spending");
-	assert.equal(v.row("Title").components[0].inputEl.value, "Spending");
-	assert.equal(v.row("repeat").components[0].value, true);
-	assert.equal(v.row("hidden").components[0].value, false);
-	assert.equal(v.row("tab").components[0].inputEl.value, "now");
+	assert.deepEqual(v.rowNames(), ["Title", "id", "repeat", "daily", "hidden", "icon", "status", "tab", "entries"]);
+	assert.equal(v.control("Id").value, "spending");
+	assert.equal(v.control("Title").value, "Spending");
+	assert.equal(v.sw("repeat").getAttribute("aria-checked"), "true");
+	assert.equal(v.sw("hidden").getAttribute("aria-checked"), "false");
+	assert.equal(v.control("tab").value, "now");
 	const model = settingsModel("> [!activity|spending tab:now repeat] Spending");
 	for (const f of model.flags) assert.ok(v.rowNames().includes(f.name), f.name);
-	for (const f of model.values) assert.ok(v.rowNames().includes(f.name === "icon" ? "Icon" : f.name), f.name);
+	for (const f of model.values) assert.ok(v.rowNames().includes(f.name), f.name);
 	v.close();
 });
 
@@ -187,15 +223,18 @@ test("one block is open at a time: pressing another moves the editor, and what w
 	v.close();
 });
 
-test("a block with no settings has an editor with its Markdown and no rows; the records, which the view never changes, open nothing and say why", () => {
+test("a block with no settings has an editor with its words and its Markdown and no strip; the records, which the view never changes, open nothing and say why", () => {
 	const v = rig(FULL);
 	v.go("Money");
 	v.open("prose", "Words in the module's opening.");
 	assert.ok(v.area());
 	assert.equal(v.area().value, "Words in the module's opening.");
-	assert.deepEqual(v.rowNames(), [], "no rows");
-	assert.ok(v.editor().querySelector(".is-form").classList.contains("is-empty"), "an empty form takes no room");
-	press(v.area(), "Escape");
+	assert.equal(v.control("Title"), null, "prose has no title");
+	assert.equal(v.control("Description").value, "Words in the module's opening.", "its words are the one field");
+	assert.equal(v.control("Description").getAttribute("aria-label"), "Words");
+	assert.deepEqual(v.rowNames(), [], "no strip");
+	assert.equal(v.editor().querySelector(".booklet-design-strip-item"), null, "no id, no flag and no value to show");
+	press(v.control("Description"), "Escape");
 	v.go("A made-up booklet");
 	const rec = v.all(".booklet-design-block[data-kind='records']")[0];
 	click(rec);
@@ -230,7 +269,7 @@ test("Enter that is a button's own press does not open the editor: on the Delete
 
 /* ======================================================================== the settings are the draft's ======================================================================== */
 
-test("a switch, a field, a title and an id each apply to the note the moment they are made: one write and one step of Undo each, the Markdown follows, and a second line of the block is as it was", async () => {
+test("a switch, a value, a title and an id each apply to the note the moment they are made: one write and one step of Undo each, the Markdown follows, and a second line of the block is as it was", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	const act = lineOf(FULL, "[!activity|spending");
@@ -240,7 +279,7 @@ test("a switch, a field, a title and an id each apply to the note the moment the
 	assert.equal(v.disk.writes, 1, "the note is written at once, once");
 	assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat hidden] Spending");
 	assert.equal(v.area().value.split("\n")[0], "> [!activity|spending tab:now repeat hidden] Spending", "the Markdown follows the row");
-	assert.equal(v.row("hidden").components[0].value, true, "and the row shows the note");
+	assert.equal(v.sw("hidden").getAttribute("aria-checked"), "true", "and the switch shows the note");
 	assert.match(v.status(), /^Changed Activity: Spending\./);
 	assert.ok(v.editor(), "the box stays open");
 	assert.equal(v.undo().disabled, false, "one step in the history");
@@ -260,33 +299,33 @@ test("a switch, a field, a title and an id each apply to the note the moment the
 	v.close();
 });
 
-test("the markdown and the rows are in step: a row changes the note and the box at once; typing in the box applies when it is left, and the rows read the note", async () => {
+test("the markdown and the strip are in step: a switch changes the note and the box at once; typing in the box applies when it is left, and the strip reads the note", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.openPage();
-	assert.equal(v.row("daily").components[0].value, false);
+	assert.equal(v.sw("daily").getAttribute("aria-checked"), "false");
 	typeInto(v.area(), "> [!activity|spending tab:now repeat daily] Spending\n> half an hour");
 	assert.equal(v.disk.writes, 0, "typing alone writes nothing: the box is applied when it is left");
-	assert.equal(v.row("daily").components[0].value, false, "the rows still show the note");
+	assert.equal(v.sw("daily").getAttribute("aria-checked"), "false", "the strip still shows the note");
 	v.area().dispatchEvent(new w.Event("change", { bubbles: true }));
 	await v.view.whenIdle();
 	assert.equal(v.disk.writes, 1);
-	assert.equal(v.row("daily").components[0].value, true, "now the rows read the note");
+	assert.equal(v.sw("daily").getAttribute("aria-checked"), "true", "now the strip reads the note");
 	await v.toggle("daily", false);
 	assert.equal(v.area().value, "> [!activity|spending tab:now repeat] Spending\n> half an hour");
 	assert.equal(v.disk.writes, 2);
 	v.close();
 });
 
-test("the preview is drawn from the note: it follows a change as it lands, in the same drawing as the page, inert", async () => {
+test("there is no preview: the open block is the block, its title field follows a change made in the Markdown as it lands, and nothing in the box is inert", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
-	const host = () => v.editor().querySelector(".booklet-design-edit-previewhost");
-	assert.match(words(host()), /What did you spend\?/);
+	assert.equal(v.editor().querySelector(".booklet-design-edit-previewhost"), null);
+	assert.equal(v.editor().querySelector("[inert]"), null);
+	assert.equal(v.control("Title").value, "What did you spend?");
 	await v.typeArea("> [!text|spent] Money out this week?");
-	assert.match(words(host()), /Money out this week\?/);
-	assert.ok(host().querySelector("[inert]"));
+	assert.equal(v.control("Title").value, "Money out this week?", "the field reads the note");
 	assert.equal(v.disk.writes, 1);
 	v.close();
 });
@@ -321,7 +360,7 @@ test("a value that is refused says why, inline, in words, and writes nothing: th
 		assert.equal(v.area().value, kept, "the Markdown is the note's");
 		assert.equal(v.disk.writes, 0, "nothing was written");
 		assert.equal(v.undo().disabled, true, "nothing to undo");
-		assert.equal(v.row(name).components[0].inputEl.value, name === "Id" ? "spending" : "", "the row shows the note's value again");
+		assert.equal(v.control(name).value, name === "Id" ? "spending" : "", "the row shows the note's value again");
 	}
 	// the next good change takes the refusal away
 	await v.type("Title", "Money out");
@@ -338,7 +377,7 @@ test("a switch that needs another is refused with its reason: `daily` without `r
 	await v.toggle("daily", true);
 	assert.match(v.refusal(), /Not changed\. `daily` needs `repeat`/);
 	assert.equal(v.area().value, kept);
-	assert.equal(v.row("daily").components[0].value, false, "the switch is back where the note has it");
+	assert.equal(v.sw("daily").getAttribute("aria-checked"), "false", "the switch is back where the note has it");
 	assert.equal(v.disk.writes, 0);
 	v.close();
 });
@@ -349,7 +388,7 @@ test("an id change that would detach kept entries is asked about in the open, as
 	const act = lineOf(HELD, "[!activity|log repeat]");
 	v.openPage();
 	const before = v.disk.text;
-	const typed = v.row("Id").components[0].inputEl;
+	const typed = v.control("Id");
 	typed.value = "diary";
 	typed.dispatchEvent(new w.Event("change", { bubbles: true }));
 	await later(20);
@@ -369,7 +408,7 @@ test("an id change that would detach kept entries is asked about in the open, as
 	assert.equal(v.status(), "Nothing was changed.");
 	assert.ok(v.editor(), "the editor stays open");
 	assert.equal(v.area().value.split("\n")[0], "> [!activity|log repeat] A mood log", "with the note's text");
-	assert.equal(v.row("Id").components[0].inputEl.value, "log", "the row is back at the note's value");
+	assert.equal(v.control("Id").value, "log", "the row is back at the note's value");
 	// yes
 	await v.typeAsk("Id", "diary");
 	await v.answer("Change");
@@ -393,13 +432,13 @@ test("taking `repeat` off an activity that keeps entries is counted and asked ab
 	const v = rig(HELD);
 	v.go("A mood log");
 	v.openPage();
-	await v.row("repeat").components[0].change(false);
+	click(v.sw("repeat"));
 	await later(20);
 	assert.ok(v.dialog());
 	assert.match(words(v.dialog()), /12 kept entries/);
 	await v.answer("Cancel");
 	assert.equal(v.disk.writes, 0);
-	assert.equal(v.row("repeat").components[0].value, true, "the switch is back as the note has it");
+	assert.equal(v.sw("repeat").getAttribute("aria-checked"), "true", "the switch is back as the note has it");
 	await v.type("Title", "My mood log");
 	assert.equal(v.dialog(), null, "a title detaches nothing: no question");
 	assert.equal(v.disk.writes, 1);
@@ -411,7 +450,7 @@ test("on a booklet the reader cannot open, a change cannot be counted: the quest
 	const v = rig(refused);
 	v.go("A mood log");
 	v.openPage();
-	const el = v.row("Id").components[0].inputEl;
+	const el = v.control("Id");
 	el.value = "diary";
 	el.dispatchEvent(new w.Event("change", { bubbles: true }));
 	await later(20);
@@ -484,12 +523,12 @@ test("leaving the Markdown rewrites only those lines: a changed line of the bloc
 	v.close();
 });
 
-/** Types into a text row without leaving it: the row has the typing, and the box has not been told (no `change` yet). */
+/** Types into a field of the box without leaving it: the field has the typing, and the box has not been told (no `change` yet). */
 const typeStaying = (v, name, value) => {
-	const c = v.row(name).components[0];
-	c.inputEl.value = value;
-	c.inputEl.dispatchEvent(new w.Event("input", { bubbles: true }));
-	return c.inputEl;
+	const el = v.control(name);
+	el.value = value;
+	el.dispatchEvent(new w.Event("input", { bubbles: true }));
+	return el;
 };
 
 test("typing in a settings row and pressing Ctrl or Cmd with Enter at once applies what was typed and closes the block: the row is read, not just the note", async () => {
@@ -545,7 +584,7 @@ test("Esc sees typing a row still holds: it is applied and the block closes; typ
 	v.view.setViewData(v.disk.text, false);
 	await v.view.whenIdle();
 	assert.ok(v.editor(), "the box stays");
-	assert.equal(v.row("Title").components[0].inputEl.value, "Never lost", "the typed text is still there");
+	assert.equal(v.control("Title").value, "Never lost", "the typed text is still there");
 	v.editor().dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
 	await v.view.whenIdle();
 	v.close();
@@ -574,16 +613,16 @@ test("the Ctrl/Cmd+Enter scope is on the app's key stack only while the box has 
 	const base = stack.length;
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
-	assert.equal(w.document.activeElement, v.area(), "the box has the focus");
+	assert.equal(w.document.activeElement, v.control("Title"), "the box has the focus");
 	assert.equal(stack.length, base + 1, "one scope is added over the view's");
 	// the focus leaves the box: Mod+Enter is the app's again (the page hears nothing of it, as in the real app)
-	v.area().blur();
+	v.control("Title").blur();
 	assert.equal(stack.length, base, "taken off at blur");
-	v.area().focus();
+	v.control("Title").focus();
 	assert.equal(stack.length, base + 1, "and put back when the focus returns");
-	v.area().focus();
+	v.control("Title").focus();
 	assert.equal(stack.length, base + 1, "never twice");
-	press(v.area(), "Escape");
+	press(v.control("Title"), "Escape");
 	assert.equal(stack.length, base, "gone when the editor closes");
 	v.open("question", "[!text|spent]");
 	assert.equal(stack.length, base + 1);
@@ -806,7 +845,7 @@ test("the hotkeys are silent while a form row's box has the focus, too", () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.openPage();
-	const input = v.row("Title").components[0].inputEl;
+	const input = v.control("Title");
 	input.focus();
 	const evt = v.key("q", { target: input });
 	assert.equal(evt.defaultPrevented, false);
@@ -961,4 +1000,230 @@ test("the side panel after the move carries the piece picker, the settings of th
 	// the panel's own source has neither section any more
 	const src = readFileSync(`${ROOT}/src/editor-view.ts`, "utf8");
 	assert.doesNotMatch(src, /drawOutline|drawProblems|"Outline"|"Problems"/);
+});
+
+/* ======================================================================== the words are fields: title, description, Markdown, strip, close ======================================================================== */
+
+/** A press on the empty page: the pointer goes down and comes up on `el`, which then gets the click. */
+const pressOn = (el) => {
+	el.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+	el.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+	click(el);
+};
+
+test("the title field applies when it is left: one write, one step of Undo, only the first line changes, and the field is the same field after", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const before = v.disk.text;
+	const q = lineOf(FULL, "[!text|spent]");
+	const title = v.control("Title");
+	title.focus();
+	typeInto(title, "Money out this week?");
+	assert.equal(v.disk.writes, 0, "typing alone writes nothing");
+	title.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent] Money out this week?");
+	onlyLines(before, v.disk.text, q);
+	assert.equal(v.control("Title"), title, "the field was not drawn again under the caret");
+	assert.equal(doc.activeElement, title);
+	assert.equal(v.area().value.split("\n")[0], "> [!text|spent] Money out this week?", "the Markdown follows");
+	// a title is one line: a line break typed or pasted is a space, and the same words again are no change
+	typeInto(title, "Money out\nthis week?");
+	title.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent] Money out this week?");
+	assert.equal(v.disk.writes, 1, "the same words: no write");
+	await v.press(v.undo());
+	assert.equal(v.disk.text, before, "one step of Undo is the whole change");
+	v.close();
+});
+
+test("Enter in the title applies it and leaves the field in place; Enter in the description is a line break, and it applies when the field is left", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const title = v.control("Title");
+	typeInto(title, "Out?");
+	const evt = v.key("Enter", { target: title });
+	assert.equal(evt.defaultPrevented, true, "Enter is the field's");
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	assert.match(v.disk.text, /\[!text\|spent\] Out\?/);
+	assert.ok(v.editor(), "the box stays open");
+	const desc = v.control("Description");
+	typeInto(desc, "In the week.\nIn pounds.");
+	const enter = v.key("Enter", { target: desc });
+	assert.equal(enter.defaultPrevented, false, "Enter is left to the description: it makes a new line");
+	assert.equal(v.disk.writes, 1);
+	desc.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.writes, 2);
+	assert.match(v.disk.text, /\[!text\|spent\] Out\?\n> In the week\.\n> In pounds\.\n/);
+	v.close();
+});
+
+test("the description applies when it is left, keeps the question's other lines, and goes before a list; emptied, it leaves no lines behind", async () => {
+	const v = rig(FULL);
+	v.go("Doing");
+	v.open("question", "[!choice|did]");
+	const before = v.disk.text;
+	const at = lineOf(FULL, "[!choice|did]");
+	await v.type("Description", "Pick one.");
+	assert.equal(v.disk.writes, 1);
+	const lines = v.disk.text.split("\n");
+	assert.equal(lines[at], "> > [!choice|did] Did you?", "the first line is as it was");
+	assert.equal(lines[at + 1], "> > Pick one.", "the description is quoted as the block is, before the list");
+	assert.equal(lines[at + 2], "> - [ ] Yes");
+	assert.equal(v.area().value.split("\n")[1], "> Pick one.", "the Markdown follows (as the block's own lines, without the group's mark)");
+	await v.type("Description", "");
+	assert.equal(v.disk.text, before, "emptied: the note is as it was, byte for byte");
+	assert.equal(v.disk.writes, 2);
+	v.close();
+});
+
+test("a description changed under the field is not written over it: the note changed while it was being typed", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const desc = v.control("Description");
+	// a description arrives in the note by another route (the Markdown), then the field, which was typed from nothing, is left
+	typeInto(desc, "Typed here.");
+	await v.typeArea("> [!text|spent] What did you spend?\n> Written in the Markdown.");
+	assert.equal(v.disk.writes, 1);
+	assert.match(v.disk.text, /Written in the Markdown\./);
+	assert.doesNotMatch(v.disk.text, /Typed here\./, "what was typed in the field was not applied over it");
+	v.close();
+});
+
+test("Ctrl+Enter in the title applies what is typed in every field and closes the block; Esc does the same, and neither is a second write", async () => {
+	for (const how of ["ctrl", "esc"]) {
+		const v = rig(FULL);
+		v.go("Spending");
+		v.open("question", "[!text|spent]");
+		typeInto(v.control("Title"), "Out?");
+		typeInto(v.control("Description"), "A week.");
+		if (how === "ctrl") v.control("Title").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ctrlKey: true }));
+		else v.control("Description").dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+		await v.view.whenIdle();
+		assert.equal(v.editor(), null, `${how}: closed`);
+		assert.equal(v.disk.writes, 2, `${how}: one write for each field`);
+		assert.match(v.disk.text, /\[!text\|spent\] Out\?\n> A week\.\n/);
+		v.close();
+	}
+});
+
+test("a press on the empty page closes the open block, with what is typed applied first; a press on a block, a control or the box does not, and neither does a drag that ends on the page", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	typeInto(v.control("Title"), "Out?");
+	// the page is drawn again now and then, so its surface is looked up each time it is pressed
+	const page = () => v.el.querySelector(".booklet-design-scroll");
+	assert.ok(page(), "the page's own surface");
+	// inside the box, on the box's own controls, and on a block: not the background
+	pressOn(v.editor());
+	pressOn(v.control("Description"));
+	pressOn(v.block("question", "[!text|spent]"));
+	await v.settle();
+	assert.ok(v.editor(), "still open");
+	// a drag: the press began in the box and the click lands on the page
+	v.editor().dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+	click(page());
+	await v.settle();
+	assert.ok(v.editor(), "a drag that ends on the page does not close it");
+	// the press on the page itself
+	pressOn(page());
+	await v.settle();
+	assert.equal(v.editor(), null, "closed");
+	assert.equal(v.disk.writes, 1, "what was typed was applied first");
+	assert.match(v.disk.text, /\[!text\|spent\] Out\?/);
+	assert.equal(v.selected().length, 1, "the block stays selected");
+	// with nothing open, a press on the page is just a press
+	pressOn(page());
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	v.close();
+});
+
+test("the Markdown is a closed section until it is opened by one press; a block with no title or description to edit, or whose parts cannot be shown, has it open", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const md = () => v.editor().querySelector("details.booklet-design-edit-md");
+	assert.equal(md().open, false, "closed for a block with words");
+	md().querySelector("summary").dispatchEvent(new w.MouseEvent("click", { bubbles: true, cancelable: true }));
+	md().open = true;
+	assert.equal(md().open, true);
+	press(v.area(), "Escape");
+	await v.settle();
+	// a block of a kind with no words to edit in place
+	v.go("The map");
+	click(v.all(".booklet-design-block[data-kind='page-break']")[0]);
+	await v.settle();
+	assert.ok(v.editor());
+	assert.equal(v.control("Title"), null, "no title field");
+	assert.equal(v.control("Description"), null, "no description field");
+	assert.equal(md().open, true, "its Markdown is open: it is all there is");
+	v.close();
+});
+
+test("move up, move down and delete are small buttons at the end of the strip: each closes the block (what is typed applied first) and then acts as the page's bar does, as one step of Undo", async () => {
+	const v = rig(FULL);
+	v.go("Doing");
+	v.open("question", "[!text|left]");
+	const tb = () => v.editor().querySelector('.booklet-design-strip-actions[role="toolbar"]');
+	assert.ok(tb(), "a toolbar");
+	const btn = (what) => tb().querySelector(`.is-${what}`);
+	assert.deepEqual([...tb().querySelectorAll("button")].map((b) => b.getAttribute("aria-label")), ["Move up", "Move down", "Delete"]);
+	const before = v.disk.text;
+	typeInto(v.control("Title"), "Left side?");
+	click(btn("delete"));
+	await v.settle();
+	assert.equal(v.editor(), null, "the block closed");
+	assert.doesNotMatch(v.disk.text, /\[!text\|left\]/, "and was deleted");
+	assert.equal(v.disk.writes, 2, "the typing, then the delete");
+	await v.press(v.undo());
+	assert.match(v.disk.text, /\[!text\|left\] Left side\?/, "Undo brings the block back, with what was typed");
+	await v.press(v.undo());
+	assert.equal(v.disk.text, before);
+	v.close();
+});
+
+test("the box's controls are named for a screen reader, and the strings of the in-place box exist in Spanish and French; the draft's strings and the preview's are gone", () => {
+	for (const k of ["edit.desc", "edit.words", "edit.rest", "edit.markdownOnly", "edit.bar", "edit.keys", "editor.label"]) {
+		assert.ok(DESIGN_STRINGS[k], k);
+		for (const lang of ["en", "es", "fr"]) assert.ok(DESIGN_STRINGS[k][lang] && DESIGN_STRINGS[k][lang].length > 3, `${k} ${lang}`);
+		assert.notEqual(DESIGN_STRINGS[k].es, DESIGN_STRINGS[k].en, `${k} is translated into Spanish`);
+		assert.notEqual(DESIGN_STRINGS[k].fr, DESIGN_STRINGS[k].en, `${k} is translated into French`);
+	}
+	assert.match(DESIGN_STRINGS["edit.markdownOnly"].en, /\{reason\}/);
+	for (const k of ["edit.heading", "edit.preview", "form.id.desc", "form.title.desc"]) assert.equal(Object.hasOwn(DESIGN_STRINGS, k), false, `${k} is gone`);
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	assert.equal(v.control("Description").getAttribute("aria-label"), en("edit.desc"));
+	assert.equal(v.control("Description").getAttribute("placeholder"), en("edit.desc"));
+	assert.ok(v.editor().querySelector('[role="toolbar"]'));
+	v.close();
+});
+
+test("the in-place box has a look in the base sheet and in the paper themes, and on a phone every field and strip control is 44 px high and the strip's items take a line each", () => {
+	const base = readFileSync(`${ROOT}/styles.base.css`, "utf8");
+	const theme = readFileSync(`${ROOT}/themes/design.css`, "utf8");
+	for (const sel of [".booklet-design-editbox", ".booklet-design-field", ".booklet-design-field.is-title", ".booklet-design-field.is-desc", ".booklet-design-strip", ".booklet-design-strip-switch", ".booklet-design-strip-actions", ".booklet-design-edit-md"]) {
+		assert.ok(base.includes(sel), `${sel} is drawn by the base sheet (the Obsidian look)`);
+		assert.ok(theme.includes(sel), `${sel} is drawn by the paper looks`);
+	}
+	// the open block is the block: no second border around it, and no preview or heading rules are left
+	assert.match(base, /\.booklet-design-block\.is-open:not\(\.is-kind-group\):not\(\.is-kind-row\)\s*\{[^}]*border-color: transparent/);
+	for (const dead of ["edit-previewhost", "booklet-design-edit-head", "booklet-design-edit-title"]) {
+		assert.equal(base.includes(dead), false, `${dead} is gone from the base sheet`);
+		assert.equal(theme.includes(dead), false, `${dead} is gone from the paper looks`);
+	}
+	// the phone rules
+	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-field,[\s\S]*?min-height: 44px/);
+	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-strip-input[\s\S]*?min-height: 44px/);
+	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-strip-item \{[^}]*flex: 1 1 100%/);
 });

@@ -3,15 +3,20 @@
  * note on disk is the one truth, the box shows it, and every change a person makes in the box is written as soon as it is made, as one
  * step of Undo (the view's `change`: operation, the question about kept data, one write, one history step, a drawing).
  *
- *   AS THE READER SEES IT   the block drawn from the note (design-canvas-draw.ts), drawn again when the note's lines for the block change
- *   settings                the rows of the block's opening line (core `formOfLine`), or of the front matter (`frontMatterFormOfLines`)
- *   rows                    a choice's or a multi's options, a menu's items, a matrix's items and anchors (design-rows.ts)
- *   Markdown                the block's own lines, always visible for now
+ * THE BOX IS THE BLOCK, OPENED. Its words are fields drawn in the type of the block, where they stand, and nothing shows the block a second
+ * time (there is no preview). From the top:
  *
- * WHEN A CONTROL IS APPLIED. A switch, a button and a choice are applied the moment they are pressed. A control of words (a settings
- * row, a row's words, the Markdown) is applied when it is LEFT, when Enter is pressed in a one-line one, and by whatever is about to end
- * the block's life first (`applyAll`, called by the view in its own lane: Esc, Ctrl/Cmd+Enter, another block, Undo, a mode switch, the
- * pane closing). Nothing is applied at each key, so nothing is redrawn under a caret.
+ *   title, description   the words of the block (core `readParts`): a question's title and the help under it, a callout's title and body,
+ *                        a prose block's text. Fields that grow with their words, with no box until the pointer or the focus is on them
+ *   rows                 a choice's or a multi's options, a menu's items, a matrix's items and anchors (design-rows.ts)
+ *   strip                the rest of the block's opening line: its id, its switches and values, and the move and delete buttons
+ *   Markdown             the block's own lines, in a section that is closed until it is opened (open at once when nothing else of the
+ *                        block can be edited in place, with the reason said)
+ *
+ * WHEN A CONTROL IS APPLIED. A switch, a button and a choice are applied the moment they are pressed. A control of words (the title, the
+ * description, a settings value, a row's words, the Markdown) is applied when it is LEFT, when Enter is pressed in a one-line one, and by
+ * whatever is about to end the block's life first (`applyAll`, called by the view in its own lane: Esc, Ctrl/Cmd+Enter, another block, Undo,
+ * a mode switch, the pane closing). Nothing is applied at each key, so nothing is redrawn under a caret.
  *
  * WHY NOTHING IS LOST OR WRITTEN TWICE. A control remembers what was last handed over to be applied (`sent`); it has typing in it that is
  * owed only while its value is another. Applying hands the value over first and writes after, so the `change` that follows an Enter, or
@@ -23,28 +28,29 @@
  * WHY A PRESS IS NOT SWALLOWED. The view draws the page again after every write, which would take a control away from under a press that
  * has begun. The box is therefore kept across drawings (`lift`, `attach`): its elements stay the same elements, and what a write changed
  * is put into them (`render`): the words of a control that is not being typed in, the marks of a switch. Only a change of SHAPE (a row
- * added, removed or moved, a switch that adds or takes away other rows) draws that part again, with the focus put on the control the
- * person was on, or the one the press leads to.
+ * added, removed or moved, a switch that adds or takes away other rows, the block becoming one the fields cannot show) draws that part
+ * again, with the focus put on the control the person was on, or the one the press leads to.
  */
-import { Component, Setting, type App } from "obsidian";
+import { Setting, type App } from "obsidian";
 import {
 	applyFormChange,
 	applyFrontMatterChange,
 	formIdClash,
 	formOfLine,
 	frontMatterFormOfLines,
+	readParts,
+	writeDescription,
 	type DesignKind,
 	type DesignNode,
 	type Form,
 	type FormChange,
 	type FrontMatterForm,
 } from "./core";
-import { drawBlockBody, type Drawer } from "./design-canvas-draw";
 import { pickIcon } from "./editor-modals";
+import { drawIcon } from "./design-picture";
 import { RowsPanel, type Made, type RowsState } from "./design-rows";
-import { questionOfPiece } from "./design-sample";
 import { ui } from "./design-text";
-import { kindName } from "./design-words";
+import { kindName, quietNames } from "./design-words";
 
 /** The property that makes a note a booklet: a YAML key, shown as it is written. */
 const MARKER_KEY: string = "booklet";
@@ -64,19 +70,25 @@ export interface Editing {
 	stash?: string[] | null;
 }
 
+/** Which of the block's move and delete buttons the box shows, and which are on. */
+export interface BarState {
+	move: boolean;
+	up: boolean;
+	down: boolean;
+	del: boolean;
+}
+
 /** What happened to a change the box asked the view to make. */
 export type Outcome = "landed" | "unchanged" | "declined" | "refused" | "stale" | "failed";
 
 /** What the box asks of the view. */
-export interface EditHost extends Drawer {
+export interface EditHost {
 	/** The note as the view has it now. */
 	text(): string;
 	/** The open block's node in the note as it is now, or null when the note has no such block. */
 	node(): DesignNode | null;
 	/** The open block's own lines as the note has them now, or null when the note has no such block. */
 	lines(): string[] | null;
-	/** What owns the preview's drawings (the page's Component), or null when nothing is drawn. */
-	owner(): Component | null;
 	app: App;
 	/** Makes the block's lines these: one write and one step of Undo, asked about first when kept data is touched. Runs in the view's lane. */
 	change(lines: string[]): Promise<Outcome>;
@@ -89,6 +101,10 @@ export interface EditHost extends Drawer {
 	release(): void;
 	/** Selects and opens the shared menu block that starts on this line of the note. */
 	openMenu(line: number): void;
+	/** What the open block can be moved and deleted by (null when none of it: the front matter), as the note has it now. */
+	bar(): BarState | null;
+	/** A press of the box's move or delete button: the block is closed (what is typed is applied first) and then moved or deleted. */
+	press(what: "up" | "down" | "delete"): void;
 	/** Says it in the view's status line. */
 	say(words: string): void;
 }
@@ -96,7 +112,7 @@ export interface EditHost extends Drawer {
 /** One control of words: what it was last given to apply, what the note had for it, and how to apply it. */
 interface Field {
 	el: HTMLInputElement | HTMLTextAreaElement;
-	part: "form" | "rows" | "area";
+	part: "form" | "rows" | "area" | "words";
 	/** The value last handed over to be applied (or drawn from the note). The control has typing in it that is owed while its value is another. */
 	sent: string;
 	/** What the note had for the control when they last matched. */
@@ -121,8 +137,23 @@ const linesOfText = (text: string): string[] => {
 
 const sameLines = (a: readonly string[], b: readonly string[]): boolean => a.length === b.length && a.every((l, i) => l === b[i]);
 
-/** The blocks the editor's preview draws; a group, a row, a part of the booklet and the front matter have none (their lines are settings). */
-const PREVIEWED: ReadonlySet<DesignKind> = new Set<DesignKind>(["question", "callout", "prose", "menu", "notice", "query", "fence", "page-break", "comment", "as-written"]);
+/** What the fields can show of a block: its title, its description (a question's help, or the words of a callout or a prose block), or why neither. */
+interface Cap {
+	title: boolean;
+	desc: "help" | "words" | null;
+	why: string | null;
+}
+
+/** A line of nothing but spaces holds nothing. */
+const filled = (l: string): boolean => l.trim() !== "";
+
+/** A text area is as many lines high as its words have (a browser that sizes it by its words, `field-sizing`, makes it taller when they wrap). */
+const fit = (el: HTMLTextAreaElement | HTMLInputElement): void => {
+	if (el.tagName === "TEXTAREA") (el as HTMLTextAreaElement).rows = Math.min(30, Math.max(1, el.value.split("\n").length));
+};
+
+/** A title is one line: a break pasted into it is a space. */
+const oneLine = (v: string): string => v.replace(/\s*[\r\n]+\s*/g, " ");
 
 export class EditorBox {
 	readonly box: HTMLElement;
@@ -133,16 +164,17 @@ export class EditorBox {
 	}
 	private readonly state: HTMLElement;
 	private readonly refusal: HTMLElement;
-	private readonly heading: HTMLElement;
 	private readonly noticeHost: HTMLElement;
+	private readonly wordsHost: HTMLElement;
 	private readonly formHost: HTMLElement;
 	private readonly rowsHost: HTMLElement;
+	private readonly restNote: HTMLElement;
+	private readonly md: HTMLDetailsElement;
 	private readonly rows: RowsPanel;
-	private readonly previewHost: HTMLElement | null;
-	private previewOwner: Component | null = null;
 	private node: DesignNode | null;
 	private fields: Field[] = [];
-	/** What each part was last drawn from: the shape of the form and of the rows (words and marks are not in it), and the note's lines. */
+	/** What each part was last drawn from: the shape of the words, of the settings strip and of the rows (words and marks are not in it). */
+	private wordsShape = "";
 	private formShape = "";
 	private shown: string | null = null;
 	private shownKind: DesignKind | null = null;
@@ -170,20 +202,13 @@ export class EditorBox {
 	) {
 		this.node = node;
 		const name = node ? kindName(node) : ui("editor.detached.name");
-		this.box = parent.createDiv({ cls: "booklet-design-editbox", attr: { role: "group", "aria-label": ui("editor.label", { name }) } });
-		const head = this.box.createDiv({ cls: "booklet-design-edit-head" });
-		this.heading = head.createSpan({ cls: "booklet-design-edit-title", text: ui("edit.heading", { kind: name }) });
+		this.box = parent.createDiv({ cls: ["booklet-design-editbox", `is-kind-${ed.kind}`], attr: { role: "group", "aria-label": ui("editor.label", { name }) } });
 		this.noticeHost = this.box.createDiv({ cls: "booklet-design-editor-moved" });
 		this.noticeHost.hidden = true;
-
-		this.previewHost = null;
-		if (PREVIEWED.has(ed.kind)) {
-			const sec = this.box.createDiv({ cls: "booklet-design-edit-section is-preview" });
-			sec.createDiv({ cls: "booklet-design-edit-label", text: ui("edit.preview") });
-			this.previewHost = sec.createDiv({ cls: "booklet-design-edit-previewhost" });
-		}
-		this.formHost = this.box.createDiv({ cls: "booklet-design-edit-section is-form booklet-design-settings" });
+		this.wordsHost = this.box.createDiv({ cls: "booklet-design-edit-words" });
 		this.rowsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-rows booklet-design-rows booklet-design-settings" });
+		this.restNote = this.box.createDiv({ cls: "booklet-design-edit-rest", text: ui("edit.rest") });
+		this.restNote.hidden = true;
 		this.rows = new RowsPanel(
 			this.rowsHost,
 			{
@@ -199,15 +224,17 @@ export class EditorBox {
 			},
 			() => ed.kind,
 		);
-		const md = this.box.createDiv({ cls: "booklet-design-edit-section is-markdown" });
-		md.createDiv({ cls: "booklet-design-edit-label", text: ui("edit.markdown") });
-		this.area = md.createEl("textarea", {
+		this.formHost = this.box.createDiv({ cls: "booklet-design-edit-section is-form" });
+		this.refusal = this.box.createDiv({ cls: "booklet-design-edit-refusal", attr: { role: "status", "aria-live": "polite" } });
+		this.state = this.box.createDiv({ cls: "booklet-design-editor-state", attr: { role: "status", "aria-live": "polite", "aria-label": ui("editor.status") } });
+		// the Markdown: the block's own lines, in a section that is closed until it is opened by one press
+		this.md = this.box.createEl("details", { cls: "booklet-design-edit-md" });
+		this.md.createEl("summary", { text: ui("edit.markdown") });
+		this.area = this.md.createEl("textarea", {
 			cls: "booklet-design-textarea",
 			attr: { "aria-label": ui("editor.textarea", { name }), spellcheck: "false", autocapitalize: "off", autocomplete: "off", autocorrect: "off", rows: "3", "data-focus": "editor" },
 		});
 		this.area.spellcheck = false;
-		this.refusal = this.box.createDiv({ cls: "booklet-design-edit-refusal", attr: { role: "status", "aria-live": "polite" } });
-		this.state = this.box.createDiv({ cls: "booklet-design-editor-state", attr: { role: "status", "aria-live": "polite", "aria-label": ui("editor.status") } });
 		const foot = this.box.createDiv({ cls: "booklet-design-edit-foot" });
 		foot.createSpan({ cls: "booklet-design-edit-hint", text: ui("edit.keys") });
 
@@ -235,7 +262,6 @@ export class EditorBox {
 		});
 		this.place(where);
 		this.render(this.host.lines() ?? [], true);
-		this.refreshPreview();
 	}
 
 	private holdSave(): void {
@@ -252,7 +278,7 @@ export class EditorBox {
 
 	// ---------------------------------------------------------------- living across the view's drawings
 
-	/** The view is about to take the page away: the box's drawings go and the focus is noted (it is put back by `attach`). */
+	/** The view is about to take the page away: the focus is noted (it is put back by `attach`). */
 	lift(): void {
 		const at = this.box.ownerDocument.activeElement;
 		this.lifted = null;
@@ -260,7 +286,6 @@ export class EditorBox {
 			const el = at as HTMLInputElement;
 			this.lifted = { el: at as HTMLElement, sel: typeof el.selectionStart === "number" && typeof el.selectionEnd === "number" ? [el.selectionStart, el.selectionEnd] : null };
 		}
-		this.dropPreview();
 		this.releaseSave();
 	}
 
@@ -269,9 +294,7 @@ export class EditorBox {
 		this.node = node;
 		parent.appendChild(this.box);
 		this.place(where);
-		this.heading.setText(ui("edit.heading", { kind: node ? kindName(node) : ui("editor.detached.name") }));
 		this.render(this.host.lines() ?? [], false);
-		this.refreshPreview();
 		const at = this.lifted;
 		this.lifted = null;
 		// the focus goes back to where it was only when the drawing did not put it somewhere (the control a change was made in)
@@ -294,9 +317,8 @@ export class EditorBox {
 		this.noticeHost.setText(words);
 	}
 
-	/** Lets go of what the box holds: its preview's drawings. */
+	/** Lets go of what the box holds. */
 	dispose(): void {
-		this.dropPreview();
 		this.releaseSave();
 	}
 
@@ -311,13 +333,15 @@ export class EditorBox {
 			this.warned = false;
 			this.say("");
 			if (part === "area") this.area.rows = Math.min(30, Math.max(3, this.area.value.split("\n").length + 1));
+			else if (part === "words") fit(el);
 		});
 		// leaving the control (or Enter in a one-line one) hands it over; nothing runs here
 		el.addEventListener("change", () => this.leave(f));
-		if (el.tagName === "INPUT")
+		// a one-line control: an input, or the title (a text area that wraps its words like the drawn title does, and takes no line break)
+		if (el.tagName === "INPUT" || el.hasAttribute("data-oneline"))
 			el.addEventListener("keydown", (evt: Event) => {
 				const key = evt as KeyboardEvent;
-				if (key.key !== "Enter" || key.ctrlKey || key.metaKey || key.altKey || key.shiftKey) return;
+				if (key.key !== "Enter" || key.ctrlKey || key.metaKey || key.altKey || key.shiftKey || key.isComposing) return;
 				evt.preventDefault();
 				this.leave(f);
 			});
@@ -476,10 +500,13 @@ export class EditorBox {
 	/** After a change that did not land: what the note has goes back into every control. */
 	private resync(): void {
 		this.render(this.host.lines() ?? [], true);
-		this.refreshPreview();
 	}
 
+	/** The focus goes to the block's first words (its title, else its description), or to the Markdown when nothing else of it can be edited in place. */
 	focus(): void {
+		const first = this.fields.find((f) => f.part === "words");
+		if (first) return first.el.focus();
+		this.md.open = true;
 		this.area.focus();
 	}
 
@@ -497,7 +524,26 @@ export class EditorBox {
 			return;
 		}
 		let complete = true;
-		// the rows first: when they are offered they hold the shared menu, which the settings then leave out
+		if (this.shownKind !== null && this.shownKind !== this.ed.kind) {
+			this.box.removeClass(`is-kind-${this.shownKind}`);
+			this.box.addClass(`is-kind-${this.ed.kind}`);
+		}
+		// the words first: the title and the description, or the reason the block is edited as Markdown
+		const cap = this.capOf(lines);
+		const capShape = JSON.stringify(cap);
+		if (capShape !== this.wordsShape) {
+			if (this.anyTyping("words")) complete = false;
+			else {
+				this.fields = this.fields.filter((f) => f.part !== "words");
+				this.drawWords(cap, lines);
+				this.wordsShape = capShape;
+				// a block with nothing else of it to edit in place shows its Markdown open, with the reason
+				this.md.open = cap.why !== null || (!cap.title && !cap.desc && this.ed.kind !== "front-matter");
+			}
+		}
+		this.formHost.hidden = cap.why !== null;
+		this.rowsHost.hidden = cap.why !== null;
+		// the rows next: when they are offered they hold the shared menu, which the settings then leave out
 		if (this.rows.differs(lines) || this.shownKind !== this.ed.kind) {
 			if (this.anyTyping("rows")) complete = false;
 			else {
@@ -522,12 +568,80 @@ export class EditorBox {
 			if (f.el.value !== back) f.el.value = back;
 			f.sent = f.was = back;
 		}
+		for (const f of this.fields) if (f.part === "words") fit(f.el);
 		this.area.rows = Math.min(30, Math.max(3, this.area.value.split("\n").length + 1));
+		this.restNote.hidden = !(cap.why === null && this.rowsState !== "rows" && this.undrawn(lines));
 		this.shown = complete ? joined : null;
 		this.shownKind = this.ed.kind;
 		// the control the person is working in keeps the focus (a click does not always give it, and a part drawn again lost it)
 		if (this.wanted) this.rowsHost.querySelector<HTMLElement>(`[data-key="${this.wanted}"]`)?.focus();
 		this.wanted = null;
+	}
+
+	/** What the fields can show of these lines: a title and a description for a question, a callout or a prose block; a title for any other Booklet line. */
+	private capOf(lines: string[]): Cap {
+		const kind = this.ed.kind;
+		if (kind === "front-matter") return { title: false, desc: null, why: null };
+		if (kind === "question" || kind === "callout" || kind === "prose") {
+			const p = readParts(lines, kind);
+			if ("refused" in p) return { title: false, desc: null, why: p.refused };
+			return { title: p.title !== null, desc: p.described ? (kind === "question" ? "help" : "words") : null, why: null };
+		}
+		return { title: !!formOfLine(lines[0] ?? ""), desc: null, why: null };
+	}
+
+	/** Does the block have lines under its description that no field of the box shows (they are edited in the Markdown)? */
+	private undrawn(lines: string[]): boolean {
+		const kind = this.ed.kind;
+		if (kind !== "question") return false;
+		const p = readParts(lines, kind);
+		return !("refused" in p) && p.rest.some(filled);
+	}
+
+	/** The title and the description, drawn as fields in the block's own type; or, for a block they cannot show, the reason in words. */
+	private drawWords(cap: Cap, lines: string[]): void {
+		const host = this.wordsHost;
+		host.empty();
+		host.toggleClass("is-empty", !cap.title && !cap.desc && !cap.why);
+		const kind = this.ed.kind;
+		if (cap.why !== null) {
+			host.createDiv({ cls: "booklet-design-edit-why", text: ui("edit.markdownOnly", { reason: cap.why }) });
+			return;
+		}
+		const field = (cls: string, label: string, hint: string, value: string, oneLine_: boolean): HTMLTextAreaElement => {
+			const el = host.createEl("textarea", { cls: ["booklet-design-field", cls], attr: { rows: "1", "aria-label": label, placeholder: hint, spellcheck: "true", "data-field": cls === "is-title" ? "title" : "description" } });
+			if (oneLine_) el.setAttribute("data-oneline", "1");
+			el.value = value;
+			return el;
+		};
+		if (cap.title) {
+			const el = field("is-title", ui("form.title"), ui("form.title"), this.valueOf(lines, { type: "title" }) ?? "", true);
+			this.field(
+				"words",
+				el,
+				(value, cur) => this.formChange(cur, { what: "title", value: oneLine(value).trim() }),
+				(cur) => this.valueOf(cur, { type: "title" }),
+			);
+		}
+		if (cap.desc) {
+			const p = readParts(lines, kind);
+			const el = field("is-desc", ui(cap.desc === "help" ? "edit.desc" : "edit.words"), ui(cap.desc === "help" ? "edit.desc" : "edit.words"), "refused" in p ? "" : p.description, false);
+			this.field(
+				"words",
+				el,
+				(value, cur, was) => {
+					const now = readParts(cur, this.ed.kind);
+					// the description on screen is the note's: else it is not known which words this typing was for
+					if ("refused" in now || now.description !== was) return { ok: false, reason: ui("edit.changed"), keep: true };
+					const made = writeDescription(cur, this.ed.kind, value);
+					return made.ok ? { ok: true, lines: made.lines } : { ok: false, reason: made.reason };
+				},
+				(cur) => {
+					const now = readParts(cur, this.ed.kind);
+					return "refused" in now || !now.described ? null : now.description;
+				},
+			);
+		}
 	}
 
 	private anyTyping(part: Field["part"]): boolean {
@@ -542,7 +656,7 @@ export class EditorBox {
 		}
 		const form = formOfLine(lines[0] ?? "");
 		if (!form) return "none";
-		return JSON.stringify([this.rowsState, form.kind, form.known, form.fields.map((x) => (x.type === "id" || x.type === "title" ? [x.type] : [x.type, x.name])), form.stray.map((w) => [w.index, w.text])]);
+		return JSON.stringify([this.rowsState, form.kind, form.known, form.fields.map((x) => (x.type === "id" || x.type === "title" ? [x.type] : [x.type, x.name])), form.stray.map((w) => [w.index, w.text]), this.host.bar()]);
 	}
 
 	/** The settings rows, from the block's opening line (or its front matter), drawn again with the focus put back on the row that had it. */
@@ -552,13 +666,11 @@ export class EditorBox {
 		const key = active && this.formHost.contains(active) ? (active.closest("[data-field]")?.getAttribute("data-field") ?? null) : null;
 		this.formHost.empty();
 		this.formSyncs = [];
+		this.formHost.toggleClass("booklet-design-settings", this.ed.kind === "front-matter");
 		if (this.ed.kind === "front-matter") {
 			const form = frontMatterFormOfLines(lines);
 			if (form) this.drawFrontRows(form);
-		} else {
-			const form = formOfLine(lines[0] ?? "");
-			if (form) this.drawRows(form, this.rowsState === "rows");
-		}
+		} else this.drawStrip(formOfLine(lines[0] ?? ""), this.rowsState === "rows");
 		this.formHost.toggleClass("is-empty", !this.formHost.childElementCount);
 		if (key) {
 			const row = Array.from(this.formHost.querySelectorAll<HTMLElement>("[data-field]")).find((e) => e.getAttribute("data-field") === key);
@@ -586,80 +698,98 @@ export class EditorBox {
 		return hit && (hit.type === "id" || hit.type === "title" || hit.type === "value") ? hit.value : null;
 	}
 
-	private drawRows(form: Form, menuInRows = false): void {
-		const host = this.formHost;
-		new Setting(host).setName(ui("form.heading")).setHeading();
-		for (const f of form.fields) {
-			if (menuInRows && f.type === "value" && f.name === "menu") continue;
-			const row = new Setting(host);
-			if (f.type === "id" || f.type === "title") {
-				const type = f.type;
-				row.setName(ui(type === "id" ? "form.id" : "form.title")).setDesc(ui(type === "id" ? "form.id.desc" : "form.title.desc"));
-				row.settingEl.setAttribute("data-field", type);
-				row.addText((c) => {
-					c.setValue(f.value);
-					// a change is made when the box is left or Enter is pressed, never on each key typed
-					this.field(
-						"form",
-						c.inputEl,
-						(value, lines) => this.formChange(lines, { what: type, value: value.trim() }),
-						(lines) => this.valueOf(lines, { type }),
-					);
-				});
+	/**
+	 * The strip under the block's words: the rest of its opening line (its id, its switches, its values and the words its kind does not
+	 * take, one small control each; the title is a field above) and, at its end, the move and delete buttons. A block with no Booklet line
+	 * has only the buttons.
+	 */
+	private drawStrip(form: Form | null, menuInRows: boolean): void {
+		const strip = this.formHost.createDiv({ cls: "booklet-design-strip" });
+		const item = (name: string, label: string): HTMLElement => {
+			const el = strip.createDiv({ cls: "booklet-design-strip-item", attr: { "data-field": name } });
+			el.createSpan({ cls: "booklet-design-strip-label", text: label });
+			return el;
+		};
+		const text = (el: HTMLElement, label: string, value: string): HTMLInputElement => {
+			const input = el.createEl("input", { cls: "booklet-design-strip-input", attr: { type: "text", "aria-label": label, spellcheck: "false", autocomplete: "off" } });
+			input.value = value;
+			return input;
+		};
+		for (const f of form?.fields ?? []) {
+			if (f.type === "title" || (menuInRows && f.type === "value" && f.name === "menu")) continue;
+			if (f.type === "id") {
+				const el = item("id", ui("form.id"));
+				// a change is made when the box is left or Enter is pressed, never on each key typed
+				this.field(
+					"form",
+					text(el, ui("form.id"), f.value),
+					(value, lines) => this.formChange(lines, { what: "id", value: value.trim() }),
+					(lines) => this.valueOf(lines, { type: "id" }),
+				);
 			} else if (f.type === "flag") {
 				const name = f.name;
-				row.setName(name);
-				row.settingEl.setAttribute("data-field", name);
-				row.addToggle((c) => {
-					c.setValue(f.on);
-					c.onChange((on) => this.act((lines) => this.formChange(lines, { what: "flag", name, on }), null));
-					this.formSyncs.push((lines) => {
+				const el = strip.createDiv({ cls: "booklet-design-strip-item is-switch", attr: { "data-field": name } });
+				const sw = el.createEl("button", { text: name, cls: "booklet-design-strip-switch", attr: { type: "button", role: "switch", "aria-checked": String(f.on) } });
+				sw.addEventListener("click", () =>
+					this.act((lines) => {
 						const now = formOfLine(lines[0] ?? "")?.fields.find((x) => x.type === "flag" && x.name === name);
-						if (now && now.type === "flag" && c.getValue() !== now.on) c.setValue(now.on);
-					});
+						return this.formChange(lines, { what: "flag", name, on: !(now && now.type === "flag" && now.on) });
+					}, null),
+				);
+				this.formSyncs.push((lines) => {
+					const now = formOfLine(lines[0] ?? "")?.fields.find((x) => x.type === "flag" && x.name === name);
+					if (now && now.type === "flag") sw.setAttribute("aria-checked", String(now.on));
 				});
 			} else {
 				const name = f.name;
-				row.setName(f.icon ? ui("form.icon") : name);
-				row.settingEl.setAttribute("data-field", name);
-				row.addText((c) => {
-					c.setValue(f.value);
-					if (f.numeric) c.inputEl.inputMode = "decimal";
-					this.field(
-						"form",
-						c.inputEl,
-						(value, lines) => this.formChange(lines, { what: "value", name, value: value.trim() }),
-						(lines) => this.valueOf(lines, { type: "value", name }),
-					);
-				});
-				if (f.icon)
-					row.addButton((b) => {
-						b.setButtonText(ui("form.icon.choose")).onClick(() => {
-							void pickIcon(this.host.app, f.value).then((icon) => {
-								if (icon !== null) this.act((lines) => this.formChange(lines, { what: "value", name: "icon", value: icon }), null);
-							});
+				const el = item(name, f.icon ? ui("form.icon") : name);
+				const input = text(el, f.icon ? ui("form.icon") : name, f.value);
+				if (f.numeric) input.inputMode = "decimal";
+				this.field(
+					"form",
+					input,
+					(value, lines) => this.formChange(lines, { what: "value", name, value: value.trim() }),
+					(lines) => this.valueOf(lines, { type: "value", name }),
+				);
+				if (f.icon) {
+					const b = el.createEl("button", { text: ui("form.icon.choose"), cls: "booklet-design-strip-button", attr: { type: "button", "aria-label": ui("form.icon.choose.label") } });
+					b.addEventListener("click", () => {
+						void pickIcon(this.host.app, this.valueOf(this.host.lines() ?? [], { type: "value", name }) ?? "").then((icon) => {
+							if (icon !== null) this.act((lines) => this.formChange(lines, { what: "value", name: "icon", value: icon }), null);
 						});
-						b.buttonEl.setAttribute("aria-label", ui("form.icon.choose.label"));
 					});
+				}
 			}
 		}
-		if (form.stray.length) {
-			new Setting(host).setName(ui("form.stray")).setHeading();
-			for (const w of form.stray) {
-				const row = new Setting(host).setName(w.text);
-				row.settingEl.setAttribute("data-field", `stray-${w.index}`);
-				row.addButton((b) => {
-					// the word is removed only if it is still the word at that place in the note
-					b.setButtonText(ui("form.stray.remove")).onClick(() =>
-						this.act((lines) => {
-							const now = formOfLine(lines[0] ?? "")?.stray.find((x) => x.index === w.index);
-							return now && now.text === w.text ? this.formChange(lines, { what: "stray", index: w.index }) : { ok: false, reason: ui("edit.changed") };
-						}, null),
-					);
-					b.buttonEl.setAttribute("aria-label", ui("form.stray.remove.label", { word: w.text }));
-				});
-			}
+		for (const w of form?.stray ?? []) {
+			const el = strip.createDiv({ cls: "booklet-design-strip-item is-stray", attr: { "data-field": `stray-${w.index}`, role: "group", title: ui("form.stray"), "aria-label": ui("form.stray") } });
+			el.createSpan({ cls: "booklet-design-strip-label", text: w.text });
+			const b = el.createEl("button", { text: ui("form.stray.remove"), cls: "booklet-design-strip-button", attr: { type: "button", "aria-label": ui("form.stray.remove.label", { word: w.text }) } });
+			// the word is removed only if it is still the word at that place in the note
+			b.addEventListener("click", () =>
+				this.act((lines) => {
+					const now = formOfLine(lines[0] ?? "")?.stray.find((x) => x.index === w.index);
+					return now && now.text === w.text ? this.formChange(lines, { what: "stray", index: w.index }) : { ok: false, reason: ui("edit.changed") };
+				}, null),
+			);
 		}
+		const bar = this.host.bar();
+		if (bar && (bar.move || bar.del)) {
+			const acts = strip.createDiv({ cls: "booklet-design-strip-actions", attr: { role: "toolbar", "aria-label": ui("edit.bar") } });
+			const button = (what: "up" | "down" | "delete", icons: string[], label: string, on: boolean): void => {
+				const b = acts.createEl("button", { cls: ["booklet-design-strip-button", `is-${what}`], attr: { type: "button", "aria-label": label, title: label } });
+				if (!drawIcon(b, icons)) b.setText(label);
+				b.disabled = !on;
+				b.addEventListener("click", () => this.host.press(what));
+			};
+			if (bar.move) {
+				button("up", ["arrow-up", "chevron-up"], ui("act.up"), bar.up);
+				button("down", ["arrow-down", "chevron-down"], ui("act.down"), bar.down);
+			}
+			if (bar.del) button("delete", ["trash-2", "trash"], ui("act.delete"), true);
+		}
+		if (strip.childElementCount) quietNames(strip);
+		else strip.remove();
 	}
 
 	private frontValue(lines: string[], key: string): string | null {
@@ -717,40 +847,5 @@ export class EditorBox {
 				row.settingEl.setAttribute("data-field", `other-${o.line}`);
 			}
 		}
-	}
-
-	// ---------------------------------------------------------------- the preview, from the note
-
-	private dropPreview(): void {
-		const old = this.previewOwner;
-		this.previewOwner = null;
-		if (!old) return;
-		this.host.owner()?.removeChild(old);
-		old.unload();
-	}
-
-	/** Draws the block as the reader sees it, from the note's lines, in the place of what was drawn. */
-	refreshPreview(): void {
-		const into = this.previewHost;
-		if (!into) return;
-		this.dropPreview();
-		into.empty();
-		const parent = this.host.owner();
-		if (!parent) return;
-		const owner = parent.addChild(new Component());
-		this.previewOwner = owner;
-		const lines = this.host.lines() ?? [];
-		const first = lines[0] ?? "";
-		const kind = this.ed.kind;
-		// the kind of a callout or a question is what its first line says now
-		const detail = kind === "query" || kind === "fence" ? (/^\s*(?:>\s*)*(?:`{3,}|~{3,})\s*(.*)$/.exec(first)?.[1] ?? "") : (/\[!\s*([\w-]+)/.exec(first)?.[1] ?? "");
-		drawBlockBody(this.host, owner, into, {
-			kind,
-			detail: kind === "question" || kind === "callout" ? detail : (this.node?.detail ?? detail),
-			id: this.node?.id ?? null,
-			label: this.node?.label ?? "",
-			lines,
-			found: kind === "question" ? (questionOfPiece(lines.join("\n")) ?? null) : null,
-		});
 	}
 }

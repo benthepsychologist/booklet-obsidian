@@ -9,7 +9,8 @@
  *                 there stay lit; a tile can also be dragged. Letters still work (a group's, then a piece's): they pick a tile, Enter places it
  *   canvas        the page (design-canvas-draw.ts): words, questions and callouts as a reader sees them, a friendly card for what is not drawn
  *                 yet, a "+" between blocks, the parts of a container as cards. A press on a block selects it AND opens it in place
- *                 (design-edit.ts): a preview, its settings and its Markdown; a small bar floats on the selected block
+ *                 (design-edit.ts): its words become fields where they stand, its list rows and a strip of settings come under them,
+ *                 and its Markdown waits in a closed section; a small bar floats on the selected block
  *
  * It never writes the whole file (note-view.ts). Every change is a smallest-byte replacement of the note (core/design-ops.ts, then
  * `minimalChange`), written into an open Markdown pane's editor or with `vault.process`; nothing else is touched or tidied. The view keeps
@@ -54,6 +55,7 @@ import {
 	tileState,
 	troublesOf,
 	walkDesign,
+	whyImmovable,
 	whyUnchangeable,
 	type Activity,
 	type CatalogueId,
@@ -71,7 +73,7 @@ import {
 import { askDesign } from "./design-modals";
 import { windowGone } from "./window-gone";
 import { drawPage, paintSlot, whereWords, type DrawnPage, type PageCtx, type SlotMode } from "./design-canvas-draw";
-import { EditorBox, type Editing, type Outcome } from "./design-edit";
+import { EditorBox, type BarState, type Editing, type Outcome } from "./design-edit";
 import { drawNav, drawTroubles, foldKeys, type NavCtx } from "./design-nav";
 import { drawPalette, groupOfKey, paintPieceButton, paintWhere, pieceByFile, pieceName, type PaletteHandle, type PalettePiece } from "./design-palette";
 import { drawIcon } from "./design-picture";
@@ -186,6 +188,8 @@ export class DesignView extends LockedTextView {
 	 */
 	private pressing = false;
 	private pressTimer: number | null = null;
+	/** Where the last press in the view began (a click that began on a field and ended on the page, a text being selected, is not a press on the page). */
+	private pressedAt: Node | null = null;
 	private drawPending = false;
 	private drawing = false;
 	private drawAgain = false;
@@ -272,6 +276,7 @@ export class DesignView extends LockedTextView {
 		const down = (evt: Event): void => {
 			const at = evt.target as Node | null;
 			if (!at || !this.contentEl.contains(at)) return;
+			this.pressedAt = at;
 			this.pressing = true;
 			if (this.pressTimer !== null) window.clearTimeout(this.pressTimer);
 			// a pointer that never comes up (the window lost it) does not hold a drawing back for good
@@ -284,6 +289,8 @@ export class DesignView extends LockedTextView {
 		this.registerDomEvent(doc, "mouseup", up, true);
 		this.registerDomEvent(doc, "pointercancel", up, true);
 		this.registerDomEvent(doc, "dragend", up, true);
+		// a press on the empty page (not on a block, a control or the open box) ends the editing: what is typed is applied and the block closes
+		this.registerDomEvent(this.contentEl, "click", (evt: MouseEvent) => this.backgroundClick(evt));
 		// a view in a pop-out window knows when that window is closing: what it has typed is written once the window is gone
 		this.registerEvent(
 			this.app.workspace.on("window-close", (_w, closing) => {
@@ -302,6 +309,21 @@ export class DesignView extends LockedTextView {
 			this.drop();
 		});
 		this.history.onChange(() => this.showUndo());
+	}
+
+	/** Is this element empty page: inside the canvas, and not on a block, a card, a slot, the open box or any control? */
+	private isBackground(el: Node | null): boolean {
+		const at = el && (el as Element).closest ? (el as Element) : (el?.parentElement ?? null);
+		if (!at || !this.scrollEl?.contains(at)) return false;
+		return at.closest(".booklet-design-block, .booklet-design-editbox, .booklet-design-card, .booklet-design-slot, .booklet-design-floatbar, button, a, input, select, textarea, summary, label") === null;
+	}
+
+	/** A click on the empty page, that began there too, closes the open block (its typed words are applied first, as Esc does). */
+	private backgroundClick(evt: MouseEvent): void {
+		const from = this.pressedAt;
+		this.pressedAt = null;
+		if (!this.edit || evt.button !== 0 || !this.isBackground(evt.target as Node | null) || !this.isBackground(from)) return;
+		void this.closeEditor();
 	}
 
 	/** The pointer is up: a drawing that waited for it is made now, after the click that follows the press has run. */
@@ -923,21 +945,20 @@ export class DesignView extends LockedTextView {
 		this.editor = new EditorBox(
 			{
 				app: this.app,
-				sourcePath: this.file?.path ?? "",
-				triplet: this.triplet,
 				text: () => this.text,
 				node: () => this.openNode(),
 				lines: () => {
 					const n = this.openNode();
 					return n ? blockLines(this.text, n) : null;
 				},
-				owner: () => this.renderer,
 				change: (lines) => this.changeBlock(lines),
 				queue: (work) => this.enqueue(work, false),
 				confirm: () => void this.closeEditor(),
 				hold: () => this.holdSaveKey(),
 				release: () => this.releaseSaveKey(),
 				openMenu: (line) => this.openMenuBlock(line),
+				bar: () => this.barOf(),
+				press: (what) => this.barPress(what),
 				say: (words) => this.say(words),
 			},
 			ed,
@@ -962,6 +983,31 @@ export class DesignView extends LockedTextView {
 		const ed = this.edit;
 		if (!ed) return null;
 		return walkDesign(this.liveRoot()).find((n) => n.parent !== null && n.start === ed.start && n.kind === ed.kind) ?? null;
+	}
+
+	/** The open block's move and delete buttons as the note has it now, or null when the block has none (the front matter, a block the view never moves). */
+	private barOf(): BarState | null {
+		const n = this.openNode();
+		if (!n) return null;
+		const move = !whyImmovable(n, "moved");
+		const del = !whyImmovable(n, "deleted");
+		if (!move && !del) return null;
+		const to = move ? moveTargets(n) : { up: null, down: null };
+		return { move, up: !!to.up, down: !!to.down, del };
+	}
+
+	/**
+	 * A press of the box's move or delete button: what is typed is applied and the block is closed (with its text held, it stays open and
+	 * says so, and nothing is moved), then the block is moved or deleted as the page's own bar does it, as one step of Undo.
+	 */
+	private barPress(what: "up" | "down" | "delete"): void {
+		const n = this.openNode();
+		if (!n) return;
+		void this.closeEditor().then(() => {
+			if (this.edit) return;
+			if (what === "delete") void this.remove(n);
+			else void this.moveDir(n, what);
+		});
 	}
 
 	/** The shared menu a question names, opened in its own editor (what is typed in the block that is open is applied first: openEditor says so). */

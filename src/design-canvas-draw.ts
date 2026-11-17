@@ -5,7 +5,7 @@
  *   drawBlockBody  one block drawn as a reader sees it: words by Obsidian's renderer, a question or a reading callout inert (design-sample.ts),
  *                  and every block the view does not draw yet as a friendly CARD (its picture, its kind in words, one line of detail), never as
  *                  Markdown code. The two exceptions are text the reader cannot read, which is shown exactly as it is in the note, and the
- *                  records, which are named and left alone. The in-place editor's preview calls this on the draft.
+ *                  records, which are named and left alone.
  *   drawPage       the page of a canvas (core/design-canvas.ts): its title, its blocks with a slot between each, its cards, and the blocks
  *                  after the cards, read-only. A selected block gets a small floating bar; a block open for editing gets the editor box.
  *   drawSlot, paintSlot   one "+" and how it looks: idle, lit (a picked piece may go here) or the target (the "+" a person clicked)
@@ -49,7 +49,7 @@ export interface Found {
 	question: Question;
 }
 
-/** What a block is, as the drawing needs to know it: from the tree for a block of the note, from a draft's text for the editor's preview. */
+/** What a block is, as the drawing needs to know it: from the tree for a block of the note. */
 export interface BlockFacts {
 	kind: DesignKind;
 	/** A question's kind (`choice`), a callout's kind (`tip`), a fence's info (`booklet query`). */
@@ -58,7 +58,7 @@ export interface BlockFacts {
 	label: string;
 	/** The block's own lines, without the `>` marks of the groups around it. */
 	lines: readonly string[];
-	/** An as-written block's lines exactly as the note has them (the `>` marks of its groups included); the preview passes the draft. */
+	/** An as-written block's lines exactly as the note has them (the `>` marks of its groups included). */
 	written?: readonly string[];
 	/** The parsed question, for a question. */
 	found?: Found | null;
@@ -365,7 +365,7 @@ function drawBlock(parent: HTMLElement, n: DesignNode, ctx: PageCtx, canvas: Can
 		for (const c of kids) drawBlock(body, c, ctx, canvas);
 		return box;
 	}
-	// when the editor is open on a leaf, its own preview draws the block: the page does not draw it twice
+	// when the editor is open on a leaf, its box is the block (its words are fields drawn in place): the page does not draw it twice
 	if (open) return box;
 	drawBlockBody(ctx, ctx.owner, box, {
 		kind: n.kind,

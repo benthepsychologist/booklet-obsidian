@@ -29,6 +29,7 @@ import {
 	type RowsEdit,
 } from "./core";
 import type { DesignKey } from "./core";
+import { drawIcon } from "./design-picture";
 import { ui } from "./design-text";
 import { quietNames } from "./design-words";
 
@@ -217,8 +218,11 @@ export class RowsPanel {
 		return el;
 	}
 
-	private button(parent: HTMLElement, key: string, text: string, label: string, onClick: () => void, disabled = false): HTMLButtonElement {
-		const b = parent.createEl("button", { text, cls: "booklet-design-rows-button", attr: { type: "button", "aria-label": label, "data-key": key } });
+	/** A button of a row: its words, or (when `icons` names some Obsidian has) a small picture that its `label` names. */
+	private button(parent: HTMLElement, key: string, text: string, label: string, onClick: () => void, disabled = false, icons: readonly string[] = []): HTMLButtonElement {
+		const b = parent.createEl("button", { cls: "booklet-design-rows-button", attr: { type: "button", "aria-label": label, "data-key": key } });
+		if (!icons.length || !drawIcon(b, icons)) b.setText(text);
+		else b.addClass("is-icon");
 		b.disabled = disabled;
 		b.addEventListener("click", onClick);
 		return b;
@@ -227,9 +231,9 @@ export class RowsPanel {
 	/** Move up, Move down and Remove for the row `i` of `count`; the focus follows the row, or goes to the next one a removal leaves. */
 	private controls(parent: HTMLElement, prefix: "o" | "i" | "a", i: number, count: number, name: "option" | "item" | "anchor", edit: (what: "move" | "remove", by?: -1 | 1) => void): void {
 		const n = i + 1;
-		const up = this.button(parent, `${prefix}${i}-up`, ui("rows.up"), ui(WORDS[name].up, { n }), () => edit("move", -1), i === 0);
-		const down = this.button(parent, `${prefix}${i}-down`, ui("rows.down"), ui(WORDS[name].down, { n }), () => edit("move", 1), i === count - 1);
-		this.button(parent, `${prefix}${i}-remove`, ui("rows.remove"), ui(WORDS[name].remove, { n }), () => edit("remove"));
+		const up = this.button(parent, `${prefix}${i}-up`, ui("rows.up"), ui(WORDS[name].up, { n }), () => edit("move", -1), i === 0, ["arrow-up", "chevron-up"]);
+		const down = this.button(parent, `${prefix}${i}-down`, ui("rows.down"), ui(WORDS[name].down, { n }), () => edit("move", 1), i === count - 1, ["arrow-down", "chevron-down"]);
+		this.button(parent, `${prefix}${i}-remove`, ui("rows.remove"), ui(WORDS[name].remove, { n }), () => edit("remove"), false, ["x", "trash-2"]);
 		up.addClass("booklet-design-rows-move");
 		down.addClass("booklet-design-rows-move");
 	}
@@ -282,8 +286,14 @@ export class RowsPanel {
 			o.replies.forEach((r, j) => {
 				const rr = replies.createDiv({ cls: "booklet-design-reply" });
 				this.textInput(rr, `o${i}-r${j}-text`, ui("rows.reply.text", { n, m: j + 1 }), r.text, (v) => ({ what: "reply-text", index: i, reply: j, text: v }));
-				this.button(rr, `o${i}-r${j}-remove`, ui("rows.remove"), ui("rows.reply.remove", { n, m: j + 1 }), () =>
-					this.edit(() => ({ what: "reply-remove", index: i, reply: j }), o.replies.length > 1 ? `o${i}-r${Math.min(j, o.replies.length - 2)}-text` : `o${i}-r-add`),
+				this.button(
+					rr,
+					`o${i}-r${j}-remove`,
+					ui("rows.remove"),
+					ui("rows.reply.remove", { n, m: j + 1 }),
+					() => this.edit(() => ({ what: "reply-remove", index: i, reply: j }), o.replies.length > 1 ? `o${i}-r${Math.min(j, o.replies.length - 2)}-text` : `o${i}-r-add`),
+					false,
+					["x", "trash-2"],
 				);
 			});
 			this.button(replies, `o${i}-r-add`, ui("rows.reply.add"), ui("rows.reply.add.label", { n }), () => this.edit(() => ({ what: "reply-add", index: i }), `o${i}-r${o.replies.length}-text`));

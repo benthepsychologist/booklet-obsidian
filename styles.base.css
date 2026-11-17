@@ -4123,6 +4123,13 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	cursor: default;
 }
 
+/* a block that is open IS its box: it keeps no frame of its own around it (a group or a row, which hold other blocks, keep theirs) */
+.booklet-design-block.is-open:not(.is-kind-group):not(.is-kind-row) {
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+}
+
 .booklet-design-block .booklet-design-block {
 	margin-block: var(--size-2-3);
 }
@@ -4380,6 +4387,7 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* ---- the editor in place ---- */
+/* the box is the block, opened: the sheet a question or a callout is drawn on, with an accent edge and a soft lift */
 .booklet-design-editbox {
 	display: flex;
 	flex-direction: column;
@@ -4387,8 +4395,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	margin-block: var(--size-4-2);
 	padding: var(--size-4-3) var(--size-4-4);
 	border: var(--size-2-1) solid var(--interactive-accent);
-	border-radius: var(--radius-m);
-	background: var(--background-primary);
+	border-radius: var(--booklet-card-radius, var(--radius-m));
+	background: var(--booklet-card-bg, var(--background-primary));
 	cursor: default;
 	text-align: start;
 }
@@ -4397,32 +4405,146 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	border-style: dashed;
 }
 
-.booklet-design-edit-head {
+/* the block's own words, drawn in its own type and edited where they stand: no box until the pointer or the focus is on a field, only a line under it to say it is a field */
+.booklet-design-edit-words {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+}
+
+.booklet-design-edit-words.is-empty {
+	display: none;
+}
+
+.booklet-design-field {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 0;
+	margin: 0;
+	padding: var(--size-2-2) var(--size-2-3);
+	border: 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border-hover);
+	border-radius: var(--radius-s);
+	background: transparent;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	line-height: 1.4;
+	overflow: hidden;
+	resize: none;
+	field-sizing: content;
+}
+
+.booklet-design-field:hover {
+	border-bottom-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-field:focus,
+.booklet-design-field:focus-visible {
+	border-bottom-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+	box-shadow: none;
+	outline: none;
+}
+
+.booklet-design-field.is-title {
+	font-size: var(--h3-size);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-field.is-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-edit-why,
+.booklet-design-edit-rest {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* the strip under the words: the rest of the block's line as small controls, and its move and delete buttons at the end */
+.booklet-design-strip {
 	display: flex;
 	flex-wrap: wrap;
-	align-items: baseline;
+	align-items: center;
 	gap: var(--size-4-2) var(--size-4-4);
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
 }
 
-.booklet-design-edit-title,
-.booklet-design-edit-label {
+.booklet-design-strip-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-width: 0;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-strip-label {
 	color: var(--text-muted);
+}
+
+.booklet-design-strip-input {
+	width: 9em;
+	max-width: 100%;
+}
+
+.booklet-design-strip-switch[aria-checked="true"] {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-strip-switch[aria-checked="true"]::before {
+	content: "\2713\00a0";
+}
+
+.booklet-design-strip-actions {
+	display: flex;
+	gap: var(--size-4-1);
+	margin-inline-start: auto;
+}
+
+.booklet-design-strip-actions button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.booklet-design-strip-actions .is-delete {
+	color: var(--text-error);
+}
+
+/* the block's Markdown: one press opens it, and it is closed until then (open at once for a block nothing else of can be edited in place) */
+.booklet-design-edit-md {
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-edit-md > summary {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.booklet-design-edit-md > summary::before {
+	content: "\25B8";
 	font-size: var(--font-ui-smaller);
-	font-weight: var(--font-semibold);
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
 }
 
-.booklet-design-edit-title {
-	color: var(--interactive-accent);
+.booklet-design-edit-md[open] > summary::before {
+	content: "\25BE";
 }
 
-.booklet-design-edit-previewhost {
-	margin-top: var(--size-2-3);
-	padding: var(--size-4-3);
-	border-radius: var(--radius-m);
-	background: var(--bd-paper);
-	border: var(--border-width) solid var(--background-modifier-border);
+.booklet-design-edit-md > summary:focus-visible {
+	outline: var(--size-2-1) solid var(--interactive-accent);
+	outline-offset: var(--size-2-3);
 }
 
 .booklet-design-settings {
@@ -4438,6 +4560,11 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	field-sizing: content;
 	font-family: var(--font-monospace);
 	resize: vertical;
+}
+
+.booklet-design-edit-refusal:empty,
+.booklet-design-editor-state:empty {
+	display: none;
 }
 
 .booklet-design-edit-refusal:not(:empty),
@@ -4513,20 +4640,23 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	margin-block: var(--size-4-2);
 }
 
+/* a row is a line of the list, not a card: its words, its buttons beside them when there is room, its replies under it */
 .booklet-design-optrow {
 	display: flex;
-	flex-direction: column;
-	gap: var(--size-2-3);
-	padding: var(--size-4-2) var(--size-4-3);
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
-	background: var(--background-secondary);
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-2);
+	padding: var(--size-2-3) 0;
+	border: 0;
+	background: transparent;
 }
 
 .booklet-design-rows-main {
 	display: flex;
+	flex: 1 1 10em;
 	align-items: center;
 	gap: var(--size-4-2);
+	min-width: 0;
 }
 
 .booklet-design-rows-num {
@@ -4561,6 +4691,31 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	gap: var(--size-4-2);
 }
 
+.booklet-design-rows-controls {
+	flex: 0 0 auto;
+}
+
+/* the move and remove buttons of a row are small pictures, named for a screen reader */
+.booklet-design-rows-button.is-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--size-4-8);
+}
+
+/* the lists' headings sit close to their rows */
+.booklet-design-rows .setting-item-heading {
+	padding-block: var(--size-4-1) 0;
+	border: 0;
+}
+
+/* the shared menu's picker is a line of the list, not a card */
+.booklet-design-rows .setting-item {
+	padding-inline: 0;
+	border: 0;
+	background: transparent;
+}
+
 .booklet-design-reply .booklet-design-rows-input {
 	flex: 1 1 10em;
 	min-width: 0;
@@ -4568,9 +4723,17 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 .booklet-design-rows-replies {
 	display: flex;
+	flex: 0 0 100%;
 	flex-direction: column;
+	align-items: flex-start;
 	gap: var(--size-2-3);
 	padding-inline-start: var(--size-4-6);
+	box-sizing: border-box;
+}
+
+.booklet-design-rows-replies .booklet-design-reply {
+	align-self: stretch;
+	flex-wrap: nowrap;
 }
 
 .booklet-design-rows-switch[aria-checked="true"] {
@@ -4724,11 +4887,12 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* the rows' fields and the shared menu's picker are as high as the buttons beside them on a phone: no control of the rows is under 44 px */
-/* a row's buttons are two to a line on a phone (the pane is narrow, and four 44 px buttons would each take a line) */
+/* a row's three small buttons share a line on a phone, and its switch has the line above them */
 .is-mobile .booklet-design .booklet-design-rows-controls,
 .booklet-design.is-phone .booklet-design-rows-controls {
 	display: grid;
-	grid-template-columns: repeat(2, minmax(0, 1fr));
+	flex: 1 1 100%;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
 .is-mobile .booklet-design .booklet-design-rows-controls > button,
@@ -4739,9 +4903,7 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 .is-mobile .booklet-design .booklet-design-rows-controls > .booklet-design-rows-switch,
-.booklet-design.is-phone .booklet-design-rows-controls > .booklet-design-rows-switch,
-.is-mobile .booklet-design .booklet-design-rows-controls > button:last-child,
-.booklet-design.is-phone .booklet-design-rows-controls > button:last-child {
+.booklet-design.is-phone .booklet-design-rows-controls > .booklet-design-rows-switch {
 	grid-column: 1 / -1;
 }
 
@@ -4765,6 +4927,31 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design.is-phone .booklet-design-rows select {
 	min-height: 44px;
 	box-sizing: border-box;
+}
+
+/* the block's own fields and the strip's are 44 px high too, and the strip's items take a line each (the move and delete buttons keep to a line of their own) */
+.is-mobile .booklet-design .booklet-design-field,
+.is-mobile .booklet-design .booklet-design-strip-input,
+.booklet-design.is-phone .booklet-design-field,
+.booklet-design.is-phone .booklet-design-strip-input {
+	min-height: 44px;
+	box-sizing: border-box;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-item,
+.booklet-design.is-phone .booklet-design-strip-item {
+	flex: 1 1 100%;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-item.is-switch,
+.booklet-design.is-phone .booklet-design-strip-item.is-switch {
+	flex: 0 0 auto;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-input,
+.booklet-design.is-phone .booklet-design-strip-input {
+	flex: 1 1 8em;
+	width: auto;
 }
 
 .is-mobile .booklet-design .booklet-design-slot,

@@ -203,6 +203,10 @@
 	border-color: var(--bk-brand);
 }
 
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block.is-open:not(.is-kind-group):not(.is-kind-row) {
+	border-color: transparent;
+}
+
 .booklet-view[data-booklet-look^="paper"] .booklet-design-chip {
 	border-radius: var(--bk-r-sm);
 	background: var(--bk-brand);
@@ -258,21 +262,39 @@
 
 /* ---------- 5. the edit box: the page's sheet, opened ---------- */
 
+/* the block as the reader sees it, opened: the card a question is drawn on, an accent edge and a soft lift, and its words as fields in the page's own type */
 .booklet-view[data-booklet-look^="paper"] .booklet-design-editbox {
 	border-color: var(--bk-brand);
 	border-radius: var(--bk-r-md);
 	background: var(--bk-paper);
+	box-shadow: var(--bk-shadow);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-title {
-	color: var(--bk-brand);
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox.is-kind-callout {
+	border-inline-start-width: var(--size-4-1);
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-field.is-title {
 	font-family: var(--bk-font-head);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-previewhost {
-	border-color: var(--bk-rule);
-	border-radius: var(--bk-r-md);
-	background: var(--bk-card);
+/* a field of the block's words: a line under it at the strength of a control's edge (3 to 1) and nothing else until it is pointed at or has the focus */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field {
+	border-bottom-color: var(--bk-edge);
+	background: transparent;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field.is-desc {
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:focus-visible {
+	border-bottom-color: var(--bk-brand);
+	background: var(--bk-brand-wash);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-design-editor-state:not(:empty) {
@@ -281,17 +303,29 @@
 	color: var(--bk-ink);
 }
 
-/* its fields: a boundary that can be seen (3 to 1), on the card of the row or on the box */
-.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select) {
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-words .booklet-design-edit-why,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-rest,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-label,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-md > summary {
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-md {
+	border-top-color: var(--bk-rule);
+}
+
+/* its other controls: a boundary that can be seen (3 to 1), on the box */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea) {
 	border: 1.5px solid var(--bk-edge);
 	border-radius: var(--bk-r-sm);
-	background-color: var(--bk-paper);
+	background-color: var(--bk-card);
 	color: var(--bk-ink);
 	box-shadow: none;
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select):focus,
-.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], textarea, select):focus-visible {
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea):focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea):focus-visible {
 	border-color: var(--bk-brand);
 }
 
@@ -299,13 +333,7 @@
 	border-color: var(--bk-rose);
 }
 
-/* a row is a small card on the box; its buttons are the paper pills at the height of a field */
-.booklet-view[data-booklet-look^="paper"] .booklet-design-optrow {
-	border-color: var(--bk-rule);
-	border-radius: var(--bk-r-md);
-	background: var(--bk-card);
-}
-
+/* a row is a line of the list on the box; its buttons are the paper pills at the height of a field */
 .booklet-view[data-booklet-look^="paper"] .booklet-design-rows-refused {
 	border-radius: var(--bk-r-md);
 	background: var(--bk-card);
@@ -318,8 +346,16 @@
 	font-size: var(--font-ui-small);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-switch[aria-checked="true"],
-.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-switch[aria-checked="true"]:hover {
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions button {
+	padding: 0 var(--size-4-2);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions .is-delete {
+	color: var(--text-error);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-rows-switch, .booklet-design-strip-switch)[aria-checked="true"],
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-rows-switch, .booklet-design-strip-switch)[aria-checked="true"]:hover {
 	border-color: var(--bk-brand);
 	background: var(--bk-brand);
 	color: var(--bk-on-brand);

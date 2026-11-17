@@ -379,7 +379,7 @@ test("the settings entry opens the booklet's front matter as a form, in place; t
 	assert.ok(v.editor(), "the editor is open");
 	// named by a hidden line, not an aria-label (Obsidian would show that as a tooltip)
 	assert.equal(v.editor().getAttribute("aria-label"), null);
-	assert.equal(words(v.el.querySelector("#" + v.editor().getAttribute("aria-labelledby"))), "Edit Front matter as Markdown");
+	assert.equal(words(v.el.querySelector("#" + v.editor().getAttribute("aria-labelledby"))), "Editing Front matter");
 	assert.ok(v.editor().querySelector('[data-field="marker"]'), "the booklet marker is a row of the form");
 	assert.ok(v.all(".booklet-design-editbox .setting-item").length >= 3, "a row for each property");
 	assert.equal(v.area().value.split("\n")[0], "---");

@@ -78,9 +78,9 @@ test("a change is never committed twice: a field left twice, and Enter with Ctrl
 	assert.equal(v.editor(), null, "and the block closed");
 	// the same through a form row: leave it, press Esc at once
 	const w2 = rig(FULL, "Spending", "question", "[!text|spent]");
-	const title = Setting.made.filter((s) => s.settingEl.isConnected && words(s.nameEl) === "long")[0];
-	assert.ok(title);
-	await title.components[0].change(true);
+	const flag = w2.el.querySelector('.booklet-design-editbox .booklet-design-strip-item[data-field="long"] button[role="switch"]');
+	assert.ok(flag);
+	click(flag);
 	press(w2.area(), "Escape");
 	press(w2.area(), "Escape");
 	await w2.settle();
@@ -378,7 +378,7 @@ test("a press on a block of the page as it was drawn finds that block after a ch
 	// pressing it, as a click that was made before the writes finished would, opens that block and no other
 	click(v.block("question", "[!text|left]"));
 	await v.settle();
-	assert.equal(words(v.editor().querySelector(".booklet-design-edit-title")), "Editing: Question");
+	assert.match(words(v.editor().querySelector(":scope > .booklet-design-sr")), /^Editing Question/);
 	assert.match(v.area().value, /^> \[!text\|left\]/);
 	v.close();
 });
