@@ -274,8 +274,8 @@ export interface PageCtx extends Drawer {
 	isOpen(n: DesignNode): boolean;
 	pressBlock(n: DesignNode): void;
 	openCard(n: DesignNode): void;
-	/** Open a node's own lines in the editor (the page's title and the bar's Markdown button). */
-	editNode(n: DesignNode): void;
+	/** Open a node's own lines in the editor (the page's title and the bar's Markdown button); `markdown`: with its Markdown section open and the focus in it. */
+	editNode(n: DesignNode, markdown?: boolean): void;
 	/** Move a block up or down: the place it goes to is worked out from the note as it is when the press is acted on, not from when the page was drawn. */
 	move(n: DesignNode, dir: "up" | "down"): void;
 	remove(n: DesignNode): void;
@@ -320,7 +320,7 @@ function drawBar(box: HTMLElement, n: DesignNode, ctx: PageCtx, card: boolean): 
 	}
 	if (!card && !whyUnchangeable(n)) {
 		const edit = iconButton(bar, "booklet-design-edit", ["pencil", "file-pen"], ui("form.editMarkdown"), true);
-		edit.addEventListener("click", () => ctx.editNode(n));
+		edit.addEventListener("click", () => ctx.editNode(n, true));
 	}
 	if (deletable) {
 		const del = iconButton(bar, "booklet-design-delete", ["trash-2", "trash"], ui("act.delete"), false);

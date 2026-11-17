@@ -655,7 +655,8 @@ export class DesignView extends LockedTextView {
 			this.scrimEl.addEventListener("click", () => this.closePanel());
 			const main = shell.createDiv({ cls: "booklet-design-main" });
 			this.drawTop(main);
-			this.statusEl = main.createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
+			// the status line lies over the page and takes no room, so a write's words never move the page under a press (see styles.base.css)
+			this.statusEl = main.createDiv({ cls: "booklet-design-status-line" }).createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
 			this.statusEl.setText(this.message);
 			if (!isBookletText(this.text)) main.createDiv({ cls: "booklet-design-banner", text: ui("note.notBooklet") });
 			this.armedEl = main.createDiv({ cls: "booklet-design-armedbar", attr: { role: "status" } });
@@ -924,7 +925,7 @@ export class DesignView extends LockedTextView {
 			isOpen: (n) => this.editsNode(n),
 			pressBlock: (n) => this.openEditor(n),
 			openCard: (n) => this.navigate(n),
-			editNode: (n) => this.openEditor(n),
+			editNode: (n, markdown) => this.openEditor(n, markdown === true),
 			move: (n, dir) => void this.moveDir(n, dir),
 			remove: (n) => void this.remove(n),
 			drawEditor: (host, n) => this.drawEditorBox(host, n, "here"),
@@ -1394,15 +1395,16 @@ export class DesignView extends LockedTextView {
 	/**
 	 * Selects a block and opens its own lines in the editor, in place. What is typed in the block that is open is applied first (and when
 	 * it cannot be, that block stays open and says so: typed text is never dropped to make room). A block the view never changes is
-	 * selected and nothing opens.
+	 * selected and nothing opens. `markdown`: the block's Markdown section is opened too, with the focus in it (the bar's "Edit as Markdown").
 	 */
-	private openEditor(n: DesignNode): void {
+	private openEditor(n: DesignNode, markdown = false): void {
 		this.afterEdits(() => {
 			const node = this.live(n);
 			if (!node) return this.draw();
 			if (this.edit && this.editsNode(node)) {
 				this.sel = { start: node.start, kind: node.kind };
-				this.editor?.focus();
+				if (markdown) this.editor?.openMarkdown();
+				else this.editor?.focus();
 				return;
 			}
 			if (this.editor?.holds()) {
@@ -1420,7 +1422,8 @@ export class DesignView extends LockedTextView {
 			this.edit = { start: node.start, kind: node.kind };
 			this.closePanel();
 			this.draw();
-			this.editor?.focus();
+			if (markdown) this.editor?.openMarkdown();
+			else this.editor?.focus();
 		});
 	}
 

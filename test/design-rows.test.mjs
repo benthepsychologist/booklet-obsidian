@@ -543,3 +543,91 @@ test("the table has the words the rows ask for in Spanish and French, with their
 	}
 	assert.equal(fill("rows.option.up", { n: 2 }), "Option 2: move up");
 });
+
+/* ======================================================================== rows stay in step with the note (found in the real app) ======================================================================== */
+
+test("the rows show the note after an option is moved and another removed (a move puts the words into the rows without leaving them looking as if typed in)", async () => {
+	const v = rig(NOTE());
+	v.go("How it went");
+	v.open("question", "[!multi|outside");
+	await v.press("Option 2: move up");
+	assert.deepEqual(v.texts(), ["Gardened", "Walked"]);
+	await v.press("Option 1: remove");
+	assert.deepEqual(v.texts(), ["Walked"], "the screen shows what the note has, not the row that was removed");
+	assert.match(v.disk.text, /\[!multi\|outside open\] What did you do outside\?\n- \[ \] Walked\n\n/);
+	v.close();
+});
+
+test("a row put right from the note (by Undo, or by a move) is not typing: the Markdown typed after it is read back into the rows, and words typed in a row that moved are written", async () => {
+	const v = rig(NOTE());
+	v.go("How it went");
+	v.open("question", "[!choice|where]");
+	await v.type("Option 3: words", "Numb and still");
+	click(v.undo());
+	await v.settle();
+	assert.equal(v.input("Option 3: words").value, "Numb", "Undo put the words back into the row");
+	await v.typeArea(v.area().value.replace(/^- \[ \] Numb$/m, "- [ ] Numbed"));
+	assert.equal(v.input("Option 3: words").value, "Numbed", "the Markdown's change is read back into the row");
+	// a move, then words typed in the row that moved: written, not held
+	await v.press("Option 3: move up");
+	await v.type("Option 2: words", "Numbed again");
+	assert.match(v.disk.text, /- \[ \] Numbed again\n/);
+	v.close();
+});
+
+test("typing in the first own option of a question that has a kept answer asks first, and Cancel puts the row back to what the note has (nothing is dropped without a word)", async () => {
+	const note = NOTE(KEPT);
+	const v = rig(note);
+	v.go("How it went");
+	v.open("question", "[!multi|morning");
+	void v.row("Shared menu").components[0].change("");
+	await later(20);
+	await v.answer("Change");
+	await v.settle();
+	await v.add("Add an option");
+	const w0 = v.disk.writes;
+	const el = v.input("Option 1: words");
+	typeInto(el, "Own thing");
+	el.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(50);
+	assert.ok(v.dialog(), "the question of the kept answer is asked about in the open");
+	assert.equal(v.disk.writes, w0, "nothing is written while it asks");
+	await v.answer("Cancel");
+	assert.equal(v.disk.writes, w0);
+	assert.equal(v.input("Option 1: words").value, "", "declined: the row is the note's again");
+	typeInto(v.input("Option 1: words"), "Own thing");
+	v.input("Option 1: words").dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(50);
+	await v.answer("Change");
+	assert.equal(v.disk.writes, w0 + 1);
+	assert.match(v.disk.text, /\[!multi\|morning\] This morning I went to…\n- \[ \] Own thing\n/);
+	v.close();
+});
+
+test("Markdown typed with a line that starts another block is applied as typed, and the box then shows the block's own lines, not the typing (so a second typing is not laid over lines that are another block's now)", async () => {
+	const v = rig(NOTE());
+	v.go("How it went");
+	v.open("question", "[!choice|where]");
+	const was = v.area().value;
+	// a line indented under an option, with no reply above it, is prose: the format ends the question there
+	await v.typeArea(was.replace("- [ ] Calm\n", "- [ ] Calm\n    and more\n"));
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.area().value, "> [!choice|where] Where are you right now?\n- [ ] Calm", "the Markdown holds what the block is now");
+	assert.match(v.disk.text, /- \[ \] Calm\n    and more\n  - That is the settling system at work\./);
+	v.close();
+});
+
+test("a block whose rows are refused says to edit it in the Markdown below, and the Markdown section is open, so the words point at something that is there", () => {
+	const v = rig(NOTE());
+	v.go("How it went");
+	v.open("question", "[!choice|odd]");
+	assert.match(words(v.o?.el.querySelector(".booklet-design-rows-refused") ?? v.el.querySelector(".booklet-design-rows-refused")), /^The rows are not offered for this block, so it is edited in the Markdown below\./);
+	assert.equal(v.editor().querySelector("details.booklet-design-edit-md").open, true);
+	v.close();
+	// and a block whose rows are offered keeps it closed
+	const w = rig(NOTE());
+	w.go("How it went");
+	w.open("question", "[!choice|where]");
+	assert.equal(w.editor().querySelector("details.booklet-design-edit-md").open, false);
+	w.close();
+});

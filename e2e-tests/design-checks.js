@@ -1381,7 +1381,8 @@ lang: en
       await shot(o, "phone-bar-light");
       await o.page.locator(barBtn("question", fruit, "edit")).click(); await sleep(500);
       st = await state(o);
-      c.ok(st.editBox && !st.editor, "the bar's Edit as Markdown opens the block in place on the phone (its Markdown section is closed until its own summary is pressed)");
+      c.ok(st.editBox && st.editor, "the bar's Edit as Markdown opens the block in place on the phone with its Markdown section open (the words of the button are what it does)");
+      c.ok((await o.evaluate(sel => { const st = document.querySelector(sel + " .booklet-design-status"), line = document.querySelector(sel + " .booklet-design-status-line"); return getComputedStyle(st).position + "|" + Math.round(line.getBoundingClientRect().height); }, DV)) === "absolute|0", "phone: the status line is out of flow (it lies over the page and takes no height), so a write's words move nothing");
       await judge("the open block");
       await shot(o, "phone-editor-light");
       await o.setScheme("dark"); await sleep(500); await shot(o, "phone-editor-dark"); await o.setScheme("light"); await sleep(300);
@@ -1792,9 +1793,11 @@ lang: en
         c.ok(uv.ok && uv.text === sub(cur, "- [x] Numbed\n", "- [x] Numb\n"), "Undo takes the Markdown change back, byte for byte"); cur = uv.text;
         const curBeforeCont = cur;
         await reopen(n, "[!choice|where]"); await openMd(o);
-        const cont = sub(d0, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n");
+        // a second line of a REPLY (indented under the reply): the block stays whole and the rows cannot show it. (A line indented under an OPTION, with no reply above it,
+        // is prose to the format: the question ends there and the line is another block's, which is not what this step is about.)
+        const cont = sub(d0, "  - That is the settling system at work.\n", "  - That is the settling system at work.\n    and more\n");
         await ta.fill(cont); await leaveMd();
-        cur = await applied(n, cur, sub(cur, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n"), "Markdown that the rows cannot show as it stands is applied as typed");
+        cur = await applied(n, cur, sub(cur, "  - That is the settling system at work.\n", "  - That is the settling system at work.\n    and more\n"), "Markdown that the rows cannot show as it stands is applied as typed");
         const why = await refused();
         c.ok(!!why && /^The rows are not offered for this block/.test(why) && (await rowsShown()) === 0 && (await area()) === cont, `the rows give way to the reason (${JSON.stringify(why && why.slice(0, 150))}) and the Markdown is as typed`);
         await ta.fill(d0); await leaveMd();
@@ -1857,8 +1860,14 @@ lang: en
         await press("o-add");
         const cur4 = await applied(n, cur, sub(cur, "> [!multi|morning] This morning I went to…\n", "> [!multi|morning] This morning I went to…\n- [ ] \n"), "an own option added (one write)");
         await typeLeave("o0-text", "Own thing");
-        c.info(`after typing "Own thing" in the new own option and Tab: status ${JSON.stringify((await state(o)).status)}; the box says ${JSON.stringify(await o.evaluate(() => (document.querySelector(".workspace-leaf.mod-active .booklet-design-editor-state") || {}).textContent))}; the field holds ${JSON.stringify(await o.page.locator(RW("o0-text")).inputValue())}`);
-        cur = await applied(n, cur4, sub(cur, "> [!multi|morning] This morning I went to…\n", "> [!multi|morning] This morning I went to…\n- [ ] Own thing\n"), "its words typed and left");
+        // `morning` has a kept answer that picked options 1 and 3, so words typed into its first own option touch a kept answer: it asks, in the open (never a silent drop)
+        c.info(`after typing "Own thing" in the new own option and Tab: the dialog is ${(await waitModal(o, true, 2500)) ? "open" : "NOT open"}; the field holds ${JSON.stringify(await o.page.locator(RW("o0-text")).inputValue())}`);
+        await asks(n, cur4, "typing the words of the first own option (a kept answer of `morning` picked option 1)", [/morning/, /saved answer/i], "o0-text=");
+        await typeLeave("o0-text", "Own thing");
+        await waitModal(o, true, 2500);
+        cur = await changed(n, cur4, sub(cur, "> [!multi|morning] This morning I went to…\n", "> [!multi|morning] This morning I went to…\n- [ ] Own thing\n"), "its words typed and left, and Change");
+        await idle(o);
+        c.ok((await state(o)).editBox && (await o.page.locator(RW("o0-text")).inputValue()) === "Own thing", "the box is still open and the row shows the words that were written");
         const own = cur;
         await o.page.locator(RW("menu")).selectOption("places");
         if (await waitModal(o, true, 2500)) { const mn = await modalInfo(o); c.info("choosing the menu again over an own option asks: " + JSON.stringify(mn.text.replace(/\s+/g, " ").slice(0, 240))); await clickModal(o, "Change"); }
@@ -1934,10 +1943,7 @@ lang: en
         await openQ(n, "[!choice|odd]");
         let why5 = await refused();
         c.ok(!!why5 && /^The rows are not offered for this block, so it is edited in the Markdown below\./.test(why5) && (await rowsShown()) === 0 && (await area()) === "> [!choice|odd] Odd one\n- [ ] One\n  - Said\n    and more", `a reply that goes on over a second line has no rows: the box says why (${JSON.stringify(why5)}) and the Markdown is as written`);
-        const mdWas = await o.page.locator(MD_AREA).isVisible();
-        await openMd(o);
-        c.ok(await o.page.locator(MD_AREA).isVisible(), "the Markdown section of such a block opens on one press");
-        c.info(`the reason says to edit in "the Markdown below" and the section is ${mdWas ? "open" : "closed"} when the block opens (it stays closed when only the rows are refused; it is open at once only when the title and description cannot be shown)`);
+        c.ok(await o.page.locator(MD_AREA).isVisible(), "the reason says to edit in \"the Markdown below\" and the Markdown section is open when the block opens, so what it points at is there");
         c.info("reason shown for the continued reply: " + JSON.stringify(why5));
         await rshot("rows-refused-light");
         await closeBox();
@@ -2103,10 +2109,17 @@ lang: en
         const before = lk.add;
         c.ok(!!before && before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the "Add an option" button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the title still has the focus (${lk.focus})`);
         const th0 = await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F);
+        // the status line is empty before the first write (this is what moved the page by its own height in beta: the first words in it pushed the page down)
+        const geom = () => o.evaluate(sel => { const q = s => document.querySelector(sel + " " + s), r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; }; const st = document.querySelector(sel + " .booklet-design-status"); return { status: st ? st.textContent : null, statusPos: st ? getComputedStyle(st).position : null, top: r(q(".booklet-design-top")), scroll: r(q(".booklet-design-scroll")), title: r(q(".booklet-design-field.is-title")), add: r(q("[data-key='o-add']")), box: r(q(".booklet-design-editbox")) }; }, DV);
+        const g0 = await geom();
+        c.ok(g0.status === "" && g0.statusPos === "absolute", `b: before the first write the status line is empty and out of flow (position ${g0.statusPos}, text ${JSON.stringify(g0.status)})`);
         await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
         await o.page.mouse.down();
         await sleep(300);
         const during = await look();
+        const g1 = await geom();
+        c.ok(/^Changed /.test(g1.status || ""), `b: the press had already written the typed title while it was held (status ${JSON.stringify(g1.status)}), so the geometry below was measured after a write`);
+        c.ok(JSON.stringify([g0.top, g0.scroll, g0.title, g0.add, g0.box]) === JSON.stringify([g1.top, g1.scroll, g1.title, g1.add, g1.box]), `b: a write moved nothing: the header, the scroll area, the title, the Add button and the box have the same rectangles before and after it (${JSON.stringify({ add0: g0.add, add1: g1.add, scroll0: g0.scroll, scroll1: g1.scroll })})`);
         c.info(`b: the title field is ${await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F)} px high while the button is held; lines of the title: ${JSON.stringify(await o.evaluate(sel => document.querySelector(sel).value, TITLE_F))}; was ${th0}`);
         c.ok(!!during.add && Math.abs(during.add.y - before.y) < 1 && Math.abs(during.add.x - before.x) < 1 && !during.unsaved, `b: while the button is held down the box did not move or change (the button at y ${Math.round(before.y)} then ${Math.round(during.add && during.add.y)}; the focus is on ${during.focus})`);
         await shot(o, "typing-b-pressed");
@@ -2124,6 +2137,19 @@ lang: en
         await closeAll(o);
 
       } catch (e) { c.ok(false, `script error in scene b. one real press on a button of the box straight after typing: the typing is applied, the press lands (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ----- b2. a LONG new title: the trail above the page ends in the block's title, so a write must not make it wrap into another line and push the page down
+      try {
+        n = await start();
+        await open(n, "[!choice|fruit]");
+        const LONGT = "Which fruit would you pick if you could only have one of them for the whole of the rest of this long and rather tiring week, and why that one and not another?";
+        await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(LONGT); await sleep(200);
+        const rects = () => o.evaluate(sel => { const r = s => { const e = document.querySelector(sel + " " + s), b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)] : null; }; return { top: r(".booklet-design-top"), scroll: r(".booklet-design-scroll"), crumb: r(".booklet-design-crumb"), status: (document.querySelector(sel + " .booklet-design-status") || {}).textContent }; }, DV);
+        const q0 = await rects();
+        await o.page.keyboard.press("Tab"); await sleep(900); await idle(o);
+        const q1 = await rects();
+        c.ok(/^Changed /.test(q1.status || "") && JSON.stringify([q0.top, q0.scroll]) === JSON.stringify([q1.top, q1.scroll]), `b2: a write of a long title moved neither the header nor the page (header ${JSON.stringify(q0.top)} then ${JSON.stringify(q1.top)}, page ${JSON.stringify(q0.scroll)} then ${JSON.stringify(q1.scroll)}; crumb ${JSON.stringify(q0.crumb)} then ${JSON.stringify(q1.crumb)}; status ${JSON.stringify((q1.status || "").slice(0, 40))})`);
+        await closeAll(o);
+      } catch (e) { c.ok(false, `script error in scene b2. a long title written: ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
       // ----- c. Escape after typing applies and closes
       try {
         n = await start();
@@ -2590,6 +2616,15 @@ lang: en
       await o.page.locator(RW("o0-remove")).click(); // the first option (Pear) removed
       r = await settled(n, wantL1);
       c.ok(r.ok && r.text === sub(wantL1, "- [x] Pear\n", "") && await rowTexts() === "Apple", `L: the first option removed after the move is one write, byte for byte, and the rows are redrawn without it (the screen shows ${JSON.stringify(await rowTexts())}, the note has Apple only)`);
+      await closeAll(o);
+
+      // ---------- M. the selected block's bar says Edit as Markdown: the box opens with the Markdown section open and the focus in it; a press on the block opens it closed
+      n = await start(); t0 = n.t;
+      const fruitAt = lineOf(n.t, "[!choice|fruit]");
+      await selectBlock(o, "question", fruitAt);
+      await o.page.locator(barBtn("question", fruitAt, "edit")).click(); await sleep(500);
+      const viaBar = await o.evaluate(() => { const b = document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox"), md = b && b.querySelector("details.booklet-design-edit-md"), a = document.activeElement; return { box: !!b, open: !!md && md.open, focus: a && a.classList.contains("booklet-design-textarea") }; });
+      c.ok(viaBar.box && viaBar.open && viaBar.focus, `M: the bar's Edit as Markdown opens the box with the Markdown section open and the focus in it (${JSON.stringify(viaBar)})`);
       await closeAll(o);
 
       const errs = errorsSince(errs0);

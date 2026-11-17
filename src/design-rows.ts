@@ -58,8 +58,6 @@ export interface RowsIO {
 	field(el: HTMLInputElement, make: (value: string, lines: string[], was: string) => Made, back: (lines: string[]) => string | null): void;
 	/** A control pressed: one change, made on the block's lines as they are when it runs. `focus` is the control the focus goes to when the rows are drawn again. */
 	act(make: (lines: string[]) => Made, focus: string | null): void;
-	/** Is the typing in this control not applied yet (the rows leave it alone)? */
-	typing(el: HTMLElement): boolean;
 	/** The options put away when a shared menu was chosen, and the setter. */
 	stash(): string[] | null;
 	setStash(lines: string[] | null): void;
@@ -154,7 +152,12 @@ export class RowsPanel {
 		return "rows";
 	}
 
-	/** Puts the words and marks of these lines into the rows that are drawn (the shape has not changed), leaving what is being typed alone. */
+	/**
+	 * Puts the marks of these lines (the correct switches, the shared-menu picker) into the rows that are drawn (the shape has not changed).
+	 * The WORDS of the rows are not put in here: they are controls of the box's `Field`s, which remember what they were last given (`sent`),
+	 * and only the box may set one (it sets the value and `sent` together, and leaves a control with typing in it alone). A value set here
+	 * would leave `sent` behind, and the box would think the row was still being typed in (found in the real app: rows stale after a move).
+	 */
 	sync(lines: readonly string[]): void {
 		const kind = rowsKindOf(lines);
 		if (!kind) return;
@@ -165,8 +168,8 @@ export class RowsPanel {
 		for (const el of Array.from(this.host.querySelectorAll<HTMLElement>("[data-key]"))) {
 			const key = el.getAttribute("data-key") ?? "";
 			const text = shown.text.get(key);
-			const field = el as HTMLInputElement | HTMLSelectElement;
-			if (text !== undefined && (el.tagName === "INPUT" || el.tagName === "SELECT") && !this.io.typing(el) && field.value !== text) field.value = text;
+			const field = el as HTMLSelectElement;
+			if (text !== undefined && el.tagName === "SELECT" && field.value !== text) field.value = text;
 			const mark = shown.on.get(key);
 			if (mark !== undefined) el.setAttribute("aria-checked", String(mark));
 		}

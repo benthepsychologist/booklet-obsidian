@@ -217,7 +217,6 @@ export class EditorBox {
 				lines: () => host.lines() ?? [],
 				field: (el, make, back) => void this.field("rows", el, make, back),
 				act: (make, focus) => this.act(make, focus),
-				typing: (el) => this.typingIn(el),
 				stash: () => ed.stash ?? null,
 				setStash: (lines) => void (ed.stash = lines),
 				openMenu: (line) => host.openMenu(line),
@@ -386,12 +385,6 @@ export class EditorBox {
 		return false;
 	}
 
-	/** Is this control one the typing is not applied in? (The rows leave such a control alone.) */
-	private typingIn(el: HTMLElement): boolean {
-		const f = this.fields.find((x) => x.el === el);
-		return !!f && (f.el.value !== f.sent || f.held || f.applying);
-	}
-
 	/** Applies every control that is owed, in the order they stand. Runs in the view's lane. */
 	async applyAll(): Promise<void> {
 		for (const f of [...this.fields]) if (this.owes(f)) await this.applyField(f);
@@ -431,7 +424,17 @@ export class EditorBox {
 				// what the note has for the control now (the format may have written it a little differently from what was typed)
 				const now = this.host.lines();
 				const back = now ? f.back(now) : null;
-				if (back !== null) f.was = back;
+				if (back !== null) {
+					f.was = back;
+					// the control shows the note's words, not the typing: the drawing made for the write left it alone (it was being applied),
+					// and typing that the format took differently (a title trimmed, Markdown whose last lines are another block's now) is read back
+					if (f.el.value === value && back !== value) {
+						f.el.value = back;
+						f.sent = back;
+						if (f.part === "area") this.area.rows = Math.min(30, Math.max(3, back.split("\n").length + 1));
+						else if (f.part === "words") fit(f.el);
+					}
+				}
 				made.landed?.();
 			} else if (out !== "unchanged") this.putBack(f, this.host.lines());
 			return;
@@ -502,6 +505,12 @@ export class EditorBox {
 		this.render(this.host.lines() ?? [], true);
 	}
 
+	/** The Markdown section opens and has the focus (the bar's "Edit as Markdown"). */
+	openMarkdown(): void {
+		this.md.open = true;
+		this.area.focus();
+	}
+
 	/** The focus goes to the block's first words (its title, else its description), or to the Markdown when nothing else of it can be edited in place. */
 	focus(): void {
 		const first = this.fields.find((f) => f.part === "words");
@@ -549,6 +558,8 @@ export class EditorBox {
 			else {
 				this.fields = this.fields.filter((f) => f.part !== "rows");
 				this.rowsState = this.rows.draw(lines, this.wanted);
+				// the rows say the block is edited in the Markdown below: the section opens, so what the words point at is there
+				if (this.rowsState === "refused") this.md.open = true;
 			}
 		} else this.rows.sync(lines);
 		const shape = this.shapeOfForm(lines);

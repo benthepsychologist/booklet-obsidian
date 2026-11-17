@@ -252,6 +252,12 @@ test("the bar's Edit as Markdown button opens the editor of a selected block, as
 	click(v.act(block, "edit"));
 	assert.ok(v.area());
 	assert.equal(v.editor().parentElement, v.block("question", "[!text|spent]"));
+	assert.equal(v.editor().querySelector("details.booklet-design-edit-md").open, true, "the button says Markdown, so the Markdown section is open");
+	assert.equal(doc.activeElement, v.area(), "with the focus in it");
+	// a press on the block itself opens it with the section closed, as it is by default
+	press(v.area(), "Escape");
+	v.select("question", "[!text|spent]");
+	assert.equal(v.editor().querySelector("details.booklet-design-edit-md").open, false);
 	v.close();
 });
 

@@ -3917,17 +3917,57 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--text-muted);
 }
 
+/*
+ * The trail ends in the title of the block that is selected, which a write can change. Whatever its length, it must not decide how many
+ * lines the trail takes (the header would grow or shrink under the page, and a press made straight after typing would land on something
+ * else): the current item has no width of its own (a basis of nothing), takes what is left of its line, keeps to one line, and ends in an
+ * ellipsis when the title is longer than that. Found in the real app: a long new title wrapped the trail and moved the page 60 px.
+ */
 .booklet-design-crumb-item[aria-current="true"] {
+	flex: 1 1 0;
+	min-width: 6em;
+	overflow: hidden;
+	text-align: start;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 	color: var(--text-normal);
 	font-weight: var(--font-semibold);
 }
 
 .booklet-design-banner,
-.booklet-design-status:not(:empty),
 .booklet-design-armedbar {
 	flex: none;
 	margin: var(--size-4-2) var(--size-4-4) 0;
 	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+/*
+ * The status line says what a write did ("Changed Question: ..."). It is OUT OF FLOW: a line that took room when it had words would move
+ * the whole page down by its own height the moment the first write was made, between the mouse going down and coming up on a button the
+ * person was pressing straight after typing, and the press would be lost (found in the real app: the box moved 41 px under the pointer).
+ * Its holder has no height, and the line lies over the top of the page, taking no pointer of its own.
+ */
+.booklet-design-status-line {
+	position: relative;
+	flex: none;
+	height: 0;
+	z-index: 3;
+}
+
+.booklet-design-status {
+	position: absolute;
+	inset-block-start: var(--size-4-2);
+	inset-inline: var(--size-4-4);
+	pointer-events: none;
+}
+
+.booklet-design-status:not(:empty) {
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
 	border-radius: var(--radius-m);
 	background: var(--background-secondary);
 	color: var(--text-normal);
