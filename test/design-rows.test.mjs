@@ -631,3 +631,32 @@ test("a block whose rows are refused says to edit it in the Markdown below, and 
 	assert.equal(w.editor().querySelector("details.booklet-design-edit-md").open, false);
 	w.close();
 });
+
+test("a press on Add an option straight after typing: the drawing of the typing's write, held until the pointer is up, does not take the focus wish of the press (the new row ends with the focus)", async () => {
+	const v = rig(NOTE());
+	v.go("How it went");
+	v.open("question", "[!choice|where]");
+	const title = v.title();
+	typeInto(title, "Where are you now?");
+	const add = v.button("Add an option");
+	// the pointer goes down on the button: the title is left (its change is handed over), and the drawing its write asks for waits for the pointer
+	add.dispatchEvent(new w.MouseEvent("mousedown", { bubbles: true, cancelable: true }));
+	title.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(30);
+	assert.equal(v.disk.writes, 1, "the title was written at the press");
+	// the pointer comes up and the click follows at once, before the held drawing's timer runs: the held drawing then comes while the press's
+	// change is under way (a write takes time in Obsidian, so the stand-in vault is slow here too)
+	const process = v.app.vault.process;
+	v.app.vault.process = async (file, fn) => {
+		await later(40);
+		return process(file, fn);
+	};
+	add.dispatchEvent(new w.MouseEvent("mouseup", { bubbles: true, cancelable: true }));
+	click(add);
+	await v.settle();
+	await later(30);
+	assert.equal(v.disk.writes, 2);
+	assert.equal(v.texts().filter((t) => t === "").length, 1, "a new empty row");
+	assert.equal(doc.activeElement?.getAttribute("data-key"), "o3-text", "the focus is in the new row's words");
+	v.close();
+});

@@ -2132,7 +2132,8 @@ lang: en
         const wantB = text(n.file);
         c.ok(r.ok && wantB === sub(wantNew(n), "- [x] Pear\n", "- [x] Pear\n- [ ] \n"), `b: the first and only press on the button wrote the typed title AND added the row, nothing else, byte for byte${diffs(sub(wantNew(n), "- [x] Pear\n", "- [x] Pear\n- [ ] \n"), wantB)}`);
         c.ok(st.editBox && !st.modal && w === 2, `b: the box is still open, nothing was asked, ${w} write(s): the title and the new row`);
-        c.ok(await o.evaluate(() => (document.activeElement.getAttribute("data-key") || "")) === "o2-text", "b: the focus is in the new row's words");
+        const fAfter = await o.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-key") || a.getAttribute("data-field") || a.className || a.tagName) : null; });
+        c.ok(fAfter === "o2-text", `b: the focus is in the new row's words (it is on ${JSON.stringify(fAfter)})`);
         await shot(o, "typing-b-saved");
         await undoBtn(o).click(); r = await waitDisk(n.file, tx => tx === wantNew(n)); await idle(o);
         await undoBtn(o).click(); const ub = await waitDisk(n.file, tx => tx === n.t); await idle(o);
@@ -2735,8 +2736,11 @@ lang: en
       c.ok(text(file) === END, "typing pending: the note is not written while the field has the focus");
       const w0 = await W76(o, rel);
       await undoBtn(o).click(); // a real press: the field is left first (its change), then the press
-      let r = await waitDisk(file, tx => tx !== END); await sleep(600); await idle(o);
-      c.ok(r.ok && text(file) === END && await W76(o, rel) === w0 + 2, `Undo pressed with typing pending applied the typing (one write) and undid that same step (one more): the note is back to what it was, byte for byte, ${await W76(o, rel) - w0} writes`);
+      let r;
+      // the two writes (the typing, then its undo) are waited for by their count, not by watching for the in-between text (which the second write can replace before it is seen) or by a fixed pause
+      for (let i = 0; i < 40 && (await W76(o, rel)) < w0 + 2; i++) await sleep(150);
+      await sleep(300); await idle(o);
+      c.ok(text(file) === END && await W76(o, rel) === w0 + 2, `Undo pressed with typing pending applied the typing (one write) and undid that same step (one more): the note is back to what it was, byte for byte, ${await W76(o, rel) - w0} writes${diffs76(END, text(file))}`);
       await redoBtn(o).click(); r = await waitDisk(file, tx => /Really\?/.test(tx)); await idle(o);
       c.ok(r.ok && text(file).includes("Really?") && !(await redoBtn(o).isEnabled()), "and Redo gives the typed words back (the typing was a step of its own)");
       await undoBtn(o).click(); await waitDisk(file, tx => tx === END); await idle(o);

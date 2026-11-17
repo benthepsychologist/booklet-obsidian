@@ -528,10 +528,7 @@ export class EditorBox {
 	 */
 	private render(lines: string[], force: boolean): void {
 		const joined = lines.join("\n");
-		if (!force && joined === this.shown && this.ed.kind === this.shownKind) {
-			this.wanted = null;
-			return;
-		}
+		if (!force && joined === this.shown && this.ed.kind === this.shownKind) return;
 		let complete = true;
 		if (this.shownKind !== null && this.shownKind !== this.ed.kind) {
 			this.box.removeClass(`is-kind-${this.shownKind}`);
@@ -584,9 +581,15 @@ export class EditorBox {
 		this.restNote.hidden = !(cap.why === null && this.rowsState !== "rows" && this.undrawn(lines));
 		this.shown = complete ? joined : null;
 		this.shownKind = this.ed.kind;
-		// the control the person is working in keeps the focus (a click does not always give it, and a part drawn again lost it)
-		if (this.wanted) this.rowsHost.querySelector<HTMLElement>(`[data-key="${this.wanted}"]`)?.focus();
-		this.wanted = null;
+		// the control the person is working in keeps the focus (a click does not always give it, and a part drawn again lost it). It is asked for
+		// by the change that is being made, and only the drawing that has the control gives it: a drawing made for an EARLIER write (the one the
+		// typing before a press asked for, held until the pointer was up) comes while the new change is under way, finds no such control yet,
+		// and leaves the wish for the drawing of the change itself (found in the real app: the focus was lost about one press in three)
+		const want = this.wanted ? this.rowsHost.querySelector<HTMLElement>(`[data-key="${this.wanted}"]`) : null;
+		if (want) {
+			want.focus();
+			this.wanted = null;
+		}
 	}
 
 	/** What the fields can show of these lines: a title and a description for a question, a callout or a prose block; a title for any other Booklet line. */
