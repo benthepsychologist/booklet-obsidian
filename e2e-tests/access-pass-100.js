@@ -1,7 +1,6 @@
 // The measured accessibility pass of plugin 1.0.0, run by hand (not part of plugin-check.js). One real Obsidian at a time, driven over CDP:
 //   PLAYWRIGHT=<node_modules> node access-pass-100.js --obsidian <binary> --out <dir> [--tag name] [--vault ../test-vault] [--only walk,contrast,phone,axe]
-// It writes <out>/<tag>-results.json and prints a line for every thing it measured. Made-up notes only (the repository's test-vault and
-// test/page-notes), copied into a vault of its own for each session.
+// It writes <out>/<tag>-results.json and prints a line for every thing it measured. Made-up notes only (the fixtures of test/fixtures.mjs), written into a vault of its own for each session.
 //   walk      each screen by real key presses (Tab, Shift+Tab, Escape, Enter, arrows), no pointer: the stops, their names, their rings
 //   ax        the accessibility tree of each screen (Chrome's Accessibility.getFullAXTree): role, name, state of every control
 //   contrast  computed colour of every text and control style the plugin draws, light and dark, with the WCAG ratio
@@ -26,18 +25,17 @@ const say = (...a) => console.log(...a);
 const fact = (ok, text, extra) => { R.facts.push({ ok, text, extra }); say((ok ? "PASS " : "FAIL ") + text); };
 const info = text => { R.facts.push({ info: text }); say("INFO " + text); };
 
-// -------- the vault: the repository's made-up notes --------
-const REPO = path.join(__dirname, "..");
-const read = f => fs.readFileSync(f, "utf8");
-const NOTES = {
-  "Every kind.booklet.md": read(path.join(REPO, "test-vault", "Every kind.booklet.md")),
-  "Keyboard walk.booklet.md": read(path.join(REPO, "test", "page-notes", "Keyboard walk.booklet.md")),
-  "Check-in with a wiki.booklet.md": read(path.join(REPO, "test", "page-notes", "Check-in with a wiki.booklet.md")),
-  "Garden dashboards.booklet.md": read(path.join(REPO, "test", "page-notes", "Garden dashboards.booklet.md")),
+// -------- the vault: the made-up notes of test/fixtures.mjs (loaded at the start of the run) --------
+const fixtureVault = require("./fixture-vault");
+const NOTES = () => ({
+  "Every kind.booklet.md": fixtureVault.text("Every kind.booklet.md"),
+  "Keyboard walk.booklet.md": fixtureVault.text("page-notes/Keyboard walk.booklet.md"),
+  "Check-in with a wiki.booklet.md": fixtureVault.text("page-notes/Check-in with a wiki.booklet.md"),
+  "Garden dashboards.booklet.md": fixtureVault.text("page-notes/Garden dashboards.booklet.md"),
   // the note of docs/screen-reader-script-100.md, with its tone beside it
-  "Screen reader walk.booklet.md": read(path.join(REPO, "test", "page-notes", "Screen reader walk", "Screen reader walk.booklet.md")),
-  "media/tone.wav": fs.readFileSync(path.join(REPO, "test", "page-notes", "Screen reader walk", "media", "tone.wav")),
-};
+  "Screen reader walk.booklet.md": fixtureVault.text("page-notes/Screen reader walk/Screen reader walk.booklet.md"),
+  "media/tone.wav": fs.readFileSync(fixtureVault.asset("Screen reader walk", "media", "tone.wav")),
+});
 const front = (id, title, extra = "") => `---\nbooklet: "0.20"\nid: booklet-test/${id}\ntitle: ${title}\nlang: en\n${extra}---\n\n`;
 // the media note: an allowed clip, a blocked one, a listen box; the note declares two sites that are on no list
 const mediaNote = ctx => front("access-media", "Listening", `media-from:\n  - ${ctx.url("declared.example.org")}\n  - ${ctx.url("note.example.org")}\n`) + `> [!activity|a1] Listening and watching
@@ -354,9 +352,10 @@ async function screen(o, name, { rootSel, setup, walk = true, keys = null, modal
 const save = () => fs.writeFileSync(path.join(OUT, opt.tag + "-results.json"), JSON.stringify(R, null, 1));
 
 (async () => {
+  await fixtureVault.load();
   say("Obsidian:", opt.obsidian, "tag", opt.tag, "axe:", AXE || "not found");
   const dataFor = ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org"), ctx.host("media.example.org")], noteAllows: {} });
-  const files = ctx => ({ ...NOTES, "Listening.booklet.md": mediaNote(ctx) });
+  const files = ctx => ({ ...NOTES(), "Listening.booklet.md": mediaNote(ctx) });
   const cardButton = (text) => o => o.evaluate(t => { const c = document.querySelector(".booklet-allow-card"); const b = c && [...c.querySelectorAll("button")].find(x => x.textContent === t); if (b) b.click(); return !!b; }, text);
 
   // ================== desktop session: the screens of a note ==================

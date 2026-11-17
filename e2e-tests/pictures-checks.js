@@ -1,16 +1,16 @@
 // Check 33 of plugin-check.js: pictures written as image definition lines (`![alt][name]`, 0.10.0), in the real app. The notes are made up
 // and written into the check's own copy of the vault, with small made-up image files:
-//   the demo note test/page-notes/Pictures.booklet.md as it stands (its definition is in the shared data section), and a note of two
+//   the demo note, the fixture "page-notes/Pictures.booklet.md" of test/fixtures.mjs, as it stands (its definition is in the shared data section), and a note of two
 //   modules built from it, where one module holds the definitions and the other does not.
 // Each runs on a desktop's width and in Obsidian's phone mode (390 px), and writes nothing into any note.
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check function.
 const fs = require("fs"), path = require("path");
 const { frames, mobile, kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function picturesChecks(env) {
   const { withApp, Check, BOOK, sleep } = env;
   const DEMO = "Pictures.booklet.md", CASES = "Picture cases.booklet.md", PLAIN = "Evening check-in.booklet.md";
-  const DEMO_SRC = path.join(__dirname, "..", "test", "page-notes", DEMO);
   const demoKit = kit(env, DEMO), casesKit = kit(env, CASES), plainKit = kit(env, PLAIN);
 
   // one transparent pixel and one circle, both made up; a copy of the pixel stands for every picture file but the svg
@@ -85,7 +85,7 @@ The same names in another module: ![The harbour][harbour] and ![dot][].
     for (const where of ["desktop", "phone"]) {
       await withApp("c33-" + where, async (o, vault) => {
         for (const [rel, data] of Object.entries(files)) put(vault, rel, data);
-        put(vault, DEMO, fs.readFileSync(DEMO_SRC, "utf8"));
+        put(vault, DEMO, fixtureVault.text("page-notes/" + DEMO));
         put(vault, CASES, casesText());
         await indexed(o, Object.keys(files));
         if (where === "phone") { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }

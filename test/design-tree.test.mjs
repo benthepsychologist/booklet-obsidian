@@ -7,7 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { core, EXAMPLES, ROOT } from "./helpers.mjs";
+import { core, EXAMPLES } from "./helpers.mjs";
+import { fixtureFiles } from "./fixtures.mjs";
 import { ALL, BARE, FULL, IMPLICIT, ONE_ACTIVITY, PAGES_ONLY, UNREAD, lineOf } from "./design-fixtures.mjs";
 
 const { parseDesign, walkDesign, checkDesign, reassemble, designOutline, moduleTabOf, pageTree, ownRanges, scan, PIECES } = core;
@@ -237,20 +238,19 @@ function notesIn(dir, out = []) {
 }
 
 test("every note in the repository's folders and the format's examples comes back byte for byte", () => {
-	const files = [...notesIn(join(ROOT, "test-vault")), ...notesIn(join(ROOT, "test")), ...notesIn(EXAMPLES)];
-	assert.ok(files.length >= 20, "the notes were found");
-	for (const f of files) {
-		const text = readFileSync(f, "utf8");
+	const notes = [...fixtureFiles().filter((f) => f.path.endsWith(".md")).map((f) => [f.path, f.text]), ...notesIn(EXAMPLES).map((f) => [f, readFileSync(f, "utf8")])];
+	assert.ok(notes.length >= 20, "the notes were found");
+	for (const [name, text] of notes) {
 		const root = parseDesign(text);
-		assert.equal(checkDesign(root, lineCount(text)), null, f);
-		assert.equal(reassemble(root, text), text, f);
+		assert.equal(checkDesign(root, lineCount(text)), null, name);
+		assert.equal(reassemble(root, text), text, name);
 	}
 });
 
 test("a note with lines cut, doubled or truncated at random still comes back byte for byte", () => {
 	let seed = 20261113;
 	const rnd = (n) => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) % n);
-	const sources = [FULL, UNREAD, IMPLICIT, PAGES_ONLY, ...notesIn(join(ROOT, "test-vault")).map((f) => readFileSync(f, "utf8"))];
+	const sources = [FULL, UNREAD, IMPLICIT, PAGES_ONLY, ...fixtureFiles().filter((f) => f.path.endsWith(".md")).map((f) => f.text)];
 	for (const text of sources) {
 		const lines = text.split("\n");
 		for (let k = 0; k < 30; k++) {

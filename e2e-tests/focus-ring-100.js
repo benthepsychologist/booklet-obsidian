@@ -9,6 +9,7 @@
 const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
 const { quiet, bookletPage } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 ? process.argv[i + 1] : d; };
 const opt = { obsidian: arg("obsidian"), out: arg("out"), vault: arg("vault", path.join(__dirname, "..", "test-vault")), tag: arg("tag", "run") };
@@ -24,15 +25,14 @@ const consoleReport = [], sessions = [];
 const env = { launch, opt: { obsidian: opt.obsidian }, WORK, consoleReport, sessions, SRC_VAULT, SHOTS: OUT, BOOK };
 const { withMedia } = require("./media-lib")(env);
 
-const REPO = path.join(__dirname, "..");
-const read = f => fs.readFileSync(f, "utf8");
-const NOTES = {
-  "Every kind.booklet.md": read(path.join(REPO, "test-vault", "Every kind.booklet.md")),
-  "Keyboard walk.booklet.md": read(path.join(REPO, "test", "page-notes", "Keyboard walk.booklet.md")),
-  "Check-in with a wiki.booklet.md": read(path.join(REPO, "test", "page-notes", "Check-in with a wiki.booklet.md")),
-  "Garden dashboards.booklet.md": read(path.join(REPO, "test", "page-notes", "Garden dashboards.booklet.md")),
-  "media/tone.wav": fs.readFileSync(path.join(REPO, "test", "page-notes", "Screen reader walk", "media", "tone.wav")),
-};
+// the made-up notes are the fixtures of test/fixtures.mjs (loaded at the start of the run), the tone a file in test/page-notes
+const NOTES = () => ({
+  "Every kind.booklet.md": fixtureVault.text("Every kind.booklet.md"),
+  "Keyboard walk.booklet.md": fixtureVault.text("page-notes/Keyboard walk.booklet.md"),
+  "Check-in with a wiki.booklet.md": fixtureVault.text("page-notes/Check-in with a wiki.booklet.md"),
+  "Garden dashboards.booklet.md": fixtureVault.text("page-notes/Garden dashboards.booklet.md"),
+  "media/tone.wav": fs.readFileSync(fixtureVault.asset("Screen reader walk", "media", "tone.wav")),
+});
 const mediaNote = ctx => `---\nbooklet: "0.20"\nid: booklet-test/ring-media\ntitle: Listening\nlang: en\nmedia-from:\n  - ${ctx.url("declared.example.org")}\n---\n\n> [!activity|a1] Listening and watching\n\nAllowed clip: ![the allowed clip](${ctx.url("vault.example.org", "tone-60s.wav")})\n\nBlocked clip: ![the blocked clip](${ctx.url("blocked.example.net", "tone-5s.wav")})\n\n> [!choice|q1] A question?\n- [ ] Yes\n- [ ] No\n\n> [!activity|a2] Second activity\n\n> [!choice|q2] Another question?\n- [ ] Yes\n- [ ] No\n`;
 
 // in the page: the ring of the focused element and the surface behind it
@@ -129,7 +129,8 @@ async function walk(o, name, rootSel, { limit = 70, modal = false, start = null 
 }
 
 (async () => {
-  await withMedia("ring", { note: "Garden dashboards.booklet.md", data: ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org"), ctx.host("media.example.org")], noteAllows: {} }), files: ctx => ({ ...NOTES, "Listening.booklet.md": mediaNote(ctx) }) }, async (o, ctx) => {
+  await fixtureVault.load();
+  await withMedia("ring", { note: "Garden dashboards.booklet.md", data: ctx => ({ allowedMediaHosts: [ctx.host("vault.example.org"), ctx.host("media.example.org")], noteAllows: {} }), files: ctx => ({ ...NOTES(), "Listening.booklet.md": mediaNote(ctx) }) }, async (o, ctx) => {
     const version = await o.evaluate(() => (navigator.userAgent.match(/obsidian\/([\d.]+)/i) || [])[1]);
     say("Obsidian " + version);
     const root = BOOK + " .view-content";

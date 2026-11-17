@@ -1,7 +1,8 @@
 // Plugin check: drives the "Booklet" plugin in a real Obsidian and checks what it does.
 //   PLAYWRIGHT=<node_modules path> node plugin-check.js --obsidian <obsidian binary> --vault <test-vault> --out <dir> [--only 1,3] [--lint <lint-booklet.py>]
-// It NEVER touches --vault: every check works on its own fresh copy of the vault and its own scratch config folder, both
-// under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
+// It NEVER touches --vault (the repository's test-vault, which holds only the built plugin): the made-up notes are written from
+// test/fixtures.mjs into a source vault under <out>/work-<time>/, and every check works on its own fresh copy of that and its own
+// scratch config folder, both under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
 // leftovers-checks.js; 29 to 32, 61 (0.19, rows that open and data files), 62 (0.19, acts on rows) and 63 (0.20, adding and removing rows) in dashboard-checks.js; 64 to 74 (1.6.0, the Design view) in design-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
 // safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 and 56 to 59 (0.12.0, audio and video) in media-checks.js; 60 (0.19, the copy callout) in copy-checks.js. README.md in
@@ -9,6 +10,7 @@
 // Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { launch } = require("./drive");
+const fixtureVault = require("./fixture-vault");
 
 const argv = process.argv.slice(2), opt = {};
 for (let i = 0; i < argv.length; i++) if (argv[i].startsWith("--")) opt[argv[i].slice(2)] = argv[++i];
@@ -28,7 +30,7 @@ if (!opt.only) only.splice(only.length - 1, 0, 60);
 if (!opt.only) only.splice(only.length - 1, 0, 61, 62, 63);
 // checks 64 to 74 (plugin 1.6.0, the Design view, in design-checks.js) join it as well
 if (!opt.only) only.splice(only.length - 1, 0, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74);
-const SRC_VAULT = path.resolve(opt.vault);
+let SRC_VAULT = path.resolve(opt.vault);   // replaced at the start of the run by the source vault the fixtures are written into
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
 fs.mkdirSync(WORK, { recursive: true }); fs.mkdirSync(SHOTS, { recursive: true });
@@ -86,7 +88,7 @@ async function waitFile(o, rel, timeout = 8000) {   // some root leaf shows that
 const BOOK = ".workspace-leaf-content[data-type='booklet']";
 const MD = ".workspace-leaf-content[data-type='markdown']";
 const read = (vault, rel) => fs.readFileSync(path.join(vault, rel), "utf8");
-// The errors the linter is expected to report on a test-vault note, by its file name, and no others: none on any of them
+// The errors the linter is expected to report on a made-up note of test/fixtures.mjs, by its file name, and no others: none on any of them
 // with the format 0.18 linter (the check-in note's each:, earlier: and blue and purple cells are format 0.16's).
 // test/helpers.mjs keeps the same list.
 const EXPECTED_LINT = {};
@@ -1943,6 +1945,7 @@ async function check10() {
 (async () => {
   const t00 = Date.now();
   console.log("INFO  vault copies and config under " + WORK + "; screenshots in " + SHOTS);
+  SRC_VAULT = await fixtureVault.makeSourceVault(SRC_VAULT, path.join(WORK, "source-vault"));
   const nav = require("./nav-checks")({ withApp, Check, launch, opt, SHOTS, sleep, BOOK, read, SRC_VAULT, waitActiveType });
   const study = require("./study-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });
   const reading = require("./reading-checks")({ withApp, Check, SHOTS, sleep, BOOK, waitActiveType });

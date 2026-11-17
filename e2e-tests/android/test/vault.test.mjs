@@ -3,10 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fixtureFiles } from "../../../test/fixtures.mjs";
 import { makeWav, buildVault, listenNote, pagesNote, NOTES, TONE, LISTEN_A1, LISTEN_A2 } from "../lib/vault.mjs";
-
-const testVault = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "test-vault");
 
 test("makeWav: a valid 16-bit mono PCM header, the right length, quiet", () => {
 	const w = makeWav(2, 440, 8000, 3000);
@@ -40,20 +38,25 @@ test("the notes: the screens the checks go to are in the notes", () => {
 	for (const n of [l, p]) assert.ok(!/@|https?:\/\/(?!media\.android-pass\.invalid)/.test(n), "made-up content only");
 });
 
-test("buildVault: test-vault copied without its .obsidian, the made-up notes and the tone added", () => {
+test("buildVault: the fixtures at the root written without any .obsidian, the made-up notes and the tone added", () => {
 	const dest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "android-pass-vault-")), "vault");
-	const written = buildVault({ testVault, dest });
+	const written = buildVault({ dest });
 	assert.deepEqual(written.sort(), [NOTES.listen, NOTES.pages, TONE].sort());
-	assert.ok(fs.existsSync(path.join(dest, NOTES.view)), "Check-in note from test-vault");
+	assert.ok(fs.existsSync(path.join(dest, NOTES.view)), "Check-in note from the fixtures");
 	assert.ok(fs.existsSync(path.join(dest, "Every kind.booklet.md")));
 	assert.ok(!fs.existsSync(path.join(dest, ".obsidian")), "the plugin must come from the build under test, not from test-vault/.obsidian");
 	assert.equal(fs.readFileSync(path.join(dest, TONE)).readUInt32LE(40), 120 * 8000 * 2);
 	// building again replaces the folder
 	fs.writeFileSync(path.join(dest, "stray.md"), "x");
-	buildVault({ testVault, dest });
+	buildVault({ dest });
 	assert.ok(!fs.existsSync(path.join(dest, "stray.md")));
 });
 
-test("buildVault: a wrong test-vault says so", () => {
-	assert.throws(() => buildVault({ testVault: os.tmpdir(), dest: path.join(os.tmpdir(), "x-vault") }), /is missing/);
+test("buildVault: every fixture at the root is there with its text, and none from a folder", () => {
+	const dest = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "android-pass-vault-")), "vault");
+	buildVault({ dest });
+	const root = fixtureFiles().filter((f) => !f.path.includes("/"));
+	assert.ok(root.length >= 9);
+	for (const f of root) assert.equal(fs.readFileSync(path.join(dest, f.path), "utf8"), f.text, f.path);
+	assert.ok(!fs.existsSync(path.join(dest, "page-notes")) && !fs.existsSync(path.join(dest, "dashboards")));
 });

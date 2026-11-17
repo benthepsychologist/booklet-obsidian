@@ -13,7 +13,7 @@ export class Limit extends Error {
 }
 
 export const ANSWER = "Android pass: a made-up answer";
-const CHECK_IN_SCREEN = "activity:day-check/today"; // what the desktop checks open the test-vault's Check-in note on
+const CHECK_IN_SCREEN = "activity:day-check/today"; // what the desktop checks open the Check-in fixture note on
 
 const j = (o) => JSON.stringify(o);
 

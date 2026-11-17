@@ -6,7 +6,7 @@
 //   before: ... --vault /workspace/booklet-wt/c102/test-vault --tag before --out <dir>      (the build in that worktree's test-vault copy)
 //   then:   ... --tag after --compare <dir>/before-sort-button.json    (prints every value that differs; a difference is not a FAIL)
 // Not part of plugin-check.js. One Obsidian at a time, on a scratch config and a vault of the plugin's files and the made-up note
-// test/page-notes/Garden dashboards.booklet.md, whose screen "data" has a table of twelve rows, so every heading of it is a sort button.
+// "Garden dashboards.booklet.md" (a fixture of test/fixtures.mjs), whose screen "data" has a table of twelve rows, so every heading of it is a sort button.
 // (E2E_PORT_RANGE="9341-9349" keeps the debugging port inside a range of your own; drive.js reads it.)
 //
 // What it does. For two windows, 1280x800 (desktop) and 390x844 (Obsidian's phone mode, as dashboard-checks.js does it), and for the light
@@ -21,6 +21,7 @@
 // How the button compares with its heading (colour, size, weight) is printed as INFO lines, not asserted.
 // Output: <out>/<tag>-<window>-<theme>-<state>.png and <out>/<tag>-sort-button.json. Exit 1 on any FAIL.
 const fs = require("fs"), path = require("path");
+const fixtureVault = require("./fixture-vault");
 
 const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i > 0 && process.argv[i + 1] !== undefined && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : d; };
 const USAGE = "usage: PLAYWRIGHT=<node_modules> node sort-button-103.js --obsidian <binary> --out <dir> [--tag name] [--vault ../test-vault] [--compare <earlier.json>] [--dry] [--help]";
@@ -31,7 +32,7 @@ if (!opt.out || (!opt.obsidian && !dry)) { console.error("needs --obsidian <bina
 const SRC_VAULT = path.resolve(opt.vault), OUT = path.resolve(opt.out);
 const REPO = path.join(__dirname, "..");
 const NOTE = "Garden dashboards.booklet.md";
-const NOTE_SRC = path.join(REPO, "test", "page-notes", NOTE);
+const NOTE_FIXTURE = "page-notes/" + NOTE;   // a fixture of test/fixtures.mjs, written into the session's vault
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const say = (...a) => console.log(...a);
 const manifestOf = () => { try { return JSON.parse(fs.readFileSync(path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", "manifest.json"), "utf8")); } catch (e) { return {}; } };
@@ -63,7 +64,7 @@ function compare(before, after) {
 }
 
 if (dry) {
-  const need = [...["main.js", "manifest.json", "styles.css"].map(f => path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", f)), NOTE_SRC];
+  const need = [...["main.js", "manifest.json", "styles.css"].map(f => path.join(SRC_VAULT, ".obsidian", "plugins", "booklet", f)), path.join(REPO, "test", "fixtures.mjs")];
   let bad = 0;
   for (const f of need) { const ok = fs.existsSync(f); if (!ok) bad++; say((ok ? "ok   " : "MISSING ") + f); }
   say("plugin in the vault: " + (manifestOf().version || "(unreadable manifest)"));
@@ -121,9 +122,10 @@ const READ = props => {
 };
 
 (async () => {
+  await fixtureVault.load();
   say("Obsidian:", opt.obsidian, "tag", opt.tag, "plugin in the vault:", manifestOf().version);
   const result = { tag: opt.tag, plugin: manifestOf().version || null, configs: {} };
-  await withMedia("sort-button", { note: NOTE, files: { [NOTE]: fs.readFileSync(NOTE_SRC, "utf8") }, data: { allowedMediaHosts: [], noteAllows: {} } }, async (o, ctx) => {
+  await withMedia("sort-button", { note: NOTE, files: { [NOTE]: fixtureVault.text(NOTE_FIXTURE) }, data: { allowedMediaHosts: [], noteAllows: {} } }, async (o, ctx) => {
     const version = await o.evaluate(() => (navigator.userAgent.match(/obsidian\/([\d.]+)/i) || [])[1]);
     say("version", version); result.obsidian = version;
     const pluginVersion = await o.evaluate(() => app.plugins.plugins.booklet && app.plugins.plugins.booklet.manifest.version);

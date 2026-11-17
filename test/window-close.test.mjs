@@ -9,12 +9,11 @@
 import { openView, testApp, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, sleep } from "./helpers.mjs";
+import { core, sleep } from "./helpers.mjs";
+import { EVERY_KIND } from "./fixtures.mjs";
 const { windowGone } = await import("./.build/view.mjs");
 
-const NOTE = readFileSync(join(ROOT, "test-vault", "Every kind.booklet.md"), "utf8");
+const NOTE = EVERY_KIND;
 
 /** A window as the main window sees another one: `closed` is false until the test closes it. */
 const fakeWindow = (document = null) => ({ closed: false, document });

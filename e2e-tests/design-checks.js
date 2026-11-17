@@ -1,5 +1,5 @@
-// Checks 64 to 74 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is the repository's test-vault
-// note or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
+// Checks 64 to 74 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
 //      Obsidian has not loaded is a placeholder: loadIfDeferred) and the header icons; no member of the view hidden by the base class
@@ -1421,7 +1421,7 @@ lang: en
   /* ================= CHECKS 70 AND 71 ================= */
   // The Design view with Obsidian itself in Spanish (70) and in French (71): the language is Obsidian's own (localStorage "language", then
   // the app reloads, as the Language setting does). Every scene is judged at a desktop's width and at Obsidian's phone mode (390 x 844), in the light theme.
-  const STRINGS_TS = path.join(SRC_VAULT, "..", "src", "core", "design-strings.ts");
+  const STRINGS_TS = path.join(__dirname, "..", "src", "core", "design-strings.ts");
   /**
    * The table's strings as the source file spells them: key -> {en, es, fr}. A key is written `tr("en", "es", "fr")` or `{ en: "...", es: "...", fr: "..." }`;
    * a string with no Spanish or French yet has no slot (the view shows it in English). The count of those is read from the file at run time, not fixed here.

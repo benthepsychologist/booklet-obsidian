@@ -1,7 +1,7 @@
 /*
  * Questions inside a group and inside other callouts (SPEC section 6, "A group holds blocks"),
  * steps (one group at a time within a page), rows (cells side by side), footnotes and citations as sources, and the
- * format's own reading kinds. Core rules run on the core; what is drawn runs over the made-up "Reading and steps" note in
+ * format's own reading kinds. Core rules run on the core; what is drawn runs over the made-up "Reading and steps" fixture (test/fixtures.mjs) in
  * the view (test/pane.mjs). Every note is made up. Each rule has a test that fails without it.
  */
 import { click, words, window as w, typeInto, until } from "./dom.mjs";
@@ -10,9 +10,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { ROOT, assertOutsideUnchanged, core, norm, sha } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 import { pane } from "./pane.mjs";
 
-const READING = readFileSync(join(ROOT, "test-vault", "Reading and steps.booklet.md"), "utf8");
+const READING = fixtures.READING;
 const head = 'booklet: "0.20"';
 const note = (body) => `---\n${head}\n---\n\n> [!activity|a] A\n\n${body}\n`;
 const types = (text) => norm(core.parseBooklet(text).activities[0].segments.map((s) => (s.type === "callout" ? `callout:${s.kind}` : s.type === "question" ? `q:${s.id}` : s.type)));

@@ -1,4 +1,4 @@
-// Check 60 of plugin-check.js: the `copy` callout (format 0.19), in the real app. The note is test/page-notes/Copy callout.booklet.md
+// Check 60 of plugin-check.js: the `copy` callout (format 0.19), in the real app. The note is the fixture "page-notes/Copy callout.booklet.md" of test/fixtures.mjs
 // (made up: a long text question with its folded solution, a choice with its folded hint, a fenced block marked ^marking, and one
 // copy line naming them), copied into each session's own copy of the vault. Real mouse and keyboard events, as a reader makes them:
 //   the button is a real button with the callout's words as its name, and a status region beside it that is empty until a press;
@@ -11,13 +11,13 @@
 // Real iPhone and Android are not driven here. plugin-check.js hands this file what it shares; it returns the check function.
 const fs = require("fs"), path = require("path");
 const { quiet, mobile, untilTrue, kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function copyChecks(env) {
   const { withApp, Check, BOOK, sleep } = env;
   const NOTE = "Copy callout.booklet.md";
-  const SRC = path.join(__dirname, "..", "test", "page-notes", NOTE);
   const { shot, sha, goTo, open } = kit(env, NOTE);
-  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fs.readFileSync(SRC, "utf8"));
+  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fixtureVault.text("page-notes/" + NOTE));
   const LEAD = "Please mark my answer against the model answer. Say what I got right and what I missed, in three short sentences.";
   const QUESTION = "Why does the tide come in twice a day?";
   const MODEL = "The moon pulls on the water on the side of the earth facing it, and a little less on the far side, so the sea bulges on both sides. The earth turns through both bulges each day.";

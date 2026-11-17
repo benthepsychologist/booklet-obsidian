@@ -6,9 +6,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
-import { core, bookletAround, ROOT, SKETCH } from "./helpers.mjs";
+import { core, bookletAround, SKETCH } from "./helpers.mjs";
+import { vaultNotes } from "./fixtures.mjs";
 import { BARE, FULL, IMPLICIT, ONE_ACTIVITY, PAGES_ONLY, UNREAD, ALL, crlf, lineOf } from "./design-fixtures.mjs";
 
 const {
@@ -409,8 +408,7 @@ test("a note with no front matter has the booklet first; one activity has no lin
 });
 
 test("every module, tab, activity, page and data section of every fixture and test-vault note is in the navigator once, in file order", () => {
-	const vault = readdirSync(join(ROOT, "test-vault")).filter((f) => f.endsWith(".md")).map((f) => [f, readFileSync(join(ROOT, "test-vault", f), "utf8")]);
-	for (const [name, text] of [...Object.entries(ALL), ...vault]) {
+	for (const [name, text] of [...Object.entries(ALL), ...Object.entries(vaultNotes())]) {
 		const root = parseDesign(text);
 		const nav = navEntries(root);
 		const nodes = nav.filter((e) => e.node && e.kind !== "settings").map((e) => e.node);
@@ -460,11 +458,10 @@ test("the front matter's form: the keys the format lists, the marker read-only, 
 	assert.equal(bookletTitleOf(FULL), parseBooklet(FULL).title);
 });
 
-test("every test-vault note's front matter reads as the reader reads it, and writing a value that is already there changes nothing", () => {
-	const names = readdirSync(join(ROOT, "test-vault")).filter((f) => f.endsWith(".booklet.md"));
-	assert.ok(names.length >= 6);
-	for (const name of names) {
-		const text = readFileSync(join(ROOT, "test-vault", name), "utf8");
+test("every fixture note's front matter reads as the reader reads it, and writing a value that is already there changes nothing", () => {
+	const notes = Object.entries(vaultNotes());
+	assert.ok(notes.length >= 6);
+	for (const [name, text] of notes) {
 		const book = parseBooklet(text);
 		const form = fmOf(text);
 		assert.equal(field(form, "title").value, book.title, name);

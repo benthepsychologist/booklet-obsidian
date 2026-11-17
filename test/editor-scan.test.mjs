@@ -5,7 +5,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, corpusFiles, read } from "./helpers.mjs";
+import { core, corpusFiles } from "./helpers.mjs";
 
 const { scan, parseBooklet, questionsOf } = core;
 
@@ -33,10 +33,8 @@ test("the corpus is there to compare against", () => {
 	assert.ok(files.length > 0, "no booklet files");
 });
 
-for (const f of files) {
-	const name = f.split("/").slice(-2).join("/");
+for (const { name, text } of files) {
 	test(`the scan and the reader find the same structure: ${name}`, () => {
-		const text = read(f);
 		const b = parseBooklet(text);
 		if (!b.ok) return; // refused: no structure to compare
 		const s = scan(text);

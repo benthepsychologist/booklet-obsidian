@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { fixtureFiles } from "../../../test/fixtures.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
@@ -30,8 +31,8 @@ test("each one is in the plugin's source", () => {
 	assert.deepEqual(missing, [], `the checks look for ${missing.join(", ")} but src/ does not contain it`);
 });
 
-test("the test-vault note the view check opens, and the screen it goes to, exist", () => {
-	const note = read(path.join(root, "test-vault", "Check-in.booklet.md"));
+test("the fixture note the view check opens, and the screen it goes to, exist", () => {
+	const note = fixtureFiles().find((f) => f.path === "Check-in.booklet.md").text;
 	assert.match(note, /\[!module\|day-check\]/);
 	assert.match(note, /\[!activity\|today /);
 });

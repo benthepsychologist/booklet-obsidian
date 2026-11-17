@@ -4,7 +4,7 @@ For Ben, on the Mac (VoiceOver in Obsidian) and on the iPhone (VoiceOver in the 
 
 ## Before you start
 
-1. Put the folder **Screen reader walk** (from the plugin's `test/page-notes` folder) into your vault. It holds one note, `Screen reader walk.booklet.md`, and a `media` folder with a three-second tone. On the iPhone, let your vault sync so the folder arrives.
+1. Put the note and its tone into your vault. From the plugin's repository, run `node -e "import('./test/fixtures.mjs').then(m => require('fs').writeFileSync('<your vault>/Screen reader walk.booklet.md', m.SCREEN_READER))"` (the note is kept as text in `test/fixtures.mjs`), and copy the folder `test/page-notes/Screen reader walk/media` (a three-second tone) into your vault beside it. On the iPhone, let your vault sync so both arrive.
 2. Turn VoiceOver on. Mac: press Command + F5. iPhone: say "Hey Siri, turn on VoiceOver", or Settings, Accessibility, VoiceOver.
 3. Open the note. Mac: Command + O, type `Screen reader walk`, press Return. iPhone: find it in the file list and tap it twice (VoiceOver's "tap").
 4. How to move. Mac: Control + Option + Right arrow goes to the next thing (the plugin's page is a normal web page, so Tab also works). iPhone: swipe right for next, left for back, double-tap to press.

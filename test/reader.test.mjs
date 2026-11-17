@@ -1,7 +1,7 @@
 /* The reader: markers, modules and scopes, the seven common question kinds, and what it records as not supported. */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { core, corpusDirs, corpusFiles, norm, read } from "./helpers.mjs";
+import { core, corpusDirs, corpusFiles, norm } from "./helpers.mjs";
 
 const fm = (marker) => `---\n${marker}\nid: test/r\ntitle: R\nlang: en\n---\n`;
 
@@ -218,14 +218,14 @@ test("records: blocks for one scope merge in file order, the later wins; a recor
 	assert.deepEqual(r.recordsLines.map((l) => l.scope), ["", "m", ""]);
 });
 
-test("the reader never throws on the examples, the kit starters or the test vault", () => {
+test("the reader never throws on the examples, the kit starters or the fixtures", () => {
 	const files = corpusFiles();
 	const external = corpusDirs().filter((d) => d.external && d.present).length;
 	assert.ok(files.length >= (external ? 8 : 2), `found only ${files.length} files`);
-	for (const f of files) {
-		const b = core.parseBooklet(read(f));
-		assert.ok(b.ok, `${f}: ${b.refusal}`);
-		assert.ok(b.activities.length > 0, f);
+	for (const { name, text } of files) {
+		const b = core.parseBooklet(text);
+		assert.ok(b.ok, `${name}: ${b.refusal}`);
+		assert.ok(b.activities.length > 0, name);
 	}
 });
 

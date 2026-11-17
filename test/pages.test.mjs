@@ -5,8 +5,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { WIKI, build, core, norm } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
 const head = (extra = "") => `---\nbooklet: "0.20"\ntitle: Harbour\n${extra}---\n`;
 const ACT = "> [!activity|notes] Harbour notes\n";
@@ -298,7 +298,7 @@ test("the check-in as one activity with a wiki tab: three tabs, the wiki's tree 
 });
 
 test("a wiki as pages (5.2): nothing before the first page line, so the activity opens on Tides with two pages under it", () => {
-	const { book, nav } = build(readFileSync(new URL("./page-notes/Harbour notes.booklet.md", import.meta.url), "utf8"));
+	const { book, nav } = build(fixtures.HARBOUR);
 	assert.deepEqual(book.problems, [], "nothing in a 0.17 file this view does not read");
 	const a = nav.byKey.get("harbour/notes");
 	assert.deepEqual(outline(a.tabs[0]), ["tides", "  spring", "  neap"]);
