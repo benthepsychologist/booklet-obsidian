@@ -1,4 +1,4 @@
-// Checks 64 to 74 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 76 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -10,23 +10,30 @@
 //      a tile first then a lit "+", a tile dragged to a "+", and the hotkeys with the real keyboard (letters, status line, Enter, Esc, silent
 //      in a field, Obsidian's own keys, a user's own hotkey, the palette commands); the tiles' icon names on this Obsidian
 //   67 delete and move (the floating bar, a card's bar), the count-and-ask dialog, undo and redo by button and key, the in-place editor
-//      (its settings rows edit a draft, Save writes, Cancel, Esc twice, Ctrl+Enter, a draft kept, a note changed on disk meanwhile), the
-//      navigator, the lines the reader cannot read; each write compared byte for byte
+//      (stage 2b: no draft, no Save or Cancel; every field applies when it is left, as one write; the Markdown section; Esc and Ctrl+Enter
+//      apply and close; typed text held when the note changed on disk meanwhile), the navigator, the lines the reader cannot read;
+//      each write compared byte for byte
 //   68 the same writes with the note also open in a Markdown pane (they go through that editor; its buffer equals the disk)
 //   69 a phone (Obsidian's phone mode at 390 x 844): the menu button and the panel, the Add tab on a phone, placing, the editor, the dialog;
 //      light and dark, with screenshots
 //   70 and 71 Obsidian in Spanish and in French: the view's words in that language, and each scene fits, at a desktop's width and on a phone
-//   72 the row editors of stage 2 (a choice or multi, a shared menu, a matrix): each write byte for byte, the ask on a change that moves a kept
-//      answer, a block the rows cannot show falls back to the Markdown, the phone's 44 px, light and dark, Spanish and French
-//   73 typing in a settings row and leaving it by Ctrl+Enter, by a real click on Save, by Esc (real keys and a real mouse, never fill): a title and an anchor number
+//   72 the row editors (a choice or multi, a shared menu, a matrix) applied as you go: each write byte for byte, the ask on a change that moves a
+//      kept answer (Cancel writes nothing), a block the rows cannot show falls back to the Markdown, the phone's 44 px, light and dark, Spanish and French
+//   73 typing in a field and leaving the box at once, with real keys and a real mouse: Ctrl+Enter, a real press on a button of the box (not swallowed, one
+//      write each), Esc (applies and closes), a matrix anchor's number
 //   74 the canvas in Paper and petrol, light or dark, or in Obsidian's look: the look selector in the header, the page, a callout, a choice, a matrix and an open edit box in each of the three looks and
 //      both Obsidian modes (screenshots, the paper tokens or Obsidian's variables on the canvas, the left column and header unchanged, contrast of the edit box), and the selector on a phone
+//   75 the in-place flow with real keys and a real mouse: a title left by Tab (one write, one Undo step, the same elements kept), a description with Enter
+//      and a real press on another block, a real press on "Add an option" straight after typing, Esc, Ctrl+Enter and a press on the page applying and
+//      closing, a drag that ends on the page, the Markdown section, a mode switch and a closed pane with typing pending, typing held when the note changed
+//   76 Undo and Redo in the real app: twelve changes of mixed kinds undone and redone byte for byte, typing pending, nothing to undo, rapid presses, an outside
+//      edit of the note, a dialog open; no console or page error
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { frames, mobile } = require("./waits");
 
 module.exports = function designChecks(env) {
-  const { withApp, Check, SHOTS, sleep, waitActiveType, launch, opt, SRC_VAULT } = env;
+  const { withApp, Check, SHOTS, sleep, waitActiveType, launch, opt, SRC_VAULT, consoleReport } = env;
   const DV = ".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']", BV = ".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet']";
   const EVERY = "Every kind.booklet.md", CHECKIN = "Check-in.booklet.md", READING = "Reading and steps.booklet.md", KEPT = "Kept records.booklet.md", ORDINARY = "Ordinary note.md";
   const VER = (/obsidian-(\d+\.\d+\.\d+)/.exec(opt.obsidian || "") || [0, "x"])[1].replace(/\./g, "");
@@ -61,7 +68,7 @@ module.exports = function designChecks(env) {
     return { ok: false, text: t };
   }
   const idle = async o => {
-    await o.evaluate(async () => { const v = app.workspace.getLeavesOfType("booklet-design")[0]?.view; if (v) await v.whenIdle(); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); });
+    await o.evaluate(async () => { const v = app.workspace.getLeavesOfType("booklet-design")[0]?.view; if (v) await Promise.race([v.whenIdle(), new Promise(r => setTimeout(r, 8000))]); await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))); });
     await sleep(200);
   };
   /**
@@ -109,7 +116,7 @@ module.exports = function designChecks(env) {
       lit: el.querySelectorAll(".booklet-design-slot.is-lit").length,
       target: (el.querySelector(".booklet-design-slot.is-target") || { getAttribute: () => null }).getAttribute("data-slot"),
       tab: tab ? tab.getAttribute("data-tab") : null,
-      editBox: !!el.querySelector(".booklet-design-editbox"), editor: !!el.querySelector(".booklet-design-textarea"),
+      editBox: !!el.querySelector(".booklet-design-editbox"), editor: !!el.querySelector(".booklet-design-edit-md[open] .booklet-design-textarea"),
       modal: !!document.querySelector(".modal-container .modal"),
       phone: el.classList.contains("is-phone"), leftHidden: !!left && left.hidden, panel: !!el.querySelector(".booklet-design-shell.has-panel"),
       page: (el.querySelector(".booklet-design-page") || { getAttribute: () => null }).getAttribute("data-kind") + "@" + (el.querySelector(".booklet-design-page") || { getAttribute: () => null }).getAttribute("data-start"),
@@ -137,14 +144,29 @@ module.exports = function designChecks(env) {
     await o.page.locator(sel).first().click();
     await idle(o);
   }
-  /** A press on a block: it is selected and opens in place (the box has the focus). */
+  /** A press on a block: it is selected and opens in place (its box is drawn in it; the first words field has the focus). */
   async function clickBlock(o, kind, start) {
     const sel = block(kind, start);
     await o.page.locator(sel).scrollIntoViewIfNeeded();
     await o.page.locator(sel).click();
-    await o.page.waitForSelector(sel + ".is-open .booklet-design-textarea", { timeout: 5000 });
+    await o.page.waitForSelector(sel + ".is-open .booklet-design-editbox", { timeout: 5000 });
     await sleep(150);
   }
+  /** The open block's controls (stage 2b): the words fields, the Markdown section (closed until its summary is pressed), the strip. */
+  const TITLE_F = `${DV} .booklet-design-editbox .booklet-design-field.is-title`, DESC_F = `${DV} .booklet-design-editbox .booklet-design-field.is-desc`;
+  const MD_SUMMARY = `${DV} .booklet-design-editbox .booklet-design-edit-md > summary`, MD_AREA = `${DV} .booklet-design-editbox .booklet-design-textarea`;
+  /** The Markdown section of the open block opened by one real press on its summary (nothing is done when it is open already). */
+  async function openMd(o) {
+    if (!(await o.evaluate(() => !!document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox .booklet-design-edit-md[open]")))) await o.page.locator(MD_SUMMARY).click();
+    await o.page.waitForSelector(MD_AREA, { state: "visible", timeout: 3000 });
+  }
+  /** The block's own lines as the open box's Markdown holds them (the text area is there, closed or open). */
+  const markdownOf = o => o.evaluate(() => { const a = document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox .booklet-design-textarea"); return a ? a.value : null; });
+  /** Writes to a note, counted with a vault modify listener of the page's own (armed once per note). */
+  const armWrites = (o, rel) => o.evaluate(rel => { window.__wr = window.__wr || {}; window.__wr[rel] = 0; if (!window.__wrRef) window.__wrRef = app.vault.on("modify", f => { window.__wr[f.path] = (window.__wr[f.path] || 0) + 1; }); }, rel);
+  const writesOf = (o, rel) => o.evaluate(rel => (window.__wr || {})[rel] || 0, rel);
+  /** The page and console errors the harness has collected since `n` (the stdout noise of a missing per-vault json is another kind and is not counted). */
+  const errorsSince = n => consoleReport.slice(n).filter(r => r.kind === "pageerror" || r.kind === "console.error" || (r.kind === "console.warning" && /booklet/i.test(r.text + " " + r.url)));
   /** A block selected and shut, with its floating bar: pressed (it opens) and Escape (nothing changed, so it closes and stays selected). */
   async function selectBlock(o, kind, start) {
     await clickBlock(o, kind, start);
@@ -785,28 +807,31 @@ lang: en
       st = await state(o);
       c.ok(st.armed.length === 0 && (await o.page.locator(DV + " .booklet-design-pal-group.is-keyed").count()) === 0, `Backspace from a group goes back to the groups: nothing picked, no group marked (status ${JSON.stringify(st.status)})`);
       await o.page.keyboard.press("Escape"); await sleep(150);
-      // a key is the field's in a text field and in the textarea: nothing opens, nothing is written
+      // a key is the field's in a words field and in the Markdown: nothing opens, nothing is picked
       const tF = text(file);
       const fruitAt = lineOf(tF, "[!choice|fruit]");
       await clickBlock(o, "question", fruitAt);
-      const titleSel = `${block("question", fruitAt)} .booklet-design-settings [data-field='title'] input`;
-      const orig = await o.page.locator(titleSel).inputValue();
-      await o.page.locator(titleSel).click();
+      const orig = await o.page.locator(TITLE_F).inputValue();
+      await o.page.locator(TITLE_F).click();
       await o.page.keyboard.press("End");
       await typeFast(o, "sqmrvd");
-      const typedIn = await o.page.locator(titleSel).inputValue();
+      const typedIn = await o.page.locator(TITLE_F).inputValue();
       st = await state(o);
-      c.ok(typedIn === orig + "sqmrvd" && !/^Keys/.test(st.status) && st.armed.length === 0, `typing s q m r v d in the settings' Title box goes into the box (${JSON.stringify(typedIn.slice(-8))}); no keys are pending and nothing is picked`);
-      await o.page.locator(titleSel).fill(orig); await o.page.locator(titleSel).evaluate(e => e.blur()); await sleep(300);
-      c.ok(text(file) === tF, "the box put back and left: the note is as it was (a settings row changes the draft, never the note)");
-      await o.page.locator(`${block("question", fruitAt)} .booklet-design-textarea`).focus();
+      c.ok(typedIn === orig + "sqmrvd" && !/^Keys/.test(st.status) && st.armed.length === 0, `typing s q m r v d in the block's title field goes into the field (${JSON.stringify(typedIn.slice(-8))}); no keys are pending and nothing is picked`);
+      await o.page.locator(TITLE_F).fill(orig); await o.page.locator(TITLE_F).evaluate(e => e.blur()); await sleep(300);
+      c.ok(text(file) === tF, "the field put back to what the note has and left: nothing is written (a field applies only when what is in it differs from the note)");
+      await openMd(o);
+      const mdOrig = await markdownOf(o);
+      await o.page.locator(MD_AREA).click();
+      await o.page.keyboard.press("Control+End");
       await typeFast(o, "qmsr");
-      const areaVal = await o.page.locator(`${block("question", fruitAt)} .booklet-design-textarea`).inputValue();
+      const areaVal = await markdownOf(o);
       st = await state(o);
-      c.ok(areaVal.includes("qmsr") && !/^Keys/.test(st.status) && st.armed.length === 0, "in the Markdown box the letters q m s r are text, and open no keys");
-      await o.page.keyboard.press("Escape"); await o.page.keyboard.press("Escape"); await sleep(300);
+      c.ok(areaVal === mdOrig + "qmsr" && !/^Keys/.test(st.status) && st.armed.length === 0, "in the Markdown section the letters q m s r are text, and open no keys");
+      await o.page.locator(MD_AREA).fill(mdOrig); // put back: Esc applies what is typed, so the note must not be asked to take the letters
+      await o.page.keyboard.press("Escape"); await sleep(400);
       st = await state(o);
-      c.ok(!st.editBox && text(file) === tF, "Escape twice throws the typed letters away and writes nothing");
+      c.ok(!st.editBox && text(file) === tF, "Escape closes the block at once (what was typed was put back, so nothing is written)");
       // Obsidian's own keys and the palette commands
       await blurFocus(o);
       await o.page.keyboard.press("Control+p"); await sleep(500);
@@ -848,12 +873,14 @@ lang: en
       // the same bare key in a text field: the field gets the letter; does the user's hotkey also run?
       const sideNow = await o.evaluate(() => app.workspace.leftSplit.collapsed);
       await clickBlock(o, "question", lineOf(text(file), "[!choice|fruit]"));
-      const tsel = `${block("question", lineOf(text(file), "[!choice|fruit]"))} .booklet-design-settings [data-field='title'] input`;
-      await o.page.locator(tsel).click(); await o.page.keyboard.press("End"); await o.page.keyboard.press("q"); await sleep(300);
-      const inField = await o.evaluate(sel => ({ v: document.querySelector(sel).value, side: app.workspace.leftSplit.collapsed }), tsel);
-      c.info(`the user's bare-q hotkey while the settings' Title box has the focus: the box ${/q$/.test(inField.v) ? "gets the letter" : "does not get the letter"} and the sidebar ${inField.side !== sideNow ? "toggles too (Obsidian runs a user's own bare-letter hotkey even in a field; the plugin never takes a key from a field)" : "does not toggle"}`);
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.press("q"); await sleep(300);
+      const inField = await o.evaluate(sel => ({ v: document.querySelector(sel).value, side: app.workspace.leftSplit.collapsed }), TITLE_F);
+      c.info(`the user's bare-q hotkey while the block's title field has the focus: the field ${/q$/.test(inField.v) ? "gets the letter" : "does not get the letter"} and the sidebar ${inField.side !== sideNow ? "toggles too (Obsidian runs a user's own bare-letter hotkey even in a field; the plugin never takes a key from a field)" : "does not toggle"}`);
+      await o.page.keyboard.press("Backspace"); await o.page.keyboard.press("Escape"); await sleep(300); // the letter taken out again, so nothing is owed when the block closes
+      if ((await state(o)).editBox) await o.page.keyboard.press("Escape");
+      if (inField.side !== sideNow) await o.evaluate(() => app.workspace.leftSplit.collapse());
       await o.evaluate(() => { app.hotkeyManager.setHotkeys("app:toggle-left-sidebar", []); app.hotkeyManager.bake(); });
-      c.ok(text(file) === k3, "after the three parts were added by keys, everything else of this run (Escape, filter, a box typed in and put back, the text box, Ctrl+P, Ctrl+O, the palette commands, a user's hotkey) wrote nothing: the note is as the additions left it");
+      c.ok(text(file) === k3, "after the three parts were added by keys, everything else of this run (Escape, filter, a field typed in and put back, the Markdown section, Ctrl+P, Ctrl+O, the palette commands, a user's hotkey) wrote nothing: the note is as the additions left it");
       // ---- the tiles' icon names on this Obsidian: an icon that this Obsidian lacks falls back to a plain shape, never a hole
       await openDesign(o, EVERY);
       await leftTab(o, "add"); await openGroups(o);
@@ -880,7 +907,6 @@ lang: en
   const swapped = (t, a, b) => { const L = t.split("\n"), i = lineOf(t, a), k = lineOf(t, b); let m = k + 1; while (m < L.length && !L[m].startsWith("> [!")) m++; return L.slice(0, i).concat(L.slice(k, m), L.slice(i, k), L.slice(m)).join("\n"); };
   const undoBtn = o => o.page.locator(`${DV} .booklet-design-undo`);
   const redoBtn = o => o.page.locator(`${DV} .booklet-design-redo`);
-  const draftOf = o => o.evaluate(() => { const a = document.querySelector(".workspace-leaf.mod-active .booklet-design-textarea"); return a ? a.value : null; });
   async function check67() {
     const c = new Check(67, "delete and move (the selected block's floating bar, a card's bar) with the count-and-ask dialog (Cancel has the focus, the counts shown, No writes nothing, Yes writes exactly the change); undo and redo by buttons and by Ctrl+Z; the in-place editor (settings rows change a draft, Save writes one line, Cancel, Esc twice, Ctrl+Enter, a draft kept, a note changed on disk meanwhile is refused as stale and the text kept); the navigator and the lines the reader cannot read; every write compared byte for byte; screenshots");
     await withApp("c67", async (o, vault) => {
@@ -926,12 +952,11 @@ lang: en
       r = await waitDisk(every, tx => tx === E1);
       c.ok(r.ok && r.text === E1, "Ctrl+Shift+Z redoes it");
       await idle(o);
-      // in a field the key is the field's: Ctrl+Z in the settings' Title box does not undo the delete
+      // in a field the key is the field's: Ctrl+Z in the block's title field does not undo the delete
       const toolsAt = lineOf(E1, "[!multi|tools");
       await clickBlock(o, "question", toolsAt);
-      const tIn = `${block("question", toolsAt)} .booklet-design-settings [data-field='title'] input`;
-      await o.page.locator(tIn).click(); await o.page.keyboard.press("Control+z"); await sleep(500);
-      c.ok(text(every) === E1, "Ctrl+Z while the settings' Title box has the focus is the box's own (the view undoes nothing: the note still has the delete)");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+z"); await sleep(500);
+      c.ok(text(every) === E1, "Ctrl+Z while the block's title field has the focus is the field's own (the view undoes nothing: the note still has the delete)");
       await o.page.keyboard.press("Escape"); await sleep(300);
       await blurFocus(o);
       await o.page.keyboard.press("Control+z"); r = await waitDisk(every, tx => tx === E0); await idle(o);
@@ -967,103 +992,93 @@ lang: en
       c.info("Move up on the first question of the activity (a paragraph stands above it, so it may go above that) is " + ((await o.page.locator(barBtn("question", fruit, "up")).isDisabled()) ? "off" : "on"));
       await o.page.keyboard.press("Escape");
 
-      // ---------- the editor in place: the settings rows change a draft, Save writes
+      // ---------- the editor in place (stage 2b): no draft, no Save, no Cancel; every field applies when it is left, as one write and one step of Undo
       await clickBlock(o, "question", fruit);
-      const titleIn = `${block("question", fruit)} .booklet-design-settings [data-field='title'] input`;
-      await o.page.locator(titleIn).fill("Which fruit would you take?"); await o.page.locator(titleIn).press("Enter");
-      await sleep(500);
-      c.ok(text(every) === E0, "changing the Title row changes the draft and writes nothing: the note is still byte for byte as it was");
-      let d = await draftOf(o);
-      st = await state(o);
-      c.ok(d.split("\n")[0] === "> [!choice|fruit] Which fruit would you take?" && (await o.evaluate(() => (document.querySelector(".workspace-leaf.mod-active .booklet-design-edit-mark") || {}).textContent)) === "Unsaved changes", `the Markdown box follows the row at once (${JSON.stringify(d.split("\n")[0])}) and the box says "Unsaved changes"`);
-      const prev = await o.evaluate(() => (document.querySelector(".workspace-leaf.mod-active .booklet-design-edit-previewhost") || {}).textContent || "");
-      c.ok(/Which fruit would you take\?/.test(prev), `the preview "As the reader sees it" follows the draft: ${JSON.stringify(prev.slice(0, 60))}`);
-      await shot(o, "editor-draft-light");
-      await o.page.locator(`${DV} .booklet-design-save`).click();
+      const lay = await o.evaluate(sel => { const box = document.querySelector(sel), a = document.activeElement, md = box.querySelector("details.booklet-design-edit-md"); return { title: (box.querySelector(".is-title") || {}).value, desc: (box.querySelector(".is-desc") || {}).value, focus: a && a.className, buttons: [...box.querySelectorAll("button")].map(x => x.textContent.trim() || x.getAttribute("aria-label")), preview: !!box.querySelector(".booklet-design-edit-previewhost"), mdOpen: md.open, summary: md.querySelector("summary").textContent, mark: !!box.querySelector(".booklet-design-edit-mark"), header: !!box.querySelector(".booklet-design-edit-title") }; }, block("question", fruit) + " .booklet-design-editbox");
+      c.ok(lay.title === "Which fruit would you pack?" && lay.desc === "Pick one." && /is-title/.test(lay.focus || "") && !lay.mdOpen && lay.summary === "Markdown", `a press on a block opens it in place: the title and the description are fields holding the note's own words (${JSON.stringify([lay.title, lay.desc])}), the title has the focus, and the Markdown is a closed section named ${JSON.stringify(lay.summary)}`);
+      c.ok(!lay.buttons.some(b => /^(Save|Cancel)$/.test(b)) && !lay.preview && !lay.mark && !lay.header, `there is no Save, no Cancel, no preview, no "Unsaved" mark and no "Editing:" header in the box (buttons: ${JSON.stringify(lay.buttons)})`);
+      await shot(o, "editor-light");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Which fruit would you take?"); await o.page.keyboard.press("Enter");
       r = await waitDisk(every, tx => tx !== E0); await idle(o);
-      c.ok(r.ok && linesDiffering(E0, r.text) === 1 && r.text.includes("> [!choice|fruit] Which fruit would you take?\n"), `Save writes that block's opening line and no other line (${linesDiffering(E0, r.text)} line differs): ${JSON.stringify(region(E0, r.text))}`);
+      c.ok(r.ok && linesDiffering(E0, r.text) === 1 && r.text.includes("> [!choice|fruit] Which fruit would you take?\n"), `Enter in the title field writes that block's opening line and no other line (${linesDiffering(E0, r.text)} line differs): ${JSON.stringify(region(E0, r.text))}`);
       st = await state(o);
-      c.ok(!st.editBox && /^Changed /.test(st.status) && st.selected === "question@" + fruit, `Save closes the editor, the block stays selected, the status says "${st.status}"`);
+      c.ok(st.editBox && /^Changed /.test(st.status) && st.selected === "question@" + fruit, `the block stays open and selected, and the status says "${st.status}"`);
       const E2 = r.text;
-      await clickBlock(o, "question", fruit);
-      await o.page.locator(`${block("question", fruit)} .booklet-design-settings [data-field='open'] .checkbox-container`).click(); await sleep(300);
-      c.ok(text(every) === E2, "the switch \"open\" changes the draft and writes nothing");
-      await o.page.locator(`${DV} .booklet-design-save`).click();
+      await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
+      c.ok(r.ok, "one Undo takes that change back: the note is whole again, byte for byte (one change was one step)");
+      await redoBtn(o).click(); r = await waitDisk(every, tx => tx === E2); await idle(o);
+      c.ok(r.ok, "and one Redo makes it again, byte for byte");
+      // a switch of the strip writes the moment it is pressed
+      if (!(await state(o)).editBox) await clickBlock(o, "question", fruit);
+      const sw = `${DV} .booklet-design-editbox .booklet-design-strip-item[data-field='open'] button[role=switch]`;
+      await o.page.waitForSelector(sw, { timeout: 4000 });
+      c.ok(await o.page.locator(sw).getAttribute("aria-checked") === "false", "the strip has the flag \"open\" as a switch, off");
+      await o.page.locator(sw).click();
       r = await waitDisk(every, tx => tx !== E2); await idle(o);
-      c.ok(r.ok && linesDiffering(E2, r.text) === 1 && /> \[!choice\|fruit open\] Which fruit would you take\?/.test(r.text), `Save then adds the flag to the opening line only: ${JSON.stringify(r.text.split("\n")[fruit])}`);
+      c.ok(r.ok && linesDiffering(E2, r.text) === 1 && /> \[!choice\|fruit open\] Which fruit would you take\?/.test(r.text) && await o.page.locator(sw).getAttribute("aria-checked") === "true", `the switch writes at once: the flag is added to the opening line only, and the switch reads on: ${JSON.stringify(r.text.split("\n")[fruit])}`);
       await undoBtn(o).click(); await waitDisk(every, tx => tx === E2); await idle(o);
       await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
-      c.ok(r.ok, "two Undos take both saved changes back: the note is whole again, byte for byte");
+      c.ok(r.ok, "two Undos take both changes back: the note is whole again, byte for byte");
+      await closeAll(o);
 
-      // ---------- the Markdown box of the editor
+      // ---------- the Markdown section of the box: closed, opened by one press, applied when left
       await clickBlock(o, "question", fruit);
-      let area = o.page.locator(`${block("question", fruit)} .booklet-design-textarea`);
-      c.ok(await area.count() === 1 && await area.evaluate(e => e === document.activeElement) && await area.inputValue() === fruitBlock, "a press on a block opens its own lines in a text box in place, with the focus in it and nothing but those lines in it");
-      const eb = await o.evaluate(sel => { const b = document.querySelector(sel); return { title: (b.querySelector(".booklet-design-edit-title") || {}).textContent, labels: [...b.querySelectorAll(".booklet-design-edit-label")].map(x => x.textContent), rows: b.querySelectorAll(".setting-item").length, buttons: [...b.querySelectorAll(".booklet-design-editor-buttons button")].map(x => x.textContent) }; }, block("question", fruit) + " .booklet-design-editbox");
-      c.ok(eb.title === "Editing: Question" && eb.labels.join() === "As the reader sees it,Markdown" && eb.rows >= 4 && eb.buttons.join() === "Cancel,Save", `the editor has the header ${JSON.stringify(eb.title)}, the parts ${JSON.stringify(eb.labels)}, ${eb.rows} setting rows and the buttons ${JSON.stringify(eb.buttons)}`);
-      await shot(o, "editor-light");
+      await openMd(o);
+      let mdv = await markdownOf(o);
+      c.ok(mdv === fruitBlock, "one press on the Markdown summary opens the block's own lines in a text box, and holds nothing but those lines");
+      await shot(o, "editor-md-light");
+      const rowsBefore = await o.evaluate(sel => document.querySelectorAll(sel + " .booklet-design-rows [data-key]").length, block("question", fruit));
+      await o.page.locator(MD_AREA).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type("\n- [ ] Cherry"); await sleep(250);
+      c.ok(text(every) === E0, "typing in the Markdown writes nothing while the text area has the focus (it is applied when it is left, never at a key)");
+      await o.page.locator(TITLE_F).click(); // leaving it
+      r = await waitDisk(every, tx => tx !== E0); await idle(o);
+      { const pl = placed(E0, r.text); c.ok(r.ok && pl.removed === "" && pl.added === "- [ ] Cherry" && r.text.split("\n").length === E0.split("\n").length + 1, `leaving the Markdown writes just that one line, nothing taken out (${JSON.stringify(pl)})`); }
+      const rowsAfter = await o.evaluate(sel => document.querySelectorAll(sel + " .booklet-design-rows [data-key]").length, block("question", fruit));
+      c.ok(rowsAfter > rowsBefore && await o.page.locator(MD_AREA).isVisible(), `the option rows follow the Markdown (${rowsBefore} controls, then ${rowsAfter}) and the section stays open`);
+      await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
+      c.ok(r.ok, "Undo takes the added option back, byte for byte");
+      await closeAll(o);
+      // Esc with nothing typed closes at once; Esc after typing in the Markdown applies it and closes; Ctrl+Enter does the same
+      await clickBlock(o, "question", fruit);
       await o.page.keyboard.press("Escape"); await sleep(300);
       st = await state(o);
-      c.ok(!st.editBox && st.selected === "question@" + fruit, "Escape with nothing changed closes the editor and leaves the block selected");
-      await o.page.locator(block("question", fruit)).click(); await o.page.waitForSelector(block("question", fruit) + ".is-open", { timeout: 3000 });
-      await o.page.keyboard.press("Control+End"); await typeFast(o, "zz"); await sleep(200);
-      await o.page.keyboard.press("Escape"); await sleep(250);
-      const armed = await o.evaluate(() => ({ open: !!document.querySelector(".workspace-leaf.mod-active .booklet-design-textarea"), state: (document.querySelector(".workspace-leaf.mod-active .booklet-design-editor-state") || {}).textContent, mark: (document.querySelector(".workspace-leaf.mod-active .booklet-design-edit-mark") || {}).textContent }));
-      c.ok(armed.open && /Esc again/.test(armed.state || "") && armed.mark === "Unsaved changes", "the first Escape with changes keeps the box and says so: " + JSON.stringify(armed));
-      await o.page.keyboard.press("Escape"); await sleep(300);
-      const gone = await state(o);
-      c.ok(!gone.editBox && /thrown away/.test(gone.status) && text(every) === E0, `the second Escape throws the changes away (status "${gone.status}") and the note is untouched`);
-      // Cancel
-      await clickBlock(o, "question", fruit);
-      await o.page.locator(`${block("question", fruit)} .booklet-design-textarea`).fill(fruitBlock + "\n- [ ] Cherry"); await sleep(150);
-      await o.page.locator(`${DV} .booklet-design-cancel`).click(); await sleep(300);
+      c.ok(!st.editBox && st.selected === "question@" + fruit && text(every) === E0, "Escape with nothing typed closes the block and leaves it selected, and writes nothing");
+      await clickBlock(o, "question", fruit); await openMd(o);
+      await o.page.locator(MD_AREA).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type("\n- [ ] Cherry"); await sleep(150);
+      await o.page.keyboard.press("Escape");
+      r = await waitDisk(every, tx => tx !== E0); await idle(o);
       st = await state(o);
-      c.ok(!st.editBox && /thrown away/.test(st.status) && text(every) === E0 && st.selected === "question@" + fruit, `Cancel throws the changes away and writes nothing; the block stays selected (status "${st.status}")`);
-      // Ctrl+Enter saves
+      c.ok(r.ok && placed(E0, r.text).added === "- [ ] Cherry" && !st.editBox, `Escape after typing in the Markdown applies it (one line put in) and closes the block: nothing is thrown away, nothing is waiting`);
+      await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
       await clickBlock(o, "question", fruit);
-      area = o.page.locator(`${block("question", fruit)} .booklet-design-textarea`);
-      await area.fill(fruitBlock.replace("Pick one.", "Pick any.")); await sleep(150);
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Pick any.");
       await o.page.keyboard.press("Control+Enter");
       r = await waitDisk(every, tx => tx !== E0); await idle(o);
-      c.ok(r.ok && linesDiffering(E0, r.text) === 1 && r.text.includes("> Pick any.") && !(await state(o)).editBox, `Ctrl+Enter saves: only the one changed line differs, the editor closed: ${JSON.stringify(region(E0, r.text))}`);
+      c.ok(r.ok && linesDiffering(E0, r.text) === 1 && r.text.includes("> Pick any.") && !(await state(o)).editBox, `Ctrl+Enter applies the typed description and closes the block: only the one changed line differs: ${JSON.stringify(region(E0, r.text))}`);
       await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
-      // Save adds a line: the Markdown box rewrites more than the opening line
+      c.ok(r.ok, "Undo takes it back, byte for byte");
+      // typed text is never lost: a press on a navigator entry applies it first
       await clickBlock(o, "question", fruit);
-      await o.page.locator(`${block("question", fruit)} .booklet-design-textarea`).fill(fruitBlock + "\n- [ ] Cherry"); await sleep(250);
-      const rowsAfter = await o.evaluate(sel => document.querySelector(sel).querySelectorAll(".setting-item").length, block("question", fruit) + " .booklet-design-edit-section.is-form");
-      c.ok(rowsAfter >= 4 && text(every) === E0, `typing in the Markdown box keeps the settings rows in step and writes nothing (${rowsAfter} rows)`);
-      await o.page.locator(`${DV} .booklet-design-save`).click();
-      r = await waitDisk(every, tx => tx !== E0); await idle(o);
-      rg = region(E0, r.text);
-      { const pl = placed(E0, r.text); c.ok(r.ok && pl.removed === "" && pl.added === "- [ ] Cherry" && r.text.split("\n").length === E0.split("\n").length + 1, `Save of a box with one more option puts in just that line, nothing taken out (${JSON.stringify(pl)})`); }
-      await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
-      // a draft is never lost: to another page, or to a press on another block
-      await clickBlock(o, "question", fruit);
-      await o.page.locator(`${block("question", fruit)} .booklet-design-textarea`).fill(fruitBlock + "\n- [ ] Cherry"); await sleep(250);
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type(" Or none.");
       await goNav(o, "activity", lineOf(E0, "[!activity|shared"));
+      r = await waitDisk(every, tx => tx !== E0); await idle(o);
       st = await state(o);
-      const det = await o.evaluate(() => { const b = document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox"); return b ? { detached: b.classList.contains("is-detached"), area: b.querySelector("textarea").value, said: (b.querySelector(".booklet-design-editor-moved") || {}).textContent || "" } : null; });
-      c.ok(!!det && det.detached && det.area.includes("Cherry") && text(every) === E0, `another page drawn with a draft open keeps the draft on the screen, above that page, with its words (${JSON.stringify(det && det.said)}) and writes nothing`);
+      c.ok(r.ok && r.text.includes("> Pick one. Or none.") && linesDiffering(E0, r.text) === 1 && st.page.startsWith("activity@") && !st.editBox, `another page drawn with words typed in a field applies them first (one line differs) and then draws that page (${st.page})`);
+      await undoBtn(o).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
       await goNav(o, "activity", KINDS);
-      await o.page.locator(block("question", tools)).scrollIntoViewIfNeeded();
-      await o.page.locator(block("question", tools)).click(); await sleep(400);
-      st = await state(o);
-      c.ok(/Another block is open/.test(st.status) && (await draftOf(o)).includes("Cherry"), `a press on another block while a draft is open says so (${JSON.stringify(st.status)}) and keeps the draft`);
-      await o.page.locator(`${DV} .booklet-design-cancel`).click(); await sleep(300);
-      c.ok(text(every) === E0, "Cancel of that draft leaves the note as it was");
-      // stale: the note changes on disk (the block itself) while the editor is open
-      await clickBlock(o, "question", fruit);
-      area = o.page.locator(`${block("question", fruit)} .booklet-design-textarea`);
-      await area.fill(fruitBlock.replace("Pick one.", "Pick my own.")); await sleep(150);
+      // typing in the Markdown while the note changes on disk meanwhile: held, in the box, with the reason; nothing of the other writer's is overwritten
+      await clickBlock(o, "question", fruit); await openMd(o);
+      await o.page.locator(MD_AREA).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type("\n- [ ] Mine"); await sleep(150);
       const external = E0.replace("> Pick one.\n- [ ] Apple", "> Pick several.\n- [ ] Apple");
       fs.writeFileSync(every, external);
       await o.page.waitForFunction(() => { const v = app.workspace.getLeavesOfType("booklet-design")[0].view; return /Pick several/.test(v.getViewData()); }, null, { timeout: 8000 }).catch(() => {});
       await sleep(400);
-      await o.page.locator(`${DV} .booklet-design-textarea`).focus();
-      await o.page.keyboard.press("Control+Enter"); await sleep(700);
-      const stale = await o.evaluate(() => ({ status: (document.querySelector(".workspace-leaf.mod-active .booklet-design-status") || {}).textContent, area: (document.querySelector(".workspace-leaf.mod-active .booklet-design-textarea") || {}).value || null }));
-      c.ok(text(every) === external && /changed since this editor opened/.test(stale.status) && stale.area && stale.area.includes("Pick my own."), `a change made on disk meanwhile is refused as stale: the note is as the other writer left it, the status says "${stale.status}", and the typed text is still in the box`);
-      await o.page.keyboard.press("Escape"); await o.page.keyboard.press("Escape"); await sleep(300);
+      await o.page.keyboard.press("Escape"); await sleep(700); // the first Esc: it cannot apply the typing, so it says so and the block stays open
+      const stale = await o.evaluate(() => ({ status: (document.querySelector(".workspace-leaf.mod-active .booklet-design-status") || {}).textContent, area: (document.querySelector(".workspace-leaf.mod-active .booklet-design-textarea") || {}).value || null, open: !!document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox") }));
+      c.ok(text(every) === external && /could not be applied/i.test(stale.status || "") && stale.open && !!stale.area && stale.area.includes("- [ ] Mine"), `text typed while the note changed on disk is not applied: the note is as the other writer left it, the status says "${stale.status}", the block stays open and the typed text is still in the Markdown`);
+      c.ok((await state(o)).editBox, "the first Escape with held text keeps the block open (and says why)");
+      await o.page.keyboard.press("Escape"); await sleep(400);
+      c.ok(!(await state(o)).editBox && text(every) === external, "the second Escape closes it: nothing written over the other writer's text");
       fs.writeFileSync(every, E0); await sleep(800);
       await idle(o);
 
@@ -1196,23 +1211,24 @@ lang: en
       await idle(o);
       await undoBtn(o).click(); t = await agree("Undo of the move", tx => tx === E0); await idle(o);
       { const stp = await state(o); if (stp.page !== "activity@" + lineOf(E0, "[!activity|kinds")) { c.info("after the Undo of the move the Design pane drew " + stp.page + " (the finding of check 67: the view leaves the activity page); going back by the navigator"); await goNav(o, "activity", lineOf(E0, "[!activity|kinds")); } }
-      // the editor: a settings row then Save
+      // the open block: a title typed and left by Enter is applied through the Markdown pane's editor too
       await clickBlock(o, "question", fruit);
-      const titleIn = `${block("question", fruit)} .booklet-design-settings [data-field='title'] input`;
-      await o.page.locator(titleIn).fill("Which fruit would you take?"); await o.page.locator(titleIn).press("Enter"); await sleep(400);
-      c.ok(text(every) === E0 && (await md()) === E0, "a settings row changes the draft only: the file and the Markdown pane's buffer are as they were");
-      await o.page.locator(`${DV} .booklet-design-save`).click();
-      t = await agree("The editor's Save after a settings row", tx => tx !== E0); await idle(o);
-      c.ok(linesDiffering(E0, t) === 1 && t.includes("> [!choice|fruit] Which fruit would you take?\n"), "Save changed that block's opening line and no other line (" + linesDiffering(E0, t) + " line differs)");
-      await undoBtn(o).click(); t = await agree("Undo of the form", tx => tx === E0); await idle(o);
-      // editor with Ctrl+Enter
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Which fruit would you take?");
+      c.ok(text(every) === E0 && (await md()) === E0, "typing in the title field writes nothing yet: the file and the Markdown pane's buffer are as they were");
+      await o.page.keyboard.press("Enter");
+      t = await agree("The title field's Enter", tx => tx !== E0); await idle(o);
+      c.ok(linesDiffering(E0, t) === 1 && t.includes("> [!choice|fruit] Which fruit would you take?\n"), "the field changed that block's opening line and no other line (" + linesDiffering(E0, t) + " line differs)");
+      c.ok(await procs() === 0, `the typed title too went through the Markdown pane's editor (vault.process called ${await procs()} times)`);
+      await undoBtn(o).click(); t = await agree("Undo of the title", tx => tx === E0); await idle(o);
+      // Ctrl+Enter in a words field: applied and closed, through the pane
       const fruitBlock = blockText(E0, "[!choice|fruit]");
-      await clickBlock(o, "question", fruit);
-      await o.page.locator(`${DV} .booklet-design-textarea`).fill(fruitBlock.replace("Pick one.", "Pick any.")); await sleep(150);
+      if (!(await state(o)).editBox) await clickBlock(o, "question", fruit);
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Pick any.");
       await o.page.keyboard.press("Control+Enter");
-      t = await agree("The text editor's Ctrl+Enter", tx => tx !== E0); await idle(o);
-      c.ok(linesDiffering(E0, t) === 1 && t.includes("> Pick any."), "the editor changed the one line the user changed and no other");
-      await undoBtn(o).click(); t = await agree("Undo of the editor save", tx => tx === E0); await idle(o);
+      t = await agree("The description's Ctrl+Enter", tx => tx !== E0); await idle(o);
+      c.ok(linesDiffering(E0, t) === 1 && t.includes("> Pick any.") && !(await state(o)).editBox, "Ctrl+Enter applied the one line the user changed, no other, and closed the block");
+      await undoBtn(o).click(); t = await agree("Undo of the description", tx => tx === E0); await idle(o);
+      void fruitBlock;
       // text typed in the Markdown pane and not yet on disk
       const thoughts = lineOf(E0, "[!text|thoughts long]");
       await o.evaluate(n => { const ed = app.workspace.getLeavesOfType("markdown")[0].view.editor; const l = ed.getLine(n); ed.replaceRange(" (typed)", { line: n, ch: l.length }); }, thoughts);
@@ -1224,17 +1240,16 @@ lang: en
       t = await agree("Delete after text was typed in the Markdown pane", tx => wantPair.includes(tx));
       c.ok(wantPair.includes(t) && t.includes("Anything else about the plan? (typed)"), `the text typed in the Markdown pane (not yet saved when the delete was made: ${typedAt ? "it was not on disk" : "it had already been saved"}) is kept and the delete is made in the same text`);
       await shot(o, "markdown-pane-beside-light");
-      // a draft in the editor while the Markdown pane changes the note: the draft is kept, and Save is refused as stale when its own block changed
+      // text typed in a field of the box while the Markdown pane changes that block: it is held (with the reason), not applied over the pane's words
       await undoBtn(o).click(); await agree("Undo of the delete", tx => tx.includes("[!choice|fruit]")); await idle(o);
       const nowText = text(every), fr2 = lineOf(nowText, "[!choice|fruit]");
       await clickBlock(o, "question", fr2);
-      await o.page.locator(`${DV} .booklet-design-textarea`).fill(blockText(nowText, "[!choice|fruit]").replace("Pick one.", "Pick my own.")); await sleep(150);
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Mine.");
       await o.evaluate(n => { const ed = app.workspace.getLeavesOfType("markdown")[0].view.editor; const l = ed.getLine(n + 1); ed.replaceRange(" and more", { line: n + 1, ch: l.length }); }, fr2);
       await sleep(900);
-      await o.page.locator(`${DV} .booklet-design-textarea`).focus();
-      await o.page.keyboard.press("Control+Enter"); await sleep(800);
-      const sd = await o.evaluate(() => ({ status: (document.querySelector(".workspace-leaf.mod-active .booklet-design-status") || {}).textContent, area: (document.querySelector(".workspace-leaf.mod-active .booklet-design-textarea") || {}).value || null }));
-      c.ok(/changed since this editor opened/.test(sd.status) && !!sd.area && sd.area.includes("Pick my own.") && (await md()).includes("Pick one. and more"), `a change typed in the Markdown pane under an open draft: Save is refused as stale (${JSON.stringify(sd.status)}), the draft stays in the box and the typed words stay in the Markdown pane`);
+      await o.page.keyboard.press("Tab"); await sleep(800);
+      const sd = await o.evaluate(() => ({ status: (document.querySelector(".workspace-leaf.mod-active .booklet-design-status") || {}).textContent, field: (document.querySelector(".workspace-leaf.mod-active .booklet-design-field.is-desc") || {}).value || null }));
+      c.ok(/changed/i.test(sd.status || "") && !!sd.field && sd.field.includes("Mine.") && (await md()).includes("Pick one. and more") && !(await md()).includes("Mine."), `a change typed in the Markdown pane under words typed in the box: the box's words are held (${JSON.stringify(sd.status)}), they stay in the field and the typed words stay in the Markdown pane`);
     });
     return c;
   }
@@ -1366,11 +1381,24 @@ lang: en
       await shot(o, "phone-bar-light");
       await o.page.locator(barBtn("question", fruit, "edit")).click(); await sleep(500);
       st = await state(o);
-      c.ok(st.editBox && st.editor, "the bar's Edit as Markdown opens the editor on the phone");
-      await judge("the editor");
+      c.ok(st.editBox && !st.editor, "the bar's Edit as Markdown opens the block in place on the phone (its Markdown section is closed until its own summary is pressed)");
+      await judge("the open block");
       await shot(o, "phone-editor-light");
       await o.setScheme("dark"); await sleep(500); await shot(o, "phone-editor-dark"); await o.setScheme("light"); await sleep(300);
-      await o.page.locator(`${DV} .booklet-design-cancel`).click(); await sleep(300);
+      await o.page.locator(MD_SUMMARY).click(); await sleep(300);
+      c.ok((await state(o)).editor, "a tap on the Markdown summary opens the block's own lines on the phone");
+      await judge("the open block with its Markdown section open");
+      await shot(o, "phone-editor-md-light");
+      // typing in a field and tapping away applies it (one write), and Escape closes the block
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("?");
+      await o.page.locator(DESC_F).click();
+      await sleep(300);
+      r = await waitDisk(every, tx => tx !== E0); await idle(o);
+      c.ok(r.ok && linesDiffering(E0, r.text) === 1 && r.text.split("\n")[fruit].endsWith("?"), `on the phone a title typed and left by touching the next field is written at once (one line differs): ${JSON.stringify(r.text.split("\n")[fruit])}`);
+      await o.page.keyboard.press("Escape"); await sleep(300);
+      c.ok(!(await state(o)).editBox, "Escape closes the block on the phone");
+      await o.page.locator(`${DV} .booklet-design-undo`).click(); r = await waitDisk(every, tx => tx === E0); await idle(o);
+      c.ok(r.ok, "Undo takes the title back, byte for byte");
       // the page in the dark theme
       await o.setScheme("dark"); await sleep(500);
       await judge("the page in the dark theme");
@@ -1553,13 +1581,18 @@ lang: en
         await o.page.keyboard.press("Escape"); await sleep(300);
         st = await state(o);
         if (st.phone && st.panel) { await tapScrim(o); await sleep(300); }
-        // the editor in place
+        // the editor in place (no Save and no Cancel any more: the box is the block, its own words and its controls)
         await goNav(o, "activity", KINDS);
         await clickBlock(o, "question", fruit);
         const eitems = await judge(`${tagWidth} editor`, "editor", tagWidth);
         const et = eitems.map(i => i.text);
-        c.ok(et.includes(exp("editor.cancel")) && et.includes(exp("editor.save")), `${tagWidth}: the editor's buttons are ${JSON.stringify(exp("editor.cancel"))} and ${JSON.stringify(exp("editor.save"))}`);
+        const want = ["form.title", "edit.desc", "edit.markdown", "edit.keys", "act.up", "act.down", "act.delete"].filter(k => !et.includes(exp(k)));
+        c.ok(want.length === 0, `${tagWidth}: the open block's field names, its Markdown section, its hint and its buttons read in ${label} when the table has them (looked for ${JSON.stringify(["form.title", "edit.desc", "edit.markdown", "edit.keys", "act.up", "act.down", "act.delete"].map(exp))}); not found: ${JSON.stringify(want)}`);
+        c.ok(!et.some(t => t === "Save" || t === "Cancel" || t === exp("editor.save") || t === exp("editor.cancel")), `${tagWidth}: the box has no Save and no Cancel`);
+        await o.page.locator(MD_SUMMARY).click(); await sleep(250);
+        await judge(`${tagWidth} editor with the Markdown open`, "editor-md", tagWidth);
         await o.page.keyboard.press("Escape"); await sleep(300);
+        await closeAll(o);
         // the confirm dialog, on Kept records (a kept answer is touched)
         await openDesign(o, KEPT, "tab", true, false);
         if (tagWidth === "desktop") { await o.evaluate(() => { app.workspace.leftSplit.collapse(); app.workspace.rightSplit.collapse(); }); await sleep(500); }
@@ -1617,50 +1650,64 @@ lang: en
   const openBox = `${DV} .booklet-design-block.is-open`;
 
   async function check72() {
-    const c = new Check(72, "the row editors (stage 2) in the real app: a choice and a multi by rows (words, the correct switch, replies, add, move, remove, the open switch, the shared-menu picker), a shared menu's rows with Used by, a matrix with anchors from 0; every Save compared byte for byte with the whole expected note; a change that moves a kept answer asks first and Cancel writes nothing, one that moves none asks nothing; typing in a row and in the Markdown keep each other in step and the focus stays; a block the rows cannot show without changing a byte has the Markdown and the reason; a phone (44 px, light and dark); Spanish and French");
+    const c = new Check(72, "the row editors in the real app, applied as you go (no Save, no draft): a choice and a multi by rows (words, the correct switch, replies, add, move, remove, the open switch, the shared-menu picker), a shared menu's rows with Used by, a matrix with anchors from 0; every change compared byte for byte with the whole expected note, one write each; a change that moves a kept answer asks first and Cancel writes nothing and the rows go back to the note, one that moves none asks nothing; typing in a row and in the Markdown keep each other in step, the same elements stay and the focus stays; a block the rows cannot show without changing a byte has the Markdown open and the reason; a phone (44 px, light and dark); Spanish and French");
     const table = tableOf();
     await withApp("c72", async (o, vault) => {
       let seq = 0;
       const vp0 = await o.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
       const mk = (kept, both = false) => { const name = "s" + (++seq) + (kept ? "k" : "b"), rel = `Rows ${name}.booklet.md`, t = rowsNote(name, kept, both); return { rel, file: put(vault, rel, t), t, name }; };
       const q = (n, needle) => lineOf(text(n.file), needle);
-      const start = async (kept, wide = true, both = false) => { const n = mk(kept, both); await openDesign(o, n.rel, "tab", true, wide); await goNav(o, "activity", q(n, "[!activity|a]")); return n; };
+      const start = async (kept, wide = true, both = false) => { const n = mk(kept, both); await openDesign(o, n.rel, "tab", true, wide); await goNav(o, "activity", q(n, "[!activity|a]")); await armWrites(o, n.rel); lastW.v = 0; return n; };
       const openQ = async (n, needle, kind = "question") => { await clickBlock(o, kind, q(n, needle)); await sleep(150); };
+      const reopen = async (n, needle) => { if (!(await state(o)).editBox) await openQ(n, needle); };
       const closeBox = async () => { for (let i = 0; i < 3 && (await state(o)).editBox; i++) { await o.page.keyboard.press("Escape"); await sleep(250); } };
-      const area = () => draftOf(o);
+      const area = () => markdownOf(o);
       const focusKey = () => o.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-key") || a.className || a.tagName) : null; });
       const inputs = () => o.evaluate(sel => [...document.querySelectorAll(sel + " input[data-key]")].map(e => e.getAttribute("data-key") + "=" + e.value), `${DV} .booklet-design-rows`);
       const refused = () => o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-rows-refused"); return e ? e.textContent : null; }, DV);
       const rowsShown = () => o.evaluate(sel => document.querySelectorAll(sel + " .booklet-design-rows [data-key]").length, DV);
       const checked = k => o.page.locator(RW(k)).getAttribute("aria-checked");
+      /** Real typing in a row: a click into it, the words (the old ones replaced, or added to), the row NOT left yet. */
       const typeIn = async (key, s, replace = true) => { const l = o.page.locator(RW(key)); await l.click(); await o.page.keyboard.press(replace ? "Control+a" : "End"); await o.page.keyboard.type(s); await sleep(150); };
+      /** Real typing, then Tab: the row is left, and what was typed is applied. */
+      const typeLeave = async (key, s, replace = true) => { await typeIn(key, s, replace); await o.page.keyboard.press("Tab"); };
       const press = async key => { await o.page.locator(RW(key)).click(); await sleep(200); };
       const diff = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 360);
-      /** A screenshot with the rows at the top of the view (the box scrolls to the Markdown when it opens, so the rows would be above the fold). */
+      /** A screenshot with the rows at the top of the view. */
       const rshot = async name => { await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-rows"); if (e) e.scrollIntoView({ block: "start" }); }, DV); await sleep(250); await shot(o, name); };
       /** The note's text once it has changed from `before`, read again after a moment: a write that truncates first can be read half done. */
-      const disk = async (n, before) => { const r = await waitDisk(n.file, tx => tx !== before && tx.length > 0); await sleep(300); return { ok: r.ok, text: text(n.file) }; };
-      const saveBtn = () => o.page.locator(`${DV} .booklet-design-save`);
-      /** Save with nothing to ask: the note on disk equals `want`, no dialog was shown. */
-      const saved = async (n, before, want, label) => {
-        await saveBtn().click();
+      const lastW = { v: 0 };
+      const disk = async (n, before) => { const pre = lastW.v; const r = await waitDisk(n.file, tx => tx !== before && tx.length > 0); await sleep(300); lastW.v = await writesOf(o, n.rel); return { ok: r.ok, text: text(n.file), writes: lastW.v - pre }; };
+      const cancelled = table["status.cancelled"] ? table["status.cancelled"].en : "Nothing was changed.";
+      /** A change that asks nothing: the note on disk equals `want`, no dialog, the box still open, and `writes` more writes (one by default). */
+      const applied = async (n, before, want, label, writes = 1) => {
         const r = await disk(n, before); await idle(o);
-        const st = await state(o);
-        c.ok(r.ok && r.text === want && !st.modal && !st.editBox, `${label}: Save wrote the whole expected note byte for byte, asked nothing, and closed the box${diff(want, r.text)}`);
+        const st = await state(o), w = r.writes;
+        c.ok(r.ok && r.text === want && !st.modal && st.editBox && w === writes, `${label}: the whole expected note was written byte for byte, nothing was asked, the box is still open, ${w} write(s)${diff(want, r.text)}`);
         return r.text;
       };
-      /** Save that must ask: the dialog's text, then Cancel writes nothing and the box keeps its draft. */
-      const asks = async (n, before, label, words, cancel = true) => {
-        await saveBtn().click();
+      /** A change that must ask: the dialog's text and the focus on Cancel; Cancel writes nothing, says so, and the rows show the note again. */
+      const asks = async (n, before, label, words, rowsNow) => {
+        const w0 = await writesOf(o, n.rel);
         const shown = await waitModal(o, true);
         const m = shown ? await modalInfo(o) : null;
-        c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: Save opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 200))}), the focus is on Cancel`);
-        if (cancel && shown) {
-          await clickModal(o, "Cancel");
+        c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: it opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 200))}), the focus is on Cancel`);
+        if (shown) {
+          await clickModal(o, "Cancel"); await idle(o);
           const st = await state(o);
-          c.ok(text(n.file) === before && st.editBox && !!(await area()), `${label}: Cancel writes nothing (the note is byte for byte as it was) and the box keeps its draft`);
+          c.ok(text(n.file) === before && st.editBox && st.status === cancelled && (await writesOf(o, n.rel)) === w0 && (!rowsNow || (await inputs()).join("|") === rowsNow), `${label}: Cancel writes nothing (the note is byte for byte as it was), says ${JSON.stringify(st.status)}, and the rows are the note's again`);
         }
         return m;
+      };
+      /** A press on Undo: a step that moves a kept answer asks, as the change did (the dialog says Undo brings the note back); it is answered Change, and said. */
+      const undoStep = async () => {
+        await undoBtn(o).click();
+        if (await waitModal(o, true, 1200)) { c.info("Undo of a step that touched a kept answer opened the count-and-ask dialog; answered Change"); await clickModal(o, "Change"); }
+      };
+      /** The Markdown section left by Tab: a block change made there cannot be told row by row, so one that touches a kept answer asks, and is answered Change. */
+      const leaveMd = async () => {
+        await o.page.keyboard.press("Tab");
+        if (await waitModal(o, true, 1500)) { c.info("a change typed in the Markdown section touched a kept answer: the count-and-ask dialog opened when the section was left; answered Change"); await clickModal(o, "Change"); }
       };
       const changed = async (n, before, want, label) => {
         await clickModal(o, "Change");
@@ -1669,280 +1716,321 @@ lang: en
         return r.text;
       };
 
+      let n, cur, m, u2;
       // ================= 1. a choice by rows, with kept answers
-      let n = await start(true);
-      let cur = n.t;
-      await openQ(n, "[!choice|where]");
-      const blockWhere = WHERE72.join("\n");
-      c.ok((await area()) === blockWhere, "the box opens with the choice's own lines in the Markdown, byte for byte (hint and all)");
-      c.ok((await inputs()).join("|") === "o0-text=Calm|o0-r0-text=That is the settling system at work.|o1-text=Wound up|o1-r0-text=That is the activating family.|o1-r1-text=It is also useful.|o2-text=Numb", "the rows show the three options and the three replies as inputs: " + JSON.stringify(await inputs()));
-      c.ok([await checked("o0-correct"), await checked("o1-correct"), await checked("o2-correct")].join() === "false,true,false", "the correct switches read false, true, false (aria-checked) as the Markdown's [ ] [x] [ ]");
-      const names = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows button")].slice(0, 5).map(b => b.getAttribute("aria-label")), DV);
-      c.ok(names.join("|") === "Option 1: correct answer|Option 1: move up|Option 1: move down|Option 1: remove|Option 1, reply 1: remove", "every button of a row has its own name for a screen reader: " + JSON.stringify(names));
-      const heads = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
-      c.ok(heads.join() === "Options", "the section is headed " + JSON.stringify(heads));
-      await rshot("rows-choice-light");
-      await o.setScheme("dark"); await sleep(400); await rshot("rows-choice-dark"); await o.setScheme("light"); await sleep(300);
-      // typing: the words reach the draft at once, the same input keeps the focus and the caret, the preview follows
-      await typeIn("o0-text", " and steady", false);
-      let f = await o.evaluate(() => { const a = document.activeElement; return { key: a.getAttribute("data-key"), end: a.selectionStart === a.value.length, value: a.value }; });
-      c.ok(f.key === "o0-text" && f.end && f.value === "Calm and steady", `typing in a row keeps the focus and the caret in that same input (${JSON.stringify(f)})`);
-      c.ok((await area()).split("\n")[1] === "- [ ] Calm and steady" && text(n.file) === cur, "the Markdown has the new words at once and the note on disk is untouched until Save");
-      await o.page.waitForFunction(sel => /Calm and steady/.test((document.querySelector(sel + " .booklet-design-edit-previewhost") || {}).textContent || ""), DV, { timeout: 4000, polling: 50 }).then(() => c.ok(true, "the preview \"As the reader sees it\" follows the words"), () => c.ok(false, "the preview did not follow the words"));
-      cur = await saved(n, cur, sub(cur, "- [ ] Calm\n", "- [ ] Calm and steady\n"), "a reworded option 1 (a kept answer exists but picked option 2)");
-      // the correct switch
-      await openQ(n, "[!choice|where]");
-      await press("o2-correct");
-      c.ok((await checked("o2-correct")) === "true" && (await focusKey()) === "o2-correct" && (await area()).split("\n").includes("- [x] Numb"), "the switch turns on, keeps the focus, and the Markdown reads - [x] Numb");
-      cur = await saved(n, cur, sub(cur, "- [ ] Numb\n", "- [x] Numb\n"), "the correct switch on option 3");
-      // a reply
-      await openQ(n, "[!choice|where]");
-      await press("o2-r-add");
-      c.ok((await focusKey()) === "o2-r0-text", "Add a reply puts the focus in the new reply's words: " + await focusKey());
-      await typeIn("o2-r0-text", "Numbness protects.");
-      cur = await saved(n, cur, sub(cur, "- [x] Numb\n", "- [x] Numb\n  - Numbness protects.\n"), "a reply added to option 3");
-      await openQ(n, "[!choice|where]");
-      await press("o1-r1-remove");
-      cur = await saved(n, cur, sub(cur, "  - It is also useful.\n", ""), "the second reply of option 2 removed");
-      // an option added at the end
-      await openQ(n, "[!choice|where]");
-      await press("o-add");
-      c.ok((await focusKey()) === "o3-text", "Add an option puts the focus in the new row's words: " + await focusKey());
-      await typeIn("o3-text", "Tense");
-      cur = await saved(n, cur, sub(cur, "  - Numbness protects.\n", "  - Numbness protects.\n- [ ] Tense\n"), "an option added after the last one (before the hint)");
-      // a move that shifts the kept answer: asked
-      await openQ(n, "[!choice|where]");
-      await press("o2-up");
-      c.ok((await focusKey()) === "o1-up", "Move up on option 3 keeps the focus on the same button at the row's new place (o1-up): " + await focusKey());
-      const swapped72 = sub(cur, "- [x] Wound up\n  - That is the activating family.\n- [x] Numb\n  - Numbness protects.\n", "- [x] Numb\n  - Numbness protects.\n- [x] Wound up\n  - That is the activating family.\n");
-      let m = await asks(n, cur, "Move option 3 up (the kept answer is option 2)", [/where/, /saved answer/i]);
-      await rshot("rows-ask-light");
-      await saveBtn().click(); await waitModal(o, true);
-      const beforeMove = cur;
-      cur = await changed(n, cur, swapped72, "Move option 3 up");
-      await undoBtn(o).click(); const ur = await disk(n, swapped72); await idle(o);
-      c.ok(ur.ok && ur.text === beforeMove, "Undo gives the options back in their old order, byte for byte");
-      cur = ur.text;
-      // a removal: asked; Cancel writes nothing; and the Markdown and the rows follow each other both ways
-      await openQ(n, "[!choice|where]");
-      await press("o0-remove");
-      c.ok((await focusKey()) === "o0-text", "Remove on option 1 puts the focus on the row that took its place: " + await focusKey());
-      await asks(n, cur, "Remove option 1 (the kept answer is option 2)", [/where/]);
-      await closeBox();
-      c.ok(text(n.file) === cur, "the draft thrown away: the note is as it was");
-      await openQ(n, "[!choice|where]");
-      const ta = o.page.locator(`${block("question", q(n, "[!choice|where]"))} .booklet-design-textarea`);
-      const d0 = await area();
-      await ta.fill(sub(d0, "- [x] Numb\n", "- [x] Numbed\n")); await sleep(300);
-      c.ok((await inputs()).includes("o2-text=Numbed"), "words typed in the Markdown are read back into the rows (option 3 now reads Numbed)");
-      await ta.fill(sub(d0, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n")); await sleep(300);
-      const why = await refused();
-      c.ok(!!why && /^The rows are not offered for this block/.test(why) && (await rowsShown()) === 0 && (await area()) === sub(d0, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n"), `Markdown that the rows cannot show as they stand: the rows give way to the reason (${JSON.stringify(why && why.slice(0, 150))}) and the typed text is kept as typed`);
-      await ta.fill(d0); await sleep(300);
-      c.ok((await rowsShown()) > 0 && (await refused()) === null, "and when the Markdown is as the rows can show it again, the rows come back");
-      await closeBox();
-      c.ok(text(n.file) === cur, "nothing was written by any of that");
-
-      // ================= 2. a choice with nothing kept: moves and removals write at once
-      n = await start(false); cur = n.t;
-      await openQ(n, "[!choice|where]");
-      await press("o2-up");
-      cur = await saved(n, cur, sub(cur, "- [x] Wound up\n  - That is the activating family.\n  - It is also useful.\n- [ ] Numb\n", "- [ ] Numb\n- [x] Wound up\n  - That is the activating family.\n  - It is also useful.\n"), "option 3 moved up with nothing kept (replies travel with their option)");
-      await openQ(n, "[!choice|where]");
-      await press("o0-remove");
-      cur = await saved(n, cur, sub(cur, "- [ ] Calm\n  - That is the settling system at work.\n", ""), "option 1 removed with nothing kept (its reply goes with it)");
-      await undoBtn(o).click(); let u2 = await disk(n, cur); await idle(o);
-      c.ok(u2.ok && u2.text === sub(cur, "- [ ] Numb\n", "- [ ] Calm\n  - That is the settling system at work.\n- [ ] Numb\n"), "Undo gives the removed option and its reply back, byte for byte");
-
-      // ================= 3. a multi on a shared menu, the menu's own rows, a multi with open
-      n = await start(true); cur = n.t;
-      await openQ(n, "[!multi|morning");
-      let picker = await o.page.locator(`${DV} .booklet-design-rows [data-key='menu']`).evaluate(e => ({ value: e.value, options: [...e.options].map(x => x.value + ":" + x.textContent) }));
-      const usesLine = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usesmenu") || {}).textContent, DV);
-      c.ok(picker.value === "places" && picker.options.join("|") === ":None: the question has its own options|places:places" && /^Uses the shared menu places\./.test(usesLine || "") && (await rowsShown()) === 2, `a multi on a menu shows the picker at "places" (${JSON.stringify(picker.options)}), the line ${JSON.stringify(usesLine)}, no option rows (only the picker and the button: ${await rowsShown()} controls)`);
-      await rshot("rows-usesmenu-light");
-      await press("menu-open"); await sleep(400);
-      const menuAt = q(n, "[!menu|places]");
-      c.ok(await o.page.locator(block("menu", menuAt) + ".is-open").count() === 1, "\"Go to the menu\" selects the shared menu's own block and opens it in place");
-      const usedBy = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usedby") || {}).textContent, DV);
-      c.ok(usedBy === "Used by: morning, evening", "the menu's rows say who uses it: " + JSON.stringify(usedBy));
-      c.ok((await inputs()).join("|") === "i0-text=Park|i1-text=Garden|i2-text=Library", "the menu's three items are three rows: " + JSON.stringify(await inputs()));
-      await rshot("rows-menu-light");
-      await press("i-add"); await typeIn("i3-text", "Beach");
-      cur = await saved(n, cur, sub(cur, "- Library\n", "- Library\n- Beach\n"), "an item added at the end of the shared menu (nothing picked can move)");
-      await openQ(n, "[!menu|places]", "menu");
-      await press("i0-remove");
-      m = await asks(n, cur, "Remove the menu's first item", [/morning/, /evening/, /saved answer/i]);
-      c.ok(/morning/.test(m.text) && /evening/.test(m.text), "the dialog counts the answers of every question that uses the menu (morning and evening)");
-      await saveBtn().click(); await waitModal(o, true);
-      cur = await changed(n, cur, sub(cur, "- Park\n", ""), "Remove the menu's first item");
-      await undoBtn(o).click(); u2 = await disk(n, cur); await idle(o);
-      c.ok(u2.ok && u2.text === sub(cur, "- Garden\n", "- Park\n- Garden\n"), "Undo puts the item back, byte for byte" + (u2.ok ? diff(sub(cur, "- Garden\n", "- Park\n- Garden\n"), u2.text) : "; the note did not change")); cur = u2.text;
-      // the picker: none, add an own option, the menu again, none again (the options put away come back)
-      await openQ(n, "[!multi|morning");
-      await o.page.locator(RW("menu")).selectOption("");
-      await sleep(300);
-      c.ok((await area()).split("\n")[0] === "> [!multi|morning] This morning I went to…" && (await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-none") || {}).textContent, DV)) === "Nothing here yet.", "choosing None takes menu:places off the opening line (draft only) and the rows say there are no options yet");
-      await press("o-add"); await typeIn("o0-text", "Own thing");
-      await o.page.locator(RW("menu")).selectOption("places"); await sleep(300);
-      c.ok(/^Uses the shared menu places\./.test(await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usesmenu") || {}).textContent, DV)) && !(await area()).includes("Own thing"), "choosing the menu again puts the own options away (they are in no row and not in the draft)");
-      await o.page.locator(RW("menu")).selectOption(""); await sleep(300);
-      c.ok((await inputs()).join("|") === "o0-text=Own thing" && (await area()).includes("- [ ] Own thing"), "choosing None again brings them back as they were: " + JSON.stringify(await inputs()));
-      await closeBox();
-      c.ok(text(n.file) === cur, "all of that was a draft: nothing written" + diff(cur, text(n.file)));
-      // the open switch with rows present, then choosing a menu for a question with a kept answer
-      await openQ(n, "[!multi|outside");
-      await o.page.locator(`${DV} .booklet-design-settings [data-field='open'] .checkbox-container`).click(); await sleep(300);
-      c.ok((await area()).split("\n")[0] === "> [!multi|outside] What did you do outside?" && (await inputs()).length === 2, "the open switch changes the opening line only; both option rows are still there");
-      cur = await saved(n, cur, sub(cur, "[!multi|outside open]", "[!multi|outside]"), "the open switch");
-      await openQ(n, "[!multi|outside");
-      await o.page.locator(RW("menu")).selectOption("places"); await sleep(300);
-      c.ok((await area()) === "> [!multi|outside menu:places] What did you do outside?" && (await rowsShown()) === 2, "choosing a menu for a question that has its own options and a kept answer: the draft is the opening line naming the menu (the options are put away, not in the draft; the dialog and Cancel protect them): " + JSON.stringify(await area()));
-      await asks(n, cur, "Choose the menu for `outside`", [/outside/]);
-      await closeBox();
-      c.ok(text(n.file) === cur, "the draft thrown away: the note is as it was");
-
-      // ================= 4. a matrix with anchors from 0, with a kept answer
-      n = await start(true); cur = n.t;
-      await openQ(n, "[!matrix|topics]");
-      c.ok((await inputs()).join("|") === "i0-text=Spring tides|i1-text=Neap tides|a0-number=0|a0-text=Not yet|a1-number=1|a1-text=Getting there|a2-number=2|a2-text=Sure", "the matrix shows two items and three anchors, numbers 0 1 2, as rows: " + JSON.stringify(await inputs()));
-      const heads4 = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
-      c.ok(heads4.join("|") === "Items|Anchors (the number is the answer that is kept)", "two sections: " + JSON.stringify(heads4));
-      await rshot("rows-matrix-light");
-      await press("a-add");
-      c.ok((await o.page.locator(RW("a3-number")).inputValue()) === "3" && (await focusKey()) === "a3-text", "Add an anchor takes the next number after the last (3) and puts the focus in its words");
-      await typeIn("a3-text", "Expert");
-      cur = await saved(n, cur, sub(cur, "2. Sure\n", "2. Sure\n3. Expert\n"), "an anchor added at the end (kept answers cannot move)");
-      await openQ(n, "[!matrix|topics]");
-      await press("i-add"); await typeIn("i2-text", "Rip currents");
-      cur = await saved(n, cur, sub(cur, "- Neap tides\n", "- Neap tides\n- Rip currents\n"), "an item added at the end of the items (the blank line above the anchors stays)");
-      await openQ(n, "[!matrix|topics]");
-      await o.page.locator(RW("a0-text")).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Not at all yet"); await sleep(150);
-      cur = await saved(n, cur, sub(cur, "0. Not yet\n", "0. Not at all yet\n"), "an anchor nobody kept is reworded (the kept answers pick 1 and 2)");
-      await openQ(n, "[!matrix|topics]");
-      await press("i1-up");
-      await asks(n, cur, "Move item 2 up (items are answered by position)", [/topics/, /saved answer/i]);
-      await closeBox();
-      await openQ(n, "[!matrix|topics]");
-      await press("a1-remove");
-      await asks(n, cur, "Remove the anchor \"Getting there\" (a kept answer picked number 1)", [/topics/, /saved answer/i]);
-      await closeBox();
-      await openQ(n, "[!matrix|topics]");
-      await o.page.locator(RW("a2-text")).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Very sure"); await sleep(150);
-      await asks(n, cur, "Reword the anchor \"Sure\" (a kept answer picked number 2)", [/topics/]);
-      await closeBox();
-      c.ok(text(n.file) === cur, "the two drafts thrown away: the note is as it was");
-      await openQ(n, "[!matrix|topics]");
-      await press("a0-remove");
-      const beforeAnchor = cur;
-      cur = await saved(n, cur, sub(cur, "0. Not at all yet\n", ""), "the anchor 0 removed (no kept answer picked it: nothing is lost, so nothing is asked)");
-      await undoBtn(o).click(); const ua = await disk(n, cur); await idle(o);
-      c.ok(ua.ok && ua.text === beforeAnchor, "Undo gives anchor 0 back, byte for byte"); cur = ua.text;
-      await openQ(n, "[!matrix|topics]");
-      await press("a1-down");
-      cur = await saved(n, cur, sub(cur, "1. Getting there\n2. Sure\n", "2. Sure\n1. Getting there\n"), "anchors 2 and 3 swapped with their numbers (the numbers are the answers, so none moves)");
-      // a matrix with no anchors: a first anchor, and the blank line a 0 list needs
-      await openQ(n, "[!matrix|fresh]");
-      c.ok((await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-none") || {}).textContent, DV)) === "Nothing here yet.", "a matrix with no anchors says so");
-      await press("a-add");
-      c.ok((await area()).split("\n").slice(-2).join("|") === "- Tides|1. ", "the first anchor is numbered 1 and needs no blank line");
-      await typeIn("a0-text", "Low");
-      await o.page.locator(RW("a0-number")).fill("0"); await o.page.keyboard.press("Tab"); await sleep(250);
-      c.ok((await area()).split("\n").slice(-3).join("|") === "- Tides||0. Low", "numbering it 0 puts the blank line above it (a 0 list after a bullet list would else be read as part of it): " + JSON.stringify((await area()).split("\n").slice(-3)));
-      cur = await saved(n, cur, sub(cur, "- Tides\n", "- Tides\n\n0. Low\n"), "a first anchor 0 on a matrix that had none (with the blank line above it)");
-
-      // ================= 5. the blocks the rows cannot show
-      n = await start(true, true, true); cur = n.t;
-      await openQ(n, "[!choice|odd]");
-      let why5 = await refused();
-      c.ok(!!why5 && /^The rows are not offered for this block, so it is edited in the Markdown below\./.test(why5) && (await rowsShown()) === 0 && (await area()) === "> [!choice|odd] Odd one\n- [ ] One\n  - Said\n    and more", `a reply that goes on over a second line has no rows: the box says why (${JSON.stringify(why5)}) and the Markdown is as written`);
-      c.info("reason shown for the continued reply: " + JSON.stringify(why5));
-      await rshot("rows-refused-light");
-      await closeBox();
-      await openQ(n, "[!choice|both");
-      let why5b = await refused();
-      c.ok(!!why5b && (await rowsShown()) === 0 && (await o.page.locator(`${DV} .booklet-design-settings [data-field='menu']`).count()) === 1, `a question that names a menu and has its own options has no rows either (${JSON.stringify(why5b)}); its settings keep the menu as a text row`);
-      c.info("reason shown for menu plus own options: " + JSON.stringify(why5b));
-      await closeBox();
-      c.ok(text(n.file) === cur, "opening and closing the blocks the rows refuse wrote nothing (no line was rewritten)");
-
-      // ================= 6. a phone
-      await o.page.setViewportSize({ width: 390, height: 844 });
-      await mobile(o, true);
-      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
-      n = await start(true, false);
-      const judge = async label => {
-        const pf = await phoneFacts(o), ours = pf.small.filter(x => x.own), others = pf.small.filter(x => !x.own), fit = await fitOf(o);
-        c.ok(pf.bodyMobile && pf.docScroll <= pf.W + 1 && pf.vcScroll <= pf.vcClient + 1 && pf.wideCount === 0, `${label}: no sideways scroll (page ${pf.docScroll} of ${pf.W} px) and nothing sticks out${pf.wideCount ? ": " + JSON.stringify(pf.wide) : ""}`);
-        const sc = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-scroll"); return e ? { sw: e.scrollWidth, cw: e.clientWidth } : null; }, DV);
-        c.ok(!sc || sc.sw <= sc.cw + 1, `${label}: the page's own scroller does not scroll sideways (${sc && sc.sw} of ${sc && sc.cw} px)`);
-        c.ok(ours.length === 0, `${label}: every control of the plugin's is at least 44 px each way (${pf.controls} looked at)${ours.length ? "; smaller: " + JSON.stringify(ours.slice(0, 8)) : ""}`);
-        c.ok(fit.clippedCount === 0 && fit.offCount === 0, `${label}: nothing cut off or off the screen${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
-        if (others.length) c.info(`${label}: Obsidian's own controls under 44 px (not the plugin's): ${JSON.stringify(others.slice(0, 5))}`);
-      };
-      for (const [needle, kind, tag] of [["[!choice|where]", "question", "choice"], ["[!multi|morning", "question", "multi-menu"], ["[!multi|outside", "question", "multi-open"], ["[!menu|places]", "menu", "menu"], ["[!matrix|topics]", "question", "matrix"], ["[!choice|odd]", "question", "refused"]]) {
+      try {
+        n = await start(true);
+        cur = n.t;
+        await openQ(n, "[!choice|where]");
+        const blockWhere = WHERE72.join("\n");
+        c.ok((await area()) === blockWhere && !(await o.evaluate(() => document.querySelector(".workspace-leaf.mod-active .booklet-design-edit-md").open)), "the box opens with the Markdown section closed, and it holds the choice's own lines, byte for byte (hint and all)");
+        const rows0 = (await inputs()).join("|");
+        c.ok(rows0 === "o0-text=Calm|o0-r0-text=That is the settling system at work.|o1-text=Wound up|o1-r0-text=That is the activating family.|o1-r1-text=It is also useful.|o2-text=Numb", "the rows show the three options and the three replies as inputs: " + JSON.stringify(await inputs()));
+        c.ok([await checked("o0-correct"), await checked("o1-correct"), await checked("o2-correct")].join() === "false,true,false", "the correct switches read false, true, false (aria-checked) as the Markdown's [ ] [x] [ ]");
+        const names = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows button")].slice(0, 5).map(b => b.getAttribute("aria-label")), DV);
+        c.ok(names.join("|") === "Option 1: correct answer|Option 1: move up|Option 1: move down|Option 1: remove|Option 1, reply 1: remove", "every button of a row has its own name for a screen reader: " + JSON.stringify(names));
+        const heads = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
+        c.ok(heads.join() === "Options", "the section is headed " + JSON.stringify(heads));
+        await rshot("rows-choice-light");
+        await o.setScheme("dark"); await sleep(400); await rshot("rows-choice-dark"); await o.setScheme("light"); await sleep(300);
+        // typing: nothing is written at a key; leaving the row applies it, the same input stays, the focus moves on by Tab
+        await o.evaluate(sel => { window.__row = document.querySelector(sel + " [data-key='o0-text']"); }, DV);
+        await typeIn("o0-text", " and steady", false);
+        let f = await o.evaluate(() => { const a = document.activeElement; return { key: a.getAttribute("data-key"), end: a.selectionStart === a.value.length, value: a.value }; });
+        c.ok(f.key === "o0-text" && f.end && f.value === "Calm and steady", `typing in a row keeps the focus and the caret in that same input (${JSON.stringify(f)})`);
+        c.ok(text(n.file) === cur && (await area()).split("\n")[1] === "- [ ] Calm", "nothing is written at a key: the note and the Markdown section still hold the old words while the row is being typed in");
+        await o.page.keyboard.press("Tab");
+        cur = await applied(n, cur, sub(cur, "- [ ] Calm\n", "- [ ] Calm and steady\n"), "a reworded option 1 (a kept answer exists but picked option 2) is applied on leaving the row");
+        c.ok(await o.evaluate(sel => document.querySelector(sel + " [data-key='o0-text']") === window.__row, DV), "the row's input is the same element after the write (nothing in the box was drawn again under the typing)");
+        c.ok((await area()).split("\n")[1] === "- [ ] Calm and steady", "the Markdown section follows the note");
+        // the correct switch
+        await press("o2-correct");
+        c.ok((await checked("o2-correct")) === "true" && (await focusKey()) === "o2-correct" && (await area()).split("\n").includes("- [x] Numb"), "the switch turns on at once, keeps the focus, and the Markdown reads - [x] Numb");
+        cur = await applied(n, cur, sub(cur, "- [ ] Numb\n", "- [x] Numb\n"), "the correct switch on option 3");
+        // a reply: added by its own button (one write), then its words typed (one more)
+        await press("o2-r-add");
+        c.ok((await focusKey()) === "o2-r0-text", "Add a reply puts the focus in the new reply's words: " + await focusKey());
+        const cur1 = await applied(n, cur, sub(cur, "- [x] Numb\n", "- [x] Numb\n  - \n"), "a reply added to option 3 (an empty reply row)");
+        await typeLeave("o2-r0-text", "Numbness protects.");
+        cur = await applied(n, cur1, sub(cur, "- [x] Numb\n", "- [x] Numb\n  - Numbness protects.\n"), "the new reply's words typed and left");
+        await press("o1-r1-remove");
+        cur = await applied(n, cur, sub(cur, "  - It is also useful.\n", ""), "the second reply of option 2 removed");
+        // an option added at the end
+        await press("o-add");
+        c.ok((await focusKey()) === "o3-text", "Add an option puts the focus in the new row's words: " + await focusKey());
+        const cur2 = await applied(n, cur, sub(cur, "  - Numbness protects.\n", "  - Numbness protects.\n- [ ] \n"), "an option added after the last one (before the hint)");
+        await typeLeave("o3-text", "Tense");
+        cur = await applied(n, cur2, sub(cur, "  - Numbness protects.\n", "  - Numbness protects.\n- [ ] Tense\n"), "its words typed and left");
+        // a move that shifts the kept answer: asked, at the press
+        const before3 = (await inputs()).join("|");
+        await press("o2-up");
+        const swapped72 = sub(cur, "- [x] Wound up\n  - That is the activating family.\n- [x] Numb\n  - Numbness protects.\n", "- [x] Numb\n  - Numbness protects.\n- [x] Wound up\n  - That is the activating family.\n");
+        m = await asks(n, cur, "Move option 3 up (the kept answer is option 2)", [/where/, /saved answer/i], before3);
+        await rshot("rows-ask-light");
+        await press("o2-up"); await waitModal(o, true);
+        const beforeMove = cur;
+        cur = await changed(n, cur, swapped72, "Move option 3 up");
+        await undoStep(); const ur = await disk(n, swapped72); await idle(o);
+        c.ok(ur.ok && ur.text === beforeMove, "Undo gives the options back in their old order, byte for byte (the move was one step)");
+        cur = ur.text;
+        // a removal: asked; Cancel writes nothing
+        await reopen(n, "[!choice|where]");
+        await press("o0-remove");
+        await asks(n, cur, "Remove option 1 (the kept answer is option 2)", [/where/], (await inputs()).join("|"));
+        c.ok(text(n.file) === cur, "after Cancel the note is as it was");
+        // the Markdown section and the rows follow each other both ways: the section is applied when it is left
+        await openMd(o);
+        const ta = o.page.locator(MD_AREA);
+        const d0 = await area();
+        await ta.fill(sub(d0, "- [x] Numb\n", "- [x] Numbed\n"));
+        c.ok(text(n.file) === cur, "words typed in the Markdown are not written at a key");
+        await leaveMd();
+        cur = await applied(n, cur, sub(cur, "- [x] Numb\n", "- [x] Numbed\n"), "words typed in the Markdown and left are applied (the Markdown is the one control that can change the whole block)");
+        c.ok((await inputs()).includes("o2-text=Numbed"), "and they are read back into the rows (option 3 now reads Numbed)");
+        await undoStep(); const uv = await disk(n, cur); await idle(o);
+        await reopen(n, "[!choice|where]");
+        c.ok(uv.ok && uv.text === sub(cur, "- [x] Numbed\n", "- [x] Numb\n"), "Undo takes the Markdown change back, byte for byte"); cur = uv.text;
+        const curBeforeCont = cur;
+        await reopen(n, "[!choice|where]"); await openMd(o);
+        const cont = sub(d0, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n");
+        await ta.fill(cont); await leaveMd();
+        cur = await applied(n, cur, sub(cur, "- [ ] Calm and steady\n", "- [ ] Calm and steady\n    and more\n"), "Markdown that the rows cannot show as it stands is applied as typed");
+        const why = await refused();
+        c.ok(!!why && /^The rows are not offered for this block/.test(why) && (await rowsShown()) === 0 && (await area()) === cont, `the rows give way to the reason (${JSON.stringify(why && why.slice(0, 150))}) and the Markdown is as typed`);
+        await ta.fill(d0); await leaveMd();
+        cur = await applied(n, cur, curBeforeCont, "the Markdown put back as the rows can show it: applied, byte for byte as before the continued line");
+        c.ok((await rowsShown()) > 0 && (await refused()) === null, "and the rows come back");
         await closeBox();
-        await openQ(n, needle, kind);
-        await judge("phone " + tag);
-        await rshot("phone-rows-" + tag + "-light");
-        if (tag === "choice" || tag === "matrix") { await o.setScheme("dark"); await sleep(400); await rshot("phone-rows-" + tag + "-dark"); await o.setScheme("light"); await sleep(300); }
-      }
-      // a move and a typing on the phone
-      await closeBox(); await openQ(n, "[!choice|where]");
-      await press("o2-up");
-      await asks(n, n.t, "phone: Move option 3 up", [/where/]);
-      await rshot("phone-rows-ask-light");
-      await closeBox();
-      c.ok(text(n.file) === n.t, "phone: nothing written");
 
-      // ================= 7. Spanish and French
-      const rowKeys = Object.keys(table).filter(k => k.startsWith("rows."));
-      const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
-      for (const [code, label] of [["es", "Spanish"], ["fr", "French"]]) {
-        await o.page.setViewportSize({ width: vp0.w, height: vp0.h }).catch(() => {}); await mobile(o, false);
-        await o.evaluate(code => { localStorage.setItem("language", code); }, code);
-        await o.evaluate(() => { app.commands.executeCommandById("app:reload"); });
-        await o.page.waitForFunction(code => !!(window.app && app.workspace && app.workspace.layoutReady) && window.i18next && window.i18next.language === code, code, { timeout: 40000, polling: 100 });
+      } catch (e) { c.ok(false, `script error in scene 1. a choice by rows, with kept answers (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 2. a choice with nothing kept: moves and removals write at once, no question
+      try {
+        n = await start(false); cur = n.t;
+        await openQ(n, "[!choice|where]");
+        await press("o2-up");
+        cur = await applied(n, cur, sub(cur, "- [x] Wound up\n  - That is the activating family.\n  - It is also useful.\n- [ ] Numb\n", "- [ ] Numb\n- [x] Wound up\n  - That is the activating family.\n  - It is also useful.\n"), "option 3 moved up with nothing kept (replies travel with their option)");
+        await press("o0-remove");
+        cur = await applied(n, cur, sub(cur, "- [ ] Calm\n  - That is the settling system at work.\n", ""), "option 1 removed with nothing kept (its reply goes with it)");
+        await undoStep(); u2 = await disk(n, cur); await idle(o);
+        c.ok(u2.ok && u2.text === sub(cur, "- [ ] Numb\n", "- [ ] Calm\n  - That is the settling system at work.\n- [ ] Numb\n"), "Undo gives the removed option and its reply back, byte for byte");
+        await closeBox();
+
+      } catch (e) { c.ok(false, `script error in scene 2. a choice with nothing kept: moves and removals write at once, no question (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 3. a multi on a shared menu, the menu's own rows, a multi with open
+      try {
+        n = await start(true); cur = n.t;
+        await openQ(n, "[!multi|morning");
+        let picker = await o.page.locator(`${DV} .booklet-design-rows [data-key='menu']`).evaluate(e => ({ value: e.value, options: [...e.options].map(x => x.value + ":" + x.textContent) }));
+        const usesLine = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usesmenu") || {}).textContent, DV);
+        c.ok(picker.value === "places" && picker.options.join("|") === ":None: the question has its own options|places:places" && /^Uses the shared menu places\./.test(usesLine || "") && (await rowsShown()) === 2, `a multi on a menu shows the picker at "places" (${JSON.stringify(picker.options)}), the line ${JSON.stringify(usesLine)}, no option rows (only the picker and the button: ${await rowsShown()} controls)`);
+        await rshot("rows-usesmenu-light");
+        await press("menu-open"); await sleep(400);
+        const menuAt = q(n, "[!menu|places]");
+        c.ok(await o.page.locator(block("menu", menuAt) + ".is-open").count() === 1, "\"Go to the menu\" selects the shared menu's own block and opens it in place");
+        const usedBy = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usedby") || {}).textContent, DV);
+        c.ok(usedBy === "Used by: morning, evening", "the menu's rows say who uses it: " + JSON.stringify(usedBy));
+        c.ok((await inputs()).join("|") === "i0-text=Park|i1-text=Garden|i2-text=Library", "the menu's three items are three rows: " + JSON.stringify(await inputs()));
+        await rshot("rows-menu-light");
+        await press("i-add");
+        const cur3 = await applied(n, cur, sub(cur, "- Library\n", "- Library\n- \n"), "an item added at the end of the shared menu (nothing picked can move)");
+        await typeLeave("i3-text", "Beach");
+        cur = await applied(n, cur3, sub(cur, "- Library\n", "- Library\n- Beach\n"), "its words typed and left");
+        const itemsBefore = (await inputs()).join("|");
+        await press("i0-remove");
+        m = await asks(n, cur, "Remove the menu's first item", [/morning/, /evening/, /saved answer/i], itemsBefore);
+        c.ok(/morning/.test(m.text) && /evening/.test(m.text), "the dialog counts the answers of every question that uses the menu (morning and evening)");
+        await press("i0-remove"); await waitModal(o, true);
+        cur = await changed(n, cur, sub(cur, "- Park\n", ""), "Remove the menu's first item");
+        await undoStep(); u2 = await disk(n, cur); await idle(o);
+        c.ok(u2.ok && u2.text === sub(cur, "- Garden\n", "- Park\n- Garden\n"), "Undo puts the item back, byte for byte" + (u2.ok ? diff(sub(cur, "- Garden\n", "- Park\n- Garden\n"), u2.text) : "; the note did not change")); cur = u2.text;
+        await closeBox();
+        // the picker: none (the question has a kept answer, which counts), an own option, the menu again, none again
+        await openQ(n, "[!multi|morning");
+        await o.page.locator(RW("menu")).selectOption("");
+        const askNone = await waitModal(o, true, 2500);
+        if (askNone) {
+          const mn = await modalInfo(o); c.info("choosing None on `morning` (a kept answer picked menu items 1 and 3) asks: " + JSON.stringify(mn.text.replace(/\s+/g, " ").slice(0, 240)) + " buttons " + JSON.stringify(mn.buttons));
+          await clickModal(o, "Change");
+        }
+        cur = await applied(n, cur, sub(cur, "> [!multi|morning menu:places] This morning I went to…", "> [!multi|morning] This morning I went to…"), "choosing None takes menu:places off the opening line");
+        c.ok((await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-none") || {}).textContent, DV)) === "Nothing here yet.", "and the rows say there are no options yet");
+        await press("o-add");
+        const cur4 = await applied(n, cur, sub(cur, "> [!multi|morning] This morning I went to…\n", "> [!multi|morning] This morning I went to…\n- [ ] \n"), "an own option added (one write)");
+        await typeLeave("o0-text", "Own thing");
+        c.info(`after typing "Own thing" in the new own option and Tab: status ${JSON.stringify((await state(o)).status)}; the box says ${JSON.stringify(await o.evaluate(() => (document.querySelector(".workspace-leaf.mod-active .booklet-design-editor-state") || {}).textContent))}; the field holds ${JSON.stringify(await o.page.locator(RW("o0-text")).inputValue())}`);
+        cur = await applied(n, cur4, sub(cur, "> [!multi|morning] This morning I went to…\n", "> [!multi|morning] This morning I went to…\n- [ ] Own thing\n"), "its words typed and left");
+        const own = cur;
+        await o.page.locator(RW("menu")).selectOption("places");
+        if (await waitModal(o, true, 2500)) { const mn = await modalInfo(o); c.info("choosing the menu again over an own option asks: " + JSON.stringify(mn.text.replace(/\s+/g, " ").slice(0, 240))); await clickModal(o, "Change"); }
+        cur = await applied(n, cur, sub(cur, "> [!multi|morning] This morning I went to…\n- [ ] Own thing\n", "> [!multi|morning menu:places] This morning I went to…\n"), "choosing the menu again puts the own options away (they leave the note and are in the Undo step)");
+        c.ok(/^Uses the shared menu places\./.test(await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-usesmenu") || {}).textContent, DV)), "the rows say the question uses the menu");
+        await o.page.locator(RW("menu")).selectOption("");
+        if (await waitModal(o, true, 2500)) await clickModal(o, "Change");
+        cur = await applied(n, cur, own, "choosing None again brings the own options back as they were, byte for byte");
+        c.ok((await inputs()).join("|") === "o0-text=Own thing", "and the row shows them: " + JSON.stringify(await inputs()));
+        await closeBox();
+        // the open switch with rows present, then choosing a menu for a question with a kept answer
+        await openQ(n, "[!multi|outside");
+        await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-item[data-field='open'] button[role=switch]`).click();
+        cur = await applied(n, cur, sub(cur, "[!multi|outside open]", "[!multi|outside]"), "the open switch of the strip writes at once (the opening line only; both option rows are still there)");
+        c.ok((await inputs()).length === 2, "both option rows are still there");
+        await o.page.locator(RW("menu")).selectOption("places");
+        await asks(n, cur, "Choose the menu for `outside`", [/outside/], (await inputs()).join("|"));
+        c.ok(text(n.file) === cur, "declined: the note is as it was");
+        await closeBox();
+
+      } catch (e) { c.ok(false, `script error in scene 3. a multi on a shared menu, the menu's own rows, a multi with open (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 4. a matrix with anchors from 0, with a kept answer
+      try {
+        n = await start(true); cur = n.t;
+        await openQ(n, "[!matrix|topics]");
+        c.ok((await inputs()).join("|") === "i0-text=Spring tides|i1-text=Neap tides|a0-number=0|a0-text=Not yet|a1-number=1|a1-text=Getting there|a2-number=2|a2-text=Sure", "the matrix shows two items and three anchors, numbers 0 1 2, as rows: " + JSON.stringify(await inputs()));
+        const heads4 = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
+        c.ok(heads4.join("|") === "Items|Anchors (the number is the answer that is kept)", "two sections: " + JSON.stringify(heads4));
+        await rshot("rows-matrix-light");
+        await press("a-add");
+        c.ok((await o.page.locator(RW("a3-number")).inputValue()) === "3" && (await focusKey()) === "a3-text", "Add an anchor takes the next number after the last (3) and puts the focus in its words");
+        const cur5 = await applied(n, cur, sub(cur, "2. Sure\n", "2. Sure\n3. \n"), "an anchor added at the end (kept answers cannot move)");
+        await typeLeave("a3-text", "Expert");
+        cur = await applied(n, cur5, sub(cur, "2. Sure\n", "2. Sure\n3. Expert\n"), "its words typed and left");
+        await press("i-add");
+        const cur6 = await applied(n, cur, sub(cur, "- Neap tides\n", "- Neap tides\n- \n"), "an item added at the end of the items (the blank line above the anchors stays)");
+        await typeLeave("i2-text", "Rip currents");
+        cur = await applied(n, cur6, sub(cur, "- Neap tides\n", "- Neap tides\n- Rip currents\n"), "its words typed and left");
+        await typeLeave("a0-text", "Not at all yet");
+        cur = await applied(n, cur, sub(cur, "0. Not yet\n", "0. Not at all yet\n"), "an anchor nobody kept is reworded (the kept answers pick 1 and 2)");
+        let rows4 = (await inputs()).join("|");
+        await press("i1-up");
+        await asks(n, cur, "Move item 2 up (items are answered by position)", [/topics/, /saved answer/i], rows4);
+        await press("a1-remove");
+        await asks(n, cur, "Remove the anchor \"Getting there\" (a kept answer picked number 1)", [/topics/, /saved answer/i], rows4);
+        await typeIn("a2-text", "Very sure"); await o.page.keyboard.press("Tab");
+        await asks(n, cur, "Reword the anchor \"Sure\" (a kept answer picked number 2)", [/topics/], null);
+        c.ok(text(n.file) === cur && (await inputs()).join("|") === rows4, "the three declined changes left the note as it was, and the rows read what the note has");
+        await press("a0-remove");
+        const beforeAnchor = cur;
+        cur = await applied(n, cur, sub(cur, "0. Not at all yet\n", ""), "the anchor 0 removed (no kept answer picked it: nothing is lost, so nothing is asked)");
+        await undoStep(); const ua = await disk(n, cur); await idle(o);
+        c.ok(ua.ok && ua.text === beforeAnchor, "Undo gives anchor 0 back, byte for byte"); cur = ua.text;
+        await reopen(n, "[!matrix|topics]");
+        await press("a1-down");
+        cur = await applied(n, cur, sub(cur, "1. Getting there\n2. Sure\n", "2. Sure\n1. Getting there\n"), "anchors 2 and 3 swapped with their numbers (the numbers are the answers, so none moves)");
+        await closeBox();
+        // a matrix with no anchors: a first anchor, and the blank line a 0 list needs
+        await openQ(n, "[!matrix|fresh]");
+        c.ok((await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-none") || {}).textContent, DV)) === "Nothing here yet.", "a matrix with no anchors says so");
+        await press("a-add");
+        cur = await applied(n, cur, sub(cur, "- Tides\n", "- Tides\n1. \n"), "the first anchor is numbered 1 and needs no blank line");
+        await typeLeave("a0-text", "Low");
+        cur = await applied(n, cur, sub(cur, "1. \n", "1. Low\n"), "its words typed and left");
+        await o.page.locator(RW("a0-number")).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("0"); await o.page.keyboard.press("Tab");
+        cur = await applied(n, cur, sub(cur, "- Tides\n1. Low\n", "- Tides\n\n0. Low\n"), "numbering it 0 puts the blank line above it (a 0 list after a bullet list would else be read as part of it)");
+        await closeBox();
+
+      } catch (e) { c.ok(false, `script error in scene 4. a matrix with anchors from 0, with a kept answer (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 5. the blocks the rows cannot show
+      try {
+        n = await start(true, true, true); cur = n.t;
+        await openQ(n, "[!choice|odd]");
+        let why5 = await refused();
+        c.ok(!!why5 && /^The rows are not offered for this block, so it is edited in the Markdown below\./.test(why5) && (await rowsShown()) === 0 && (await area()) === "> [!choice|odd] Odd one\n- [ ] One\n  - Said\n    and more", `a reply that goes on over a second line has no rows: the box says why (${JSON.stringify(why5)}) and the Markdown is as written`);
+        const mdWas = await o.page.locator(MD_AREA).isVisible();
+        await openMd(o);
+        c.ok(await o.page.locator(MD_AREA).isVisible(), "the Markdown section of such a block opens on one press");
+        c.info(`the reason says to edit in "the Markdown below" and the section is ${mdWas ? "open" : "closed"} when the block opens (it stays closed when only the rows are refused; it is open at once only when the title and description cannot be shown)`);
+        c.info("reason shown for the continued reply: " + JSON.stringify(why5));
+        await rshot("rows-refused-light");
+        await closeBox();
+        await openQ(n, "[!choice|both");
+        let why5b = await refused();
+        c.ok(!!why5b && (await rowsShown()) === 0 && (await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-item[data-field='menu']`).count()) === 1, `a question that names a menu and has its own options has no rows either (${JSON.stringify(why5b)}); its strip keeps the menu as a text field`);
+        c.info("reason shown for menu plus own options: " + JSON.stringify(why5b));
+        await closeBox();
+        c.ok(text(n.file) === cur && (await writesOf(o, n.rel)) === 0, "opening and closing the blocks the rows refuse wrote nothing (no line was rewritten)");
+
+      } catch (e) { c.ok(false, `script error in scene 5. the blocks the rows cannot show (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 6. a phone
+      try {
+        await o.page.setViewportSize({ width: 390, height: 844 });
+        await mobile(o, true);
         await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
-        c.ok(await o.evaluate(() => window.i18next.language) === code, `Obsidian is in ${label}`);
-        const english = rowKeys.filter(k => table[k][code] !== undefined && table[k].en !== table[k][code] && !/\{/.test(table[k].en) && table[k].en.length >= 4).map(k => ({ k, en: table[k].en }));
-        const scenes = async (tagWidth) => {
-          const nn = await start(true, false);
-          const want = (items, tag, list) => { const missing = list.filter(([k, v]) => { const w = fill(table[k][code] ?? table[k].en, v || {}); return !items.some(i => i.text === w); }).map(([k]) => k); c.ok(missing.length === 0, `${tagWidth} ${code} ${tag}: the words read in ${label} (${list.length} strings looked for)${missing.length ? "; not found: " + missing.join(", ") : ""}`); };
-          const scene = async (needle, kind, tag, list) => {
-            await closeBox(); await openQ(nn, needle, kind);
-            const items = await readable(o), fit = await fitOf(o);
-            fs.writeFileSync(path.join(SHOTS, `design-${code}-${tagWidth}-rows-${tag}-text-${VER}.json`), JSON.stringify(items, null, 1));
-            want(items, tag, list);
-            const wrong = english.filter(e => items.some(i => i.text === e.en && !/^drawn |booklet-design-(group|popup-label|tile-label|commonchip|samplepop-name|samplepop|tile)\b/.test(i.cls))).map(e => e.k);
-            c.ok(wrong.length === 0, `${tagWidth} ${code} ${tag}: no row string shows in English (${items.length} texts read)${wrong.length ? ": " + wrong.join(", ") : ""}`);
-            c.ok(items.filter(i => /\{\w+\}/.test(i.text)).length === 0, `${tagWidth} ${code} ${tag}: no {placeholder} left showing`);
-            c.ok(fit.clippedCount === 0 && fit.offCount === 0 && fit.sideways <= 1 && fit.docSideways <= 1, `${tagWidth} ${code} ${tag}: nothing cut off, off the screen or scrolling sideways${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
-            if (tagWidth === "phone") { const pf = await phoneFacts(o); const ours = pf.small.filter(x => x.own); c.ok(ours.length === 0 && pf.docScroll <= pf.W + 1, `phone ${code} ${tag}: every control of the plugin's is at least 44 px and nothing scrolls sideways${ours.length ? ": " + JSON.stringify(ours.slice(0, 6)) : ""}`); }
-            await rshot(`${code}-${tagWidth}-rows-${tag}`);
-          };
-          await scene("[!choice|where]", "question", "choice", [["rows.options"], ["rows.option.add"], ["rows.reply.add"], ["rows.up"], ["rows.down"], ["rows.remove"], ["rows.option.correct"], ["rows.menu.name"], ["rows.option.text", { n: 1 }], ["rows.option.correct.label", { n: 1 }], ["rows.reply.add.label", { n: 1 }], ["rows.option.remove", { n: 3 }]]);
-          { await closeBox(); await openQ(nn, "[!choice|where]"); const pick = await o.page.locator(RW("menu")).evaluate(e => [...e.options].map(x => x.textContent)); c.ok(pick[0] === (table["rows.menu.none"][code] ?? table["rows.menu.none"].en), `${tagWidth} ${code}: the picker's first choice reads ${JSON.stringify(pick[0])}`); }
-          await scene("[!multi|morning", "question", "multi-menu", [["rows.menu.uses", { id: "places" }], ["rows.menu.open"], ["rows.menu.open.label", { id: "places" }]]);
-          await scene("[!menu|places]", "menu", "menu", [["rows.items"], ["rows.item.add"], ["rows.menu.usedby", { ids: "morning, evening" }], ["rows.item.text", { n: 1 }], ["rows.item.remove", { n: 1 }]]);
-          await scene("[!matrix|topics]", "question", "matrix", [["rows.items"], ["rows.anchors"], ["rows.anchor.add"], ["rows.item.add"], ["rows.anchor.number", { n: 1 }], ["rows.anchor.text", { n: 1 }], ["rows.anchor.up", { n: 1 }]]);
-          await scene("[!choice|odd]", "question", "refused", []);
-          // the ask dialog with a row move
-          await closeBox(); await openQ(nn, "[!choice|where]");
-          await press("o2-up"); await saveBtn().click(); await waitModal(o, true);
-          const mi = await modalInfo(o), fit = await fitOf(o);
-          const mw = await o.evaluate(() => { const r = document.querySelector(".modal-container .modal").getBoundingClientRect(); return { l: r.left, r: r.right, w: window.innerWidth }; });
-          c.ok(!!mi && mi.buttons.length === 2 && mw.l >= 0 && mw.r <= mw.w + 1 && fit.clippedCount === 0, `${tagWidth} ${code}: the ask dialog fits (${JSON.stringify(mi && mi.buttons)}, ${Math.round(mw.l)}..${Math.round(mw.r)} of ${mw.w} px)`);
-          await rshot(`${code}-${tagWidth}-rows-ask`);
-          await o.page.keyboard.press("Escape"); await waitModal(o, false); await sleep(200);
-          await closeBox();
-          c.ok(text(nn.file) === nn.t, `${tagWidth} ${code}: nothing written by the scene`);
+        n = await start(true, false);
+        const judge = async label => {
+          const pf = await phoneFacts(o), ours = pf.small.filter(x => x.own), others = pf.small.filter(x => !x.own), fit = await fitOf(o);
+          c.ok(pf.bodyMobile && pf.docScroll <= pf.W + 1 && pf.vcScroll <= pf.vcClient + 1 && pf.wideCount === 0, `${label}: no sideways scroll (page ${pf.docScroll} of ${pf.W} px) and nothing sticks out${pf.wideCount ? ": " + JSON.stringify(pf.wide) : ""}`);
+          const sc = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-scroll"); return e ? { sw: e.scrollWidth, cw: e.clientWidth } : null; }, DV);
+          c.ok(!sc || sc.sw <= sc.cw + 1, `${label}: the page's own scroller does not scroll sideways (${sc && sc.sw} of ${sc && sc.cw} px)`);
+          c.ok(ours.length === 0, `${label}: every control of the plugin's is at least 44 px each way (${pf.controls} looked at)${ours.length ? "; smaller: " + JSON.stringify(ours.slice(0, 8)) : ""}`);
+          c.ok(fit.clippedCount === 0 && fit.offCount === 0, `${label}: nothing cut off or off the screen${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
+          if (others.length) c.info(`${label}: Obsidian's own controls under 44 px (not the plugin's): ${JSON.stringify(others.slice(0, 5))}`);
         };
-        await scenes("desktop");
-        await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true);
-        await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
-        await scenes("phone");
-      }
+        for (const [needle, kind, tag] of [["[!choice|where]", "question", "choice"], ["[!multi|morning", "question", "multi-menu"], ["[!multi|outside", "question", "multi-open"], ["[!menu|places]", "menu", "menu"], ["[!matrix|topics]", "question", "matrix"], ["[!choice|odd]", "question", "refused"]]) {
+          await closeBox();
+          await openQ(n, needle, kind);
+          await judge("phone " + tag);
+          await rshot("phone-rows-" + tag + "-light");
+          if (tag === "choice" || tag === "matrix") { await o.setScheme("dark"); await sleep(400); await rshot("phone-rows-" + tag + "-dark"); await o.setScheme("light"); await sleep(300); }
+        }
+        // a move that asks, and a typed row, on the phone
+        await closeBox(); await openQ(n, "[!choice|where]");
+        await press("o2-up");
+        await asks(n, n.t, "phone: Move option 3 up", [/where/], null);
+        await rshot("phone-rows-ask-light");
+        await closeBox();
+        c.ok(text(n.file) === n.t, "phone: nothing written");
+
+      } catch (e) { c.ok(false, `script error in scene 6. a phone (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ================= 7. Spanish and French
+      try {
+        const rowKeys = Object.keys(table).filter(k => k.startsWith("rows."));
+        const fill = (s, v) => s.replace(/\{(\w+)\}/g, (_, k) => String(v[k]));
+        for (const [code, label] of [["es", "Spanish"], ["fr", "French"]]) {
+          await o.page.setViewportSize({ width: vp0.w, height: vp0.h }).catch(() => {}); await mobile(o, false);
+          await o.evaluate(code => { localStorage.setItem("language", code); }, code);
+          await o.evaluate(() => { app.commands.executeCommandById("app:reload"); });
+          await o.page.waitForFunction(code => !!(window.app && app.workspace && app.workspace.layoutReady) && window.i18next && window.i18next.language === code, code, { timeout: 40000, polling: 100 });
+          await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+          c.ok(await o.evaluate(() => window.i18next.language) === code, `Obsidian is in ${label}`);
+          const english = rowKeys.filter(k => table[k][code] !== undefined && table[k].en !== table[k][code] && !/\{/.test(table[k].en) && table[k].en.length >= 4).map(k => ({ k, en: table[k].en }));
+          const scenes = async (tagWidth) => {
+            const nn = await start(true, false);
+            const want = (items, tag, list) => { const missing = list.filter(([k, v]) => { const w = fill(table[k][code] ?? table[k].en, v || {}); return !items.some(i => i.text === w); }).map(([k]) => k); c.ok(missing.length === 0, `${tagWidth} ${code} ${tag}: the words read in ${label} (${list.length} strings looked for)${missing.length ? "; not found: " + missing.join(", ") : ""}`); };
+            const scene = async (needle, kind, tag, list) => {
+              await closeBox(); await openQ(nn, needle, kind);
+              const items = await readable(o), fit = await fitOf(o);
+              fs.writeFileSync(path.join(SHOTS, `design-${code}-${tagWidth}-rows-${tag}-text-${VER}.json`), JSON.stringify(items, null, 1));
+              want(items, tag, list);
+              const wrong = english.filter(e => items.some(i => i.text === e.en && !/^drawn |booklet-design-(group|popup-label|tile-label|commonchip|samplepop-name|samplepop|tile)\b/.test(i.cls))).map(e => e.k);
+              c.ok(wrong.length === 0, `${tagWidth} ${code} ${tag}: no row string shows in English (${items.length} texts read)${wrong.length ? ": " + wrong.join(", ") : ""}`);
+              c.ok(items.filter(i => /\{\w+\}/.test(i.text)).length === 0, `${tagWidth} ${code} ${tag}: no {placeholder} left showing`);
+              c.ok(fit.clippedCount === 0 && fit.offCount === 0 && fit.sideways <= 1 && fit.docSideways <= 1, `${tagWidth} ${code} ${tag}: nothing cut off, off the screen or scrolling sideways${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
+              if (tagWidth === "phone") { const pf = await phoneFacts(o); const ours = pf.small.filter(x => x.own); c.ok(ours.length === 0 && pf.docScroll <= pf.W + 1, `phone ${code} ${tag}: every control of the plugin's is at least 44 px and nothing scrolls sideways${ours.length ? ": " + JSON.stringify(ours.slice(0, 6)) : ""}`); }
+              await rshot(`${code}-${tagWidth}-rows-${tag}`);
+            };
+            // the row buttons are small pictures named by their label (a number is in each name), so those labels are what is looked for
+            await scene("[!choice|where]", "question", "choice", [["rows.options"], ["rows.option.add"], ["rows.reply.add"], ["rows.menu.name"], ["rows.option.text", { n: 1 }], ["rows.option.correct.label", { n: 1 }], ["rows.reply.add.label", { n: 1 }], ["rows.option.remove", { n: 3 }], ["rows.option.up", { n: 1 }], ["rows.option.down", { n: 1 }]]);
+            { await closeBox(); await openQ(nn, "[!choice|where]"); const pick = await o.page.locator(RW("menu")).evaluate(e => [...e.options].map(x => x.textContent)); c.ok(pick[0] === (table["rows.menu.none"][code] ?? table["rows.menu.none"].en), `${tagWidth} ${code}: the picker's first choice reads ${JSON.stringify(pick[0])}`); }
+            await scene("[!multi|morning", "question", "multi-menu", [["rows.menu.uses", { id: "places" }], ["rows.menu.open"], ["rows.menu.open.label", { id: "places" }]]);
+            await scene("[!menu|places]", "menu", "menu", [["rows.items"], ["rows.item.add"], ["rows.menu.usedby", { ids: "morning, evening" }], ["rows.item.text", { n: 1 }], ["rows.item.remove", { n: 1 }]]);
+            await scene("[!matrix|topics]", "question", "matrix", [["rows.items"], ["rows.anchors"], ["rows.anchor.add"], ["rows.item.add"], ["rows.anchor.number", { n: 1 }], ["rows.anchor.text", { n: 1 }], ["rows.anchor.up", { n: 1 }]]);
+            await scene("[!choice|odd]", "question", "refused", []);
+            // the ask dialog with a row move
+            await closeBox(); await openQ(nn, "[!choice|where]");
+            await press("o2-up"); await waitModal(o, true);
+            const mi = await modalInfo(o), fit = await fitOf(o);
+            const mw = await o.evaluate(() => { const r = document.querySelector(".modal-container .modal").getBoundingClientRect(); return { l: r.left, r: r.right, w: window.innerWidth }; });
+            c.ok(!!mi && mi.buttons.length === 2 && mw.l >= 0 && mw.r <= mw.w + 1 && fit.clippedCount === 0, `${tagWidth} ${code}: the ask dialog fits (${JSON.stringify(mi && mi.buttons)}, ${Math.round(mw.l)}..${Math.round(mw.r)} of ${mw.w} px)`);
+            await rshot(`${code}-${tagWidth}-rows-ask`);
+            await o.page.keyboard.press("Escape"); await waitModal(o, false); await sleep(200);
+            await closeBox();
+            c.ok(text(nn.file) === nn.t, `${tagWidth} ${code}: nothing written by the scene`);
+          };
+          await scenes("desktop");
+          await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true);
+          await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+          await scenes("phone");
+        }
+      } catch (e) { c.ok(false, `script error in scene 7. Spanish and French (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
     });
     return c;
   }
@@ -1950,16 +2038,18 @@ lang: en
   const closeAll = async o => { for (let i = 0; i < 3 && (await state(o)).editBox; i++) { await o.page.keyboard.press("Escape"); await sleep(250); } };
 
   /* ================= CHECK 73 ================= */
-  // Typing in a settings row (the Title row, an anchor's number) and then leaving the box without leaving the row first, with REAL input only:
-  // Playwright's keyboard (keystrokes) and mouse (move, press, release at the Save button's centre), never fill() or a dispatched event for what is under test.
-  // Before commit f31ac2a a row's typing reached the draft only when the row was left, so Ctrl+Enter lost it, the first click on Save did nothing (the press
-  // took the focus out of the row, the box showed "Unsaved changes" and moved the buttons down, the release landed on nothing) and one Esc closed the box.
-  // On Linux Obsidian's Mod key is Control, so Ctrl+Enter is what is pressed; Cmd+Enter (Meta+Enter on a Mac) goes through a fallback keydown listener that a
-  // unit test covers and this check cannot press here. A write is counted with a vault "modify" listener on the note (the check's own, in the page).
+  // Typing in a field of the open block and then leaving it at once, with REAL input only: Playwright's keyboard (keystrokes) and mouse (move, press,
+  // release at a button's centre), never fill() or a dispatched event for what is under test. This is the guard against "typing and then immediately
+  // clicking is swallowed" and against a write drawing the box again under a press that has begun (beta.2: the press took the focus out of a row, the
+  // typing was written, the box was drawn again with its buttons moved, and the release landed on nothing). In stage 2b there is no Save and no Cancel,
+  // so the old scenes are these: (a) Ctrl+Enter applies the typed title and closes; (b) one real press on "Add an option" straight after typing in the
+  // title lands on its button: two writes (the title, the new row), the buttons did not move under the press, no error; (c) one Esc after typing applies
+  // it and closes (it used to keep the box and say "Unsaved"; now nothing is ever waiting); (d) a matrix anchor's number typed and Ctrl+Enter at once.
+  // On Linux Obsidian's Mod key is Control, so Ctrl+Enter is what is pressed; Cmd+Enter (Meta+Enter on a Mac) goes through a fallback keydown listener
+  // that a unit test covers. A write is counted with a vault "modify" listener on the note (the check's own, in the page).
   async function check73() {
-    const c = new Check(73, "typing in a settings row and leaving the box at once, real keys and mouse: Ctrl+Enter saves the typed Title (one write, the note otherwise byte for byte), one real click on Save saves it on the first click and the buttons do not move under the press, one Esc keeps the box and says Unsaved (a second throws it away, nothing written), and a typed anchor number on a matrix with no kept answers is saved by Ctrl+Enter without asking (Cmd+Enter is not pressed: no Mac here)");
+    const c = new Check(73, "typing in a field of the open block and leaving the box at once, real keys and mouse: Ctrl+Enter applies the typed title and closes (one write, the note otherwise byte for byte); one real press on \"Add an option\" straight after typing lands on its button, the buttons do not move under the press, and the title and the new row are two writes with no error; one Esc applies the typing and closes (nothing is ever \"Unsaved\"); a typed matrix anchor number is applied by Ctrl+Enter without asking (Cmd+Enter is not pressed: no Mac here)");
     const NEWT = "Which fruit would you pick?", OLDT = "Which fruit would you take?";
-    const ARMED = "Unsaved. Esc again throws your changes away; Save writes them.";
     const note73 = name => [
       "---", "booklet: \"0.20\"", `id: booklet-test/typing-${name}`, `title: Typing ${name}`, "lang: en", "---", "",
       "> [!module|m] Fruit", "", "> [!activity|a] Choosing", "",
@@ -1969,96 +2059,107 @@ lang: en
     ].join("\n");
     await withApp("c73", async (o, vault) => {
       let seq = 0;
+      const errs0 = consoleReport.length;
       const mk = () => { const name = "s" + (++seq), rel = `Typing ${name}.booklet.md`, t = note73(name); return { rel, file: put(vault, rel, t), t }; };
-      const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); return n; };
+      const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); return n; };
       const open = async (n, needle) => { await clickBlock(o, "question", lineOf(n.t, needle)); await sleep(150); };
-      const TITLE = `${DV} .booklet-design-settings [data-field='title'] input`, SAVE = `${DV} .booklet-design-save`;
-      const writes = async (n) => o.evaluate(rel => (window.__w73 || {})[rel] || 0, n.rel);
-      const arm = async (n) => { await o.evaluate(rel => { window.__w73 = window.__w73 || {}; window.__w73[rel] = 0; if (!window.__w73ref) window.__w73ref = app.vault.on("modify", f => { window.__w73[f.path] = (window.__w73[f.path] || 0) + 1; }); }, n.rel); };
-      /** What the box and the row say now, as a person sees it. */
+      /** What the box shows now, as a person sees it: where the focus is and where the box's buttons stand. */
       const look = () => o.evaluate(sel => {
-        const g = s => document.querySelector(sel + " " + s), a = document.activeElement, sv = g(".booklet-design-save"), r = sv && sv.getBoundingClientRect();
-        return { state: (g(".booklet-design-editor-state") || {}).textContent || "", mark: (g(".booklet-design-edit-mark") || {}).textContent || "", focus: a ? (a.closest("[data-field]") ? a.closest("[data-field]").getAttribute("data-field") : (a.getAttribute("data-key") || a.className || a.tagName)) : null,
-          save: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null, draft0: ((g(".booklet-design-textarea") || {}).value || "").split("\n").filter(l => /\[!choice/.test(l))[0] || "" };
+        const g = s => document.querySelector(sel + " " + s), a = document.activeElement, add = g("[data-key='o-add']"), r = add && add.getBoundingClientRect();
+        return { focus: a ? (a.closest("[data-field]") ? a.closest("[data-field]").getAttribute("data-field") : (a.getAttribute("data-key") || a.className || a.tagName)) : null, add: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null, unsaved: /unsaved/i.test((g(".booklet-design-editbox") || { textContent: "" }).textContent) };
       }, DV);
-      /** A real click into the Title row and real keystrokes that replace its words; the row is NOT left. */
-      const typeTitle = async () => { await o.page.locator(TITLE).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(NEWT); await sleep(200); };
+      /** A real click into the title field and real keystrokes that replace its words; the field is NOT left. */
+      const typeTitle = async () => { await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(NEWT); await sleep(200); };
       const wantNew = n => sub(n.t, `[!choice|fruit] ${OLDT}`, `[!choice|fruit] ${NEWT}`);
       const diffs = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
 
+      let n, lk, r, st, w;
       // ----- a. Ctrl+Enter at once
-      let n = await start(); await arm(n);
-      await open(n, "[!choice|fruit]");
-      c.ok(await o.page.locator(TITLE).inputValue() === OLDT, "the Title row of the choice reads " + JSON.stringify(OLDT));
-      await typeTitle();
-      let lk = await look();
-      c.info(`a: after typing, the row has the focus (${lk.focus}) and the draft's opening line reads ${JSON.stringify(lk.draft0)}; the row still owes its words`);
-      c.ok(lk.focus === "title" && await o.page.locator(TITLE).inputValue() === NEWT && text(n.file) === n.t, "a: the typed words are in the Title row, the focus is still there, nothing is written yet");
-      await shot(o, "typing-a-typed");
-      await o.page.keyboard.press("Control+Enter");
-      let r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
-      let st = await state(o), w = await writes(n);
-      c.ok(r.ok && text(n.file) === wantNew(n), `a: Ctrl+Enter at once wrote the typed title and nothing else (the whole expected note, byte for byte)${diffs(wantNew(n), text(n.file))}`);
-      c.ok(!st.editBox && !st.modal && /^Changed /.test(st.status), `a: the box closed, nothing was asked, and the status says what changed (${JSON.stringify(st.status)})`);
-      c.ok(w === 1, `a: exactly one write to the note (${w} modify events)`);
-      await shot(o, "typing-a-saved");
-      await closeAll(o);
+      try {
+        n = await start();
+        await open(n, "[!choice|fruit]");
+        c.ok(await o.page.locator(TITLE_F).inputValue() === OLDT, "the title field of the choice reads " + JSON.stringify(OLDT));
+        await typeTitle();
+        lk = await look();
+        c.ok(lk.focus === "title" && await o.page.locator(TITLE_F).inputValue() === NEWT && text(n.file) === n.t, "a: the typed words are in the title field, the focus is still there, nothing is written yet (a key is never a write)");
+        await shot(o, "typing-a-typed");
+        await o.page.keyboard.press("Control+Enter");
+        r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
+        st = await state(o), w = await writesOf(o, n.rel);
+        c.ok(r.ok && text(n.file) === wantNew(n), `a: Ctrl+Enter at once wrote the typed title and nothing else (the whole expected note, byte for byte)${diffs(wantNew(n), text(n.file))}`);
+        c.ok(!st.editBox && !st.modal && /^Changed /.test(st.status), `a: the block closed, nothing was asked, and the status says what changed (${JSON.stringify(st.status)})`);
+        c.ok(w === 1, `a: exactly one write to the note (${w} modify events)`);
+        await shot(o, "typing-a-saved");
+        await closeAll(o);
 
-      // ----- b. one real click on Save
-      n = await start(); await arm(n);
-      await open(n, "[!choice|fruit]");
-      await typeTitle();
-      await o.page.locator(SAVE).scrollIntoViewIfNeeded(); await sleep(250);
-      lk = await look();
-      const before = lk.save;
-      c.ok(before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the Save button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the Title row still has the focus (${lk.focus})`);
-      await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
-      await o.page.mouse.down();
-      await sleep(250);
-      const during = await look();
-      c.ok(Math.abs(during.save.y - before.y) < 1 && Math.abs(during.save.x - before.x) < 1 && !/Unsaved changes/.test(during.mark) === !/Unsaved changes/.test(lk.mark), `b: while the button is held down the box did not move or change (Save at y ${Math.round(before.y)} then ${Math.round(during.save.y)}; the row kept the focus: ${during.focus}; mark ${JSON.stringify(lk.mark)} then ${JSON.stringify(during.mark)})`);
-      await shot(o, "typing-b-pressed");
-      await o.page.mouse.up();
-      r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
-      st = await state(o); w = await writes(n);
-      c.ok(r.ok && text(n.file) === wantNew(n), `b: the first and only click on Save wrote the typed title and nothing else, byte for byte${diffs(wantNew(n), text(n.file))}`);
-      c.ok(!st.editBox && !st.modal && /^Changed /.test(st.status) && w === 1, `b: the box closed on that click, status ${JSON.stringify(st.status)}, ${w} write(s)`);
-      await shot(o, "typing-b-saved");
-      await closeAll(o);
+      } catch (e) { c.ok(false, `script error in scene a. Ctrl+Enter at once (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ----- b. one real press on a button of the box straight after typing: the typing is applied, the press lands
+      try {
+        n = await start();
+        await open(n, "[!choice|fruit]");
+        await typeTitle();
+        await o.page.locator(`${DV} [data-key='o-add']`).scrollIntoViewIfNeeded(); await sleep(250);
+        lk = await look();
+        const before = lk.add;
+        c.ok(!!before && before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the "Add an option" button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the title still has the focus (${lk.focus})`);
+        const th0 = await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F);
+        await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
+        await o.page.mouse.down();
+        await sleep(300);
+        const during = await look();
+        c.info(`b: the title field is ${await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F)} px high while the button is held; lines of the title: ${JSON.stringify(await o.evaluate(sel => document.querySelector(sel).value, TITLE_F))}; was ${th0}`);
+        c.ok(!!during.add && Math.abs(during.add.y - before.y) < 1 && Math.abs(during.add.x - before.x) < 1 && !during.unsaved, `b: while the button is held down the box did not move or change (the button at y ${Math.round(before.y)} then ${Math.round(during.add && during.add.y)}; the focus is on ${during.focus})`);
+        await shot(o, "typing-b-pressed");
+        await o.page.mouse.up();
+        r = await waitDisk(n.file, tx => tx !== n.t && /\n- \[ \] ?\n/.test(tx)); await sleep(700); await idle(o);
+        st = await state(o); w = await writesOf(o, n.rel);
+        const wantB = text(n.file);
+        c.ok(r.ok && wantB === sub(wantNew(n), "- [x] Pear\n", "- [x] Pear\n- [ ] \n"), `b: the first and only press on the button wrote the typed title AND added the row, nothing else, byte for byte${diffs(sub(wantNew(n), "- [x] Pear\n", "- [x] Pear\n- [ ] \n"), wantB)}`);
+        c.ok(st.editBox && !st.modal && w === 2, `b: the box is still open, nothing was asked, ${w} write(s): the title and the new row`);
+        c.ok(await o.evaluate(() => (document.activeElement.getAttribute("data-key") || "")) === "o2-text", "b: the focus is in the new row's words");
+        await shot(o, "typing-b-saved");
+        await undoBtn(o).click(); r = await waitDisk(n.file, tx => tx === wantNew(n)); await idle(o);
+        await undoBtn(o).click(); const ub = await waitDisk(n.file, tx => tx === n.t); await idle(o);
+        c.ok(r.ok && ub.ok, "b: two Undos give the note back byte for byte (each write was its own step)");
+        await closeAll(o);
 
-      // ----- c. Escape once, then twice
-      n = await start(); await arm(n);
-      await open(n, "[!choice|fruit]");
-      await typeTitle();
-      await o.page.keyboard.press("Escape"); await sleep(400);
-      st = await state(o); lk = await look();
-      c.ok(st.editBox && lk.state === ARMED, `c: one Esc with typing in a row keeps the box open and says ${JSON.stringify(lk.state)}`);
-      c.ok(text(n.file) === n.t, "c: nothing is written by the first Esc");
-      await shot(o, "typing-c-armed");
-      await o.page.keyboard.press("Escape"); await sleep(500); await idle(o);
-      st = await state(o); w = await writes(n);
-      c.ok(!st.editBox && text(n.file) === n.t && w === 0, `c: the second Esc closes the box and throws the typing away (status ${JSON.stringify(st.status)}); the note is byte for byte as it was, ${w} write(s)`);
-      await shot(o, "typing-c-closed");
-      await closeAll(o);
+      } catch (e) { c.ok(false, `script error in scene b. one real press on a button of the box straight after typing: the typing is applied, the press lands (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      // ----- c. Escape after typing applies and closes
+      try {
+        n = await start();
+        await open(n, "[!choice|fruit]");
+        await typeTitle();
+        await o.page.keyboard.press("Escape");
+        r = await waitDisk(n.file, tx => tx !== n.t); await sleep(500); await idle(o);
+        st = await state(o); w = await writesOf(o, n.rel); lk = await look();
+        c.ok(r.ok && text(n.file) === wantNew(n) && !st.editBox && w === 1, `c: one Esc after typing wrote the typed title (byte for byte${diffs(wantNew(n), text(n.file))}) and closed the block (${w} write(s)); the status says ${JSON.stringify(st.status)}`);
+        c.ok(!lk.unsaved && !/Unsaved|thrown away/i.test(st.status), "c: nothing says Unsaved or that anything was thrown away");
+        await shot(o, "typing-c-closed");
+        await closeAll(o);
 
+      } catch (e) { c.ok(false, `script error in scene c. Escape after typing applies and closes (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
       // ----- d. a matrix anchor's number, Ctrl+Enter at once; no kept answers, so nothing is asked
-      n = await start(); await arm(n);
-      await open(n, "[!matrix|sure]");
-      const ins = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows input[data-key]")].map(e => e.getAttribute("data-key") + "=" + e.value).join("|"), DV);
-      c.ok(ins === "i0-text=Spring tides|i1-text=Neap tides|a0-number=0|a0-text=Not yet|a1-number=1|a1-text=Sure", "d: the matrix shows its two items and its two anchors as rows: " + ins);
-      const NUM = `${DV} .booklet-design-rows [data-key='a1-number']`;
-      await o.page.locator(NUM).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("4"); await sleep(200);
-      lk = await look();
-      c.ok(lk.focus === "a1-number" && await o.page.locator(NUM).inputValue() === "4" && text(n.file) === n.t, "d: the new number is typed in the anchor's field, the focus is still there, nothing is written yet");
-      await shot(o, "typing-d-typed");
-      await o.page.keyboard.press("Control+Enter");
-      r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
-      st = await state(o); w = await writes(n);
-      const wantD = sub(n.t, "1. Sure\n", "4. Sure\n");
-      c.ok(r.ok && text(n.file) === wantD, `d: Ctrl+Enter at once wrote the new anchor number (the words are unchanged) and nothing else, byte for byte${diffs(wantD, text(n.file))}`);
-      c.ok(!st.editBox && !st.modal && w === 1, `d: it asked nothing (no kept answers), the box closed, status ${JSON.stringify(st.status)}, ${w} write(s)`);
-      await shot(o, "typing-d-saved");
-      c.info("Cmd+Enter (Meta+Enter) is not pressed: on Linux Obsidian's Mod key is Control; the Meta path is a fallback keydown listener covered by a unit test");
+      try {
+        n = await start();
+        await open(n, "[!matrix|sure]");
+        const ins = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows input[data-key]")].map(e => e.getAttribute("data-key") + "=" + e.value).join("|"), DV);
+        c.ok(ins === "i0-text=Spring tides|i1-text=Neap tides|a0-number=0|a0-text=Not yet|a1-number=1|a1-text=Sure", "d: the matrix shows its two items and its two anchors as rows: " + ins);
+        const NUM = `${DV} .booklet-design-rows [data-key='a1-number']`;
+        await o.page.locator(NUM).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("4"); await sleep(200);
+        lk = await look();
+        c.ok(lk.focus === "a1-number" && await o.page.locator(NUM).inputValue() === "4" && text(n.file) === n.t, "d: the new number is typed in the anchor's field, the focus is still there, nothing is written yet");
+        await shot(o, "typing-d-typed");
+        await o.page.keyboard.press("Control+Enter");
+        r = await waitDisk(n.file, tx => tx !== n.t); await sleep(700); await idle(o);
+        st = await state(o); w = await writesOf(o, n.rel);
+        const wantD = sub(n.t, "1. Sure\n", "4. Sure\n");
+        c.ok(r.ok && text(n.file) === wantD, `d: Ctrl+Enter at once wrote the new anchor number (the words are unchanged) and nothing else, byte for byte${diffs(wantD, text(n.file))}`);
+        c.ok(!st.editBox && !st.modal && w === 1, `d: it asked nothing (no kept answers), the block closed, status ${JSON.stringify(st.status)}, ${w} write(s)`);
+        await shot(o, "typing-d-saved");
+        c.info("Cmd+Enter (Meta+Enter) is not pressed: on Linux Obsidian's Mod key is Control; the Meta path is a fallback keydown listener covered by a unit test");
+        const errs = errorsSince(errs0);
+        c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+      } catch (e) { c.ok(false, `script error in scene d. a matrix anchor's number, Ctrl+Enter at once; no kept answers, so nothing is asked (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
     });
     return c;
   }
@@ -2097,7 +2198,7 @@ lang: en
     };
   }, [CV, DV]);
   /** Contrast of everything in the open edit box: each text against what is behind it (4.5), each control's edge or fill against what is behind it (3). */
-  const edit74 = (o, sel = `${DV} .booklet-design-editbox`, skip = ".booklet-design-edit-previewhost", only = null) => o.evaluate(([sel, skip, only]) => {
+  const edit74 = (o, sel = `${DV} .booklet-design-editbox`, skip = null, only = null) => o.evaluate(([sel, skip, only]) => {
     const root = document.querySelector(sel); if (!root) return null;
     const cx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
     const px = css => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = css; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }; };
@@ -2111,9 +2212,9 @@ lang: en
     const name = e => e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).slice(0, 2).join(".") : "") + (e.getAttribute("data-key") ? "[" + e.getAttribute("data-key") + "]" : "") + "(" + ((e.getAttribute("aria-label") || e.value || e.textContent || "").trim().slice(0, 18)) + ")";
     const texts = [], controls = [], seen = new Set();
     const isControl = e => e.matches("button, input:not([type=hidden]):not([type=checkbox]):not([type=radio]), textarea, select, [role=switch], [role=checkbox], .checkbox-container");
-    // the preview inside the box is an inert drawing of the reader's own page (it has its own check in 65): the box's own words and controls are measured
+    // the box's own words and controls are measured (a drawing inside it, if any, is inert and has its own check in 65: `skip` leaves such a part out)
     for (const e of root.querySelectorAll("*")) {
-      if (e.closest(skip) || !vis(e)) continue;
+      if ((skip && e.closest(skip)) || !vis(e)) continue;
       const cs = getComputedStyle(e), own = [...e.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).map(n => n.textContent.trim()).join(" ");
       if (e.matches("input[type=checkbox], input[type=radio]") || parseFloat(cs.opacity) === 0) { /* a toggle's own box is measured as its container below */ } 
       const live = e.matches("input[type=checkbox], input[type=radio]") || parseFloat(cs.opacity) === 0 ? "" : e.matches("input:not([type=hidden]), textarea, select") ? (e.value || e.placeholder || "x") : own;
@@ -2123,7 +2224,9 @@ lang: en
         texts.push({ n: name(e), fg: hex(fg), bg: hex(under), ratio: Math.round(ratio(fg, under) * 100) / 100, need: large ? 3 : 4.5, disabled: !!e.disabled, ph: !e.value && !!e.placeholder });
       }
       if (only ? e.matches(only) : isControl(e)) {
-        const under = behind(e, false), fill = over(px(cs.backgroundColor), under), bw = parseFloat(cs.borderTopWidth) || 0, edge = bw > 0 && cs.borderTopStyle !== "none" ? over(px(cs.borderTopColor), under) : null;
+        // a words field of the open block is drawn as the block's own words, with a rule under it as its edge: its bottom edge is the one measured
+        const bottom = e.matches(".booklet-design-field"), side = bottom ? "Bottom" : "Top";
+        const under = behind(e, false), fill = over(px(cs.backgroundColor), under), bw = parseFloat(cs["border" + side + "Width"]) || 0, edge = bw > 0 && cs["border" + side + "Style"] !== "none" ? over(px(cs["border" + side + "Color"]), under) : null;
         const fr = ratio(fill, under), er = edge ? ratio(edge, under) : 0;
         controls.push({ n: name(e), edge: edge ? hex(edge) : null, edgeRatio: Math.round(er * 100) / 100, fill: hex(fill), fillRatio: Math.round(fr * 100) / 100, under: hex(under), best: Math.round(Math.max(er, fr) * 100) / 100, role: e.getAttribute("role") || e.tagName.toLowerCase(), w: Math.round(e.getBoundingClientRect().width), h: Math.round(e.getBoundingClientRect().height) });
       }
@@ -2269,5 +2372,437 @@ lang: en
     return c;
   }
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74 };
+
+  /* ================= CHECK 75 ================= */
+  // The in-place flow of stage 2b with REAL keys and a REAL mouse (Playwright's keyboard and mouse: keystrokes and a move, press and release at a point, never
+  // fill() or a dispatched event for what is under test). Every note is made up here and written into the check's own copy of the vault, one note per scene.
+  // A write is counted with a vault "modify" listener in the page; the note's whole text is compared byte for byte.
+  const note75 = name => [
+    "---", "booklet: \"0.20\"", `id: booklet-test/inplace-${name}`, `title: In place ${name}`, "lang: en", "---", "",
+    "> [!module|m] Fruit", "", "> [!activity|a] Choosing", "",
+    "> [!choice|fruit] Which fruit would you take?", "> Pick one.", "- [ ] Apple", "- [x] Pear", "",
+    "> [!choice|veg] Which vegetable would you take?", "> Pick any one.", "- [ ] Leek", "- [ ] Kale", "",
+    "> [!text|why] Why that one?", "",
+    "> [!module|m end]", "",
+  ].join("\n");
+  /** A point on the empty page: left of the sheet, inside the scrolling canvas, on nothing the view treats as a block, a card, a control or the box. */
+  const emptyPoint = o => o.evaluate(() => {
+    const sc = document.querySelector(".workspace-leaf.mod-active .booklet-design-scroll"), pg = sc.querySelector(".booklet-design-page"), s = sc.getBoundingClientRect(), r = pg.getBoundingClientRect();
+    const x = Math.max(s.left + 4, r.left - 6), y = s.top + 20, e = document.elementFromPoint(x, y);
+    return { x, y, hit: e ? e.className : null, bg: !!e && !e.closest(".booklet-design-block, .booklet-design-editbox, .booklet-design-card, .booklet-design-slot, .booklet-design-floatbar, button, a, input, select, textarea, summary, label") };
+  });
+  async function check75() {
+    const c = new Check(75, "the in-place flow, real keys and mouse: a title left by Tab is one write and one Undo step and the box keeps its elements; a description takes Enter as a newline and a real press on another block applies it and opens that block (one write, the press not swallowed); typing in an option row and a real click straight on \"Add an option\" make two writes with no page error; Esc after typing, Ctrl+Enter and a press on the empty page each apply and close; a drag that begins in the box and ends on the page does not close it; the Markdown section opens on one press and applies when left; a mode switch (a header press, and a command with no blur) and a closed pane with text pending write it first; text typed while the note changed on disk is held with a reason, not applied over the other writer's words; every note compared byte for byte");
+    const table = tableOf();
+    const say = k => (table[k] ? table[k].en : "?" + k);
+    await withApp("c75", async (o, vault) => {
+      let seq = 0;
+      const errs0 = consoleReport.length;
+      const mk = () => { const name = "s" + (++seq), rel = `In place ${name}.booklet.md`, t = note75(name); return { rel, file: put(vault, rel, t), t }; };
+      const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); return n; };
+      const open = async (n, needle) => { await clickBlock(o, "question", lineOf(text(n.file), needle)); };
+      const diffs = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
+      const fieldFocus = () => o.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-key") || a.getAttribute("data-field") || a.className || a.tagName) : null; });
+      const statusOf = async () => (await state(o)).status;
+      /** After the note has changed from `from`: its text, read again once the write has settled. */
+      const settled = async (n, from) => { const r = await waitDisk(n.file, tx => tx !== from); await sleep(450); await idle(o); return { ok: r.ok, text: text(n.file) }; };
+      const W = n => writesOf(o, n.rel);
+      const T = "Which fruit would you take?";
+
+      // ---------- A. a title typed and left by Tab: one write, one step of Undo, the box and its elements stay
+      let n = await start();
+      let t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      const fruit = lineOf(t0, "[!choice|fruit]");
+      c.ok(/is-title/.test(await o.evaluate(() => document.activeElement.className)) && await o.page.locator(TITLE_F).inputValue() === T, "A: a press on the block opens it with the title field holding the note's words and the focus in it");
+      await o.evaluate(([a, b]) => { window.__t = document.querySelector(a); window.__d = document.querySelector(b); window.__box = document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox"); }, [TITLE_F, DESC_F]);
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" today");
+      c.ok(text(n.file) === t0 && await W(n) === 0, "A: typing writes nothing while the field has the focus");
+      await o.page.keyboard.press("Tab");
+      let r = await settled(n, t0);
+      const wantA = sub(t0, `[!choice|fruit] ${T}`, `[!choice|fruit] ${T} today`);
+      let st = await state(o);
+      c.ok(r.ok && r.text === wantA && await W(n) === 1, `A: Tab wrote the typed title and nothing else, in one write (${await W(n)}), byte for byte${diffs(wantA, r.text)}`);
+      c.ok(st.editBox && st.selected === "question@" + fruit, `A: the block stays open and selected (${st.selected})`);
+      c.ok(await o.evaluate(([a, b]) => document.querySelector(a) === window.__t && document.querySelector(b) === window.__d && document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox") === window.__box, [TITLE_F, DESC_F]), "A: the title field, the description field and the box are the same elements after the write (nothing was drawn again under the person)");
+      c.ok(await o.page.locator(TITLE_F).inputValue() === T + " today" && await fieldFocus() === "description", `A: the title shows the typed words and the focus went on to the next field (${await fieldFocus()})`);
+      await undoBtn(o).click();
+      r = await waitDisk(n.file, tx => tx === t0); await idle(o);
+      c.ok(r.ok && await W(n) === 2, "A: one press on Undo gave the note back byte for byte (the typing was one step), in one more write");
+      await redoBtn(o).click(); r = await waitDisk(n.file, tx => tx === wantA); await idle(o);
+      c.ok(r.ok, "A: and one Redo made it again, byte for byte");
+      await closeAll(o);
+
+      // ---------- B. a description: Enter is a newline, and a real press on another block applies it and opens that block
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.press("Enter");
+      let dv = await o.page.locator(DESC_F).inputValue();
+      c.ok(dv === "Pick one.\n" && text(n.file) === t0, `B: Enter in the description is a newline in the field (${JSON.stringify(dv)}) and writes nothing`);
+      await o.page.keyboard.type("A second line.");
+      const vegSel = block("question", lineOf(t0, "[!choice|veg]"));
+      await o.page.locator(vegSel).scrollIntoViewIfNeeded();
+      await o.page.locator(vegSel).click(); // a real press: move, down, up, at the middle of the other block
+      await sleep(500);
+      r = await settled(n, t0);
+      const wantB = sub(t0, "> Pick one.\n", "> Pick one.\n> A second line.\n");
+      st = await state(o);
+      c.ok(r.ok && r.text === wantB && await W(n) === 1, `B: the press on another block applied the description in one write, byte for byte${diffs(wantB, r.text)}`);
+      c.ok(st.editBox && st.selected === "question@" + lineOf(r.text, "[!choice|veg]") && await o.page.locator(block("question", lineOf(r.text, "[!choice|veg]")) + ".is-open").count() === 1, `B: and that press was not swallowed: the vegetable block is selected and open (${st.selected}), the fruit block is shut`);
+      await closeAll(o);
+
+      // ---------- C. typing in an option row, then a real click straight on "Add an option": two writes, no page error
+      n = await start(); t0 = n.t;
+      const errsC = consoleReport.length;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(RW("o0-text")).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" and more");
+      const addBtn = `${DV} [data-key='o-add']`;
+      await o.page.locator(addBtn).scrollIntoViewIfNeeded();
+      await o.page.locator(addBtn).click(); // move, down, up: the typing is applied on the press, the press must still reach its button
+      await sleep(500); await idle(o);
+      const wantC1 = sub(t0, "- [ ] Apple\n", "- [ ] Apple and more\n"), wantC = sub(wantC1, "- [x] Pear\n", "- [x] Pear\n- [ ] \n");
+      r = await waitDisk(n.file, tx => tx === wantC); await sleep(300); await idle(o);
+      c.ok(r.ok && text(n.file) === wantC && await W(n) === 2, `C: the typed words and the pressed button are two writes (${await W(n)}), the note equals the old one with the option reworded and a new empty option added, byte for byte${diffs(wantC, text(n.file))}`);
+      c.ok(await fieldFocus() === "o2-text", `C: the focus went to the new option's words (${await fieldFocus()})`);
+      c.ok(errorsSince(errsC).length === 0, `C: no page error and no console error for it (${errorsSince(errsC).length})`);
+      await closeAll(o);
+
+      // ---------- D. Esc after typing applies and closes; E. Ctrl+Enter applies and closes
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|veg]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("?");
+      await o.page.keyboard.press("Escape");
+      r = await settled(n, t0);
+      const wantD = sub(t0, "[!choice|veg] Which vegetable would you take?", "[!choice|veg] Which vegetable would you take??");
+      st = await state(o);
+      c.ok(r.ok && r.text === wantD && await W(n) === 1 && !st.editBox && st.selected === "question@" + lineOf(t0, "[!choice|veg]"), `D: Esc after typing applied the title (one write) and closed the block, which stays selected (${st.selected}); byte for byte${diffs(wantD, r.text)}`);
+      await open(n, "[!choice|veg]");
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Pick two.");
+      await o.page.keyboard.press("Control+Enter");
+      const r2 = await settled(n, wantD);
+      const wantE = sub(wantD, "> Pick any one.\n", "> Pick two.\n");
+      st = await state(o);
+      c.ok(r2.ok && r2.text === wantE && await W(n) === 2 && !st.editBox, `E: Ctrl+Enter after typing applied the description (one more write) and closed the block, byte for byte${diffs(wantE, r2.text)}`);
+
+      // ---------- F. a real press on the empty page applies and closes; G. a drag that begins in the box and ends on the page does not
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("!");
+      const bg = await emptyPoint(o);
+      c.ok(bg.bg, `F: the point chosen on the empty page is on nothing of the view's (${bg.hit})`);
+      await o.page.mouse.click(bg.x, bg.y);
+      r = await settled(n, t0);
+      st = await state(o);
+      c.ok(r.ok && r.text === sub(t0, `[!choice|fruit] ${T}`, `[!choice|fruit] ${T}!`) && await W(n) === 1 && !st.editBox, `F: a press on the empty page applied the typed title (one write) and closed the block, byte for byte${diffs(sub(t0, `[!choice|fruit] ${T}`, `[!choice|fruit] ${T}!`), r.text)}`);
+      t0 = r.text;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("?");
+      const tb = await o.page.locator(TITLE_F).boundingBox();
+      const bg2 = await emptyPoint(o);
+      await o.page.mouse.move(tb.x + 8, tb.y + tb.height / 2); await o.page.mouse.down();
+      await o.page.mouse.move(tb.x + tb.width / 2, tb.y + tb.height / 2, { steps: 4 });
+      await o.page.mouse.move(bg2.x, bg2.y, { steps: 10 });
+      await o.page.mouse.up(); await sleep(500);
+      st = await state(o);
+      c.ok(st.editBox && await o.page.locator(TITLE_F).inputValue() === T + "!?" && text(n.file) === t0, `G: a drag that began in the box's field and ended on the empty page did not close the block, lost no typing, and wrote nothing (the field holds ${JSON.stringify(await o.page.locator(TITLE_F).inputValue())})`);
+      await o.page.keyboard.press("Tab");
+      r = await settled(n, t0);
+      c.ok(r.ok && r.text === sub(t0, `${T}!`, `${T}!?`), "G: and the typing is applied when the field is left (Tab), byte for byte");
+      await closeAll(o);
+
+      // ---------- H. the Markdown section: one press opens it; it is applied when left
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      const mdOpenBefore = await o.evaluate(() => document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox .booklet-design-edit-md").open);
+      await o.page.locator(MD_SUMMARY).click();
+      const mdVisible = await o.page.locator(MD_AREA).isVisible();
+      c.ok(!mdOpenBefore && mdVisible, `H: the Markdown section is closed on a new block and one real press on its summary opens it (open before ${mdOpenBefore}, text area visible after ${mdVisible})`);
+      c.ok(await markdownOf(o) === "> [!choice|fruit] Which fruit would you take?\n> Pick one.\n- [ ] Apple\n- [x] Pear", "H: it holds the block's own lines, byte for byte");
+      await o.page.locator(MD_AREA).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type("\n- [ ] Plum");
+      c.ok(text(n.file) === t0, "H: nothing is written while the Markdown has the focus");
+      await o.page.locator(TITLE_F).click();
+      r = await settled(n, t0);
+      const wantH = sub(t0, "- [x] Pear\n", "- [x] Pear\n- [ ] Plum\n");
+      c.ok(r.ok && r.text === wantH && await W(n) === 1 && await o.page.locator(MD_AREA).isVisible(), `H: leaving it applied the typed line in one write, byte for byte, and the section stays open${diffs(wantH, r.text)}`);
+      await closeAll(o);
+
+      // ---------- I. a switch of view with typing pending writes it first: a real press on the header button, and a command that takes no blur
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.type(" Last words.");
+      await o.page.locator(".workspace-leaf.mod-active .view-header .view-actions .clickable-icon[aria-label='Show Markdown']").click();
+      const wantI = sub(t0, "> Pick one.\n", "> Pick one. Last words.\n");
+      r = await settled(n, t0);
+      const swOk = await waitActiveType(o, "markdown", 8000);
+      const mdBuf = swOk ? await o.evaluate(() => app.workspace.activeLeaf.view.editor.getValue()) : null;
+      c.ok(r.ok && r.text === wantI && swOk && mdBuf === wantI && await W(n) === 1, `I: a real press on "Show Markdown" with typing pending wrote it first (one write), the Markdown pane then holds exactly the note, byte for byte${diffs(wantI, r.text)}`);
+      await o.evaluate(async () => { await app.plugins.plugins.booklet.setMode(app.workspace.activeLeaf, "design"); });
+      await waitActiveType(o, "booklet-design", 8000); await o.page.waitForSelector(DV + " .booklet-design-page", { timeout: 8000 }); await idle(o);
+      await goNav(o, "activity", lineOf(wantI, "[!activity|a]"));
+      await open(n, "[!choice|veg]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Now.");
+      await o.evaluate(() => { app.commands.executeCommandById("booklet:toggle-view"); }); // no blur: the field still has the focus when the view changes
+      const wantI2 = sub(wantI, "[!choice|veg] Which vegetable would you take?", "[!choice|veg] Which vegetable would you take? Now.");
+      r = await settled(n, wantI);
+      const sw2 = await waitActiveType(o, "markdown", 8000);
+      c.ok(r.ok && r.text === wantI2 && sw2 && await W(n) === 2, `I: the command that toggles the view, with the field still holding the focus and the typing, also wrote it first (one more write), byte for byte${diffs(wantI2, r.text)}`);
+
+      // ---------- J. the pane closed with typing pending (Ctrl+W: the field keeps the focus, nothing blurs it): the typed text is in the note on disk
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Soon.");
+      c.ok(text(n.file) === t0, "J: the typed words are not yet in the note");
+      await o.page.keyboard.press("Control+w");
+      let gone = await o.page.waitForFunction(() => app.workspace.getLeavesOfType("booklet-design").length === 0, null, { timeout: 4000 }).then(() => true, () => false);
+      let how = "Ctrl+W";
+      if (!gone) { how = "the command workspace:close (Ctrl+W did not close the pane here)"; await o.evaluate(() => { app.commands.executeCommandById("workspace:close"); }); gone = await o.page.waitForFunction(() => app.workspace.getLeavesOfType("booklet-design").length === 0, null, { timeout: 4000 }).then(() => true, () => false); }
+      r = await settled(n, t0);
+      const wantJ = sub(t0, `[!choice|fruit] ${T}`, `[!choice|fruit] ${T} Soon.`);
+      c.ok(gone && r.ok && r.text === wantJ && await W(n) === 1, `J: the pane was closed by ${how} with words pending in the title, and they are in the note on disk (one write), byte for byte${diffs(wantJ, r.text)}`);
+
+      // ---------- K. typing held when the note changed on disk meanwhile: kept in the field with a reason, the other writer's words not overwritten
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Mine.");
+      const external = sub(t0, "> Pick one.\n", "> Pick several.\n");
+      fs.writeFileSync(n.file, external);
+      await o.page.waitForFunction(() => { const v = app.workspace.getLeavesOfType("booklet-design")[0].view; return /Pick several/.test(v.getViewData()); }, null, { timeout: 8000 }).catch(() => {});
+      await sleep(500);
+      c.ok(await o.page.locator(DESC_F).inputValue() === "Pick one. Mine.", "K: the note changed on disk under the typing and the field still holds what was typed (it was not redrawn over)");
+      await o.page.keyboard.press("Tab"); await sleep(900); await idle(o);
+      const held = await o.evaluate(() => ({ field: (document.querySelector(".workspace-leaf.mod-active .booklet-design-field.is-desc") || {}).value, reason: (document.querySelector(".workspace-leaf.mod-active .booklet-design-editor-state") || {}).textContent || "", status: (document.querySelector(".workspace-leaf.mod-active .booklet-design-status") || {}).textContent || "" }));
+      c.ok(text(n.file) === external && held.field === "Pick one. Mine.", `K: leaving the field applied nothing: the note is as the other writer left it, byte for byte, and the typed words are still in the field`);
+      c.ok(held.reason === say("edit.changed") && held.status === say("edit.changed"), `K: the reason is said in words in the box and in the status line (${JSON.stringify(held.status.slice(0, 80))})`);
+      await o.page.keyboard.press("Escape"); await sleep(400);
+      st = await state(o);
+      c.ok(st.editBox && st.status === say("editor.busy"), `K: the first Esc says the text could not be applied and keeps the block open (${JSON.stringify(st.status.slice(0, 60))})`);
+      await o.page.keyboard.press("Escape"); await sleep(400);
+      c.ok(!(await state(o)).editBox && text(n.file) === external && await W(n) === 1, `K: the second Esc closes it; the note is still the other writer's text, byte for byte (the only write is the external one: ${await W(n)})`);
+
+      // ---------- L. an option moved up and then one removed: the rows on the screen are the note's rows after each
+      n = await start(); t0 = n.t;
+      await open(n, "[!choice|fruit]");
+      const rowTexts = () => o.evaluate(() => [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-rows input[data-key$='-text']")].map(e => e.value).join("|"));
+      await o.page.locator(RW("o1-up")).click(); // Pear above Apple
+      r = await settled(n, t0);
+      const wantL1 = sub(t0, "- [ ] Apple\n- [x] Pear\n", "- [x] Pear\n- [ ] Apple\n");
+      c.ok(r.ok && r.text === wantL1 && await rowTexts() === "Pear|Apple", `L: an option moved up is one write, byte for byte, and the rows show Pear then Apple (${await rowTexts()})${diffs(wantL1, r.text)}`);
+      await o.page.locator(RW("o0-remove")).click(); // the first option (Pear) removed
+      r = await settled(n, wantL1);
+      c.ok(r.ok && r.text === sub(wantL1, "- [x] Pear\n", "") && await rowTexts() === "Apple", `L: the first option removed after the move is one write, byte for byte, and the rows are redrawn without it (the screen shows ${JSON.stringify(await rowTexts())}, the note has Apple only)`);
+      await closeAll(o);
+
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page error and no console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 160))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 76 ================= */
+  // Undo and Redo in the real app, over a run of twelve changes of mixed kinds made the way a person makes them (real keys and mouse), each snapshot of the note kept
+  // so every step back and forward is compared byte for byte; then the edges: typing pending, nothing to undo, rapid presses, a note changed from outside, a dialog open.
+  const note76 = [
+    "---", "booklet: \"0.20\"", "id: booklet-test/undo-run", "title: Undo run", "lang: en", "---", "",
+    "> [!module|m] Fruit", "", "> [!activity|a] Choosing", "",
+    "> [!choice|fruit] Which fruit would you take?", "> Pick one.", "- [ ] Apple", "- [x] Pear", "- [ ] Plum", "",
+    "> [!multi|tools open] Which tools did you use?", "- [ ] Pencil", "- [ ] Ruler", "",
+    "> [!text|why] Why that one?", "",
+    "> [!scale|sure] How sure are you?", "", "1. Not sure", "2. Sure", "",
+    "> [!module|m end]", "",
+  ].join("\n");
+  async function check76() {
+    const c = new Check(76, "Undo and Redo in the real app: twelve changes of mixed kinds (titles, a description, options added, reworded, moved and removed, a flag switch, a block moved and a block deleted) made with real keys and mouse, then Undo all the way and Redo all the way, the note compared byte for byte with a snapshot at every step; Undo with typing pending (real press, and a direct call with no blur) applies it first and undoes that step; Undo and Redo with nothing to do say so and throw nothing; rapid repeated presses never interleave or double-apply; a note changed from outside makes Undo refuse with a reason and keeps the stack; Undo with a dialog open does nothing; no console or page error, whatever Obsidian itself says besides the known harness noise");
+    const table = tableOf();
+    const say = k => (table[k] ? table[k].en : "?" + k);
+    await withApp("c76", async (o, vault) => {
+      const errs0 = consoleReport.length;
+      const rel = "Undo run.booklet.md", file = put(vault, rel, note76), N0 = text(file);
+      await openDesign(o, rel);
+      await goNav(o, "activity", lineOf(N0, "[!activity|a]"));
+      await armWrites(o, rel);
+      const snaps = [N0];
+      const pushSnap = async (label) => {
+        const before = snaps[snaps.length - 1];
+        const r = await waitDisk(file, tx => tx !== before); await sleep(350); await idle(o);
+        c.ok(r.ok && text(file) !== before, `change ${snaps.length}: ${label}: the note changed`);
+        snaps.push(text(file));
+      };
+      const lineAt = needle => lineOf(text(file), needle);
+      const reopen = async (needle, kind = "question") => { if (!(await state(o)).editBox) await clickBlock(o, kind, lineAt(needle)); else if (!(await o.page.locator(block(kind, lineAt(needle)) + ".is-open").count())) await clickBlock(o, kind, lineAt(needle)); };
+      const step = async (needle, kind) => { await closeAll(o); await clickBlock(o, kind || "question", lineAt(needle)); };
+
+      // ----- twelve changes of mixed kinds, each a real person's action
+      await step("[!choice|fruit]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" today"); await o.page.keyboard.press("Tab");
+      await pushSnap("the title of the fruit question typed and left by Tab");
+      await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Pick exactly one."); await o.page.keyboard.press("Tab");
+      await pushSnap("its description replaced");
+      await o.page.locator(`${DV} [data-key='o-add']`).click();
+      await pushSnap("an option added by its button");
+      await o.page.locator(RW("o3-text")).click(); await o.page.keyboard.type("Fig"); await o.page.keyboard.press("Tab");
+      await pushSnap("its words typed");
+      await o.page.locator(RW("o0-text")).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" pie"); await o.page.keyboard.press("Enter");
+      await pushSnap("option 1 reworded and left by Enter");
+      // the removal comes before the move: a move first would leave the removal undrawn on the screen (a product bug, shown by check 75, scene L)
+      await o.page.locator(RW("o0-remove")).click();
+      await pushSnap("option 1 removed");
+      await o.page.locator(RW("o2-up")).click();
+      await pushSnap("the new option moved up");
+      await o.page.locator(RW("o1-correct")).click();
+      await pushSnap("a correct-answer switch pressed");
+      await step("[!multi|tools");
+      await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-item[data-field='open'] button[role=switch]`).click();
+      await pushSnap("the flag open switched off on the multi question");
+      await step("[!text|why]");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Why this one?"); await o.page.keyboard.press("Tab");
+      await pushSnap("the text question's title replaced");
+      await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-actions .is-down`).click();
+      await pushSnap("the text question moved down by the box's own button");
+      await closeAll(o); await sleep(300);
+      await step("[!multi|tools");
+      await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-actions .is-delete`).click();
+      await pushSnap("the multi question deleted by the box's own button");
+      c.ok(snaps.length === 13, `twelve changes of mixed kinds were made, each one write and each one snapshot (${snaps.length - 1})`);
+      c.ok(await W76(o, rel) === 12, `each change was exactly one write to the note (${await W76(o, rel)} writes for 12 changes)`);
+      await closeAll(o);
+      await shot(o, "undo-after-twelve");
+
+      // ----- Undo all the way, byte for byte at every step (the buttons first, then the keys, alternately)
+      let st = await state(o);
+      for (let i = snaps.length - 1; i >= 1; i--) {
+        if (i % 2) { await blurFocus(o); await o.page.keyboard.press("Control+z"); } else await undoBtn(o).click();
+        const r = await waitDisk(file, tx => tx === snaps[i - 1]); await idle(o);
+        if (!r.ok) { c.ok(false, `Undo ${snaps.length - i} (${i % 2 ? "Ctrl+Z" : "the button"}): the note is not the snapshot before change ${i}${diffs76(snaps[i - 1], text(file))}`); break; }
+        if (i === 1) c.ok(true, `Undo all the way: all ${snaps.length - 1} steps back, by the Undo button and by Ctrl+Z in turn, each equal to its snapshot byte for byte`);
+      }
+      c.ok(text(file) === N0 && await undoBtn(o).isDisabled() && await redoBtn(o).isEnabled(), "after the last Undo the note is the one it began as, byte for byte, Undo is off and Redo is on");
+      // ----- Redo all the way
+      for (let i = 1; i < snaps.length; i++) {
+        if (i % 2) await redoBtn(o).click(); else { await blurFocus(o); await o.page.keyboard.press("Control+Shift+z"); }
+        const r = await waitDisk(file, tx => tx === snaps[i]); await idle(o);
+        if (!r.ok) { c.ok(false, `Redo ${i} (${i % 2 ? "the button" : "Ctrl+Shift+Z"}): the note is not the snapshot after change ${i}${diffs76(snaps[i], text(file))}`); break; }
+        if (i === snaps.length - 1) c.ok(true, `Redo all the way: all ${snaps.length - 1} steps forward, each equal to its snapshot byte for byte`);
+      }
+      c.ok(text(file) === snaps[snaps.length - 1] && await redoBtn(o).isDisabled() && await undoBtn(o).isEnabled(), "after the last Redo the note is the last snapshot, byte for byte, Redo is off and Undo is on");
+      const END = text(file);
+
+      // ----- Undo with typing pending: the typing is applied first, then that step is undone
+      await step("[!text|why]", "question");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Really?");
+      c.ok(text(file) === END, "typing pending: the note is not written while the field has the focus");
+      const w0 = await W76(o, rel);
+      await undoBtn(o).click(); // a real press: the field is left first (its change), then the press
+      let r = await waitDisk(file, tx => tx !== END); await sleep(600); await idle(o);
+      c.ok(r.ok && text(file) === END && await W76(o, rel) === w0 + 2, `Undo pressed with typing pending applied the typing (one write) and undid that same step (one more): the note is back to what it was, byte for byte, ${await W76(o, rel) - w0} writes`);
+      await redoBtn(o).click(); r = await waitDisk(file, tx => /Really\?/.test(tx)); await idle(o);
+      c.ok(r.ok && text(file).includes("Really?") && !(await redoBtn(o).isEnabled()), "and Redo gives the typed words back (the typing was a step of its own)");
+      await undoBtn(o).click(); await waitDisk(file, tx => tx === END); await idle(o);
+      // the same with a direct call: the field still holds the focus and its typing, nothing blurs it
+      await step("[!text|why]", "question");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" Again?");
+      await o.evaluate(async () => { await app.workspace.getLeavesOfType("booklet-design")[0].view.stepBack("undo"); });
+      await sleep(500); await idle(o);
+      c.ok(text(file) === END, "stepBack('undo') called with typing pending and the focus still in the field applied the typing and undid it: the note is as it was, byte for byte");
+      await o.evaluate(async () => { await app.workspace.getLeavesOfType("booklet-design")[0].view.stepBack("redo"); }); await sleep(400); await idle(o);
+      await o.evaluate(async () => { await app.workspace.getLeavesOfType("booklet-design")[0].view.stepBack("undo"); }); await sleep(400); await idle(o);
+      await closeAll(o);
+      c.ok(text(file) === END, "and a direct Redo then Undo is exact too");
+
+      // ----- nothing to undo, nothing to redo: a word in the status line, no error
+      const errsN = consoleReport.length;
+      const f2 = put(vault, "Undo empty.booklet.md", note76.replace("id: booklet-test/undo-run", "id: booklet-test/undo-empty"));
+      await openDesign(o, "Undo empty.booklet.md");
+      await goNav(o, "activity", lineOf(note76, "[!activity|a]"));
+      c.ok(await undoBtn(o).isDisabled() && await redoBtn(o).isDisabled(), "a view with no change made: Undo and Redo are both off");
+      await blurFocus(o); await o.page.keyboard.press("Control+z"); await sleep(300);
+      let say1 = (await state(o)).status;
+      await o.page.keyboard.press("Control+Shift+z"); await sleep(300);
+      let say2 = (await state(o)).status;
+      c.ok(say1 === say("status.nothingUndo") && say2 === say("status.nothingRedo") && text(f2) === note76.replace("id: booklet-test/undo-run", "id: booklet-test/undo-empty"), `Ctrl+Z with nothing to undo says ${JSON.stringify(say1)} and Ctrl+Shift+Z says ${JSON.stringify(say2)}; the note is untouched`);
+      c.ok(errorsSince(errsN).length === 0, `and nothing is thrown (${errorsSince(errsN).length} errors)`);
+
+      // ----- rapid repeated presses: never interleaved, never applied twice
+      // on the view with nothing to undo: six presses in one tick change nothing and throw nothing
+      await o.evaluate(() => { const u = document.querySelector(".workspace-leaf.mod-active .booklet-design-undo"), r = document.querySelector(".workspace-leaf.mod-active .booklet-design-redo"); for (let i = 0; i < 6; i++) { u.click(); r.click(); } });
+      await sleep(700); await idle(o);
+      c.ok(text(f2) === note76.replace("id: booklet-test/undo-run", "id: booklet-test/undo-empty") && errorsSince(errsN).length === 0, "six presses on the disabled Undo and Redo in one tick change nothing and throw nothing");
+      await openDesign(o, rel);
+      await goNav(o, "activity", lineOf(END, "[!activity|a]"));
+      // a real history: three changes, then rapid presses
+      const base = text(file);
+      await step("[!text|why]", "question");
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("1"); await o.page.keyboard.press("Tab");
+      let s1 = await waitDisk(file, tx => tx !== base); await sleep(300);
+      const sA = text(file);
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("2"); await o.page.keyboard.press("Tab");
+      await waitDisk(file, tx => tx !== sA); await sleep(300);
+      const sB = text(file);
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("3"); await o.page.keyboard.press("Tab");
+      await waitDisk(file, tx => tx !== sB); await sleep(300); await closeAll(o);
+      const sC = text(file), chain = [base, sA, sB, sC];
+      void s1;
+      await undoBtn(o).dblclick(); // a real double click
+      await sleep(900); await idle(o);
+      const dIdx = chain.indexOf(text(file));
+      c.ok(dIdx === 2 || dIdx === 1, `a real double click on Undo undid one or two steps and stopped on a recorded state (the note is state ${dIdx} of 0..3)`);
+      await o.evaluate(() => { const b = document.querySelector(".workspace-leaf.mod-active .booklet-design-undo"); for (let i = 0; i < 10; i++) b.click(); });
+      await sleep(1500); await idle(o);
+      const rIdx = chain.indexOf(text(file));
+      c.ok(rIdx >= 0 && rIdx < dIdx, `ten presses of Undo in one tick went back along the recorded states and stopped on one (state ${rIdx}), never between two`);
+      // the stack is whole: more Undo reaches the first state, then Redo reaches the last, byte for byte
+      for (let i = 0; i < 6 && await undoBtn(o).isEnabled(); i++) { await undoBtn(o).click(); await sleep(400); await idle(o); }
+      c.ok(text(file) === base && await undoBtn(o).isDisabled(), "undone to the start by slow presses: the note is the first state, byte for byte, Undo is off");
+      await o.evaluate(() => { const b = document.querySelector(".workspace-leaf.mod-active .booklet-design-redo"); for (let i = 0; i < 10; i++) b.click(); });
+      await sleep(1500); await idle(o);
+      for (let i = 0; i < 6 && await redoBtn(o).isEnabled(); i++) { await redoBtn(o).click(); await sleep(400); await idle(o); }
+      c.ok(text(file) === sC && await redoBtn(o).isDisabled(), "ten Redo presses in one tick and then slow ones: the note is the last state, byte for byte, Redo is off");
+
+      // ----- Undo after an outside edit of the note: refused with a reason, the step stays, nothing thrown
+      const errsO = consoleReport.length;
+      await undoBtn(o).click(); await waitDisk(file, tx => tx === sB); await idle(o);
+      const outside = text(file) + "\nA line added from outside.\n";
+      fs.writeFileSync(file, outside);
+      await o.page.waitForFunction(() => /A line added from outside/.test(app.workspace.getLeavesOfType("booklet-design")[0].view.getViewData()), null, { timeout: 8000 }).catch(() => {});
+      await sleep(500);
+      await undoBtn(o).click(); await sleep(700); await idle(o);
+      st = await state(o);
+      c.ok(text(file) === outside && st.status === say("status.undoChanged"), `Undo after the note changed from outside is refused: the note is as the other writer left it, byte for byte, and the status says ${JSON.stringify(st.status.slice(0, 90))}`);
+      c.ok(await undoBtn(o).isEnabled(), "the refused step is still on the stack (Undo stays on)");
+      await redoBtn(o).click(); await sleep(700);
+      st = await state(o);
+      c.ok(text(file) === outside && st.status === say("status.redoChanged"), `Redo is refused the same way (${JSON.stringify(st.status.slice(0, 60))}) and writes nothing`);
+      c.ok(errorsSince(errsO).length === 0, `nothing was thrown by the refused steps (${errorsSince(errsO).length})`);
+      fs.writeFileSync(file, sB); await sleep(900); await idle(o); // the other writer's line taken out again: the steps can be replayed
+      await undoBtn(o).click(); const ro = await waitDisk(file, tx => tx === sA); await idle(o);
+      c.ok(ro.ok, "with the outside line gone the same Undo works again: the stack was kept, and the note is the earlier state, byte for byte");
+
+      // ----- Undo with a dialog open does nothing
+      const kept = path.join(vault, KEPT), K0 = text(kept);
+      await openDesign(o, KEPT);
+      await goNav(o, "activity", lineOf(K0, "[!activity|warm-up"));
+      await clickBlock(o, "question", lineOf(K0, "[!choice|colour]"));
+      await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type("!"); await o.page.keyboard.press("Tab");
+      const k1 = await waitDisk(kept, tx => tx !== K0); await sleep(300); await idle(o);
+      const K1 = text(kept);
+      await o.page.locator(`${DV} .booklet-design-editbox .booklet-design-strip-actions .is-delete`).click();
+      c.ok(await waitModal(o, true), "a Delete of a question with a kept answer opens the dialog");
+      await o.page.keyboard.press("Control+z"); await sleep(500);
+      await o.evaluate(() => { void app.workspace.getLeavesOfType("booklet-design")[0].view.stepBack("undo"); }); // not awaited: a press made while the dialog is open is given the dialog's own promise, which settles when the dialog is answered
+      await sleep(600);
+      c.ok(k1.ok && text(kept) === K1 && await waitModal(o, true, 500), "Ctrl+Z and a direct Undo with the dialog open change nothing: the note is as it was, byte for byte, and the dialog is still open");
+      await clickModal(o, "Cancel"); await idle(o);
+      await undoBtn(o).click(); const ku = await waitDisk(kept, tx => tx === K0); await idle(o);
+      c.ok(ku.ok, "after the dialog is closed Undo works: the earlier change is taken back, byte for byte");
+
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no console error and no page error in the whole check, whatever the app itself says (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.kind + " " + x.text.slice(0, 160))) : ""}`);
+      const noise = consoleReport.slice(errs0).filter(r => r.kind !== "pageerror" && r.kind !== "console.error" && r.kind !== "console.warning" && !/harness noise/.test(r.kind));
+      c.info(`other collected lines during the check: ${noise.length}; console warnings that do not name the plugin: ${consoleReport.slice(errs0).filter(r => r.kind === "console.warning" && !/booklet/i.test(r.text + r.url)).length}`);
+    });
+    return c;
+  }
+  const W76 = (o, rel) => writesOf(o, rel);
+  const diffs76 = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76 };
 };
