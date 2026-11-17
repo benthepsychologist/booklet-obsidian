@@ -8,9 +8,9 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { openView, testApp, click, until, words, window as w } from "./dom.mjs";
 import { core, fence, fm } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 import * as fixture from "./dashboard-fixture.mjs";
 
 process.env.TZ = "UTC";
@@ -575,11 +575,9 @@ test("a vault event for a file that is not a .json file is ignored", async () =>
 
 /* ---- the made-up orchard dashboard, and a large one ---- */
 
-const here = (f) => new URL(`./dashboards/${f}`, import.meta.url);
-
 test("the orchard example: four queries over three keys of one file, drawn as the example says", async () => {
-	const text = readFileSync(here("orchard-dashboard.booklet.md"), "utf8");
-	const file = readFileSync(here("orchard-dashboard.json"), "utf8");
+	const text = fixtures.ORCHARD;
+	const file = fixtures.ORCHARD_JSON;
 	const json = JSON.parse(file);
 	const b = core.parseBooklet(text);
 	assert.deepEqual(b.problems, []);

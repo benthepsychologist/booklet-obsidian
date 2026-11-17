@@ -6,12 +6,11 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { openView, typeInto, window as w, until } from "./dom.mjs";
-import { ROOT, core, norm, sleep } from "./helpers.mjs";
+import { core, norm, sleep } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
-const NOTE = readFileSync(join(ROOT, "test-vault", "Every kind.booklet.md"), "utf8");
+const NOTE = fixtures.EVERY_KIND;
 const open = () => {
 	const v = openView(NOTE, { path: "Every kind.booklet.md", screen: "activity:/kinds" });
 	return { ...v, field: () => v.view.contentEl.querySelector('[data-booklet-activity="/kinds"] .booklet-kind-text textarea'), answers: () => norm(core.parseBooklet(v.disk.text).records.answers[""] ?? {}) };

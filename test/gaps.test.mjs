@@ -10,13 +10,12 @@
 import { openView, press, testApp, typeInto, window as w } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { CHECKIN, core, norm, ROOT } from "./helpers.mjs";
+import { CHECKIN, core, norm } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
 process.env.TZ = "UTC";
 
-const DAILY = readFileSync(join(ROOT, "test-vault", "Daily tracker.booklet.md"), "utf8");
+const DAILY = fixtures.DAILY;
 
 /** An app with a vault holding one note, and a device store as Obsidian's saveLocalStorage keeps one. */
 function appWith(text) {

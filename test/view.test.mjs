@@ -9,11 +9,10 @@
 import { openView, press, typeInto, window as w, until } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { ROOT, core, norm, sleep } from "./helpers.mjs";
+import { core, norm, sleep } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
-const NOTE = readFileSync(join(ROOT, "test-vault", "Every kind.booklet.md"), "utf8");
+const NOTE = fixtures.EVERY_KIND;
 
 /** A view open on a copy of the every-kind note; `disk` is the note as the vault holds it. */
 function open(text = NOTE) {

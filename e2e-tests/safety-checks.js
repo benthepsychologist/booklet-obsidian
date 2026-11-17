@@ -8,6 +8,7 @@
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), cp = require("child_process");
 const { quiet, frames, untilTrue, kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function safetyChecks(env) {
   const { withApp, Check, BOOK, sleep, launch, opt, WORK } = env;
@@ -593,7 +594,7 @@ The garden is quiet today.
     });
     // (d) restart with the pane open: same screen, tab and page
     await withApp("c40-restart", async (o, vault) => {
-      put(vault, WIKI, fs.readFileSync(path.join(__dirname, "..", "test", "page-notes", WIKI)));
+      put(vault, WIKI, fixtureVault.text("page-notes/" + WIKI));
       const K = kit(env, WIKI);
       o.page.on("dialog", d => { d.accept().catch(() => {}); });
       await o.evaluate(() => { window.addEventListener("beforeunload", () => {}); });   // see check 38: the harness's browser needs a listener of the page's own to show Obsidian's unload prompt

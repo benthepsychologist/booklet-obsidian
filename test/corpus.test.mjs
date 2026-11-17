@@ -1,5 +1,5 @@
 /*
- * Over every example in the booklet repository, every kit starter and every test-vault note, as the
+ * Over every example in the booklet repository, every kit starter and every made-up fixture note (test/fixtures.mjs), as the
  * reader would use them:
  *   answer   every question of the common kinds (a matrix, and a choice or a multi whose options come from a
  *            shared menu, among them; each of them also asked for each pick of another), and every widget the plugin draws (a grid-select: an item pressed
@@ -21,7 +21,7 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, expectedLint, lint, lintDiffers, norm, pythonAvailable, read } from "./helpers.mjs";
+import { assertOutsideUnchanged, core, corpusDirs, corpusFiles, expectedLint, lint, lintDiffers, norm, pythonAvailable } from "./helpers.mjs";
 
 // removeEntry needs the entry's key as the card drew it; a test that is not about a stale pane takes it from the text it removes from
 const rm = (text, scope, id, at, ts, expect) => {
@@ -204,10 +204,9 @@ const add = (may, key, ...ids) => {
 	may.set(key, s);
 };
 
-for (const file of corpusFiles()) {
-	test(`corpus: ${file.split("/").slice(-2).join("/")}`, () => {
-		const orig = read(file);
-		const lintWant = expectedLint(file);
+for (const { name, text: orig } of corpusFiles()) {
+	test(`corpus: ${name}`, () => {
+		const lintWant = expectedLint(name);
 		const book = core.parseBooklet(orig);
 		assert.ok(book.ok, `the file is refused: ${book.refusal}`);
 

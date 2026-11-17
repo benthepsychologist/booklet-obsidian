@@ -1,5 +1,5 @@
 // Checks 42 to 45 of plugin-check.js: the view by keyboard alone, with reduced motion and at 200% zoom, in the real app. The note is
-// test/page-notes/Keyboard walk.booklet.md (made up: one question of every kind, a folded group, a repeating activity with twelve kept
+// the fixture "page-notes/Keyboard walk.booklet.md" of test/fixtures.mjs (made up: one question of every kind, a folded group, a repeating activity with twelve kept
 // days, a table, bars and a line), copied into each check's own copy of the vault.
 //   42 the walk: from the pane's tab, Tab and Shift+Tab (real key presses) reach every control of the activity page in the page's
 //      order, each stop with a visible focus ring, no trap, and the way back is the same way;
@@ -12,13 +12,13 @@
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { quiet, frames, mobile, kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function accessChecks(env) {
   const { withApp, Check, BOOK, sleep } = env;
   const NOTE = "Keyboard walk.booklet.md";
-  const SRC = path.join(__dirname, "..", "test", "page-notes", NOTE);
   const { shot, sha, goTo, open, answers } = kit(env, NOTE);
-  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fs.readFileSync(SRC, "utf8"));
+  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fixtureVault.text("page-notes/" + NOTE));
   const TAB_LIMIT = 260;
 
   /* ---- what a keyboard user can reach ---- */

@@ -1,4 +1,4 @@
-// Checks 29 to 32, 61, 62 and 63 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is test/page-notes/Garden dashboards.booklet.md (made up),
+// Checks 29 to 32, 61, 62 and 63 of plugin-check.js: the 0.9.0 dashboards, in the real app. The note is the fixture "page-notes/Garden dashboards.booklet.md" of test/fixtures.mjs (made up),
 // copied into each check's own copy of the vault:
 //   29 charts (bars and a line, the numbers fold, the readout and the arrow keys),
 //   30 data blocks and the kept days in every view (icons, links, pills, a nested list, tiles of an each-pick, the empty words),
@@ -8,14 +8,14 @@
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path");
 const { quiet, frames, mobile, kit } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 module.exports = function dashboardChecks(env) {
   const { withApp, Check, BOOK, sleep, waitActiveType } = env;
   const shot0 = (o, name) => o.screenshot(path.join(env.SHOTS, name + ".png"));
   const NOTE = "Garden dashboards.booklet.md";
-  const SRC = path.join(__dirname, "..", "test", "page-notes", NOTE);
   const { shot, sha, goTo, open } = kit(env, NOTE);
-  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fs.readFileSync(SRC, "utf8"));
+  const put = vault => fs.writeFileSync(path.join(vault, NOTE), fixtureVault.text("page-notes/" + NOTE));
   const q = (o, i) => o.page.locator(BOOK + " .booklet-query").nth(i);
   const scheme = async (o, s) => { await o.setScheme(s); await sleep(250); await frames(o); };
   const phone = async (o, vault, on) => {
@@ -386,19 +386,19 @@ module.exports = function dashboardChecks(env) {
 
   /* ================= CHECK 61 ================= */
   // Dashboards slice 1 (format 0.19): rows that open, and data files read through the vault. The made-up orchard example and a made-up
-  // garden dashboard of 462 rows at every depth (test/dashboards/, test/dashboard-fixture.mjs) are put into the check's own copy of the vault with
+  // garden dashboard of 462 rows at every depth (the "dashboards/" fixtures of test/fixtures.mjs, test/dashboard-fixture.mjs) are put into the check's own copy of the vault with
   // their .json files beside them; the JSON is then changed from outside the app, as a program that writes it would.
   async function check61() {
     const c = new Check(61, "0.19 rows that open and data files, in the real app: a .json file beside the note read through the vault; a row opened by a real click, Enter and Space, drawn when it opens; Open all, Close all, a search and a sort keeping what the reader opened; print opens everything and folds back; the file changed outside the app is read again on return, keeping open rows and scroll; a file that goes missing leaves the rows on screen, and comes back with its rows; the disclosures named in the accessibility tree; nothing written to the note");
     const ORCHARD = "orchard-dashboard.booklet.md", GARDEN = "garden-dashboard.booklet.md";
-    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    const here = f => fixtureVault.text("dashboards/" + f);
     const F = await import("../test/dashboard-fixture.mjs");
     const garden = F.make();
     for (const where of ["desktop", "phone"]) {
       const desk = where === "desktop";
       await withApp("c61-" + where, async (o, vault) => {
-        fs.writeFileSync(path.join(vault, ORCHARD), fs.readFileSync(here("orchard-dashboard.booklet.md")));
-        fs.writeFileSync(path.join(vault, "orchard-dashboard.json"), fs.readFileSync(here("orchard-dashboard.json")));
+        fs.writeFileSync(path.join(vault, ORCHARD), here("orchard-dashboard.booklet.md"));
+        fs.writeFileSync(path.join(vault, "orchard-dashboard.json"), here("orchard-dashboard.json"));
         fs.writeFileSync(path.join(vault, GARDEN), F.bookletText("garden.json"));
         fs.writeFileSync(path.join(vault, "garden.json"), JSON.stringify(garden));
         if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
@@ -549,14 +549,14 @@ module.exports = function dashboardChecks(env) {
   async function check62() {
     const c = new Check(62, "0.19 acts on rows, in the real app: a field marked edit pressed into a box and kept by Enter as one act with was in a new entry, nothing else in the note changed, and the value written into the vault data file (only its own text), the read-only table showing it; Esc keeps nothing; the keyboard; waiting, same and changed after the JSON changes outside; an edit whose data changed meanwhile, and one for a file that cannot be written, are kept and not written, in words; readonly cards have no box; a question in a column is a draft; a row's Finalize keeps its pairs as one entry and writes no data; control names; print shows values");
     const ORCHARD = "orchard-dashboard.booklet.md";
-    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    const here = f => fixtureVault.text("dashboards/" + f);
     for (const where of ["desktop", "phone"]) {
       const desk = where === "desktop";
       await withApp("c62-" + where, async (o, vault) => {
         const noteFile = path.join(vault, ORCHARD), jsonFile = path.join(vault, "orchard-dashboard.json");
-        fs.writeFileSync(noteFile, fs.readFileSync(here("orchard-dashboard.booklet.md")));
+        fs.writeFileSync(noteFile, here("orchard-dashboard.booklet.md"));
         // the open-jobs count is marked as a number to edit in this copy of the file (the example marks four other fields)
-        const j0 = JSON.parse(fs.readFileSync(here("orchard-dashboard.json"), "utf8"));
+        const j0 = JSON.parse(here("orchard-dashboard.json"));
         j0.plots.fields.open = { label: "Open jobs", edit: "number" };
         fs.writeFileSync(jsonFile, JSON.stringify(j0));
         if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
@@ -754,19 +754,19 @@ module.exports = function dashboardChecks(env) {
   }
 
   /* ================= CHECK 63 ================= */
-  // Dashboards slice 3 (format 0.20): adding and removing rows, in the real app, on a made-up note (test/dashboards/garden-jobs.booklet.md) whose first query draws
+  // Dashboards slice 3 (format 0.20): adding and removing rows, in the real app, on a made-up note (the fixture "dashboards/garden-jobs.booklet.md") whose first query draws
   // jobs written in the note itself (an inline data block) and whose second and third draw beds from a file beside it. The pressing is done with real clicks and keys;
   // the files on disk are compared byte for byte with what the change should make, and the note outside the block's fences is the bytes it was.
   async function check63() {
     const c = new Check(63, "0.20 adding and removing rows, in the real app: Add and Add under with a real click and typing, one $add entry then one change to the data (a block written in the note changed between its fences only; a vault file changed in the row's own place, every other byte as it was); Remove asks first, Esc cancels, the question counts the rows under it; a success is silent; a file that cannot be written, a file that is not valid UTF-8 and a row changed since are kept, not written, said in words, and shown as waiting / changed since; no controls on the read-only view; on a table wider than a phone Remove, its question and its answers are in the window, on top and pressed where they stand, in both looks; the Paper look pills them and Obsidian's look does not; print hides them");
     const NOTE63 = "garden-jobs.booklet.md", FILE63 = "garden-jobs.json", WIDE63 = "garden-wide.booklet.md";
-    const here = f => path.join(__dirname, "..", "test", "dashboards", f);
+    const here = f => fixtureVault.text("dashboards/" + f);
     for (const where of ["desktop", "phone"]) {
       const desk = where === "desktop";
       await withApp("c63-" + where, async (o, vault) => {
         const noteFile = path.join(vault, NOTE63), jsonFile = path.join(vault, FILE63);
-        fs.writeFileSync(noteFile, fs.readFileSync(here(NOTE63)));
-        fs.writeFileSync(jsonFile, fs.readFileSync(here(FILE63)));
+        fs.writeFileSync(noteFile, here(NOTE63));
+        fs.writeFileSync(jsonFile, here(FILE63));
         if (!desk) { await o.page.setViewportSize({ width: 390, height: 844 }); await mobile(o, true); }
         const k = kit(env, NOTE63);
         const orig = fs.readFileSync(noteFile, "utf8");
@@ -1000,7 +1000,7 @@ module.exports = function dashboardChecks(env) {
 
         // reach (contract 8.10): on a note whose table is wider than a phone, Remove, its question and its two answers are all in the window, on top and pressed where they
         // stand (no scrolling to find them), in both looks; the question wraps; nothing is wider than the window; asking scrolls nothing sideways
-        fs.writeFileSync(path.join(vault, WIDE63), fs.readFileSync(here(WIDE63)));
+        fs.writeFileSync(path.join(vault, WIDE63), here(WIDE63));
         const kw = kit(env, WIDE63);
         await kw.open(o, WIDE63);
         await kw.goTo(o, "activity:desk/work");

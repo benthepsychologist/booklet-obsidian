@@ -1,5 +1,5 @@
 /*
- * The made-up dashboard note (test/page-notes/Garden dashboards.booklet.md): every view of a query over both kinds of source, in the
+ * The made-up dashboard note (test/fixtures.mjs, GARDEN_DASHBOARDS): every view of a query over both kinds of source, in the
  * view over a jsdom document. Reading it reports no problem, every query draws something (a chart, a table, a list, tiles, cards,
  * or its own words for no rows), drawing writes nothing, and each of the note's screens shows what its words say it shows. The
  * real-Obsidian checks 29 and up (e2e-tests/dashboard-checks.js) open the same note.
@@ -7,11 +7,11 @@
 import { openView, testApp, words } from "./dom.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { core } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
 process.env.TZ = "UTC";
-const TEXT = readFileSync(new URL("./page-notes/Garden dashboards.booklet.md", import.meta.url), "utf8");
+const TEXT = fixtures.GARDEN_DASHBOARDS;
 
 function screen(id) {
 	const disk = { text: TEXT, writes: 0 };

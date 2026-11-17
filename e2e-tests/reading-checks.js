@@ -1,4 +1,4 @@
-// Check 25 of plugin-check.js: questions inside groups and tips, steps, rows, sources and the reading kinds, in the real app. Every note is made up (test-vault "Reading and steps").
+// Check 25 of plugin-check.js: questions inside groups and tips, steps, rows, sources and the reading kinds, in the real app. Every note is made up (the fixture "Reading and steps" of test/fixtures.mjs).
 //   a question inside a group and inside a tip, a folded group, steps (one group at a time, none of them a step in Obsidian's
 //   Back and Forward), a row's cells side by side (stacked on a phone), footnotes as numbered marks with a source under the
 //   paragraph, and the format's own reading kinds (diff, law, opinion) in their own colour, picture and border.

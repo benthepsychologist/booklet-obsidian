@@ -6,7 +6,7 @@
 // its media rules, its file system, the lock screen or the app being killed, and it is not a phone's pixel density or a finger's accuracy.
 //
 // For viewports 390x844, 360x740 and 320x568, each at the normal text size and at 200% (Obsidian's own font size setting, 32 px), in the
-// light and the dark theme, it opens the made-up Tea course (test/page-notes/Listen demo) with its tones served from the vault, and for
+// light and the dark theme, it opens the made-up Tea course (the fixture "page-notes/Listen demo/Tea course.booklet.md" of test/fixtures.mjs) with its tones served from the vault, and for
 // every control 0.12.0 added or touched (the Allow list button; the allow card's buttons, boxes, write-in and Close; a media slot's Play
 // and Open in browser; a service slot's Play; the listen tick; Continue; the pager; the Now playing bar's Back to the page, Close and its
 // native player; the settings page's buttons and write-in) records its size and checks that
@@ -26,13 +26,14 @@ const fs = require("fs"), path = require("path");
 const { launch } = require("./drive");
 const { writeTones } = require("./tones");
 const { bookletPage } = require("./waits");
+const fixtureVault = require("./fixture-vault");
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const TAP = 44;
 const VIEWPORTS = [[390, 844], [360, 740], [320, 568]];
 const NOTE = "Tea course.booklet.md";
 let named = 0;
-const DEMO = path.join(__dirname, "..", "test", "page-notes", "Listen demo");
+const DEMO = fixtureVault.asset("Listen demo");   // the tones; the note is a fixture
 
 /** The settings that make the card, the slots and the lists all have something to show: a few sites on each list, made up. */
 const DATA = {
@@ -239,6 +240,7 @@ module.exports = function mobileChecks(env) {
  * in phone mode once (that reloads it), then the window, the text size and the theme change from one configuration to the next.
  */
 async function run({ obsidian, plugin, out, shots, shotsAll, only, zoom = [1, 2], scheme = ["light", "dark"], viewports = VIEWPORTS, log = () => {} }) {
+  await fixtureVault.load();
   fs.mkdirSync(out, { recursive: true });
   const vault = path.join(out, "vault");
   fs.rmSync(vault, { recursive: true, force: true });
@@ -249,7 +251,7 @@ async function run({ obsidian, plugin, out, shots, shotsAll, only, zoom = [1, 2]
   fs.writeFileSync(path.join(vault, ".obsidian", "app.json"), JSON.stringify({ promptDelete: false }));
   fs.cpSync(path.join(DEMO, "media"), path.join(vault, "media"), { recursive: true });
   writeTones(vault);
-  fs.copyFileSync(path.join(DEMO, NOTE), path.join(vault, NOTE));
+  fs.writeFileSync(path.join(vault, NOTE), fixtureVault.text("page-notes/Listen demo/" + NOTE));
   fs.writeFileSync(path.join(vault, SLOTS), SLOTS_TEXT);
   if (shots) fs.mkdirSync(shots, { recursive: true });
 

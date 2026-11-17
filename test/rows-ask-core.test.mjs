@@ -6,8 +6,8 @@
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { core, DRAWN, fence, fm, norm, assertOutsideUnchanged } from "./helpers.mjs";
+import * as fixtures from "./fixtures.mjs";
 
 process.env.TZ = "UTC";
 
@@ -173,7 +173,7 @@ test("ids are text for the acts on a row: a pick 5 and a row \"5\" are one row, 
 
 /* ---- the writer ---- */
 
-const ORCHARD = readFileSync(new URL("./dashboards/orchard-dashboard.booklet.md", import.meta.url), "utf8");
+const ORCHARD = fixtures.ORCHARD;
 
 test("keeping an act adds one entry to the activity and changes no other byte; the first entry makes the block, the second goes into it", () => {
 	const one = core.keepEntry(ORCHARD, "desk", "orchard", { title: [{ pick: "p-orchard", a: "Old orchard", was: "Orchard" }] }, { ts: "2026-11-07T10:00:00Z" });
