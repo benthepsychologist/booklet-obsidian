@@ -7,7 +7,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
-import { core, bookletAround, ROOT, BOOKLET } from "./helpers.mjs";
+import { core, bookletAround, BOOKLET } from "./helpers.mjs";
+import { fixtureFiles } from "./fixtures.mjs";
 
 const { parseDesign, walkDesign, blockLines, readRows, writeRows, editRows, rowsKindOf, chooseMenu, menusVisibleTo, menuUsers, changeLines, impactOf, needsAsking } = core;
 
@@ -55,7 +56,8 @@ function specExamples() {
 /** [source, text] of every note and example looked at. */
 function corpus() {
 	const out = [];
-	for (const root of [join(ROOT, "test-vault"), join(ROOT, "test"), BOOKLET]) for (const f of notesUnder(root)) out.push([f, readFileSync(f, "utf8")]);
+	for (const f of fixtureFiles()) if (f.path.endsWith(".md")) out.push([`fixtures/${f.path}`, f.text]);
+	for (const f of notesUnder(BOOKLET)) out.push([f, readFileSync(f, "utf8")]);
 	specExamples().forEach((t, i) => out.push([`SPEC example ${i + 1}`, t]));
 	return out;
 }
