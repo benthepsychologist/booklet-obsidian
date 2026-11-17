@@ -269,11 +269,6 @@
 	font-family: var(--bk-font-head);
 }
 
-.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-mark:not(:empty) {
-	background: var(--bk-hmm-wash);
-	color: var(--bk-ink);
-}
-
 .booklet-view[data-booklet-look^="paper"] .booklet-design-edit-previewhost {
 	border-color: var(--bk-rule);
 	border-radius: var(--bk-r-md);
@@ -284,10 +279,6 @@
 	border-inline-start-color: var(--bk-hmm-tile);
 	background: var(--bk-hmm-wash);
 	color: var(--bk-ink);
-}
-
-.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox.is-armed .booklet-design-editor-state:not(:empty) {
-	border-inline-start-color: var(--bk-rose);
 }
 
 /* its fields: a boundary that can be seen (3 to 1), on the card of the row or on the box */
@@ -325,10 +316,6 @@
 	min-height: var(--size-4-8);
 	padding: 0 var(--size-4-4);
 	font-size: var(--font-ui-small);
-}
-
-.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button.booklet-design-save {
-	padding-inline: var(--size-4-6);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-design-rows-switch[aria-checked="true"],

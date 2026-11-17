@@ -9,19 +9,20 @@
  *                 there stay lit; a tile can also be dragged. Letters still work (a group's, then a piece's): they pick a tile, Enter places it
  *   canvas        the page (design-canvas-draw.ts): words, questions and callouts as a reader sees them, a friendly card for what is not drawn
  *                 yet, a "+" between blocks, the parts of a container as cards. A press on a block selects it AND opens it in place
- *                 (design-edit.ts): a preview, its settings, its Markdown, Cancel and Save; a small bar floats on the selected block
+ *                 (design-edit.ts): a preview, its settings and its Markdown; a small bar floats on the selected block
  *
  * It never writes the whole file (note-view.ts). Every change is a smallest-byte replacement of the note (core/design-ops.ts, then
  * `minimalChange`), written into an open Markdown pane's editor or with `vault.process`; nothing else is touched or tidied. The view keeps
  * its own undo and redo of those replacements (core/design-undo.ts), since a `vault.process` write is not documented to join an editor's
  * undo. A person may delete her own work freely: a delete or a move that would leave kept data not matching says what, with counts, and
- * asks; it never blocks. A draft in an editor is never thrown away by a drawing, a selection, a move or an undo: it stays until it is saved
- * or cancelled. Every drawing of a question or a callout is inert, and the view fetches nothing.
+ * asks; it never blocks. THERE IS NO DRAFT and no Save: what is changed in an open block is written as it is changed, one step of Undo
+ * for each change (see "the lane" below), and what is typed and not left yet is applied by whatever would end the block's life first
+ * (`flushEdits`). Every drawing of a question or a callout is inert, and the view fetches nothing.
  *
- * This file owns the state (the note, the selection, the draft, the piece picked, the place chosen, the open panel); the other files draw
- * what it hands them and report presses back.
+ * This file owns the state (the note, the selection, the open block, the piece picked, the place chosen, the open panel); the other files
+ * draw what it hands them and report presses back.
  */
-import { Component, Platform, Scope, type Menu, type WorkspaceLeaf } from "obsidian";
+import { Component, Notice, Platform, Scope, type Menu, type TFile, type WorkspaceLeaf } from "obsidian";
 import {
 	DesignHistory,
 	KEY_GROUPS,
@@ -57,7 +58,6 @@ import {
 	type Activity,
 	type CatalogueId,
 	type Canvas,
-	type DesignKey,
 	type DesignKind,
 	type DesignNode,
 	type NavEntry,
@@ -69,8 +69,9 @@ import {
 	type Trouble,
 } from "./core";
 import { askDesign } from "./design-modals";
+import { windowGone } from "./window-gone";
 import { drawPage, paintSlot, whereWords, type DrawnPage, type PageCtx, type SlotMode } from "./design-canvas-draw";
-import { EditorBox, type Editing } from "./design-edit";
+import { EditorBox, type Editing, type Outcome } from "./design-edit";
 import { drawNav, drawTroubles, foldKeys, type NavCtx } from "./design-nav";
 import { drawPalette, groupOfKey, paintPieceButton, paintWhere, pieceByFile, pieceName, type PaletteHandle, type PalettePiece } from "./design-palette";
 import { drawIcon } from "./design-picture";
@@ -151,8 +152,22 @@ export class DesignView extends LockedTextView {
 	private message = "";
 	/** The status line is saying which keys have been typed. */
 	private keysSaid = false;
-	/** A change is under way (a question open, a write landing): another press waits for it to finish. */
+	/**
+	 * THE LANE. Every write the view makes runs in one lane, one at a time: a change from the open block, a move, a delete, a placing, an
+	 * undo, a close. A change from the box is never dropped (typed text is made of them), it waits its turn; a press of a button of the
+	 * page (an "op") is dropped when another op is queued or running, so a double press does one thing. `busy` is the lane's last job while
+	 * anything is queued or running, else null.
+	 */
 	private busy: Promise<void> | null = null;
+	private lane: Promise<void> = Promise.resolve();
+	private queued = 0;
+	private opsQueued = 0;
+	/** Bumped when the view is given another note: a job queued for the old one writes nothing to the new one. */
+	private epoch = 0;
+	/** The view is closed (or closing): nothing is drawn, what is queued still writes. */
+	private closed = false;
+	/** The window this view is drawn in, once the workspace has said it is closing (`window-close`): a write waits for it (window-gone.ts). */
+	private closingWindow: Window | null = null;
 	/** The questions of the note by their line, with their activities, found once for each drawing. */
 	private questions = new Map<number, { activity: Activity; question: Question }>();
 	/** Obsidian gives a callout's colour as a triplet (see reading.ts): said to every inert drawing. */
@@ -160,11 +175,32 @@ export class DesignView extends LockedTextView {
 	private bookletTitle = "";
 	private followTimer: number | null = null;
 
-	/** The in-place editor's draft, when a block is open; at most one, and it stays on the screen until it is saved or cancelled. */
+	/** The block that is open in place, when one is; at most one. It is only WHICH block: the text it edits is the note's. */
 	private edit: Editing | null = null;
 	private editor: EditorBox | null = null;
 	/** The scope that holds Ctrl/Cmd+Enter for the editor while its box has the focus (see `holdSaveKey`). */
 	private saveScope: Scope | null = null;
+	/**
+	 * Drawing. A press is under way (the pointer is down): a drawing asked for by a write waits for it to end, so the control pressed is
+	 * still there when the click lands. A drawing is never made inside another (`drawing`), and one asked for in it is made after it.
+	 */
+	private pressing = false;
+	private pressTimer: number | null = null;
+	private drawPending = false;
+	private drawing = false;
+	private drawAgain = false;
+	/**
+	 * The last replacements this view made, so a press on a page as it was drawn finds its block where it is now (`live`), however many
+	 * drawings came in between: each tree the view parsed remembers how many replacements had been made when it was parsed (`rootAt`).
+	 */
+	private steps: { before: string; after: string; from: number; to: number; delta: number }[] = [];
+	/** How many replacements were made before `steps[0]` (the older ones are let go, to keep the notes they hold from piling up). */
+	private stepBase = 0;
+	private rootAt = new WeakMap<DesignNode, number>();
+	/** The number of lines the page was drawn from. */
+	private drawnLines = 0;
+	/** The tree of the note as it is now, for the box and for the presses (parsed when the text changed). */
+	private parsed: { text: string; root: DesignNode } | null = null;
 
 	/** The left column's tab, and what each tab remembers. */
 	private tab: Tab = "outline";
@@ -196,6 +232,7 @@ export class DesignView extends LockedTextView {
 
 	override onload(): void {
 		super.onload();
+		this.closed = false;
 		this.contentEl.addClass("booklet-design");
 		// the other two ways to open this note, one button each; the Markdown view is always one press away
 		this.addAction(iconName(MODE_ICONS.markdown, "file-text"), ui("mode.markdown"), () => void this.host.setMode(this.leaf, "markdown"));
@@ -229,13 +266,100 @@ export class DesignView extends LockedTextView {
 			watch.observe(this.contentEl);
 			this.register(() => watch.disconnect());
 		}
+		// a press under way (the pointer is down in the view): a drawing a write asks for waits until it is up, so a press that began on a
+		// control is not lost when the typing that was just left is written and the page is drawn again (see `requestDraw`)
+		const doc = this.contentEl.ownerDocument;
+		const down = (evt: Event): void => {
+			const at = evt.target as Node | null;
+			if (!at || !this.contentEl.contains(at)) return;
+			this.pressing = true;
+			if (this.pressTimer !== null) window.clearTimeout(this.pressTimer);
+			// a pointer that never comes up (the window lost it) does not hold a drawing back for good
+			this.pressTimer = window.setTimeout(() => this.pressEnded(), 1500);
+		};
+		const up = (): void => this.pressEnded();
+		this.registerDomEvent(doc, "pointerdown", down, true);
+		this.registerDomEvent(doc, "mousedown", down, true);
+		this.registerDomEvent(doc, "pointerup", up, true);
+		this.registerDomEvent(doc, "mouseup", up, true);
+		this.registerDomEvent(doc, "pointercancel", up, true);
+		this.registerDomEvent(doc, "dragend", up, true);
+		// a view in a pop-out window knows when that window is closing: what it has typed is written once the window is gone
+		this.registerEvent(
+			this.app.workspace.on("window-close", (_w, closing) => {
+				if (closing.document === this.contentEl.ownerDocument) this.closingWindow = closing;
+			}),
+		);
 		this.register(() => {
 			if (this.followTimer !== null) window.clearTimeout(this.followTimer);
 			this.followTimer = null;
+			if (this.pressTimer !== null) window.clearTimeout(this.pressTimer);
+			this.pressTimer = null;
+			// what is typed and not left yet is queued to be written before the view goes (the lane runs on after it is closed)
+			this.endEdits();
+			this.closed = true;
 			this.releaseSaveKey();
 			this.drop();
 		});
 		this.history.onChange(() => this.showUndo());
+	}
+
+	/** The pointer is up: a drawing that waited for it is made now, after the click that follows the press has run. */
+	private pressEnded(): void {
+		if (this.pressTimer !== null) window.clearTimeout(this.pressTimer);
+		this.pressTimer = null;
+		this.pressing = false;
+		if (!this.drawPending) return;
+		window.setTimeout(() => {
+			if (this.pressing || !this.drawPending) return;
+			this.drawPending = false;
+			this.draw();
+		}, 0);
+	}
+
+	/**
+	 * Everything typed in the open block is applied, in order, and this waits for the writes. Called by whatever would end the block's life:
+	 * the pane closing, a switch to the Booklet or Markdown view, another note, quitting. A pending text that cannot be applied stays in its
+	 * box and is said (design-edit.ts), it is never dropped without a word.
+	 */
+	async flushEdits(): Promise<void> {
+		for (let round = 0; round < 4; round++) {
+			this.queueTyped();
+			await this.whenIdle();
+			if (!this.editor?.dirty()) return;
+		}
+	}
+
+	/** Queues the application of what is typed in the open block, if anything is. */
+	private queueTyped(): void {
+		const box = this.editor;
+		if (box?.dirty()) void this.enqueue(() => box.applyAll(), false);
+	}
+
+	/** The view is closing: typed text is queued, and text that was held and cannot be applied is told to the person in a notice. */
+	private endEdits(): void {
+		const box = this.editor;
+		if (!box) return;
+		this.queueTyped();
+		if (box.holds()) new Notice(ui("edit.lost", { text: box.heldText().slice(0, 400) }));
+	}
+
+	/** Is anything typed and not applied, or being written? (The quit event waits for the view when it is.) */
+	hasPending(): boolean {
+		return this.queued > 0 || !!this.editor?.dirty();
+	}
+
+	/** The quit event's task: what is typed is written before the app goes, after a pop-out window it is in has closed. */
+	async saveTypedAtQuit(): Promise<void> {
+		const win = this.contentEl.ownerDocument.defaultView;
+		if (win && win !== window) await windowGone(win);
+		await this.flushEdits();
+	}
+
+	override async onUnloadFile(file: TFile): Promise<void> {
+		// the pane closing, another note opened in it and a switch to another view all unload the file: what is typed is written first
+		await this.flushEdits();
+		await super.onUnloadFile(file);
 	}
 
 	getViewType(): string {
@@ -289,11 +413,18 @@ export class DesignView extends LockedTextView {
 		this.text = data;
 		this.data = data;
 		this.draw();
+		// a change that came from outside: what is typed in the open block is applied to the note as it is now (or kept, and said, if it cannot be)
+		if (!clear) this.queueTyped();
 	}
 
 	clear(): void {
+		this.epoch++;
 		this.text = "";
 		this.data = "";
+		this.parsed = null;
+		this.steps = [];
+		this.stepBase = 0;
+		this.rootAt = new WeakMap();
 		this.drop();
 		this.history.clear();
 		this.sel = null;
@@ -308,9 +439,11 @@ export class DesignView extends LockedTextView {
 	}
 
 	/** Lets go of everything a drawing made: the editor's timers and drawings, the palette's sample, and the renderer's Component. */
-	private drop(): void {
-		this.editor?.dispose();
-		this.editor = null;
+	private drop(keepEditor = false): void {
+		if (!keepEditor || !this.edit || this.editor?.editing !== this.edit) {
+			this.editor?.dispose();
+			this.editor = null;
+		}
 		this.palette?.dispose();
 		this.palette = null;
 		if (!this.renderer) return;
@@ -330,6 +463,7 @@ export class DesignView extends LockedTextView {
 				this.text = live;
 				this.data = live;
 				this.draw();
+				this.queueTyped();
 			}
 		}, 150);
 	}
@@ -337,6 +471,56 @@ export class DesignView extends LockedTextView {
 	/** Resolves when no change is under way (for the tests, and for whatever must wait for a write). */
 	async whenIdle(): Promise<void> {
 		while (this.busy) await this.busy;
+	}
+
+	/**
+	 * Queues `work` in the lane: after what is queued, one at a time, never dropped. A job that fails says so in the status line and goes
+	 * on; the lane never rejects. A job queued for a note that is no longer the view's does nothing.
+	 */
+	private enqueue(work: () => Promise<void>, op: boolean): Promise<void> {
+		const epoch = this.epoch;
+		// a press of the page's own buttons starts at once when the lane is idle; what the box asks for always starts after the event that asked
+		const now = op && this.queued === 0;
+		this.queued++;
+		if (op) this.opsQueued++;
+		const go = (): Promise<void> => (epoch === this.epoch ? work() : Promise.resolve());
+		const first: Promise<void> = now ? go() : this.lane.then(go);
+		const run: Promise<void> = first
+			.catch((e: unknown) => this.failedJob(e))
+			.finally(() => {
+				this.queued--;
+				if (op) this.opsQueued--;
+				if (!this.queued) this.busy = null;
+			});
+		this.lane = run;
+		this.busy = run;
+		return run;
+	}
+
+	/** A job threw: nothing escapes to the caller; the status line says what, and the page is drawn from the note as it is. */
+	private failedJob(e: unknown): void {
+		this.say(ui("status.failedWhy", { reason: e instanceof Error ? e.message : String(e) }));
+		this.recover();
+	}
+
+	/** Draws the page from the note as it is, whatever state a failed job left (never half drawn, never an error to the console). */
+	private recover(): void {
+		try {
+			this.drawPending = false;
+			this.draw();
+		} catch {
+			// the page could not be drawn either: it is emptied rather than left half drawn, and the status line has said why
+			this.contentEl.empty();
+		}
+	}
+
+	/** Runs `work` now when nothing is typed or being written, else after it has been applied (a press on the page while typing is owed). */
+	private afterEdits(work: () => void): void {
+		if (!this.queued && !this.editor?.dirty()) return work();
+		void this.enqueue(async () => {
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			work();
+		}, false);
 	}
 
 	/* ---- the phone: the left column as a panel ---- */
@@ -382,22 +566,58 @@ export class DesignView extends LockedTextView {
 		const had = at && this.contentEl.contains(at) ? at.getAttribute("data-focus") : null;
 		work();
 		if (!had) return;
+		// a control inside the page that took the focus while it was drawn (the open box puts it where the person is working) keeps it
+		const now = doc.activeElement;
+		if (now && now !== at && now !== doc.body && this.contentEl.contains(now)) return;
 		const again = Array.from(this.contentEl.querySelectorAll<HTMLElement>("[data-focus]")).find((e) => e.getAttribute("data-focus") === had);
 		again?.focus();
 	}
 
+	/**
+	 * Draws the page from the note as it is. A drawing is never made inside another: one asked for while the page is being drawn (an event
+	 * the drawing itself raises, such as the browser reporting a field left as it is taken away) is made after it, once.
+	 */
 	private draw(): void {
+		if (this.closed) return;
+		if (this.drawing) {
+			this.drawAgain = true;
+			return;
+		}
+		this.drawing = true;
+		try {
+			for (let round = 0; round < 3; round++) {
+				this.drawAgain = false;
+				this.paint();
+				if (!this.drawAgain) break;
+			}
+		} finally {
+			this.drawing = false;
+			this.drawAgain = false;
+		}
+	}
+
+	/** A drawing a write asks for: made now, or when the pointer that is down comes up (see `pressEnded`), so the press is not lost. */
+	private requestDraw(): void {
+		if (this.pressing) this.drawPending = true;
+		else this.draw();
+	}
+
+	private paint(): void {
 		const el = this.contentEl;
 		const top = this.scrollEl?.scrollTop ?? 0;
-		const typing = this.editor?.remember() ?? false;
-		this.releaseSaveKey();
+		this.drawPending = false;
+		// the open block's box is kept (the same elements), so a press that has begun on one of its controls is not lost to this drawing
+		this.editor?.lift();
 		this.keepFocus(() => {
-			this.drop();
+			this.drop(true);
 			this.renderer = this.addChild(new Component());
 			el.empty();
 			el.toggleClass("is-phone", this.phone);
 			const root = parseDesign(this.text);
 			this.root = root;
+			this.parsed = { text: this.text, root };
+			this.rootAt.set(root, this.stepBase + this.steps.length);
+			this.drawnLines = this.text.split("\n").length;
 			this.selected = this.find(root);
 			if (!this.selected) this.sel = null;
 			this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
@@ -442,7 +662,6 @@ export class DesignView extends LockedTextView {
 		const key = this.canvas ? `${this.canvas.holder.kind}@${this.canvas.holder.start}|${this.canvas.firstPage}` : "";
 		if (this.scrollEl) this.scrollEl.scrollTop = key === this.pageKey ? top : 0;
 		this.pageKey = key;
-		if (typing) this.editor?.focus();
 	}
 
 	/** Is this node drawn on the page (it is the page, the settings, or inside one of its blocks)? */
@@ -684,7 +903,7 @@ export class DesignView extends LockedTextView {
 			pressBlock: (n) => this.openEditor(n),
 			openCard: (n) => this.navigate(n),
 			editNode: (n) => this.openEditor(n),
-			move: (n, to) => void this.move(n, to),
+			move: (n, dir) => void this.moveDir(n, dir),
 			remove: (n) => void this.remove(n),
 			drawEditor: (host, n) => this.drawEditorBox(host, n, "here"),
 			linesOf: (n) => blockLines(this.text, n),
@@ -692,9 +911,14 @@ export class DesignView extends LockedTextView {
 		};
 	}
 
+	/** Puts the open block's box into the page: the box that is open (the same elements, kept across drawings), or a new one for another block. */
 	private drawEditorBox(parent: HTMLElement, node: DesignNode | null, where: "here" | "detached" | "gone"): void {
 		const ed = this.edit;
 		if (!ed) return;
+		if (this.editor && this.editor.editing === ed) {
+			this.editor.attach(node, parent, where);
+			return;
+		}
 		this.editor?.dispose();
 		this.editor = new EditorBox(
 			{
@@ -702,13 +926,19 @@ export class DesignView extends LockedTextView {
 				sourcePath: this.file?.path ?? "",
 				triplet: this.triplet,
 				text: () => this.text,
+				node: () => this.openNode(),
+				lines: () => {
+					const n = this.openNode();
+					return n ? blockLines(this.text, n) : null;
+				},
 				owner: () => this.renderer,
-				save: () => void this.saveEditor(),
-				cancel: () => this.cancelEditor(),
-				esc: () => this.escEditor(),
+				change: (lines) => this.changeBlock(lines),
+				queue: (work) => this.enqueue(work, false),
+				confirm: () => void this.closeEditor(),
 				hold: () => this.holdSaveKey(),
 				release: () => this.releaseSaveKey(),
 				openMenu: (line) => this.openMenuBlock(line),
+				say: (words) => this.say(words),
 			},
 			ed,
 			node,
@@ -717,29 +947,49 @@ export class DesignView extends LockedTextView {
 		);
 	}
 
-	/** The shared menu a question names, opened in its own editor (a draft that is open stays: openEditor says so). */
+	/** The tree of the note as it is now (the page's own, or parsed again when the note has changed since it was drawn). */
+	private liveRoot(): DesignNode {
+		if (!this.parsed || this.parsed.text !== this.text) {
+			const root = parseDesign(this.text);
+			this.parsed = { text: this.text, root };
+			this.rootAt.set(root, this.stepBase + this.steps.length);
+		}
+		return this.parsed.root;
+	}
+
+	/** The open block as the note has it now, or null when the note has no such block. */
+	private openNode(): DesignNode | null {
+		const ed = this.edit;
+		if (!ed) return null;
+		return walkDesign(this.liveRoot()).find((n) => n.parent !== null && n.start === ed.start && n.kind === ed.kind) ?? null;
+	}
+
+	/** The shared menu a question names, opened in its own editor (what is typed in the block that is open is applied first: openEditor says so). */
 	private openMenuBlock(line: number): void {
-		const root = this.root;
-		const menu = root ? walkDesign(root).find((x) => x.kind === "menu" && x.start === line) : undefined;
+		const menu = walkDesign(this.liveRoot()).find((x) => x.kind === "menu" && x.start === line);
 		if (menu) this.openEditor(menu);
 	}
 
 	/* ---- selecting and navigating ---- */
 
-	/** Draws the page of a node (the booklet's when it is the booklet). An editor with changes stays open, drawn above the page. */
+	/**
+	 * Draws the page of a node (the booklet's when it is the booklet). What is typed in the open block is applied first; the block closes
+	 * (but stays open, with its text and a word, when text it holds could not be applied: that is never dropped).
+	 */
 	private navigate(n: DesignNode, firstPage = false): void {
-		const root = this.root;
-		if (!root) return;
-		this.sel = n === root && !firstPage ? null : { start: n.start, kind: n.kind, ...(firstPage ? { firstPage: true } : {}) };
-		this.closeCleanEditor();
-		this.unfoldTo(n);
-		this.closePanel();
-		this.draw();
-	}
-
-	/** An editor with nothing changed in it is closed when the person goes elsewhere; one with changes stays (a draft is never dropped). */
-	private closeCleanEditor(): void {
-		if (this.edit && !this.hasDraft()) this.edit = null;
+		this.afterEdits(() => {
+			const node = this.live(n);
+			if (!node) return this.draw();
+			if (this.editor?.holds()) {
+				this.say(ui("editor.busy"));
+				return;
+			}
+			this.sel = node === this.liveRoot() && !firstPage ? null : { start: node.start, kind: node.kind, ...(firstPage ? { firstPage: true } : {}) };
+			this.edit = null;
+			this.unfoldTo(node);
+			this.closePanel();
+			this.draw();
+		});
 	}
 
 	private pressEntry(e: NavEntry): void {
@@ -754,16 +1004,22 @@ export class DesignView extends LockedTextView {
 
 	/** Selects a block and brings it into view, with the focus on it. */
 	private reveal(n: DesignNode): void {
-		const root = this.root;
-		if (!root) return;
-		this.sel = n === root ? null : { start: n.start, kind: n.kind };
-		this.closeCleanEditor();
-		this.unfoldTo(n);
-		this.closePanel();
-		this.draw();
-		const box = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-block, .booklet-design-page")).find((b) => b.getAttribute("data-start") === String(n.start) && b.getAttribute("data-kind") === n.kind);
-		box?.scrollIntoView?.({ block: "center" });
-		box?.focus();
+		this.afterEdits(() => {
+			const node = this.live(n);
+			if (!node) return this.draw();
+			if (this.editor?.holds()) {
+				this.say(ui("editor.busy"));
+				return;
+			}
+			this.sel = node === this.liveRoot() ? null : { start: node.start, kind: node.kind };
+			this.edit = null;
+			this.unfoldTo(node);
+			this.closePanel();
+			this.draw();
+			const box = Array.from(this.contentEl.querySelectorAll<HTMLElement>(".booklet-design-block, .booklet-design-page")).find((b) => b.getAttribute("data-start") === String(node.start) && b.getAttribute("data-kind") === node.kind);
+			box?.scrollIntoView?.({ block: "center" });
+			box?.focus();
+		});
 	}
 
 	/** The navigator's folds above a node are opened, so the entry that is drawn is one that can be seen. */
@@ -890,6 +1146,9 @@ export class DesignView extends LockedTextView {
 	/** Puts a piece in a slot of the page: the one insertion, from a press, a drop and Enter alike. Adds never ask. */
 	private placeAt(slot: Slot, piece: PalettePiece): Promise<void> {
 		return this.later(async () => {
+			// what is typed is applied first; a "+" of a page whose lines have since changed is for a page that is not there: it is drawn again
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			if (this.stalePage()) return this.draw();
 			const part = PART_NEEDS.has(needsOf(piece)[0] ?? "");
 			this.armed = this.target = null;
 			this.popup = null;
@@ -922,6 +1181,8 @@ export class DesignView extends LockedTextView {
 			return Promise.resolve();
 		}
 		return this.later(async () => {
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			if (this.stalePage()) return this.draw();
 			const part = PART_NEEDS.has(needsOf(piece)[0] ?? "");
 			this.armed = this.target = null;
 			this.popup = null;
@@ -1025,7 +1286,7 @@ export class DesignView extends LockedTextView {
 				return false;
 			}
 			if (this.edit) {
-				this.escEditor();
+				void this.closeEditor();
 				return false;
 			}
 			return undefined;
@@ -1076,10 +1337,6 @@ export class DesignView extends LockedTextView {
 		return !!this.edit && this.edit.start === n.start && this.edit.kind === n.kind;
 	}
 
-	private hasDraft(): boolean {
-		return !!this.edit && this.edit.draft !== this.edit.base.join("\n");
-	}
-
 	/** May Enter open the editor here? Not when it is a button's, a link's or a field's own press (other than the selected block itself). */
 	private enterIsFree(target: Element | null, at: DesignNode): boolean {
 		const control = target && typeof target.closest === "function" ? target.closest("button, a, summary, input, select, textarea, [contenteditable]") : null;
@@ -1089,69 +1346,76 @@ export class DesignView extends LockedTextView {
 	}
 
 	/**
-	 * Selects a block and opens its own lines in the editor, in place. With another block's editor open and changed, says so and does
-	 * nothing: a draft is never dropped to make room. A block the view never changes is selected and nothing opens.
+	 * Selects a block and opens its own lines in the editor, in place. What is typed in the block that is open is applied first (and when
+	 * it cannot be, that block stays open and says so: typed text is never dropped to make room). A block the view never changes is
+	 * selected and nothing opens.
 	 */
 	private openEditor(n: DesignNode): void {
-		if (this.edit && this.editsNode(n)) {
-			this.sel = { start: n.start, kind: n.kind };
-			this.editor?.focus();
-			return;
-		}
-		if (this.edit && this.hasDraft()) {
-			this.say(ui("editor.busy"));
-			return;
-		}
-		this.edit = null;
-		const why = whyUnchangeable(n);
-		this.sel = { start: n.start, kind: n.kind };
-		if (why) {
-			this.say(why);
+		this.afterEdits(() => {
+			const node = this.live(n);
+			if (!node) return this.draw();
+			if (this.edit && this.editsNode(node)) {
+				this.sel = { start: node.start, kind: node.kind };
+				this.editor?.focus();
+				return;
+			}
+			if (this.editor?.holds()) {
+				this.say(ui("editor.busy"));
+				return;
+			}
+			this.edit = null;
+			const why = whyUnchangeable(node);
+			this.sel = { start: node.start, kind: node.kind };
+			if (why) {
+				this.say(why);
+				this.draw();
+				return;
+			}
+			this.edit = { start: node.start, kind: node.kind };
+			this.closePanel();
 			this.draw();
-			return;
-		}
-		const base = blockLines(this.text, n);
-		this.edit = { start: n.start, kind: n.kind, base, draft: base.join("\n"), armed: false, caret: null, refusal: "" };
-		this.closePanel();
-		this.draw();
-		this.editor?.focus();
+			this.editor?.focus();
+		});
 	}
 
-	/** Esc: with nothing changed it closes; with changes the first Esc keeps them as Unsaved and the second throws them away. */
-	private escEditor(): void {
-		const ed = this.edit;
-		if (!ed) return;
-		// what a row was typed with and not yet left is part of the draft: Esc must find it there, so the first press asks before it is thrown away
-		this.editor?.flush();
-		if (this.hasDraft() && !ed.armed) {
-			ed.armed = true;
-			this.editor?.showState();
-			return;
+	/**
+	 * Esc, and Ctrl or Cmd with Enter: what is typed in the open block is applied, and the block closes. Nothing is thrown away because
+	 * nothing is waiting. The one exception is text that could not be applied (the note changed under it): the first press says so and
+	 * leaves the block open, with the text in it, and the next closes it.
+	 */
+	private closeEditor(): Promise<void> {
+		// nothing typed and nothing being written: it closes at once
+		if (!this.queued && !this.editor?.dirty()) {
+			this.finishClose();
+			return Promise.resolve();
 		}
-		this.cancelEditor();
+		return this.later(async () => {
+			if (!this.edit) return;
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			this.finishClose();
+		});
 	}
 
-	/** Cancel: the editor closes and what was changed in it is thrown away (the label says so). The block stays selected. */
-	private cancelEditor(): void {
-		this.editor?.flush();
-		const was = this.hasDraft();
+	private finishClose(): void {
+		if (!this.edit) return;
+		if (this.editor && !this.editor.mayClose()) return;
 		this.edit = null;
-		this.message = was ? ui("editor.discarded") : "";
 		this.draw();
 		this.focusSelected();
 	}
 
 	/**
-	 * Ctrl+Enter or Cmd+Enter saves the editor. Obsidian's own default hotkey for that chord ("open link in new tab") is run by the app's
-	 * key map in the capture phase of the window and stops the event, so the box never hears it (found in the real app: a listener on the box
-	 * alone never saved). The chord is therefore held by a scope of the view's own, put on the app's stack only while the box has the focus, and
-	 * taken off when the box loses it, is drawn again or is gone: no other key of Obsidian's is touched outside that moment.
+	 * Ctrl+Enter or Cmd+Enter closes the editor, after applying what is typed in it. Obsidian's own default hotkey for that chord ("open link
+	 * in new tab") is run by the app's key map in the capture phase of the window and stops the event, so the box never hears it (found in
+	 * the real app: a listener on the box alone never fired). The chord is therefore held by a scope of the view's own, put on the app's
+	 * stack only while the box has the focus, and taken off when the box loses it, is drawn again or is gone: no other key of Obsidian's
+	 * is touched outside that moment.
 	 */
 	private holdSaveKey(): void {
 		if (!this.saveScope) {
 			const scope = new Scope(this.scope ?? this.app.scope);
 			scope.register(["Mod"], "Enter", () => {
-				void this.saveEditor();
+				void this.closeEditor();
 				return false;
 			});
 			this.saveScope = scope;
@@ -1163,55 +1427,114 @@ export class DesignView extends LockedTextView {
 		if (this.saveScope) this.app.keymap.popScope(this.saveScope);
 	}
 
-	private saveEditor(): Promise<void> {
-		return this.later(async () => {
-			const ed = this.edit;
-			const root = this.root;
-			if (!ed || !root) return;
-			this.editor?.remember();
-			const node = walkDesign(root).find((n) => n.parent !== null && this.editsNode(n));
-			if (!node) {
-				this.say(ui("editor.moved"));
-				return;
-			}
-			// the block must still read as it did when the editor opened: if the note changed under it, nothing is written
-			if (blockLines(this.text, node).join("\n") !== ed.base.join("\n")) {
-				this.say(ui("editor.stale"));
-				return;
-			}
-			const lines = ed.draft.split("\n").map((l) => l.replace(/\r$/, ""));
-			while (lines.length && !(lines[lines.length - 1] ?? "").trim()) lines.pop();
-			const op = changeLines(this.text, node, lines);
-			await this.carryOut(op, { how: "change", name: this.titled(node), node, select: "lines", closeEditor: true, stale: "editor.stale" });
-		});
+	/** The open block's lines are now these: one change from the box, asked about and written like any other; the box stays open. Runs in the lane. */
+	private async changeBlock(lines: string[]): Promise<Outcome> {
+		const node = this.openNode();
+		if (!node) {
+			this.say(ui("editor.moved"));
+			return "refused";
+		}
+		const op = changeLines(this.text, node, lines);
+		return this.runChange(op, { how: "change", name: this.titled(node), node, select: "lines", inBox: true });
+	}
+
+	/* ---- the page as it was drawn: a press on it finds its block where the block is now ---- */
+
+	/** A replacement just written is noted, so a press on the page as it was drawn can be carried to where its block has gone (`live`). */
+	private noted(before: string, after: string): void {
+		const c = minimalChange(before, after);
+		if (!c) return;
+		this.steps.push({ before, after, from: c.from, to: c.to, delta: c.text.length - (c.to - c.from) });
+		const extra = this.steps.length - 40;
+		if (extra > 0) {
+			this.steps.splice(0, extra);
+			this.stepBase += extra;
+		}
+	}
+
+	/** Where a line of a tree parsed after `parsedAt` replacements is now: carried through every replacement since, or null when one was made across its first character (or the tree is too old to carry). */
+	private shifted(line: number, parsedAt: number): number | null {
+		if (parsedAt < this.stepBase) return null;
+		let at = line;
+		for (const s of this.steps.slice(parsedAt - this.stepBase)) {
+			let offset = 0;
+			for (let i = 0; i < at; i++) offset = s.before.indexOf("\n", offset) + 1;
+			if (offset < s.from) continue;
+			if (offset < s.to) return null;
+			const moved = offset + s.delta;
+			at = s.after.slice(0, moved).split("\n").length - 1;
+		}
+		return at;
+	}
+
+	/** The node of the page as it was drawn, as the note has it now (the same kind, at the line it has been carried to), or null when it is not there. */
+	private live(n: DesignNode): DesignNode | null {
+		const root = this.liveRoot();
+		if (n.parent === null) return root;
+		// a node of the note as it is now needs no carrying
+		let top = n;
+		while (top.parent) top = top.parent;
+		if (top === root) return n;
+		const parsedAt = this.rootAt.get(top);
+		const at = parsedAt === undefined ? n.start : this.shifted(n.start, parsedAt);
+		if (at === null) return null;
+		return walkDesign(root).find((x) => x.parent !== null && x.kind === n.kind && x.start === at) ?? null;
+	}
+
+	/** Has the number of lines changed since the page was drawn (a "+" of that page is then for lines that are not there)? */
+	private stalePage(): boolean {
+		return this.text.split("\n").length !== this.drawnLines;
 	}
 
 	/* ---- changes: each one is an operation on the text, asked about when it counts something, then written ---- */
 
+	/**
+	 * A press of the page's own buttons (a move, a delete, a placing, an undo, a close): one thing at a time, in the lane, after what is
+	 * typed has been applied. Pressed again while one is queued or running, it is dropped: a double press does one thing.
+	 */
 	private later(work: () => Promise<void>): Promise<void> {
-		if (this.busy) return this.busy;
-		const run = work().finally(() => {
-			this.busy = null;
-		});
-		this.busy = run;
-		return run;
+		// a view that is closed does no press: only what was queued before it closed (typed text) still writes
+		if (this.closed) return Promise.resolve();
+		if (this.opsQueued) return this.busy ?? Promise.resolve();
+		return this.enqueue(work, true);
 	}
 
 	private remove(n: DesignNode): Promise<void> {
 		return this.later(async () => {
-			const op = deleteBlock(this.text, n);
-			await this.carryOut(op, { how: "delete", name: this.titled(n), node: n, select: n.parent ? { start: n.parent.start, kind: n.parent.kind } : "lines" });
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			const node = this.live(n);
+			if (!node) return this.draw();
+			const op = deleteBlock(this.text, node);
+			await this.carryOut(op, { how: "delete", name: this.titled(node), node, select: node.parent ? { start: node.parent.start, kind: node.parent.kind } : "lines" });
 		});
 	}
 
+	/** A move by a place (the page's own buttons give a direction: `moveDir`). */
 	private move(n: DesignNode, to: ReturnType<typeof moveTargets>["up"]): Promise<void> {
 		return this.later(async () => {
-			if (!to) return;
-			const op = moveBlock(this.text, n, to);
-			// a part of the booklet is a card of this page, and the page stays; a block is selected where it lands
-			const card = !!this.canvas?.cards.includes(n);
-			await this.carryOut(op, { how: "move", name: this.titled(n), node: n, select: card ? "keep" : "lines" });
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			const node = this.live(n);
+			if (!node) return this.draw();
+			await this.moveTo(n, node, to);
 		});
+	}
+
+	/** A move up or down: the place it goes to is worked out from the note as it is when the press is acted on, not from when the page was drawn. */
+	private moveDir(n: DesignNode, dir: "up" | "down"): Promise<void> {
+		return this.later(async () => {
+			if (this.editor?.dirty()) await this.editor.applyAll();
+			const node = this.live(n);
+			if (!node) return this.draw();
+			await this.moveTo(n, node, moveTargets(node)[dir]);
+		});
+	}
+
+	private async moveTo(n: DesignNode, node: DesignNode, to: ReturnType<typeof moveTargets>["up"]): Promise<void> {
+		if (!to) return;
+		const op = moveBlock(this.text, node, to);
+		// a part of the booklet is a card of this page, and the page stays; a block is selected where it lands
+		const card = !!this.canvas?.cards.includes(n);
+		await this.carryOut(op, { how: "move", name: this.titled(node), node, select: card ? "keep" : "lines" });
 	}
 
 	/**
@@ -1219,21 +1542,24 @@ export class DesignView extends LockedTextView {
 	 * booklet the reader could no longer open) is asked about first (a no changes nothing); then it is written as the smallest
 	 * replacement, recorded for undo, and drawn. Gives true when the change landed, or was no change at all.
 	 */
-	private async carryOut(
-		op: OpResult,
-		how: { how: "add" | "delete" | "move" | "change"; name: string; node?: DesignNode; select: "lines" | "keep" | { start: number; kind: DesignKind }; closeEditor?: boolean; stale?: DesignKey },
-	): Promise<boolean> {
+	private async carryOut(op: OpResult, how: ChangeHow): Promise<boolean> {
+		const out = await this.runChange(op, how);
+		return out === "landed" || out === "unchanged";
+	}
+
+	/** `carryOut`, saying how it came out. A change from the open block (`inBox`) draws only when no press is under way, and says nothing when it changes nothing. */
+	private async runChange(op: OpResult, how: ChangeHow): Promise<Outcome> {
 		this.message = "";
+		const draw = (): void => (how.inBox ? this.requestDraw() : this.draw());
 		if (!op.ok) {
 			this.say(how.how === "change" ? ui("form.refused", { reason: op.reason }) : op.reason);
-			this.draw();
-			return false;
+			draw();
+			return "refused";
 		}
 		if (!op.change) {
-			if (how.closeEditor) this.edit = null;
-			if (how.how === "change") this.say(ui("status.cancelled"));
-			this.draw();
-			return true;
+			// nothing to write, so nothing is written, recorded or said: no empty step of Undo
+			if (!how.inBox) draw();
+			return "unchanged";
 		}
 		if (how.how !== "add" && needsAsking(op) && how.node) {
 			const yes = await askDesign(this.app, {
@@ -1247,27 +1573,46 @@ export class DesignView extends LockedTextView {
 			});
 			if (!yes) {
 				this.say(ui("status.cancelled"));
-				this.draw();
-				return false;
+				draw();
+				return "declined";
 			}
 		}
 		const before = this.text;
 		const was = this.sel ? { ...this.sel } : null; // where the person stood before this step: undo takes them back there
-		const landed = await this.commit(before, op.text, how.stale);
-		if (!landed) return false;
+		const landed = await this.commit(before, op.text);
+		if (landed !== "landed") return landed;
+		this.noted(before, op.text);
 		this.text = op.text;
 		this.data = op.text;
-		if (how.select === "lines") this.sel = op.lines ? { start: op.lines.start, kind: null } : null;
+		if (how.inBox) this.followOpen(op);
+		else if (how.select === "lines") this.sel = op.lines ? { start: op.lines.start, kind: null } : null;
 		else if (how.select !== "keep") this.sel = how.select;
 		this.history.record(before, op.text, { before: was, after: this.sel ? { ...this.sel } : null });
-		if (how.closeEditor) this.edit = null;
 		const said = ui(how.how === "add" ? "status.added" : how.how === "delete" ? "status.deleted" : how.how === "move" ? "status.moved" : "status.changed", { name: how.name });
 		// every line ends its sentence after the name; a name that ends its own (a question, a sentence) is not given a second stop
 		const line = /[.?!…]$/.test(how.name) && said.endsWith(`${how.name}.`) ? said.slice(0, -1) : said;
 		this.say([line, ...op.notes].join(" "));
-		this.draw();
+		draw();
 		this.focusSelected();
-		return true;
+		return "landed";
+	}
+
+	/** A change from the open block landed: the box stays open on the block, which is where its first line now is (a change can turn it into another kind of block). */
+	private followOpen(op: OpResult & { ok: true }): void {
+		const ed = this.edit;
+		if (!ed) return;
+		const start = op.lines ? op.lines.start : ed.start;
+		const all = walkDesign(parseDesign(op.text)).filter((n) => n.parent !== null && n.start === start);
+		const hit = all.find((n) => n.kind === ed.kind) ?? all[0];
+		if (!hit) {
+			// the block is not a block any more (its lines were written into something else): the box has nothing to stand on
+			this.edit = null;
+			this.sel = null;
+			return;
+		}
+		ed.start = start;
+		ed.kind = hit.kind;
+		this.sel = { start, kind: hit.kind };
 	}
 
 	/** The lines a block takes with it, not counting the blank lines after it. */
@@ -1289,25 +1634,28 @@ export class DesignView extends LockedTextView {
 	/**
 	 * Writes `after` in place of `before`, the note as this view read it, as the smallest replacement: into an open Markdown pane's editor or
 	 * with `vault.process`. Written only when the note is still exactly `before`; if it is anything else (changed since this view drew
-	 * it) nothing is written, the view takes the note as it is, and says so. Gives true when the note is now `after`.
+	 * it) nothing is written, the view takes the note as it is, and says so. Gives how it came out: "landed" when the note is now `after`.
 	 */
-	private async commit(before: string, after: string, stale: DesignKey = "status.stale"): Promise<boolean> {
+	private async commit(before: string, after: string): Promise<"landed" | "stale" | "failed"> {
 		const file = this.file;
-		if (!file || !minimalChange(before, after)) return false;
+		if (!file || !minimalChange(before, after)) return "failed";
+		// a pop-out window that is closing is let go first (window-gone.ts)
+		if (this.closingWindow) await windowGone(this.closingWindow);
 		let result: string;
 		try {
 			result = await writeThrough(this.app, file, (fresh) => (fresh === before ? after : fresh));
 		} catch {
 			this.say(ui("status.failed"));
-			this.draw();
-			return false;
+			this.requestDraw();
+			return "failed";
 		}
-		if (result === after) return true;
+		if (result === after) return "landed";
+		this.noted(before, result);
 		this.text = result;
 		this.data = result;
-		this.say(ui(stale));
-		this.draw();
-		return false;
+		this.say(ui("status.stale"));
+		this.requestDraw();
+		return "stale";
 	}
 
 	/* ---- undo and redo: this view's own, of its own writes ---- */
@@ -1320,26 +1668,39 @@ export class DesignView extends LockedTextView {
 		return false;
 	}
 
-	/** Undo or redo the last step of this view, on the note as it is now; refused, with a reason, when the note is not as that step left it. */
+	/**
+	 * Undo or redo the last step of this view, on the note as it is now; refused, with a reason, when the note is not as that step left it
+	 * (the step stays where it is, unmoved). What is typed in the open block is applied first, so the step undone is that typing's own.
+	 * Nothing here throws: whatever goes wrong becomes a line in the status line and a drawing from the note as it is.
+	 */
 	stepBack(which: "undo" | "redo"): Promise<void> {
 		return this.later(async () => {
-			this.message = "";
 			const undo = which === "undo";
-			const plan = undo ? this.history.planUndo(this.text) : this.history.planRedo(this.text);
-			if (!plan.ok) {
-				this.say(ui(plan.reason === "empty" ? (undo ? "status.nothingUndo" : "status.nothingRedo") : undo ? "status.undoChanged" : "status.redoChanged"));
-				return;
+			try {
+				if (this.editor?.dirty()) await this.editor.applyAll();
+				this.message = "";
+				const plan = undo ? this.history.planUndo(this.text) : this.history.planRedo(this.text);
+				if (!plan.ok) {
+					this.say(ui(plan.reason === "empty" ? (undo ? "status.nothingUndo" : "status.nothingRedo") : undo ? "status.undoChanged" : "status.redoChanged"));
+					// a step that cannot be replayed leaves the view as the note is, never half drawn
+					if (plan.reason !== "empty") this.draw();
+					return;
+				}
+				const before = this.text;
+				if ((await this.commit(before, plan.text)) !== "landed") return;
+				if (undo) this.history.settleUndo();
+				else this.history.settleRedo();
+				this.noted(before, plan.text);
+				this.text = plan.text;
+				this.data = plan.text;
+				// back where the person stood: before the step for an undo, after it for a redo
+				if (plan.mark !== undefined) this.sel = this.reachable(plan.mark, plan.text);
+				this.say(ui(undo ? "status.undone" : "status.redone"));
+				this.draw();
+			} catch (e) {
+				this.say(ui(undo ? "status.undoFailed" : "status.redoFailed", { reason: e instanceof Error ? e.message : String(e) }));
+				this.recover();
 			}
-			const before = this.text;
-			if (!(await this.commit(before, plan.text))) return;
-			if (undo) this.history.settleUndo();
-			else this.history.settleRedo();
-			this.text = plan.text;
-			this.data = plan.text;
-			// back where the person stood: before the step for an undo, after it for a redo
-			if (plan.mark !== undefined) this.sel = this.reachable(plan.mark, plan.text);
-			this.say(ui(undo ? "status.undone" : "status.redone"));
-			this.draw();
 		});
 	}
 
@@ -1355,4 +1716,13 @@ export class DesignView extends LockedTextView {
 		const page = navigableNodes(root).filter((n) => n.start <= sel.start && sel.start < n.end).pop();
 		return page ? { start: page.start, kind: page.kind } : null;
 	}
+}
+
+/** What a change says about itself. `inBox`: it comes from the open block's box, which stays open and is not drawn over a press under way. */
+interface ChangeHow {
+	how: "add" | "delete" | "move" | "change";
+	name: string;
+	node?: DesignNode;
+	select: "lines" | "keep" | { start: number; kind: DesignKind };
+	inBox?: boolean;
 }

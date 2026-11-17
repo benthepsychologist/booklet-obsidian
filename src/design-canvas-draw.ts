@@ -276,7 +276,8 @@ export interface PageCtx extends Drawer {
 	openCard(n: DesignNode): void;
 	/** Open a node's own lines in the editor (the page's title and the bar's Markdown button). */
 	editNode(n: DesignNode): void;
-	move(n: DesignNode, to: ReturnType<typeof moveTargets>["up"]): void;
+	/** Move a block up or down: the place it goes to is worked out from the note as it is when the press is acted on, not from when the page was drawn. */
+	move(n: DesignNode, dir: "up" | "down"): void;
 	remove(n: DesignNode): void;
 	/** The editor box, into a host. */
 	drawEditor(host: HTMLElement, n: DesignNode): void;
@@ -314,8 +315,8 @@ function drawBar(box: HTMLElement, n: DesignNode, ctx: PageCtx, card: boolean): 
 		const down = iconButton(bar, "booklet-design-down", ["arrow-down", "chevron-down"], ui("act.down"), false);
 		up.disabled = !to.up;
 		down.disabled = !to.down;
-		up.addEventListener("click", () => ctx.move(n, to.up));
-		down.addEventListener("click", () => ctx.move(n, to.down));
+		up.addEventListener("click", () => ctx.move(n, "up"));
+		down.addEventListener("click", () => ctx.move(n, "down"));
 	}
 	if (!card && !whyUnchangeable(n)) {
 		const edit = iconButton(bar, "booklet-design-edit", ["pencil", "file-pen"], ui("form.editMarkdown"), true);

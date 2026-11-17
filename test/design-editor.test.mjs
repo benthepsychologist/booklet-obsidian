@@ -40,19 +40,20 @@ function rig(text) {
 			return hit[0];
 		},
 		rowNames: () => Setting.made.filter((s) => s.settingEl.isConnected && s.settingEl.parentElement.classList.contains("booklet-design-settings")).map((s) => words(s.nameEl)),
-		/** Types into a text row and leaves it (the box's `change`): the draft changes, the note does not. */
-		type(name, value) {
+		/** Types into a text row and leaves it (the box's `change`): the change is applied to the note, and this waits for the write. */
+		async type(name, value) {
 			const c = m.row(name).components[0];
 			c.inputEl.value = value;
 			c.inputEl.dispatchEvent(new w.Event("change", { bubbles: true }));
+			await o.settle();
 		},
 		async toggle(name, on) {
 			await m.row(name).components[0].change(on);
+			await o.settle();
 		},
 		/** What the editor refused in its settings, in words (empty when nothing). */
 		refusal: () => words(o.el.querySelector(".booklet-design-edit-refusal")),
 		editorState: () => words(o.el.querySelector(".booklet-design-editor-state")),
-		mark: () => words(o.el.querySelector(".booklet-design-edit-mark")),
 		button: (label, from = o.el) => [...from.querySelectorAll("button")].find((b) => words(b) === label),
 		dialog: () => doc.querySelector(".booklet-design-ask"),
 		async answer(label) {
@@ -61,8 +62,26 @@ function rig(text) {
 			click(b);
 			await o.view.whenIdle();
 		},
-		/** Presses Save and waits for what it set going. */
-		save: () => o.press(m.button("Save", o.editor())),
+		/** Ctrl+Enter in the box: what is typed is applied and the block closes. Waits for it. */
+		async leave(target = o.editor()) {
+			const evt = new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ctrlKey: true });
+			target.dispatchEvent(evt);
+			await o.settle();
+			return evt;
+		},
+		/** Like `type`, for a change that is asked about: it does not wait for the question to be answered. */
+		async typeAsk(name, value) {
+			const c = m.row(name).components[0];
+			c.inputEl.value = value;
+			c.inputEl.dispatchEvent(new w.Event("change", { bubbles: true }));
+			await new Promise((r) => setTimeout(r, 20));
+		},
+		/** Types into the Markdown box and leaves it (its `change`): applied, and this waits for the write. */
+		async typeArea(text) {
+			typeInto(o.area(), text);
+			o.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+			await o.settle();
+		},
 		/** The blocks selected now, as kind@line. */
 		selected: () => o.all(".booklet-design-block.is-selected").map((b) => `${b.getAttribute("data-kind")}@${b.getAttribute("data-start")}`),
 	};
@@ -82,14 +101,13 @@ function onlyLines(before, after, ...lines) {
 
 /* ======================================================================== the box ======================================================================== */
 
-test("a press on a block opens it in place: a header, the reader's view of it, its settings as setting rows, its Markdown, and Cancel and Save; the page's own button opens the container's lines the same way", () => {
+test("a press on a block opens it in place: a header, the reader's view of it, its settings as setting rows, its Markdown, and a hint that says every change applies as it is made; no Save and no Cancel; the page's own button opens the container's lines the same way", () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	const block = v.open("question", "[!text|spent]");
 	const box = v.editor();
 	assert.equal(box.parentElement, block, "in the block, in place");
 	assert.equal(words(box.querySelector(".booklet-design-edit-title")), "Editing: Question");
-	assert.equal(v.mark(), "", "nothing changed: no Unsaved mark");
 	// as the reader sees it: the question drawn, inert
 	assert.equal(words(box.querySelector(".booklet-design-edit-section.is-preview .booklet-design-edit-label")), "As the reader sees it");
 	assert.ok(box.querySelector(".booklet-design-edit-previewhost [inert]"), "an inert drawing");
@@ -102,14 +120,18 @@ test("a press on a block opens it in place: a header, the reader's view of it, i
 	assert.equal(words(box.querySelector(".booklet-design-edit-section.is-markdown .booklet-design-edit-label")), "Markdown");
 	// the settings
 	assert.deepEqual(v.rowNames().slice(0, 4), ["Settings", "Id", "Title", "long"]);
-	// the foot: the hint says what the keys do, and the two buttons are visible
-	assert.equal(words(box.querySelector(".booklet-design-edit-hint")), "Ctrl+Enter saves. Esc twice discards.");
-	assert.deepEqual([...box.querySelectorAll(".booklet-design-editor-buttons button")].map(words), ["Cancel", "Save"]);
+	// the foot: the hint says what the keys do. There is no draft, so nothing to save or cancel, and nothing says "Unsaved"
+	assert.equal(words(box.querySelector(".booklet-design-edit-hint")), en("edit.keys"));
+	assert.match(en("edit.keys"), /applied when you leave the field/);
+	assert.equal(box.querySelector(".booklet-design-editor-buttons"), null, "no Save and no Cancel");
+	assert.deepEqual([...box.querySelectorAll("button")].filter((b) => /^(Save|Cancel)$/.test(words(b))), []);
+	assert.equal(box.querySelector(".booklet-design-edit-mark"), null, "no Unsaved mark");
 	assert.equal(doc.activeElement, v.area(), "the box has the focus");
 	assert.equal(block.querySelector(":scope > .booklet-design-floatbar"), null, "the bar waits while the block is open");
 	assert.deepEqual(v.selected(), ["question@" + lineOf(FULL, "[!text|spent]")]);
 	// the page's own button: the container's opening lines, and no preview (a container has no drawing of its own)
-	click(v.button("Cancel", box));
+	press(v.area(), "Escape");
+	assert.equal(v.editor(), null, "Esc closes it");
 	v.go("Spending");
 	v.openPage();
 	assert.equal(v.editor().parentElement, v.page(), "in the page, under its title");
@@ -135,23 +157,30 @@ test("the settings of an activity are the rows the settings model gives it, with
 	v.close();
 });
 
-test("one block is open at a time: pressing another while the first is unchanged moves the editor; with a draft in the first it says so and does nothing", () => {
+test("one block is open at a time: pressing another moves the editor, and what was typed in the first is applied first; text that cannot be applied says so and the first stays", async () => {
 	const v = rig(FULL);
 	v.go("Doing");
 	const a = v.open("question", "[!choice|did]");
 	assert.ok(a.querySelector(":scope > .booklet-design-editbox"));
 	const b = v.open("question", "[!text|left]");
 	assert.equal(v.all(".booklet-design-editbox").length, 1, "one editor");
-	assert.equal(v.block("question", "[!choice|did]").querySelector(".booklet-design-editbox"), null, "the first closed: nothing was changed in it");
+	assert.equal(v.block("question", "[!choice|did]").querySelector(".booklet-design-editbox"), null, "the first closed");
 	assert.ok(b.isConnected);
 	assert.deepEqual(v.selected(), ["question@" + lineOf(FULL, "[!text|left]")]);
-	// with a draft in the second
+	// typed in the second and not yet left: pressing the other block applies it, then moves
 	typeInto(v.area(), "> [!text|left] Left side?");
 	click(v.block("question", "[!choice|did]"));
-	assert.equal(v.status(), en("editor.busy"));
+	await v.view.whenIdle();
+	assert.equal(v.disk.writes, 1, "what was typed is applied before the box moves");
+	assert.match(v.disk.text, /\[!text\|left\] Left side\?/);
 	assert.equal(v.all(".booklet-design-editbox").length, 1);
-	assert.equal(v.area().value, "> [!text|left] Left side?", "the draft is where it was");
-	assert.deepEqual(v.selected(), ["question@" + lineOf(FULL, "[!text|left]")], "and the selection did not move");
+	assert.deepEqual(v.selected(), ["question@" + lineOf(v.disk.text, "[!choice|did]")], "the block pressed is open");
+	// the second block's text was typed and the note changed under it: it cannot be applied, so the box stays and says so
+	v.view.setViewData(v.disk.text.replace("Did you?", "Did you do it?"), false);
+	typeInto(v.area(), "Did you, really?");
+	v.disk.text = v.disk.text.replace("[!text|left] Left side?", "[!text|left] Left side changed?");
+	v.view.setViewData(v.disk.text, false);
+	await v.view.whenIdle();
 	// a press on the editor's own labels does not select the block around it, nor close it
 	click(v.editor().querySelector(".setting-item-name"));
 	assert.ok(v.editor());
@@ -166,7 +195,7 @@ test("a block with no settings has an editor with its Markdown and no rows; the 
 	assert.equal(v.area().value, "Words in the module's opening.");
 	assert.deepEqual(v.rowNames(), [], "no rows");
 	assert.ok(v.editor().querySelector(".is-form").classList.contains("is-empty"), "an empty form takes no room");
-	click(v.button("Cancel"));
+	press(v.area(), "Escape");
 	v.go("A made-up booklet");
 	const rec = v.all(".booklet-design-block[data-kind='records']")[0];
 	click(rec);
@@ -201,59 +230,64 @@ test("Enter that is a button's own press does not open the editor: on the Delete
 
 /* ======================================================================== the settings are the draft's ======================================================================== */
 
-test("a switch, a field, a title and an id each change the draft and nothing else: the note is not written until Save, and Save writes the opening line as one write", async () => {
+test("a switch, a field, a title and an id each apply to the note the moment they are made: one write and one step of Undo each, the Markdown follows, and a second line of the block is as it was", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	const act = lineOf(FULL, "[!activity|spending");
 	v.openPage();
 	const before = v.disk.text;
 	await v.toggle("hidden", true);
-	assert.equal(v.area().value.split("\n")[0], "> [!activity|spending tab:now repeat hidden] Spending", "the Markdown follows the row at once");
-	assert.equal(v.disk.writes, 0, "the note is not written");
-	assert.equal(v.mark(), "Unsaved changes");
-	assert.match(v.editorState(), /^Unsaved\./);
-	assert.equal(v.row("hidden").components[0].value, true, "and the row shows the draft");
-	v.type("Icon", "book-open");
+	assert.equal(v.disk.writes, 1, "the note is written at once, once");
+	assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat hidden] Spending");
+	assert.equal(v.area().value.split("\n")[0], "> [!activity|spending tab:now repeat hidden] Spending", "the Markdown follows the row");
+	assert.equal(v.row("hidden").components[0].value, true, "and the row shows the note");
+	assert.match(v.status(), /^Changed Activity: Spending\./);
+	assert.ok(v.editor(), "the box stays open");
+	assert.equal(v.undo().disabled, false, "one step in the history");
+	await v.type("Icon", "book-open");
+	assert.equal(v.disk.writes, 2);
 	assert.equal(v.area().value.split("\n")[0], "> [!activity|spending tab:now repeat hidden icon:book-open] Spending");
-	v.type("Title", "Money going out");
-	v.type("Id", "outgoings");
+	await v.type("Title", "Money going out");
+	await v.type("Id", "outgoings");
+	assert.equal(v.disk.writes, 4, "one write for each change");
 	assert.equal(v.area().value, "> [!activity|outgoings tab:now repeat hidden icon:book-open] Money going out\n> half an hour", "the second line of the block is as it was");
-	assert.equal(v.disk.writes, 0);
-	await v.save();
-	assert.equal(v.disk.writes, 1, "one write");
 	assert.equal(v.disk.text.split("\n")[act], "> [!activity|outgoings tab:now repeat hidden icon:book-open] Money going out");
 	onlyLines(before, v.disk.text, act);
-	assert.match(v.status(), /^Changed Activity: Spending\./);
-	assert.equal(v.editor(), null, "the editor closes");
+	// four changes, four steps: Undo four times is the note as it was
+	for (let i = 0; i < 4; i++) await v.press(v.undo());
+	assert.equal(v.disk.text, before, "four changes were four steps");
+	assert.equal(v.undo().disabled, true);
 	v.close();
 });
 
-test("the markdown and the rows are in step: a row changes the box at once; typing in the box changes the rows (about 150 ms later); both are one draft", async () => {
+test("the markdown and the rows are in step: a row changes the note and the box at once; typing in the box applies when it is left, and the rows read the note", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.openPage();
 	assert.equal(v.row("daily").components[0].value, false);
 	typeInto(v.area(), "> [!activity|spending tab:now repeat daily] Spending\n> half an hour");
-	assert.equal(v.row("daily").components[0].value, false, "not at once: the rows wait a moment for the typing to stop");
-	await later(250);
-	assert.equal(v.row("daily").components[0].value, true, "then they read the draft");
+	assert.equal(v.disk.writes, 0, "typing alone writes nothing: the box is applied when it is left");
+	assert.equal(v.row("daily").components[0].value, false, "the rows still show the note");
+	v.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.view.whenIdle();
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.row("daily").components[0].value, true, "now the rows read the note");
 	await v.toggle("daily", false);
 	assert.equal(v.area().value, "> [!activity|spending tab:now repeat] Spending\n> half an hour");
-	assert.equal(v.mark(), "", "back to the opening text: nothing is unsaved");
+	assert.equal(v.disk.writes, 2);
 	v.close();
 });
 
-test("the preview follows the draft about 150 ms after a change, in the same drawing as the page, inert", async () => {
+test("the preview is drawn from the note: it follows a change as it lands, in the same drawing as the page, inert", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
 	const host = () => v.editor().querySelector(".booklet-design-edit-previewhost");
 	assert.match(words(host()), /What did you spend\?/);
-	typeInto(v.area(), "> [!text|spent] Money out this week?");
-	await later(250);
+	await v.typeArea("> [!text|spent] Money out this week?");
 	assert.match(words(host()), /Money out this week\?/);
 	assert.ok(host().querySelector("[inert]"));
-	assert.equal(v.disk.writes, 0, "a preview writes nothing");
+	assert.equal(v.disk.writes, 1);
 	v.close();
 });
 
@@ -264,18 +298,17 @@ test("the whole-note byte check, on a note with CRLF endings and a question insi
 	const q = lineOf(text, "[!choice|did]");
 	v.open("question", "[!choice|did]");
 	await v.toggle("open", true);
-	await v.save();
 	assert.equal(v.disk.text.split("\n")[q], "> > [!choice|did open] Did you?\r");
 	onlyLines(text, v.disk.text, q);
 	assert.equal(v.disk.text.split("\n").every((l, i, a) => i === a.length - 1 || l.endsWith("\r")), true);
 	v.close();
 });
 
-test("a value that is refused says why, inline, in words, and changes nothing: the draft is as it was and the row goes back to what the draft has", () => {
+test("a value that is refused says why, inline, in words, and writes nothing: the row goes back to what the note has", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.openPage();
-	const draft = v.area().value;
+	const kept = v.area().value;
 	for (const [name, value, why] of [
 		["Id", "two words", /Not changed\. An id has letters, digits and dashes only/],
 		["Id", "why", /Not changed\. `why` is already used/],
@@ -283,17 +316,17 @@ test("a value that is refused says why, inline, in words, and changes nothing: t
 		["Icon", "a b", /Not changed\. A setting's value has no spaces/],
 		["status", "a]b", /Not changed\. A setting's value cannot hold `\]`/],
 	]) {
-		v.type(name, value);
+		await v.type(name, value);
 		assert.match(v.refusal(), why, name + " " + JSON.stringify(value));
-		assert.equal(v.area().value, draft, "the draft is as it was");
-		assert.equal(v.mark(), "", "nothing is unsaved");
+		assert.equal(v.area().value, kept, "the Markdown is the note's");
 		assert.equal(v.disk.writes, 0, "nothing was written");
 		assert.equal(v.undo().disabled, true, "nothing to undo");
+		assert.equal(v.row(name).components[0].inputEl.value, name === "Id" ? "spending" : "", "the row shows the note's value again");
 	}
-	assert.equal(v.row("Id").components[0].inputEl.value, "spending", "the row shows the draft's own id again");
 	// the next good change takes the refusal away
-	v.type("Title", "Money out");
+	await v.type("Title", "Money out");
 	assert.equal(v.refusal(), "");
+	assert.equal(v.disk.writes, 1);
 	v.close();
 });
 
@@ -301,23 +334,25 @@ test("a switch that needs another is refused with its reason: `daily` without `r
 	const v = rig(FULL);
 	v.go("A bare activity");
 	v.openPage();
-	const draft = v.area().value;
+	const kept = v.area().value;
 	await v.toggle("daily", true);
 	assert.match(v.refusal(), /Not changed\. `daily` needs `repeat`/);
-	assert.equal(v.area().value, draft);
+	assert.equal(v.area().value, kept);
+	assert.equal(v.row("daily").components[0].value, false, "the switch is back where the note has it");
 	assert.equal(v.disk.writes, 0);
 	v.close();
 });
 
-test("an id change that would detach kept entries is asked about when it is SAVED: nothing is written while it is open, no keeps the draft, yes writes it, and Undo brings it back byte for byte", async () => {
+test("an id change that would detach kept entries is asked about in the open, as the change is made: nothing is written while it is open, no writes nothing and puts the row back, yes writes it, and Undo brings it back byte for byte", async () => {
 	const v = rig(HELD);
 	v.go("A mood log");
 	const act = lineOf(HELD, "[!activity|log repeat]");
 	v.openPage();
 	const before = v.disk.text;
-	v.type("Id", "diary");
-	assert.equal(v.dialog(), null, "a row only changes the draft: no question yet");
-	click(v.button("Save"));
+	const typed = v.row("Id").components[0].inputEl;
+	typed.value = "diary";
+	typed.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(20);
 	assert.ok(v.dialog(), "a question is open");
 	assert.equal(v.disk.writes, 0, "nothing is written while it is open");
 	const ask = words(v.dialog());
@@ -326,16 +361,17 @@ test("an id change that would detach kept entries is asked about when it is SAVE
 	assert.match(ask, /stay in the note's records as they are/);
 	assert.deepEqual([...v.dialog().querySelectorAll("button")].map(words), ["Change", "Cancel"]);
 	assert.match(words(doc.querySelector(".booklet-design-ask p")), /will be changed in the note\. Only its own lines are rewritten\./);
-	// no: the note is as it was and the draft is still in the box
+	// no: the note is as it was, and the row shows the note's id again
 	await v.answer("Cancel");
 	assert.equal(v.disk.writes, 0);
 	assert.equal(v.disk.text, before);
 	assert.equal(v.undo().disabled, true);
 	assert.equal(v.status(), "Nothing was changed.");
 	assert.ok(v.editor(), "the editor stays open");
-	assert.equal(v.area().value.split("\n")[0], "> [!activity|diary repeat] A mood log", "with the draft");
+	assert.equal(v.area().value.split("\n")[0], "> [!activity|log repeat] A mood log", "with the note's text");
+	assert.equal(v.row("Id").components[0].inputEl.value, "log", "the row is back at the note's value");
 	// yes
-	click(v.button("Save"));
+	await v.typeAsk("Id", "diary");
 	await v.answer("Change");
 	assert.equal(v.dialog(), null);
 	assert.equal(v.disk.writes, 1);
@@ -353,19 +389,18 @@ test("an id change that would detach kept entries is asked about when it is SAVE
 	v.close();
 });
 
-test("taking `repeat` off an activity that keeps entries is counted and asked about when saved; an icon or a title, which detach nothing, are not", async () => {
+test("taking `repeat` off an activity that keeps entries is counted and asked about as it is made; an icon or a title, which detach nothing, are not", async () => {
 	const v = rig(HELD);
 	v.go("A mood log");
 	v.openPage();
-	await v.toggle("repeat", false);
-	click(v.button("Save"));
+	await v.row("repeat").components[0].change(false);
+	await later(20);
 	assert.ok(v.dialog());
 	assert.match(words(v.dialog()), /12 kept entries/);
 	await v.answer("Cancel");
-	await v.toggle("repeat", true);
-	assert.equal(v.mark(), "", "back as it was");
-	v.type("Title", "My mood log");
-	await v.save();
+	assert.equal(v.disk.writes, 0);
+	assert.equal(v.row("repeat").components[0].value, true, "the switch is back as the note has it");
+	await v.type("Title", "My mood log");
 	assert.equal(v.dialog(), null, "a title detaches nothing: no question");
 	assert.equal(v.disk.writes, 1);
 	v.close();
@@ -376,21 +411,22 @@ test("on a booklet the reader cannot open, a change cannot be counted: the quest
 	const v = rig(refused);
 	v.go("A mood log");
 	v.openPage();
-	v.type("Id", "diary");
-	click(v.button("Save"));
+	const el = v.row("Id").components[0].inputEl;
+	el.value = "diary";
+	el.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(20);
 	assert.match(words(v.dialog()), /cannot open this booklet as it is, so this view cannot count what this change touches/);
 	await v.answer("Change");
 	assert.equal(v.disk.writes, 1);
 	v.close();
 });
 
-test("undo and redo of a saved form change restore the exact bytes, on a note with CRLF endings too", async () => {
+test("undo and redo of a form change restore the exact bytes, on a note with CRLF endings too", async () => {
 	for (const text of [FULL, crlf(FULL)]) {
 		const v = rig(text);
 		v.go("A bare activity");
 		v.open("question", "[!number|n1]");
-		v.type("min", "0");
-		await v.save();
+		await v.type("min", "0");
 		const after = v.disk.text;
 		assert.notEqual(after, text);
 		await v.press(v.undo());
@@ -401,7 +437,7 @@ test("undo and redo of a saved form change restore the exact bytes, on a note wi
 	}
 });
 
-test("the settings entry opens the front matter as rows in the same editor; a row edits the draft, Save changes only that line, and no block of the page is the front matter", async () => {
+test("the settings entry opens the front matter as rows in the same editor; a row changes only that line, and no block of the page is the front matter", async () => {
 	const v = rig(FULL);
 	v.go("Settings");
 	assert.ok(v.editor(), "the editor is open on the front matter");
@@ -410,11 +446,9 @@ test("the settings entry opens the front matter as rows in the same editor; a ro
 	assert.ok(v.rowNames().includes("booklet"), "the marker is shown, not editable");
 	assert.equal(v.all(".booklet-design-block[data-kind='front-matter']").length, 0);
 	const before = v.disk.text;
-	v.type("title", "A renamed booklet");
-	assert.equal(v.disk.writes, 0);
-	assert.match(v.area().value, /^title: A renamed booklet$/m);
-	await v.save();
+	await v.type("title", "A renamed booklet");
 	assert.equal(v.disk.writes, 1);
+	assert.match(v.area().value, /^title: A renamed booklet$/m);
 	const line = lineOf(before, "title: A made-up booklet");
 	onlyLines(before, v.disk.text, line);
 	assert.equal(v.disk.text.split("\n")[line], "title: A renamed booklet");
@@ -423,7 +457,7 @@ test("the settings entry opens the front matter as rows in the same editor; a ro
 
 /* ======================================================================== the small Markdown editor ======================================================================== */
 
-test("Save rewrites only those lines: a changed line of the block's Markdown goes in, every other byte of the note stays, and the editor closes with the block still selected", async () => {
+test("leaving the Markdown rewrites only those lines: a changed line of the block's Markdown goes in, every other byte of the note stays, and the block stays open and selected", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
@@ -431,26 +465,22 @@ test("Save rewrites only those lines: a changed line of the block's Markdown goe
 	const q = lineOf(FULL, "[!text|spent]");
 	const own = v.area().value.split("\n");
 	assert.ok(own.length >= 3, "the block's own lines include the hint that stands under the question: " + JSON.stringify(own));
-	typeInto(v.area(), ["> [!text|spent long] What did you spend this week?", ...own.slice(1)].join("\n"));
-	assert.match(v.editorState(), /^Unsaved\./);
-	assert.equal(v.mark(), "Unsaved changes");
-	await v.save();
+	await v.typeArea(["> [!text|spent long] What did you spend this week?", ...own.slice(1)].join("\n"));
 	assert.equal(v.disk.writes, 1);
-	assert.equal(v.area(), null, "closed");
+	assert.ok(v.area(), "still open");
 	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent long] What did you spend this week?");
 	onlyLines(before, v.disk.text, q);
 	assert.match(v.status(), /^Changed Question: What did you spend\?(?!\.)/, "names the block as it was drawn when the change was made");
 	assert.deepEqual(v.selected(), ["question@" + q], "the block stays selected");
 	// a line added to the block's Markdown: the note grows by that line and nothing else moves
-	v.open("question", "[!text|spent");
 	const mid = v.disk.text;
-	typeInto(v.area(), v.area().value + "\n> And one more line.");
-	await v.save();
+	await v.typeArea(v.area().value + "\n> And one more line.");
 	const grown = v.disk.text.split("\n");
 	assert.equal(grown.length, mid.split("\n").length + 1);
 	assert.equal(grown.slice(0, q + own.length).join("\n"), mid.split("\n").slice(0, q + own.length).join("\n"), "every line above is as it was");
 	assert.equal(grown[q + own.length], "> And one more line.");
 	assert.equal(grown.slice(q + own.length + 1).join("\n"), mid.split("\n").slice(q + own.length).join("\n"), "and every line below");
+	assert.equal(v.disk.writes, 2);
 	v.close();
 });
 
@@ -462,14 +492,14 @@ const typeStaying = (v, name, value) => {
 	return c.inputEl;
 };
 
-test("typing in a settings row and pressing Ctrl or Cmd with Enter at once saves what was typed: the row is read, not just the draft", async () => {
+test("typing in a settings row and pressing Ctrl or Cmd with Enter at once applies what was typed and closes the block: the row is read, not just the note", async () => {
 	for (const mods of [{ ctrlKey: true }, { metaKey: true }]) {
 		const v = rig(FULL);
 		v.go("Spending");
 		const act = lineOf(FULL, "[!activity|spending");
 		v.openPage();
 		typeStaying(v, "Title", "Money going out");
-		assert.equal(v.mark(), "", "the box has not been told yet");
+		assert.equal(v.disk.writes, 0, "typing alone writes nothing");
 		const evt = new w.KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, ...mods });
 		v.editor().dispatchEvent(evt);
 		await v.view.whenIdle();
@@ -480,39 +510,48 @@ test("typing in a settings row and pressing Ctrl or Cmd with Enter at once saves
 	}
 });
 
-test("a press on Save while a row still has typing in it writes it, and the press keeps the focus in the row so the box does not move under it", async () => {
+test("a press on the page's button while a row still has typing in it applies the typing first, and the press still reaches its button", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	const act = lineOf(FULL, "[!activity|spending");
 	v.openPage();
 	const input = typeStaying(v, "Title", "Money going out");
 	input.focus();
-	const save = v.button("Save", v.editor());
-	const down = new w.MouseEvent("mousedown", { bubbles: true, cancelable: true });
-	save.dispatchEvent(down);
-	assert.equal(down.defaultPrevented, true, "the button press does not take the focus out of the row (that would redraw the box and move the button)");
-	await v.save();
+	// another block of the page is pressed: the leaving is what applies the typed title, before the box moves
+	click(v.block("question", "[!text|spent]"));
+	await v.view.whenIdle();
 	assert.equal(v.disk.writes, 1);
 	assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat] Money going out");
+	assert.ok(v.editor().parentElement.getAttribute("data-kind") === "question", "and the pressed block is open");
 	v.close();
 });
 
-test("Esc and Cancel see typing a row still holds: the first Esc keeps it as Unsaved instead of closing, and Cancel says it was thrown away", () => {
+test("Esc sees typing a row still holds: it is applied and the block closes; typing that cannot be applied stays in the box, is said in words, and the next Esc closes", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
+	const act = lineOf(FULL, "[!activity|spending");
 	v.openPage();
 	typeStaying(v, "Title", "Money going out");
 	v.editor().dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-	assert.notEqual(v.editor(), null, "the first Esc does not close a box holding typing");
-	assert.match(v.editorState(), /^Unsaved\. Esc again throws your changes away/);
-	v.press(v.button("Cancel", v.editor()));
-	assert.equal(v.editor(), null);
-	assert.equal(v.status(), "Your changes were thrown away.");
-	assert.equal(v.disk.writes, 0);
+	await v.view.whenIdle();
+	assert.equal(v.editor(), null, "applied, then closed");
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.text.split("\n")[act], "> [!activity|spending tab:now repeat] Money going out");
+	// the note changes under typing that is not yet applied: it cannot be applied, and says so
+	v.go("Money going out");
+	v.openPage();
+	typeStaying(v, "Title", "Never lost");
+	v.disk.text = v.disk.text.replace("half an hour", "an hour");
+	v.view.setViewData(v.disk.text, false);
+	await v.view.whenIdle();
+	assert.ok(v.editor(), "the box stays");
+	assert.equal(v.row("Title").components[0].inputEl.value, "Never lost", "the typed text is still there");
+	v.editor().dispatchEvent(new w.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+	await v.view.whenIdle();
 	v.close();
 });
 
-test("Ctrl+Enter and Cmd+Enter in the box save, as the Save button does", async () => {
+test("Ctrl+Enter and Cmd+Enter in the box apply what was typed and close the block", async () => {
 	for (const mods of [{ ctrlKey: true }, { metaKey: true }]) {
 		const v = rig(FULL);
 		v.go("Spending");
@@ -544,7 +583,7 @@ test("the Ctrl/Cmd+Enter scope is on the app's key stack only while the box has 
 	assert.equal(stack.length, base + 1, "and put back when the focus returns");
 	v.area().focus();
 	assert.equal(stack.length, base + 1, "never twice");
-	click(v.button("Cancel"));
+	press(v.area(), "Escape");
 	assert.equal(stack.length, base, "gone when the editor closes");
 	v.open("question", "[!text|spent]");
 	assert.equal(stack.length, base + 1);
@@ -552,83 +591,57 @@ test("the Ctrl/Cmd+Enter scope is on the app's key stack only while the box has 
 	assert.equal(stack.length, 0, "and nothing is left on the stack when the view closes");
 });
 
-test("Cancel throws the changes away, says so, and writes nothing; the editor closes and the block stays selected", () => {
+test("Esc after typing applies it, says what changed, and closes the block, which stays selected; nothing is thrown away", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
-	typeInto(v.area(), "something else entirely");
-	click(v.button("Cancel"));
+	typeInto(v.area(), "> [!text|spent] Something else entirely");
+	press(v.area(), "Escape");
+	await v.view.whenIdle();
 	assert.equal(v.area(), null);
-	assert.equal(v.disk.writes, 0);
-	assert.equal(v.disk.text, FULL);
-	assert.equal(v.status(), en("editor.discarded"));
+	assert.equal(v.disk.writes, 1);
+	assert.match(v.disk.text, /Something else entirely/);
+	assert.match(v.status(), /^Changed Question/);
 	assert.deepEqual(v.selected(), ["question@" + lineOf(FULL, "[!text|spent]")]);
 	v.close();
 });
 
-test("Esc with nothing changed closes the editor at once, keeping the block selected; Esc with changes keeps them as Unsaved, and a second Esc throws them away", () => {
+test("Esc with nothing typed closes the editor at once, keeping the block selected and writing nothing", () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
 	press(v.area(), "Escape");
-	assert.equal(v.area(), null, "nothing changed: closed");
+	assert.equal(v.area(), null, "closed");
 	assert.equal(v.status(), "");
 	assert.equal(v.selected().length, 1, "and still selected");
-	v.open("question", "[!text|spent]");
-	const draft = "> [!text|spent] My draft";
-	typeInto(v.area(), draft);
-	const first = press(v.area(), "Escape");
-	assert.equal(first, false, "the key was the editor's");
-	assert.ok(v.area(), "still open");
-	assert.equal(v.area().value, draft, "the draft is kept, visible");
-	assert.match(v.editorState(), /^Unsaved\. Esc again throws your changes away; Save writes them\./);
 	assert.equal(v.disk.writes, 0);
-	// typing again puts it back to plain Unsaved (more changes are on the way)
-	typeInto(v.area(), draft + "!");
-	assert.match(v.editorState(), /^Unsaved\. Your changes are kept here until you save or cancel\./);
-	press(v.area(), "Escape");
-	press(v.area(), "Escape");
-	assert.equal(v.area(), null, "the second Esc throws it away");
-	assert.equal(v.disk.text, FULL);
-	assert.equal(v.disk.writes, 0);
-	assert.equal(v.status(), en("editor.discarded"));
-	assert.equal(v.selected().length, 1);
 	v.close();
 });
 
-test("a draft is never lost to a drawing, to another page or to pressing another block: it stays in its block with its text and caret, and above the page it came from when that page is not drawn", () => {
+test("typed text is never lost to a drawing, to another page or to pressing another block: it is applied in order, and stays in its block with its caret until then", async () => {
 	const v = rig(FULL);
 	v.go("Doing");
-	const lineLeft = lineOf(FULL, "[!text|left]");
 	v.open("question", "[!text|left]");
 	typeInto(v.area(), "> [!text|left] Half written");
 	v.area().setSelectionRange(5, 9);
 	// something else makes the view draw again (the Add tab opens, a group is opened)
 	v.showAdd();
 	click(v.el.querySelector(".booklet-design-pal-head"));
-	assert.equal(v.area().value, "> [!text|left] Half written");
+	await v.view.whenIdle();
+	assert.equal(v.area().value, "> [!text|left] Half written", "the typed text is where it was");
 	assert.equal(v.area().selectionStart, 5, "the caret is where it was");
-	// another block is pressed: it says so, and the draft stays where it was
-	click(v.block("question", "[!choice|did]"));
-	assert.equal(v.status(), en("editor.busy"));
-	assert.equal(v.all(".booklet-design-textarea").length, 1);
-	assert.equal(v.area().value, "> [!text|left] Half written");
-	// another page is drawn: the draft stays on the screen above it, with the reason, and its Save and Cancel
+	// another page is drawn: the text is applied first (nothing is waiting any more, so the box has nothing to keep), then the page changes
 	v.go("Reading");
-	const away = v.el.querySelector(".booklet-design-editbox.is-detached");
-	assert.ok(away, "above the page");
-	assert.match(words(away), /This block is on another page\. Your draft stays here until you save or cancel\./);
-	assert.equal(v.area().value, "> [!text|left] Half written");
-	assert.equal(v.button("Save", away).disabled, false, "it can still be saved: its block is in the note");
-	// and the page it came from takes it back
+	await v.view.whenIdle();
+	assert.match(v.disk.text, /\[!text\|left\] Half written/, "applied, not lost");
+	assert.equal(v.disk.writes, 1, "once");
+	assert.equal(v.editor(), null, "the block is not on this page: the box is closed, with nothing in it that is not in the note");
 	v.go("Doing");
-	assert.equal(v.el.querySelector(".booklet-design-editbox.is-detached"), null);
-	assert.equal(v.block("question", lineLeft).querySelector(".booklet-design-editbox") !== null, true, "in its block again");
-	assert.equal(v.area().value, "> [!text|left] Half written");
+	assert.match(words(v.block("question", "[!text|left]")), /Half written/, "and the page shows what was typed");
 	v.close();
 });
 
-test("a stale save is refused and says so, and the user's text stays in the box: the vault changed after the view drew, and the view's own copy changed under the editor", async () => {
+test("typing that cannot be applied because the note changed is not written over it, says so in words, and stays in the box: the vault changed after the view drew, and the view's own copy changed under the editor", async () => {
 	// the file changed behind the view's back
 	const v = rig(FULL);
 	v.go("Spending");
@@ -636,9 +649,11 @@ test("a stale save is refused and says so, and the user's text stays in the box:
 	typeInto(v.area(), "> [!text|spent] My careful words");
 	const elsewhere = FULL.replace("What did you spend?", "What did you spend today?");
 	v.disk.text = elsewhere;
-	await v.save();
+	press(v.area(), "Escape");
+	await v.view.whenIdle();
 	assert.equal(v.disk.text, elsewhere, "nothing was written over it");
-	assert.match(v.status(), /Your text is still in the box\./);
+	assert.match(v.status(), /could not be applied, so the block stays open with your text in it/);
+	assert.match(words(v.el.querySelector(".booklet-design-editor-state")), /The note changed while you were typing here, so this was not applied\. Your text stays in the box/);
 	assert.equal(v.area().value, "> [!text|spent] My careful words", "the text is where it was typed");
 	v.close();
 	// the view's own copy changed under the editor (a word typed in a Markdown pane of the same note)
@@ -649,15 +664,17 @@ test("a stale save is refused and says so, and the user's text stays in the box:
 	const typed = FULL.replace("What did you spend?", "What did you spend today?");
 	w2.disk.text = typed;
 	w2.view.setViewData(typed, false);
-	await w2.save();
+	await w2.view.whenIdle();
+	press(w2.area(), "Escape");
+	await w2.view.whenIdle();
 	assert.equal(w2.disk.writes, 0, "nothing was written");
 	assert.equal(w2.disk.text, typed);
-	assert.match(w2.status(), /The note changed since this editor opened, so nothing was written\. Your text is still in the box\./);
+	assert.match(w2.status(), /could not be applied, so the block stays open with your text in it/);
 	assert.equal(w2.area().value, "> [!text|spent] Mine");
 	w2.close();
 });
 
-test("an editor whose block has gone from where it was keeps its text on the screen, with the reason, and cannot save over something else", () => {
+test("an editor whose block has gone from where it was keeps its text on the screen, with the reason, and applies nothing over something else", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
@@ -666,33 +683,43 @@ test("an editor whose block has gone from where it was keeps its text on the scr
 	const moved = FULL.replace("> [!text|spent] What did you spend?\n", "Words instead.\n");
 	v.disk.text = moved;
 	v.view.setViewData(moved, false);
+	await v.view.whenIdle();
 	assert.equal(v.area().value, "> [!text|spent] Kept", "the text is still there");
 	const host = v.el.querySelector(".booklet-design-editbox.is-detached");
 	assert.ok(host);
 	assert.match(words(host), /no longer where it was in the note/);
-	assert.equal(v.button("Save", host).disabled, true);
-	click(v.button("Cancel", host));
-	assert.equal(v.area(), null);
+	assert.equal(v.disk.text, moved, "nothing written over it");
+	assert.equal(v.disk.writes, 0);
+	press(v.area(), "Escape");
+	await v.view.whenIdle();
+	assert.ok(v.area(), "the first Esc says so and stays open");
+	press(v.area(), "Escape");
+	await v.view.whenIdle();
+	assert.equal(v.area(), null, "the next closes it");
 	v.close();
 });
 
-test("a Markdown change that renames an id kept entries hang on counts them and asks; no keeps the text in the box and writes nothing; yes writes only the lines", async () => {
+test("a Markdown change that renames an id kept entries hang on counts them and asks when the box is left; no writes nothing and the box shows the note; yes writes only the lines", async () => {
 	const v = rig(HELD);
 	v.go("A mood log");
 	const act = lineOf(HELD, "[!activity|log repeat]");
 	v.openPage();
 	typeInto(v.area(), "> [!activity|diary repeat] A mood log");
-	click(v.button("Save"));
+	v.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(20);
 	assert.ok(v.dialog());
 	assert.match(words(v.dialog()), /12 kept entries/);
 	assert.equal(v.disk.writes, 0);
 	await v.answer("Cancel");
 	assert.equal(v.disk.writes, 0);
-	assert.equal(v.area().value, "> [!activity|diary repeat] A mood log", "the text stays in the box");
-	click(v.button("Save"));
+	assert.equal(v.status(), "Nothing was changed.");
+	assert.equal(v.area().value, "> [!activity|log repeat] A mood log", "the box shows the note again");
+	typeInto(v.area(), "> [!activity|diary repeat] A mood log");
+	v.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(20);
 	await v.answer("Change");
 	assert.equal(v.disk.writes, 1);
-	assert.equal(v.area(), null);
+	assert.ok(v.area(), "the box stays open");
 	onlyLines(HELD, v.disk.text, act);
 	v.close();
 });
@@ -703,7 +730,8 @@ test("a Markdown change that leaves the reader unable to open the booklet is ask
 	v.go("Said once");
 	v.openPage();
 	typeInto(v.area(), "> [!activity|log] Said once");
-	click(v.button("Save"));
+	v.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+	await later(20);
 	assert.ok(v.dialog(), "asked");
 	assert.match(words(v.dialog()), /After this change the reader cannot open the booklet: .*used twice/);
 	assert.equal(v.disk.writes, 0);
@@ -716,19 +744,20 @@ test("a Markdown change that leaves the reader unable to open the booklet is ask
 	v.close();
 });
 
-test("an empty box is refused with the reason, and the note is unchanged; the editor stays", async () => {
+test("an empty box is refused with the reason, and the note is unchanged; the editor stays and the box shows the note again", async () => {
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
-	typeInto(v.area(), "\n\n");
-	await v.save();
+	const kept = v.area().value;
+	await v.typeArea("\n\n");
 	assert.match(v.status(), /Not changed\. A block with no lines is a deleted block: delete it instead\./);
 	assert.equal(v.disk.writes, 0);
 	assert.ok(v.area(), "the box stays");
+	assert.equal(v.area().value, kept, "and shows what the note has");
 	v.close();
 });
 
-test("the whole-note byte check for an editor save: a note with CRLF endings keeps every CR, and the lines the user did not touch keep their bytes", async () => {
+test("the whole-note byte check for a Markdown change: a note with CRLF endings keeps every CR, and the lines the user did not touch keep their bytes", async () => {
 	const text = crlf(FULL);
 	const v = rig(text);
 	v.go("Spending");
@@ -736,8 +765,7 @@ test("the whole-note byte check for an editor save: a note with CRLF endings kee
 	v.open("question", "[!text|spent]");
 	const own = v.area().value.split("\n");
 	assert.ok(own.every((l) => !l.includes("\r")), "the box shows the lines without their line ends");
-	typeInto(v.area(), ["> [!text|spent long] Changed", ...own.slice(1)].join("\n"));
-	await v.save();
+	await v.typeArea(["> [!text|spent long] Changed", ...own.slice(1)].join("\n"));
 	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent long] Changed\r");
 	onlyLines(text, v.disk.text, q);
 	assert.equal(v.disk.text.split("\n").every((l, i, a) => i === a.length - 1 || l.endsWith("\r")), true);
@@ -869,14 +897,14 @@ test("a note that is not a booklet has no problems to list (only a booklet is re
 
 /* ======================================================================== a phone ======================================================================== */
 
-test("the editor has visible buttons for everything (Cancel, Save), each at least 44 px high on a phone by the sheet, the textarea is monospace and sizes to its content, and the narrow rules stack the rows", () => {
+test("the editor needs no buttons of its own, the page's buttons are at least 44 px high on a phone by the sheet, the textarea is monospace and sizes to its content, and the narrow rules stack the rows", () => {
 	const css = readFileSync(`${ROOT}/styles.base.css`, "utf8");
 	assert.match(css, /\.is-mobile \.booklet-design button,\s*\n\.is-mobile \.booklet-design summary,\s*\n\.booklet-design\.is-phone button,\s*\n\.booklet-design\.is-phone summary \{\s*\n\s*min-width: 44px;\s*\n\s*min-height: 44px;/);
 	assert.match(css, /\.booklet-design-textarea \{[^}]*field-sizing: content;[^}]*font-family: var\(--font-monospace\);/);
 	const v = rig(FULL);
 	v.go("Spending");
 	v.open("question", "[!text|spent]");
-	assert.deepEqual([...v.el.querySelectorAll(".booklet-design-editor-buttons button")].map(words), ["Cancel", "Save"]);
+	assert.equal(v.el.querySelector(".booklet-design-editor-buttons"), null, "no Save or Cancel row");
 	v.close();
 	const phone = openDesign(FULL, { phone: true });
 	assert.ok(phone.el.classList.contains("is-phone"));

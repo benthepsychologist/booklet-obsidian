@@ -48,14 +48,20 @@ export function installViewSwitch(plugin: Plugin, views: ModeViews, opensIn: () 
 	const uninstall = around(WorkspaceLeaf.prototype, {
 		setViewState(next) {
 			return function (this: WorkspaceLeaf, state: ViewState, eState?: unknown) {
-				const path = state.state?.["file"];
-				if (active && state.type === "markdown" && typeof path === "string") {
-					const m = modes.get(this);
-					if (m && m.path !== path) modes.delete(this); // the leaf shows another note: its mode resets
-					const mode = leafModeFor(this, path) ?? opensIn();
-					if (mode !== "markdown" && isBookletFile(app, app.vault.getFileByPath(path))) return next.call(this, { ...state, type: views[mode] }, eState);
-				}
-				return next.call(this, state, eState);
+				const run = (): Promise<void> => {
+					const path = state.state?.["file"];
+					if (active && state.type === "markdown" && typeof path === "string") {
+						const m = modes.get(this);
+						if (m && m.path !== path) modes.delete(this); // the leaf shows another note: its mode resets
+						const mode = leafModeFor(this, path) ?? opensIn();
+						if (mode !== "markdown" && isBookletFile(app, app.vault.getFileByPath(path))) return next.call(this, { ...state, type: views[mode] }, eState);
+					}
+					return next.call(this, state, eState);
+				};
+				// a Design view with typing it has not applied yet (a switch to the Booklet or Markdown view, another note opened in the pane) applies it first
+				const view = this.view as unknown as { hasPending?: () => boolean; flushEdits?: () => Promise<void> } | undefined;
+				if (typeof view?.hasPending === "function" && typeof view.flushEdits === "function" && view.hasPending()) return view.flushEdits().then(run, run);
+				return run();
 			};
 		},
 	});

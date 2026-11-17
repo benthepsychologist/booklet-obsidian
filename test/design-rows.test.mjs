@@ -1,13 +1,12 @@
 /*
  * The rows of a choice, a multi, a shared menu and a matrix in the Design view's editor in place, run in node over jsdom with the
- * stand-in for Obsidian. The rows are one more view of the box's ONE draft: a row changes the draft and the Markdown at once, nothing
- * reaches the note until Save, and Save is the same `changeLines` through the same guard as every other change, so a change of positions
- * under a kept answer is counted and asked about in the open. How it looks, and how a soft keyboard behaves, is measured in the real
+ * stand-in for Obsidian. A row changes the note the moment it is made, as one step of Undo, through the same `changeLines` and the same
+ * guard as every other change, so a change of positions under a kept answer is counted and asked about in the open as it is made. How it looks, and how a soft keyboard behaves, is measured in the real
  * app (e2e check 72), which this is not.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { window as w, click, words, typeInto } from "./dom.mjs";
+import { window as w, click, words, typeInto, press } from "./dom.mjs";
 import { core, bookletAround } from "./helpers.mjs";
 import { lineOf } from "./design-fixtures.mjs";
 import { openDesign, doc } from "./design-harness.mjs";
@@ -84,11 +83,27 @@ function rig(text) {
 			return hit[0];
 		},
 		has: (label) => [...o.editor().querySelectorAll("input, button, select")].some((e) => e.getAttribute("aria-label") === label),
-		type(label, value) {
-			typeInto(m.input(label), value);
+		/** Types into a row and leaves it: applied, and this waits for the write. */
+		async type(label, value) {
+			const el = m.input(label);
+			typeInto(el, value);
+			el.dispatchEvent(new w.Event("change", { bubbles: true }));
+			await o.settle();
 		},
-		press(label) {
+		/** Presses a row's button and waits for the write. */
+		async press(label) {
 			click(m.input(label));
+			await o.settle();
+		},
+		/** Presses a row's button for a change that is asked about: it does not wait for the answer. */
+		async pressAsk(label) {
+			click(m.input(label));
+			await later(20);
+		},
+		/** Presses a button of the box (Add an option ...) and waits for the write. */
+		async add(label) {
+			click(m.button(label));
+			await o.settle();
 		},
 		/** The settings row (a Setting) of this name in the open editor. */
 		row: (name) => {
@@ -98,7 +113,6 @@ function rig(text) {
 		},
 		rowNames: () => Setting.made.filter((s) => s.settingEl.isConnected).map((s) => words(s.nameEl)),
 		refusal: () => words(o.el.querySelector(".booklet-design-edit-refusal")),
-		mark: () => words(o.el.querySelector(".booklet-design-edit-mark")),
 		button: (label, from = o.editor()) => [...from.querySelectorAll("button")].find((b) => words(b) === label),
 		dialog: () => doc.querySelector(".booklet-design-ask"),
 		async answer(label) {
@@ -107,7 +121,12 @@ function rig(text) {
 			click(b);
 			await o.view.whenIdle();
 		},
-		save: () => o.press(m.button("Save")),
+		/** Types into the Markdown and leaves it. */
+		async typeArea(text) {
+			typeInto(o.area(), text);
+			o.area().dispatchEvent(new w.Event("change", { bubbles: true }));
+			await o.settle();
+		},
 		/** The rows of the box, as the words each holds. */
 		texts: () => [...o.editor().querySelectorAll(".booklet-design-rows input[type=text]")].map((e) => e.value),
 		preview: () => words(o.editor().querySelector(".booklet-design-edit-previewhost")),
@@ -152,117 +171,125 @@ test("a choice opens with its options as rows, each with its words, a correct sw
 	assert.deepEqual(v.rowNames().filter((n) => ["open", "menu", "Title", "Id", "each", "earlier"].includes(n)), ["Id", "Title", "open", "each", "earlier"]);
 	// the Markdown holds the block as it is
 	assert.equal(v.area().value.split("\n")[0], "> [!choice|where] Where are you right now?");
-	assert.equal(v.mark(), "");
+	assert.equal(v.editor().querySelector(".booklet-design-edit-mark"), null, "no Unsaved mark: there is no draft");
 	v.close();
 });
 
-test("typing in a row changes the draft at once, the Markdown follows, the preview follows about 150 ms later, the caret stays, and the note is not written", async () => {
+test("typing in a row is applied when the row is left: one write, the Markdown and the preview follow at once, and the caret stays", async () => {
 	const v = rig(NOTE());
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
 	const before = v.disk.text;
 	const input = v.input("Option 3: words");
 	input.focus();
-	v.type("Option 3: words", "Flat");
-	assert.equal(v.md()[6], "- [ ] Flat", "the Markdown follows at once");
+	typeInto(input, "Flat");
+	assert.equal(v.disk.text, before, "typing alone writes nothing");
+	input.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.md()[6], "- [ ] Flat", "the Markdown follows");
+	assert.equal(v.disk.text.split("\n")[lineOf(before, "- [ ] Numb")], "- [ ] Flat");
 	assert.equal(v.input("Option 3: words"), input, "the row is the same row: it was not drawn again under the caret");
 	assert.equal(doc.activeElement, input);
-	assert.equal(v.mark(), "Unsaved changes");
-	assert.equal(v.disk.writes, 0);
-	assert.doesNotMatch(v.preview(), /Flat/, "the preview waits a moment");
-	await later(250);
-	assert.match(v.preview(), /Flat/);
-	v.type("Option 2, reply 2: words", "Often useful.");
+	assert.match(v.preview(), /Flat/, "the preview is drawn from the note");
+	await v.type("Option 2, reply 2: words", "Often useful.");
 	assert.equal(v.md()[5], "  - Often useful.");
-	assert.equal(v.disk.text, before);
+	assert.equal(v.disk.writes, 2, "one write for each");
+	// typing the same words again is no change: nothing is written
+	await v.type("Option 2, reply 2: words", "Often useful.");
+	assert.equal(v.disk.writes, 2);
 	v.close();
 });
 
-test("a correct switch writes [x] and [ ]; add, move and remove an option or a reply each change the draft and put the focus where the person is working", async () => {
+test("a correct switch writes [x] and [ ]; add, move and remove an option or a reply each write at once, as one step, and put the focus where the person is working", async () => {
 	const v = rig(NOTE());
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
-	v.press("Option 1: correct answer");
+	await v.press("Option 1: correct answer");
 	assert.equal(v.md()[1], "- [x] Calm");
 	assert.equal(v.input("Option 1: correct answer").getAttribute("aria-checked"), "true");
 	assert.equal(doc.activeElement, v.input("Option 1: correct answer"), "the focus stays on the switch");
-	v.press("Option 1: correct answer");
+	await v.press("Option 1: correct answer");
 	assert.equal(v.md()[1], "- [ ] Calm");
 	// add an option: it is at the end and its words have the focus
-	click(v.button("Add an option"));
+	await v.add("Add an option");
 	assert.equal(v.md()[7], "- [ ] ");
 	assert.equal(doc.activeElement, v.input("Option 4: words"));
 	// move: the option goes with its replies, and the focus is on the same button at the new place
-	v.press("Option 2: move up");
+	await v.press("Option 2: move up");
 	assert.deepEqual(v.md().slice(1, 6), ["- [x] Wound up", "  - That is the activating family.", "  - It is also useful.", "- [ ] Calm", "  - That is the settling system at work."]);
 	assert.equal(doc.activeElement, v.input("Option 1: move down"), "the first cannot go up any more: its twin takes the focus");
-	v.press("Option 1: move down");
+	await v.press("Option 1: move down");
 	assert.equal(doc.activeElement, v.input("Option 2: move down"), "the focus follows the button that was pressed, to the place the option went");
 	// a reply: added under its option, with the focus in it; removed, and the focus goes on
-	v.press("Option 3: add a reply");
+	await v.press("Option 3: add a reply");
 	assert.equal(v.md()[7], "  - ", "as far in as the option's words");
 	assert.equal(doc.activeElement, v.input("Option 3, reply 1: words"));
-	v.type("Option 3, reply 1: words", "Flat.");
-	v.press("Option 3, reply 1: remove");
+	await v.type("Option 3, reply 1: words", "Flat.");
+	await v.press("Option 3, reply 1: remove");
 	assert.deepEqual(v.md().slice(6, 8), ["- [ ] Numb", "- [ ] "]);
 	assert.equal(doc.activeElement, v.input("Option 3: add a reply"));
-	v.press("Option 4: remove");
+	await v.press("Option 4: remove");
 	assert.equal(doc.activeElement, v.input("Option 3: words"), "the focus goes to the row before the one that went");
-	assert.equal(v.disk.writes, 0, "none of it was written");
-	await later(250);
+	assert.equal(v.disk.writes, 9, "each of the nine changes is one write");
 	assert.equal(v.texts().length, 6);
+	// nine writes, nine steps: Undo nine times is the note as it was
+	for (let i = 0; i < 9; i++) {
+		click(v.undo());
+		await v.settle();
+	}
+	assert.equal(v.disk.text, NOTE(), "nine steps back is the note as it was");
 	v.close();
 });
 
-test("words that the format would read as something else are refused with a reason and nothing changes", () => {
+test("words that the format would read as something else are refused with a reason, nothing is written, and the row goes back to the note's words", async () => {
 	const v = rig(NOTE());
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
 	const was = v.area().value;
-	v.type("Option 1, reply 1: words", "[ ] That is an option");
+	await v.type("Option 1, reply 1: words", "[ ] That is an option");
 	assert.match(v.refusal(), /^Not changed\. The format would read that text as something other than the row it is in/);
 	assert.equal(v.area().value, was);
-	assert.equal(v.input("Option 1, reply 1: words").getAttribute("aria-invalid"), "true");
-	v.type("Option 1, reply 1: words", "A fine reply");
+	assert.equal(v.disk.writes, 0);
+	assert.equal(v.input("Option 1, reply 1: words").value, "That is the settling system at work.", "the row shows the note's words again");
+	await v.type("Option 1, reply 1: words", "A fine reply");
 	assert.equal(v.refusal(), "");
 	assert.equal(v.md()[2], "  - A fine reply");
 	assert.equal(v.input("Option 1, reply 1: words").getAttribute("aria-invalid"), null);
 	v.close();
 });
 
-test("positions under a kept answer: Save counts and asks in the open; Cancel writes nothing and keeps the draft; Yes writes only those lines; an edit that keeps every position asks nothing", async () => {
+test("positions under a kept answer: the change is counted and asked about in the open as it is made; no writes nothing and the rows show the note; yes writes only those lines; an edit that keeps every position asks nothing", async () => {
 	const note = NOTE(KEPT);
 	const v = rig(note);
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
 	// a reply, a mark and an appended option: no question
-	v.type("Option 1, reply 1: words", "Settling.");
-	v.press("Option 3: correct answer");
-	click(v.button("Add an option"));
-	v.type("Option 4: words", "Flat");
-	await v.save();
+	await v.type("Option 1, reply 1: words", "Settling.");
+	await v.press("Option 3: correct answer");
+	await v.add("Add an option");
+	await v.type("Option 4: words", "Flat");
 	assert.equal(v.dialog(), null, "nothing a kept answer says has changed");
-	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.writes, 4, "one write for each");
 	const w = lineOf(note, "[!choice|where]");
 	assert.deepEqual(v.disk.text.split("\n").slice(w, w + 8), ["> [!choice|where] Where are you right now?", "- [ ] Calm", "  - Settling.", "- [x] Wound up", "  - That is the activating family.", "  - It is also useful.", "- [x] Numb", "- [ ] Flat"]);
+	assert.ok(v.editor(), "the block stays open");
 	// now the second option goes up: the kept answer 2 would mean Calm
-	click(v.act(v.block("question", "[!choice|where]"), "edit"));
 	const before = v.disk.text;
-	v.press("Option 2: move up");
-	click(v.button("Save"));
+	await v.pressAsk("Option 2: move up");
 	assert.ok(v.dialog(), "a question is open");
 	const ask = words(v.dialog());
 	assert.match(ask, /The options of `where` touches 1 saved answer\./);
 	assert.match(ask, /stay in the note's records as they are/);
-	assert.equal(v.disk.writes, 1, "nothing is written while it is open");
+	assert.equal(v.disk.writes, 4, "nothing is written while it is open");
 	await v.answer("Cancel");
 	assert.equal(v.disk.text, before, "the note is as it was");
 	assert.ok(v.editor(), "the editor stays open");
-	assert.match(v.md()[1], /Wound up/, "with the draft in it");
+	assert.match(v.md()[1], /Calm/, "with the note's order in it");
 	assert.equal(v.status(), "Nothing was changed.");
-	click(v.button("Save"));
+	await v.pressAsk("Option 2: move up");
 	await v.answer("Change");
-	assert.equal(v.disk.writes, 2);
+	assert.equal(v.disk.writes, 5);
 	assert.equal(v.disk.text.split("\n")[w + 1], "- [x] Wound up");
 	assert.equal(v.disk.text.slice(v.disk.text.indexOf("%%")), before.slice(before.indexOf("%%")), "the kept answers are the bytes they were");
 	click(v.undo());
@@ -271,16 +298,15 @@ test("positions under a kept answer: Save counts and asks in the open; Cancel wr
 	v.close();
 });
 
-test("with nothing kept, the same position changes ask nothing and are written", async () => {
+test("with nothing kept, the same position changes ask nothing and are written, each as its own step", async () => {
 	const note = NOTE();
 	const v = rig(note);
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
-	v.press("Option 2: move up");
-	v.press("Option 3: remove");
-	await v.save();
+	await v.press("Option 2: move up");
+	await v.press("Option 3: remove");
 	assert.equal(v.dialog(), null);
-	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.writes, 2);
 	const w = lineOf(note, "[!choice|where]");
 	assert.deepEqual(v.disk.text.split("\n").slice(w, w + 6), ["> [!choice|where] Where are you right now?", "- [x] Wound up", "  - That is the activating family.", "  - It is also useful.", "- [ ] Calm", "  - That is the settling system at work."]);
 	v.close();
@@ -288,12 +314,14 @@ test("with nothing kept, the same position changes ask nothing and are written",
 
 /* ======================================================================== the shared menu a question names ======================================================================== */
 
-test("choosing a shared menu replaces the option rows by a line saying so and a button to the menu; none brings the question's own options back; Cancel throws it all away", async () => {
+test("choosing a shared menu applies at once and replaces the option rows by a line saying so and a button to the menu; none brings the question's own options back from the stash, byte for byte; Undo steps back through both", async () => {
 	const note = NOTE();
 	const v = rig(note);
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
 	await v.row("Shared menu").components[0].change("places");
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
 	assert.deepEqual(v.md(), ["> [!choice|where menu:places] Where are you right now?", "", "> [!hint]- A hint", "> Think about your body."]);
 	assert.equal(words(v.editor().querySelector(".booklet-design-rows-usesmenu")), "Uses the shared menu places.Go to the menu");
 	assert.equal(v.texts().length, 0, "the question's own option lines are not shown");
@@ -304,14 +332,41 @@ test("choosing a shared menu replaces the option rows by a line saying so and a 
 	assert.ok(v.input("Open the shared menu places"));
 	assert.equal(doc.activeElement, v.row("Shared menu").components[0].selectEl, "the focus stays on the picker");
 	await v.row("Shared menu").components[0].change("");
+	await v.settle();
 	assert.equal(v.area().value, core.blockLines(note, core.walkDesign(core.parseDesign(note)).find((n) => n.id === "where")).join("\n"), "the options are back, byte for byte");
-	assert.equal(v.mark(), "");
-	// and the other way, then Cancel
+	assert.equal(v.disk.text, note, "and so is the note");
+	// and the other way, then Undo
 	await v.row("Shared menu").components[0].change("places");
-	assert.equal(v.mark(), "Unsaved changes");
-	click(v.button("Cancel"));
-	assert.equal(v.disk.text, note);
-	assert.equal(v.disk.writes, 0);
+	await v.settle();
+	assert.equal(v.disk.writes, 3);
+	click(v.undo());
+	await v.settle();
+	assert.equal(v.disk.text, note, "Undo of the last choice is the note with its options");
+	assert.equal(v.texts().length, 6, "and the rows show them");
+	v.close();
+});
+
+test("the stash of a question's own options belongs to the open block and is lost when the block closes: choosing none then gives a question with no options, and Undo is the way back", async () => {
+	const note = NOTE();
+	const v = rig(note);
+	v.go("How it went");
+	v.open("question", "[!choice|where]");
+	await v.row("Shared menu").components[0].change("places");
+	await v.settle();
+	// the block is closed and opened again: the stash was the box's, and it is gone
+	press(v.area(), "Escape");
+	assert.equal(v.editor(), null);
+	v.open("question", "[!choice|where");
+	await v.row("Shared menu").components[0].change("");
+	await v.settle();
+	assert.equal(v.texts().length, 0, "no options come back: they were only in the stash");
+	assert.equal(v.md()[0], "> [!choice|where] Where are you right now?");
+	// and Undo twice gives the question as it was, options and all
+	click(v.undo());
+	await v.settle();
+	click(v.undo());
+	await v.settle();
+	assert.equal(v.disk.text, note, "every byte of the options is in the history");
 	v.close();
 });
 
@@ -324,13 +379,13 @@ test("a question that names a menu: its button opens the menu block, which lists
 	assert.equal(v.row("Shared menu").components[0].value, "places");
 	assert.equal(v.rowNames().includes("menu"), false);
 	click(v.input("Open the shared menu places"));
+	await v.settle();
 	assert.equal(v.all(".booklet-design-editbox").length, 1);
 	assert.equal(v.area().value, "> [!menu|places]\n- Park\n- Garden\n- Library");
 	assert.equal(words(v.editor().querySelector(".booklet-design-rows-usedby")), "Used by: morning, evening");
 	assert.deepEqual(v.texts(), ["Park", "Garden", "Library"]);
 	// a reorder counts the answers kept for BOTH questions
-	v.press("Item 1: move down");
-	click(v.button("Save"));
+	await v.pressAsk("Item 1: move down");
 	const ask = words(v.dialog());
 	assert.match(ask, /The options of `morning` touches 1 saved answer\./);
 	assert.match(ask, /The options of `evening` touches 1 saved answer\./);
@@ -345,13 +400,12 @@ test("a shared menu: add, reword the end, remove an item nobody picked; and a me
 	v.go("Words");
 	v.open("menu", "[!menu|nobody]");
 	assert.equal(words(v.editor().querySelector(".booklet-design-rows-usedby")), "Not used yet");
-	click(v.button("Add an item"));
+	await v.add("Add an item");
 	assert.equal(doc.activeElement, v.input("Item 3: words"));
-	v.type("Item 3: words", "Three");
-	v.press("Item 1: remove");
+	await v.type("Item 3: words", "Three");
+	await v.press("Item 1: remove");
 	assert.equal(v.area().value, "> [!menu|nobody]\n- Two\n- Three");
 	assert.equal(doc.activeElement, v.input("Item 1: words"));
-	await v.save();
 	assert.equal(v.dialog(), null);
 	assert.equal(v.disk.text, lonely.replace("- One\n- Two", "- Two\n- Three"));
 	v.close();
@@ -367,25 +421,26 @@ test("a matrix: items and anchors are rows, an anchor's number is its own field,
 	assert.deepEqual(v.texts(), ["Spring tides", "Neap tides", "0", "Not yet", "1", "Getting there", "2", "Sure"]);
 	const heads = [...v.editor().querySelectorAll(".booklet-design-rows .setting-item-heading")].map(words);
 	assert.deepEqual(heads, ["Items", "Anchors (the number is the answer that is kept)"]);
-	click(v.button("Add an anchor"));
+	await v.add("Add an anchor");
 	assert.equal(v.md().at(-1), "3. ");
 	assert.equal(doc.activeElement, v.input("Anchor 4: words"));
-	v.type("Anchor 4: words", "Very sure");
+	await v.type("Anchor 4: words", "Very sure");
 	// a number is taken when its box is left
 	const num = v.input("Anchor 1: number");
 	num.value = "5";
 	num.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
 	assert.equal(v.md()[5], "5. Not yet");
 	num.value = "x";
 	num.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
 	assert.match(v.refusal(), /^Not changed\. An anchor's number is digits only/);
-	assert.equal(v.input("Anchor 1: number").value, "5", "the field shows what the draft has");
-	click(v.button("Add an item"));
+	assert.equal(v.input("Anchor 1: number").value, "5", "the field shows what the note has");
+	await v.add("Add an item");
 	assert.equal(v.md()[3], "- Neap tides");
 	assert.equal(v.md()[4], "- ");
 	assert.equal(v.md()[5], "", "the blank line above the numbered list is kept");
-	v.press("Anchor 1: remove");
-	await v.save();
+	await v.press("Anchor 1: remove");
 	assert.equal(v.dialog(), null, "nothing is kept: nothing to ask");
 	const w0 = lineOf(note, "[!matrix|topics]");
 	assert.deepEqual(v.disk.text.split("\n").slice(w0, w0 + 11), ["> [!matrix|topics] How sure are you of each topic?", "", "- Spring tides", "- Neap tides", "- ", "", "1. Getting there", "2. Sure", "3. Very sure", "", "> [!choice|odd] Odd one"]);
@@ -397,23 +452,22 @@ test("a matrix with answers kept: removing or moving an item, or removing an anc
 	const v = rig(note);
 	v.go("How it went");
 	v.open("question", "[!matrix|topics]");
-	click(v.button("Add an item"));
-	click(v.button("Add an anchor"));
-	await v.save();
+	await v.add("Add an item");
+	await v.add("Add an anchor");
 	assert.equal(v.dialog(), null);
-	assert.equal(v.disk.writes, 1);
-	v.open("question", "[!matrix|topics]");
-	v.press("Item 1: move down");
-	click(v.button("Save"));
+	assert.equal(v.disk.writes, 2);
+	await v.pressAsk("Item 1: move down");
 	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
 	await v.answer("Cancel");
-	assert.equal(v.disk.writes, 1);
-	v.press("Item 2: move up");
-	v.press("Anchor 3: remove");
-	click(v.button("Save"));
+	assert.equal(v.disk.writes, 2);
+	await v.pressAsk("Item 2: move up");
 	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
 	await v.answer("Change");
-	assert.equal(v.disk.writes, 2);
+	assert.equal(v.disk.writes, 3);
+	await v.pressAsk("Anchor 3: remove");
+	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
+	await v.answer("Change");
+	assert.equal(v.disk.writes, 4);
 	v.close();
 });
 
@@ -431,50 +485,45 @@ test("a block the rows cannot show without changing it has the Markdown alone an
 	v.close();
 });
 
-test("typing in the Markdown reads the rows again; a text the rows cannot show replaces them by the reason without losing the typed text, and a text they can show brings them back", async () => {
+test("leaving the Markdown reads the rows again; a text the rows cannot show replaces them by the reason without losing the typed text, and a text they can show brings them back", async () => {
 	const v = rig(NOTE());
 	v.go("How it went");
 	v.open("question", "[!choice|odd]");
-	typeInto(v.area(), "> [!choice|odd] Odd one\n- [ ] One\n- [ ] Two");
-	await later(250);
+	await v.typeArea("> [!choice|odd] Odd one\n- [ ] One\n- [ ] Two");
 	assert.deepEqual(v.texts(), ["One", "Two"]);
-	typeInto(v.area(), "> [!choice|odd] Odd one\n- [ ] One\n\n- [ ] Two");
-	await later(250);
+	const odd = "> [!choice|odd] Odd one\n- [ ] One\n  - Said\n    and more";
+	await v.typeArea(odd);
 	assert.equal(v.texts().length, 0);
-	assert.match(words(v.editor().querySelector(".booklet-design-rows-refused")), /blank line/);
-	assert.equal(v.area().value, "> [!choice|odd] Odd one\n- [ ] One\n\n- [ ] Two", "what was typed is still there");
-	typeInto(v.area(), "> [!multi|odd open] Odd one\n- [ ] One\n  - Said\n- [ ] Two");
-	await later(250);
+	assert.match(words(v.editor().querySelector(".booklet-design-rows-refused")), /There is a line under the list that the rows cannot show/);
+	assert.equal(v.area().value, odd, "what was typed is still there");
+	await v.typeArea("> [!multi|odd open] Odd one\n- [ ] One\n  - Said\n- [ ] Two");
 	assert.deepEqual(v.texts(), ["One", "Said", "Two"]);
 	assert.ok(v.row("open"));
 	assert.equal(v.row("open").components[0].value, true);
 	// a block that is turned into one the rows do not know has no rows part at all
-	typeInto(v.area(), "> [!text|odd] Odd one");
-	await later(250);
+	await v.typeArea("> [!text|odd] Odd one");
 	assert.equal(v.editor().querySelector(".booklet-design-rows").classList.contains("is-empty"), true);
 	v.close();
 });
 
-test("Save, Cancel and Esc mean what they meant: Esc keeps a draft once and throws it away on the second press; the rows' draft is the box's draft", async () => {
+test("Esc closes the block after applying; a row's change is already in the note, so nothing is thrown away, and a change and its undoing are two steps", async () => {
 	const v = rig(NOTE());
 	v.go("How it went");
 	v.open("question", "[!choice|where]");
-	v.press("Option 3: remove");
-	assert.equal(v.mark(), "Unsaved changes");
+	await v.press("Option 3: remove");
+	assert.equal(v.disk.writes, 1);
 	const key = (k) => v.editor().dispatchEvent(new w.KeyboardEvent("keydown", { key: k, bubbles: true, cancelable: true }));
 	key("Escape");
-	assert.ok(v.editor(), "the first Esc keeps it");
-	assert.match(words(v.editor().querySelector(".booklet-design-editor-state")), /Esc again/i);
-	key("Escape");
-	assert.equal(v.editor(), null, "the second throws it away");
-	assert.equal(v.disk.writes, 0);
-	// reopened: the options are as the note has them
+	await v.settle();
+	assert.equal(v.editor(), null, "Esc closes it, and says nothing of a draft");
+	assert.equal(v.disk.writes, 1, "and writes nothing more");
+	// reopened: the options are as the note has them, with the option gone
 	v.open("question", "[!choice|where]");
-	assert.equal(v.texts().length, 6);
-	// a row change and then back again is no change
-	v.press("Option 1: correct answer");
-	v.press("Option 1: correct answer");
-	assert.equal(v.mark(), "");
+	assert.equal(v.texts().length, 5);
+	// a row change and then back again is two changes
+	await v.press("Option 1: correct answer");
+	await v.press("Option 1: correct answer");
+	assert.equal(v.disk.writes, 3);
 	v.close();
 });
 

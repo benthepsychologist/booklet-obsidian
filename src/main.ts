@@ -121,6 +121,11 @@ export default class BookletPlugin extends Plugin {
 					const v = leaf.view;
 					if (v instanceof BookletView && v.hasUnsaved()) tasks.add(() => v.saveTypedAtQuit());
 				}
+				// a Design view with typing it has not applied yet writes it before the app goes
+				for (const leaf of this.app.workspace.getLeavesOfType(DESIGN_VIEW_TYPE)) {
+					const v = leaf.view;
+					if (v instanceof DesignView && v.hasPending()) tasks.add(() => v.saveTypedAtQuit());
+				}
 				// media kept playing by the bar, whose page is gone: its place is written before the app goes
 				if (this.nowPlaying.unsaved()) tasks.add(() => this.nowPlaying.flush());
 			}),

@@ -162,10 +162,10 @@ export function openDesign(text, { path = "Note.booklet.md", icons = EVERY_ICON,
 			click(o.block(kind, needle));
 			return o.block(kind, needle);
 		},
-		/** Selects a block and closes its editor with Cancel, so the block stands selected with its bar. */
+		/** Selects a block and closes its editor with Esc, so the block stands selected with its bar. */
 		pick: (kind, needle) => {
 			o.select(kind, needle);
-			click(o.editor().querySelector(".booklet-design-cancel"));
+			o.key("Escape", { target: o.area() });
 			return o.block(kind, needle);
 		},
 		/** A button of a selected block's floating bar, or of a card's bar: `up`, `down`, `edit` or `delete`. */

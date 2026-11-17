@@ -253,7 +253,7 @@ test("an icon newer than the Obsidian a person runs is not a hole: the next name
 	assert.equal(v.view.getIcon(), "pencil", "the tab's icon falls back to one that has been there for years");
 	// the bar's buttons fall back to their words when the set has none of their icons, and are still buttons
 	click(v.block("callout", "[!tip]"));
-	click(v.editor().querySelector(".booklet-design-cancel"));
+	v.key("Escape", { target: v.area() }); // Esc closes the block (nothing is waiting)
 	const bar = v.block("callout", "[!tip]").querySelector(".booklet-design-floatbar");
 	for (const b of bar.querySelectorAll("button")) assert.ok(b.getAttribute("aria-label") && words(b).length > 0, "no hole: the words stand in for the missing icon");
 	// a node with no icon of any of its names is drawn without one, and is still listed
@@ -618,7 +618,7 @@ test("a block's floating bar has Move up, Move down, Edit as Markdown and Delete
 	const tip = v.block("callout", "[!tip]");
 	click(tip);
 	assert.equal(v.all(".booklet-design-floatbar").length, 0, "while the block is open in the editor the bar is not drawn over it");
-	click(v.editor().querySelector(".booklet-design-cancel"));
+	v.key("Escape", { target: v.area() }); // Esc closes the block (nothing is waiting)
 	const bar = v.block("callout", "[!tip]").querySelector(":scope > .booklet-design-floatbar");
 	assert.ok(bar, "the selected block has its bar");
 	assert.equal(bar.getAttribute("role"), "toolbar");

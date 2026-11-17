@@ -1,15 +1,15 @@
 /*
  * The rows of the Design view's editor in place: the part of the box that shows a choice or a multi's options, a shared menu's items, or a
- * matrix's items and anchors as one row each. Like the settings above it, it works on the one DRAFT the box holds and never on the note:
- * a row's change is made by core (`editRows`, design-options.ts) on the rows read from the draft, the draft is the lines they write, and
- * nothing is written until Save, which is the view's (one `changeLines`, counted and asked about like any change).
+ * matrix's items and anchors as one row each. There is no draft: the rows are drawn from the note's own lines, and every change is made on
+ * the note's lines as they are when it is made (core `editRows`, design-options.ts) and handed to the box, which writes it as one step
+ * (`act` for a press, `field` for words typed in a row). Nothing here writes, and nothing holds a copy of the text.
  *
  * Rows are offered only for a block they can show without changing a byte of what is written (core `readRows`); any other block shows
- * the reason, and the Markdown below it is how it is edited. A change in the Markdown reads the rows again.
+ * the reason, and the Markdown below it is how it is edited.
  *
- * Words typed in a row reach the draft at each key (so the preview follows the typing), and the rows are not drawn again for that, so the
- * caret stays where it is. Every other change (a switch, a button, a number, a menu) draws the rows again, and the focus goes to the
- * control the person was on, or to the one a move, an add or a remove leads to.
+ * Words typed in a row are applied when the row is left or Enter is pressed (never at each key). A change that adds, removes or moves a
+ * row draws the rows again, with the focus on the control the person was on, or on the one a move, an add or a remove leads to; a change
+ * that only changes words or a switch is put into the rows that are there (`sync`), so no control is taken away from a press under way.
  */
 import { Setting } from "obsidian";
 import {
@@ -39,33 +39,73 @@ const WORDS: Record<"option" | "item" | "anchor", { up: DesignKey; down: DesignK
 	anchor: { up: "rows.anchor.up", down: "rows.anchor.down", remove: "rows.anchor.remove" },
 };
 
+/** What a change comes to: the block's new lines (with what to do once they are written), or why it is not made. `keep`: it was typed text, which stays where it is. */
+export type Made = { ok: true; lines: string[]; landed?: () => void } | { ok: false; reason: string; keep?: boolean };
+
 /** What the rows ask of the box that holds them. */
 export interface RowsIO {
 	/** The note as the view has it now (the shared menus a question can name are found in it). */
 	note(): string;
 	/** The line the block starts on in the note, or null when it is not there. */
 	start(): number | null;
-	/** The draft's lines now. */
+	/** The block's own lines in the note now. */
 	lines(): string[];
-	/** The draft is now these lines. `quiet`: the rows are in step already and are not drawn again. */
-	put(lines: string[], quiet: boolean): void;
-	/** Says why a change was not made, and changes nothing. */
-	refuse(reason: string, redraw: boolean): void;
+	/**
+	 * A control of words, applied when it is left or Enter is pressed. `make` makes the block's new lines from what was typed, the block's
+	 * lines now and what the control showed when the note last matched it; `back` gives what the note has for the control, to put back.
+	 */
+	field(el: HTMLInputElement, make: (value: string, lines: string[], was: string) => Made, back: (lines: string[]) => string | null): void;
+	/** A control pressed: one change, made on the block's lines as they are when it runs. `focus` is the control the focus goes to when the rows are drawn again. */
+	act(make: (lines: string[]) => Made, focus: string | null): void;
+	/** Is the typing in this control not applied yet (the rows leave it alone)? */
+	typing(el: HTMLElement): boolean;
 	/** The options put away when a shared menu was chosen, and the setter. */
 	stash(): string[] | null;
 	setStash(lines: string[] | null): void;
 	/** Selects and opens the menu block that starts on this line. */
 	openMenu(line: number): void;
-	/** A typed value that is taken when its control is left: the box runs `commit` first when it is asked to read the draft, and forgets it after `commit` runs. */
-	commitOnLeave(input: HTMLInputElement, commit: () => void): void;
 }
 
-/** What the rows part shows: nothing (the draft is not such a block), the reason it has no rows, or the rows. */
+/** What the rows part shows: nothing (the block is not such a block), the reason it has no rows, or the rows. */
 export type RowsState = "none" | "refused" | "rows";
+
+/** The words and marks of a block's rows by the `data-key` of the control that shows them: what `sync` puts into the rows that are there. */
+function shownOf(rows: Rows): { text: Map<string, string>; on: Map<string, boolean> } {
+	const text = new Map<string, string>();
+	const on = new Map<string, boolean>();
+	if (isChoiceRows(rows)) {
+		text.set("menu", rows.menu ?? "");
+		rows.options.forEach((o, i) => {
+			text.set(`o${i}-text`, o.text);
+			on.set(`o${i}-correct`, o.mark !== " ");
+			o.replies.forEach((r, j) => text.set(`o${i}-r${j}-text`, r.text));
+		});
+	} else if (rows.kind === "menu") rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
+	else {
+		rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
+		rows.anchors.forEach((a, i) => {
+			text.set(`a${i}-number`, a.number);
+			text.set(`a${i}-text`, a.text);
+		});
+	}
+	return { text, on };
+}
+
+/** The shape of a block's rows: what must be drawn again when it changes (the words and the marks are not part of it). */
+function shapeOf(lines: readonly string[]): string {
+	const kind = rowsKindOf(lines);
+	if (!kind) return "none";
+	const rows = readRows(lines, kind);
+	if ("refused" in rows) return `refused:${rows.refused}`;
+	if (isChoiceRows(rows)) return rows.menu ? `${rows.kind}:menu:${rows.menu}` : `${rows.kind}:${rows.options.map((o) => o.replies.length).join(",")}`;
+	if (rows.kind === "menu") return `menu:${rows.items.length}`;
+	return `matrix:${rows.items.length}:${rows.anchors.length}`;
+}
 
 export class RowsPanel {
 	private rows: Rows | null = null;
-	private wanted: string | null = null;
+	/** The shape the rows on the screen were drawn for. */
+	private shape = "";
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -73,14 +113,24 @@ export class RowsPanel {
 		private readonly nodeKind: () => DesignKind,
 	) {}
 
-	/** Draws the rows of these lines (the draft's) in place of what was drawn, and says what it drew. */
-	draw(lines: readonly string[]): RowsState {
+	/** Does the block's rows part show something different from what these lines make (it must be drawn again)? */
+	differs(lines: readonly string[]): boolean {
+		return this.shapeNow(lines) !== this.shape;
+	}
+
+	private shapeNow(lines: readonly string[]): string {
+		const holds = this.nodeKind() === "question" || this.nodeKind() === "menu";
+		return holds ? shapeOf(lines) : "none";
+	}
+
+	/** Draws the rows of these lines (the note's) in place of what was drawn, and says what it drew. `wanted`: the control the focus goes to after. */
+	draw(lines: readonly string[], wanted: string | null = null): RowsState {
 		const doc = this.host.ownerDocument;
 		const active = doc.activeElement;
-		const key = this.wanted ?? (active && this.host.contains(active) ? (active.closest("[data-key]")?.getAttribute("data-key") ?? null) : null);
-		this.wanted = null;
+		const key = wanted ?? (active && this.host.contains(active) ? (active.closest("[data-key]")?.getAttribute("data-key") ?? null) : null);
 		this.host.empty();
 		this.rows = null;
+		this.shape = this.shapeNow(lines);
 		const kind = rowsKindOf(lines);
 		const holds = this.nodeKind() === "question" || this.nodeKind() === "menu";
 		this.host.toggleClass("is-empty", true);
@@ -103,29 +153,67 @@ export class RowsPanel {
 		return "rows";
 	}
 
+	/** Puts the words and marks of these lines into the rows that are drawn (the shape has not changed), leaving what is being typed alone. */
+	sync(lines: readonly string[]): void {
+		const kind = rowsKindOf(lines);
+		if (!kind) return;
+		const rows = readRows(lines, kind);
+		if ("refused" in rows) return;
+		this.rows = rows;
+		const shown = shownOf(rows);
+		for (const el of Array.from(this.host.querySelectorAll<HTMLElement>("[data-key]"))) {
+			const key = el.getAttribute("data-key") ?? "";
+			const text = shown.text.get(key);
+			const field = el as HTMLInputElement | HTMLSelectElement;
+			if (text !== undefined && (el.tagName === "INPUT" || el.tagName === "SELECT") && !this.io.typing(el) && field.value !== text) field.value = text;
+			const mark = shown.on.get(key);
+			if (mark !== undefined) el.setAttribute("aria-checked", String(mark));
+		}
+	}
+
 	// ---------------------------------------------------------------- one change
 
-	/** Makes one edit of the rows: the draft takes the lines they write. `focus` is the control that has the focus after (when the rows are drawn again). */
-	private edit(edit: RowsEdit, focus: string | null, quiet = false, input?: HTMLInputElement): void {
-		if (!this.rows) return;
-		const made = editRows(this.rows, edit);
-		if (!made.ok) {
-			input?.setAttribute("aria-invalid", "true");
-			this.io.refuse(made.reason, !quiet);
-			return;
-		}
-		input?.removeAttribute("aria-invalid");
-		this.rows = made.rows;
-		if (!quiet) this.wanted = focus;
-		this.io.put(made.lines, quiet);
+	/** The rows of these lines, when they are the rows that are drawn (else null: the note is not what the rows show). */
+	private current(lines: readonly string[]): Rows | null {
+		const kind = rowsKindOf(lines);
+		if (!kind || shapeOf(lines) !== this.shape) return null;
+		const rows = readRows(lines, kind);
+		return "refused" in rows ? null : rows;
+	}
+
+	private made(lines: readonly string[], build: (rows: Rows) => RowsEdit | null, typed: boolean): Made {
+		const rows = this.current(lines);
+		if (!rows) return { ok: false, reason: ui("edit.changed"), keep: typed };
+		const edit = build(rows);
+		if (!edit) return { ok: false, reason: ui("edit.changed"), keep: typed };
+		const made = editRows(rows, edit);
+		return made.ok ? { ok: true, lines: made.lines } : { ok: false, reason: made.reason };
+	}
+
+	/** Makes one edit of the rows when a control is pressed. `focus` is the control that has the focus after (when the rows are drawn again). */
+	private edit(build: (rows: Rows) => RowsEdit | null, focus: string | null): void {
+		this.io.act((lines) => this.made(lines, build, false), focus);
 	}
 
 	// ---------------------------------------------------------------- the parts every list has
 
-	private textInput(parent: HTMLElement, key: string, label: string, value: string, onInput: (v: string, el: HTMLInputElement) => void): HTMLInputElement {
+	/** A row's words: applied when the row is left or Enter is pressed, as one change (`edit` says which, from what was typed). */
+	private textInput(parent: HTMLElement, key: string, label: string, value: string, edit: (v: string) => RowsEdit): HTMLInputElement {
 		const el = parent.createEl("input", { cls: "booklet-design-rows-input", attr: { type: "text", "aria-label": label, "data-key": key, spellcheck: "false", autocomplete: "off" } });
 		el.value = value;
-		el.addEventListener("input", () => onInput(el.value, el));
+		this.io.field(
+			el,
+			(v, lines, was) => {
+				// the rows on the screen are the note's, and this row still has the words it had: else it is not known which row this typing was for
+				const rows = this.current(lines);
+				if (!rows || shownOf(rows).text.get(key) !== was) return { ok: false, reason: ui("edit.changed"), keep: true };
+				return this.made(lines, () => edit(v), true);
+			},
+			(lines) => {
+				const rows = this.current(lines);
+				return rows ? (shownOf(rows).text.get(key) ?? null) : null;
+			},
+		);
 		return el;
 	}
 
@@ -182,25 +270,25 @@ export class RowsPanel {
 			const row = list.createDiv({ cls: "booklet-design-optrow", attr: { role: "group", "aria-label": ui("rows.option.group", { n }) } });
 			const main = row.createDiv({ cls: "booklet-design-rows-main" });
 			main.createSpan({ cls: "booklet-design-rows-num", text: String(n), attr: { "aria-hidden": "true" } });
-			this.textInput(main, `o${i}-text`, ui("rows.option.text", { n }), o.text, (v, el) => this.edit({ what: "option-text", index: i, text: v }, null, true, el));
+			this.textInput(main, `o${i}-text`, ui("rows.option.text", { n }), o.text, (v) => ({ what: "option-text", index: i, text: v }));
 			const ctl = row.createDiv({ cls: "booklet-design-rows-controls" });
 			const sw = ctl.createEl("button", { text: ui("rows.option.correct"), cls: "booklet-design-rows-switch", attr: { type: "button", role: "switch", "aria-checked": o.mark === " " ? "false" : "true", "aria-label": ui("rows.option.correct.label", { n }), "data-key": `o${i}-correct` } });
-			sw.addEventListener("click", () => this.edit({ what: "option-correct", index: i, on: sw.getAttribute("aria-checked") !== "true" }, `o${i}-correct`));
+			sw.addEventListener("click", () => this.edit((rows) => (isChoiceRows(rows) ? { what: "option-correct", index: i, on: rows.options[i]?.mark === " " } : null), `o${i}-correct`));
 			this.controls(ctl, "o", i, count, "option", (what, by) => {
-				if (what === "move" && by) this.edit({ what: "option-move", index: i, by }, this.movedKey("o", i, by, count));
-				else this.edit({ what: "option-remove", index: i }, this.afterRemove("o", i, count, "o-add"));
+				if (what === "move" && by) this.edit(() => ({ what: "option-move", index: i, by }), this.movedKey("o", i, by, count));
+				else this.edit(() => ({ what: "option-remove", index: i }), this.afterRemove("o", i, count, "o-add"));
 			});
 			const replies = row.createDiv({ cls: "booklet-design-rows-replies" });
 			o.replies.forEach((r, j) => {
 				const rr = replies.createDiv({ cls: "booklet-design-reply" });
-				this.textInput(rr, `o${i}-r${j}-text`, ui("rows.reply.text", { n, m: j + 1 }), r.text, (v, el) => this.edit({ what: "reply-text", index: i, reply: j, text: v }, null, true, el));
+				this.textInput(rr, `o${i}-r${j}-text`, ui("rows.reply.text", { n, m: j + 1 }), r.text, (v) => ({ what: "reply-text", index: i, reply: j, text: v }));
 				this.button(rr, `o${i}-r${j}-remove`, ui("rows.remove"), ui("rows.reply.remove", { n, m: j + 1 }), () =>
-					this.edit({ what: "reply-remove", index: i, reply: j }, o.replies.length > 1 ? `o${i}-r${Math.min(j, o.replies.length - 2)}-text` : `o${i}-r-add`),
+					this.edit(() => ({ what: "reply-remove", index: i, reply: j }), o.replies.length > 1 ? `o${i}-r${Math.min(j, o.replies.length - 2)}-text` : `o${i}-r-add`),
 				);
 			});
-			this.button(replies, `o${i}-r-add`, ui("rows.reply.add"), ui("rows.reply.add.label", { n }), () => this.edit({ what: "reply-add", index: i }, `o${i}-r${o.replies.length}-text`));
+			this.button(replies, `o${i}-r-add`, ui("rows.reply.add"), ui("rows.reply.add.label", { n }), () => this.edit(() => ({ what: "reply-add", index: i }), `o${i}-r${o.replies.length}-text`));
 		});
-		this.button(this.host, "o-add", ui("rows.option.add"), ui("rows.option.add"), () => this.edit({ what: "option-add" }, `o${count}-text`));
+		this.button(this.host, "o-add", ui("rows.option.add"), ui("rows.option.add"), () => this.edit(() => ({ what: "option-add" }), `o${count}-text`));
 	}
 
 	/** The shared menu a question names: the menus it can see, and none. A menu it names that it cannot see is listed too, so the row says what the line says. */
@@ -218,13 +306,13 @@ export class RowsPanel {
 			if (rows.menu && !ref && !seen.has(rows.menu)) c.addOption(rows.menu, ui("rows.menu.missing", { id: rows.menu }));
 			c.setValue(rows.menu ?? "");
 			c.selectEl.setAttribute("data-key", "menu");
-			c.onChange((v) => {
-				const made = chooseMenu(this.io.lines(), v || null, this.io.stash());
-				if (!made.ok) return this.io.refuse(made.reason, true);
-				this.io.setStash(made.stash);
-				this.wanted = "menu";
-				this.io.put(made.lines, false);
-			});
+			c.onChange((v) =>
+				this.io.act((lines) => {
+					const made = chooseMenu(lines, v || null, this.io.stash());
+					if (!made.ok) return { ok: false, reason: made.reason };
+					return { ok: true, lines: made.lines, landed: () => this.io.setStash(made.stash) };
+				}, "menu"),
+			);
 		});
 	}
 
@@ -247,14 +335,14 @@ export class RowsPanel {
 			const row = list.createDiv({ cls: "booklet-design-optrow", attr: { role: "group", "aria-label": ui("rows.item.group", { n }) } });
 			const main = row.createDiv({ cls: "booklet-design-rows-main" });
 			main.createSpan({ cls: "booklet-design-rows-num", text: String(n), attr: { "aria-hidden": "true" } });
-			this.textInput(main, `i${i}-text`, ui("rows.item.text", { n }), it.text, (v, el) => this.edit({ what: "item-text", index: i, text: v }, null, true, el));
+			this.textInput(main, `i${i}-text`, ui("rows.item.text", { n }), it.text, (v) => ({ what: "item-text", index: i, text: v }));
 			const ctl = row.createDiv({ cls: "booklet-design-rows-controls" });
 			this.controls(ctl, "i", i, count, "item", (what, by) => {
-				if (what === "move" && by) this.edit({ what: "item-move", index: i, by }, this.movedKey("i", i, by, count));
-				else this.edit({ what: "item-remove", index: i }, this.afterRemove("i", i, count, "i-add"));
+				if (what === "move" && by) this.edit(() => ({ what: "item-move", index: i, by }), this.movedKey("i", i, by, count));
+				else this.edit(() => ({ what: "item-remove", index: i }), this.afterRemove("i", i, count, "i-add"));
 			});
 		});
-		this.button(this.host, "i-add", ui("rows.item.add"), ui("rows.item.add"), () => this.edit({ what: "item-add" }, `i${count}-text`));
+		this.button(this.host, "i-add", ui("rows.item.add"), ui("rows.item.add"), () => this.edit(() => ({ what: "item-add" }), `i${count}-text`));
 	}
 
 	// ---------------------------------------------------------------- a matrix
@@ -271,15 +359,26 @@ export class RowsPanel {
 			const main = row.createDiv({ cls: "booklet-design-rows-main" });
 			const num = main.createEl("input", { cls: ["booklet-design-rows-input", "booklet-design-rows-number"], attr: { type: "text", inputmode: "numeric", "aria-label": ui("rows.anchor.number", { n }), "data-key": `a${i}-number`, autocomplete: "off" } });
 			num.value = a.number;
-			// a number is the answer that is kept: it is taken when the box is left or Enter is pressed, never at each key
-			this.io.commitOnLeave(num, () => this.edit({ what: "anchor-number", index: i, number: num.value.trim() }, `a${i}-number`));
-			this.textInput(main, `a${i}-text`, ui("rows.anchor.text", { n }), a.text, (v, el) => this.edit({ what: "anchor-text", index: i, text: v }, null, true, el));
+			// a number is the answer that is kept: it is taken when the box is left or Enter is pressed, as every row's words are
+			this.io.field(
+				num,
+				(v, lines, was) => {
+					const rows = this.current(lines);
+					if (!rows || shownOf(rows).text.get(`a${i}-number`) !== was) return { ok: false, reason: ui("edit.changed"), keep: true };
+					return this.made(lines, () => ({ what: "anchor-number", index: i, number: v.trim() }), true);
+				},
+				(lines) => {
+					const rows = this.current(lines);
+					return rows ? (shownOf(rows).text.get(`a${i}-number`) ?? null) : null;
+				},
+			);
+			this.textInput(main, `a${i}-text`, ui("rows.anchor.text", { n }), a.text, (v) => ({ what: "anchor-text", index: i, text: v }));
 			const ctl = row.createDiv({ cls: "booklet-design-rows-controls" });
 			this.controls(ctl, "a", i, count, "anchor", (what, by) => {
-				if (what === "move" && by) this.edit({ what: "anchor-move", index: i, by }, this.movedKey("a", i, by, count));
-				else this.edit({ what: "anchor-remove", index: i }, this.afterRemove("a", i, count, "a-add"));
+				if (what === "move" && by) this.edit(() => ({ what: "anchor-move", index: i, by }), this.movedKey("a", i, by, count));
+				else this.edit(() => ({ what: "anchor-remove", index: i }), this.afterRemove("a", i, count, "a-add"));
 			});
 		});
-		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => this.edit({ what: "anchor-add" }, `a${count}-text`));
+		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => this.edit(() => ({ what: "anchor-add" }), `a${count}-text`));
 	}
 }

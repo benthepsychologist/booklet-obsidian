@@ -4417,13 +4417,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	color: var(--interactive-accent);
 }
 
-.booklet-design-edit-mark:not(:empty) {
-	padding: 0 var(--size-4-2);
-	border-radius: var(--radius-l);
-	font-size: var(--font-ui-smaller);
-	background: var(--background-modifier-hover);
-}
-
 .booklet-design-edit-previewhost {
 	margin-top: var(--size-2-3);
 	padding: var(--size-4-3);
@@ -4461,10 +4454,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	background: var(--background-secondary);
 }
 
-.booklet-design-editbox.is-armed .booklet-design-editor-state:not(:empty) {
-	border-inline-start-color: var(--text-error);
-}
-
 .booklet-design-edit-foot {
 	display: flex;
 	flex-wrap: wrap;
@@ -4476,12 +4465,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design-edit-hint {
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
-}
-
-.booklet-design-editor-buttons {
-	display: flex;
-	flex-wrap: wrap;
-	gap: var(--size-4-2);
 }
 
 /* ---- the question before a change that touches kept data ---- */
@@ -4664,10 +4647,6 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 	.booklet-design-chip-count.is-keeps {
 		background: color-mix(in srgb, var(--color-green) 18%, transparent);
-	}
-
-	.booklet-design-edit-mark:not(:empty) {
-		background: color-mix(in srgb, var(--color-orange) 22%, transparent);
 	}
 }
 
