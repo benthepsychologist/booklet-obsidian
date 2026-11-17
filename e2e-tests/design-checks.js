@@ -1386,6 +1386,9 @@ lang: en
       await judge("the open block");
       await shot(o, "phone-editor-light");
       await o.setScheme("dark"); await sleep(500); await shot(o, "phone-editor-dark"); await o.setScheme("light"); await sleep(300);
+      // the bar's Edit as Markdown opened the section: a tap on its summary shuts it, and a second tap opens it again
+      await o.page.locator(MD_SUMMARY).click(); await sleep(300);
+      c.ok(!(await state(o)).editor, "a tap on the open Markdown section's summary shuts it on the phone");
       await o.page.locator(MD_SUMMARY).click(); await sleep(300);
       c.ok((await state(o)).editor, "a tap on the Markdown summary opens the block's own lines on the phone");
       await judge("the open block with its Markdown section open");
@@ -2070,6 +2073,7 @@ lang: en
       const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); return n; };
       const open = async (n, needle) => { await clickBlock(o, "question", lineOf(n.t, needle)); await sleep(150); };
       /** What the box shows now, as a person sees it: where the focus is and where the box's buttons stand. */
+      const geom = () => o.evaluate(sel => { const q = s => document.querySelector(sel + " " + s), r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; }; const st = document.querySelector(sel + " .booklet-design-status"); return { status: st ? st.textContent : null, statusPos: st ? getComputedStyle(st).position : null, top: r(q(".booklet-design-top")), scroll: r(q(".booklet-design-scroll")), title: r(q(".booklet-design-field.is-title")), add: r(q("[data-key='o-add']")), box: r(q(".booklet-design-editbox")) }; }, DV);
       const look = () => o.evaluate(sel => {
         const g = s => document.querySelector(sel + " " + s), a = document.activeElement, add = g("[data-key='o-add']"), r = add && add.getBoundingClientRect();
         return { focus: a ? (a.closest("[data-field]") ? a.closest("[data-field]").getAttribute("data-field") : (a.getAttribute("data-key") || a.className || a.tagName)) : null, add: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null, unsaved: /unsaved/i.test((g(".booklet-design-editbox") || { textContent: "" }).textContent) };
@@ -2110,7 +2114,6 @@ lang: en
         c.ok(!!before && before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the "Add an option" button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the title still has the focus (${lk.focus})`);
         const th0 = await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F);
         // the status line is empty before the first write (this is what moved the page by its own height in beta: the first words in it pushed the page down)
-        const geom = () => o.evaluate(sel => { const q = s => document.querySelector(sel + " " + s), r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; }; const st = document.querySelector(sel + " .booklet-design-status"); return { status: st ? st.textContent : null, statusPos: st ? getComputedStyle(st).position : null, top: r(q(".booklet-design-top")), scroll: r(q(".booklet-design-scroll")), title: r(q(".booklet-design-field.is-title")), add: r(q("[data-key='o-add']")), box: r(q(".booklet-design-editbox")) }; }, DV);
         const g0 = await geom();
         c.ok(g0.status === "" && g0.statusPos === "absolute", `b: before the first write the status line is empty and out of flow (position ${g0.statusPos}, text ${JSON.stringify(g0.status)})`);
         await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
@@ -2137,19 +2140,24 @@ lang: en
         await closeAll(o);
 
       } catch (e) { c.ok(false, `script error in scene b. one real press on a button of the box straight after typing: the typing is applied, the press lands (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
-      // ----- b2. a LONG new title: the trail above the page ends in the block's title, so a write must not make it wrap into another line and push the page down
+      // ----- b2. a LONG new title, then a real press on the button: the write happens at the press, and the page (drawn again only when the pointer is up, the trail above it ends in the new title) does not move under it
       try {
         n = await start();
         await open(n, "[!choice|fruit]");
         const LONGT = "Which fruit would you pick if you could only have one of them for the whole of the rest of this long and rather tiring week, and why that one and not another?";
         await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(LONGT); await sleep(200);
-        const rects = () => o.evaluate(sel => { const r = s => { const e = document.querySelector(sel + " " + s), b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x), Math.round(b.y), Math.round(b.width), Math.round(b.height)] : null; }; return { top: r(".booklet-design-top"), scroll: r(".booklet-design-scroll"), crumb: r(".booklet-design-crumb"), status: (document.querySelector(sel + " .booklet-design-status") || {}).textContent }; }, DV);
-        const q0 = await rects();
-        await o.page.keyboard.press("Tab"); await sleep(900); await idle(o);
-        const q1 = await rects();
-        c.ok(/^Changed /.test(q1.status || "") && JSON.stringify([q0.top, q0.scroll]) === JSON.stringify([q1.top, q1.scroll]), `b2: a write of a long title moved neither the header nor the page (header ${JSON.stringify(q0.top)} then ${JSON.stringify(q1.top)}, page ${JSON.stringify(q0.scroll)} then ${JSON.stringify(q1.scroll)}; crumb ${JSON.stringify(q0.crumb)} then ${JSON.stringify(q1.crumb)}; status ${JSON.stringify((q1.status || "").slice(0, 40))})`);
+        await o.page.locator(`${DV} [data-key='o-add']`).scrollIntoViewIfNeeded(); await sleep(250);
+        const q0 = await geom();
+        await o.page.mouse.move(q0.add[0] + q0.add[2] / 2, q0.add[1] + q0.add[3] / 2);
+        await o.page.mouse.down(); await sleep(400);
+        const q1 = await geom();
+        c.ok(/^Changed /.test(q1.status || "") && JSON.stringify([q0.top, q0.scroll, q0.add]) === JSON.stringify([q1.top, q1.scroll, q1.add]), `b2: a long title written at the press moved neither the header, the page nor the button while it was held (button ${JSON.stringify(q0.add)} then ${JSON.stringify(q1.add)}, header ${JSON.stringify(q0.top)} then ${JSON.stringify(q1.top)}; status ${JSON.stringify((q1.status || "").slice(0, 40))})`);
+        await o.page.mouse.up();
+        r = await waitDisk(n.file, tx => tx !== n.t && /\n- \[ \] ?\n/.test(tx)); await sleep(700); await idle(o);
+        w = await writesOf(o, n.rel);
+        c.ok(r.ok && w === 2, `b2: the press landed: the long title and the new row are two writes (${w})`);
         await closeAll(o);
-      } catch (e) { c.ok(false, `script error in scene b2. a long title written: ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
+      } catch (e) { c.ok(false, `script error in scene b2. a long title, then a press on a button: ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
       // ----- c. Escape after typing applies and closes
       try {
         n = await start();
