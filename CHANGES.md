@@ -2,7 +2,7 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
-## 1.6.0-beta.4
+## 1.6.0
 
 **The Design view's editor is rebuilt: the block opens as itself, and every change is saved as you make it.**
 
@@ -16,7 +16,7 @@ This file lists what changed in each release of the plugin. It did not exist bef
 - **Undo and Redo, and they do not throw.** Typing is applied first, so the step undone is the typing's own; with nothing to undo or redo the status line says so; a step the note no longer matches (it was changed outside the view) is refused with the reason and stays on the stack; presses made at once never interleave or double-apply; with a question about kept data open they do nothing; whatever goes wrong becomes a line in the status line and the page is drawn from the note.
 - **Tests.** The unit tests of the editor, rows, form, undo and canvas were rewritten for the new model; `test/design-parts.test.mjs` is new. In the real Obsidian checks 66 to 74 were rewritten or fixed for the new box, and two checks are new: 75 (the in-place flow with real keys and mouse) and 76 (Undo and Redo over twelve changes of mixed kinds, byte for byte, and the edges).
 
-## 1.6.0 (a beta)
+## 1.6.0, as built up in the betas (the Design view itself is still labelled a beta)
 
 1.5.0 was never released: everything that was to be in it ships here, listed under *From 1.5.0* at the end. The manifest, `package.json` and `versions.json` go from 1.4.0 to 1.6.0, and `versions.json` has no 1.5.0 line.
 
