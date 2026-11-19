@@ -346,6 +346,11 @@
 	font-size: var(--font-ui-small);
 }
 
+/* the formatting bar's buttons are small squares, not pills with a margin of their own */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-rich-button {
+	padding: 0 var(--size-2-3);
+}
+
 .booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions button {
 	padding: 0 var(--size-4-2);
 }

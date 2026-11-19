@@ -13,6 +13,12 @@
  *   Markdown             the block's own lines, in a section that is closed until it is opened (open at once when nothing else of the
  *                        block can be edited in place, with the reason said)
  *
+ * VERY MODEST RICH TEXT. Over the words there is a small bar (Bold, Italic, Link, Bullets) and the keys Ctrl/Cmd+B, I, K and Shift+8. They
+ * only put Markdown markers into, or take them out of, the text of the focused title, description or prose field (core `richFormat`): the
+ * field shows and saves the Markdown, nothing else exists. The bar is always in the box while the block has words, the same size whatever
+ * has the focus (its buttons only go quiet), and a press on it never moves the focus: so nothing moves, and a press right after typing is not
+ * lost. A format changes the field in place and is then applied when the field is left, like typing (one write, one step of Undo).
+ *
  * WHEN A CONTROL IS APPLIED. A switch, a button and a choice are applied the moment they are pressed. A control of words (the title, the
  * description, a settings value, a row's words, the Markdown) is applied when it is LEFT, when Enter is pressed in a one-line one, and by
  * whatever is about to end the block's life first (`applyAll`, called by the view in its own lane: Esc, Ctrl/Cmd+Enter, another block, Undo,
@@ -31,7 +37,7 @@
  * added, removed or moved, a switch that adds or takes away other rows, the block becoming one the fields cannot show) draws that part
  * again, with the focus put on the control the person was on, or the one the press leads to.
  */
-import { Setting, type App } from "obsidian";
+import { Platform, Setting, type App } from "obsidian";
 import {
 	applyFormChange,
 	applyFrontMatterChange,
@@ -41,12 +47,17 @@ import {
 	frontMatterFormOfLines,
 	readParts,
 	restOf,
+	richFormat,
+	richTakes,
 	writeDescription,
 	type DesignKind,
 	type DesignNode,
 	type Form,
 	type FormChange,
 	type FrontMatterForm,
+	type RichAction,
+	type RichRefusal,
+	type RichWhere,
 } from "./core";
 import { pickIcon } from "./editor-modals";
 import { drawIcon } from "./design-picture";
@@ -181,6 +192,64 @@ const WHOLE_SETTINGS: ReadonlySet<string> = new Set(["earlier", "left"]);
 /** A title is one line: a break pasted into it is a space. */
 const oneLine = (v: string): string => v.replace(/\s*[\r\n]+\s*/g, " ");
 
+/** What is said when a format is refused, by the core's code (the status line of the view; nothing in the box moves). */
+const REFUSAL_WORDS: Readonly<Record<RichRefusal, DesignKey>> = {
+	"no-bullets": "rich.no.bullets",
+	nothing: "rich.no.nothing",
+	rule: "rich.no.rule",
+	block: "rich.no.block",
+	crowded: "rich.no.crowded",
+	"link-lines": "rich.no.linkLines",
+	"link-brackets": "rich.no.linkBrackets",
+	"link-image": "rich.no.linkImage",
+	"bullet-kind": "rich.no.bulletKind",
+};
+
+/** The format a key asks for: Ctrl (Cmd on a Mac) with B, I or K, or with Shift and 8 for a bullet list; null for any other key. */
+export function richKeyOf(evt: KeyboardEvent): RichAction | null {
+	if (evt.isComposing || evt.altKey) return null;
+	// on a Mac Ctrl+B and Ctrl+I are the caret's own (back one character, and a tab), so only Cmd; elsewhere Ctrl, never the Windows key
+	if (Platform.isMacOS ? !evt.metaKey || evt.ctrlKey : !evt.ctrlKey || evt.metaKey) return null;
+	if (evt.shiftKey) return evt.code === "Digit8" || evt.key === "*" ? "bullets" : null;
+	const k = evt.key.toLowerCase();
+	return k === "b" ? "bold" : k === "i" ? "italic" : k === "k" ? "link" : null;
+}
+
+/**
+ * Puts `next` into the field in place of what it has, over only the stretch that differs, by the editing command route so that the
+ * browser's own Undo in the field goes back one step per format (a plain `value =` would empty its undo history); a browser without the
+ * command gets `setRangeText` and an input event, as typing would have raised.
+ */
+function putText(el: HTMLTextAreaElement, next: string): void {
+	const old = el.value;
+	let p = 0;
+	while (p < old.length && p < next.length && old[p] === next[p]) p++;
+	let q = 0;
+	while (q < old.length - p && q < next.length - p && old[old.length - 1 - q] === next[next.length - 1 - q]) q++;
+	// never between the two halves of a character
+	if (p > 0 && /[\ud800-\udbff]/.test(old[p - 1] ?? "")) p--;
+	if (q > 0 && /[\udc00-\udfff]/.test(old[old.length - q] ?? "")) q--;
+	const from = p;
+	const to = old.length - q;
+	const text = next.slice(p, next.length - q);
+	el.setSelectionRange(from, to);
+	let done = false;
+	try {
+		const doc = el.ownerDocument;
+		// the editing command is deprecated, but it is the one route that puts a change on the field's own Undo stack (setRangeText does not)
+		const command = (doc as unknown as { execCommand?: (name: string, ui?: boolean, value?: string) => boolean }).execCommand;
+		done = typeof command !== "function" ? false : text === "" ? command.call(doc, "delete") : command.call(doc, "insertText", false, text);
+	} catch {
+		done = false;
+	}
+	if (done && el.value === next) return;
+	if (el.value !== next) {
+		el.value = old;
+		el.setRangeText(text, from, to, "end");
+		el.dispatchEvent(new Event("input", { bubbles: true }));
+	}
+}
+
 export class EditorBox {
 	readonly box: HTMLElement;
 	readonly area: HTMLTextAreaElement;
@@ -191,6 +260,13 @@ export class EditorBox {
 	private readonly state: HTMLElement;
 	private readonly refusal: HTMLElement;
 	private readonly noticeHost: HTMLElement;
+	/** The small formatting bar over the words (Bold, Italic, Link, Bullets): always there while the block has words, so nothing moves when a field has the focus or loses it. */
+	private readonly richBar: HTMLElement;
+	private readonly richButtons = new Map<RichAction, HTMLButtonElement>();
+	/** The field of words that has the focus now (the bar's buttons act on it), or null. */
+	private richActive: Field | null = null;
+	/** The key events that have been done as a format already (the scope and the field may both hear one). */
+	private readonly keysDone = new WeakSet<Event>();
 	private readonly wordsHost: HTMLElement;
 	private readonly formHost: HTMLElement;
 	private readonly rowsHost: HTMLElement;
@@ -234,6 +310,8 @@ export class EditorBox {
 		this.box = parent.createDiv({ cls: ["booklet-design-editbox", `is-kind-${ed.kind}`], attr: { role: "group", "aria-label": ui("editor.label", { name }) } });
 		this.noticeHost = this.box.createDiv({ cls: "booklet-design-editor-moved" });
 		this.noticeHost.hidden = true;
+		this.richBar = this.box.createDiv({ cls: "booklet-design-richbar", attr: { role: "toolbar", "aria-label": ui("rich.bar") } });
+		this.drawRichBar();
 		this.wordsHost = this.box.createDiv({ cls: "booklet-design-edit-words" });
 		this.rowsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-rows booklet-design-rows booklet-design-settings" });
 		this.mediaHost = this.box.createDiv({ cls: "booklet-design-edit-section is-media booklet-design-rows booklet-design-settings" });
@@ -292,10 +370,14 @@ export class EditorBox {
 				host.confirm();
 			}
 		});
-		this.box.addEventListener("focusin", () => this.holdSave());
+		this.box.addEventListener("focusin", (evt) => {
+			this.holdSave();
+			this.syncBar(evt.target as Element | null);
+		});
 		this.box.addEventListener("focusout", (evt) => {
 			const to = evt.relatedTarget as Node | null;
 			if (!to || !this.box.contains(to)) this.releaseSave();
+			this.syncBar(to && to.nodeType === 1 ? (to as Element) : null);
 		});
 		this.place(where);
 		this.render(this.host.lines() ?? [], true);
@@ -577,6 +659,8 @@ export class EditorBox {
 		}
 		// the words first: the title and the description, or the reason the block is edited as Markdown
 		const cap = this.capOf(lines);
+		// the bar is there for as long as the block has words to format, whatever has the focus (it never comes and goes under a press)
+		this.richBar.hidden = cap.why !== null || (!cap.title && !cap.desc);
 		const capShape = JSON.stringify(cap);
 		if (capShape !== this.wordsShape) {
 			if (this.anyTyping("words")) complete = false;
@@ -641,6 +725,90 @@ export class EditorBox {
 			want.focus();
 			this.wanted = null;
 		}
+		this.syncBar(this.box.ownerDocument.activeElement);
+	}
+
+	// ---------------------------------------------------------------- the formatting bar: Markdown markers, nothing else
+
+	/** The buttons: Bold, Italic, Link, Bullets. A press never takes the focus from the field (see `drawRichBar`), so the selection it acts on is kept. */
+	private drawRichBar(): void {
+		const chord = (k: string): string => `${Platform.isMacOS ? "\u2318" : "Ctrl+"}${k}`;
+		const make = (what: RichAction, key: DesignKey, glyph: string | string[], shortcut: string, aria: string): void => {
+			const label = ui(key);
+			const b = this.richBar.createEl("button", {
+				cls: ["booklet-design-rich-button", `is-${what}`],
+				// the keys are the way in for the keyboard, so the buttons stay out of the Tab order (they are for the pointer and the finger)
+				attr: { type: "button", tabindex: "-1", "aria-label": label, "aria-disabled": "true", "aria-keyshortcuts": aria, title: `${label} (${shortcut})`, "data-rich": what },
+			});
+			if (typeof glyph === "string") b.createSpan({ cls: `booklet-design-rich-glyph is-${what}`, text: glyph, attr: { "aria-hidden": "true" } });
+			else if (!drawIcon(b, glyph)) b.setText(label);
+			// the press does not move the focus: the field keeps it and its selection (a press right after typing is not lost, and nothing is
+			// redrawn for it); a touch is the same, since the focus moves on the mouse event it makes
+			b.addEventListener("pointerdown", (evt) => evt.preventDefault());
+			b.addEventListener("mousedown", (evt) => evt.preventDefault());
+			b.addEventListener("click", () => this.formatBy(what));
+			this.richButtons.set(what, b);
+		};
+		make("bold", "rich.bold", "B", chord("B"), `${Platform.isMacOS ? "Meta" : "Control"}+B`);
+		make("italic", "rich.italic", "I", chord("I"), `${Platform.isMacOS ? "Meta" : "Control"}+I`);
+		make("link", "rich.link", ["link"], chord("K"), `${Platform.isMacOS ? "Meta" : "Control"}+K`);
+		make("bullets", "rich.bullets", ["list"], chord("Shift+8"), `${Platform.isMacOS ? "Meta" : "Control"}+Shift+8`);
+		this.richBar.hidden = true;
+	}
+
+	/** Gives a field of words the formatting keys, and applies it when it is left even if its words were changed by the bar (which does not raise a change event). */
+	private richen(f: Field, where: RichWhere): void {
+		f.el.setAttribute("data-rich", where);
+		f.el.addEventListener("keydown", (evt: Event) => {
+			const what = richKeyOf(evt as KeyboardEvent);
+			if (!what || !richTakes(where, what)) return;
+			evt.preventDefault();
+			evt.stopPropagation();
+			if (this.keysDone.has(evt)) return;
+			this.keysDone.add(evt);
+			this.formatBy(what);
+		});
+		f.el.addEventListener("blur", () => this.leave(f));
+	}
+
+	/** Which buttons are on: only while a field of words has the focus, and bullets only in a field of prose. */
+	private syncBar(target: Element | null): void {
+		const f = target ? (this.fields.find((x) => x.el === target && x.el.hasAttribute("data-rich")) ?? null) : null;
+		this.richActive = f;
+		const where = f ? (f.el.getAttribute("data-rich") as RichWhere) : null;
+		for (const [what, b] of this.richButtons) b.setAttribute("aria-disabled", where && richTakes(where, what) ? "false" : "true");
+	}
+
+	/**
+	 * A formatting chord heard by the view's scope (the app's key map takes these chords before a field hears them, see the view's
+	 * `holdSaveKey`): gives true when it was a format of the field that has the focus, and has done it. Each event is done once, whichever of
+	 * the scope and the field heard it.
+	 */
+	formatKey(evt: KeyboardEvent): boolean {
+		const f = this.richActive;
+		const what = richKeyOf(evt);
+		if (!f || !what || !richTakes(f.el.getAttribute("data-rich") as RichWhere, what)) return false;
+		if (!this.keysDone.has(evt)) {
+			this.keysDone.add(evt);
+			this.formatBy(what);
+		}
+		return true;
+	}
+
+	/** A format asked for by a button or a key: the field's text and selection become what the core says, or why not is said. */
+	private formatBy(what: RichAction): void {
+		const f = this.richActive;
+		if (!f || !f.el.isConnected) return;
+		const el = f.el as HTMLTextAreaElement;
+		const where = el.getAttribute("data-rich") as RichWhere;
+		if (!richTakes(where, what)) return;
+		const r = richFormat(el.value, el.selectionStart, el.selectionEnd, what, where);
+		if (!r.ok) {
+			this.host.say(ui(REFUSAL_WORDS[r.code]));
+			return;
+		}
+		if (r.changed) putText(el, r.text);
+		el.setSelectionRange(r.start, r.end);
 	}
 
 	/** What the fields can show of these lines: a title and a description for a question, a callout or a prose block; a title for any other Booklet line. */
@@ -681,17 +849,20 @@ export class EditorBox {
 		};
 		if (cap.title) {
 			const el = field("is-title", ui("form.title"), ui("form.title"), this.valueOf(lines, { type: "title" }) ?? "", true);
-			this.field(
-				"words",
-				el,
-				(value, cur) => this.formChange(cur, { what: "title", value: oneLine(value).trim() }),
-				(cur) => this.valueOf(cur, { type: "title" }),
+			this.richen(
+				this.field(
+					"words",
+					el,
+					(value, cur) => this.formChange(cur, { what: "title", value: oneLine(value).trim() }),
+					(cur) => this.valueOf(cur, { type: "title" }),
+				),
+				"title",
 			);
 		}
 		if (cap.desc) {
 			const p = readParts(lines, kind);
 			const el = field("is-desc", ui(cap.desc === "help" ? "edit.desc" : "edit.words"), ui(cap.desc === "help" ? "edit.desc" : "edit.words"), "refused" in p ? "" : p.description, false);
-			this.field(
+			this.richen(this.field(
 				"words",
 				el,
 				(value, cur, was) => {
@@ -705,7 +876,7 @@ export class EditorBox {
 					const now = readParts(cur, this.ed.kind);
 					return "refused" in now || !now.described ? null : now.description;
 				},
-			);
+			), cap.desc === "help" ? "help" : "prose");
 		}
 	}
 

@@ -1479,6 +1479,11 @@ export class DesignView extends LockedTextView {
 				void this.closeEditor();
 				return false;
 			});
+			// the formatting keys of a field of words (Bold, Italic, Link, Bullets) are held the same way, for the same reason: the app's key
+			// map runs its own hotkeys for these chords (Obsidian's own Bold, Italic and Insert link) before the field hears them, and stops the
+			// event. A chord pressed in a field that takes no formatting (an id, the Markdown) is not taken, and goes on as it did
+			for (const [mods, key] of [[["Mod"], "b"], [["Mod"], "i"], [["Mod"], "k"], [["Mod", "Shift"], "8"], [["Mod", "Shift"], "*"]] as const)
+				scope.register([...mods], key, (evt) => (this.editor?.formatKey(evt) ? false : undefined));
 			this.saveScope = scope;
 		}
 		this.app.keymap.pushScope(this.saveScope);

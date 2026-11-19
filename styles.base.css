@@ -4447,6 +4447,56 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	display: none;
 }
 
+/* the formatting bar over the words: Markdown markers only. It is there for as long as the block has words, at the same height whether or not a field has the focus (its buttons only go quiet), so nothing moves under a press */
+.booklet-design-richbar {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: var(--size-2-3);
+	min-height: var(--size-4-8);
+}
+
+.booklet-design-richbar[hidden] {
+	display: none;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: var(--size-4-8);
+	height: var(--size-4-8);
+	padding: 0 var(--size-2-3);
+	font-size: var(--font-ui-small);
+	line-height: 1;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button[aria-disabled="true"] {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+/* on a phone each of the bar's buttons is 44 px wide as well as high, in every look */
+.is-mobile .booklet-design .booklet-design-editbox .booklet-design-rich-button,
+.booklet-design.is-phone .booklet-design-editbox .booklet-design-rich-button {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.booklet-design-rich-glyph.is-bold {
+	font-weight: var(--font-bold);
+}
+
+.booklet-design-rich-glyph.is-italic {
+	font-style: italic;
+}
+
 .booklet-design-field {
 	display: block;
 	box-sizing: border-box;

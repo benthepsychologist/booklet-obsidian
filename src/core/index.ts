@@ -49,6 +49,7 @@ export * from "./design-ops";
 export * from "./design-form";
 export * from "./design-options";
 export * from "./design-parts";
+export * from "./design-rich";
 export * from "./design-media";
 export * from "./design-sources";
 export * from "./design-outline";
