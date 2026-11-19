@@ -1,4 +1,4 @@
-// Checks 64 to 76 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 77 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -28,6 +28,8 @@
 //      closing, a drag that ends on the page, the Markdown section, a mode switch and a closed pane with typing pending, typing held when the note changed
 //   76 Undo and Redo in the real app: twelve changes of mixed kinds undone and redone byte for byte, typing pending, nothing to undo, rapid presses, an outside
 //      edit of the note, a dialog open; no console or page error
+//   77 the view stands still: with long titles, at a wide pane, at about 740 px and at 390 px, a press on a block and the block opening and closing change neither the header, the trail
+//      nor the page's place; the status line is a strip in the flow of one fixed height that never covers the page, so a message moves nothing
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto");
 const { frames, mobile } = require("./waits");
@@ -1382,7 +1384,7 @@ lang: en
       await o.page.locator(barBtn("question", fruit, "edit")).click(); await sleep(500);
       st = await state(o);
       c.ok(st.editBox && st.editor, "the bar's Edit as Markdown opens the block in place on the phone with its Markdown section open (the words of the button are what it does)");
-      c.ok((await o.evaluate(sel => { const st = document.querySelector(sel + " .booklet-design-status"), line = document.querySelector(sel + " .booklet-design-status-line"); return getComputedStyle(st).position + "|" + Math.round(line.getBoundingClientRect().height); }, DV)) === "absolute|0", "phone: the status line is out of flow (it lies over the page and takes no height), so a write's words move nothing");
+      c.ok((await o.evaluate(sel => { const st = document.querySelector(sel + " .booklet-design-status"), r = st.getBoundingClientRect(), sc = document.querySelector(sel + " .booklet-design-scroll").getBoundingClientRect(); return getComputedStyle(st).position !== "absolute" && r.height >= 16 && r.bottom <= sc.top + 0.5; }, DV)) === true, "phone: the status line is a strip in the flow with its one line of height, above the page's scroll area (it covers nothing), so a write's words move nothing");
       await judge("the open block");
       await shot(o, "phone-editor-light");
       await o.setScheme("dark"); await sleep(500); await shot(o, "phone-editor-dark"); await o.setScheme("light"); await sleep(300);
@@ -2073,7 +2075,7 @@ lang: en
       const start = async () => { const n = mk(); await openDesign(o, n.rel); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); return n; };
       const open = async (n, needle) => { await clickBlock(o, "question", lineOf(n.t, needle)); await sleep(150); };
       /** What the box shows now, as a person sees it: where the focus is and where the box's buttons stand. */
-      const geom = () => o.evaluate(sel => { const q = s => document.querySelector(sel + " " + s), r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; }; const st = document.querySelector(sel + " .booklet-design-status"); return { status: st ? st.textContent : null, statusPos: st ? getComputedStyle(st).position : null, top: r(q(".booklet-design-top")), scroll: r(q(".booklet-design-scroll")), title: r(q(".booklet-design-field.is-title")), add: r(q("[data-key='o-add']")), box: r(q(".booklet-design-editbox")) }; }, DV);
+      const geom = () => o.evaluate(sel => { const q = s => document.querySelector(sel + " " + s), r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; }; const st = document.querySelector(sel + " .booklet-design-status"); return { status: st ? st.textContent : null, statusPos: st ? getComputedStyle(st).position : null, strip: r(st), top: r(q(".booklet-design-top")), scroll: r(q(".booklet-design-scroll")), title: r(q(".booklet-design-field.is-title")), add: r(q("[data-key='o-add']")), box: r(q(".booklet-design-editbox")) }; }, DV);
       const look = () => o.evaluate(sel => {
         const g = s => document.querySelector(sel + " " + s), a = document.activeElement, add = g("[data-key='o-add']"), r = add && add.getBoundingClientRect();
         return { focus: a ? (a.closest("[data-field]") ? a.closest("[data-field]").getAttribute("data-field") : (a.getAttribute("data-key") || a.className || a.tagName)) : null, add: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null, unsaved: /unsaved/i.test((g(".booklet-design-editbox") || { textContent: "" }).textContent) };
@@ -2113,16 +2115,16 @@ lang: en
         const before = lk.add;
         c.ok(!!before && before.y >= 0 && before.y + before.h <= await o.evaluate(() => window.innerHeight), `b: the "Add an option" button is on the screen (y ${Math.round(before.y)}, ${Math.round(before.h)} px high) and the title still has the focus (${lk.focus})`);
         const th0 = await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F);
-        // the status line is empty before the first write (this is what moved the page by its own height in beta: the first words in it pushed the page down)
+        // the status line is empty before the first write (this is what moved the page by its own height in beta: the first words in it pushed the page down); its strip is in the flow with its one line of height already, so the first words take no room
         const g0 = await geom();
-        c.ok(g0.status === "" && g0.statusPos === "absolute", `b: before the first write the status line is empty and out of flow (position ${g0.statusPos}, text ${JSON.stringify(g0.status)})`);
+        c.ok(g0.status === "" && g0.statusPos !== "absolute" && g0.statusPos !== "fixed" && !!g0.strip && g0.strip[3] >= 16, `b: before the first write the status line is empty and its strip is in the flow with its height already (position ${g0.statusPos}, ${JSON.stringify(g0.strip)}, text ${JSON.stringify(g0.status)})`);
         await o.page.mouse.move(before.x + before.w / 2, before.y + before.h / 2);
         await o.page.mouse.down();
         await sleep(300);
         const during = await look();
         const g1 = await geom();
         c.ok(/^Changed /.test(g1.status || ""), `b: the press had already written the typed title while it was held (status ${JSON.stringify(g1.status)}), so the geometry below was measured after a write`);
-        c.ok(JSON.stringify([g0.top, g0.scroll, g0.title, g0.add, g0.box]) === JSON.stringify([g1.top, g1.scroll, g1.title, g1.add, g1.box]), `b: a write moved nothing: the header, the scroll area, the title, the Add button and the box have the same rectangles before and after it (${JSON.stringify({ add0: g0.add, add1: g1.add, scroll0: g0.scroll, scroll1: g1.scroll })})`);
+        c.ok(JSON.stringify([g0.top, g0.strip, g0.scroll, g0.title, g0.add, g0.box]) === JSON.stringify([g1.top, g1.strip, g1.scroll, g1.title, g1.add, g1.box]), `b: a write moved nothing: the header, the status strip, the scroll area, the title, the Add button and the box have the same rectangles before and after it (${JSON.stringify({ add0: g0.add, add1: g1.add, scroll0: g0.scroll, scroll1: g1.scroll })})`);
         c.info(`b: the title field is ${await o.evaluate(sel => document.querySelector(sel).getBoundingClientRect().height, TITLE_F)} px high while the button is held; lines of the title: ${JSON.stringify(await o.evaluate(sel => document.querySelector(sel).value, TITLE_F))}; was ${th0}`);
         c.ok(!!during.add && Math.abs(during.add.y - before.y) < 1 && Math.abs(during.add.x - before.x) < 1 && !during.unsaved, `b: while the button is held down the box did not move or change (the button at y ${Math.round(before.y)} then ${Math.round(during.add && during.add.y)}; the focus is on ${during.focus})`);
         await shot(o, "typing-b-pressed");
@@ -2141,7 +2143,7 @@ lang: en
         await closeAll(o);
 
       } catch (e) { c.ok(false, `script error in scene b. one real press on a button of the box straight after typing: the typing is applied, the press lands (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); }
-      // ----- b2. a LONG new title, then a real press on the button: the write happens at the press, and the page (drawn again only when the pointer is up, the trail above it ends in the new title) does not move under it
+      // ----- b2. a LONG new title, then a real press on the button: the write happens at the press, and the page (drawn again only when the pointer is up; the trail above it is the page's and does not change) does not move under it
       try {
         n = await start();
         await open(n, "[!choice|fruit]");
@@ -2152,7 +2154,7 @@ lang: en
         await o.page.mouse.move(q0.add[0] + q0.add[2] / 2, q0.add[1] + q0.add[3] / 2);
         await o.page.mouse.down(); await sleep(400);
         const q1 = await geom();
-        c.ok(/^Changed /.test(q1.status || "") && JSON.stringify([q0.top, q0.scroll, q0.add]) === JSON.stringify([q1.top, q1.scroll, q1.add]), `b2: a long title written at the press moved neither the header, the page nor the button while it was held (button ${JSON.stringify(q0.add)} then ${JSON.stringify(q1.add)}, header ${JSON.stringify(q0.top)} then ${JSON.stringify(q1.top)}; status ${JSON.stringify((q1.status || "").slice(0, 40))})`);
+        c.ok(/^Changed /.test(q1.status || "") && JSON.stringify([q0.top, q0.strip, q0.scroll, q0.add]) === JSON.stringify([q1.top, q1.strip, q1.scroll, q1.add]), `b2: a long title written at the press moved neither the header, the page nor the button while it was held (button ${JSON.stringify(q0.add)} then ${JSON.stringify(q1.add)}, header ${JSON.stringify(q0.top)} then ${JSON.stringify(q1.top)}; status ${JSON.stringify((q1.status || "").slice(0, 40))})`);
         await o.page.mouse.up();
         r = await waitDisk(n.file, tx => tx !== n.t && /\n- \[ \] ?\n/.test(tx)); await sleep(700); await idle(o);
         w = await writesOf(o, n.rel);
@@ -2851,5 +2853,171 @@ lang: en
   const W76 = (o, rel) => writesOf(o, rel);
   const diffs76 = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76 };
+
+  /* ================= CHECK 77 ================= */
+  // The Design view's header and page stand still. (A) Selecting a block, opening it and closing it does not move the page or change the header's height:
+  // the trail above the page is the PAGE's, never the selected block's (beta.4 added the block as one more segment, and in a narrow pane the trail wrapped to
+  // another line, so a press moved the page by 20 to 45 px). (B) The status line has a strip of its own, always in the flow and always the same height, so
+  // the words of a write move nothing and cover nothing (beta.4 laid it over the top line of the page). Real Chromium geometry, real mouse and keys, at a
+  // wide pane (about 1000 px), a pane just above the narrow switch (about 740 px) and the phone layout (390 px), with long titles for the booklet, module,
+  // activity and every block, so the trail has to wrap. The rectangles are read with getBoundingClientRect; jsdom cannot see layout.
+  async function check77() {
+    const c = new Check(77, "the Design view stands still: with long titles, at a wide pane (about 1000 px), a pane just above the narrow switch (about 740 px) and the phone layout (390 px), a real press on a callout, a choice, a matrix, a text question and a listen block, the block opening and closing, change neither the header's rectangle nor the page's place nor the trail (it is the page's, whatever is selected); the status line is a strip in the flow of one fixed height, empty or with a message (a long one cut short with its whole text in its title), that never overlaps the page's first line, and the header, the scroll area, the page's title and the Add-an-option button have the same rectangles before a write, with its message, after the next message and when it is cleared");
+    const LB = "The long booklet of a long year", LM = "A module with a long title too", LA = "An activity titled at length";
+    const Q = n => `${n} which is asked with a long title that a person might really write, going on over more than one line of a narrow pane`;
+    const note = name => [
+      "---", "booklet: \"0.20\"", `id: booklet-test/still-${name}`, `title: ${LB}`, "lang: en", "---", "",
+      `> [!module|m] ${LM}`, "", `> [!activity|a] ${LA}`, "",
+      `> [!note] ${Q("A callout")}`, "> Words in the callout, as a reader sees them.", "",
+      `> [!choice|fruit] ${Q("A choice")}`, "- [ ] Apple", "- [x] Pear", "",
+      `> [!matrix|sure] ${Q("A matrix")}`, "", "- Spring tides", "- Neap tides", "", "0. Not yet", "1. Sure", "",
+      `> [!text|free] ${Q("A text question")}`, "",
+      `> [!listen|tone] ${Q("A listen block")}`, "> ![A short tone](media/tone.wav)", "",
+      "> [!module|m end]", "",
+    ].join("\n");
+    const KINDS = [["callout", "callout", "[!note]"], ["choice", "question", "[!choice|fruit]"], ["matrix", "question", "[!matrix|sure]"], ["text", "question", "[!text|free]"], ["listen", "question", "[!listen|tone]"]];
+    const rnd = v => v == null ? null : Math.round(v * 10) / 10;
+    const rect = e => { const b = e && e.getBoundingClientRect(); return b ? [rnd(b.x), rnd(b.y), rnd(b.width), rnd(b.height)] : null; };
+    /** What a person sees of the frame: the header, the status strip, the scroll area, where the page is in its scroller, its first line, the trail. */
+    const frame = (o, extra = "") => o.evaluate(([sel, extra]) => {
+      const q = s => document.querySelector(sel + " " + s);
+      const r = e => { const b = e && e.getBoundingClientRect(); return b ? [Math.round(b.x * 10) / 10, Math.round(b.y * 10) / 10, Math.round(b.width * 10) / 10, Math.round(b.height * 10) / 10] : null; };
+      const sc = q(".booklet-design-scroll"), pg = q(".booklet-design-page"), st = q(".booklet-design-status"), kind = q(".booklet-design-page-kind"), title = q(".booklet-design-page-title");
+      const pr = pg && pg.getBoundingClientRect(), sr = sc && sc.getBoundingClientRect();
+      return {
+        top: r(q(".booklet-design-top")), crumb: r(q(".booklet-design-crumb")), status: r(st), scroll: r(sc),
+        pageAbs: pr && sr ? Math.round((pr.top - sr.top + sc.scrollTop) * 10) / 10 : null,
+        kindRect: r(kind), titleRect: r(title), scrollTop: sc ? sc.scrollTop : null,
+        trail: [...document.querySelectorAll(sel + " .booklet-design-crumb button")].map(b => b.textContent + (b.getAttribute("aria-current") === "true" ? "*" : "")),
+        crumbLines: (() => { const ys = new Set([...document.querySelectorAll(sel + " .booklet-design-crumb button")].map(b => Math.round(b.getBoundingClientRect().y))); return ys.size; })(),
+        statusText: st ? st.textContent : null, statusTitle: st ? st.getAttribute("title") : null, statusPos: st ? getComputedStyle(st).position : null,
+        statusClip: st ? [st.scrollWidth, st.clientWidth] : null, extra: extra ? r(q(extra)) : null,
+        phone: !!document.querySelector(sel + " .view-content.is-phone"),
+        paneW: (document.querySelector(sel + " .view-content") || {}).clientWidth,
+      };
+    }, [DV, extra]);
+    const same = (a, b, keys) => keys.every(k => JSON.stringify(a[k]) === JSON.stringify(b[k]));
+    const pick = (f, keys) => JSON.stringify(Object.fromEntries(keys.map(k => [k, f[k]])));
+    await withApp("c77", async (o, vault) => {
+      let seq = 0;
+      const errs0 = consoleReport.length;
+      const mk = () => { const name = "s" + (++seq), rel = `Still ${name}.booklet.md`, t = note(name); return { rel, file: put(vault, rel, t), t }; };
+      const start = async (wide) => { const n = mk(); await openDesign(o, n.rel, "tab", true, wide); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); await idle(o); return n; };
+      const closeBox = async () => { for (let i = 0; i < 3 && (await state(o)).editBox; i++) { await o.page.keyboard.press("Escape"); await sleep(250); } await idle(o); };
+      /** Scene A at the width the Obsidian is at now: each kind pressed for real, opened, closed. */
+      const sceneA = async (label, n) => {
+        const f0 = await frame(o);
+        c.info(`${label}: the pane is ${f0.paneW} px wide (${f0.phone ? "phone layout" : "desktop layout"}), the header ${f0.top && f0.top[2]} px wide; the trail of the page is ${f0.trail.length} crumbs on ${f0.crumbLines} line(s), the header ${f0.top && f0.top[3]} px high`);
+        c.ok(f0.trail.length >= 3 && f0.trail.filter(t => t.endsWith("*")).length === 1 && f0.trail[f0.trail.length - 1].endsWith("*"), `${label}: the trail names the booklet, the module and the activity, and the activity's own last crumb is the current one (${JSON.stringify(f0.trail.map(t => t.slice(0, 22)))})`);
+        const keys = ["top", "crumb", "scroll", "pageAbs", "trail"];
+        for (const [tag, kind, needle] of KINDS) {
+          try {
+            await shot(o, `still-a-${label.replace(/\W+/g, "")}-${tag}-0before`);
+            await o.page.locator(block(kind, lineOf(n.t, needle))).scrollIntoViewIfNeeded(); await sleep(150);
+            const b0 = await frame(o);
+            await o.page.locator(block(kind, lineOf(n.t, needle))).click();
+            await o.page.waitForSelector(block(kind, lineOf(n.t, needle)) + ".is-selected", { timeout: 5000 }); await sleep(250); await idle(o);
+            const b1 = await frame(o); const open1 = (await state(o)).editBox;
+            await shot(o, `still-a-${label.replace(/\W+/g, "")}-${tag}-1selected`);
+            await closeBox(); await sleep(200);
+            const b2 = await frame(o); const sel2 = (await state(o)).selected;
+            const ok = same(b0, b1, keys) && same(b0, b2, keys);
+            c.ok(ok, `${label}, ${tag}: a real press ${open1 ? "(the block opened in place) " : ""}and the block closed again (still selected: ${sel2}) change neither the header (${JSON.stringify(b0.top)}), the trail (${b0.crumbLines} line(s), ${b0.trail.length} crumbs), the scroll area, nor the page's place in it (${JSON.stringify(b0.pageAbs)})${ok ? "" : "; DIFFERENT: before " + pick(b0, keys) + ", opened " + pick(b1, keys) + ", closed " + pick(b2, keys)}`);
+          } catch (e) { c.ok(false, `script error in scene A, ${label}, ${tag}: ${String(e && e.message || e).slice(0, 300)}`); await closeBox().catch(() => {}); }
+        }
+        // a press on the page's own last crumb still draws that page, and a press on the module's crumb goes up to the module
+        const trailBefore = (await frame(o)).trail;
+        await o.page.locator(`${DV} .booklet-design-crumb button`).nth(1).click(); await idle(o);
+        const up = await frame(o);
+        c.ok(up.trail.length === 2 && up.trail[1].endsWith("*") && up.trail[1].startsWith("Module"), `${label}: a press on the second crumb draws the module's page, whose own last crumb is the current one (${JSON.stringify(up.trail.map(t => t.slice(0, 22)))}; it was ${trailBefore.length} crumbs)`);
+        await goNav(o, "activity", lineOf(n.t, "[!activity|a]"));
+      };
+      /** Scene B at the width Obsidian is at now: the strip, a real write, its message, the next message, the message cleared. */
+      const sceneB = async (label, n) => {
+        const keys = ["top", "scroll", "status", "extra", "trail"];            // what a write cannot change: the frame, and the Add button when the typed title is already the written one
+        const frameKeys = ["top", "scroll", "trail"];
+        const ADD = ".booklet-design-editbox [data-key='o-add']";
+        const tag = label.replace(/\W+/g, "");
+        /** The strip against the first line of the page, measured with the page scrolled to its top (and put back). */
+        const firstLine = () => o.evaluate(sel => { const sc = document.querySelector(sel + " .booklet-design-scroll"), was = sc.scrollTop; sc.scrollTop = 0; const r = e => { const b = e.getBoundingClientRect(); return [b.top, b.bottom]; }; const out = { strip: r(document.querySelector(sel + " .booklet-design-status")), scroll: r(sc), kind: r(document.querySelector(sel + " .booklet-design-page-kind")), title: r(document.querySelector(sel + " .booklet-design-page-title")), pad: parseFloat(getComputedStyle(sc).paddingTop) }; sc.scrollTop = was; return out; }, DV);
+        try {
+          await clickBlock(o, "question", lineOf(n.t, "[!choice|fruit]"));
+          await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Which fruit would you pick?"); await sleep(200);
+          await o.page.locator(`${DV} ${ADD}`).scrollIntoViewIfNeeded(); await sleep(250);
+          const g0 = await frame(o, ADD);
+          const sh = g0.status && g0.status[3];
+          c.info(`${label}: the strip is ${sh} px high and ${g0.status && g0.status[2]} px wide, empty, at y ${g0.status && g0.status[1]} (the header ends at ${g0.top && rnd(g0.top[1] + g0.top[3])}, the scroll area starts at ${g0.scroll && g0.scroll[1]})`);
+          c.ok(!!g0.status && g0.statusText === "" && g0.statusPos !== "absolute" && g0.statusPos !== "fixed" && g0.status[3] >= 16 && g0.scroll[1] >= g0.status[1] + g0.status[3] - 0.5 && g0.status[1] >= g0.top[1] + g0.top[3] - 0.5, `${label}: before any message the status strip is there (${sh} px high), in the flow (position ${g0.statusPos}), between the header and the scroll area, with nothing in it`);
+          const fl0 = await firstLine();
+          c.ok(fl0.strip[1] <= fl0.scroll[0] + 0.5 && fl0.strip[1] <= fl0.kind[0] + 0.5, `${label}: empty, the strip ends (${rnd(fl0.strip[1])}) above the scroll area (${rnd(fl0.scroll[0])}) and the page's first line (${rnd(fl0.kind[0])})`);
+          await o.page.keyboard.press("Tab");
+          await waitDisk(n.file, tx => tx !== n.t); await sleep(500); await idle(o);
+          await o.page.locator(`${DV} ${ADD}`).scrollIntoViewIfNeeded(); await sleep(250);
+          const g1 = await frame(o, ADD);
+          await shot(o, `still-b-${tag}-1message`);
+          c.ok(/^Changed /.test(g1.statusText || ""), `${label}: a real write (a typed title left by Tab) put its message in the strip (${JSON.stringify(g1.statusText)})`);
+          c.ok(JSON.stringify(g1.status) === JSON.stringify(g0.status), `${label}: the strip has the same rectangle with its message as without (${JSON.stringify(g0.status)} then ${JSON.stringify(g1.status)})`);
+          const fl1 = await firstLine();
+          c.ok(fl1.strip[1] <= fl1.scroll[0] + 0.5 && fl1.strip[1] <= fl1.kind[0] + 0.5 && fl1.strip[1] <= fl1.title[0] + 0.5 && fl1.kind[0] >= fl1.scroll[0] + fl1.pad - 1, `${label}: with its message the strip ends (${rnd(fl1.strip[1])}) above the page's first line (${rnd(fl1.kind[0])}) and its title (${rnd(fl1.title[0])}) when the page is scrolled to its top: it covers none of the page`);
+          c.ok(same(g0, g1, keys), `${label}: a message moved nothing: the header, the strip, the scroll area, the trail and the Add-an-option button have the same rectangles before and after it${same(g0, g1, keys) ? "" : "; DIFFERENT: " + pick(g0, keys) + " then " + pick(g1, keys)}`);
+          // the next message (Undo says "Undone."), then none
+          await undoBtn(o).click(); await waitDisk(n.file, tx => tx === n.t); await idle(o); await sleep(300);
+          const g2 = await frame(o, ADD);
+          // (Undo puts the focus back in the box and the browser may scroll the view's own scroller: so what is compared is where things stand against the header's top)
+          const rel = f => JSON.stringify({ top: [f.top[2], f.top[3]], strip: [f.status[1] - f.top[1], ...f.status.slice(2)], scroll: [f.scroll[1] - f.top[1], f.scroll[2], f.scroll[3]], trail: f.trail });
+          c.ok(/^Undone/.test(g2.statusText || "") && rel(g0) === rel(g2), `${label}: the next message ("${(g2.statusText || "").slice(0, 30)}") changes neither the header, the strip, the scroll area nor the trail, measured from the header's top${rel(g0) === rel(g2) ? "" : "; DIFFERENT: " + rel(g0) + " then " + rel(g2)}`);
+          await o.evaluate(() => { app.workspace.getLeavesOfType("booklet-design")[0].view.say(""); });
+          await sleep(200);
+          const g3 = await frame(o, ADD);
+          c.ok(g3.statusText === "" && g3.statusTitle === null && same(g2, g3, [...keys, "pageAbs", "titleRect", "kindRect"]), `${label}: cleared, the strip is empty (no title) and everything is where it was (header, strip, scroll area, trail, the page, its title and first line, the Add button)`);
+          // a message too long for the strip: cut short, one line, the whole of it in the title, nothing moves
+          const LONG = "Changed Question: " + "a very long title that goes on and on and on ".repeat(8);
+          await o.evaluate(w => { app.workspace.getLeavesOfType("booklet-design")[0].view.say(w); }, LONG);
+          await sleep(200);
+          const g4 = await frame(o, ADD);
+          await shot(o, `still-b-${tag}-2long`);
+          c.ok(g4.statusText === LONG && g4.statusTitle === LONG && g4.statusClip[0] > g4.statusClip[1] && same(g2, g4, [...keys, "pageAbs", "titleRect", "kindRect"]), `${label}: a message much too long for the strip is cut short on one line (${g4.statusClip[0]} px of text in ${g4.statusClip[1]}), its whole text is the strip's title and the strip has the same rectangle (${JSON.stringify(g4.status)}); nothing else moved`);
+          await o.evaluate(() => { app.workspace.getLeavesOfType("booklet-design")[0].view.say(""); });
+        } catch (e) { c.ok(false, `script error in scene B, ${label}: ${String(e && e.message || e).slice(0, 300)}`); }
+        await closeBox().catch(() => {});
+      };
+      let n;
+      // ----- wide
+      try {
+        n = await start(true);
+        await sceneA("wide", n);
+        n = await start(true);
+        await sceneB("wide", n);
+      } catch (e) { c.ok(false, `script error in the wide pane (the next width goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeBox().catch(() => {}); }
+      // ----- a pane just above the narrow switch: the left column still stands beside the page, which is then narrow and its trail wraps
+      try {
+        const f = await frame(o), vp = await o.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+        const delta = vp.w - f.paneW;
+        await o.page.setViewportSize({ width: 740 + delta, height: vp.h }); await sleep(600);
+        n = await start(false);
+        const f2 = await frame(o);
+        c.ok(!f2.phone && f2.paneW >= 700 && f2.paneW <= 780, `the pane is ${f2.paneW} px wide (the window ${740 + delta}) and still the desktop layout, just above the narrow switch (${f2.phone ? "it is the phone layout" : "desktop"})`);
+        await sceneA("740 px", n);
+        n = await start(false);
+        await sceneB("740 px", n);
+      } catch (e) { c.ok(false, `script error in the 740 px pane (the next width goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeBox().catch(() => {}); }
+      // ----- the phone layout
+      try {
+        await o.page.setViewportSize({ width: 390, height: 844 });
+        await mobile(o, true);
+        await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+        n = await start(false);
+        const f3 = await frame(o);
+        c.ok(f3.phone || (await state(o)).phone, `390 px: the phone layout (the pane is ${f3.paneW} px wide)`);
+        await sceneA("phone", n);
+        n = await start(false);
+        await sceneB("phone", n);
+      } catch (e) { c.ok(false, `script error in the phone layout: ${String(e && e.message || e).slice(0, 300)}`); await closeBox().catch(() => {}); }
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77 };
 };

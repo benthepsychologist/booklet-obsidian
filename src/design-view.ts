@@ -655,9 +655,9 @@ export class DesignView extends LockedTextView {
 			this.scrimEl.addEventListener("click", () => this.closePanel());
 			const main = shell.createDiv({ cls: "booklet-design-main" });
 			this.drawTop(main);
-			// the status line lies over the page and takes no room, so a write's words never move the page under a press (see styles.base.css)
-			this.statusEl = main.createDiv({ cls: "booklet-design-status-line" }).createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
-			this.statusEl.setText(this.message);
+			// the status line has a strip of its own that is always there and always one line high, so words in it move nothing and cover nothing (see styles.base.css)
+			this.statusEl = main.createDiv({ cls: "booklet-design-status", attr: { role: "status", "aria-live": "polite", "aria-label": ui("status.label") } });
+			this.showStatus(this.message);
 			if (!isBookletText(this.text)) main.createDiv({ cls: "booklet-design-banner", text: ui("note.notBooklet") });
 			this.armedEl = main.createDiv({ cls: "booklet-design-armedbar", attr: { role: "status" } });
 			this.armedEl.hidden = true;
@@ -776,15 +776,26 @@ export class DesignView extends LockedTextView {
 	private say(words: string): void {
 		this.message = words;
 		this.keysSaid = false;
-		this.statusEl?.setText(words);
+		this.showStatus(words);
+	}
+
+	/** The words in the status strip; the strip is one line and cuts a longer message short, so the whole of it is also its tooltip. */
+	private showStatus(words: string): void {
+		const el = this.statusEl;
+		if (!el) return;
+		el.setText(words);
+		if (words) el.setAttribute("title", words);
+		else el.removeAttribute("title");
 	}
 
 	private drawCrumb(): void {
 		const nav = this.crumbEl;
-		const root = this.root;
-		if (!nav || !root) return;
+		const canvas = this.canvas;
+		if (!nav || !canvas) return;
 		nav.empty();
-		const trail = crumbOf(this.selected ?? root);
+		// the trail runs down to the PAGE on show and never to the selected block (that is shown by the block itself and its bar), so a press on a block
+		// never changes it, and the header never changes height under the person's pointer
+		const trail = canvas.crumb;
 		trail.forEach((n, i) => {
 			if (i) nav.createSpan({ cls: "booklet-design-crumb-sep", text: "›", attr: { "aria-hidden": "true" } });
 			const b = nav.createEl("button", { text: this.titled(n), cls: "booklet-design-crumb-item", attr: { type: "button" } });

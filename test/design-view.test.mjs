@@ -335,9 +335,13 @@ test("a press on a navigator entry draws that page, and only that page; the brea
 	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money", "Activity: Why a budget helps", "Activity tab: Doing"]);
 	assert.equal(v.all(".booklet-design-crumb-item").at(-1).getAttribute("aria-current"), "true");
 	assert.equal(v.el.querySelector(".booklet-design-nav-row.is-current .booklet-design-nav-label").textContent, "Doing", "the navigator marks the page drawn");
-	// a block of the page selected: the trail runs down to it
+	// a block of the page selected: the trail is the page's, as it was (the selection is shown by the block and its bar, so the header never changes height)
+	const pageTrail = v.crumb();
 	click(v.block("question", "[!text|left]"));
-	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money", "Activity: Why a budget helps", "Activity tab: Doing", "Row", "Question: Left?"]);
+	assert.deepEqual(v.crumb(), pageTrail, "a selected block adds nothing to the trail");
+	assert.ok(v.block("question", "[!text|left]").classList.contains("is-selected"));
+	assert.equal(v.all(".booklet-design-crumb-item").at(-1).getAttribute("aria-current"), "true", "the page's own last crumb is the current one");
+	assert.equal(v.all('.booklet-design-crumb-item[aria-current="true"]').length, 1);
 	// back up to the module: its page, its cards
 	click(v.all(".booklet-design-crumb-item")[1]);
 	assert.deepEqual(v.crumb(), ["Booklet: A made-up booklet", "Module: Money"]);
@@ -1094,4 +1098,59 @@ test("no member of the Design view or the Booklet view is named after one the re
 	// the stub carries the real fields, so a view that reads one of its own fields of that name sees the base's value, as in the app
 	const probe = new DesignView({ app: testApp({ text: BARE, writes: 0 }) }, { setMode: async () => {}, media: { look: () => undefined } });
 	for (const k of ["dirty", "saving", "saveAgain", "isPlaintext", "lastSavedData"]) assert.ok(k in probe, `the stub's TextFileView has ${k}`);
+});
+
+test("the trail above the page is the page's own whatever is selected on it, and the page's last crumb is the current one", async () => {
+	const v = open(THREE_QUESTIONS);
+	v.go("A");
+	const trail = v.crumb();
+	const own = (v) => v.all(".booklet-design-crumb-item").map((b) => [words(b), b.getAttribute("aria-current")]);
+	const first = own(v);
+	assert.equal(first.at(-1)[1], "true");
+	for (const needle of ["[!text|q1]", "[!text|q2]", "[!text|q3]"]) {
+		v.pick("question", needle);
+		assert.deepEqual(v.crumb(), trail, `${needle} selected: the same trail`);
+		assert.deepEqual(own(v), first, `${needle} selected: the same crumbs, the same current one`);
+	}
+	// a block opened in place, and closed again
+	click(v.block("question", "[!text|q2]"));
+	assert.deepEqual(own(v), first, "a block opened in place: the same trail");
+	// a press on the page's own last crumb draws that page again, as before
+	click(v.all(".booklet-design-crumb-item").at(-1));
+	assert.deepEqual(own(v), first);
+	v.close();
+});
+
+test("the status line has a strip of its own that is always in the flow, always one line high and never wraps; it lies over nothing", async () => {
+	const v = open(THREE_QUESTIONS);
+	v.go("A");
+	const strip = () => v.el.querySelector(".booklet-design-status");
+	assert.ok(strip(), "the strip is there with nothing to say");
+	assert.equal(strip().textContent, "");
+	assert.equal(strip().hasAttribute("title"), false, "no tooltip while empty");
+	assert.equal(v.el.querySelector(".booklet-design-status-line"), null, "no zero-height holder: the strip is not laid over the page");
+	const kids = [...strip().parentElement.children].map((c) => c.className.split(" ")[0]);
+	assert.ok(kids.indexOf("booklet-design-status") > kids.indexOf("booklet-design-top") && kids.indexOf("booklet-design-status") < kids.indexOf("booklet-design-scroll"), `it sits between the header and the page, in the flow (${kids.join(", ")})`);
+	assert.equal(strip().getAttribute("role"), "status");
+	assert.equal(strip().getAttribute("aria-live"), "polite");
+	v.pick("question", "[!text|q1]");
+	await v.press(v.act(v.block("question", "[!text|q1]"), "down"));
+	assert.match(v.status(), /^Moved /, "a write says what it did, in the strip");
+	assert.equal(strip().getAttribute("title"), strip().textContent, "the whole message is the strip's title, for a message cut short");
+	await v.press(v.undo());
+	assert.match(v.status(), /^Undone/);
+	assert.equal(strip().getAttribute("title"), strip().textContent);
+	// the style sheet: in flow, one line, never wraps, no colour of its own while empty
+	const css = readFileSync(`${ROOT}/styles.base.css`, "utf8");
+	const rule = /\n\.booklet-design-status \{([^}]*)\}/.exec(css)?.[1] ?? "";
+	assert.ok(rule, "a rule for the strip");
+	assert.doesNotMatch(rule, /position:\s*(absolute|fixed)/, "not over the page");
+	assert.match(rule, /white-space:\s*nowrap/);
+	assert.match(rule, /overflow:\s*hidden/);
+	assert.match(rule, /text-overflow:\s*ellipsis/);
+	assert.match(rule, /(^|\s)height:\s*calc\([^;]*1em[^;]*var\(--size-4-1\)[^;]*var\(--border-width\)/, "its height is the line height of its own font size plus its padding and border, not a pixel count");
+	assert.match(rule, /border:\s*var\(--border-width\) solid transparent/, "the same border when empty, so the same height");
+	assert.doesNotMatch(rule, /background:/, "no background of its own while empty");
+	assert.match(css, /\.booklet-design-status:not\(:empty\)\s*\{[^}]*background:/, "a background only when it holds words");
+	v.close();
 });

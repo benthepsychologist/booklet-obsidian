@@ -3934,32 +3934,35 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /*
- * The status line says what a write did ("Changed Question: ..."). It is OUT OF FLOW: a line that took room when it had words would move
- * the whole page down by its own height the moment the first write was made, between the mouse going down and coming up on a button the
- * person was pressing straight after typing, and the press would be lost (found in the real app: the box moved 41 px under the pointer).
- * Its holder has no height, and the line lies over the top of the page, taking no pointer of its own.
+ * The status line says what a write did ("Changed Question: ..."). It has a strip of its own, in the flow, that is ALWAYS there and always the
+ * same height: one line of its text with its padding and border, whether it holds words or nothing. So words arriving in it move nothing (a
+ * line that took room only when it had words moved the whole page down by its own height between the mouse going down and coming up on a
+ * button the person was pressing straight after typing, and the press was lost: found in the real app, the box moved 41 px under the pointer),
+ * and it covers nothing (it used to lie over the top line of the page). It never wraps: a message too long for the pane is cut at the end with
+ * an ellipsis (a status message is not a title; the whole of it is the strip's `title`, and the live region reads all of it). The height is
+ * the line height times the font size of the strip itself, plus its padding and border, so it follows the font size of Obsidian and the user.
+ * Empty, it has no border colour and no background: it is room, not a box. It takes no pointer of its own.
  */
-.booklet-design-status-line {
-	position: relative;
-	flex: none;
-	height: 0;
-	z-index: 3;
-}
-
 .booklet-design-status {
-	position: absolute;
-	inset-block-start: var(--size-4-2);
-	inset-inline: var(--size-4-4);
+	flex: none;
+	box-sizing: border-box;
+	height: calc(var(--line-height-normal, 1.5) * 1em + 2 * var(--size-4-1) + 2 * var(--border-width));
+	margin: var(--size-4-2) var(--size-4-4) 0;
+	padding: var(--size-4-1) var(--size-4-3);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal, 1.5);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 	pointer-events: none;
 }
 
 .booklet-design-status:not(:empty) {
-	padding: var(--size-4-2) var(--size-4-3);
-	border: var(--border-width) solid var(--background-modifier-border);
-	border-radius: var(--radius-m);
+	border-color: var(--background-modifier-border);
 	background: var(--background-secondary);
 	color: var(--text-normal);
-	font-size: var(--font-ui-small);
 }
 
 .booklet-design-armedbar {
