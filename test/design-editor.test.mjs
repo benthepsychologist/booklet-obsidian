@@ -46,7 +46,7 @@ function rig(text) {
 			if (name === "Title") return box.querySelector(".booklet-design-field.is-title");
 			if (name === "Description") return box.querySelector(".booklet-design-field.is-desc");
 			const key = name === "Id" ? "id" : name === "Icon" ? "icon" : name;
-			return box.querySelector(`.booklet-design-strip-item[data-field="${key}"] input`);
+			return box.querySelector(`.booklet-design-strip-item[data-field="${key}"] :is(input, select)`);
 		},
 		/** The switch of the strip with this name. */
 		sw: (name) => o.el.querySelector(`.booklet-design-editbox .booklet-design-strip-item[data-field="${name}"] button[role="switch"]`),
@@ -1274,8 +1274,8 @@ test("the bar is over the words of a question, a reading callout and a prose blo
 		assert.match(b.getAttribute("title"), /\(Ctrl\+/, "and says its key");
 		assert.equal(b.getAttribute("tabindex"), "-1", "out of the Tab order: the keys are the keyboard's way in");
 	}
-	// the fields that take the keys are the title and the description; nothing else of the box does
-	assert.deepEqual([...v.editor().querySelectorAll("[data-rich]:not(button)")].map((e) => `${e.getAttribute("data-field")}:${e.getAttribute("data-rich")}`), ["title:title", "description:help"]);
+	// the fields that take the keys are the title and the description, and (stage 4) the title and the words of the question's hint; nothing else of the box does
+	assert.deepEqual([...v.editor().querySelectorAll("[data-rich]:not(button)")].map((e) => `${e.getAttribute("data-field")}:${e.getAttribute("data-rich")}`), ["title:title", "description:help", "hint-title:title", "hint-words:help"]);
 	assert.equal(v.area().hasAttribute("data-rich"), false, "the Markdown textarea has no bar and no keys");
 	assert.equal(v.editor().querySelector(".booklet-design-strip-item input").hasAttribute("data-rich"), false, "nor has an id field");
 	// the Markdown textarea is not under a bar of its own

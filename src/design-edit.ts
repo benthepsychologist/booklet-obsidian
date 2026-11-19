@@ -45,8 +45,8 @@ import {
 	formIdClash,
 	formOfLine,
 	frontMatterFormOfLines,
+	readHelps,
 	readParts,
-	restOf,
 	richFormat,
 	richTakes,
 	writeDescription,
@@ -62,6 +62,8 @@ import {
 import { pickIcon } from "./editor-modals";
 import { drawIcon } from "./design-picture";
 import { MediaPanel, type MediaState } from "./design-media-panel";
+import { HelpsPanel, type HelpsState } from "./design-helps-panel";
+import { CopyPanel, drawEntriesSwitch, drawFoldSwitch, drawParentPicker, drawTabPicker, type StripCtx } from "./design-pickers";
 import { RowsPanel, type Made, type RowsState } from "./design-rows";
 import { ui } from "./design-text";
 import { kindName, quietNames } from "./design-words";
@@ -127,7 +129,7 @@ export interface EditHost {
 /** One control of words: what it was last given to apply, what the note had for it, and how to apply it. */
 interface Field {
 	el: HTMLInputElement | HTMLTextAreaElement;
-	part: "form" | "rows" | "media" | "area" | "words";
+	part: "form" | "rows" | "media" | "helps" | "area" | "words";
 	/** The value last handed over to be applied (or drawn from the note). The control has typing in it that is owed while its value is another. */
 	sent: string;
 	/** What the note had for the control when they last matched. */
@@ -271,10 +273,14 @@ export class EditorBox {
 	private readonly formHost: HTMLElement;
 	private readonly rowsHost: HTMLElement;
 	private readonly mediaHost: HTMLElement;
+	private readonly helpsHost: HTMLElement;
+	private readonly copyHost: HTMLElement;
 	private readonly restNote: HTMLElement;
 	private readonly md: HTMLDetailsElement;
 	private readonly rows: RowsPanel;
 	private readonly media: MediaPanel;
+	private readonly helps: HelpsPanel;
+	private readonly copy: CopyPanel;
 	private node: DesignNode | null;
 	private fields: Field[] = [];
 	/** What each part was last drawn from: the shape of the words, of the settings strip and of the rows (words and marks are not in it). */
@@ -284,6 +290,7 @@ export class EditorBox {
 	private shownKind: DesignKind | null = null;
 	private rowsState: RowsState = "none";
 	private mediaState: MediaState = "none";
+	private helpsState: HelpsState = "none";
 	/** Updates what is not words (a switch, a choice) in the form rows that are drawn, from the note's lines. */
 	private formSyncs: ((lines: string[]) => void)[] = [];
 	/** True while the controls are put back to what the note has after a change that did not land (a picker with the focus goes back too). */
@@ -317,6 +324,8 @@ export class EditorBox {
 		this.wordsHost = this.box.createDiv({ cls: "booklet-design-edit-words" });
 		this.rowsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-rows booklet-design-rows booklet-design-settings" });
 		this.mediaHost = this.box.createDiv({ cls: "booklet-design-edit-section is-media booklet-design-rows booklet-design-settings" });
+		this.helpsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-helps booklet-design-helps booklet-design-settings" });
+		this.copyHost = this.box.createDiv({ cls: "booklet-design-edit-section is-copy booklet-design-rows booklet-design-settings" });
 		this.restNote = this.box.createDiv({ cls: "booklet-design-edit-rest", text: ui("edit.rest") });
 		this.restNote.hidden = true;
 		this.rows = new RowsPanel(
@@ -341,6 +350,19 @@ export class EditorBox {
 			act: (make, focus) => this.act(make, focus),
 			openMenu: (line) => host.openMenu(line),
 		});
+		this.helps = new HelpsPanel(
+			this.helpsHost,
+			{
+				lines: () => host.lines() ?? [],
+				field: (el, make, back, rich) => {
+					const f = this.field("helps", el, make, back);
+					if (rich) this.richen(f, rich);
+				},
+				act: (make, focus) => this.act(make, focus),
+			},
+			() => ed.kind,
+		);
+		this.copy = new CopyPanel(this.copyHost, { text: () => host.text(), node: () => host.node(), lines: () => host.lines() ?? [], act: (make, focus) => this.act(make, focus) });
 		this.formHost = this.box.createDiv({ cls: "booklet-design-edit-section is-form" });
 		this.refusal = this.box.createDiv({ cls: "booklet-design-edit-refusal", attr: { role: "status", "aria-live": "polite" } });
 		this.state = this.box.createDiv({ cls: "booklet-design-editor-state", attr: { role: "status", "aria-live": "polite", "aria-label": ui("editor.status") } });
@@ -454,7 +476,7 @@ export class EditorBox {
 			this.warned = false;
 			this.say("");
 			if (part === "area") this.area.rows = Math.min(30, Math.max(3, this.area.value.split("\n").length + 1));
-			else if (part === "words") fit(el);
+			else if (part === "words" || part === "helps") fit(el);
 		});
 		// leaving the control (or Enter in a one-line one) hands it over; nothing runs here
 		el.addEventListener("change", () => this.leave(f));
@@ -557,7 +579,7 @@ export class EditorBox {
 						f.el.value = back;
 						f.sent = back;
 						if (f.part === "area") this.area.rows = Math.min(30, Math.max(3, back.split("\n").length + 1));
-						else if (f.part === "words") fit(f.el);
+						else if (f.part === "words" || f.part === "helps") fit(f.el);
 					}
 				}
 				made.landed?.();
@@ -702,6 +724,19 @@ export class EditorBox {
 				if (this.mediaState === "unshown") this.md.open = true;
 			}
 		} else this.media.sync(lines);
+		// a question's hint and solution next, and a copy button's list of what it copies
+		if (this.helps.differs(lines) || this.shownKind !== this.ed.kind) {
+			if (this.anyTyping("helps")) complete = false;
+			else {
+				this.fields = this.fields.filter((f) => f.part !== "helps");
+				this.helpsState = this.helps.draw(lines, this.wanted);
+				// a hint or solution that holds more than words, or lines that cannot be carved, are edited in the Markdown: the section opens, so they are there
+				if (this.helpsState === "refused" || this.helpsState === "some") this.md.open = true;
+			}
+		} else this.helps.sync(lines);
+		this.helpsHost.hidden = cap.why !== null;
+		this.copyHost.hidden = cap.why !== null;
+		if (this.copy.differs(lines) || this.shownKind !== this.ed.kind) this.copy.draw(lines, this.wanted);
 		const shape = this.shapeOfForm(lines);
 		if (shape !== this.formShape) {
 			if (this.anyTyping("form")) complete = false;
@@ -719,7 +754,7 @@ export class EditorBox {
 			if (f.el.value !== back) f.el.value = back;
 			f.sent = f.was = back;
 		}
-		for (const f of this.fields) if (f.part === "words") fit(f.el);
+		for (const f of this.fields) if (f.part === "words" || f.part === "helps") fit(f.el);
 		this.area.rows = Math.min(30, Math.max(3, this.area.value.split("\n").length + 1));
 		this.restNote.hidden = !(cap.why === null && this.rowsState !== "rows" && this.undrawn(lines));
 		this.shown = complete ? joined : null;
@@ -836,7 +871,11 @@ export class EditorBox {
 		const kind = this.ed.kind;
 		if (kind !== "question") return false;
 		const p = readParts(lines, kind);
-		return !("refused" in p) && restOf(p).some(filled);
+		if ("refused" in p) return false;
+		// the hint and the solution under the question have fields of their own, when they are drawn
+		const helps = this.helpsState === "helps" || this.helpsState === "some" ? readHelps(lines) : null;
+		const mine = helps && !("refused" in helps) ? helps.at : lines.length;
+		return p.rest.some((l, i) => filled(l) && p.to + i !== p.mediaAt && p.to + i < mine);
 	}
 
 	/** The title and the description, drawn as fields in the block's own type; or, for a block they cannot show, the reason in words. */
@@ -949,10 +988,22 @@ export class EditorBox {
 	 */
 	private drawStrip(form: Form | null, menuInRows: boolean): void {
 		const strip = this.formHost.createDiv({ cls: "booklet-design-strip" });
-		const item = (name: string, label: string): HTMLElement => {
-			const el = strip.createDiv({ cls: "booklet-design-strip-item", attr: { "data-field": name } });
+		const item = (name: string, label: string, cls?: string): HTMLElement => {
+			const el = strip.createDiv({ cls: cls ? ["booklet-design-strip-item", cls] : "booklet-design-strip-item", attr: { "data-field": name } });
 			el.createSpan({ cls: "booklet-design-strip-label", text: label });
 			return el;
+		};
+		// what the stage 4 controls (the fold switch, the pickers, the kept entries' switch) ask of the box
+		const ctx: StripCtx = {
+			text: () => this.host.text(),
+			node: () => this.host.node(),
+			lines: () => this.host.lines() ?? [],
+			act: (make, focus) => this.act(make, focus),
+			change: (lines, change) => this.formChange(lines, change),
+			valueOf: (lines, name) => this.valueOf(lines, { type: "value", name }),
+			sync: (fn) => void this.formSyncs.push(fn),
+			reverting: () => this.reverting,
+			item,
 		};
 		const text = (el: HTMLElement, label: string, value: string): HTMLInputElement => {
 			const input = el.createEl("input", { cls: "booklet-design-strip-input", attr: { type: "text", "aria-label": label, spellcheck: "false", autocomplete: "off" } });
@@ -986,6 +1037,15 @@ export class EditorBox {
 				});
 			} else if (f.name === "each") {
 				this.drawEach(item("each", settingName("each")), f.value);
+			} else if (form?.kind === "activity" && f.name === "tab") {
+				drawTabPicker(ctx);
+			} else if (form?.kind === "activity" && f.name === "entries") {
+				drawEntriesSwitch(ctx);
+			} else if (form?.kind === "page" && f.name === "parent") {
+				drawParentPicker(ctx);
+			} else if (form?.kind === "copy" && f.name === "of") {
+				// a copy button's list of what it copies has a part of its own (the `copy` list above the strip)
+				continue;
 			} else {
 				const name = f.name;
 				const el = item(name, f.icon ? ui("form.icon") : settingName(name));
@@ -1008,6 +1068,7 @@ export class EditorBox {
 				}
 			}
 		}
+		if (form) drawFoldSwitch(ctx);
 		for (const w of form?.stray ?? []) {
 			const el = strip.createDiv({ cls: "booklet-design-strip-item is-stray", attr: { "data-field": `stray-${w.index}`, role: "group", title: ui("form.stray"), "aria-label": ui("form.stray") } });
 			el.createSpan({ cls: "booklet-design-strip-label", text: w.text });
