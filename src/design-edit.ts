@@ -63,6 +63,8 @@ import { pickIcon } from "./editor-modals";
 import { drawIcon } from "./design-picture";
 import { MediaPanel, type MediaState } from "./design-media-panel";
 import { HelpsPanel, type HelpsState } from "./design-helps-panel";
+import { NoticePanel, type NoticeState } from "./design-notice-panel";
+import { ReadingPanel } from "./design-reading-panel";
 import { CopyPanel, drawEntriesSwitch, drawFoldSwitch, drawParentPicker, drawTabPicker, type StripCtx } from "./design-pickers";
 import { RowsPanel, type Made, type RowsState } from "./design-rows";
 import { ui } from "./design-text";
@@ -109,6 +111,8 @@ export interface EditHost {
 	app: App;
 	/** Makes the block's lines these: one write and one step of Undo, asked about first when kept data is touched. Runs in the view's lane. */
 	change(lines: string[]): Promise<Outcome>;
+	/** The same for a change that touches another place of the note as well (a picture's definition, a citation's note): the note's whole new text. */
+	changeNote(text: string): Promise<Outcome>;
 	/** Runs `work` in the view's one lane of writes: after what is queued, never dropped, one at a time. */
 	queue(work: () => Promise<void>): Promise<void>;
 	/** Esc, or Ctrl/Cmd with Enter, in the box: what is typed is applied and the block closes. */
@@ -129,7 +133,7 @@ export interface EditHost {
 /** One control of words: what it was last given to apply, what the note had for it, and how to apply it. */
 interface Field {
 	el: HTMLInputElement | HTMLTextAreaElement;
-	part: "form" | "rows" | "media" | "helps" | "area" | "words";
+	part: "form" | "rows" | "media" | "helps" | "notice" | "reading" | "area" | "words";
 	/** The value last handed over to be applied (or drawn from the note). The control has typing in it that is owed while its value is another. */
 	sent: string;
 	/** What the note had for the control when they last matched. */
@@ -275,12 +279,16 @@ export class EditorBox {
 	private readonly mediaHost: HTMLElement;
 	private readonly helpsHost: HTMLElement;
 	private readonly copyHost: HTMLElement;
+	private readonly noticeFieldsHost: HTMLElement;
+	private readonly readingHost: HTMLElement;
 	private readonly restNote: HTMLElement;
 	private readonly md: HTMLDetailsElement;
 	private readonly rows: RowsPanel;
 	private readonly media: MediaPanel;
 	private readonly helps: HelpsPanel;
 	private readonly copy: CopyPanel;
+	private readonly notice: NoticePanel;
+	private readonly reading: ReadingPanel;
 	private node: DesignNode | null;
 	private fields: Field[] = [];
 	/** What each part was last drawn from: the shape of the words, of the settings strip and of the rows (words and marks are not in it). */
@@ -291,6 +299,7 @@ export class EditorBox {
 	private rowsState: RowsState = "none";
 	private mediaState: MediaState = "none";
 	private helpsState: HelpsState = "none";
+	private noticeState: NoticeState = "none";
 	/** Updates what is not words (a switch, a choice) in the form rows that are drawn, from the note's lines. */
 	private formSyncs: ((lines: string[]) => void)[] = [];
 	/** True while the controls are put back to what the note has after a change that did not land (a picker with the focus goes back too). */
@@ -326,6 +335,8 @@ export class EditorBox {
 		this.mediaHost = this.box.createDiv({ cls: "booklet-design-edit-section is-media booklet-design-rows booklet-design-settings" });
 		this.helpsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-helps booklet-design-helps booklet-design-settings" });
 		this.copyHost = this.box.createDiv({ cls: "booklet-design-edit-section is-copy booklet-design-rows booklet-design-settings" });
+		this.noticeFieldsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-notice is-media booklet-design-rows booklet-design-settings" });
+		this.readingHost = this.box.createDiv({ cls: "booklet-design-edit-section is-reading is-media booklet-design-rows booklet-design-settings" });
 		this.restNote = this.box.createDiv({ cls: "booklet-design-edit-rest", text: ui("edit.rest") });
 		this.restNote.hidden = true;
 		this.rows = new RowsPanel(
@@ -358,6 +369,22 @@ export class EditorBox {
 					const f = this.field("helps", el, make, back);
 					if (rich) this.richen(f, rich);
 				},
+				act: (make, focus) => this.act(make, focus),
+			},
+			() => ed.kind,
+		);
+		this.notice = new NoticePanel(
+			this.noticeFieldsHost,
+			{ lines: () => host.lines() ?? [], field: (el, make, back) => void this.field("notice", el, make, back) },
+			() => ed.kind,
+		);
+		this.reading = new ReadingPanel(
+			this.readingHost,
+			{
+				note: () => host.text(),
+				node: () => host.node(),
+				lines: () => host.lines() ?? [],
+				field: (el, make, back) => void this.field("reading", el, make, back),
 				act: (make, focus) => this.act(make, focus),
 			},
 			() => ed.kind,
@@ -563,9 +590,9 @@ export class EditorBox {
 				return this.putBack(f, cur);
 			}
 			f.sent = value;
-			if (sameLines(made.lines, cur)) return this.putBack(f, cur);
+			if (this.unchanged(made, cur)) return this.putBack(f, cur);
 			this.showRefusal("");
-			const out = await this.host.change(made.lines);
+			const out = await this.carry(made);
 			if (out === "stale") continue; // the note changed under the write: the same typing, made again on the note as it is now
 			if (out === "landed") {
 				// what the note has for the control now (the format may have written it a little differently from what was typed)
@@ -620,12 +647,12 @@ export class EditorBox {
 					this.resync();
 					return;
 				}
-				if (sameLines(made.lines, cur)) return;
+				if (this.unchanged(made, cur)) return;
 				this.showRefusal("");
 				this.wanted = focus;
 				let out: Outcome = "failed";
 				try {
-					out = await this.host.change(made.lines);
+					out = await this.carry(made);
 				} finally {
 					// the drawing for a landed change may wait for the pointer to be up (the view's `requestDraw`): the box draws it, and lets go of this then
 					if (out !== "landed") this.wanted = null;
@@ -636,6 +663,16 @@ export class EditorBox {
 				return;
 			}
 		});
+	}
+
+	/** Is this change no change at all: the block's lines as they are, or (a change that touches the note as a whole) the note as it is? */
+	private unchanged(made: { lines: string[]; note?: string }, cur: string[]): boolean {
+		return made.note === undefined ? sameLines(made.lines, cur) : made.note === this.host.text();
+	}
+
+	/** One write of a change: of the block's own lines, or of the note as a whole when it touches another place as well. */
+	private carry(made: { lines: string[]; note?: string }): Promise<Outcome> {
+		return made.note === undefined ? this.host.change(made.lines) : this.host.changeNote(made.note);
 	}
 
 	/** Said in the box, under its controls (a refusal, or typing that is held). */
@@ -680,7 +717,8 @@ export class EditorBox {
 	 * not drawn again at all, and the box tries it again the next time.
 	 */
 	private render(lines: string[], force: boolean): void {
-		const joined = lines.join("\n");
+		// what the controls show of other places of the note (a picture's definition, a citation's note) is part of what was drawn
+		const joined = `${lines.join("\n")}\u0000${this.reading.reach()}`;
 		if (!force && joined === this.shown && this.ed.kind === this.shownKind) return;
 		let complete = true;
 		if (this.shownKind !== null && this.shownKind !== this.ed.kind) {
@@ -736,6 +774,25 @@ export class EditorBox {
 		} else this.helps.sync(lines);
 		this.helpsHost.hidden = cap.why !== null;
 		this.copyHost.hidden = cap.why !== null;
+		// a module's notice: its four fields; and the pictures, figures and citations of a prose block
+		this.noticeFieldsHost.hidden = cap.why !== null;
+		this.readingHost.hidden = cap.why !== null;
+		if (this.notice.differs(lines) || this.shownKind !== this.ed.kind) {
+			if (this.anyTyping("notice")) complete = false;
+			else {
+				this.fields = this.fields.filter((f) => f.part !== "notice");
+				this.noticeState = this.notice.draw(lines, this.wanted);
+				// a notice that has no fields says why, and is edited in the Markdown: the section opens, so it is there
+				if (this.noticeState === "refused") this.md.open = true;
+			}
+		} else this.notice.sync(lines);
+		if (this.reading.differs() || this.shownKind !== this.ed.kind) {
+			if (this.anyTyping("reading")) complete = false;
+			else {
+				this.fields = this.fields.filter((f) => f.part !== "reading");
+				this.reading.draw(this.wanted);
+			}
+		} else this.reading.sync();
 		if (this.copy.differs(lines) || this.shownKind !== this.ed.kind) this.copy.draw(lines, this.wanted);
 		const shape = this.shapeOfForm(lines);
 		if (shape !== this.formShape) {

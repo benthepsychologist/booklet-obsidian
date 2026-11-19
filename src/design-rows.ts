@@ -40,8 +40,12 @@ const WORDS: Record<"option" | "item" | "anchor", { up: DesignKey; down: DesignK
 	anchor: { up: "rows.anchor.up", down: "rows.anchor.down", remove: "rows.anchor.remove" },
 };
 
-/** What a change comes to: the block's new lines (with what to do once they are written), or why it is not made. `keep`: it was typed text, which stays where it is. */
-export type Made = { ok: true; lines: string[]; landed?: () => void } | { ok: false; reason: string; keep?: boolean };
+/**
+ * What a change comes to: the block's new lines (with what to do once they are written), or why it is not made. `keep`: it was typed text,
+ * which stays where it is. `note`: the change touches another place of the note as well (a picture's definition, a citation's note), so it
+ * is the note's whole new text, written as one change; `lines` is then the block's own lines in it.
+ */
+export type Made = { ok: true; lines: string[]; landed?: () => void; note?: string } | { ok: false; reason: string; keep?: boolean };
 
 /** What the rows ask of the box that holds them. */
 export interface RowsIO {

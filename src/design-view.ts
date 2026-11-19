@@ -32,6 +32,7 @@ import {
 	bookletTitleOf,
 	canvasOf,
 	changeLines,
+	changeText,
 	crumbOf,
 	deleteBlock,
 	insertPiece,
@@ -964,6 +965,7 @@ export class DesignView extends LockedTextView {
 					return n ? blockLines(this.text, n) : null;
 				},
 				change: (lines) => this.changeBlock(lines),
+				changeNote: (text) => this.changeNoteText(text),
 				queue: (work) => this.enqueue(work, false),
 				confirm: () => void this.closeEditor(),
 				hold: () => this.holdSaveKey(),
@@ -1501,6 +1503,20 @@ export class DesignView extends LockedTextView {
 			return "refused";
 		}
 		const op = changeLines(this.text, node, lines);
+		return this.runChange(op, { how: "change", name: this.titled(node), node, select: "lines", inBox: true });
+	}
+
+	/**
+	 * The note is now this text: one change from the open block that touches another place of the note as well (a picture's definition, a
+	 * citation's note), asked about and written like any other; the box stays open on the block, which starts on the same line. Runs in the lane.
+	 */
+	private async changeNoteText(text: string): Promise<Outcome> {
+		const node = this.openNode();
+		if (!node) {
+			this.say(ui("editor.moved"));
+			return "refused";
+		}
+		const op = changeText(this.text, text, node.start);
 		return this.runChange(op, { how: "change", name: this.titled(node), node, select: "lines", inBox: true });
 	}
 
