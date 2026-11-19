@@ -12,7 +12,8 @@
  *                                     tab's own display() fills it); `app` and `plugin` are kept.
  *   Setting                           every method is a chainable no-op that records itself: `Setting.calls` is the list of
  *                                     { id, method, args } across every Setting made (`Setting.reset()` empties it); `setting.calls`
- *                                     is the same for one. addText, addTextArea, addButton, addToggle, addDropdown and
+ *                                     is the same for one. `Setting.made` is every Setting made, in order, so a test can find a row of a
+ *                                     form by its name. addText, addTextArea, addButton, addToggle, addDropdown and
  *                                     addSlider call their callback with a component that records too, and a test drives it:
  *                                     `component.change(value)` runs the onChange handler, `component.click()` the onClick handler;
  *                                     an input event on `component.inputEl` and a click on `component.buttonEl` run them too.
@@ -67,6 +68,14 @@ export class TextFileView extends Component {
 		this.app = leaf.app;
 		this.file = null;
 		this.data = "";
+		// what the real TextFileView puts on every instance (read from Obsidian 1.14.5 and 1.11.7 in the real app, check 64): a view of
+		// ours must not name a member of its own after one of these, or the instance's value hides it (a method `dirty` did, in the real app only)
+		this.lastSavedData = null;
+		this.saving = false;
+		this.saveAgain = false;
+		this.isPlaintext = true;
+		this.dirty = false;
+		this.requestSave = () => {};
 		this.containerEl = document.body.createDiv({ cls: "workspace-leaf-content" });
 		this.contentEl = this.containerEl.createDiv({ cls: "view-content" });
 	}
@@ -85,6 +94,61 @@ export class TextFileView extends Component {
 	}
 	setEphemeralState() {}
 }
+
+/** A view in a pane (the editing panel): a content element in the document; the real one has more. */
+export const ItemView = (globalThis.__bookletStubItemView ??= class ItemView extends Component {
+	constructor(leaf) {
+		super();
+		this.leaf = leaf;
+		this.app = leaf.app;
+		this.containerEl = document.body.createDiv({ cls: "workspace-leaf-content" });
+		this.contentEl = this.containerEl.createDiv({ cls: "view-content" });
+	}
+	addAction() {
+		return this.containerEl.createDiv();
+	}
+});
+
+/** A dialog: opening it puts its content in the document, closing it takes it out and calls onClose. */
+export class Modal extends Component {
+	constructor(app) {
+		super();
+		this.app = app;
+		this.modalEl = document.createElement("div");
+		this.titleEl = this.modalEl.createDiv();
+		this.contentEl = this.modalEl.createDiv();
+		this.scope = new Scope();
+	}
+	open() {
+		document.body.appendChild(this.modalEl);
+		this.onOpen();
+	}
+	close() {
+		this.modalEl.remove();
+		this.onClose();
+	}
+	setTitle(t) {
+		this.titleEl.textContent = t;
+		return this;
+	}
+	onOpen() {}
+	onClose() {}
+}
+
+/** The language Obsidian is in ("en" unless a test sets `globalThis.__bookletStubLanguage`). */
+export function getLanguage() {
+	return globalThis.__bookletStubLanguage ?? "en";
+}
+
+/** What the plugin asks of the platform. */
+// isPhone follows globalThis.__bookletStubPhone, because the bundles each hold their own copy of this module (see test/design-harness.mjs)
+export const Platform = {
+	isMobile: false,
+	isDesktop: true,
+	get isPhone() {
+		return globalThis.__bookletStubPhone === true;
+	},
+};
 
 /** A plugin: what main.ts's onload calls on itself, doing nothing (a test hands onload an app that records what it is given). */
 export class Plugin extends Component {
@@ -227,11 +291,15 @@ let settingCount = 0;
 export const Setting = (globalThis.__bookletStubSetting ??= class Setting {
 	/** Every call on every Setting, in order: { id, method, args }. */
 	static calls = [];
+	/** Every Setting made, in order (a test finds a row by its name and drives its components). */
+	static made = [];
 	static reset() {
 		Setting.calls.length = 0;
+		Setting.made.length = 0;
 	}
 	constructor(containerEl) {
 		this.id = ++settingCount;
+		Setting.made.push(this);
 		this.containerEl = containerEl;
 		this.calls = [];
 		this.components = [];
@@ -434,10 +502,14 @@ export function setIcon(el, id) {
 	el.appendChild(svg);
 }
 
-/** An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. */
+/**
+ * An icon by name, as Obsidian's (Lucide) set has it: a few names stand for the set here; any other is none. A test that draws icons
+ * sets `globalThis.__bookletStubIcons` to a Set of the names Obsidian is to have (the Design view tests model an Obsidian whose set lacks
+ * the newer names).
+ */
 const ICONS = new Set(["heart", "sun", "moon", "book-open", "check"]);
 export function getIcon(name) {
-	if (!ICONS.has(name)) return null;
+	if (!(globalThis.__bookletStubIcons ?? ICONS).has(name)) return null;
 	const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
 	svg.setAttribute("data-icon", name);
 	return svg;

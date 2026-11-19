@@ -66,15 +66,16 @@ export function drawMatrix(host: QuestionHost, box: HTMLElement, t: Target, q: Q
 	show();
 	host.onShow(key, show);
 
-	fitToWidth(box, wrap, probe);
+	fitToWidth(host, box, wrap, probe);
 }
 
 /**
  * Lays the matrix out as a grid while its room fits the grid, else as separate questions (a class on `box`, when the
  * box is a question of its own, and on `wrap`). Measured when the box is shown and whenever its width changes, and
- * whenever the anchors' words are rendered or change size (the probe).
+ * whenever the anchors' words are rendered or change size (the probe). The observer is disconnected when the host that drew the matrix
+ * takes it away (`host.own`), so a drawing made and unmade many times leaves none behind.
  */
-function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): void {
+function fitToWidth(host: QuestionHost, box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): void {
 	const place = (): void => {
 		const w = wrap.clientWidth;
 		if (!w) return;
@@ -86,6 +87,8 @@ function fitToWidth(box: HTMLElement, wrap: HTMLElement, probe: HTMLElement): vo
 	const watch = frameObserver(box.win, place);
 	watch.observe(wrap);
 	watch.observe(probe);
+	// a host that takes the drawing away (the Design view's inert drawings) disconnects the observer with it
+	host.own?.(() => watch.disconnect());
 	// an item the keyboard moves into under the held stem is scrolled clear of it, as far as the screen has room
 	// (SPEC section 5); only the keyboard's focus: a press is never moved
 	wrap.addEventListener("focusin", (evt) => {

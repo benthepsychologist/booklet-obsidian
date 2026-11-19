@@ -7,6 +7,12 @@
 import { Notice, PluginSettingTab, Setting, SettingPage, requireApiVersion, type App, type Plugin, type SettingDefinitionItem } from "obsidian";
 import { SUGGESTED_HOSTS, alsoCovers, hostList, normaliseEntry, type Allows, type EntryResult } from "./core";
 import { LOOKS, LOOK_LABELS, isLook, resolveLook, type Look } from "./look";
+import { ui } from "./design-text";
+
+/** The view a booklet note opens in (the setting "Open booklets in"): the Booklet view unless the reader chose the Design view. */
+export type OpenIn = "booklet" | "design";
+
+const isOpenIn = (v: unknown): v is OpenIn => v === "booklet" || v === "design";
 
 const own = (o: object, k: string): boolean => Object.prototype.hasOwnProperty.call(o, k);
 
@@ -31,6 +37,8 @@ export class MediaAllows {
 	/** The look the reader chose in the settings, if she has (look.ts); nothing until she does. */
 	private lookChoice: Look | undefined;
 	private lookListeners = new Set<() => void>();
+	/** The view the reader chose booklets open in, if she has; nothing until she does (the Booklet view then). */
+	private openChoice: OpenIn | undefined;
 	private saving: Promise<void> = Promise.resolve();
 	private snapshot: Allows | null = null;
 
@@ -42,7 +50,8 @@ export class MediaAllows {
 		const o = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
 		// a saved look that is not one of ours is not a choice: it is kept as it was, and never used
 		if (isLook(o["look"])) this.lookChoice = o["look"];
-		for (const [k, v] of Object.entries(o)) if (k !== "allowedMediaHosts" && k !== "noteAllows" && !(k === "look" && this.lookChoice)) this.extra[k] = v;
+		if (isOpenIn(o["openIn"])) this.openChoice = o["openIn"];
+		for (const [k, v] of Object.entries(o)) if (k !== "allowedMediaHosts" && k !== "noteAllows" && !(k === "look" && this.lookChoice) && !(k === "openIn" && this.openChoice)) this.extra[k] = v;
 		this.vault = entriesOf(o["allowedMediaHosts"]);
 		const notes = o["noteAllows"];
 		if (notes && typeof notes === "object" && !Array.isArray(notes))
@@ -72,7 +81,7 @@ export class MediaAllows {
 
 	/** What data.json holds. */
 	toData(): Record<string, unknown> {
-		return { ...this.extra, ...(this.lookChoice ? { look: this.lookChoice } : {}), allowedMediaHosts: [...this.vault], noteAllows: Object.fromEntries(Object.entries(this.notes).map(([k, v]) => [k, [...v]])) };
+		return { ...this.extra, ...(this.lookChoice ? { look: this.lookChoice } : {}), ...(this.openChoice ? { openIn: this.openChoice } : {}), allowedMediaHosts: [...this.vault], noteAllows: Object.fromEntries(Object.entries(this.notes).map(([k, v]) => [k, [...v]])) };
 	}
 
 	/** Tells `cb` after every change, from the card, the settings page or a rename; gives back what stops it. */
@@ -105,6 +114,17 @@ export class MediaAllows {
 				// one listener's mistake does not stop the others hearing it
 			}
 		}
+	}
+
+	/** The view a booklet note opens in: the Booklet view until the reader chooses the Design view. Read each time a note opens. */
+	openIn(): OpenIn {
+		return this.openChoice ?? "booklet";
+	}
+
+	setOpenIn(v: OpenIn): void {
+		if (this.openIn() === v && this.openChoice === v) return;
+		this.openChoice = v;
+		this.persist();
 	}
 
 	/** Tells `cb` after the look changes in the settings; gives back what stops it. */
@@ -211,6 +231,22 @@ function drawLookRow(row: Setting, allows: MediaAllows): void {
 			d.selectEl.setAttribute("aria-label", LOOK_NAME);
 		});
 	row.settingEl.addClass("booklet-look-row");
+}
+
+/** The "Open booklets in" row: Booklet view (the default) or Design view. It changes which view a note opens in, never what is written to a note. */
+function drawOpenInRow(row: Setting, allows: MediaAllows): void {
+	row.setName(ui("setting.openIn.name"))
+		.setDesc(ui("setting.openIn.desc"))
+		.addDropdown((d) => {
+			d.addOption("booklet", ui("setting.openIn.booklet"));
+			d.addOption("design", ui("setting.openIn.design"));
+			d.setValue(allows.openIn());
+			d.onChange((v) => {
+				if (isOpenIn(v)) allows.setOpenIn(v);
+			});
+			d.selectEl.setAttribute("aria-label", ui("setting.openIn.name"));
+		});
+	row.settingEl.addClass("booklet-openin-row");
 }
 
 const INTRO =
@@ -419,6 +455,11 @@ export class BookletSettingTab extends PluginSettingTab {
 				render: (row) => drawLookRow(row, this.allows),
 			},
 			{
+				name: ui("setting.openIn.name"),
+				desc: ui("setting.openIn.desc"),
+				render: (row) => drawOpenInRow(row, this.allows),
+			},
+			{
 				type: "page",
 				name: PAGE_NAME,
 				desc: PAGE_DESC,
@@ -434,6 +475,7 @@ export class BookletSettingTab extends PluginSettingTab {
 		containerEl.empty();
 		containerEl.addClass("booklet-settings");
 		drawLookRow(new Setting(containerEl), this.allows);
+		drawOpenInRow(new Setting(containerEl), this.allows);
 		drawRows(this.newPage(), containerEl);
 	}
 

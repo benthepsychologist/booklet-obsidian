@@ -4,7 +4,7 @@
  * records region, computed from the note's fresh text by the core (setAnswer, setDraftAnswer,
  * finalizeDraft), which changes only what the reader changed.
  */
-import { Component, Keymap, MarkdownRenderer, Notice, Scope, TextFileView, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
+import { Component, Keymap, MarkdownRenderer, Notice, Scope, setIcon, type Menu, type TFile, type ViewStateResult, type WorkspaceLeaf } from "obsidian";
 import {
 	COMMON_KINDS,
 	HOME,
@@ -124,7 +124,9 @@ import { openAllowCard, type AllowCard, type CardRequest } from "./allow-card";
 import { keepHeld, keepStepsOne, loadHeld, loadStepsOne } from "./held-store";
 import { PressedSlot, drawLinkHosts, drawMedia, isTrustedPress, keepLocalPreload, nameLocalMedia, playerHost, type MediaDeps } from "./media-view";
 import { Listens, locate } from "./listen-view";
-import { markdownViewOf, replaceInEditor } from "./markdown-view";
+import { markdownViewOf } from "./markdown-view";
+import { LockedTextView, writeThrough } from "./note-view";
+import { MODE_ICONS, iconName, ui } from "./design-text";
 import type { ViewListen } from "./listen-writer";
 import type { LiftFrom, NowPlaying } from "./now-playing";
 import { keepFurthest, loadFurthest } from "./listen-store";
@@ -140,12 +142,15 @@ import { drawCards, drawNotice, drawPager, drawPicture, drawTabBar, drawTrail, p
 import { flipViewLook, resolveLook, type ViewLook } from "./look";
 import type { MediaAllows } from "./settings";
 import type { LeafMode } from "./switch";
+import { windowGone } from "./window-gone";
 
 export const VIEW_TYPE = "booklet";
 
 /** What the view needs from the plugin. */
 export interface ViewHost {
 	setMode(leaf: WorkspaceLeaf, mode: LeafMode): Promise<void>;
+	/** Editor mode (the editing panel): the button in this view's header turns it on and off. Not there in the tests that do not draw it. */
+	editor?: { mode: { readonly on: boolean; onChange(fn: (on: boolean) => void): () => void }; toggle(): Promise<void> };
 	/** The plugin's own manifest: the notice at the top of a note says which version of the plugin is reading it. */
 	manifest: { version: string };
 	/** The sites the reader has allowed media from (settings.ts): the gate reads it, and the allow card edits it. */
@@ -200,7 +205,7 @@ const ROW_REFUSED: Record<"add" | "delete", Partial<Record<ApplyWhy, string>>> =
 		"no write": WHOLE_REFUSAL["no write"],
 	},
 	delete: {
-		changed: "Changed since you drew it.",
+		changed: "Changed since it was shown.",
 		ambiguous: "More than one row has that id.",
 		"no place": "That row stands in no list of rows, so it cannot be taken out.",
 		unreadable: "The data cannot be read as data now.",
@@ -211,6 +216,11 @@ const ROW_REFUSED: Record<"add" | "delete", Partial<Record<ApplyWhy, string>>> =
 		"no write": WHOLE_REFUSAL["no write"],
 	},
 };
+/**
+ * What an add or a removal says when the change would make the note itself past what a reader reads (SPEC section 5, "What stops it": for data
+ * written in the booklet the changed file is the booklet), in place of WHOLE_REFUSAL's words about a file.
+ */
+const BOOKLET_TOO_BIG = "That would make the booklet too big to read (the limit is 5 MB), so it was not changed.";
 /** What an inline data block is called in a notice. */
 const INLINE_NAME = "the data block";
 /** How many kept entries an activity lists before "Show all". */
@@ -260,7 +270,7 @@ function endOfDay(d: Date): number {
 	return e.getTime();
 }
 
-export class BookletView extends TextFileView implements QuestionHost, ScreenHost, RowsView {
+export class BookletView extends LockedTextView implements QuestionHost, ScreenHost, RowsView {
 	/** The note's text as last read or written by this view: what getViewData returns. */
 	private text = "";
 	private book: Booklet | null = null;
@@ -276,6 +286,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	private offscreen = false;
 	/** Text typed and not yet written, by question. */
 	private pending = new Map<string, Pending>();
+	/** The window this view is drawn in, once the workspace has said it is closing (`window-close`). */
+	private closingWindow: Window | null = null;
 	/** Words typed in a field that are not an answer yet (Add your own), by field: kept across drawings. */
 	private held = new Map<string, string>();
 	/** The note's design changed while the reader was in a field or pressing: the view is drawn again when they are done. */
@@ -388,11 +400,9 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		leaf: WorkspaceLeaf,
 		private readonly host: ViewHost,
 	) {
+		// TextFileView's own save path is switched off in LockedTextView: this view never writes the whole file, every write goes
+		// through the core on the note's fresh text (see write()).
 		super(leaf);
-		// TextFileView's own save path writes getViewData() over the whole file, after a 2-second debounce
-		// and when the view closes. This view never writes the whole file, so both are switched off here and
-		// in save() below: every write goes through the core on the note's fresh text (see write()).
-		this.requestSave = () => {};
 		this.listens = new Listens({
 			app: () => this.app,
 			path: () => (this.file ? this.file.path : null),
@@ -409,6 +419,17 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	override onload(): void {
 		super.onload();
 		this.addAction("file-text", "Show Markdown", () => void this.host.setMode(this.leaf, "markdown"));
+		this.addAction(iconName(MODE_ICONS.design, "pencil"), ui("mode.design"), () => void this.host.setMode(this.leaf, "design"));
+		const editor = this.host.editor;
+		if (editor) {
+			const button = this.addAction("pencil", "Editor mode", () => void editor.toggle());
+			const show = (on: boolean) => {
+				button.toggleClass("is-active", on);
+				button.setAttribute("aria-pressed", String(on));
+			};
+			show(editor.mode.on);
+			this.register(editor.mode.onChange(show));
+		}
 		// A drawing that waits (see update) is made once the reader has left the field and no press is under way. A
 		// press moves focus out of a field before its click, so the button under the pointer is kept until the click.
 		this.registerDomEvent(this.contentEl, "focusout", () => this.settleSoon(0));
@@ -442,6 +463,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		});
 		// Obsidian's own audio and video elements load nothing before they are pressed, as far as the page can say so (media-view.ts)
 		const win = this.contentEl.ownerDocument.defaultView;
+		// a view in a pop-out window knows when that window is closing: what it has typed is written once the window is gone (write)
+		this.registerEvent(
+			this.app.workspace.on("window-close", (_w, closing) => {
+				if (closing.document === this.contentEl.ownerDocument) this.closingWindow = closing;
+			}),
+		);
 		if (win && typeof win.MutationObserver === "function") {
 			const watch = new win.MutationObserver((records) => {
 				for (const r of records)
@@ -525,8 +552,15 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		await this.writes;
 	}
 
-	override async save(_clear?: boolean): Promise<void> {
-		// Deliberately nothing: see the constructor.
+	/**
+	 * The quit event's task. The app closes a pop-out window as it quits, and Obsidian 1.11 throws "illegal access" (window-gone.ts) for a
+	 * note written as that window closes, so a view in a pop-out window lets its window finish closing, then writes. The quit waits
+	 * for the task.
+	 */
+	async saveTypedAtQuit(): Promise<void> {
+		const win = this.contentEl.ownerDocument.defaultView;
+		if (win && win !== window) await windowGone(win);
+		await this.saveTyped();
 	}
 
 	getViewType(): string {
@@ -901,6 +935,13 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 					this.applyLook();
 				}),
 		);
+		menu.addItem((item) =>
+			item
+				.setTitle(ui("mode.design"))
+				.setIcon(iconName(MODE_ICONS.design, "pencil"))
+				.setSection("pane")
+				.onClick(() => void this.host.setMode(this.leaf, "design")),
+		);
 		super.onPaneMenu(menu, source);
 	}
 
@@ -1242,6 +1283,7 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written") new Notice(`Booklet: change kept and written to ${got.name}.`);
 		else if (got.state === "same") new Notice(`Booklet: change kept. ${got.name} already holds that value, so nothing was written.`);
+		else if (got.state === "refused" && got.why === "too big" && !apply.block.file) new Notice(`Booklet: change kept, but not written to ${got.name}, because the booklet would be too big to read (the limit is 5 MB).`);
 		else if (got.state === "refused") new Notice(got.why in WHOLE_REFUSAL ? `Booklet: change kept. ${WHOLE_REFUSAL[got.why as keyof typeof WHOLE_REFUSAL]}` : `Booklet: change kept, but not written to ${got.name}, because ${REFUSED_BECAUSE[got.why] ?? "the data changed"}.`);
 		else new Notice(`Booklet: change kept, but not written${got.name ? ` to ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
@@ -1256,7 +1298,8 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 		const got = apply.block.file ? await this.files.applyText(apply.block, path, run) : await this.applyInline(apply.block, (inner) => run(inner, ""));
 		if (got.state === "written" || got.state === "same") return;
 		const lead = adding ? "the row was kept but not added to" : "the removal was kept, but no row was taken out of";
-		if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why] ?? "The data changed."}`);
+		if (got.state === "refused" && got.why === "too big" && !apply.block.file) new Notice(`Booklet: ${lead} ${got.name}. ${BOOKLET_TOO_BIG}`);
+		else if (got.state === "refused") new Notice(`Booklet: ${lead} ${got.name}. ${ROW_REFUSED[adding ? "add" : "delete"][got.why] ?? "The data changed."}`);
 		else new Notice(`Booklet: ${lead}${got.name ? ` ${got.name}` : ""}, because ${apply.block.file ? "the file" : "the note"} cannot be written.`);
 	}
 
@@ -2339,29 +2382,12 @@ export class BookletView extends TextFileView implements QuestionHost, ScreenHos
 	}
 
 	private async write(file: TFile, change: (text: string) => string): Promise<void> {
-		let result: string;
-		const md = markdownViewOf(this.app, file.path);
-		if (md) {
-			// The note is also open as Markdown. Its editor holds what was typed there and is not saved yet,
-			// so the change goes into that editor, as the smallest edit (only the records region differs),
-			// and the Markdown view saves it. Obsidian's guidelines: use the Editor for an open note.
-			const editor = md.editor;
-			const before = editor.getValue();
-			replaceInEditor(md, before, change(before));
-			result = editor.getValue();
-		} else {
-			// Atomic read-modify-write of the note on disk: the change runs on the fresh text, never on this view's copy.
-			let failure: unknown = null;
-			result = await this.app.vault.process(file, (fresh) => {
-				try {
-					return change(fresh);
-				} catch (e) {
-					failure = e;
-					return fresh;
-				}
-			});
-			if (failure) throw failure instanceof Error ? failure : new Error("The answer could not be written.");
-		}
+		// A pop-out window that is closing is let go first (window-gone.ts): Obsidian 1.11 throws a bare, uncaught "illegal access" in the
+		// main window when a note is written while a pop-out window is being closed (words typed in it are written as it closes). The
+		// write is the same, a moment later; the change is made on the note's text as it is then.
+		if (this.closingWindow) await windowGone(this.closingWindow);
+		// into an open Markdown pane's editor, or `vault.process` on the fresh text (note-view.ts)
+		const result = await writeThrough(this.app, file, change, "The answer could not be written.");
 		if (this.file !== file) return;
 		// the text written can carry a change the view had not seen (words typed in a Markdown pane, not yet saved)
 		const designChanged = designKey(result) !== designKey(this.text);

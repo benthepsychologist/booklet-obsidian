@@ -235,3 +235,14 @@ export const fm = `---\nbooklet: "0.20"\ntitle: Garden\n---\n`;
 export const fence = (body) => "```booklet query\n" + body + "\n```";
 export const DRAWN = new Date("2026-10-28T12:00:00Z");
 export const rowsOf = (p) => p.groups.flatMap((g) => g.rows);
+
+/** Runs a Python snippet with arguments (`sys.argv[1:]`), and parses what it prints as JSON. */
+export function py(code, args = []) {
+	const r = spawnSync("python3", ["-I", "-B", "-c", code, ...args], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
+	if (r.status !== 0) throw new Error(`python failed: ${r.stderr}`);
+	return JSON.parse(r.stdout);
+}
+
+/** A made-up booklet at the current format, front matter and all, around `body`. */
+export const bookletAround = (body, id = "made-up") =>
+	`---\nbooklet: "${core.FORMAT_VERSION}"\nid: local/${id}\ntitle: A made-up booklet\nlang: en\nversion: "0.1"\n---\n\n${body}`;

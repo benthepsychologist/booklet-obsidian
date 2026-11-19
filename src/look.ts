@@ -51,3 +51,12 @@ export function flipViewLook(stored: unknown, dark: boolean, view?: ViewLook): V
 	const next: ViewLook = resolveLook(stored, dark, view) === "obsidian" ? "paper" : "obsidian";
 	return resolveLook(stored, dark, next) === resolveLook(stored, dark) ? undefined : next;
 }
+
+/**
+ * The look the Design view's canvas is drawn in. `chosen` is what its look selector chose for this view alone (kept while the view
+ * lives, never saved; a value that is not a look counts as no choice), and it can be any of the three. With no choice the canvas takes
+ * what a Booklet view takes: the reader's look from the settings, else Paper and petrol in the variant that matches Obsidian's mode.
+ */
+export function resolveDesignLook(stored: unknown, dark: boolean, chosen?: unknown): Look {
+	return isLook(chosen) ? chosen : resolveLook(stored, dark);
+}

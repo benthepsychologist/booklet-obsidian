@@ -180,3 +180,51 @@ test("text between the fences with a replacement character is refused (not utf8)
 	const prose = note(ROWS, "").replace("# Garden", "# Garden �");
 	assert.equal(edit(prose, (t) => applyAdd(t, "", "c", undefined, { title: "C" })).ok, true);
 });
+
+/* ---- the size rule (SPEC section 5, "What stops it"): for data written in the booklet, the changed file is the booklet, measured whole in bytes after the change ---- */
+
+const MAX = 5 * 1024 * 1024;
+const bytes = (s) => Buffer.byteLength(s, "utf8");
+const BIG = (pad, lead = "") => lead + note(JSON.stringify({ rows: [{ id: "a", pad }] }));
+const addC = (n) => applyInFence(n, "plots", "desk", (t) => applyAdd(t, "", "c", undefined, { t: "z" }));
+
+test("the note's own length decides: exactly 5 MB after the change is written, one byte more is refused as too big", () => {
+	const base = bytes(addC(BIG("")).text);
+	const fits = BIG("x".repeat(MAX - base));
+	assert.equal(bytes(addC(fits).text), MAX);
+	assert.equal(addC(fits).ok, true);
+	assert.deepEqual(addC(BIG("x".repeat(MAX - base + 1))), { ok: false, why: "too big" });
+});
+
+test("the size is in bytes of UTF-8, not characters: a note of fewer than 5 million characters can be too big", () => {
+	const base = bytes(addC(BIG("")).text);
+	const n = Math.floor((MAX - base) / 2);
+	assert.equal(addC(BIG("é".repeat(n))).ok, true, "two bytes each, still within the limit");
+	const over = BIG("é".repeat(n + 1));
+	assert.ok(over.length < MAX, "fewer characters than the limit");
+	assert.deepEqual(addC(over), { ok: false, why: "too big" });
+});
+
+test("a byte order mark counts: the same note that is written without one is refused with one", () => {
+	const base = bytes(addC(BIG("")).text);
+	const exact = "x".repeat(MAX - base);
+	assert.equal(addC(BIG(exact)).ok, true);
+	const withBom = BIG(exact, "﻿");
+	assert.equal(bytes(addC(BIG(exact)).text) + 3, MAX + 3);
+	assert.deepEqual(addC(withBom), { ok: false, why: "too big" });
+	assert.equal(addC(BIG("x".repeat(MAX - base - 3), "﻿")).ok, true, "three bytes less pad: exactly 5 MB with it");
+});
+
+test("an act that changes nothing is not held to the limit, even in a note that is already past it", () => {
+	const base = bytes(addC(BIG("")).text);
+	const over = BIG("x".repeat(MAX - base + 1000));
+	assert.ok(bytes(over) > MAX);
+	// the row is already there with what the add holds: the note comes back as it was
+	const added = applyInFence(over.replace('"pad"', '"t":"z","pad"').replace('"id":"a"', '"id":"c"'), "plots", "desk", (t) => applyAdd(t, "", "c", undefined, { t: "z" }));
+	assert.equal(added.ok, true);
+	// an edit to the value the data already holds
+	const same = applyInFence(over, "plots", "desk", (t) => applyAct(t, "", "a", "pad", "x".repeat(MAX - base + 1000), "x".repeat(MAX - base + 1000)));
+	assert.deepEqual(same, { ok: true, text: over });
+	// a removal of a row that is not there changes nothing either
+	assert.deepEqual(applyInFence(over, "plots", "desk", (t) => applyDelete(t, "", "zz", {})), { ok: true, text: over });
+});

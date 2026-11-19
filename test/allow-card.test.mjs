@@ -473,8 +473,9 @@ function tab(raw = null) {
 	const t = new BookletSettingTab({}, {}, l.media);
 	doc.body.appendChild(t.containerEl);
 	t.display();
-	// the Booklet look row sits above the allow list's rows; these tests are about the list, and the look row has test/look.test.mjs
+	// the Booklet look row and the "Open booklets in" row sit above the allow list's rows; these tests are about the list (the look row has test/look.test.mjs, the other test/design-view.test.mjs)
 	t.containerEl.querySelector(".booklet-look-row")?.remove();
+	t.containerEl.querySelector(".booklet-openin-row")?.remove();
 	return { ...l, t, el: t.containerEl, done: () => (t.hide(), t.containerEl.remove()) };
 }
 const rows = (el) => Array.from(el.querySelectorAll(".setting-item")).map((s) => words(s.querySelector(".setting-item-name")));

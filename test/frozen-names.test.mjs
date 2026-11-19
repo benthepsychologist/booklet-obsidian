@@ -33,6 +33,7 @@ async function loadPlugin() {
 			seen.views.push({ type, make });
 		}
 		registerEvent() {}
+		registerDomEvent() {}
 		register() {}
 		async loadData() {
 			return null;
@@ -71,13 +72,13 @@ test("the plugin's id, its command id and its view type are the ones the README 
 	const { seen } = await loadPlugin();
 	assert.deepEqual(
 		seen.commands.map((c) => c.id),
-		["toggle-view"],
+		["editor-mode", "toggle-view", "design-add-piece", "design-add-structure", "design-add-questions", "design-add-reading", "design-add-views", "design-add-data"],
 		"the commands: a new one may be added (then this list grows), but `toggle-view` stays as it is",
 	);
 	assert.deepEqual(
 		seen.views.map((v) => v.type),
-		["booklet"],
-		"the view types",
+		["booklet", "booklet-design", "booklet-blocks"],
+		"the view types: the Design view (1.6.0) is added beside the two there were; `booklet` stays as it is",
 	);
 	assert.ok(seen.commands.every((c) => typeof c.name === "string" && c.name), "every command has a name");
 	assert.equal(seen.settingTabs.length, 1, "the plugin has one settings tab (the sites media may load from); a setting changes how the view looks or which sites media loads from, and never what is written to a note");

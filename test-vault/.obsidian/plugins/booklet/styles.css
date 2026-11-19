@@ -8,8 +8,10 @@
  * that cannot mix draws the plain one.
  */
 
-/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view */
-.booklet-view {
+/* the look's five variables, with Obsidian's own values; a snippet or a theme can set any of them on .booklet-view.
+   An inert drawing in the Design view (.booklet-sample, design-sample.ts) takes the same five, in Obsidian's own look. */
+.booklet-view,
+.booklet-sample {
 	--booklet-card-bg: var(--background-secondary);
 	--booklet-card-border: var(--background-modifier-border);
 	--booklet-card-radius: var(--radius-l);
@@ -194,7 +196,8 @@
 }
 
 /* a text field inside a card in a dark theme: the theme's stronger border, so the box can be seen */
-.theme-dark .booklet-view .booklet-text {
+.theme-dark .booklet-view .booklet-text,
+.theme-dark .booklet-sample .booklet-text {
 	border-color: var(--background-modifier-border-focus);
 }
 
@@ -2520,7 +2523,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
  * the view says which with the class booklet-callout-triplet (calloutColourIsTriplet in reading.ts), and --booklet-callout-colour is the colour
  * in either format. The format's own kinds (diff, law, opinion) set --booklet-callout-colour from a theme colour directly.
  */
-.booklet-view .callout {
+.booklet-view .callout,
+.booklet-sample .callout {
 	--booklet-callout-colour: var(--callout-color);
 	background-color: var(--background-secondary);
 	border: var(--border-width) solid var(--background-modifier-border);
@@ -2528,18 +2532,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	border-radius: var(--booklet-card-radius);
 }
 
-.booklet-view.booklet-callout-triplet .callout {
+.booklet-view.booklet-callout-triplet .callout,
+.booklet-sample.booklet-callout-triplet .callout {
 	--booklet-callout-colour: rgb(var(--callout-color));
 }
 
 /* a callout's title (Obsidian's own, drawn in the plugin's view only) is a row of picture, words and fold arrow that does not wrap: at 200% text on a
    320 px phone a folded "Transcript" is wider than its box and the arrow lands past the window. The row may wrap, which it does only when it must. */
-.booklet-view .callout-title {
+.booklet-view .callout-title,
+.booklet-sample .callout-title {
 	flex-wrap: wrap;
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.booklet-view .callout {
+	.booklet-view .callout,
+	.booklet-sample .callout {
 		background-color: color-mix(in srgb, var(--booklet-callout-colour) 10%, var(--background-primary));
 		border-block-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
 		border-inline-end-color: color-mix(in srgb, var(--booklet-callout-colour) 30%, transparent);
@@ -2550,44 +2557,56 @@ button.booklet-edit-open:not(.clickable-icon):hover {
    Their own edge is the dashed, double or dotted line; their words stay in the theme's text colour, and their picture takes the kind's colour. */
 .booklet-view .callout[data-callout="diff"] .callout-title,
 .booklet-view .callout[data-callout="law"] .callout-title,
-.booklet-view .callout[data-callout="opinion"] .callout-title {
+.booklet-view .callout[data-callout="opinion"] .callout-title,
+.booklet-sample .callout[data-callout="diff"] .callout-title,
+.booklet-sample .callout[data-callout="law"] .callout-title,
+.booklet-sample .callout[data-callout="opinion"] .callout-title {
 	color: var(--text-normal);
 }
 
 .booklet-view .callout[data-callout="diff"] .callout-icon svg,
 .booklet-view .callout[data-callout="law"] .callout-icon svg,
-.booklet-view .callout[data-callout="opinion"] .callout-icon svg {
+.booklet-view .callout[data-callout="opinion"] .callout-icon svg,
+.booklet-sample .callout[data-callout="diff"] .callout-icon svg,
+.booklet-sample .callout[data-callout="law"] .callout-icon svg,
+.booklet-sample .callout[data-callout="opinion"] .callout-icon svg {
 	color: var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="diff"] {
+.booklet-view .callout[data-callout="diff"],
+.booklet-sample .callout[data-callout="diff"] {
 	--booklet-callout-colour: var(--color-cyan);
 	--callout-icon: lucide-git-compare;
 	border-inline-start: var(--size-4-1) dashed var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="law"] {
+.booklet-view .callout[data-callout="law"],
+.booklet-sample .callout[data-callout="law"] {
 	--booklet-callout-colour: var(--text-normal);
 	--callout-icon: lucide-scale;
 	border-inline-start: var(--size-4-1) double var(--booklet-callout-colour);
 }
 
-.booklet-view .callout[data-callout="opinion"] {
+.booklet-view .callout[data-callout="opinion"],
+.booklet-sample .callout[data-callout="opinion"] {
 	--booklet-callout-colour: var(--color-pink);
 	--callout-icon: lucide-message-circle;
 	border-inline-start: var(--size-4-1) dotted var(--booklet-callout-colour);
 }
 
 @supports (color: color-mix(in srgb, red, blue)) {
-	.booklet-view .callout[data-callout="diff"] {
+	.booklet-view .callout[data-callout="diff"],
+	.booklet-sample .callout[data-callout="diff"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
 	}
 
-	.booklet-view .callout[data-callout="law"] {
+	.booklet-view .callout[data-callout="law"],
+	.booklet-sample .callout[data-callout="law"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 60%, transparent);
 	}
 
-	.booklet-view .callout[data-callout="opinion"] {
+	.booklet-view .callout[data-callout="opinion"],
+	.booklet-sample .callout[data-callout="opinion"] {
 		border-inline-start-color: color-mix(in srgb, var(--booklet-callout-colour) 80%, transparent);
 	}
 }
@@ -3223,12 +3242,1762 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 /* a hint in a box is text and is read: Obsidian's faint grey (2.3 to 1 on white in its default theme) gives way to the muted text colour (6.8 to 1) */
 .booklet-view input::placeholder,
+.booklet-sample input::placeholder,
+.booklet-sample textarea::placeholder,
 .booklet-view textarea::placeholder,
 .booklet-view .search-input-container input::placeholder,
 .booklet-allow-card input::placeholder,
 .booklet-settings input::placeholder {
 	color: var(--text-muted);
 	opacity: 1;
+}
+
+/*
+ * The editing panel ("Booklet blocks", in the side bar). Obsidian's own variables only, like the rest of this file. Its native
+ * controls (buttons, inputs, checkboxes, details) are reached by keyboard and named for a screen reader in editor-view.ts.
+ */
+.booklet-blocks {
+	padding: var(--size-4-2) var(--size-4-3) var(--size-4-8);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-blocks-holds {
+	padding: var(--size-2-3) var(--size-4-2);
+	margin-bottom: var(--size-4-2);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.booklet-blocks-about,
+.booklet-blocks-hint {
+	color: var(--text-muted);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-blocks-kind {
+	font-weight: var(--font-semibold);
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-blocks-section {
+	border-top: 1px solid var(--background-modifier-border);
+	padding: var(--size-4-1) 0;
+}
+
+.booklet-blocks-section > summary {
+	cursor: pointer;
+	font-weight: var(--font-semibold);
+	padding: var(--size-2-2) 0;
+}
+
+.booklet-blocks-hidden {
+	display: none;
+}
+
+.booklet-blocks-group-title {
+	color: var(--text-muted);
+	margin: var(--size-4-2) 0 var(--size-2-2);
+}
+
+.booklet-blocks-pieces {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+}
+
+.booklet-blocks button {
+	min-height: var(--input-height);
+}
+
+.booklet-blocks-piece {
+	text-align: left;
+	cursor: grab;
+	/* a long label wraps inside the panel's width */
+	white-space: normal;
+	max-width: 100%;
+	height: auto;
+}
+
+/* the front matter block when the note has properties already: still there, and unavailable (its reason is under the group) */
+.booklet-blocks-piece.is-disabled {
+	opacity: 0.55;
+	cursor: not-allowed;
+}
+
+.booklet-blocks-row {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin: var(--size-2-3) 0;
+}
+
+.booklet-blocks-row > label {
+	min-width: 5em;
+}
+
+.booklet-blocks-row > input[type="text"] {
+	flex: 1 1 8em;
+	min-width: 0;
+}
+
+.booklet-blocks-count {
+	color: var(--text-muted);
+}
+
+.booklet-blocks-icon-grid {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-2);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-blocks-icon {
+	width: var(--input-height);
+	padding: 0;
+}
+
+.booklet-blocks-icon.is-current {
+	border: 2px solid var(--interactive-accent);
+}
+
+/* on a phone every control of the panel is at least 44 px high, and a switch is pressed by its words as well as its box */
+.is-mobile .booklet-blocks summary,
+.is-mobile .booklet-blocks button,
+.is-mobile .booklet-blocks input[type="text"],
+.is-mobile .booklet-blocks-row > label {
+	min-height: 44px;
+}
+
+.is-mobile .booklet-blocks summary,
+.is-mobile .booklet-blocks-row > label {
+	display: flex;
+	align-items: center;
+}
+
+.booklet-blocks {
+	overflow-wrap: anywhere;
+}
+
+/*
+ * The Design view (design-view.ts): a canvas for one page of the booklet at a time, with a left column of two tabs (Outline and Add).
+ * Drawn from Obsidian's own variables, so it follows any theme, light or dark. Every control is a real button; nothing depends on hover.
+ * Nothing here sets a position or a size from a script: the sample popover and the floating bar stand where this sheet puts them.
+ */
+.booklet-design {
+	/* the look every drawing of the view shares, from the theme (design-art.ts reads these) */
+	--bd-ink: var(--text-normal);
+	--bd-ink-soft: var(--text-muted);
+	--bd-paper: var(--background-primary);
+	--bd-accent: var(--interactive-accent);
+	--bd-callout-tip: var(--color-cyan);
+	--bd-callout-hint: var(--color-cyan);
+	--bd-callout-note: var(--color-blue);
+	--bd-callout-warning: var(--color-orange);
+	--bd-callout-example: var(--color-purple);
+	--bd-callout-solution: var(--color-green);
+	--bd-callout-law: var(--color-red);
+	--bd-callout-diff: var(--color-yellow);
+	--bd-callout-opinion: var(--color-pink);
+	--bd-callout-question: var(--color-orange);
+	--bd-callout-quote: var(--text-faint);
+	--bd-callout-citation: var(--text-muted);
+	--bd-left: 300px;
+	padding: 0;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+}
+
+/* the controls the view draws itself: Obsidian's own button look is taken off, each has its own */
+.booklet-design .booklet-design-tab,
+.booklet-design .booklet-design-nav-item,
+.booklet-design .booklet-design-nav-caret,
+.booklet-design .booklet-design-slot,
+.booklet-design .booklet-design-tile,
+.booklet-design .booklet-design-commonchip,
+.booklet-design .booklet-design-pal-head,
+.booklet-design .booklet-design-crumb-item,
+.booklet-design .booklet-design-iconbutton,
+.booklet-design .booklet-design-page-titlebutton,
+.booklet-design .booklet-design-menubutton,
+.booklet-design .booklet-design-panelclose,
+.booklet-design .booklet-design-jump {
+	height: auto;
+	background: transparent;
+	box-shadow: none;
+	color: inherit;
+	white-space: normal;
+}
+
+/* a name for assistive technology that is not shown (and not an aria-label, which Obsidian turns into a tooltip) */
+.booklet-design-sr {
+	position: absolute;
+	inline-size: 1px;
+	block-size: 1px;
+	margin: -1px;
+	padding: 0;
+	overflow: hidden;
+	clip-path: inset(50%);
+	white-space: nowrap;
+}
+
+.booklet-design-shell {
+	position: relative;
+	display: flex;
+	height: 100%;
+	min-height: 0;
+}
+
+/* ---- the left column ---- */
+.booklet-design-left {
+	display: flex;
+	flex: 0 0 var(--bd-left);
+	flex-direction: column;
+	min-height: 0;
+	border-inline-end: var(--border-width) solid var(--background-modifier-border);
+	background: var(--background-secondary);
+}
+
+.booklet-design-left[hidden],
+.booklet-design-scrim[hidden],
+.booklet-design-armedbar[hidden] {
+	display: none;
+}
+
+.booklet-design-lefthead {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-3) 0;
+}
+
+.booklet-design-lefttitle {
+	overflow: hidden;
+	font-weight: var(--font-semibold);
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.booklet-design-panelclose,
+.booklet-design-menubutton,
+.booklet-design-scrim {
+	display: none;
+}
+
+.booklet-design-tabs {
+	display: flex;
+	margin: var(--size-4-3);
+	padding: var(--size-2-2);
+	border-radius: var(--radius-m);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .booklet-design-tab {
+	flex: 1;
+	padding: var(--size-4-1) 0;
+	border-radius: var(--radius-s);
+	color: var(--text-muted);
+	text-align: center;
+}
+
+.booklet-design .booklet-design-tab[aria-selected="true"] {
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-pane {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-2) var(--size-4-3);
+}
+
+.booklet-design-pane.is-outline {
+	overflow: hidden;
+	padding: 0;
+}
+
+.booklet-design-navwrap {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: 0 var(--size-4-2);
+}
+
+.booklet-design-navfoot {
+	display: flex;
+	flex: none;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	max-height: 45%;
+	overflow-y: auto;
+	padding: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-navfoot details {
+	padding: var(--size-2-3) var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+}
+
+.booklet-design-navfoot summary {
+	cursor: pointer;
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+}
+
+/* ---- the navigator ---- */
+.booklet-design-nav {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.booklet-design-nav-row {
+	--bd-level: var(--text-faint);
+	display: flex;
+	align-items: center;
+	border-radius: var(--radius-s);
+	padding-inline-start: calc(var(--bd-depth, 0) * var(--size-4-3));
+}
+
+.booklet-design-nav-row.is-depth-1 { --bd-depth: 1; }
+.booklet-design-nav-row.is-depth-2 { --bd-depth: 2; }
+.booklet-design-nav-row.is-depth-3 { --bd-depth: 3; }
+.booklet-design-nav-row.is-depth-4 { --bd-depth: 4; }
+.booklet-design-nav-row.is-depth-5 { --bd-depth: 5; }
+.booklet-design-nav-row.is-depth-6 { --bd-depth: 6; }
+.booklet-design-nav-row.is-depth-7 { --bd-depth: 7; }
+.booklet-design-nav-row.is-depth-8 { --bd-depth: 8; }
+
+.booklet-design-nav-row.is-level-booklet,
+.booklet-design-card.is-level-booklet,
+.booklet-design-page.is-level-booklet { --bd-level: var(--interactive-accent); }
+.booklet-design-nav-row.is-level-module,
+.booklet-design-card.is-level-module,
+.booklet-design-page.is-level-module { --bd-level: var(--color-purple); }
+.booklet-design-nav-row.is-level-module-tab,
+.booklet-design-card.is-level-module-tab,
+.booklet-design-page.is-level-module-tab { --bd-level: var(--color-pink); }
+.booklet-design-nav-row.is-level-activity,
+.booklet-design-card.is-level-activity,
+.booklet-design-page.is-level-activity { --bd-level: var(--color-blue); }
+.booklet-design-nav-row.is-level-activity-tab,
+.booklet-design-card.is-level-activity-tab,
+.booklet-design-page.is-level-activity-tab { --bd-level: var(--color-cyan); }
+.booklet-design-nav-row.is-level-page,
+.booklet-design-card.is-level-page,
+.booklet-design-page.is-level-page { --bd-level: var(--color-green); }
+
+.booklet-design-nav-row.is-current {
+	font-weight: var(--font-semibold);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .booklet-design-nav-caret {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-5);
+	min-width: 0;
+	padding: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design .booklet-design-nav-item {
+	display: flex;
+	flex: 1;
+	align-items: center;
+	justify-content: flex-start;
+	gap: var(--size-4-2);
+	min-width: 0;
+	min-height: var(--size-4-8);
+	padding: var(--size-2-2) var(--size-4-1);
+	text-align: start;
+}
+
+.booklet-design-nav-icon {
+	display: inline-flex;
+	flex: none;
+	color: var(--bd-level);
+}
+
+.booklet-design-nav-icon svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.booklet-design-nav-label {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.booklet-design-trouble-list {
+	margin: var(--size-2-3) 0 0;
+	padding: 0;
+	list-style: none;
+}
+
+.booklet-design .booklet-design-jump {
+	display: block;
+	width: 100%;
+	text-align: start;
+}
+
+.booklet-design .booklet-design-jump:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-trouble-why,
+.booklet-design-trouble-line {
+	display: block;
+}
+
+.booklet-design-trouble-line {
+	color: var(--text-muted);
+	overflow-wrap: anywhere;
+}
+
+.booklet-design-leftover .booklet-design-trouble-why {
+	color: var(--text-warning, var(--text-normal));
+}
+
+.booklet-design-hint {
+	margin-block: var(--size-2-3);
+	color: var(--text-muted);
+}
+
+/* ---- the add tab ---- */
+.booklet-design-where {
+	margin: 0 var(--size-4-1) var(--size-4-3);
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-where.is-target {
+	border-style: solid;
+	border-color: var(--interactive-accent);
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-where b {
+	display: block;
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-where i {
+	display: block;
+	font-style: normal;
+}
+
+.booklet-design-pal-label {
+	margin: var(--size-4-2) var(--size-4-1) var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	padding-inline: var(--size-4-1);
+}
+
+.booklet-design .booklet-design-commonchip {
+	padding: var(--size-2-3) var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-l);
+	background: var(--background-primary);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design .booklet-design-commonchip.is-armed,
+.booklet-design .booklet-design-tile.is-armed {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 var(--size-2-1) var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .is-off {
+	cursor: not-allowed;
+	opacity: 0.45;
+}
+
+.booklet-design-pal-why {
+	min-height: 0;
+	margin: var(--size-2-3) var(--size-4-1) 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-pal-group {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design .booklet-design-pal-head {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	padding: var(--size-2-3) var(--size-4-1);
+	text-align: start;
+}
+
+.booklet-design-pal-group.is-keyed > .booklet-design-pal-head {
+	color: var(--interactive-accent);
+}
+
+.booklet-design-pal-title {
+	flex: 1;
+	font-size: var(--font-ui-small);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-pal-keys {
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-pal-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(5.5em, 1fr));
+	gap: var(--size-4-2);
+	padding: var(--size-2-3) var(--size-4-1);
+}
+
+.booklet-design .booklet-design-tile {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	padding: var(--size-4-2);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	cursor: grab;
+	font-size: var(--font-ui-smaller);
+	text-align: center;
+}
+
+.booklet-design-tile-art {
+	display: block;
+	width: 100%;
+	color: var(--text-muted);
+}
+
+.booklet-design-tile-art svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.booklet-design-tile-label {
+	line-height: 1.2;
+}
+
+.booklet-design-tile-key {
+	position: absolute;
+	top: var(--size-2-2);
+	right: var(--size-2-3);
+	color: var(--text-faint);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-samplepop {
+	position: absolute;
+	z-index: 5;
+	top: var(--size-4-12);
+	left: calc(var(--bd-left) + var(--size-4-2));
+	width: min(22em, 50%);
+	max-height: 70%;
+	overflow: auto;
+	padding: var(--size-4-3);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+	pointer-events: none;
+}
+
+.booklet-design-samplepop-art svg {
+	display: block;
+	width: 100%;
+	height: auto;
+}
+
+.booklet-design-samplepop-name {
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* ---- the main column ---- */
+.booklet-design-main {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-width: 0;
+	min-height: 0;
+}
+
+.booklet-design-top {
+	display: flex;
+	flex: none;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-4);
+	padding: var(--size-4-2) var(--size-4-4);
+	border-bottom: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-bar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3);
+}
+
+/* the look selector (design-view.ts): a word and a dropdown, in Obsidian's own look like the rest of the header; it changes the canvas only */
+.booklet-design-look {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-inline-start: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-look-select {
+	max-width: 100%;
+}
+
+.is-mobile .booklet-design .booklet-design-look-select,
+.booklet-design.is-phone .booklet-design-look-select {
+	min-height: 44px;
+	box-sizing: border-box;
+}
+
+.booklet-design-crumb {
+	display: flex;
+	flex: 1 1 16em;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-2);
+	min-width: 0;
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design .booklet-design-crumb-item {
+	padding: var(--size-2-2) var(--size-4-1);
+	color: var(--text-muted);
+}
+
+.booklet-design-crumb-item[aria-current="true"] {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-banner,
+.booklet-design-armedbar {
+	flex: none;
+	margin: var(--size-4-2) var(--size-4-4) 0;
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+}
+
+/*
+ * The status line says what a write did ("Changed Question: ..."). It has a strip of its own, in the flow, that is ALWAYS there and always the
+ * same height: one line of its text with its padding and border, whether it holds words or nothing. So words arriving in it move nothing (a
+ * line that took room only when it had words moved the whole page down by its own height between the mouse going down and coming up on a
+ * button the person was pressing straight after typing, and the press was lost: found in the real app, the box moved 41 px under the pointer),
+ * and it covers nothing (it used to lie over the top line of the page). It never wraps: a message too long for the pane is cut at the end with
+ * an ellipsis (a status message is not a title; the whole of it is the strip's `title`, and the live region reads all of it). The height is
+ * the line height times the font size of the strip itself, plus its padding and border, so it follows the font size of Obsidian and the user.
+ * Empty, it has no border colour and no background: it is room, not a box. It takes no pointer of its own.
+ */
+.booklet-design-status {
+	flex: none;
+	box-sizing: border-box;
+	height: calc(var(--line-height-normal, 1.5) * 1em + 2 * var(--size-4-1) + 2 * var(--border-width));
+	margin: var(--size-4-2) var(--size-4-4) 0;
+	padding: var(--size-4-1) var(--size-4-3);
+	border: var(--border-width) solid transparent;
+	border-radius: var(--radius-m);
+	font-size: var(--font-ui-small);
+	line-height: var(--line-height-normal, 1.5);
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	pointer-events: none;
+}
+
+.booklet-design-status:not(:empty) {
+	border-color: var(--background-modifier-border);
+	background: var(--background-secondary);
+	color: var(--text-normal);
+}
+
+.booklet-design-armedbar {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-2);
+	border: var(--border-width) solid var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-scroll {
+	flex: 1;
+	min-height: 0;
+	overflow-y: auto;
+	padding: var(--size-4-6) var(--size-4-4) var(--size-4-12);
+	background: var(--background-secondary-alt, var(--background-secondary));
+}
+
+/* ---- the page ---- */
+.booklet-design-page {
+	--bd-level: var(--text-faint);
+	max-width: 46rem;
+	margin: 0 auto var(--size-4-4);
+	padding: var(--size-4-6) var(--size-4-8) var(--size-4-4);
+	border-radius: var(--radius-l);
+	border-top: var(--size-2-3) solid var(--bd-level);
+	background: var(--bd-paper);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+.booklet-design-page-head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var(--size-2-3) var(--size-4-4);
+}
+
+.booklet-design-page-kind {
+	flex: 1 1 100%;
+	color: var(--bd-level);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+}
+
+.booklet-design-page-title {
+	flex: 1;
+	margin: 0;
+	font-size: var(--h1-size, 1.8em);
+}
+
+.booklet-design .booklet-design-page-titlebutton {
+	padding: 0;
+	font: inherit;
+	font-weight: inherit;
+	text-align: start;
+}
+
+.booklet-design-settings-row {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-top: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-design-page-body {
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design-empty {
+	margin: var(--size-4-2) 0;
+	color: var(--text-muted);
+}
+
+/* ---- the slots: a faint line with a plus, stronger on hover and focus, lit or chosen while placing ---- */
+.booklet-design .booklet-design-slot {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	width: 100%;
+	min-height: var(--size-4-6);
+	padding: 0;
+	color: var(--text-faint);
+}
+
+.booklet-design-slot::before,
+.booklet-design-slot::after {
+	content: "";
+	flex: 1;
+	height: 0;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-slot.is-child::after {
+	display: none;
+}
+
+.booklet-design-slot-plus {
+	display: inline-flex;
+	flex: none;
+	align-items: center;
+	justify-content: center;
+	width: var(--size-4-5);
+	height: var(--size-4-5);
+	border: var(--border-width) solid var(--background-modifier-border-hover);
+	border-radius: 50%;
+	background: var(--background-primary);
+	line-height: 1;
+}
+
+.booklet-design-slot-words {
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-slot:hover,
+.booklet-design-slot:focus-visible {
+	color: var(--interactive-accent);
+}
+
+.booklet-design-slot:hover::before,
+.booklet-design-slot:hover::after,
+.booklet-design-slot:focus-visible::before,
+.booklet-design-slot:focus-visible::after {
+	border-top-color: var(--interactive-accent);
+}
+
+.booklet-design .booklet-design-slot.is-lit,
+.booklet-design .booklet-design-slot.is-over {
+	min-height: var(--size-4-8);
+	color: var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-slot.is-lit::before,
+.booklet-design-slot.is-lit::after,
+.booklet-design-slot.is-over::before,
+.booklet-design-slot.is-over::after {
+	border-top: var(--size-2-2) dashed var(--interactive-accent);
+}
+
+.booklet-design .booklet-design-slot.is-target {
+	min-height: var(--size-4-8);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-slot.is-target::before,
+.booklet-design-slot.is-target::after {
+	border-top: var(--size-2-2) solid var(--interactive-accent);
+}
+
+.booklet-design-slot.is-target .booklet-design-slot-plus {
+	border-color: var(--interactive-accent);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-slot.is-target .booklet-design-slot-words {
+	padding: var(--size-2-2) var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+/* ---- a block ---- */
+.booklet-design-block {
+	position: relative;
+	padding: var(--size-4-2) var(--size-4-3);
+	border: var(--size-2-1) solid transparent;
+	border-radius: var(--radius-m);
+	cursor: pointer;
+}
+
+.booklet-design-block:hover {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-block.is-selected {
+	border-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-block.is-open {
+	cursor: default;
+}
+
+/* a block that is open IS its box: it keeps no frame of its own around it (a group or a row, which hold other blocks, keep theirs) */
+.booklet-design-block.is-open:not(.is-kind-group):not(.is-kind-row) {
+	padding: 0;
+	border-color: transparent;
+	background: transparent;
+}
+
+.booklet-design-block .booklet-design-block {
+	margin-block: var(--size-2-3);
+}
+
+.booklet-design-chip {
+	position: absolute;
+	top: calc(var(--size-4-3) * -1);
+	left: var(--size-4-3);
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-floatbar {
+	position: absolute;
+	z-index: 2;
+	top: calc(var(--size-4-4) * -1);
+	right: var(--size-4-3);
+	display: flex;
+	gap: var(--size-2-2);
+	padding: var(--size-2-2);
+	border: var(--border-width) solid var(--interactive-accent);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+.booklet-design-cardbar {
+	display: flex;
+	gap: var(--size-2-2);
+}
+
+.booklet-design .booklet-design-iconbutton {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: var(--size-4-1);
+	min-width: var(--size-4-8);
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-s);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design .booklet-design-iconbutton:hover:not(:disabled) {
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design .booklet-design-iconbutton:disabled {
+	opacity: 0.4;
+}
+
+.booklet-design-iconbutton svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+.booklet-design-iconbutton.booklet-design-delete {
+	color: var(--text-error);
+}
+
+.booklet-design-group-head {
+	display: flex;
+	gap: var(--size-4-2);
+	align-items: baseline;
+	margin-bottom: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-group-name {
+	color: var(--text-normal);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0;
+	text-transform: none;
+}
+
+.booklet-design-block.is-kind-group {
+	border-inline-start: var(--size-2-3) solid var(--background-modifier-border);
+}
+
+.booklet-design-group-body.is-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-3);
+}
+
+.booklet-design-group-body.is-row > * {
+	flex: 1 1 12em;
+	min-width: 0;
+}
+
+.booklet-design-prose {
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-design-drawn {
+	margin: var(--size-2-2) 0;
+}
+
+.booklet-design-pagebreak {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-3);
+	color: var(--text-faint);
+	font-size: var(--font-ui-smaller);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-pagebreak::before,
+.booklet-design-pagebreak::after {
+	content: "";
+	flex: 1;
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-comment {
+	color: var(--text-faint);
+	font-size: var(--font-ui-small);
+	font-style: italic;
+}
+
+.booklet-design-friendly {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-4);
+	padding: var(--size-4-3);
+	border: var(--border-width) dashed var(--background-modifier-border);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+}
+
+.booklet-design-friendly-art {
+	display: flex;
+	flex: 0 0 5em;
+	align-items: center;
+	justify-content: center;
+	color: var(--text-muted);
+}
+
+.booklet-design-friendly-art svg {
+	width: 100%;
+	height: auto;
+	max-height: 4em;
+}
+
+.booklet-design-friendly-kind {
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-friendly-detail,
+.booklet-design-friendly-note {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-what {
+	margin-bottom: var(--size-2-3);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-lines {
+	margin: 0;
+	padding: var(--size-4-2);
+	border-radius: var(--radius-s);
+	background: var(--background-secondary);
+	font-size: var(--font-ui-small);
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+/* ---- the cards of a container's parts ---- */
+.booklet-design-cards {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+	gap: var(--size-4-4);
+	margin-top: var(--size-4-4);
+}
+
+.booklet-design-card {
+	--bd-level: var(--text-faint);
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+	padding: var(--size-4-3) var(--size-4-4);
+	border: var(--border-width) solid var(--background-modifier-border);
+	border-inline-start: var(--size-2-3) solid var(--bd-level);
+	border-radius: var(--radius-m);
+	background: var(--background-primary);
+}
+
+.booklet-design-card-kind {
+	color: var(--bd-level);
+	font-size: var(--font-ui-smaller);
+	font-weight: var(--font-semibold);
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+}
+
+.booklet-design-card-title {
+	font-size: var(--font-ui-large);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-card-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-card-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-2-3);
+	margin-top: var(--size-4-2);
+}
+
+.booklet-design-chip-count {
+	padding: 0 var(--size-4-2);
+	border-radius: var(--radius-l);
+	background: var(--background-modifier-hover);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-chip-count.is-keeps {
+	color: var(--text-normal);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-later {
+	margin-top: var(--size-4-4);
+	opacity: 0.85;
+}
+
+/* ---- an inert drawing: a question or a reading callout drawn as a reader sees it. No press, focus or pointer lands in it ---- */
+.booklet-sample {
+	pointer-events: none;
+	cursor: default;
+}
+
+.booklet-sample .booklet-question {
+	margin: var(--size-4-2) 0;
+}
+
+.booklet-sample-part {
+	margin-top: var(--size-4-2);
+}
+
+/* ---- the editor in place ---- */
+/* the box is the block, opened: the sheet a question or a callout is drawn on, with an accent edge and a soft lift */
+.booklet-design-editbox {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-3);
+	margin-block: var(--size-4-2);
+	padding: var(--size-4-3) var(--size-4-4);
+	border: var(--size-2-1) solid var(--interactive-accent);
+	border-radius: var(--booklet-card-radius, var(--radius-m));
+	background: var(--booklet-card-bg, var(--background-primary));
+	cursor: default;
+	text-align: start;
+}
+
+.booklet-design-editbox.is-detached {
+	border-style: dashed;
+}
+
+/* the block's own words, drawn in its own type and edited where they stand: no box until the pointer or the focus is on a field, only a line under it to say it is a field */
+.booklet-design-edit-words {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+}
+
+.booklet-design-edit-words.is-empty {
+	display: none;
+}
+
+.booklet-design-field {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	min-height: 0;
+	margin: 0;
+	padding: var(--size-2-2) var(--size-2-3);
+	border: 0;
+	border-bottom: var(--border-width) solid var(--background-modifier-border-hover);
+	border-radius: var(--radius-s);
+	background: transparent;
+	box-shadow: none;
+	color: inherit;
+	font: inherit;
+	line-height: 1.4;
+	overflow: hidden;
+	resize: none;
+	field-sizing: content;
+}
+
+.booklet-design-field:hover {
+	border-bottom-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+}
+
+.booklet-design-field:focus,
+.booklet-design-field:focus-visible {
+	border-bottom-color: var(--interactive-accent);
+	background: var(--background-modifier-hover);
+	box-shadow: none;
+	outline: none;
+}
+
+.booklet-design-field.is-title {
+	font-size: var(--h3-size);
+	font-weight: var(--font-semibold);
+}
+
+.booklet-design-field.is-desc {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-edit-why,
+.booklet-design-edit-rest {
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+}
+
+/* the strip under the words: the rest of the block's line as small controls, and its move and delete buttons at the end */
+.booklet-design-strip {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2) var(--size-4-4);
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-strip-item {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-width: 0;
+	font-size: var(--font-ui-small);
+}
+
+.booklet-design-strip-label {
+	color: var(--text-muted);
+}
+
+.booklet-design-strip-input {
+	width: 9em;
+	max-width: 100%;
+}
+
+.booklet-design-strip-switch[aria-checked="true"] {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-strip-switch[aria-checked="true"]::before {
+	content: "\2713\00a0";
+}
+
+.booklet-design-strip-actions {
+	display: flex;
+	gap: var(--size-4-1);
+	margin-inline-start: auto;
+}
+
+.booklet-design-strip-actions button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.booklet-design-strip-actions .is-delete {
+	color: var(--text-error);
+}
+
+/* the block's Markdown: one press opens it, and it is closed until then (open at once for a block nothing else of can be edited in place) */
+.booklet-design-edit-md {
+	padding-top: var(--size-4-2);
+	border-top: var(--border-width) solid var(--background-modifier-border);
+}
+
+.booklet-design-edit-md > summary {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	color: var(--text-muted);
+	font-size: var(--font-ui-small);
+	cursor: pointer;
+}
+
+.booklet-design-edit-md > summary::before {
+	content: "\25B8";
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-design-edit-md[open] > summary::before {
+	content: "\25BE";
+}
+
+.booklet-design-edit-md > summary:focus-visible {
+	outline: var(--size-2-1) solid var(--interactive-accent);
+	outline-offset: var(--size-2-3);
+}
+
+.booklet-design-settings {
+	padding: 0;
+}
+
+.booklet-design-textarea {
+	display: block;
+	width: 100%;
+	min-height: 4em;
+	max-height: 60vh;
+	margin-top: var(--size-2-3);
+	field-sizing: content;
+	font-family: var(--font-monospace);
+	resize: vertical;
+}
+
+.booklet-design-edit-refusal:empty,
+.booklet-design-editor-state:empty {
+	display: none;
+}
+
+.booklet-design-edit-refusal:not(:empty),
+.booklet-design-editor-moved {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-error);
+}
+
+.booklet-design-editor-state:not(:empty) {
+	padding: var(--size-2-3) var(--size-4-2);
+	border-inline-start: var(--size-2-3) solid var(--text-warning, var(--interactive-accent));
+	background: var(--background-secondary);
+}
+
+.booklet-design-edit-foot {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-4-3);
+}
+
+.booklet-design-edit-hint {
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+}
+
+/* ---- the question before a change that touches kept data ---- */
+.booklet-design-ask p {
+	overflow-wrap: anywhere;
+}
+
+/* Obsidian's phone layout keeps a dialog's title on one line and ends it with "...": this title is a question the reader answers ("Delete this question?", longer in Spanish and French), so it wraps */
+.booklet-design-ask-card .modal-title {
+	max-width: none;
+	overflow: visible;
+	overflow-wrap: anywhere;
+	text-overflow: clip;
+	white-space: normal;
+}
+
+/* and the close button sits over the title's end on a phone: the words keep clear of it, so a "?" is never hidden behind the X */
+.is-mobile .booklet-design-ask-card .modal-title {
+	box-sizing: border-box;
+	padding-inline: var(--size-4-12);
+}
+
+/* a setting's control takes a line of its own on a narrow pane, so nothing needs a sideways scroll */
+.booklet-design-settings .setting-item {
+	flex-wrap: wrap;
+}
+
+.booklet-design-settings .setting-item-info,
+.booklet-design-settings .setting-item-control {
+	flex: 1 1 14em;
+}
+
+.booklet-design-settings input[type="text"] {
+	width: 100%;
+}
+
+/* ---- the rows of a choice, a menu and a matrix, in the editor in place ---- */
+.booklet-design-rows.is-empty {
+	display: none;
+}
+
+.booklet-design-rows-list {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-4-2);
+	margin-block: var(--size-4-2);
+}
+
+/* a row is a line of the list, not a card: its words, its buttons beside them when there is room, its replies under it */
+.booklet-design-optrow {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-2-3) var(--size-4-2);
+	padding: var(--size-2-3) 0;
+	border: 0;
+	background: transparent;
+}
+
+.booklet-design-rows-main {
+	display: flex;
+	flex: 1 1 10em;
+	align-items: center;
+	gap: var(--size-4-2);
+	min-width: 0;
+}
+
+.booklet-design-rows-num {
+	flex: 0 0 auto;
+	min-width: 1.5em;
+	color: var(--text-muted);
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.booklet-design-rows-main .booklet-design-rows-input {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.booklet-design-rows-input.booklet-design-rows-number {
+	flex: 0 0 5em;
+	width: 5em;
+	font-variant-numeric: tabular-nums;
+	text-align: end;
+}
+
+.booklet-design-rows-input[aria-invalid="true"] {
+	border-color: var(--text-error);
+}
+
+.booklet-design-rows-controls,
+.booklet-design-reply {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+}
+
+.booklet-design-rows-controls {
+	flex: 0 0 auto;
+}
+
+/* the move and remove buttons of a row are small pictures, named for a screen reader */
+.booklet-design-rows-button.is-icon {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	min-width: var(--size-4-8);
+}
+
+/* the lists' headings sit close to their rows */
+.booklet-design-rows .setting-item-heading {
+	padding-block: var(--size-4-1) 0;
+	border: 0;
+}
+
+/* the shared menu's picker is a line of the list, not a card */
+.booklet-design-rows .setting-item {
+	padding-inline: 0;
+	border: 0;
+	background: transparent;
+}
+
+.booklet-design-reply .booklet-design-rows-input {
+	flex: 1 1 10em;
+	min-width: 0;
+}
+
+.booklet-design-rows-replies {
+	display: flex;
+	flex: 0 0 100%;
+	flex-direction: column;
+	align-items: flex-start;
+	gap: var(--size-2-3);
+	padding-inline-start: var(--size-4-6);
+	box-sizing: border-box;
+}
+
+.booklet-design-rows-replies .booklet-design-reply {
+	align-self: stretch;
+	flex-wrap: nowrap;
+}
+
+.booklet-design-rows-switch[aria-checked="true"] {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.booklet-design-rows-switch[aria-checked="true"]::before {
+	content: "\2713\00a0";
+}
+
+.booklet-design-rows-usedby,
+.booklet-design-rows-usesmenu {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-block: var(--size-4-2);
+	color: var(--text-muted);
+}
+
+.booklet-design-rows-none {
+	color: var(--text-muted);
+}
+
+/* a menu's name can be long ("None: the question has its own options"): the picker never makes the box wider than the pane */
+.booklet-design-rows .setting-item-control {
+	min-width: 0;
+	max-width: 100%;
+}
+
+.booklet-design-rows select {
+	max-width: 100%;
+}
+
+.booklet-design-rows > .booklet-design-rows-button {
+	margin-block-end: var(--size-4-3);
+}
+
+.booklet-design-rows-refused {
+	padding: var(--size-4-2) var(--size-4-3);
+	border-radius: var(--radius-m);
+	background: var(--background-secondary);
+	color: var(--text-muted);
+}
+
+/* tints mixed from a theme colour: the plain fill above is what an Obsidian that cannot mix draws */
+@supports (color: color-mix(in srgb, red, blue)) {
+	.booklet-design-nav-row.is-current {
+		background: color-mix(in srgb, var(--bd-level) 16%, transparent);
+	}
+
+	.booklet-design-where.is-target {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+	}
+
+	.booklet-design .booklet-design-commonchip.is-armed,
+	.booklet-design .booklet-design-tile.is-armed {
+		background: color-mix(in srgb, var(--interactive-accent) 14%, var(--background-primary));
+	}
+
+	.booklet-design-armedbar {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, var(--background-primary));
+	}
+
+	.booklet-design .booklet-design-slot.is-lit,
+	.booklet-design .booklet-design-slot.is-over {
+		background: color-mix(in srgb, var(--interactive-accent) 10%, transparent);
+	}
+
+	.booklet-design-block.is-selected {
+		background: color-mix(in srgb, var(--interactive-accent) 5%, var(--bd-paper));
+	}
+
+	.booklet-design-chip-count.is-keeps {
+		background: color-mix(in srgb, var(--color-green) 18%, transparent);
+	}
+}
+
+/* ---- a phone, or a pane narrower than a tablet: the left column is a panel that slides over the canvas ---- */
+.booklet-design.is-phone .booklet-design-menubutton,
+.booklet-design.is-phone .booklet-design-panelclose {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.booklet-design.is-phone .booklet-design-left {
+	position: absolute;
+	z-index: 20;
+	inset-block: 0;
+	inset-inline-start: 0;
+	width: 90%;
+	max-width: 24em;
+	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
+}
+
+/* Obsidian's phone buttons are 44 px high (min-height and height), and an explicit height beats `inset: 0`: the scrim names its own size, over the whole shell, with the weight to win */
+.booklet-design.is-phone .booklet-design-shell > .booklet-design-scrim {
+	position: absolute;
+	z-index: 10;
+	inset: 0;
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 100%;
+	height: 100%;
+	min-height: 100%;
+	border: 0;
+	border-radius: 0;
+	background: var(--background-modifier-cover);
+	opacity: 0.6;
+}
+
+.booklet-design.is-phone .booklet-design-shell > .booklet-design-scrim[hidden] {
+	display: none;
+}
+
+.booklet-design.is-phone .booklet-design-page {
+	padding: var(--size-4-4);
+}
+
+.booklet-design.is-phone .booklet-design-scroll {
+	padding-inline: var(--size-4-2);
+}
+
+.booklet-design.is-phone .booklet-design-samplepop {
+	display: none;
+}
+
+/* on a phone every control of the view is at least 44 px high and wide */
+.is-mobile .booklet-design button,
+.is-mobile .booklet-design summary,
+.booklet-design.is-phone button,
+.booklet-design.is-phone summary {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.is-mobile .booklet-design summary,
+.booklet-design.is-phone summary {
+	display: flex;
+	align-items: center;
+}
+
+/* the Paper looks on the canvas (themes/design.css) draw its slots, the buttons of its bars and the buttons of the edit box smaller than the paper pill's 44 px: on a phone they are 44 px again */
+.is-mobile .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button),
+.booklet-design.is-phone .booklet-view[data-booklet-look^="paper"] :is(.booklet-design-slot, .booklet-design-iconbutton, .booklet-design-editbox button) {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+/* the rows' fields and the shared menu's picker are as high as the buttons beside them on a phone: no control of the rows is under 44 px */
+/* a row's three small buttons share a line on a phone, and its switch has the line above them */
+.is-mobile .booklet-design .booklet-design-rows-controls,
+.booklet-design.is-phone .booklet-design-rows-controls {
+	display: grid;
+	flex: 1 1 100%;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.is-mobile .booklet-design .booklet-design-rows-controls > button,
+.booklet-design.is-phone .booklet-design-rows-controls > button {
+	white-space: normal;
+	padding-inline: var(--size-4-1);
+	text-align: center;
+}
+
+.is-mobile .booklet-design .booklet-design-rows-controls > .booklet-design-rows-switch,
+.booklet-design.is-phone .booklet-design-rows-controls > .booklet-design-rows-switch {
+	grid-column: 1 / -1;
+}
+
+/* "Add a reply" sits in the indented column of replies: its words wrap, and take the same small side padding, so a longer translation is not clipped */
+.is-mobile .booklet-design .booklet-design-rows-replies > button,
+.booklet-design.is-phone .booklet-design-rows-replies > button {
+	white-space: normal;
+	padding-inline: var(--size-4-1);
+	text-align: center;
+}
+
+/* a row's buttons keep an edge on a phone, where the theme draws them without one on the row's own grey */
+.is-mobile .booklet-design .booklet-design-rows button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]) {
+	border: var(--border-width) solid var(--background-modifier-border-hover);
+}
+
+.is-mobile .booklet-design .booklet-design-rows input[type="text"],
+.is-mobile .booklet-design .booklet-design-rows select,
+.booklet-design.is-phone .booklet-design-rows input[type="text"],
+.booklet-design.is-phone .booklet-design-rows select {
+	min-height: 44px;
+	box-sizing: border-box;
+}
+
+/* the block's own fields and the strip's are 44 px high too, and the strip's items take a line each (the move and delete buttons keep to a line of their own) */
+.is-mobile .booklet-design .booklet-design-field,
+.is-mobile .booklet-design .booklet-design-strip-input,
+.booklet-design.is-phone .booklet-design-field,
+.booklet-design.is-phone .booklet-design-strip-input {
+	min-height: 44px;
+	box-sizing: border-box;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-item,
+.booklet-design.is-phone .booklet-design-strip-item {
+	flex: 1 1 100%;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-item.is-switch,
+.booklet-design.is-phone .booklet-design-strip-item.is-switch {
+	flex: 0 0 auto;
+}
+
+.is-mobile .booklet-design .booklet-design-strip-input,
+.booklet-design.is-phone .booklet-design-strip-input {
+	flex: 1 1 8em;
+	width: auto;
+}
+
+.is-mobile .booklet-design .booklet-design-slot,
+.booklet-design.is-phone .booklet-design-slot {
+	width: 100%;
+}
+
+/* and a "+" slot is 44 px high in every state: lit, under a dragged tile and chosen set a 32 px minimum of their own that would otherwise win over the line above */
+.is-mobile .booklet-design .booklet-design-slot.is-lit,
+.is-mobile .booklet-design .booklet-design-slot.is-over,
+.is-mobile .booklet-design .booklet-design-slot.is-target,
+.booklet-design.is-phone .booklet-design-slot.is-lit,
+.booklet-design.is-phone .booklet-design-slot.is-over,
+.booklet-design.is-phone .booklet-design-slot.is-target {
+	min-height: 44px;
 }
 
 /* ===== themes/fonts.css ===== */
@@ -5127,4 +6896,378 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-view[data-booklet-look^="paper"] .booklet-spot .l:not(.w),
 .booklet-view[data-booklet-look^="paper"] .booklet-spot .lw:not(.w) {
 	fill: none;
+}
+
+/* ===== themes/design.css ===== */
+/* Paper and petrol on the Design view's canvas (themes/CONTRACT.md).
+ *
+ * The canvas is the scroll element of the Design view (`.booklet-design-scroll`, design-view.ts). In a paper look it carries
+ * `data-booklet-look` and the class `booklet-view`, so tokens-paper-*.css and structure.css reach everything drawn in it (the reader's
+ * own pieces drawn inert, and Obsidian's colours, which structure.css points at the tokens). This file is what is left: the canvas'
+ * own pieces (the page, a block, a "+" slot, the floating bar, the edit box and its rows), which the Booklet view does not have.
+ * In Obsidian's look the canvas has neither the class nor the attribute, so nothing here matches it. The left column, the header and
+ * the trail are outside the canvas and keep Obsidian's look in every case.
+ *
+ * Same rules as structure.css: every selector begins `.booklet-view[data-booklet-look^="paper"]`; colour, radius, shadow and font come
+ * from the --bk-* tokens only; no priority flag; motion only inside prefers-reduced-motion: no-preference. A control a phone needs at
+ * 44 px is put back to 44 px in styles.base.css (the phone block of the Design view), which holds the `.is-mobile` and `.is-phone`
+ * parents these selectors cannot name.
+ */
+
+/* ---------- 1. the view's own variables: the canvas' drawings and pages read these ---------- */
+
+.booklet-view[data-booklet-look^="paper"].booklet-design-scroll {
+	--bd-ink: var(--bk-ink);
+	--bd-ink-soft: var(--bk-ink-soft);
+	--bd-paper: var(--bk-card);
+	--bd-accent: var(--bk-brand);
+	--bd-callout-tip: var(--bk-brand);
+	--bd-callout-hint: var(--bk-brand);
+	--bd-callout-note: var(--bk-sky);
+	--bd-callout-warning: var(--bk-sun);
+	--bd-callout-example: var(--bk-lilac);
+	--bd-callout-solution: var(--bk-sage);
+	--bd-callout-law: var(--bk-slate);
+	--bd-callout-diff: var(--bk-sun);
+	--bd-callout-opinion: var(--bk-rose);
+	--bd-callout-question: var(--bk-sun);
+	--bd-callout-quote: var(--bk-ink-soft);
+	--bd-callout-citation: var(--bk-ink-soft);
+	/* Obsidian's settings rows (the edit box's form) read their colours from variables Obsidian fixes on the body, which the ones structure.css sets on the view do not reach */
+	--setting-item-name-color: var(--bk-ink);
+	--setting-group-heading-color: var(--bk-ink);
+	--setting-items-background: var(--bk-card);
+	--setting-items-border-color: var(--bk-rule);
+	--setting-items-divider-color: var(--bk-rule);
+	--setting-items-radius: var(--bk-r-md);
+}
+
+/* Obsidian blends a callout into what is behind it by the mode it is in (darken in a light Obsidian, lighten in a dark one), which blots out a dark
+   sheet in a light Obsidian and a light one in a dark Obsidian; the canvas' own sheet is the one the callout is on, so it is drawn as it is */
+.booklet-view[data-booklet-look^="paper"].booklet-design-scroll .callout {
+	mix-blend-mode: normal;
+}
+
+/* a level's colour: the booklet is the brand and each part is one of the accents (the Obsidian look uses Obsidian's own palette) */
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-booklet {
+	--bd-level: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-module {
+	--bd-level: var(--bk-lilac);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-module-tab {
+	--bd-level: var(--bk-rose);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-activity {
+	--bd-level: var(--bk-sky);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-activity-tab {
+	--bd-level: var(--bk-sun);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-card, .booklet-design-page).is-level-page {
+	--bd-level: var(--bk-sage);
+}
+
+/* ---------- 2. the page: a raised sheet on the paper ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page {
+	border-radius: var(--bk-r-lg);
+	background: var(--bk-card);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-kind {
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-title,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-card-title,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-group-name {
+	font-family: var(--bk-font-head);
+}
+
+/* the title is a button that opens the page's settings, drawn as the heading it is */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton:hover {
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: inherit;
+	font-family: inherit;
+	font-size: inherit;
+	font-weight: inherit;
+	text-align: start;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-page-titlebutton:hover {
+	text-decoration: underline;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-card {
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+}
+
+/* ---------- 3. the "+" slots: a quiet line with a small plus, not a pill ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover {
+	min-height: var(--size-4-6);
+	padding: 0;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var(--bk-ink-soft);
+	font-family: var(--bk-font-body);
+	font-size: inherit;
+	font-weight: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible {
+	color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot::after {
+	border-top-color: var(--bk-rule);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:hover::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot:focus-visible::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot-plus {
+	border-color: var(--bk-edge);
+	background: var(--bk-card);
+	color: inherit;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over:hover {
+	min-height: var(--size-4-8);
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand-wash);
+	color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-lit::after,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-over::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target:hover {
+	min-height: var(--size-4-8);
+	border-radius: var(--bk-r-sm);
+	background: transparent;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target::before,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target::after {
+	border-top-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target .booklet-design-slot-plus {
+	border-color: var(--bk-brand);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-slot.is-target .booklet-design-slot-words {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* ---------- 4. a block: its outline, its label and its floating bar ---------- */
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block {
+	border-radius: var(--bk-r-md);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block.is-selected {
+	border-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-block.is-open:not(.is-kind-group):not(.is-kind-row) {
+	border-color: transparent;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+	font-family: var(--bk-font-head);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-floatbar {
+	border-color: var(--bk-brand);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	box-shadow: var(--bk-shadow);
+}
+
+/* the bar's buttons and a card's are flat: an icon (and a word) with a wash under the pointer, not the paper pill */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton:hover {
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-2);
+	border: 0;
+	border-radius: var(--bk-r-sm);
+	background: transparent;
+	font-size: var(--font-ui-smaller);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton:hover:not(:disabled) {
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-iconbutton.booklet-design-delete {
+	color: var(--text-error);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip-count {
+	background: var(--bk-brand-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-chip-count.is-keeps {
+	background: var(--bk-sage-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-friendly {
+	border-color: var(--bk-rule);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-lines {
+	border-radius: var(--bk-r-sm);
+	background: var(--bk-paper);
+}
+
+/* ---------- 5. the edit box: the page's sheet, opened ---------- */
+
+/* the block as the reader sees it, opened: the card a question is drawn on, an accent edge and a soft lift, and its words as fields in the page's own type */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox {
+	border-color: var(--bk-brand);
+	border-radius: var(--bk-r-md);
+	background: var(--bk-paper);
+	box-shadow: var(--bk-shadow);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox.is-kind-callout {
+	border-inline-start-width: var(--size-4-1);
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-field.is-title {
+	font-family: var(--bk-font-head);
+}
+
+/* a field of the block's words: a line under it at the strength of a control's edge (3 to 1) and nothing else until it is pointed at or has the focus */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field {
+	border-bottom-color: var(--bk-edge);
+	background: transparent;
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field.is-desc {
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:hover,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-field:focus-visible {
+	border-bottom-color: var(--bk-brand);
+	background: var(--bk-brand-wash);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editor-state:not(:empty) {
+	border-inline-start-color: var(--bk-hmm-tile);
+	background: var(--bk-hmm-wash);
+	color: var(--bk-ink);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-words .booklet-design-edit-why,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-rest,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-label,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-md > summary {
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-edit-md {
+	border-top-color: var(--bk-rule);
+}
+
+/* its other controls: a boundary that can be seen (3 to 1), on the box */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea) {
+	border: 1.5px solid var(--bk-edge);
+	border-radius: var(--bk-r-sm);
+	background-color: var(--bk-card);
+	color: var(--bk-ink);
+	box-shadow: none;
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea):focus,
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox :is(input[type="text"], input[type="number"], select, .booklet-design-textarea):focus-visible {
+	border-color: var(--bk-brand);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-rows-input[aria-invalid="true"] {
+	border-color: var(--bk-rose);
+}
+
+/* a row is a line of the list on the box; its buttons are the paper pills at the height of a field */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-rows-refused {
+	border-radius: var(--bk-r-md);
+	background: var(--bk-card);
+	color: var(--bk-ink-soft);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button {
+	min-height: var(--size-4-8);
+	padding: 0 var(--size-4-4);
+	font-size: var(--font-ui-small);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions button {
+	padding: 0 var(--size-4-2);
+}
+
+.booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions .is-delete {
+	color: var(--text-error);
+}
+
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-rows-switch, .booklet-design-strip-switch)[aria-checked="true"],
+.booklet-view[data-booklet-look^="paper"] :is(.booklet-design-rows-switch, .booklet-design-strip-switch)[aria-checked="true"]:hover {
+	border-color: var(--bk-brand);
+	background: var(--bk-brand);
+	color: var(--bk-on-brand);
+}
+
+/* ---------- 6. motion ---------- */
+
+@media (prefers-reduced-motion: no-preference) {
+	/* the paper pill gives a pixel under a press; the canvas' own buttons stay where they are, so a press that moves the pointer a little still ends on the button it began on (check 73) */
+	.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox button:active,
+	.booklet-view[data-booklet-look^="paper"] button[class*="booklet-design-"]:active {
+		transform: none;
+	}
 }

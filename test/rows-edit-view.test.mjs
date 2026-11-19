@@ -393,6 +393,27 @@ test("rows written in the note itself: an edit is kept and written between the d
 	v.close();
 });
 
+test("rows written in the note itself: an edit that would take the whole note past 5 MB is kept but not written, and the notice says the booklet would be too big", async () => {
+	const MAX = 5 * 1024 * 1024;
+	const make = (pad) =>
+		[
+			"---", 'booklet: "0.20"', "id: example/inline", "title: Inline", "lang: en", "---", "", "# Inline", "", "> [!module|desk] Desk", "",
+			"> [!activity|orchard repeat] The desk", "", "```booklet query", "from: plots", "as: table", "fields: title", "```", "",
+			"```booklet data", JSON.stringify({ fields: { title: { label: "Name", edit: "text" } }, rows: [{ id: "a", title: "One", pad }] }), "```", "^plots", "", "> [!module|desk end]", "",
+		].join("\n");
+	const text = make("x".repeat(MAX - Buffer.byteLength(make(""), "utf8") - 30));
+	assert.equal(Buffer.byteLength(text, "utf8"), MAX - 30);
+	const v = await orchard({ text, queries: 1 });
+	said().length = 0;
+	change(v.cell(v.queries()[0], "title", "a"), "Two");
+	await v.settled();
+	await sleepTick();
+	assert.equal(v.kept().length, 1, "the entry is kept");
+	assert.equal(core.parseBooklet(v.disk.text).data[0].rows[0].title, "One", "the block is as it was");
+	assert.deepEqual(said(), ["Booklet: change kept, but not written to the data block, because the booklet would be too big to read (the limit is 5 MB)."]);
+	v.close();
+});
+
 test("a field named id marked edit is kept and never written: it is the row's identity, even when the new id would collide with another row's", async () => {
 	const file = JSON.parse(FILE);
 	file.plots.fields.id = { label: "Code", edit: "text" };

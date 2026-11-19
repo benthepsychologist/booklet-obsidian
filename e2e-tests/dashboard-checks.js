@@ -966,7 +966,7 @@ module.exports = function dashboardChecks(env) {
         await yes.evaluate(b => b.click());
         await settle();
         c.ok(fs.readFileSync(jsonFile, "utf8") === JSON.stringify(changed), `[${where}] nothing was removed from the file`);
-        c.ok(/Changed since you drew it\./.test(await seen()), `[${where}] a notice says why: ${JSON.stringify(await seen())}`);
+        c.ok(/Changed since it was shown\./.test(await seen()), `[${where}] a notice says why: ${JSON.stringify(await seen())}`);
         await o.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
         await sleep(900); await quiet(o);
         c.ok(/You asked to remove this; it changed since\./.test(await beds.innerText()), `[${where}] and the row says it changed since, in words: ${JSON.stringify((await beds.innerText()).replace(/\s+/g, " ").slice(0, 200))}`);

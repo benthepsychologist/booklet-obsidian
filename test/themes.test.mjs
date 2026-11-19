@@ -12,7 +12,7 @@ const css = (f) => readFileSync(join(ROOT, "themes", f), "utf8");
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, "");
 
 test("the theme parts exist", () => {
-	for (const f of ["fonts.css", "tokens-paper-light.css", "tokens-paper-dark.css", "structure.css", "pictures.css"]) assert.ok(parts.includes(f), f);
+	for (const f of ["fonts.css", "tokens-paper-light.css", "tokens-paper-dark.css", "structure.css", "pictures.css", "design.css"]) assert.ok(parts.includes(f), f);
 });
 
 test("every part in PARTS exists", async () => {
@@ -40,7 +40,7 @@ test("no theme part uses !important, a network address or a forbidden property",
 });
 
 test("every theme rule is inside .booklet-view and in a Paper look", () => {
-	for (const f of ["tokens-paper-light.css", "tokens-paper-dark.css", "structure.css", "pictures.css"]) {
+	for (const f of ["tokens-paper-light.css", "tokens-paper-dark.css", "structure.css", "pictures.css", "design.css"]) {
 		const c = strip(css(f)).replace(/@media[^{]*\{/g, "").replace(/@supports[^{]*\{/g, "");
 		const flat = (x) => { let y = x; for (let k = 0; k < 4; k++) y = y.replace(/\([^()]*\)/g, ""); return y; }; // commas inside :is(...) and :not(...) do not separate selectors
 		const selectors = c.split("}").map((b) => flat(b.split("{")[0].trim())).filter(Boolean);
@@ -52,7 +52,7 @@ test("every theme rule is inside .booklet-view and in a Paper look", () => {
 });
 
 test("motion sits inside prefers-reduced-motion: no-preference", () => {
-	for (const f of ["structure.css", "pictures.css"]) {
+	for (const f of ["structure.css", "pictures.css", "design.css"]) {
 		const c = strip(css(f));
 		let rest = c, depth = 0, out = "";
 		for (let i = 0; i < rest.length; i++) {
