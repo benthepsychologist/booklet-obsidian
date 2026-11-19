@@ -2,6 +2,20 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
+## Unreleased (the stage 3 candidate)
+
+**The Design view's box now has controls for the other kinds of question, and a small formatting bar for words.** Nothing here is released; the version is still 1.6.0.
+
+- **A scale's anchors are rows.** Each anchor shows its number (the answer that is kept) and its words, with *Move up*, *Move down* and *Remove*, and an *Add an anchor* button. A word typed is applied when you leave it; each change is one write and one step of Undo. Rewording, renumbering or removing the anchor of an answer that is kept asks first; moving an anchor, or changing one nobody answered, asks nothing. A list that did not start at 1 keeps its blank line.
+- **Number, text, date and lines have named settings.** *Smallest number*, *Largest number*, *Step*, *Big box*, *Earlier* and the rest are named in words, with the line's own word after. A value the format would not read (letters in a number, a decimal in a count of days) is refused: the status strip says why, the field goes back to what the note has, and nothing is written. -2 and 0.5 are accepted.
+- **The each: setting is a picker.** It lists only what the question can really be asked for (the choices, multis and widgets of the activity, and the data blocks in reach), never the question itself; *Nothing: asked once* takes it off. With an answer kept, changing it asks first, and if you decline the picker goes back to what the note says (it used to keep the choice you had declined).
+- **A listen's media is two controls.** The address and the name. An audio or video address is written as an embed and any other as a link; an embed with an address that is not media is refused with the reason. A media line the controls cannot show (written with a reference, in the middle of a sentence, or a second embed) is said in words and stays in the Markdown, unrewritten.
+- **A widget's data block is a picker,** of the data blocks it can see, with the engine named, and *Open the data block* opens that block's own Markdown. The data itself (a JSON block) is never rewritten by a control. A widget line with no data block embedded is not drawn by the reader, so its picker has nothing to offer and it is fixed in Markdown.
+- **A bar of four buttons for words** (*Bold*, *Italic*, *Link*, *Bullet list*) above a title, a description or a tip's prose, and the keys Ctrl or Cmd with B, I and K, and with Shift and 8 for bullets (prose only). It only writes the marks (`**`, `*`, `[words](https://)`, `- `): applying and removing it gives back the same bytes. With nothing selected it takes the word at the caret. A press on a button keeps the field's focus and selection, nothing happens in the id field or the Markdown box, a line that would turn into a rule or a link over several lines is refused with the reason in the status strip, and Ctrl+Z in the field takes back one step. On a phone the buttons are 44 px.
+- **Nothing moves.** Pressing any of these controls leaves the header, the trail, the status strip, the scroll area and the box where they were, at a wide pane, at 740 px and on a phone.
+- **A callout's box in the Paper looks** had control edges (the bar's buttons, the field rules, move and delete) at 2.9 to 1 in the light look and 2.4 to 1 in the dark look against the box's tint; they are now 3 to 1 or more.
+- **Tests.** Real-Obsidian checks 78 to 85 (the pieces, the bar and keys, nothing moves, the phone and the looks) and the unit tests in `test/design-stage3.test.mjs`.
+
 ## 1.6.0
 
 **The Design view's editor is rebuilt: the block opens as itself, and every change is saved as you make it.**

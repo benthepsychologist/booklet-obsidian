@@ -1,4 +1,4 @@
-// Checks 64 to 77 of plugin-check.js (plugin 1.6.0): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 85 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -28,6 +28,15 @@
 //      closing, a drag that ends on the page, the Markdown section, a mode switch and a closed pane with typing pending, typing held when the note changed
 //   76 Undo and Redo in the real app: twelve changes of mixed kinds undone and redone byte for byte, typing pending, nothing to undo, rapid presses, an outside
 //      edit of the note, a dialog open; no console or page error
+//   77 the view stands still: header, trail, status strip, scroll area under a press and a write, at three widths
+//   78 a scale's anchors as rows (edit, move, add, remove, Undo and Redo byte for byte; the kept-answer ask; the blank line of a list not starting at 1)
+//   79 number, text, date and lines settings: named, refused with a reason and put back, -2 and 0.5 accepted, digits-only fields
+//   80 the each: picker (only valid sources, one write, Nothing clears it, the kept-data ask and a declined choice put back)
+//   81 a listen's media (an embed or a link, a refused non-media address, a line the controls cannot show stays Markdown)
+//   82 a widget's data block picker and the button that opens the block's Markdown (writes nothing)
+//   83 the rich-text bar and keys (Ctrl+B, I, K, Ctrl+Shift+8), refusals in the status strip, native Ctrl+Z, none in the id field or Markdown box
+//   84 nothing moves under a press on the new controls and the bar, at a wide pane, 740 px and the phone layout
+//   85 the new controls on a phone (44 px, nothing wider than the screen) and in the three looks (contrast)
 //   77 the view stands still: with long titles, at a wide pane, at about 740 px and at 390 px, a press on a block and the block opening and closing change neither the header, the trail
 //      nor the page's place; the status line is a strip in the flow of one fixed height that never covers the page, so a message moves nothing
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
@@ -3019,5 +3028,947 @@ lang: en
     return c;
   }
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77 };
+  /* BEGIN STAGE3 */
+
+  /* ================= CHECKS 78 TO 85: STAGE 3 (the other kinds' own settings, and very modest rich text) ================= */
+  // Every note is made up here (note3) and written into the check's own copy of the vault, one note per scene, so a scene never reads what an
+  // earlier one left. A write is counted with a vault "modify" listener of the page's own; the whole note is compared byte for byte; real mouse and
+  // real keys only for what is under test (Playwright's keyboard and mouse), never fill() or a dispatched event.
+  //   78 a scale's anchors as rows          79 number, text, lines settings named in words, the values the format fixes
+  //   80 the each: picker                   81 a listen's media              82 a widget's data block
+  //   83 the formatting bar and keys        84 nothing moves                 85 a phone, and the three looks
+  const KEPT3 = { clarity: 1, where: [1] };
+  const LONG3 = ", which is asked with a long title that a person might really write, going on over more than one line of a narrow pane";
+  /**
+   * The note of stages 3's checks: one of each piece. `kept` adds the records section with an answer for the scale `clarity` (the number 1) and for the
+   * multi `where`; `long` gives the booklet, the module, the activity and every title long ones (check 84: the header's trail wraps).
+   */
+  const note3 = (name, { kept = false, long = false } = {}) => {
+    const L = s => long ? s + LONG3 : s;
+    return [
+      "---", "booklet: \"0.20\"", `id: booklet-test/stage3-${name}`, `title: ${long ? "The long booklet of a long year" : "Stage three " + name}`, "lang: en", "---", "",
+      `> [!module|m] ${long ? "A module with a long title too" : "Week"}`, "", `> [!activity|a] ${long ? "An activity titled at length" : "The week"}`, "",
+      "Plain words of the activity, with a second sentence to select from.", "",
+      "> [!tip] Start here", "> Words of the tip, and a second line.", "> A third line of words.", "",
+      `> [!scale|clarity] ${L("How clear was the reading?")}`, "> Think of the whole week.", "", "0. Not clear", "1. A little clear", "2. Clear", "",
+      "> [!scale|mood] How was the mood?", "1. Low", "2. High", "",
+      "> [!scale|fresh] A scale with no anchors yet", "",
+      `> [!choice|tools] ${L("Which tools did you use?")}`, "- [ ] Hammer", "- [ ] Saw", "",
+      "> [!multi|where each:tools] Where did you use it?", "- [ ] Shed", "- [ ] Garden", "",
+      `> [!number|sleep min:0 max:24] ${L("Hours slept")}`, "",
+      `> [!text|noticed] ${L("What surprised you?")}`, "",
+      "> [!date|when] When did it happen?", "",
+      "> [!lines|wins earlier:3] Three things that went well", "",
+      "> [!lines|ghost each:ghost] A follow-up of a pick that is not there", "",
+      "> [!listen|ep1 left:60] Episode 1", "> ![Episode 1](media/e1.mp3)", "> Listen to the whole of it.", "",
+      "> [!listen|ep2] Episode 2", "",
+      "> [!listen|ep3] Episode 3", "> [Watch it](https://video.example.org/watch/3)", "",
+      "> [!listen|ep4] Episode 4", "> Hear ![the tone](media/e4.mp3) in the middle of the words.", "",
+      "> [!widget|body describe] Which muscles did you stretch?", "> ![[#^body-map]]", "",
+      "> [!widget|empty] A widget with no data block yet", "",
+      "> [!widget|lost] A widget that names a block that is not there", "> ![[#^gone]]", "",
+      "> [!module|m end]", "",
+      "> [!module|other] Another module", "", "> [!activity|b] Elsewhere", "", "> [!text|aside] A note", "", "> [!module|other end]", "",
+      "> [!data|m] Data", "",
+      "```booklet widget", "{ \"engine\": \"svg-regions\", \"figures\": [], \"regions\": [] }", "```", "^body-map", "",
+      "```booklet widget", "{ \"engine\": \"grid-select\", \"cells\": [], \"items\": [] }", "```", "^board", "",
+      "```booklet data", "{\"fields\":{\"title\":{\"label\":\"Name\",\"edit\":\"text\"}},\"idFormat\":\"l-{n}\",\"rows\":[{\"id\":\"l-1\",\"title\":\"First\"}]}", "```", "^logs", "",
+      "> [!data|other] Data of the other module", "",
+      "```booklet widget", "{ \"engine\": \"grid-select\", \"cells\": [], \"items\": [] }", "```", "^elsewhere", "",
+      "```booklet data", "{\"fields\":{\"title\":{\"label\":\"Name\",\"edit\":\"text\"}},\"idFormat\":\"o-{n}\",\"rows\":[{\"id\":\"o-1\",\"title\":\"First\"}]}", "```", "^otherlogs", "",
+      "> [!data] Data shared by every module", "",
+      "```booklet widget", "{ \"engine\": \"svg-regions\", \"figures\": [], \"regions\": [] }", "```", "^shared", "",
+      ...(kept ? ["%%", "> [!records] App record — do not edit below this line", "", "> [!records|m] Week", "", "```booklet answers", JSON.stringify(KEPT3), "```", "%%", ""] : []),
+    ].join("\n");
+  };
+  /** The shared helpers of checks 78 to 85 for one running app: notes made and opened, writes counted, the strip's and the rows' controls, the dialog. */
+  const kit3 = (o, c, vault, table) => {
+    let seq = 0;
+    const say = k => (table[k] ? table[k].en : "?" + k);
+    const mk = opts => { const name = "s" + (++seq), rel = `Stage3 ${name}.booklet.md`, t = note3(name, opts); return { rel, file: put(vault, rel, t), t }; };
+    const start = async (opts = {}, wide = true) => { const n = mk(opts); await openDesign(o, n.rel, "tab", true, wide); await goNav(o, "activity", lineOf(n.t, "[!activity|a]")); await armWrites(o, n.rel); return n; };
+    const open = (n, needle, kind = "question") => clickBlock(o, kind, lineOf(text(n.file), needle));
+    const W = n => writesOf(o, n.rel);
+    const diffs = (want, got) => want === got ? "" : "; DIFFERS " + JSON.stringify(region(want, got)).slice(0, 300);
+    /** After the note has changed from `from`: its text, read again once the write has settled. */
+    const settled = async (n, from) => { const r = await waitDisk(n.file, tx => tx !== from); await sleep(450); await idle(o); return { ok: r.ok, text: text(n.file) }; };
+    const STRIP = k => `${DV} .booklet-design-editbox .booklet-design-strip-item[data-field='${k}']`;
+    const SI = k => `${STRIP(k)} input, ${STRIP(k)} select`;
+    /** Real typing in a control of the box (the old text replaced), then Tab: the control is left and what was typed is applied. */
+    const typeLeave = async (sel, s) => { const l = o.page.locator(sel); await l.click(); await o.page.keyboard.press("Control+a"); if (s === "") await o.page.keyboard.press("Backspace"); else await o.page.keyboard.type(s); await o.page.keyboard.press("Tab"); };
+    const press = async sel => { const l = o.page.locator(sel); await l.scrollIntoViewIfNeeded(); await l.click(); await sleep(200); };
+    const refusalOf = () => o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-edit-refusal"); return e ? e.textContent : null; }, DV);
+    const value = sel => o.page.locator(sel).inputValue();
+    const focusKey = () => o.evaluate(() => { const a = document.activeElement; return a ? (a.getAttribute("data-key") || a.getAttribute("data-field") || a.className || a.tagName) : null; });
+    const closeBox = async () => { for (let i = 0; i < 3 && (await state(o)).editBox; i++) { await o.page.keyboard.press("Escape"); await sleep(250); } await idle(o); };
+    /** A press on Undo (a step that moves a kept answer asks, as the change did: answered Change). */
+    const undo = async (kept = false) => { await undoBtn(o).click(); if (kept && await waitModal(o, true, 1200)) { c.info("Undo of a step that touched a kept answer opened the count-and-ask dialog; answered Change"); await clickModal(o, "Change"); } };
+    /** A change that must ask: the dialog's words and the focus on Cancel; Cancel writes nothing and says so; the note is as it was. */
+    const asks = async (n, before, label, words) => {
+      const w0 = await W(n);
+      const shown = await waitModal(o, true);
+      const m = shown ? await modalInfo(o) : null;
+      c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: it opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 160))}) with the focus on Cancel`);
+      if (shown) {
+        await clickModal(o, "Cancel"); await idle(o);
+        const st = await state(o);
+        c.ok(text(n.file) === before && (await W(n)) === w0 && st.status === say("status.cancelled"), `${label}: Cancel writes nothing (the note is byte for byte as it was, ${await W(n)} writes), and says ${JSON.stringify(st.status)}`);
+      }
+    };
+    /** Runs one scene; a script error is a failed assertion and the next scene goes on. */
+    const scene = async (name, fn) => { try { await fn(); } catch (e) { c.ok(false, `script error in scene ${name} (the scene stopped here, the next one goes on): ${String(e && e.message || e).slice(0, 300)}`); await closeAll(o).catch(() => {}); } };
+    return { say, mk, start, open, W, diffs, settled, STRIP, SI, typeLeave, press, refusalOf, value, focusKey, closeBox, undo, asks, scene };
+  };
+
+  /* ================= CHECK 78 ================= */
+  async function check78() {
+    const c = new Check(78, "a scale's anchors as rows in the real app, applied as you go: the number and the words of each anchor, move, remove and add, every change one write compared byte for byte with the whole note and one step of Undo (six changes undone and redone back to the exact bytes); a number that is not digits is refused with the reason and the row goes back; with an answer kept for the scale, a change that touches the anchor of that number (reworded, renumbered, removed) asks first and declining writes nothing, a move or an unkept anchor asks nothing; a list that starts at 0 keeps its blank line, and one made to start at 0 gets it");
+    const table = tableOf();
+    await withApp("c78", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, typeLeave, press, refusalOf, value, focusKey, closeBox, undo, asks, scene } = k;
+      const errs0 = consoleReport.length;
+      const inputs = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows input[data-key]")].map(e => e.getAttribute("data-key") + "=" + e.value), DV);
+      const heads = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
+      await scene("A. a scale with nothing kept: reword, renumber, add, move, remove, then Undo and Redo", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!scale|clarity]");
+        c.ok((await heads()).join() === k.say("rows.anchors"), `A: the scale's box has a section headed ${JSON.stringify(await heads())}`);
+        c.ok((await inputs()).join("|") === "a0-number=0|a0-text=Not clear|a1-number=1|a1-text=A little clear|a2-number=2|a2-text=Clear", `A: the three anchors are rows, each with its number and its words (${(await inputs()).join("|")})`);
+        c.ok(await value(TITLE_F) === "How clear was the reading?" && await value(DESC_F) === "Think of the whole week.", "A: the scale's own words are the fields above the rows (title and description), the anchors are the rows");
+        const names = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows button")].slice(0, 4).map(b => b.getAttribute("aria-label")), DV);
+        c.ok(names.join("|") === "Anchor 1: move up|Anchor 1: move down|Anchor 1: remove|Anchor 2: move up", `A: every button of a row has its own name for a screen reader (${JSON.stringify(names)})`);
+        c.ok(await o.page.locator(RW("a0-up")).isDisabled() && await o.page.locator(RW("a2-down")).isDisabled(), "A: the first anchor cannot move up and the last cannot move down");
+        const states = [t0];
+        const step = async (label, want) => {
+          const r = await settled(n, states[states.length - 1]);
+          c.ok(r.ok && r.text === want && await W(n) === states.length, `A: ${label}: one write (${await W(n)} in all), the whole note equals the expected one byte for byte${diffs(want, r.text)}`);
+          states.push(want);
+        };
+        await typeLeave(RW("a1-text"), "Some");
+        await step("anchor 2 reworded", sub(t0, "1. A little clear\n", "1. Some\n"));
+        await typeLeave(RW("a2-number"), "4");
+        await step("anchor 3 renumbered 4", sub(states[1], "2. Clear\n", "4. Clear\n"));
+        // a number that is not digits: refused with the reason, nothing written, the row goes back
+        const w = await W(n);
+        await typeLeave(RW("a2-number"), "x");
+        await sleep(400); await idle(o);
+        const why = await refusalOf();
+        c.ok(text(n.file) === states[2] && await W(n) === w && /^Not changed\. /.test(why || "") && /digits only/.test(why || ""), `A: a number typed as "x" is refused in words (${JSON.stringify(why)}) and nothing is written`);
+        c.ok(await value(RW("a2-number")) === "4", `A: and the row goes back to the note's number (${await value(RW("a2-number"))})`);
+        await press(RW("a-add"));
+        c.ok(await focusKey() === "a3-text", `A: Add an anchor puts the focus in the new row's words (${await focusKey()})`);
+        await step("an anchor added after the last, numbered one more", sub(states[2], "4. Clear\n", "4. Clear\n5. \n"));
+        await typeLeave(RW("a3-text"), "Very clear");
+        await step("its words typed", sub(states[3], "5. \n", "5. Very clear\n"));
+        await press(RW("a3-up"));
+        await step("the last anchor moved up (numbers and words travel together)", sub(states[4], "4. Clear\n5. Very clear\n", "5. Very clear\n4. Clear\n"));
+        await press(RW("a1-remove"));
+        await step("anchor 2 removed", sub(states[5], "1. Some\n", ""));
+        await shotOk(o, "scale-rows");
+        c.ok(await state(o).then(s => s.modal === false), "A: nothing was asked on the way (no answer is kept)");
+        // six changes: six steps of Undo, each giving back the state before it
+        for (let i = states.length - 1; i >= 1; i--) {
+          const before = W(n);
+          await undo(); const r = await waitDisk(n.file, tx => tx === states[i - 1]); await idle(o);
+          c.ok(r.ok && await W(n) === (await before) + 1, `A: Undo step ${states.length - i} gave back the state before change ${i} byte for byte, in one write`);
+        }
+        c.ok(text(n.file) === t0, "A: six Undos gave the original note back byte for byte");
+        for (let i = 1; i < states.length; i++) { await redoBtn(o).click(); const r = await waitDisk(n.file, tx => tx === states[i]); await idle(o); if (!r.ok) c.ok(false, `A: Redo ${i} did not give the state after change ${i}${diffs(states[i], text(n.file))}`); }
+        c.ok(text(n.file) === states[states.length - 1], "A: six Redos made the last state again, byte for byte");
+        await closeBox();
+      });
+      await scene("B. a scale with an answer kept (the number 1): what touches it asks, what does not writes at once", async () => {
+        const n = await start({ kept: true }); let cur = n.t;
+        await open(n, "[!scale|clarity]");
+        await typeLeave(RW("a0-text"), "Not at all clear");
+        let r = await settled(n, cur);
+        c.ok(r.ok && r.text === sub(cur, "0. Not clear\n", "0. Not at all clear\n") && await W(n) === 1 && !(await state(o)).modal, `B: rewording anchor 0 (nobody kept the number 0) writes at once and asks nothing${diffs(sub(cur, "0. Not clear\n", "0. Not at all clear\n"), r.text)}`);
+        cur = r.text;
+        await typeLeave(RW("a1-text"), "Somewhat clear");
+        await asks(n, cur, "B: rewording the anchor of the kept number 1", [/clarity/, /saved answer/i]);
+        c.ok(await value(RW("a1-text")) === "A little clear", `B: after Cancel the row shows the note's words again (${await value(RW("a1-text"))})`);
+        await press(RW("a1-remove"));
+        await asks(n, cur, "B: removing the anchor of the kept number 1", [/clarity/]);
+        await typeLeave(RW("a1-number"), "3");
+        await asks(n, cur, "B: renumbering the anchor of the kept number 1 (its words would no longer be the answer's)", [/clarity/]);
+        c.ok(await value(RW("a1-number")) === "1" && text(n.file) === cur, "B: the three declined changes left the note as it was and the rows read what the note has");
+        // a move keeps every number with its words, so no kept answer changes its meaning: nothing is asked
+        await press(RW("a2-up"));
+        r = await settled(n, cur);
+        c.ok(r.ok && r.text === sub(cur, "1. A little clear\n2. Clear\n", "2. Clear\n1. A little clear\n") && await W(n) === 2 && !(await state(o)).modal, `B: moving anchor 3 up asks nothing (each number travels with its words) and is one write${diffs(sub(cur, "1. A little clear\n2. Clear\n", "2. Clear\n1. A little clear\n"), r.text)}`);
+        cur = r.text;
+        await press(RW("a1-remove"));
+        r = await settled(n, cur);
+        c.ok(r.ok && r.text === sub(cur, "2. Clear\n", "") && await W(n) === 3 && !(await state(o)).modal, `B: removing the anchor of the number 2 (not kept) asks nothing${diffs(sub(cur, "2. Clear\n", ""), r.text)}`);
+        cur = r.text;
+        // the ask answered Change: written, one step
+        await typeLeave(RW("a1-text"), "Somewhat clear");
+        await waitModal(o, true); await clickModal(o, "Change");
+        r = await settled(n, cur);
+        c.ok(r.ok && r.text === sub(cur, "1. A little clear\n", "1. Somewhat clear\n") && await W(n) === 4, `B: answered Change, the reworded anchor is written, one write${diffs(sub(cur, "1. A little clear\n", "1. Somewhat clear\n"), r.text)}`);
+        for (let i = 0; i < 4; i++) await undo(true);
+        const back = await waitDisk(n.file, tx => tx === n.t, 6000); await idle(o);
+        c.ok(back.ok && await W(n) === 8, `B: four changes, four Undo steps (${await W(n)} writes in all): the note is the original byte for byte${diffs(n.t, text(n.file))}`);
+        await closeBox();
+      });
+      await scene("C. the blank line of a list that does not start at 1", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!scale|clarity]");
+        await typeLeave(RW("a0-text"), "Nil");
+        let r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "0. Not clear\n", "0. Nil\n") && r.text.includes("the whole week.\n\n0. Nil\n"), "C: a scale that starts at 0 keeps the blank line the format needs above its list when an anchor's words are changed");
+        await press(RW("a0-remove"));
+        r = await settled(n, r.text);
+        c.ok(r.ok && r.text.includes("the whole week.\n\n1. A little clear\n2. Clear\n"), "C: and the blank line is still there when the 0 anchor is removed");
+        await closeBox();
+        // one that starts at 1 and is made to start at 0 gets the blank line; Undo takes it away again
+        const m = await start(); const m0 = m.t;
+        await open(m, "[!scale|mood]");
+        await typeLeave(RW("a0-number"), "0");
+        r = await settled(m, m0);
+        c.ok(r.ok && r.text === sub(m0, "> [!scale|mood] How was the mood?\n1. Low\n", "> [!scale|mood] How was the mood?\n\n0. Low\n"), `C: the anchor "1. Low" renumbered 0 puts a blank line above the list (a 0 list straight under the question would be read as part of it)${diffs(sub(m0, "> [!scale|mood] How was the mood?\n1. Low\n", "> [!scale|mood] How was the mood?\n\n0. Low\n"), r.text)}`);
+        await undo(); const u = await waitDisk(m.file, tx => tx === m0); await idle(o);
+        c.ok(u.ok, "C: Undo gives the note back without the blank line, byte for byte");
+        await closeBox();
+        // a scale with no anchors: a first anchor numbered 1 straight under the question, its words, then 0 and the blank line
+        const f = await start(); const f0 = f.t;
+        await open(f, "[!scale|fresh]");
+        c.ok(await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows-none") || {}).textContent, DV) === k.say("rows.none"), `C: a scale with no anchors says ${JSON.stringify(k.say("rows.none"))}`);
+        await press(RW("a-add"));
+        const f1 = sub(f0, "A scale with no anchors yet\n", "A scale with no anchors yet\n1. \n");
+        r = await settled(f, f0);
+        c.ok(r.ok && r.text === f1 && await value(RW("a0-number")) === "1", `C: Add an anchor on a scale with none writes "1. " under the question${diffs(f1, r.text)}`);
+        await typeLeave(RW("a0-text"), "Low");
+        r = await settled(f, f1);
+        const f2 = sub(f1, "1. \n", "1. Low\n");
+        c.ok(r.ok && r.text === f2, `C: its words typed and left${diffs(f2, r.text)}`);
+        await typeLeave(RW("a0-number"), "0");
+        r = await settled(f, f2);
+        const f3 = sub(f2, "A scale with no anchors yet\n1. Low\n", "A scale with no anchors yet\n\n0. Low\n");
+        c.ok(r.ok && r.text === f3, `C: numbering it 0 puts the blank line above it${diffs(f3, r.text)}`);
+        for (let i = 0; i < 3; i++) { await undo(); await sleep(350); await idle(o); }
+        c.ok(text(f.file) === f0, "C: three Undos give the note back byte for byte");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+  /** A screenshot of the open view (the harness's own), true when it was taken. */
+  const shotOk = async (o, name) => { try { await shot(o, name); return true; } catch (e) { return false; } };
+
+  /* ================= CHECK 79 ================= */
+  /** The settings strip of the open box as a person reads it: [data-field, the words that name it]. */
+  const stripNames = o => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox .booklet-design-strip-item")].map(e => [e.getAttribute("data-field"), ((e.querySelector(".booklet-design-strip-label, button[role=switch]") || {}).textContent || "").trim()]), DV);
+  async function check79() {
+    const c = new Check(79, "the settings of a number, text, date and lines question in words with the line's own word after (Smallest number (min), Big box (long), Earlier words offered (earlier)), in the real app: min, max and step take a number (-2, 0.5 and 12.5 are written, \"many\" and \"1,5\" are refused with the reason in words, nothing is written and the field goes back), earlier takes digits only (a phone's number pad), empty takes a setting off, the Big box switch writes and takes off `long`; every change one write, one step of Undo, the whole note compared byte for byte, Undo back to the exact original");
+    const table = tableOf();
+    await withApp("c79", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, SI, STRIP, typeLeave, press, refusalOf, value, closeBox, undo, scene, say } = k;
+      const errs0 = consoleReport.length;
+      const nm = (key, word) => [word, `${say(key)} (${word})`];
+      const inputMode = sel => o.page.locator(sel).evaluate(e => e.inputMode);
+      await scene("A. a number question: min, max, step", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!number|sleep");
+        const names = await stripNames(o);
+        c.ok(JSON.stringify(names) === JSON.stringify([["id", say("form.id")], nm("setting.min", "min"), nm("setting.max", "max"), nm("setting.step", "step"), nm("setting.each", "each")]), `A: the strip names each setting in words, with the line's own word after: ${JSON.stringify(names.map(x => x[1]))}`);
+        c.ok(await inputMode(SI("min")) === "decimal" && await inputMode(SI("step")) === "decimal", "A: min, max and step show a phone's decimal keypad");
+        c.ok(await value(SI("min")) === "0" && await value(SI("max")) === "24" && await value(SI("step")) === "", "A: min 0 and max 24 are the line's, step is empty");
+        await shotOk(o, "number-strip");
+        // refused: the reason in words, nothing written, the field goes back
+        for (const bad of ["many", "1,5"]) {
+          const w = await W(n);
+          await typeLeave(SI("max"), bad); await sleep(400); await idle(o);
+          const why = await refusalOf();
+          c.ok(text(n.file) === t0 && await W(n) === w && /^Not changed\. .max. takes a number, such as 0, 12 or 2\.5\./.test(why || ""), `A: ${JSON.stringify(bad)} in max is refused in words (${JSON.stringify(why)}), nothing is written`);
+          c.ok(await value(SI("max")) === "24", `A: and the field goes back to the note's 24 (${await value(SI("max"))})`);
+        }
+        const states = [t0];
+        const step = async (label, want) => {
+          const r = await settled(n, states[states.length - 1]);
+          c.ok(r.ok && r.text === want && await W(n) === states.length, `A: ${label}: one write (${await W(n)} in all), the whole note equals the expected one${diffs(want, r.text)}`);
+          states.push(want);
+        };
+        await typeLeave(SI("max"), "12.5");
+        await step("max 12.5", sub(t0, "min:0 max:24]", "min:0 max:12.5]"));
+        await typeLeave(SI("min"), "-2");
+        await step("min -2 (a negative number is a number)", sub(states[1], "min:0 max:12.5]", "min:-2 max:12.5]"));
+        await typeLeave(SI("step"), "0.5");
+        await step("step 0.5 added", sub(states[2], "min:-2 max:12.5]", "min:-2 max:12.5 step:0.5]"));
+        await typeLeave(SI("min"), "");
+        await step("min emptied: the setting is taken off the line", sub(states[3], "min:-2 max:12.5 step:0.5]", "max:12.5 step:0.5]"));
+        for (let i = states.length - 1; i >= 1; i--) { await undo(); const r = await waitDisk(n.file, tx => tx === states[i - 1]); await idle(o); if (!r.ok) c.ok(false, `A: Undo ${states.length - i} did not give back the state before change ${i}${diffs(states[i - 1], text(n.file))}`); }
+        c.ok(text(n.file) === t0 && await W(n) === 8, `A: four changes, four Undo steps (${await W(n)} writes in all): the original note byte for byte`);
+        await closeBox();
+      });
+      await scene("B. a lines question: earlier takes digits only", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!lines|wins");
+        const names = await stripNames(o);
+        c.ok(JSON.stringify(names) === JSON.stringify([["id", say("form.id")], nm("setting.each", "each"), nm("setting.earlier", "earlier")]), `B: the strip is ${JSON.stringify(names.map(x => x[1]))}`);
+        c.ok(await inputMode(SI("earlier")) === "numeric" && await value(SI("earlier")) === "3", "B: earlier shows a phone's number pad (digits only) and holds the line's 3");
+        for (const bad of ["-1", "x", "2.5"]) {
+          const w = await W(n);
+          await typeLeave(SI("earlier"), bad); await sleep(400); await idle(o);
+          const why = await refusalOf();
+          c.ok(text(n.file) === t0 && await W(n) === w && /^Not changed\. .earlier. takes a whole number written in digits/.test(why || "") && await value(SI("earlier")) === "3", `B: ${JSON.stringify(bad)} is refused (${JSON.stringify(why)}), nothing is written, the field is back to 3`);
+        }
+        await typeLeave(SI("earlier"), "5");
+        let r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "[!lines|wins earlier:3]", "[!lines|wins earlier:5]") && await W(n) === 1, `B: 5 is written, one write${diffs(sub(t0, "[!lines|wins earlier:3]", "[!lines|wins earlier:5]"), r.text)}`);
+        await typeLeave(SI("earlier"), "");
+        r = await settled(n, r.text);
+        c.ok(r.ok && r.text === sub(t0, "[!lines|wins earlier:3]", "[!lines|wins]") && await W(n) === 2, `B: emptied, the setting is taken off the line${diffs(sub(t0, "[!lines|wins earlier:3]", "[!lines|wins]"), r.text)}`);
+        await undo(); await waitDisk(n.file, tx => tx === sub(t0, "[!lines|wins earlier:3]", "[!lines|wins earlier:5]")); await undo(); const back = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(back.ok && await W(n) === 4, "B: two changes, two Undo steps: the original note byte for byte");
+        await closeBox();
+      });
+      await scene("C. a text question: the Big box switch; a date question has only an id and each", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!text|noticed]");
+        const names = await stripNames(o);
+        c.ok(JSON.stringify(names) === JSON.stringify([["id", say("form.id")], nm("setting.long", "long"), nm("setting.each", "each")]), `C: the strip is ${JSON.stringify(names.map(x => x[1]))}`);
+        const sw = `${STRIP("long")} button[role='switch']`;
+        c.ok(await o.page.locator(sw).getAttribute("aria-checked") === "false", "C: the Big box switch is off");
+        await press(sw);
+        let r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "[!text|noticed]", "[!text|noticed long]") && await W(n) === 1 && await o.page.locator(sw).getAttribute("aria-checked") === "true", `C: pressing it writes \`long\` and nothing else (one write), the switch reads on${diffs(sub(t0, "[!text|noticed]", "[!text|noticed long]"), r.text)}`);
+        await press(sw);
+        r = await settled(n, r.text);
+        c.ok(r.ok && r.text === t0 && await W(n) === 2, "C: pressing it again takes `long` off: the original note byte for byte, one more write");
+        await undo(); await waitDisk(n.file, tx => tx === sub(t0, "[!text|noticed]", "[!text|noticed long]")); await undo(); await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === 4, "C: and two Undos change it forth and back, each one write");
+        await closeBox();
+        await open(n, "[!date|when]");
+        const dn = await stripNames(o);
+        c.ok(JSON.stringify(dn) === JSON.stringify([["id", say("form.id")], nm("setting.each", "each")]), `C: a date question's strip is ${JSON.stringify(dn.map(x => x[1]))}`);
+        await closeBox();
+        c.ok(text(n.file) === t0, "C: opening and closing boxes wrote nothing");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 80 ================= */
+  async function check80() {
+    const c = new Check(80, "the each: picker in the real app: a list of only the sources the reader and the linter accept (the choices, multis and widgets of the activity that have no each: of their own, and the data blocks in reach, never the question itself, a scale or a number, or a block of another module), chosen with the keyboard on the real drop-down, one write and one step of Undo, Nothing takes the setting off, a source the line names that is not there is listed as not found; with an answer kept, changing each: asks first and declining writes nothing and puts the picker back");
+    const table = tableOf();
+    await withApp("c80", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, SI, say, value, closeBox, undo, asks, scene } = k;
+      const errs0 = consoleReport.length;
+      const optionsOf = sel => o.page.locator(sel).evaluate(e => [...e.options].map(x => [x.value, x.textContent]));
+      /** The real drop-down, closed, with the keyboard focus on it: a key changes it as a person's would. */
+      const keyOn = async (sel, ...keys) => { await o.page.focus(sel); for (const key of keys) { await o.page.keyboard.press(key); await sleep(120); } };
+      await scene("A. nothing kept: the list, choosing, Nothing, Undo", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!number|sleep");
+        const sel = SI("each");
+        c.ok(await o.page.locator(sel).evaluate(e => e.tagName) === "SELECT" && await value(sel) === "", "A: a number question with no each: has a drop-down on Nothing (a real select element)");
+        const opts = await optionsOf(sel);
+        // (a widget line that embeds no block is not a question the reader draws, so it is not a source: `empty` is not listed)
+        const want = [["", say("each.none")], ["tools", "tools (choice)"], ["body", "body (widget)"], ["lost", "lost (widget)"], ["logs", "logs (data block)"]];
+        c.ok(JSON.stringify(opts) === JSON.stringify(want), `A: it lists Nothing, the choice, the widgets and the data block of the module, in the note's order: ${JSON.stringify(opts.map(x => x[1]))}`);
+        const bad = ["where", "clarity", "mood", "sleep", "noticed", "when", "wins", "ep1", "elsewhere", "otherlogs", "shared", "board", "body-map"];
+        c.ok(!opts.some(x => bad.includes(x[0])), "A: and none of what is not a valid source: not the multi that has an each: of its own, not a scale, number, text, date, lines or listen, not a data block or a widget block of another module or the data blocks a widget embeds");
+        await shotOk(o, "each-picker");
+        await keyOn(sel, "ArrowDown");
+        let r = await settled(n, t0);
+        const w1 = sub(t0, "[!number|sleep min:0 max:24]", "[!number|sleep min:0 max:24 each:tools]");
+        c.ok(r.ok && r.text === w1 && await W(n) === 1 && await value(sel) === "tools", `A: choosing tools with the Down key writes \`each:tools\` and nothing else, one write${diffs(w1, r.text)}`);
+        await keyOn(sel, "ArrowDown");
+        const w2 = sub(t0, "[!number|sleep min:0 max:24]", "[!number|sleep min:0 max:24 each:body]");
+        r = await settled(n, w1);
+        c.ok(r.ok && r.text === w2 && await W(n) === 2, `A: another source with the Down key is one more write (each:body)${diffs(w2, r.text)}`);
+        await keyOn(sel, "Home");
+        r = await settled(n, w2);
+        c.ok(r.ok && r.text === t0 && await W(n) === 3 && await value(sel) === "", `A: Nothing takes the setting off: the original note byte for byte, one more write${diffs(t0, r.text)}`);
+        await undo(); await waitDisk(n.file, tx => tx === w2); await undo(); await waitDisk(n.file, tx => tx === w1); await undo(); const back = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(back.ok && await W(n) === 6, `A: three changes, three Undo steps (${await W(n)} writes in all)`);
+        await closeBox();
+      });
+      await scene("B. an answer is kept for the multi that has each:tools: changing it asks", async () => {
+        const n = await start({ kept: true }); const t0 = n.t;
+        await open(n, "[!multi|where");
+        const sel = SI("each");
+        c.ok(await value(sel) === "tools", "B: the picker reads tools, the line's");
+        const opts = await optionsOf(sel);
+        c.ok(JSON.stringify(opts.map(x => x[0])) === JSON.stringify(["", "tools", "body", "lost", "logs"]), `B: its sources are the others, not itself (${JSON.stringify(opts.map(x => x[0]))})`);
+        await keyOn(sel, "ArrowDown");
+        await asks(n, t0, "B: choosing body for a question with a kept answer (the way it is asked changes)", [/where/, /saved answer/i]);
+        await idle(o);
+        c.ok(await value(sel) === "tools", `B: after Cancel the picker is back on tools (${await value(sel)})`);
+        await keyOn(sel, "Home");
+        await asks(n, t0, "B: choosing Nothing for it", [/where/]);
+        c.ok(await value(sel) === "tools", "B: the picker is back on tools again");
+        await keyOn(sel, "ArrowDown");
+        await waitModal(o, true); await clickModal(o, "Change");
+        const r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "[!multi|where each:tools]", "[!multi|where each:body]") && await W(n) === 1, `B: answered Change, \`each:body\` is written, one write${diffs(sub(t0, "[!multi|where each:tools]", "[!multi|where each:body]"), r.text)}`);
+        await undo(true); const back = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(back.ok && await W(n) === 2, "B: one Undo (it asks as the change did, answered Change) gives the note back byte for byte");
+        await closeBox();
+      });
+      await scene("C. a source the line names that is not there is listed as not found", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!lines|ghost");
+        const sel = SI("each");
+        const opts = await optionsOf(sel);
+        c.ok(await value(sel) === "ghost" && opts[opts.length - 1][0] === "ghost" && opts[opts.length - 1][1] === say("rows.menu.missing").replace("{id}", "ghost"), `C: each:ghost is listed last and said as not found (${JSON.stringify(opts[opts.length - 1])}), the picker reads it`);
+        await closeBox();
+        c.ok(text(n.file) === t0 && await W(n) === 0, "C: opening and closing it wrote nothing");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 81 ================= */
+  async function check81() {
+    const c = new Check(81, "a listen question's media as controls in the real app: its address and its name under its words, changed one write and one step of Undo each, only the pieces asked for are rewritten (the ! and the brackets, the other lines and bytes stay); an embed whose address is not audio or video is refused with the reason and the field goes back; typing an address under a listen with none adds an embed for an audio or video address and a link for any other; a link says the person answering can only tick it; a media line in the middle of a sentence has no controls, says why and opens the Markdown; seconds-left takes digits only; the whole note compared byte for byte, no dialog (nothing kept is touched)");
+    const table = tableOf();
+    await withApp("c81", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, SI, STRIP, say, typeLeave, refusalOf, value, closeBox, undo, scene, focusKey } = k;
+      const errs0 = consoleReport.length;
+      const MT = RW("media-target"), MA = RW("media-alt");
+      const mediaHead = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV);
+      await scene("A. an embed: its address and its name", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!listen|ep1");
+        c.ok((await mediaHead()).includes(say("media.heading")) && await value(MT) === "media/e1.mp3" && await value(MA) === "Episode 1", `A: a section headed ${JSON.stringify(say("media.heading"))} holds the address (${await value(MT)}) and the name (${await value(MA)}) of the line's embed`);
+        c.ok(await value(DESC_F) === "Listen to the whole of it." && await value(TITLE_F) === "Episode 1", "A: the question's words are the fields above, apart from the media line");
+        await shotOk(o, "listen-media");
+        await typeLeave(MT, "media/e2.m4a");
+        let r = await settled(n, t0);
+        const s1 = sub(t0, "![Episode 1](media/e1.mp3)", "![Episode 1](media/e2.m4a)");
+        c.ok(r.ok && r.text === s1 && await W(n) === 1 && !(await state(o)).modal, `A: a new address is written into the embed and nothing else (one write, nothing asked)${diffs(s1, r.text)}`);
+        await typeLeave(MA, "Episode One");
+        r = await settled(n, s1);
+        const s2 = sub(s1, "![Episode 1](media/e2.m4a)", "![Episode One](media/e2.m4a)");
+        c.ok(r.ok && r.text === s2 && await W(n) === 2, `A: a new name is written in the brackets and nothing else${diffs(s2, r.text)}`);
+        // refused: an embed's address has to be audio or video
+        const w = await W(n);
+        await typeLeave(MT, "https://video.example.org/watch"); await sleep(400); await idle(o);
+        const why = await refusalOf();
+        c.ok(text(n.file) === s2 && await W(n) === w && /^Not changed\. An embed's address ends in an audio or video extension/.test(why || ""), `A: an embed given a web page's address is refused with the reason (${JSON.stringify(why)}) and nothing is written`);
+        c.ok(await value(MT) === "media/e2.m4a", `A: and the address field goes back to the note's (${await value(MT)})`);
+        await typeLeave(MA, "Bad [name]"); await sleep(400); await idle(o);
+        c.ok(text(n.file) === s2 && /^Not changed\. /.test(await refusalOf() || "") && await value(MA) === "Episode One", `A: a name with a bracket is refused too (${JSON.stringify(await refusalOf())}) and the field goes back`);
+        await undo(); await waitDisk(n.file, tx => tx === s1); await undo(); const back = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(back.ok && await W(n) === 4, "A: two changes, two Undo steps: the original note byte for byte");
+        // seconds left: digits only
+        const w3 = await W(n);
+        await typeLeave(SI("left"), "1m"); await sleep(400); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === w3 && /^Not changed\. .left. takes a whole number of seconds written in digits/.test(await refusalOf() || "") && await value(SI("left")) === "60", `A: seconds left typed as "1m" is refused (${JSON.stringify(await refusalOf())}), the field is back to 60`);
+        await typeLeave(SI("left"), "90");
+        r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "[!listen|ep1 left:60]", "[!listen|ep1 left:90]") && await W(n) === w3 + 1, `A: 90 is written${diffs(sub(t0, "[!listen|ep1 left:60]", "[!listen|ep1 left:90]"), r.text)}`);
+        await undo(); const b2 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(b2.ok, "A: and one Undo takes it back");
+        await closeBox();
+      });
+      await scene("B. no media yet: an address types an embed, or a link", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!listen|ep2");
+        c.ok(await value(MT) === "" && await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-rows .booklet-design-rows-none") || {}).textContent, DV) === say("media.add") && (await o.page.locator(MA).count()) === 0, `B: a listen with no media says ${JSON.stringify(say("media.add"))}, with an empty address field and no name field yet`);
+        await typeLeave(MT, "media/e2.mp3");
+        let r = await settled(n, t0);
+        const e1 = sub(t0, "> [!listen|ep2] Episode 2\n", "> [!listen|ep2] Episode 2\n> ![Episode 2](media/e2.mp3)\n");
+        c.ok(r.ok && r.text === e1 && await W(n) === 1, `B: an audio address writes an embed named by the question's words under its line (one write)${diffs(e1, r.text)}`);
+        c.ok(await value(MT) === "media/e2.mp3" && await value(MA) === "Episode 2", `B: and the box then shows the address and the name (${await value(MT)}, ${await value(MA)})`);
+        await undo(); const b1 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(b1.ok && await W(n) === 2, "B: Undo takes the added line away again, byte for byte");
+        await typeLeave(MT, "https://video.example.org/watch/2");
+        r = await settled(n, t0);
+        const l1 = sub(t0, "> [!listen|ep2] Episode 2\n", "> [!listen|ep2] Episode 2\n> [Episode 2](https://video.example.org/watch/2)\n");
+        c.ok(r.ok && r.text === l1 && await W(n) === 3, `B: a web page's address writes a link, never an embed${diffs(l1, r.text)}`);
+        c.ok((await o.page.locator(`${DV} .booklet-design-rows .booklet-design-rows-usedby`).textContent()) === say("media.link"), `B: and the box says what a link means (${JSON.stringify(say("media.link"))})`);
+        await undo(); const b3 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(b3.ok, "B: Undo takes it away");
+        // the rest of the note is not touched by adding: a refused address
+        const w = await W(n);
+        await typeLeave(MT, "a b.mp3"); await sleep(400); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === w && /^Not changed\. An address has no space/.test(await refusalOf() || ""), `B: an address with a space is refused (${JSON.stringify(await refusalOf())}), nothing is added`);
+        await closeBox();
+      });
+      await scene("C. a link: its address changes, it stays a link", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!listen|ep3");
+        c.ok(await value(MT) === "https://video.example.org/watch/3" && await value(MA) === "Watch it" && (await o.page.locator(`${DV} .booklet-design-rows .booklet-design-rows-usedby`).textContent()) === say("media.link"), "C: the link's address and words are the controls, and the box says what a link means");
+        await typeLeave(MT, "https://video.example.org/watch/4");
+        const r = await settled(n, t0);
+        c.ok(r.ok && r.text === sub(t0, "(https://video.example.org/watch/3)", "(https://video.example.org/watch/4)") && await W(n) === 1, `C: the address is written into the link, one write${diffs(sub(t0, "(https://video.example.org/watch/3)", "(https://video.example.org/watch/4)"), r.text)}`);
+        await undo(); const b = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(b.ok, "C: and Undo takes it back");
+        await closeBox();
+      });
+      await scene("D. a media line in the middle of a sentence has no controls", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!listen|ep4");
+        const why = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-rows .booklet-design-rows-refused"); return e ? e.textContent : null; }, DV);
+        c.ok(why === say("media.unshown") && (await o.page.locator(MT).count()) === 0, `D: the box says why there are no controls (${JSON.stringify(why)}) and shows no address field`);
+        c.ok(await o.page.locator(MD_AREA).isVisible() && (await markdownOf(o)).includes("Hear ![the tone](media/e4.mp3) in the middle"), "D: and the Markdown section is open with the block's own lines, so the way to edit it is on the screen");
+        await closeBox();
+        c.ok(text(n.file) === t0 && await W(n) === 0, "D: opening and closing it wrote nothing");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 82 ================= */
+  async function check82() {
+    const c = new Check(82, "a widget question's data block in the real app: a picker of only the data blocks it can see (its module's and the shared ones, not another module's), choosing writes the block embed and nothing else (one write, one step of Undo, the whole note byte for byte), a widget with none offers only a placeholder, a block the widget cannot see is said and listed as not found; \"Open the data block\" opens that block's own Markdown (the JSON is never rewritten by controls) and writes nothing; the widget's own switches name their setting in words");
+    const table = tableOf();
+    await withApp("c82", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, STRIP, say, press, closeBox, undo, scene } = k;
+      const errs0 = consoleReport.length;
+      const PICK = `${DV} [data-key='widget-block']`;
+      const optionsOf = sel => o.page.locator(sel).evaluate(e => [...e.options].map(x => [x.value, x.textContent]));
+      const keyOn = async (sel, ...keys) => { await o.page.focus(sel); for (const key of keys) { await o.page.keyboard.press(key); await sleep(120); } };
+      const textOf = sel => o.evaluate(([dv, s]) => { const e = document.querySelector(dv + " " + s); return e ? e.textContent : null; }, [DV, ".booklet-design-rows .booklet-design-rows-usesmenu"]);
+      await scene("A. a widget that names a block", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!widget|body");
+        c.ok((await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-rows .setting-item-heading")].map(e => e.textContent.trim()), DV)).includes(say("widget.heading")), `A: a section headed ${JSON.stringify(say("widget.heading"))}`);
+        const opts = await optionsOf(PICK);
+        c.ok(JSON.stringify(opts) === JSON.stringify([["body-map", "body-map (svg-regions)"], ["board", "board (grid-select)"], ["shared", "shared (svg-regions)"]]) && await o.page.locator(PICK).inputValue() === "body-map", `A: the picker reads body-map and lists the blocks of the widget's module and the shared one, not another module's (${JSON.stringify(opts.map(x => x[1]))})`);
+        c.ok((await textOf()) && (await textOf()).includes(say("widget.block.engine").replace("{engine}", "svg-regions")) && (await o.page.locator(`${DV} [data-key='widget-open']`).count()) === 1, `A: the box says the data block's engine and that its JSON is edited in its own Markdown, and offers ${JSON.stringify(say("widget.block.open"))}`);
+        await shotOk(o, "widget-block");
+        await keyOn(PICK, "ArrowDown");
+        let r = await settled(n, t0);
+        const b1 = sub(t0, "> ![[#^body-map]]\n", "> ![[#^board]]\n");
+        c.ok(r.ok && r.text === b1 && await W(n) === 1 && !(await state(o)).modal, `A: choosing board writes the embed's block id and nothing else (one write)${diffs(b1, r.text)}`);
+        c.ok((await textOf() || "").includes(say("widget.block.engine").replace("{engine}", "grid-select")), "A: and the line under the picker now names the grid-select engine");
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok && await W(n) === 2, "A: one Undo gives the note back byte for byte");
+        // the switches of a widget are named in words
+        const names = await stripNames(o);
+        c.ok(names.some(x => x[0] === "readonly" && x[1] === `${say("setting.readonly")} (readonly)`) && names.some(x => x[0] === "describe" && x[1] === `${say("setting.describe")} (describe)`), `A: the widget's switches are named in words: ${JSON.stringify(names.map(x => x[1]))}`);
+        await press(`${STRIP("readonly")} button[role='switch']`);
+        r = await settled(n, t0);
+        const g = region(t0, r.text);
+        c.ok(r.ok && g.removed === "" && g.added === " readonly" && r.text.includes("[!widget|body describe readonly]") && await W(n) === 3, `A: the Only shown switch writes \`readonly\` and nothing else (${JSON.stringify(g)})`);
+        await undo(); const u2 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u2.ok, "A: and Undo takes it off");
+        // Open the data block: that block's own Markdown, nothing written
+        const w = await W(n);
+        await press(`${DV} [data-key='widget-open']`);
+        await sleep(400); await idle(o);
+        const st = await state(o);
+        const md = await markdownOf(o);
+        c.ok(st.editBox && /^fence@/.test(st.selected || "") && md !== null && md.startsWith("```booklet widget") && md.includes("\"engine\": \"svg-regions\""), `A: "Open the data block" opens the data block's own box (${st.selected}) with its Markdown, the JSON as written (${JSON.stringify((md || "").slice(0, 80))})`);
+        c.ok(await o.page.locator(MD_AREA).isVisible(), "A: and its Markdown section is open, so the JSON is there to read and edit");
+        c.ok(text(n.file) === t0 && await W(n) === w, "A: opening it wrote nothing");
+        await closeBox();
+        c.ok(text(n.file) === t0 && await W(n) === w, "A: closing it wrote nothing either");
+      });
+      await scene("B. a widget with no data block yet, and one that names a block it cannot see", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!widget|empty");
+        const opts = await optionsOf(PICK);
+        c.ok(opts[0][0] === "" && opts[0][1] === say("widget.block.none") && await o.page.locator(PICK).inputValue() === "" && (await o.page.locator(`${DV} [data-key='widget-open']`).count()) === 0, `B: a widget with no block has a picker on ${JSON.stringify(opts[0][1])} and no Open button`);
+        // (the reader draws a widget only when it embeds a block, so a widget line with none is not a question it can place and its picker has nothing to offer:
+        // the way to give it one is its Markdown, which the box shows. Said here so that nobody takes the placeholder for a working picker.)
+        c.ok(opts.length === 1, `B: and it offers no block to choose, the reader not placing a widget that embeds none (${JSON.stringify(opts.map(x => x[1]))}); its Markdown is the way`);
+        await closeBox();
+        c.ok(text(n.file) === t0 && await W(n) === 0, "B: opening and closing it wrote nothing");
+        await open(n, "[!widget|lost");
+        const o2 = await optionsOf(PICK);
+        c.ok(await o.page.locator(PICK).inputValue() === "gone" && o2[o2.length - 1][1] === say("rows.menu.missing").replace("{id}", "gone") && (await textOf() || "").includes(say("widget.block.lost").replace("{id}", "gone")), `B: a block the widget cannot see is listed last as not found and said: ${JSON.stringify(await textOf())}`);
+        c.ok((await o.page.locator(`${DV} [data-key='widget-open']`).count()) === 0, "B: and has no Open button");
+        await closeBox();
+        c.ok(text(n.file) === t0, "B: opening and closing wrote nothing");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 83 ================= */
+  // The formatting keys are Ctrl+B, I, K and Ctrl+Shift+8 on this Linux Obsidian (Obsidian's Mod key is Control). On a Mac the keys are Cmd, not Ctrl (a Ctrl chord
+  // there is the caret's own): that mapping is `richKeyOf`'s and is covered by a unit test only, never run here, since no Mac is at hand.
+  const BAR = w => `${DV} .booklet-design-richbar .booklet-design-rich-button.is-${w}`;
+  async function check83() {
+    const c = new Check(83, "the formatting bar and keys in the real app, with a real mouse and real keyboard selection: Bold, Italic and Link on a title, a description and a tip's prose, Bullets in prose only (the button is quiet and the key does nothing in a title or a question's help); the bar's buttons are pressed with the mouse and the field keeps its focus and its selection; the keys Ctrl+B, I, K and Ctrl+Shift+8; none of it in the id field, an anchor's row or the Markdown text area; the bytes on disk change by the markers only (applied then removed gives back the original with no write), one write and one step of Undo; a press right after typing is not lost; a line that would become a rule and a link over several lines are refused with the reason in the status strip and write nothing; native Ctrl+Z in the field reverts one format step");
+    const table = tableOf();
+    await withApp("c83", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, diffs, settled, STRIP, say, closeBox, undo, scene } = k;
+      const errs0 = consoleReport.length;
+      const fld = () => o.evaluate(() => { const a = document.activeElement; const bar = [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-rich-button")].map(b => b.getAttribute("data-rich") + ":" + b.getAttribute("aria-disabled")).join(","); return { tag: a ? a.tagName : null, cls: a ? a.className : null, key: a ? (a.getAttribute("data-field") || a.getAttribute("data-key") || a.className) : null, value: a && "value" in a ? a.value : null, start: a && typeof a.selectionStart === "number" ? a.selectionStart : null, end: a && typeof a.selectionEnd === "number" ? a.selectionEnd : null, bar }; });
+      const sel = async (field, from, len) => { await o.page.locator(field).click(); await o.page.keyboard.press("Control+Home"); for (let i = 0; i < from; i++) await o.page.keyboard.press("ArrowRight"); for (let i = 0; i < len; i++) await o.page.keyboard.press("Shift+ArrowRight"); };
+      const inField = (label, f) => c.ok(f.cls && /booklet-design-field/.test(f.cls), `${label}: the focus is still in the field (${f.key})`);
+      const press = async w => { await o.page.locator(BAR(w)).click(); await sleep(250); };
+      await scene("A. a title: the bar by mouse, the keys, Ctrl+Z, a press right after typing", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!scale|clarity]");
+        const T = "How clear was the reading?";
+        c.ok(await o.page.locator(TITLE_F).inputValue() === T, "A: the title field holds the line's own words");
+        await sel(TITLE_F, 4, 5);
+        let f = await fld();
+        c.ok(f.value.slice(f.start, f.end) === "clear" && f.bar === "bold:false,italic:false,link:false,bullets:true", `A: "clear" is selected with the real keyboard; Bold, Italic and Link are on and Bullets is quiet in a title (${f.bar})`);
+        await shotOk(o, "rich-title-selected");
+        await press("bold");
+        f = await fld();
+        c.ok(f.value === "How **clear** was the reading?" && f.start === 6 && f.end === 11, `A: a real press on Bold wraps the word in the markers and keeps it selected (${JSON.stringify(f.value)}, ${f.start}..${f.end})`);
+        inField("A: after the press", f);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: nothing is written while the field has the focus");
+        await shotOk(o, "rich-title-bold");
+        await press("bold");
+        f = await fld();
+        c.ok(f.value === T && f.start === 4 && f.end === 9, `A: a second press on Bold takes the markers off and the selection is where it was (${f.start}..${f.end})`);
+        // Italic, then the field's own undo takes that one step back
+        await press("italic");
+        f = await fld();
+        c.ok(f.value === "How *clear* was the reading?", `A: Italic wraps in single asterisks (${JSON.stringify(f.value)})`);
+        await o.page.keyboard.press("Control+z"); await sleep(250);
+        f = await fld();
+        c.ok(f.value === T, `A: native Ctrl+Z in the field reverts that one format step (${JSON.stringify(f.value)})`);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: and still nothing is written (the field's own Undo, not the view's)");
+        // the keys, with the selection made again from the keyboard: Ctrl+B
+        await sel(TITLE_F, 4, 5);
+        await o.page.keyboard.press("Control+b"); await sleep(200);
+        f = await fld();
+        c.ok(f.value === "How **clear** was the reading?" && f.start === 6 && f.end === 11, `A: Ctrl+B does what the button does (${JSON.stringify(f.value)})`);
+        await o.page.keyboard.press("Tab");
+        const want = sub(t0, "[!scale|clarity] How clear was", "[!scale|clarity] How **clear** was");
+        let r = await settled(n, t0);
+        c.ok(r.ok && r.text === want && await W(n) === 1, `A: leaving the field writes the title with the markers and nothing else, one write${diffs(want, r.text)}`);
+        c.ok(r.text.replace(/\*/g, "") === t0.replace(/\*/g, ""), "A: the only bytes that changed are asterisks");
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok && await W(n) === 2, "A: one Undo gives the note back byte for byte");
+        // apply then remove: no write at all
+        await sel(TITLE_F, 4, 5); await press("bold"); await press("bold");
+        await o.page.keyboard.press("Tab"); await sleep(600); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === 2, "A: Bold on and Bold off, then leaving the field: the note is the same bytes and nothing was written");
+        // a press right after typing is not lost
+        await o.page.locator(TITLE_F).click(); await o.page.keyboard.press("End"); await o.page.keyboard.type(" today");
+        await press("bold");
+        f = await fld();
+        c.ok(f.value === T + " **today**", `A: a press on Bold right after typing is not swallowed: the word at the caret is marked (${JSON.stringify(f.value)})`);
+        await o.page.keyboard.type(" more");
+        f = await fld();
+        c.ok(f.value === T + " **today more**" && /booklet-design-field/.test(f.cls), `A: and typing goes on in the same field, from the caret that stayed inside the marked word as in any editor (${JSON.stringify(f.value)})`);
+        await o.page.keyboard.press("Tab");
+        const want2 = sub(t0, `[!scale|clarity] ${T}`, `[!scale|clarity] ${T} **today more**`);
+        r = await settled(n, t0);
+        c.ok(r.ok && r.text === want2 && await W(n) === 3, `A: leaving writes the typed words with their markers, one write${diffs(want2, r.text)}`);
+        await undo(); const u2 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u2.ok, "A: and one Undo takes it all back");
+        await closeBox();
+      });
+      await scene("B. a description (a question's help): Italic and Link by key, no bullets", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!scale|clarity]");
+        await sel(DESC_F, 13, 5);
+        let f = await fld();
+        c.ok(f.value.slice(f.start, f.end) === "whole" && f.bar === "bold:false,italic:false,link:false,bullets:true", `B: "whole" selected in the description; Bullets is quiet in a question's help (${f.bar})`);
+        await o.page.keyboard.press("Control+i"); await sleep(200);
+        f = await fld();
+        c.ok(f.value === "Think of the *whole* week." && f.start === 14 && f.end === 19, `B: Ctrl+I wraps it in single asterisks (${JSON.stringify(f.value)})`);
+        await o.page.keyboard.press("Control+Shift+8"); await sleep(200);
+        const f2 = await fld();
+        c.ok(f2.value === f.value && f2.start === f.start, "B: Ctrl+Shift+8 does nothing in a question's help (no bullets there)");
+        await o.page.locator(BAR("bullets")).click({ force: true }); await sleep(200);
+        c.ok((await fld()).value === f.value, "B: and a press on the quiet Bullets button does nothing either");
+        await o.page.keyboard.press("Tab");
+        const want = sub(t0, "> Think of the whole week.", "> Think of the *whole* week.");
+        let r = await settled(n, t0);
+        c.ok(r.ok && r.text === want && await W(n) === 1, `B: leaving writes the description with the markers, one write${diffs(want, r.text)}`);
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, "B: Undo gives the note back byte for byte");
+        // a link: the address is what is selected after, and typing it finishes the link
+        await sel(DESC_F, 13, 5);
+        await o.page.keyboard.press("Control+k"); await sleep(200);
+        f = await fld();
+        c.ok(f.value === "Think of the [whole](https://) week." && f.value.slice(f.start, f.end) === "https://", `B: Ctrl+K makes a link of the words with its address selected (${JSON.stringify(f.value)}, selection ${JSON.stringify(f.value.slice(f.start, f.end))})`);
+        await o.page.keyboard.type("example.org/tides"); await sleep(150);
+        f = await fld();
+        c.ok(f.value === "Think of the [whole](example.org/tides) week.", `B: typing replaces the address (${JSON.stringify(f.value)}); the person's own address is what is written`);
+        await o.page.keyboard.press("Tab");
+        r = await settled(n, t0);
+        const want2 = sub(t0, "> Think of the whole week.", "> Think of the [whole](example.org/tides) week.");
+        c.ok(r.ok && r.text === want2 && await W(n) === 3, `B: leaving writes the link, one write${diffs(want2, r.text)}`);
+        await undo(); const u2 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u2.ok, "B: Undo gives the note back byte for byte");
+        await closeBox();
+      });
+      await scene("C. a tip's prose over two lines: Bold per line, Bullets by button and by key", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!tip]", "callout");
+        const P = "Words of the tip, and a second line.\nA third line of words.";
+        c.ok(await o.page.locator(DESC_F).inputValue() === P, "C: the tip's words are the prose field");
+        await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+Home"); await o.page.keyboard.press("Shift+ArrowDown"); await o.page.keyboard.press("Shift+End");
+        let f = await fld();
+        c.ok(f.value.slice(f.start, f.end) === P && f.bar === "bold:false,italic:false,link:false,bullets:false", `C: both lines are selected; all four buttons are on in prose (${f.bar})`);
+        await press("bold");
+        f = await fld();
+        c.ok(f.value === "**Words of the tip, and a second line.**\n**A third line of words.**", `C: Bold marks each line on its own, never across the break (${JSON.stringify(f.value)})`);
+        await press("bullets");
+        f = await fld();
+        c.ok(f.value === "- **Words of the tip, and a second line.**\n- **A third line of words.**", `C: Bullets puts "- " at the start of each selected line (${JSON.stringify(f.value)})`);
+        await shotOk(o, "rich-tip-bullets");
+        await o.page.keyboard.press("Control+Shift+8"); await sleep(200);
+        f = await fld();
+        c.ok(f.value === "**Words of the tip, and a second line.**\n**A third line of words.**", `C: Ctrl+Shift+8 takes the bullets off again (${JSON.stringify(f.value)})`);
+        await press("bold");
+        f = await fld();
+        c.ok(f.value === P, "C: Bold again takes the markers off: the text is as it was");
+        await o.page.keyboard.press("Tab"); await sleep(600); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "C: leaving the field after format and unformat writes nothing: the note is the same bytes");
+        await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+Home"); await o.page.keyboard.press("Shift+ArrowDown"); await o.page.keyboard.press("Shift+End");
+        await o.page.keyboard.press("Control+b"); await o.page.keyboard.press("Control+Shift+8"); await sleep(200);
+        await o.page.keyboard.press("Tab");
+        const want = sub(t0, "> Words of the tip, and a second line.\n> A third line of words.\n", "> - **Words of the tip, and a second line.**\n> - **A third line of words.**\n");
+        const r = await settled(n, t0);
+        c.ok(r.ok && r.text === want && await W(n) === 1, `C: with the keys the note gets the bold bullets, one write, only markers and "- " added${diffs(want, r.text)}`);
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, "C: one Undo gives the note back byte for byte");
+        await closeBox();
+      });
+      await scene("D. a plain prose block, a word chosen with a real double click", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "Plain words of the activity", "prose");
+        c.ok(/is-desc/.test((await fld()).cls || ""), "D: the prose block opens with its words field focused");
+        const box = await o.page.locator(DESC_F).boundingBox();
+        await o.page.mouse.dblclick(box.x + 12, box.y + 10);
+        await sleep(150);
+        let f = await fld();
+        c.ok(f.value.slice(f.start, f.end).trim() === "Plain", `D: a real double click on the first word selects it (${JSON.stringify(f.value.slice(f.start, f.end))})`);
+        await o.page.keyboard.press("Control+b"); await sleep(150);
+        f = await fld();
+        c.ok(f.value.startsWith("**Plain** words of the activity"), `D: Ctrl+B marks it (${JSON.stringify(f.value.slice(0, 20))})`);
+        await o.page.keyboard.press("Tab");
+        const want = sub(t0, "\nPlain words of the activity", "\n**Plain** words of the activity");
+        const r = await settled(n, t0);
+        c.ok(r.ok && r.text === want && await W(n) === 1, `D: leaving writes the prose with the markers, one write${diffs(want, r.text)}`);
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, "D: Undo gives the note back");
+        await closeBox();
+      });
+      await scene("E. no formatting in the id field, an anchor's row or the Markdown text area", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!scale|clarity]");
+        const leaf0 = await o.evaluate(() => app.workspace.getLeavesOfType("booklet-design").length);
+        const chords = ["Control+b", "Control+i", "Control+k", "Control+Shift+8"];
+        const quiet = async (label, locator) => {
+          await o.page.locator(locator).click(); await o.page.keyboard.press("Control+a");
+          const before = await fld();
+          for (const key of chords) { await o.page.keyboard.press(key); await sleep(150); }
+          const after = await fld();
+          const modal = (await state(o)).modal;
+          c.ok(after.value === before.value && after.start === before.start && after.end === before.end && !modal && after.bar === "bold:true,italic:true,link:true,bullets:true", `${label}: four chords change nothing in the field (${JSON.stringify(after.value)}), open no dialog, and the bar is quiet (${after.bar})`);
+        };
+        await quiet("E: the id", `${STRIP("id")} input`);
+        await quiet("E: an anchor's words", RW("a0-text"));
+        await openMd(o);
+        await quiet("E: the Markdown text area", MD_AREA);
+        c.ok(text(n.file) === t0 && await W(n) === 0 && (await o.evaluate(() => app.workspace.getLeavesOfType("booklet-design").length)) === leaf0 && (await o.evaluate(() => app.workspace.activeLeaf.view.getViewType())) === "booklet-design", "E: nothing was written, no pane opened or changed");
+        await closeBox();
+      });
+      await scene("F. refusals: a line that would become a rule, a link over several lines", async () => {
+        const n = await start(); const t0 = n.t;
+        await open(n, "[!tip]", "callout");
+        await o.page.locator(DESC_F).click(); await o.page.keyboard.press("Control+End"); await o.page.keyboard.press("Enter");
+        const v0 = (await fld()).value;
+        await o.page.keyboard.press("Control+b"); await sleep(250);
+        let st = await state(o);
+        c.ok((await fld()).value === v0 && st.status === say("rich.no.rule"), `F: Bold on an empty line would leave a rule: refused, the field is as it was and the status strip says ${JSON.stringify(st.status)}`);
+        await o.evaluate(() => { app.workspace.getLeavesOfType("booklet-design")[0].view.say(""); });
+        await o.page.keyboard.press("Control+a"); await o.page.keyboard.press("Control+k"); await sleep(250);
+        st = await state(o);
+        c.ok((await fld()).value === v0 && st.status === say("rich.no.linkLines"), `F: a link over several lines is refused with the reason ${JSON.stringify(st.status)}, the field as it was`);
+        await o.page.keyboard.press("Tab"); await sleep(600); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "F: after two refusals nothing is written: the note is the same bytes");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 84 ================= */
+  /** What a person sees of the frame and of the open box: the header, the trail, the status strip, the scroll area, where the page is, the box and its bar and fields. */
+  const frame3 = o => o.evaluate(sel => {
+    const q = s => document.querySelector(sel + " " + s);
+    const r1 = v => Math.round(v * 10) / 10;
+    const rr = e => { const b = e && e.getBoundingClientRect(); return b ? [r1(b.x), r1(b.y), r1(b.width), r1(b.height)] : null; };
+    const sc = q(".booklet-design-scroll"), pg = q(".booklet-design-page"), box = q(".booklet-design-editbox");
+    const pr = pg && pg.getBoundingClientRect(), sr = sc && sc.getBoundingClientRect(), br = rr(box);
+    return {
+      top: rr(q(".booklet-design-top")), crumb: rr(q(".booklet-design-crumb")), status: rr(q(".booklet-design-status")), scroll: rr(sc),
+      pageAbs: pr && sr ? r1(pr.top - sr.top + sc.scrollTop) : null, scrollTop: sc ? sc.scrollTop : null,
+      trail: [...document.querySelectorAll(sel + " .booklet-design-crumb button")].map(b => b.textContent),
+      boxXYW: br && br.slice(0, 3), boxH: br && br[3], bar: rr(q(".booklet-design-editbox .booklet-design-richbar")), richTitle: rr(q(".booklet-design-editbox .booklet-design-field.is-title")),
+      paneW: (document.querySelector(sel + " .view-content") || {}).clientWidth, phone: !!document.querySelector(sel + " .view-content.is-phone"),
+    };
+  }, DV);
+  async function check84() {
+    const c = new Check(84, "nothing moves under a press on the new controls and the formatting bar, at a wide pane, a pane of about 740 px and the phone layout (390 px), with long titles that wrap the header's trail: a real press (or a real key) on Add an anchor, an anchor's move button, a number typed and entered, the Big box switch, the each: picker, a listen's address, a widget's data block picker, the Bold button, and Ctrl+B in a title leaves the header, the trail, the status strip, the scroll area, the page's place and the box's left, top and width where they were (and the box's height too, when the press adds no row and no text: a field growing with its own typed text may re-wrap its own field only), the bar where it was, and a write's message moves nothing");
+    const table = tableOf();
+    await withApp("c84", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, W, SI, STRIP, typeLeave, closeBox, scene } = k;
+      const errs0 = consoleReport.length;
+      const MT = RW("media-target"), PICK = `${DV} [data-key='widget-block']`;
+      const keyOn = async (sel, ...keys) => { await o.page.focus(sel); for (const key of keys) { await o.page.keyboard.press(key); await sleep(150); } };
+      const selWord = async (field, from, len) => { await o.page.locator(field).click(); await o.page.keyboard.press("Control+Home"); for (let i = 0; i < from; i++) await o.page.keyboard.press("ArrowRight"); for (let i = 0; i < len; i++) await o.page.keyboard.press("Shift+ArrowRight"); };
+      // the control goes to the middle of the scroll area, clear of Obsidian's own phone bar that lies over the foot of the pane (a click on a control under it would make the browser scroll the whole pane to reach it, which is the harness's doing and not the page's)
+      const to = async sel => { await o.page.evaluate(([cv, s]) => { const e = document.querySelector(s); const sc = document.querySelector(cv + " .booklet-design-scroll"); if (e && sc) { const r = e.getBoundingClientRect(), q = sc.getBoundingClientRect(); sc.scrollTop += r.top - (q.top + q.height / 2 - r.height / 2); } }, [DV, sel]); await sleep(250); };
+      /** Real typing, then Enter: a one-line field applies on Enter and keeps the focus (Tab would move the focus on, and the browser may scroll to the next control). */
+      const typeEnter = async (sel, v) => { await o.page.locator(sel).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type(v); await o.page.keyboard.press("Enter"); };
+      // grows: the press adds a row or changes the text of a field, so the box's own height may change
+      const SPECS = [
+        { tag: "scale: Add an anchor", needle: "[!scale|clarity]", prep: () => to(RW("a-add")), act: () => o.page.locator(RW("a-add")).click(), grows: true },
+        { tag: "scale: an anchor moved down", needle: "[!scale|clarity]", prep: () => to(RW("a0-down")), act: () => o.page.locator(RW("a0-down")).click(), grows: false },
+        { tag: "number: a value typed and entered", needle: "[!number|sleep", prep: () => to(SI("max")), act: () => typeEnter(SI("max"), "25"), grows: false },
+        { tag: "text: the Big box switch", needle: "[!text|noticed]", prep: () => to(`${STRIP("long")} button[role='switch']`), act: () => o.page.locator(`${STRIP("long")} button[role='switch']`).click(), grows: false },
+        { tag: "each: a source chosen", needle: "[!number|sleep", prep: () => to(SI("each")), act: () => keyOn(SI("each"), "ArrowDown"), grows: false },
+        { tag: "listen: an address typed and entered", needle: "[!listen|ep1", prep: () => to(MT), act: () => typeEnter(MT, "media/e2.m4a"), grows: false },
+        { tag: "widget: a data block chosen", needle: "[!widget|body", prep: () => to(PICK), act: () => keyOn(PICK, "ArrowDown"), grows: true },
+        { tag: "the Bold button on a title", needle: "[!scale|clarity]", prep: () => selWord(TITLE_F, 0, 3), act: () => o.page.locator(BAR("bold")).click(), grows: true, after: true },
+        { tag: "Ctrl+B in a title", needle: "[!scale|clarity]", prep: () => selWord(TITLE_F, 0, 3), act: () => o.page.keyboard.press("Control+b"), grows: true, after: true },
+      ];
+      const stays = ["top", "crumb", "status", "scroll", "trail", "scrollTop", "pageAbs", "boxXYW", "bar"];
+      const pick = (f, keys) => JSON.stringify(Object.fromEntries(keys.map(x => [x, f[x]])));
+      /** Every spec at the width Obsidian is at now, on one note with long titles. */
+      const scenes = async (label, wide) => {
+        const n = await start({ long: true }, wide);
+        const f0 = await frame3(o);
+        c.info(`${label}: the pane is ${f0.paneW} px wide (${f0.phone ? "phone layout" : "desktop layout"}), the header ${f0.top && f0.top[2]} x ${f0.top && f0.top[3]} px, the trail ${f0.trail.length} crumbs`);
+        for (const sp of SPECS) {
+          try {
+            await open(n, sp.needle);
+            await sp.prep();
+            await sleep(150);
+            const b0 = await frame3(o), w0 = await W(n);
+            await shotOk(o, `still3-${label.replace(/\W+/g, "")}-${sp.tag.replace(/\W+/g, "-")}-0before`);
+            await sp.act();
+            await sleep(500); await idle(o);
+            const b1 = await frame3(o);
+            await shotOk(o, `still3-${label.replace(/\W+/g, "")}-${sp.tag.replace(/\W+/g, "-")}-1after`);
+            const keys = sp.grows ? stays : [...stays, "boxH"];
+            const ok = JSON.stringify(Object.fromEntries(keys.map(x => [x, b0[x]]))) === JSON.stringify(Object.fromEntries(keys.map(x => [x, b1[x]])));
+            c.ok(ok, `${label}, ${sp.tag}: a real press changes nothing of the header (${JSON.stringify(b0.top)}), the trail (${b0.trail.length} crumbs), the status strip, the scroll area, the page's place, the box's left, top and width${sp.grows ? "" : " and height"} and the bar${ok ? "" : "; DIFFERENT: before " + pick(b0, keys) + " after " + pick(b1, keys)}`);
+            if (sp.after) {
+              await o.page.keyboard.press("Tab"); await sleep(700); await idle(o);
+              const b2 = await frame3(o);
+              const ok2 = JSON.stringify(Object.fromEntries(stays.map(x => [x, b0[x]]))) === JSON.stringify(Object.fromEntries(stays.map(x => [x, b2[x]])));
+              c.ok(ok2 && await W(n) > w0, `${label}, ${sp.tag}: and leaving the field, which writes (${await W(n) - w0} write(s)) and says so in the status strip, moves nothing either${ok2 ? "" : "; DIFFERENT: before " + pick(b0, stays) + " after " + pick(b2, stays)}`);
+            }
+          } catch (e) { c.ok(false, `script error in ${label}, ${sp.tag}: ${String(e && e.message || e).slice(0, 300)}`); }
+          await closeBox().catch(() => {});
+        }
+      };
+      await scene("wide", () => scenes("wide", true));
+      await scene("740 px", async () => {
+        const f = await frame3(o), vp = await o.evaluate(() => ({ w: window.innerWidth, h: window.innerHeight }));
+        await o.page.setViewportSize({ width: 740 + (vp.w - f.paneW), height: vp.h }); await sleep(600);
+        await scenes("740 px", false);
+      });
+      await scene("phone", async () => {
+        await o.page.setViewportSize({ width: 390, height: 844 });
+        await mobile(o, true);
+        await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+        await scenes("phone", false);
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 85 ================= */
+  const PIECES3 = [
+    ["scale", "[!scale|clarity]", "question"], ["number", "[!number|sleep", "question"], ["text", "[!text|noticed]", "question"], ["date", "[!date|when]", "question"],
+    ["lines", "[!lines|wins", "question"], ["each", "[!multi|where", "question"], ["listen with an embed", "[!listen|ep1", "question"], ["listen with none", "[!listen|ep2", "question"],
+    ["listen with a link", "[!listen|ep3", "question"], ["widget", "[!widget|body", "question"], ["tip", "[!tip]", "callout"], ["prose", "Plain words of the activity", "prose"],
+  ];
+  async function check85() {
+    const c = new Check(85, "the new controls on a phone and in the three looks: at 390 px every control of the stage-3 pieces (the anchor rows, the number, text, date, lines settings, the each: picker, a listen's address and name, the widget picker and its Open button, the formatting bar's four buttons) is at least 44 px each way, nothing is wider than the screen or cut off, light and dark, screenshots; in Paper and petrol light, Paper and petrol dark and Obsidian's look, in both Obsidian modes, every piece's open box has every text at 4.5 to 1 and every control's edge or fill at 3 to 1 against what is behind it (the Obsidian look is measured and its figures reported, since its colours are the theme's)");
+    const table = tableOf();
+    await withApp("c85", async (o, vault) => {
+      const k = kit3(o, c, vault, table);
+      const { start, open, closeBox, scene } = k;
+      const errs0 = consoleReport.length;
+      const pickLook = async look => { await o.page.selectOption(SEL74, look); await o.page.waitForFunction(([cv, l]) => document.querySelector(cv).getAttribute("data-booklet-look") === l, [CV, look], { timeout: 4000, polling: 30 }); await sleep(250); };
+      await scene("looks", async () => {
+        const n = await start();
+        const obs = {};
+        for (const scheme of ["light", "dark"]) {
+          await o.setScheme(scheme); await sleep(500);
+          for (const [look] of LOOKS74) {
+            await pickLook(look);
+            await goNav(o, "activity", lineOf(n.t, "[!activity|a]"));
+            const tag = `${look}-${scheme}`;
+            let nText = 0, nCtl = 0; const lowText = [], lowCtl = [];
+            for (const [name, needle, kind] of PIECES3) {
+              await open(n, needle, kind); await sleep(200);
+              const ed = await edit74(o);
+              if (!ed) { c.ok(false, `${tag}: the ${name}'s box could not be measured`); continue; }
+              nText += ed.texts.length; nCtl += ed.controls.length;
+              for (const t of ed.texts) if (!t.disabled && t.ratio < t.need) lowText.push(`${name}: ${t.n} ${t.ratio}<${t.need}`);
+              for (const x of ed.controls) if (x.best < 3) lowCtl.push(`${name}: ${x.n} ${x.best}`);
+              if (name === "scale" || name === "each" || name === "listen with an embed" || name === "tip") await shotEl(o, `stage3-looks-${tag}-${name.replace(/\W+/g, "-")}`, `${DV} .booklet-design-editbox`, "start");
+              await closeBox();
+            }
+            if (look !== "obsidian") {
+              c.ok(nText > 80 && lowText.length === 0, `${tag}: the ${PIECES3.length} pieces' open boxes: all ${nText} texts reach 4.5 to 1${lowText.length ? "; below: " + JSON.stringify(lowText.slice(0, 10)) : ""}`);
+              c.ok(nCtl > 60 && lowCtl.length === 0, `${tag}: and each of the ${nCtl} controls has an edge or fill of 3 to 1 on what is behind it${lowCtl.length ? "; below: " + JSON.stringify(lowCtl.slice(0, 10)) : ""}`);
+            } else obs[tag] = { nText, nCtl, lowText, lowCtl };
+          }
+        }
+        for (const [tag, v] of Object.entries(obs)) c.info(`${tag} (Obsidian's own colours, the theme's): ${v.nText} texts, ${v.lowText.length} below 4.5 ${JSON.stringify(v.lowText.slice(0, 6))}; ${v.nCtl} controls, ${v.lowCtl.length} below 3 ${JSON.stringify(v.lowCtl.slice(0, 6))}`);
+        // Obsidian's look draws the plugin's controls in the theme's own colours (the accent pair of an on switch, the theme's button edge, which is a shadow and not a border),
+        // so the paper looks' 4.5 and 3 are not asked of it, as in check 74: what is asked is that no text is below 3 to 1; the rest is reported
+        const dim = Object.entries(obs).filter(([, v]) => v.lowText.some(x => Number(/ ([\d.]+)</.exec(x)[1]) < 3));
+        c.ok(dim.length === 0, `Obsidian's look: no text of any new box is below 3 to 1 in either mode${dim.length ? "; below: " + JSON.stringify(dim.map(([t, v]) => [t, v.lowText.slice(0, 5)])) : ""}`);
+        await o.setScheme("light"); await sleep(300);
+      });
+      await scene("phone", async () => {
+        await o.page.setViewportSize({ width: 390, height: 844 });
+        await mobile(o, true);
+        await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+        const n = await start({}, false);
+        for (const [name, needle, kind] of PIECES3) {
+          await open(n, needle, kind); await sleep(200);
+          const pf = await phoneFacts(o), ours = pf.small.filter(x => x.own), fit = await fitOf(o);
+          c.ok(pf.bodyMobile && pf.docScroll <= pf.W + 1 && pf.vcScroll <= pf.vcClient + 1 && pf.wideCount === 0, `phone ${name}: nothing is wider than the screen (page ${pf.docScroll} of ${pf.W} px)${pf.wideCount ? ": " + JSON.stringify(pf.wide) : ""}`);
+          c.ok(ours.length === 0, `phone ${name}: every control of the plugin's is at least 44 px each way (${pf.controls} looked at)${ours.length ? "; smaller: " + JSON.stringify(ours.slice(0, 8)) : ""}`);
+          c.ok(fit.clippedCount === 0 && fit.offCount === 0, `phone ${name}: nothing is cut off or off the screen${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
+          if (["scale", "each", "listen with an embed", "widget", "tip", "number"].includes(name)) { await shotEl(o, `stage3-phone-${name.replace(/\W+/g, "-")}-light`, `${DV} .booklet-design-editbox`, "start"); }
+          if (name === "scale" || name === "tip") { await o.setScheme("dark"); await sleep(400); await shotEl(o, `stage3-phone-${name}-dark`, `${DV} .booklet-design-editbox`, "start"); await o.setScheme("light"); await sleep(300); }
+          if (name === "tip" || name === "scale") {
+            const sizes = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-richbar .booklet-design-rich-button")].map(b => { const r = b.getBoundingClientRect(); return [b.getAttribute("data-rich"), Math.round(r.width), Math.round(r.height)]; }), DV);
+            c.ok(sizes.length === 4 && sizes.every(s => s[1] >= 44 && s[2] >= 44), `phone ${name}: the bar's four buttons are at least 44 x 44 px (${JSON.stringify(sizes)})`);
+          }
+          if (name === "each" || name === "widget") {
+            const sels = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox select")].map(b => { const r = b.getBoundingClientRect(); return [b.getAttribute("data-key"), Math.round(r.width), Math.round(r.height)]; }), DV);
+            c.ok(sels.length >= 1 && sels.every(s => s[2] >= 44), `phone ${name}: the picker is at least 44 px high (${JSON.stringify(sels)})`);
+          }
+          await closeBox();
+        }
+        c.ok(text(n.file) === n.t, "phone: nothing was written while the boxes were opened and shut");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+  /* END STAGE3 */
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85 };
 };
