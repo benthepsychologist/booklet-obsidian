@@ -4756,7 +4756,8 @@ select.booklet-design-strip-input {
 }
 
 /* ---- the rows of a choice, a menu and a matrix, in the editor in place ---- */
-.booklet-design-rows.is-empty {
+.booklet-design-rows.is-empty,
+.booklet-design-helps.is-empty {
 	display: none;
 }
 
@@ -4768,7 +4769,8 @@ select.booklet-design-strip-input {
 }
 
 /* a row is a line of the list, not a card: its words, its buttons beside them when there is room, its replies under it */
-.booklet-design-optrow {
+.booklet-design-optrow,
+.booklet-design-help-bar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -4831,13 +4833,15 @@ select.booklet-design-strip-input {
 }
 
 /* the lists' headings sit close to their rows */
-.booklet-design-rows .setting-item-heading {
+.booklet-design-rows .setting-item-heading,
+.booklet-design-helps .setting-item-heading {
 	padding-block: var(--size-4-1) 0;
 	border: 0;
 }
 
 /* the shared menu's picker is a line of the list, not a card */
-.booklet-design-rows .setting-item {
+.booklet-design-rows .setting-item,
+.booklet-design-helps .setting-item {
 	padding-inline: 0;
 	border: 0;
 	background: transparent;
@@ -4887,13 +4891,35 @@ select.booklet-design-strip-input {
 }
 
 /* a menu's name can be long ("None: the question has its own options"): the picker never makes the box wider than the pane */
-.booklet-design-rows .setting-item-control {
+.booklet-design-rows .setting-item-control,
+.booklet-design-helps .setting-item-control {
 	min-width: 0;
 	max-width: 100%;
 }
 
-.booklet-design-rows select {
+.booklet-design-rows select,
+.booklet-design-helps select {
 	max-width: 100%;
+}
+
+/* a question's hint and solution: a title and its switch on a line, its words under them, and a gap between the two */
+.booklet-design-help {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	margin-block-end: var(--size-4-3);
+}
+
+.booklet-design-help .booklet-design-rows-usedby,
+.booklet-design-helps .is-adds {
+	margin-block: 0;
+}
+
+/* a copy button's picker of what a row copies fills the row, as the words of an option do */
+.booklet-design-rows-main select.booklet-design-strip-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto;
 }
 
 .booklet-design-rows > .booklet-design-rows-button {
@@ -5044,14 +5070,18 @@ select.booklet-design-strip-input {
 
 /* a row's buttons keep an edge on a phone, where the theme draws them without one on the row's own grey */
 .is-mobile .booklet-design .booklet-design-rows button:not([aria-checked="true"]),
-.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]) {
+.is-mobile .booklet-design .booklet-design-helps button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-helps button:not([aria-checked="true"]) {
 	border: var(--border-width) solid var(--background-modifier-border-hover);
 }
 
 .is-mobile .booklet-design .booklet-design-rows input[type="text"],
 .is-mobile .booklet-design .booklet-design-rows select,
+.is-mobile .booklet-design .booklet-design-helps input[type="text"],
 .booklet-design.is-phone .booklet-design-rows input[type="text"],
-.booklet-design.is-phone .booklet-design-rows select {
+.booklet-design.is-phone .booklet-design-rows select,
+.booklet-design.is-phone .booklet-design-helps input[type="text"] {
 	min-height: 44px;
 	box-sizing: border-box;
 }
