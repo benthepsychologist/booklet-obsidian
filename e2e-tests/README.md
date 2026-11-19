@@ -169,7 +169,7 @@ The checks are in `plugin-check.js` (1 to 15), `nav-checks.js` (16 to 23, 27, 28
 
 94. (`design-checks.js`) focus and Undo: a copy item's drop-down, an activity's tab, a notice field and a hint's words box each changed, then the app's Undo by its button (the control shows the restored value, the same page, trail, header and scroll place, the box open on the same block, no page or console error), Redo, and Ctrl+Z: with a drop-down focused it is left to the drop-down (a drop-down counts as a field), after Esc it is the view's Undo; Ctrl+Z while typing in a text field is the field's own. The focus after the Undo button is pressed is on the page's body (reported, not asserted).
 
-95. (`design-checks.js`) the stage 4 controls on a phone at 390 x 844: every button, switch, drop-down, text field, words box and summary shown in each stage 4 box is measured and must be at least 44 px each way (the least found is the formatting bar's buttons at 44 x 44), nothing wider than the screen or cut off, screenshots light and dark.
+95. (`design-checks.js`) the stage 4 controls on a phone at 390 x 844: every button, switch, drop-down, text field, words box and summary shown in each stage 4 box is measured and must be at least 44 px each way (the least found is the formatting bar's buttons at 44 x 44), nothing wider than the screen or cut off, screenshots light and dark. Obsidian's own "failed to read JSON .obsidian/appearance.json" message, which the colour-scheme switch can provoke, is set aside and counted in an info line; any other error fails the check.
 
 The linter runs from `--lint`, else `BOOKLET_LINTER`, else `lint-booklet.py` in `BOOKLET_REPO` (default `/workspace/booklet`); checks 86 to 93 fail when it cannot be run.
 

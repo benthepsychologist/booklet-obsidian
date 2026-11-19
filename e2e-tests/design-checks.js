@@ -4610,7 +4610,7 @@ lang: en
 
   /* ================= CHECK 94 ================= */
   async function check94() {
-    const c = new Check(94, "focus and Undo on the new controls in the real app: a drop-down (a copy button's item, an activity's tab) and a text field (a notice's License) and a words box (a hint's words) each changed with real keys, then the app's own Undo pressed (the button with the mouse; Ctrl+Z once the focus has left the drop-down, while with the drop-down focused the key is the drop-down's): the control shows the restored value, Redo shows the changed value again, the page is on the same page with the same trail, header and scroll place, the box is still open on the same block, no page error and no console error; Ctrl+Z inside a text field being typed in is the field's own (nothing is written, the note is not undone)");
+    const c = new Check(94, "focus and Undo on the new controls in the real app: a drop-down (a copy button's item, an activity's tab) and a text field (a notice's License) and a words box (a hint's words) each changed with real keys, then the app's own Undo pressed (the button with the mouse, and Ctrl+Z with the drop-down still focused): the control shows the restored value, Redo shows the changed value again, the page is on the same page with the same trail, header and scroll place, the box is still open on the same block, no page error and no console error; Ctrl+Z inside a text field being typed in is the field's own (nothing is written, the note is not undone)");
     const table = tableOf();
     await withApp("c94", async (o, vault) => {
       const k = kit4(o, c, vault, table);
@@ -4777,7 +4777,10 @@ lang: en
         await open(n, "[!text|why long] Why again?"); await judge("dark: question with a hint and a solution", "question-helps-dark"); await closeBox();
         await o.setScheme("light"); await sleep(1500);
       });
-      const errs = errorsSince(errs0);
+      // Switching the colour scheme makes Obsidian write .obsidian/appearance.json, and it sometimes reads the file while it is half written; that is the app's own message about its own config file (seen twice in six runs, on both versions), not the plugin's, so only that exact message is set aside and counted.
+      const own = x => /^failed to read JSON \.obsidian\/(appearance|app)\.json SyntaxError/.test(x.text);
+      const all = errorsSince(errs0), errs = all.filter(x => !own(x));
+      if (all.length !== errs.length) c.info(`Obsidian's own half-written config message set aside: ${all.length - errs.length}`);
       c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
     });
     return c;
