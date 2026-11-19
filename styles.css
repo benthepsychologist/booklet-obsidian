@@ -7272,6 +7272,15 @@ select.booklet-design-strip-input {
 	background: var(--bk-brand-wash);
 }
 
+/* a callout's box is tinted, and a control's edge (--bk-edge, 3 to 1 on the card) falls to 2.9 and 2.4 to 1 on that tint: inside it the edge is a step stronger, so the bar's buttons, the field rules and the move and delete buttons still reach 3 to 1 */
+.booklet-view[data-booklet-look="paper-light"] .booklet-design-editbox.is-kind-callout {
+	--bk-edge: #7A8082;
+}
+
+.booklet-view[data-booklet-look="paper-dark"] .booklet-design-editbox.is-kind-callout {
+	--bk-edge: #8696A0;
+}
+
 .booklet-view[data-booklet-look^="paper"] .booklet-design-field.is-title {
 	font-family: var(--bk-font-head);
 }
