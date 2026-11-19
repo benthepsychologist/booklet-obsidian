@@ -216,7 +216,7 @@ const DEFAULT_TITLE: Readonly<Record<HelpKind, string>> = { hint: "Hint", soluti
 
 /**
  * The question's lines with a hint (or a solution) added, folded, with its title and no words yet: a blank line and its line. A hint is
- * put before the solution when there is one, a solution after everything. Refused when the question has one already, or when its lines
+ * put before the solution when there is one (laid out as the solution is), a solution after everything. Refused when the question has one already, or when its lines
  * cannot be read into fields.
  */
 export function addHelp(lines: readonly string[], kind: HelpKind): Made {
@@ -227,9 +227,11 @@ export function addHelp(lines: readonly string[], kind: HelpKind): Made {
 	const solution = kind === "hint" ? helps.parts.find((x) => x.kind === "solution") : undefined;
 	let out: string[];
 	if (solution) {
-		// before the solution: a blank line first when the line above is not blank, and one after, which separates it from the solution
+		// before the solution, laid out the way the note lays out its solution: with a blank line between them when the line above the solution
+		// is blank, and with none when it is not (a solution that stands right under the question's words), so that taking the hint out again
+		// gives back the same lines
 		const above = lines[solution.from - 1];
-		out = [...lines.slice(0, solution.from), ...(blank(above) ? [] : [""]), callout, "", ...lines.slice(solution.from)];
+		out = [...lines.slice(0, solution.from), callout, ...(blank(above) ? [""] : []), ...lines.slice(solution.from)];
 	} else out = [...lines, "", callout];
 	return { ok: true, lines: out };
 }
