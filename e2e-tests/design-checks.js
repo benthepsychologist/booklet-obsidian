@@ -1,4 +1,4 @@
-// Checks 64 to 85 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 95 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar; 86 to 95 are stage 4, the fold switch, the pickers, hint and solution, notice, picture, figure and citation): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -37,10 +37,21 @@
 //   83 the rich-text bar and keys (Ctrl+B, I, K, Ctrl+Shift+8), refusals in the status strip, native Ctrl+Z, none in the id field or Markdown box
 //   84 nothing moves under a press on the new controls and the bar, at a wide pane, 740 px and the phone layout
 //   85 the new controls on a phone (44 px, nothing wider than the screen) and in the three looks (contrast)
+//   86 the Starts folded switch on a callout, a group, and a hint or solution under a question (a hint nested in a group, a solution with no blank line above it)
+//   87 an activity's tab picker, a page's parent picker (a loop refused in words), the kept entries' switch
+//   88 a copy button's list: add, move, remove, change, a word kept as written surviving
+//   89 a question's Hint and Solution fields: add, type, fold switch, remove, Undo each
+//   90 a module's notice: four fields, an unknown line kept, a refused value
+//   91 a picture: its description and place (a reference-style one changes a definition line elsewhere), the remote-address warning in words
+//   92 a figure's picker: only the id inside the embed changes
+//   93 a citation's five fields, a note outside the source pattern, a mark with no note
+//   94 focus and Undo: a drop-down, a text field and a words box changed, then the app's Undo (button, and key) and Redo
+//   95 the stage 4 controls on a phone: every control 44 x 44 px or more, no sideways scroll
+//   (86 to 93 also run the reference linter on each result and require nothing new but what the check says is expected)
 //   77 the view stands still: with long titles, at a wide pane, at about 740 px and at 390 px, a press on a block and the block opening and closing change neither the header, the trail
 //      nor the page's place; the status line is a strip in the flow of one fixed height that never covers the page, so a message moves nothing
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
-const fs = require("fs"), path = require("path"), crypto = require("crypto");
+const fs = require("fs"), path = require("path"), crypto = require("crypto"), cp = require("child_process");
 const { frames, mobile } = require("./waits");
 
 module.exports = function designChecks(env) {
@@ -3969,6 +3980,810 @@ lang: en
     return c;
   }
   /* END STAGE3 */
+  /* BEGIN STAGE4 */
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85 };
+  /* ================= CHECKS 86 TO 95: STAGE 4 (the fold switch, the pickers, hint and solution, notice, picture, figure, citation) ================= */
+  // Every note is made up (design-notes4.js), one small booklet for each control family, written into the check's own copy of the vault, one note per scene.
+  // Real mouse and real keys only for what is under test: a text is typed with the keyboard and left with Tab, a drop-down is changed with the keys of the
+  // closed control (a person's own: the native list cannot be clicked from here), a switch or a button is pressed with the mouse. A write is counted with a
+  // vault "modify" listener of the page's own, and the whole note is compared byte for byte. After every change the reference linter
+  // (`lint-booklet.py`, the Booklet repository's) is run on the note on disk and must report nothing it did not report on the fixture before the change,
+  // except what a check says in words to be expected (a hint written open, a picture with a remote address).
+  //   86 the Starts folded switch            87 a tab, a parent page, the kept entries    88 a copy button's list
+  //   89 hint and solution under a question  90 a module's notice                         91 a picture
+  //   92 a figure                            93 a citation                                 94 focus and Undo (a drop-down, a text field)
+  //   95 a phone: 44 px and no sideways scroll
+  const N4 = require("./design-notes4");
+  const LINT = env.LINT;
+  /** The linter's errors and warnings on a note on disk, each with its path and line number taken off (a line moves when a block grows; the words do not). */
+  const lintOf = file => {
+    const r = cp.spawnSync("python3", ["-I", LINT, file], { encoding: "utf8", timeout: 60000 });
+    const out = (r.stdout || "") + (r.stderr || "");
+    if (r.error || !/booklet file checked/.test(out)) throw new Error("the reference linter did not run (" + LINT + "): " + (r.error ? r.error.message : out.slice(0, 200)));
+    return out.split("\n").filter(l => /^(ERROR|warn)\s/.test(l)).map(l => l.replace(/^(ERROR|warn)\s+.*?\.booklet\.md: (?:line \d+: )?/, "$1 ").trim());
+  };
+  /** What a note has that the baseline had not, and what the baseline had that it has not (a multiset, so two of the same are two). */
+  const lintDiff = (base, now) => {
+    const rest = [...base], added = [];
+    for (const m of now) { const i = rest.indexOf(m); if (i >= 0) rest.splice(i, 1); else added.push(m); }
+    return { added, gone: rest };
+  };
+  /** The shared helpers of checks 86 to 95 for one running app: a note made, opened on the page it names and measured by the linter; the linter run on a result. */
+  const kit4 = (o, c, vault, table) => {
+    const k = kit3(o, c, vault, table);
+    let seq = 0;
+    // one transparent pixel stands for each picture file a note names (a picture that is in the vault, as a person's would be)
+    const PIXEL = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+    const mk = (which, opts) => {
+      const name = "s" + (++seq), rel = `Stage4 ${which} ${name}.booklet.md`, t = N4[which](name, opts), file = put(vault, rel, t);
+      if (which === "pictures") for (const p of (opts && opts.files) || ["images/harbour.jpg", "images/boats.png"]) put(vault, p, PIXEL);
+      return { rel, file, t, lint: lintOf(file) };
+    };
+    /** A note of the kind asked for, opened in the Design view on the page `go` names ([nav kind, a line the page starts at]). */
+    const start = async (which, go, opts = {}, wide = true) => { const n = mk(which, opts); await openDesign(o, n.rel, "tab", true, wide); await goNav(o, go[0], lineOf(n.t, go[1])); await armWrites(o, n.rel); return n; };
+    const open = (n, needle, kind = "question") => clickBlock(o, kind, lineOf(text(n.file), needle));
+    /** The page's own box (its Edit settings button, a real press). */
+    /** A group opened by a press on its own head (a press in the middle of it lands on the block inside it). */
+    const openGroup = async (n, needle) => { const sel = block("group", lineOf(text(n.file), needle)); await o.page.locator(sel).scrollIntoViewIfNeeded(); await o.page.locator(sel + " > .booklet-design-group-head").click(); await o.page.waitForSelector(sel + ".is-open > .booklet-design-editbox", { timeout: 5000 }); await sleep(150); };
+    const pageBox = async () => { await o.page.locator(`${DV} .booklet-design-page-head .booklet-design-page-edit`).first().click(); await o.page.waitForSelector(`${DV} .booklet-design-page .booklet-design-editbox`, { timeout: 5000 }); await sleep(200); };
+    const K = key => `${DV} .booklet-design-editbox [data-key='${key}']`;
+    const optionsOf = sel => o.page.locator(sel).evaluate(e => [...e.options].map(x => [x.value, x.textContent]));
+    /** The closed drop-down with the keyboard focus on it: a key changes it as a person's would (the list itself cannot be clicked from the harness). */
+    const keyOn = async (sel, ...keys) => { await o.page.focus(sel); for (const key of keys) { await o.page.keyboard.press(key); await sleep(150); } };
+    /** The reference linter on the note on disk against the fixture's own report: nothing new, but what `expect` (regular expressions) says is expected, and each of those present. */
+    const lint = (n, label, expect = []) => {
+      const d = lintDiff(n.lint, lintOf(n.file));
+      const odd = d.added.filter(m => !expect.some(re => re.test(m))), lacking = expect.filter(re => !d.added.some(m => re.test(m)));
+      c.ok(odd.length === 0 && lacking.length === 0, `${label}: the reference linter reports ${expect.length ? "just the expected " + d.added.length + " new (" + JSON.stringify(d.added.map(m => m.slice(0, 90))) + ")" : "nothing new"} (${n.lint.length} of the fixture's own)${odd.length ? "; UNEXPECTED NEW: " + JSON.stringify(odd) : ""}${lacking.length ? "; EXPECTED BUT ABSENT: " + JSON.stringify(lacking.map(String)) : ""}${d.gone.length ? "; no longer reported: " + JSON.stringify(d.gone.map(m => m.slice(0, 80))) : ""}`);
+    };
+    /**
+     * A run of changes on one note: each `step` makes one change with the action it is given (real input), waits for the one write, compares the whole note with
+     * the expected one byte for byte and runs the linter; `unwind` takes them back with the app's own Undo, one press for each, and compares each state.
+     */
+    const run = n => {
+      const states = [n.t];
+      const api = {
+        states,
+        async step(label, act, want, expect = []) {
+          const from = states[states.length - 1], w0 = await k.W(n);
+          await act();
+          const r = await k.settled(n, from);
+          c.ok(r.ok && r.text === want && await k.W(n) === w0 + 1, `${label}: one write, and the whole note is the expected one byte for byte${k.diffs(want, r.text)}`);
+          lint(n, label, expect);
+          states.push(want);
+          return r.text;
+        },
+        async unwind(label, keptAsk = false) {
+          const w0 = await k.W(n), n0 = states.length - 1;
+          for (let i = states.length - 1; i >= 1; i--) {
+            await k.undo(keptAsk);
+            const r = await waitDisk(n.file, tx => tx === states[i - 1]); await idle(o);
+            if (!r.ok) c.ok(false, `${label}: Undo ${states.length - i} did not give the state before change ${i} byte for byte${k.diffs(states[i - 1], text(n.file))}`);
+          }
+          c.ok(text(n.file) === states[0] && await k.W(n) === w0 + n0, `${label}: ${n0} changes, ${n0} presses of Undo (one step each), ${await k.W(n)} writes in all, and the note is the original byte for byte${k.diffs(states[0], text(n.file))}`);
+          lint(n, `${label}, after the Undo`);
+        },
+      };
+      return api;
+    };
+    return { ...k, mk, start, open, openGroup, pageBox, K, optionsOf, keyOn, lint, run };
+  };
+
+  /* ================= CHECK 86 ================= */
+  async function check86() {
+    const c = new Check(86, "the Starts folded switch in the real app, on a callout (a folded tip, a plain note, one written with a +, a folded group) and on a hint and a solution under a question (a hint nested in a group, a solution straight under the question with no blank line): a real press writes the one character of the mark and nothing else, one write and one step of Undo, the switch reads the note after the press and after the Undo, a mark written + says so in words and is turned to - by the switch, the whole note compared byte for byte, and the reference linter reports nothing new except the one warning it gives for a hint or a solution written open (expected), and nothing after the switch is turned back or Undone");
+    const table = tableOf();
+    await withApp("c86", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, openGroup, W, K, STRIP, press, settled, diffs, undo, run, scene, closeBox, say, lint } = k;
+      const errs0 = consoleReport.length;
+      const SW = `${STRIP("fold")} button[role='switch']`;
+      const on = async sel => (await o.page.locator(sel).getAttribute("aria-checked")) === "true";
+      const label = async () => (await o.page.locator(SW).textContent()).trim();
+      const plusShown = () => o.evaluate(sel => { const e = document.querySelector(sel); return !!e && !e.hidden && e.getBoundingClientRect().width > 0; }, `${STRIP("fold")} .booklet-design-strip-label`);
+      await scene("A. a callout: folded, plain, written with a +; each press one write, one Undo", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!tip]- A folded tip", "callout");
+        c.ok(await label() === say("fold.switch") && await on(SW), `A: a folded tip has a switch named ${JSON.stringify(say("fold.switch"))} and it is on`);
+        await r.step("A: the folded tip's switch pressed (turned off)", () => press(SW), sub(t0, "> [!tip]- A folded tip", "> [!tip] A folded tip"));
+        c.ok(!(await on(SW)), "A: and the switch now reads off");
+        await r.step("A: and pressed again (on)", () => press(SW), t0);
+        c.ok(await on(SW), "A: and on");
+        await k.closeBox();
+        await open(n, "[!note] A plain note", "callout");
+        c.ok(!(await on(SW)) && !(await plusShown()), "A: a plain note's switch is off, with no note about a +");
+        const t2 = text(n.file);
+        await r.step("A: the plain note's switch pressed: a - is written after the bracket", () => press(SW), sub(t2, "> [!note] A plain note", "> [!note]- A plain note"));
+        await k.closeBox();
+        await open(n, "[!note]+ An open note", "callout");
+        c.ok(!(await on(SW)) && await plusShown(), `A: a note written with a + reads off and says so in words (${JSON.stringify(say("fold.plus").slice(0, 60))}...)`);
+        const t3 = text(n.file);
+        await r.step("A: the + note's switch pressed: the + becomes a -", () => press(SW), sub(t3, "> [!note]+ An open note", "> [!note]- An open note"));
+        c.ok(await on(SW) && !(await plusShown()), "A: and the note about the + is gone, the switch on");
+        await k.closeBox();
+        await r.unwind("A");
+        await closeBox();
+      });
+      await scene("B. a group folds too", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await openGroup(n, "[!group] Step one");
+        c.ok(await o.page.locator(SW).count() === 1 && !(await on(SW)), "B: an open group has the switch, off");
+        await r.step("B: the group's switch pressed", () => press(SW), sub(t0, "> [!group] Step one", "> [!group]- Step one"));
+        await k.closeBox();
+        await openGroup(n, "[!group]- A folded group");
+        c.ok(await on(SW), "B: a folded group's switch is on");
+        const t1 = text(n.file);
+        await r.step("B: and pressed (off)", () => press(SW), sub(t1, "> [!group]- A folded group", "> [!group] A folded group"));
+        await k.closeBox();
+        await r.unwind("B");
+        await closeBox();
+      });
+      await scene("C. a hint and a solution under a question", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        const HF = K("hint-fold"), SF = K("solution-fold");
+        await open(n, "[!text|why long] Why again?");
+        c.ok(await o.page.locator(HF).getAttribute("aria-label") === "Hint: starts folded" && await on(HF) && await on(SF), "C: the question's box has a switch for its hint and one for its solution, both on");
+        await r.step("C: the hint's switch pressed (written open: the linter says so)", () => press(HF), sub(t0, "> [!hint]- Hint\n> Look at the moon.", "> [!hint] Hint\n> Look at the moon."), [/a hint that is not folded is drawn open/]);
+        c.ok(!(await on(HF)) && await on(SF), "C: the hint's switch reads off and the solution's is untouched");
+        await r.step("C: and pressed again (folded again: nothing for the linter)", () => press(HF), t0);
+        await r.step("C: the solution's switch pressed", () => press(SF), sub(t0, "> [!solution]- Model answer\n> Because.\n> Really.", "> [!solution] Model answer\n> Because.\n> Really."), [/a solution that is not folded is drawn open/]);
+        await r.step("C: and again", () => press(SF), t0);
+        await r.step("C: the hint's switch once more, for one Undo to take back at once", () => press(HF), sub(t0, "> [!hint]- Hint\n> Look at the moon.", "> [!hint] Hint\n> Look at the moon."), [/a hint that is not folded is drawn open/]);
+        await undo(); const u1 = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u1.ok, "C: ONE Undo gives back the exact bytes of the note before that press");
+        lint(n, "C: after that Undo");
+        c.ok(await o.evaluate(sel => { const e = document.querySelector(sel); return !!e && e.getAttribute("aria-checked") === "true"; }, HF), "C: and the hint's switch shows the restored value (on)");
+        r.states.pop();
+        await r.unwind("C");
+        await closeBox();
+      });
+      await scene("D. a solution straight under the question's words (no blank line) and a hint nested in a group", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        const HF = K("hint-fold"), SF = K("solution-fold");
+        await open(n, "[!text|q long] Why?");
+        c.ok(await on(SF) && await o.page.locator(HF).count() === 0, "D: the question whose solution has no blank line above it shows the solution's switch (on) and has no hint");
+        await r.step("D: its solution's switch pressed: only the one character changes, no blank line appears", () => press(SF), sub(t0, "> [!solution]- Model answer\n> Because.", "> [!solution] Model answer\n> Because."), [/a solution that is not folded is drawn open/]);
+        await r.step("D: and pressed again", () => press(SF), t0);
+        await k.closeBox();
+        await open(n, "[!choice|c1] Pick?");
+        c.ok(await on(HF), "D: the question inside the group shows its hint (written > > [!hint]-) with the switch on");
+        await r.step("D: the nested hint's switch pressed: the group's own > marks stay", () => press(HF), sub(text(n.file), "> > [!hint]-\n", "> > [!hint]\n"), [/a hint that is not folded is drawn open/]);
+        await r.step("D: and pressed again", () => press(HF), t0);
+        await k.closeBox();
+        await r.unwind("D");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 87 ================= */
+  async function check87() {
+    const c = new Check(87, "the pickers that name another part of the note, in the real app: an activity's tab (its module's tabs, \"no tab\", a tab the line names that the module lacks kept as written and said so, another change leaving it), a page's parent (the other pages of its tab, never itself or its own sub-pages, a parent that is not a page kept and said, a loop already in the note said in words), the kept entries' switch of a repeat activity; each change one write and one Undo step, the whole note byte for byte, the reference linter run on each result; a loop forced into the drop-down is refused in words and nothing is written");
+    const table = tableOf();
+    await withApp("c87", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, pageBox, W, K, SI, STRIP, press, typeLeave, settled, diffs, undo, run, scene, closeBox, say, optionsOf, keyOn, refusalOf, value, open } = k;
+      const errs0 = consoleReport.length;
+      const TAB = K("tab"), PAR = K("parent");
+      await scene("A. an activity's tab", async () => {
+        const n = await start("structure", ["activity", "[!activity|alpha"]); const r = run(n), t0 = n.t;
+        await pageBox();
+        const o1 = await optionsOf(TAB);
+        c.ok(JSON.stringify(o1) === JSON.stringify([["", say("tab.none")], ["learn", "Learn (learn)"], ["this-month", "This month (this-month)"]]) && await value(TAB) === "learn", `A: the picker lists No tab and the module's two tabs, each with its title and id, and reads learn (${JSON.stringify(o1.map(x => x[1]))})`);
+        await r.step("A: this-month chosen with the Down key: only the word after tab: changes", () => keyOn(TAB, "ArrowDown"), sub(t0, "[!activity|alpha tab:learn] Alpha", "[!activity|alpha tab:this-month] Alpha"));
+        c.ok(await value(TAB) === "this-month", "A: and the picker reads this-month");
+        await r.step("A: No tab chosen (Home): the setting is taken off the line", () => keyOn(TAB, "Home"), sub(t0, "[!activity|alpha tab:learn] Alpha", "[!activity|alpha] Alpha"));
+        await r.unwind("A");
+        c.ok(await value(TAB) === "learn", `A: after the Undos the picker shows learn again (${await value(TAB)})`);
+        await closeBox();
+      });
+      await scene("B. a tab the module does not have: kept as written, said so, and left by every other change", async () => {
+        const n = await start("structure", ["activity", "[!activity|beta"]); const r = run(n), t0 = n.t;
+        await pageBox();
+        const o1 = await optionsOf(TAB), last = o1[o1.length - 1];
+        c.ok(await value(TAB) === "gone" && last[0] === "gone" && last[1] === say("tab.missing").replace("{id}", "gone"), `B: the line's tab:gone is listed last and said in words (${JSON.stringify(last[1])}), and the picker reads it`);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "B: showing it wrote nothing");
+        // another change of the same line leaves it as written
+        await r.step("B: the activity's id changed (typed, Tab): tab:gone stays as it was", () => typeLeave(SI("id"), "beta2"), sub(t0, "[!activity|beta tab:gone] Beta", "[!activity|beta2 tab:gone] Beta"));
+        await r.step("B: a real tab chosen with the Up key (the missing one is last in the list) replaces it", () => keyOn(TAB, "ArrowUp"), sub(text(n.file), "tab:gone", "tab:this-month"));
+        await r.unwind("B");
+        await closeBox();
+      });
+      await scene("C. a page's parent", async () => {
+        const n = await start("structure", ["page", "[!page|p1"]); const r = run(n), t0 = n.t;
+        await pageBox();
+        const o1 = await optionsOf(PAR);
+        c.ok(JSON.stringify(o1) === JSON.stringify([["", say("parent.none")], ["p4", "Fourth (p4)"], ["p5", "Fifth (p5)"]]) && await value(PAR) === "", `C: the first page's picker lists No parent, Fourth and Fifth, not itself, not its sub-pages (Second, Third), not the other tab's page (${JSON.stringify(o1.map(x => x[1]))})`);
+        await r.step("C: Fourth chosen: parent:p4 is written", () => keyOn(PAR, "ArrowDown"), sub(t0, "> [!page|p1] First", "> [!page|p1 parent:p4] First"));
+        await r.step("C: No parent (Home) takes it off again: the original bytes", () => keyOn(PAR, "Home"), t0);
+        // a loop forced into the drop-down: the picker never offers one, so one is put into the control's list by a script and chosen with a real key
+        const w0 = await W(n);
+        await o.page.locator(PAR).evaluate(e => { const x = document.createElement("option"); x.value = "p3"; x.textContent = "forced"; e.appendChild(x); });
+        await keyOn(PAR, "End");
+        await sleep(500); await idle(o);
+        const why = await refusalOf();
+        c.ok(text(n.file) === t0 && await W(n) === w0 && /^Not changed\. A page cannot sit under itself or under one of its own sub-pages: that would make a loop\./.test(why || ""), `C: a loop (First under its own sub-page Third) is refused in words (${JSON.stringify((why || "").slice(0, 120))}) and nothing is written`);
+        c.ok(await value(PAR) === "", `C: and the picker goes back to what the note has (${JSON.stringify(await value(PAR))})`);
+        await r.unwind("C");
+        await closeBox();
+      });
+      await scene("D. a parent that is not a page, and a loop already in the note", async () => {
+        const n = await start("structure", ["page", "[!page|p5"]); const t0 = n.t;
+        await pageBox();
+        const o1 = await optionsOf(PAR), last = o1[o1.length - 1];
+        c.ok(await value(PAR) === "ghost" && last[0] === "ghost" && last[1] === say("parent.missing").replace("{id}", "ghost"), `D: parent:ghost is listed last, said as not a page of this tab (${JSON.stringify(last[1])}), and read`);
+        await closeBox();
+        const m = await start("structure", ["page", "[!page|p1"], { loop: true });
+        await pageBox();
+        const o2 = await optionsOf(PAR), l2 = o2[o2.length - 1];
+        c.ok(await value(PAR) === "p3" && l2[0] === "p3" && l2[1] === say("parent.loop").replace("{id}", "p3"), `D: a page already in a loop (parent:p3 under its own sub-page) says ${JSON.stringify(l2[1])} and is kept`);
+        c.ok(text(m.file) === m.t && text(n.file) === t0 && await W(m) === 0, "D: showing either wrote nothing");
+        await closeBox();
+      });
+      await scene("E. the kept entries' switch of a repeat activity", async () => {
+        const n = await start("structure", ["activity", "[!activity|delta"]); const r = run(n), t0 = n.t;
+        await pageBox();
+        const SW = `${STRIP("entries")} button[role='switch']`, NOTE = `${STRIP("entries")} .booklet-design-strip-label`;
+        const on = async () => (await o.page.locator(SW).getAttribute("aria-checked")) === "true";
+        c.ok(!(await on()) && !(await o.page.locator(SW).isDisabled()), "E: a repeat activity's switch is off and can be pressed");
+        await r.step("E: pressed: entries:folded is written after the other words", () => press(SW), sub(t0, "> [!activity|delta repeat] Delta", "> [!activity|delta repeat entries:folded] Delta"));
+        c.ok(await on(), "E: and reads on");
+        await r.step("E: pressed again: the setting goes and the line is as it was", () => press(SW), t0);
+        await r.unwind("E");
+        await closeBox();
+        const g = await start("structure", ["activity", "[!activity|gamma"]);
+        await pageBox();
+        const txt = (await o.page.locator(NOTE).textContent() || "").trim();
+        c.ok(await o.page.locator(SW).isDisabled() && txt === say("entries.needsRepeat"), `E: an activity that does not repeat has the switch off and not pressable, and says why (${JSON.stringify(txt.slice(0, 70))}...)`);
+        await closeBox();
+        const e = await start("structure", ["activity", "[!activity|epsilon"]); const re = run(e), e0 = e.t;
+        await pageBox();
+        const t2 = (await o.page.locator(NOTE).textContent() || "").trim();
+        c.ok(!(await on()) && t2 === say("entries.differs").replace("{value}", "open"), `E: entries:open (a value the format does not take) is kept as written and said (${JSON.stringify(t2.slice(0, 80))}...)`);
+        await re.step("E: only turning the switch on replaces it with entries:folded", () => press(SW), sub(e0, "repeat entries:open] Epsilon", "repeat entries:folded] Epsilon"));
+        await re.unwind("E, epsilon");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 88 ================= */
+  async function check88() {
+    const c = new Check(88, "a copy button's list of what it copies, in the real app: a row for each word of of:, in the order written, with a drop-down of the questions of its activity (and their hint and solution); item changed, one added, one moved, one removed, each one write and one Undo step, the whole note byte for byte and the linter run on each result; a word the picker cannot offer (gone) is listed first as kept as written and survives every edit of another item; the last item cannot be taken out and says why; five changes undone with five presses back to the exact bytes");
+    const table = tableOf();
+    await withApp("c88", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, press, undo, run, scene, closeBox, say, optionsOf, keyOn, value, refusalOf, settled, diffs } = k;
+      const errs0 = consoleReport.length;
+      const items = () => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox [data-key$='-pick']")].map(e => e.value), DV);
+      await scene("A. the list: item changed, one added, moved, removed, then Undo", async () => {
+        const n = await start("copy", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!copy|go", "callout");
+        c.ok(JSON.stringify(await items()) === JSON.stringify(["why", "gone"]), `A: the list shows the two words of of:why,gone in order (${JSON.stringify(await items())})`);
+        const o0 = await optionsOf(K("c0-pick")), o1 = await optionsOf(K("c1-pick"));
+        c.ok(JSON.stringify(o0.map(x => x[0])) === JSON.stringify(["why", "why/hint", "why/solution", "pick", "n"]), `A: item 1 can be any question of the activity, and the hint and the solution folded under the first (${JSON.stringify(o0.map(x => x[1]))})`);
+        c.ok(o1[0][0] === "gone" && o1[0][1] === say("copy.kept").replace("{item}", "gone") && await o.page.locator(K("c1-pick")).inputValue() === "gone", `A: a word the picker cannot offer is the first thing listed, as written, and chosen (${JSON.stringify(o1[0][1])})`);
+        c.ok(await o.page.locator(K("c0-up")).isDisabled() && await o.page.locator(K("c1-down")).isDisabled(), "A: the first item cannot move up and the last cannot move down");
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: showing the list wrote nothing");
+        await r.step("A: item 1 changed to the last question (End key): of:n,gone", () => keyOn(K("c0-pick"), "End"), sub(t0, "of:why,gone]", "of:n,gone]"));
+        await r.step("A: a question added at the end (Down key on the Add drop-down: the first one offered)", () => keyOn(K("c-add"), "ArrowDown"), sub(text(n.file), "of:n,gone]", "of:n,gone,why]"));
+        c.ok(JSON.stringify(await items()) === JSON.stringify(["n", "gone", "why"]), `A: the list now has three rows (${JSON.stringify(await items())})`);
+        await r.step("A: item 3 moved up: the kept word is carried as written", () => press(K("c2-up")), sub(text(n.file), "of:n,gone,why]", "of:n,why,gone]"));
+        await r.step("A: item 2 changed to its hint (Down key): the kept word is untouched", () => keyOn(K("c1-pick"), "ArrowDown"), sub(text(n.file), "of:n,why,gone]", "of:n,why/hint,gone]"));
+        await r.step("A: item 1 removed", () => press(K("c0-remove")), sub(text(n.file), "of:n,why/hint,gone]", "of:why/hint,gone]"));
+        c.ok(await o.page.locator(K("c1-pick")).inputValue() === "gone" && (await optionsOf(K("c1-pick")))[0][1] === say("copy.kept").replace("{item}", "gone"), "A: through all of that the word gone is still there, listed as kept as written");
+        c.ok((await o.evaluate(sel => document.querySelector(sel + " .booklet-design-edit-md textarea, " + sel + " .booklet-design-textarea").value.split("\n")[0], DV)) === "> [!copy|go of:why/hint,gone] Copy for my tutor", "A: and the Markdown section follows the note");
+        await r.unwind("A");
+        c.ok(JSON.stringify(await items()) === JSON.stringify(["why", "gone"]), `A: after the Undos the list is the original (${JSON.stringify(await items())})`);
+        await closeBox();
+      });
+      await scene("B. the last item stays; the kept word can be taken out on purpose", async () => {
+        const n = await start("copy", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!copy|go", "callout");
+        await r.step("B: the kept item (gone) removed on purpose: only then does it go", () => press(K("c1-remove")), sub(t0, "of:why,gone]", "of:why]"));
+        const w = await W(n), t1 = text(n.file);
+        await press(K("c0-remove")); await sleep(400); await idle(o);
+        const why = await refusalOf();
+        c.ok(text(n.file) === t1 && await W(n) === w && /^Not changed\. A copy button needs something to copy, so the last item stays\./.test(why || ""), `B: the last item cannot be removed: ${JSON.stringify((why || "").slice(0, 100))}, and nothing is written`);
+        c.ok(await o.page.locator(K("c0-up")).isDisabled() && await o.page.locator(K("c0-down")).isDisabled(), "B: with one item both move buttons are off");
+        await r.unwind("B");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 89 ================= */
+  async function check89() {
+    const c = new Check(89, "a question's Hint and Solution fields in the real app, typed with the real keyboard: add a hint (straight under a question with no blank line before its solution, so none appears and removing it gives the same bytes), type its words (two lines, one of them kept as it was), its title, the Starts folded switch (the linter says so when it is written open), remove it; the same for a solution; a hint nested in a group keeps the group's > marks; a hint holding a list stays in the Markdown with the reason and its title and switch still work; each change one write and one Undo step, the whole note byte for byte, the linter run on each result");
+    const table = tableOf();
+    await withApp("c89", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, press, typeLeave, undo, run, scene, closeBox, say, refusalOf, value } = k;
+      const errs0 = consoleReport.length;
+      /** Real typing in a words box: a new line is Enter (it inserts a newline in a text area), then Tab leaves it. */
+      const typeLines = async (sel, lines) => { await o.page.locator(sel).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.press("Backspace"); for (let i = 0; i < lines.length; i++) { if (i) await o.page.keyboard.press("Enter"); if (lines[i]) await o.page.keyboard.type(lines[i]); } await o.page.keyboard.press("Tab"); };
+      const OPEN_HINT = [/a hint that is not folded is drawn open/], OPEN_SOL = [/a solution that is not folded is drawn open/];
+      await scene("A. a hint added straight under a question that has no blank line before its solution", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!text|q long] Why?");
+        c.ok(await o.page.locator(K("hint-add")).count() === 1 && await o.page.locator(K("solution-add")).count() === 0 && await value(K("solution-words")) === "Because.", "A: the box has an Add a hint button, shows the solution's words, and has no Add a solution");
+        const Q = "> [!text|q long] Why?\n> Think about it.\n> [!solution]- Model answer\n> Because.";
+        await r.step("A: Add a hint pressed: a folded hint with its title and no words, laid out as the solution is (no blank line)", () => press(K("hint-add")), sub(t0, Q, "> [!text|q long] Why?\n> Think about it.\n> [!hint]- Hint\n> [!solution]- Model answer\n> Because."));
+        c.ok(await o.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-key")) === "hint-words", "A: and the focus is in the hint's words, where the typing goes");
+        await r.step("A: the hint's words typed with the keyboard, straight into the focused field, and left with Tab", async () => { await o.page.keyboard.type("Look at the sky."); await o.page.keyboard.press("Tab"); }, sub(text(n.file), "> [!hint]- Hint\n", "> [!hint]- Hint\n> Look at the sky.\n"));
+        await r.step("A: a second line typed (Enter, then words): the first line keeps its bytes", () => typeLines(K("hint-words"), ["Look at the sky.", "It is blue."]), sub(text(n.file), "> Look at the sky.\n", "> Look at the sky.\n> It is blue.\n"));
+        await r.step("A: the hint's title retyped", () => typeLeave(K("hint-title"), "A nudge"), sub(text(n.file), "> [!hint]- Hint\n", "> [!hint]- A nudge\n"));
+        await r.step("A: the hint's Starts folded switch pressed (written open: the linter says so)", () => press(K("hint-fold")), sub(text(n.file), "> [!hint]- A nudge", "> [!hint] A nudge"), OPEN_HINT);
+        await r.step("A: and pressed again", () => press(K("hint-fold")), sub(text(n.file), "> [!hint] A nudge", "> [!hint]- A nudge"));
+        const g = await W(n);
+        await r.step("A: Remove the hint: the blank-line-free layout comes back exactly", () => press(K("hint-remove")), t0);
+        c.ok(await W(n) === g + 1 && await o.page.locator(K("hint-add")).count() === 1, "A: removing is one write and the Add a hint button is back");
+        await r.unwind("A");
+        c.ok(await o.page.locator(K("hint-words")).count() === 0 && await o.page.locator(K("hint-add")).count() === 1, "A: after the Undos the box is as it was: an Add a hint button and no hint fields");
+        await closeBox();
+      });
+      await scene("B. a hint and a solution that are there: words, title, switch, remove", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!text|why long] Why again?");
+        c.ok(await value(K("hint-title")) === "Hint" && await value(K("hint-words")) === "Look at the moon." && await value(K("solution-title")) === "Model answer" && await value(K("solution-words")) === "Because.\nReally.", "B: the fields hold the note's own words (the solution's two lines as two lines)");
+        await r.step("B: the hint's words typed over", () => typeLines(K("hint-words"), ["Look at the sea."]), sub(t0, "> Look at the moon.", "> Look at the sea."));
+        await r.step("B: the solution's second line retyped: the first line is kept as it was", () => typeLines(K("solution-words"), ["Because.", "The moon pulls."]), sub(text(n.file), "> Because.\n> Really.", "> Because.\n> The moon pulls."));
+        await r.step("B: the solution's title retyped", () => typeLeave(K("solution-title"), "Why"), sub(text(n.file), "> [!solution]- Model answer\n> Because.\n> The moon pulls.", "> [!solution]- Why\n> Because.\n> The moon pulls."));
+        await r.step("B: the solution's switch pressed (written open)", () => press(K("solution-fold")), sub(text(n.file), "> [!solution]- Why\n", "> [!solution] Why\n"), OPEN_SOL);
+        await r.step("B: Remove the solution: it goes with the blank line above it", () => press(K("solution-remove")), sub(text(n.file), "\n\n> [!solution] Why\n> Because.\n> The moon pulls.", ""));
+        await r.step("B: Remove the hint", () => press(K("hint-remove")), sub(text(n.file), "\n\n> [!hint]- Hint\n> Look at the sea.", ""));
+        c.ok(await o.page.locator(K("hint-add")).count() === 1 && await o.page.locator(K("solution-add")).count() === 1, "B: both Add buttons are back");
+        await r.step("B: Add a solution", () => press(K("solution-add")), sub(text(n.file), "> Say more.", "> Say more.\n\n> [!solution]- Solution"));
+        await r.unwind("B");
+        c.ok(await value(K("hint-words")) === "Look at the moon." && await value(K("solution-words")) === "Because.\nReally.", "B: after the Undos the fields show the note's words again");
+        await closeBox();
+      });
+      await scene("C. a hint nested in a group", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!choice|c1] Pick?");
+        c.ok(await value(K("hint-words")) === "Words that help." && await value(K("hint-title")) === "", "C: the nested hint's words are the field's, and it has no title");
+        await r.step("C: its words typed: the group's own > > marks stay", () => typeLines(K("hint-words"), ["Other words."]), sub(t0, "> > Words that help.", "> > Other words."));
+        await r.step("C: its title typed", () => typeLeave(K("hint-title"), "Nudge"), sub(text(n.file), "> > [!hint]-\n", "> > [!hint]- Nudge\n"));
+        await r.step("C: Remove the hint", () => press(K("hint-remove")), sub(text(n.file), "\n>\n> > [!hint]- Nudge\n> > Other words.", ""));
+        await r.unwind("C");
+        await closeBox();
+      });
+      await scene("D. a hint that holds a list stays in the Markdown, with the reason; its title and switch still work", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!choice|lst]");
+        const why = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-editbox [data-help='hint'] .booklet-design-rows-refused"); return e ? e.textContent : null; }, DV);
+        c.ok(/The hint is edited in the Markdown below: it holds a list\./.test(why || "") && await o.page.locator(K("hint-words")).count() === 0 && await o.page.locator(K("hint-remove")).count() === 0, `D: no words field and no Remove, with the reason in words (${JSON.stringify((why || "").slice(0, 80))})`);
+        c.ok(await o.evaluate(() => !!document.querySelector(".workspace-leaf.mod-active .booklet-design-editbox .booklet-design-edit-md[open]")), "D: the Markdown section is open, with the lines in it");
+        c.ok(text(n.file) === t0 && await W(n) === 0, "D: showing it wrote nothing");
+        await r.step("D: its title retyped: the list below is as it was", () => typeLeave(K("hint-title"), "Support"), sub(t0, "> [!hint]- Help\n> - first", "> [!hint]- Support\n> - first"));
+        await r.step("D: its switch pressed (written open)", () => press(K("hint-fold")), sub(text(n.file), "> [!hint]- Support", "> [!hint] Support"), OPEN_HINT);
+        await r.unwind("D");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 90 ================= */
+  async function check90() {
+    const c = new Check(90, "a module's notice as four fields in the real app (License, Copyright, Source, Version), typed with the real keyboard and left with Tab: an absent field filled (the new line goes after the last line of the notice), one cleared (its line goes, clearing it again writes nothing), a Source with no http:// or https:// said in words and the words going as one is typed, a line that is none of the four (author:) listed as kept as written and byte for byte where it was through every change, a value that would break the line refused in words with nothing written; each change one write and one Undo step, the whole note byte for byte, the linter run on each result (the fixture's author: line is an error of its own, reported before and after alike)");
+    const table = tableOf();
+    await withApp("c90", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, typeLeave, run, scene, closeBox, say, refusalOf, value, settled } = k;
+      const errs0 = consoleReport.length;
+      const NOTE = `${DV} .booklet-design-editbox [data-notice='not-a-link']`, KEPT_L = `${DV} .booklet-design-editbox [data-notice='kept']`;
+      const shown = sel => o.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && e.getBoundingClientRect().width > 0; }, sel);
+      await scene("A. fill, clear, an unknown line kept, a source that is no link", async () => {
+        const n = await start("notice", ["module", "[!module|m]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!notice]", "notice");
+        const names = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox [data-field^='notice-'] .setting-item-name")].map(e => e.textContent.trim()), DV);
+        c.ok(JSON.stringify(names) === JSON.stringify([say("notice.license"), say("notice.copyright"), say("notice.source"), say("notice.version")]), `A: the four fields are named in words (${JSON.stringify(names)})`);
+        c.ok(await value(K("notice-license")) === "Free to copy and share." && await value(K("notice-copyright")) === "" && await value(K("notice-source")) === "example.org/check-in" && await value(K("notice-version")) === "", "A: they hold the note's words, and the two the notice does not say are empty");
+        const kept = (await o.page.locator(KEPT_L).textContent() || "");
+        c.ok(/author: Kept as written/.test(kept) && kept.includes(say("notice.kept").slice(0, 30)), `A: the line that is none of the four is listed as kept as written (${JSON.stringify(kept.replace(/\s+/g, " ").slice(0, 110))})`);
+        c.ok(await shown(NOTE) && (await o.page.locator(NOTE).textContent()).trim() === say("notice.sourceNotLink"), "A: a source that does not start with http:// or https:// is told so in words (it is shown as plain words, not a link)");
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: showing it wrote nothing");
+        await r.step("A: an absent Copyright filled: its line goes after the last line of the notice", () => typeLeave(K("notice-copyright"), "Example Press, 2026"), sub(t0, "> source: example.org/check-in\n", "> source: example.org/check-in\n> copyright: Example Press, 2026\n"));
+        await r.step("A: the License cleared: its line goes, the others and the unknown line stay", () => typeLeave(K("notice-license"), ""), sub(text(n.file), "> license: Free to copy and share.\n", ""));
+        c.ok(/author: Kept as written/.test(await o.page.locator(KEPT_L).textContent()) && text(n.file).includes("> author: Kept as written\n"), "A: the unknown line is still there, and still listed");
+        const w = await W(n);
+        await o.page.locator(K("notice-license")).click(); await o.page.keyboard.press("Tab"); await sleep(400);
+        c.ok(await W(n) === w, "A: leaving an empty License empty writes nothing");
+        // typing a link: the words about the plain source go as it is typed (before it is left)
+        await o.page.locator(K("notice-source")).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("https://example.org/check-in");
+        c.ok(!(await shown(NOTE)), "A: the note about a source that is no link goes as the link is typed, before the field is left");
+        await o.page.keyboard.press("Tab");
+        const r1 = await settled(n, r.states[r.states.length - 1]);
+        r.states.push(r1.text);
+        c.ok(r1.ok && r1.text === sub(r.states[r.states.length - 2], "> source: example.org/check-in\n", "> source: https://example.org/check-in\n"), "A: and the link is written, only its line changed");
+        k.lint(n, "A: the link written");
+        await r.step("A: an absent Version filled: it goes after the last line of the notice, as Copyright did", () => typeLeave(K("notice-version"), "1.2"), sub(text(n.file), "> copyright: Example Press, 2026\n", "> copyright: Example Press, 2026\n> version: 1.2\n"));
+        await r.step("A: and cleared again: the line goes", () => typeLeave(K("notice-version"), ""), sub(text(n.file), "> version: 1.2\n", ""));
+        // refusals
+        const t = text(n.file), w2 = await W(n);
+        await typeLeave(K("notice-license"), "a <!-- b"); await sleep(400); await idle(o);
+        let why = await refusalOf();
+        c.ok(text(n.file) === t && await W(n) === w2 && /comment/.test(why || ""), `A: a value with a comment mark is refused in words (${JSON.stringify((why || "").slice(0, 90))}) and nothing is written`);
+        await typeLeave(K("notice-license"), "\"quoted\""); await sleep(400); await idle(o);
+        why = await refusalOf();
+        c.ok(text(n.file) === t && await W(n) === w2 && /quotation marks/.test(why || ""), `A: a value in quotation marks is refused in words (${JSON.stringify((why || "").slice(0, 90))}) and nothing is written`);
+        c.ok(await value(K("notice-license")) === "", "A: and the field goes back to what the note has (nothing)");
+        await r.unwind("A");
+        c.ok(await value(K("notice-license")) === "Free to copy and share." && await value(K("notice-copyright")) === "", "A: after the Undos the fields show the note's own words again");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 91 ================= */
+  async function check91() {
+    const c = new Check(91, "a picture's two fields in the real app, typed with the real keyboard: the description and the place of a reference-style picture (the place is the definition line elsewhere in the note, named by its line; changing it is one write that touches that line and no other, and one Undo gives it back with the field following), an inline picture's place; a remote address kept as typed and warned about in words (not refused), the linter's own warning for it expected; a path that breaks the format's rules warned about the same way; an empty description said to be decorative; a reference with no definition line said in words, the line added by a press and taken back by one Undo; nothing fetched; each change one write and one Undo step, the whole note byte for byte, the linter run on each result");
+    const table = tableOf();
+    await withApp("c91", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, press, typeLeave, run, scene, closeBox, say, refusalOf, value, settled, undo, diffs } = k;
+      const errs0 = consoleReport.length;
+      const WARN = `${DV} .booklet-design-editbox [data-reading='path-warning']`, EMPTY = `${DV} .booklet-design-editbox [data-reading='alt-empty']`;
+      const shown = sel => o.evaluate(s => { const e = document.querySelector(s); return !!e && !e.hidden && e.getBoundingClientRect().width > 0; }, sel);
+      const said = sel => o.evaluate(s => { const e = document.querySelector(s); return e ? e.textContent.trim() : null; }, sel);
+      await scene("A. a reference-style picture: its description and its place (a definition line elsewhere)", async () => {
+        const n = await start("pictures", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "![The harbour at low water][harbour]", "prose");
+        c.ok(await value(K("picture-0-alt")) === "The harbour at low water" && await value(K("picture-0-path")) === "images/harbour.jpg", "A: the two fields hold the description and the place the definition line gives");
+        const where = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-editbox [data-reading='picture-0']"); return e ? e.textContent : ""; }, DV);
+        const line = lineOf(t0, "[harbour]: images/harbour.jpg") + 1;
+        c.ok(where.includes(say("image.where").replace("{line}", String(line)).replace("{id}", "harbour")), `A: and says where the place is written, on line ${line}, as [harbour]`);
+        c.ok(where.includes(say("image.note")) || await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-editbox") || { textContent: "" }).textContent.includes("Nothing is fetched or uploaded."), DV), "A: and says that nothing is fetched or uploaded");
+        c.ok(!(await shown(WARN)), "A: no warning for a path that keeps the rules");
+        await r.step("A: the description typed over", () => typeLeave(K("picture-0-alt"), "Boats at rest"), sub(t0, "![The harbour at low water][harbour]", "![Boats at rest][harbour]"));
+        await r.step("A: the place typed over: the definition line, far from the picture, changes and nothing else", () => typeLeave(K("picture-0-path"), "images/boats.png"), sub(text(n.file), "[harbour]: images/harbour.jpg", "[harbour]: images/boats.png"));
+        // ONE Undo takes the definition line back, and the field follows although that line is outside the block
+        await undo(); const u = await waitDisk(n.file, tx => tx === r.states[r.states.length - 2]); await idle(o);
+        c.ok(u.ok && await value(K("picture-0-path")) === "images/harbour.jpg" && await value(K("picture-0-alt")) === "Boats at rest", `A: ONE Undo gives the definition line back byte for byte, and the place field shows images/harbour.jpg again while the description keeps its change${diffs(r.states[r.states.length - 2], text(n.file))}`);
+        r.states.pop();
+        await r.unwind("A");
+        c.ok(await value(K("picture-0-alt")) === "The harbour at low water", "A: after the Undos the description shows the note's words");
+        await closeBox();
+      });
+      await scene("B. an inline picture: a remote address kept and warned about, a path that breaks the rules warned about, a good one", async () => {
+        const n = await start("pictures", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "![Boats](images/boats.png)", "prose");
+        c.ok(await value(K("picture-0-path")) === "images/boats.png" && !(await shown(WARN)), "B: the place field holds images/boats.png and says nothing");
+        const w0 = await W(n);
+        await r.step("B: a remote address typed: kept as typed, written (not refused)", () => typeLeave(K("picture-0-path"), "https://example.org/boats.png"), sub(t0, "![Boats](images/boats.png)", "![Boats](https://example.org/boats.png)"), [/has a remote address/]);
+        c.ok(await refusalOf() === null || (await refusalOf()) === "", `B: nothing is refused (${JSON.stringify(await refusalOf())})`);
+        const warn = await said(WARN);
+        c.ok(await shown(WARN) && /remote address/.test(warn || "") && /the linter warns/.test(warn || ""), `B: the warning is shown in words under the field (${JSON.stringify((warn || "").slice(0, 150))})`);
+        await shotOk(o, "picture-remote");
+        await r.step("B: a path with a part that begins with a dot: kept and warned about", () => typeLeave(K("picture-0-path"), "../up/boats.txt"), sub(text(n.file), "(https://example.org/boats.png)", "(../up/boats.txt)"), [/is not a path the renderer reads/]);
+        c.ok(await shown(WARN) && /empty part or a part that begins with a dot/.test(await said(WARN) || ""), `B: and says why in words (${JSON.stringify(((await said(WARN)) || "").slice(0, 150))})`);
+        await r.step("B: a good path typed: the warning goes", () => typeLeave(K("picture-0-path"), "images/skiffs.webp"), sub(text(n.file), "(../up/boats.txt)", "(images/skiffs.webp)"));
+        c.ok(!(await shown(WARN)), "B: the warning is gone");
+        // a place that cannot be written in this shape (a space) is refused, not written
+        const t = text(n.file), w1 = await W(n);
+        await typeLeave(K("picture-0-path"), "images/a b.png"); await sleep(400); await idle(o);
+        const why = await refusalOf();
+        c.ok(text(n.file) === t && await W(n) === w1 && /no space/.test(why || ""), `B: an address with a space cannot be written in this shape: refused in words (${JSON.stringify((why || "").slice(0, 100))}), nothing written`);
+        await r.step("B: the description emptied: a decorative picture, said in words", () => typeLeave(K("picture-0-alt"), ""), sub(text(n.file), "![Boats](images/skiffs.webp)", "![](images/skiffs.webp)"));
+        c.ok(await shown(EMPTY) && (await said(EMPTY)) === say("image.alt.empty"), `B: and the field says so (${JSON.stringify((await said(EMPTY) || "").slice(0, 60))})`);
+        c.ok(w0 === 0, "B: nothing was written before the first change (nothing is fetched by showing it)");
+        await r.unwind("B");
+        await closeBox();
+      });
+      await scene("C. a reference with no definition line", async () => {
+        const n = await start("pictures", ["activity", "[!activity|a]"]); const t0 = n.t;
+        await open(n, "![Gone][gone]", "prose");
+        c.ok(await o.page.locator(K("picture-0-path")).count() === 0 && await o.page.locator(K("picture-0-add")).count() === 1, "C: no place field while there is no line to hold it, and a button to add the line");
+        const txt = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-editbox [data-reading='picture-0']") || { textContent: "" }).textContent, DV);
+        c.ok(txt.includes(say("image.missing").replace("{id}", "gone")), "C: it says in words that there is no line saying where [gone] is");
+        c.ok(text(n.file) === t0 && await W(n) === 0, "C: showing it wrote nothing");
+        await press(K("picture-0-add"));
+        const r1 = await settled(n, t0);
+        const reg = placed(t0, r1.text);
+        c.ok(r1.ok && await W(n) === 1 && reg.removed.trim() === "" && reg.added.trim() === "[gone]: images/gone.jpg" && await value(K("picture-0-path")) === "images/gone.jpg", `C: pressing it writes one line, [gone]: images/gone.jpg, and takes nothing out (${JSON.stringify(reg.added)}); the place field is there now`);
+        k.lint(n, "C: the line added");
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, "C: ONE Undo gives the note back byte for byte");
+        k.lint(n, "C: after the Undo");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 92 ================= */
+  async function check92() {
+    const c = new Check(92, "a figure's picker in the real app, changed with the keys of the closed drop-down: it lists the diagrams the page can see (its module's own, then the shared one; never another module's), a figure whose diagram is not there is listed last as not found and said in words and is kept as written until another is chosen; choosing rewrites the id inside the embed and nothing else (the diagram's own text is not touched, the rest of the sentence is byte for byte), each change one write and one Undo step, the whole note byte for byte, the linter run on each result");
+    const table = tableOf();
+    await withApp("c92", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, run, scene, closeBox, say, optionsOf, keyOn, value } = k;
+      const errs0 = consoleReport.length;
+      await scene("A. three figures in one sentence", async () => {
+        const n = await start("figures", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "Here is the cycle", "prose");
+        const F0 = K("figure-0"), F1 = K("figure-1"), F2 = K("figure-2");
+        const o0 = await optionsOf(F0), o2 = await optionsOf(F2);
+        c.ok(JSON.stringify(o0.map(x => x[0])) === JSON.stringify(["own", "shared"]) && !o0.some(x => x[0] === "theirs"), `A: the picker lists the module's own diagram, then the shared one, and not the other module's (${JSON.stringify(o0.map(x => x[0]))})`);
+        c.ok(JSON.stringify(o2.map(x => x[0])) === JSON.stringify(["own", "shared", "nowhere"]) && o2[2][1] === say("rows.menu.missing").replace("{id}", "nowhere") && await value(F2) === "nowhere", `A: a figure whose diagram is not there is listed last, said as not found (${JSON.stringify(o2[2][1])}), and read`);
+        const lost = await o.evaluate(sel => { const e = document.querySelector(sel + " .booklet-design-editbox [data-reading='figure-lost']"); return e ? e.textContent.trim() : null; }, DV);
+        c.ok(lost === say("figure.lost").replace("{id}", "nowhere"), `A: and the box says in words that it is not drawn and is kept as written (${JSON.stringify((lost || "").slice(0, 80))}...)`);
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: showing it wrote nothing");
+        await r.step("A: the first figure changed to the shared diagram (Down key): only the id inside the embed changes", () => keyOn(F0, "ArrowDown"), sub(t0, "![[#^own]] and the other", "![[#^shared]] and the other"));
+        await r.step("A: the second changed to the module's own (Home)", () => keyOn(F1, "Home"), sub(text(n.file), "the other one ![[#^shared]]", "the other one ![[#^own]]"));
+        await r.step("A: the third, whose diagram is missing, changed to the module's own (Home): the missing id is replaced only now", () => keyOn(F2, "Home"), sub(text(n.file), "![[#^nowhere]]", "![[#^own]]"));
+        c.ok(text(n.file).includes("graph LR; A --> B") && text(n.file).includes("^own\n") && text(n.file).includes("^shared\n"), "A: the diagrams' own text and their ids are as they were");
+        c.ok(await value(F0) === "shared" && await value(F1) === "own" && await value(F2) === "own", "A: the three pickers read the note's embeds");
+        await r.unwind("A");
+        c.ok(await value(F0) === "own" && await value(F1) === "shared" && await value(F2) === "nowhere", "A: after the Undos the pickers read the original ids (the missing one included)");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 93 ================= */
+  async function check93() {
+    const c = new Check(93, "a citation's five fields in the real app, typed with the real keyboard, in the box of the sentence that holds the mark: Source title, Edition or detail, Page or place, Quote, Verified date; the page and the verified date changed and the definition line is the original byte for byte apart from those two pieces; the page cleared takes its comma with it and set back gives the same bytes; a value the reader's pattern would not read back (a page that is not a page, a date that is not one, no quote) is refused in words with nothing written; a note outside the source pattern shows the one sentence 'This note is not in the source pattern, so it is edited as words below.' with no fields and its lines untouched; a mark with no note is said in words and a note is added by a press and taken back by one Undo; each change one write and one Undo step, the linter run on each result");
+    const table = tableOf();
+    await withApp("c93", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, W, K, press, typeLeave, run, scene, closeBox, say, refusalOf, value, settled, undo } = k;
+      const errs0 = consoleReport.length;
+      const DEF = '[^atlas]: *The Harbour Tide Atlas*, 2nd edition (2019), p. 12: "The tide rises and falls twice in each lunar day." Verified 2026-09-20.';
+      await scene("A. the five fields; the page and the verified date changed", async () => {
+        const n = await start("citation", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "Most harbours", "prose");
+        const vals = [await value(K("cite-atlas-title")), await value(K("cite-atlas-detail")), await value(K("cite-atlas-page")), await value(K("cite-atlas-quote")), await value(K("cite-atlas-verified"))];
+        c.ok(JSON.stringify(vals) === JSON.stringify(["The Harbour Tide Atlas", "2nd edition (2019)", "p. 12", "The tide rises and falls twice in each lunar day.", "2026-09-20"]), `A: the five fields hold the pieces of the definition (${JSON.stringify(vals)})`);
+        const names = await o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox [data-reading='citation-atlas'] .setting-item:not(.setting-item-heading) .setting-item-name")].map(e => e.textContent.trim()), DV);
+        c.ok(JSON.stringify(names) === JSON.stringify(["title", "detail", "page", "quote", "verified"].map(f => say("citation." + f))), `A: and are named in words (${JSON.stringify(names)})`);
+        const where = await o.evaluate(sel => (document.querySelector(sel + " .booklet-design-editbox [data-reading='citation-atlas']") || { textContent: "" }).textContent, DV);
+        c.ok(where.includes(say("citation.where").replace("{line}", String(lineOf(t0, "[^atlas]:") + 1))), "A: and says where the note is, by its line");
+        c.ok(text(n.file) === t0 && await W(n) === 0, "A: showing them wrote nothing");
+        await r.step("A: the page changed", () => typeLeave(K("cite-atlas-page"), "p. 14"), sub(t0, DEF, DEF.replace("p. 12", "p. 14")));
+        await r.step("A: the verified date changed", () => typeLeave(K("cite-atlas-verified"), "2026-11-19"), sub(text(n.file), "Verified 2026-09-20", "Verified 2026-11-19"));
+        const line = text(n.file).split("\n").find(l => l.startsWith("[^atlas]:"));
+        c.ok(line.replace("p. 14", "p. 12").replace("2026-11-19", "2026-09-20") === DEF && text(n.file).replace("p. 14", "p. 12").replace("2026-11-19", "2026-09-20") === t0, "A: the definition line is the original byte for byte apart from the page and the date, and so is the whole note");
+        await r.step("A: the page cleared: its comma goes with it", () => typeLeave(K("cite-atlas-page"), ""), sub(text(n.file), ", p. 14:", ":"));
+        await r.step("A: and set back: the same bytes as before it was cleared", () => typeLeave(K("cite-atlas-page"), "p. 14"), sub(text(n.file), "(2019):", "(2019), p. 14:"));
+        await r.step("A: the quote changed", () => typeLeave(K("cite-atlas-quote"), "Twice a day."), sub(text(n.file), "The tide rises and falls twice in each lunar day.", "Twice a day."));
+        // refusals: nothing written, the field goes back, in words
+        const t = text(n.file), w = await W(n);
+        for (const [f, v, re, label] of [["page", "14", /begins p\./, "a page that does not begin p."], ["verified", "2026-02-30", /real date/, "a date that is not one"], ["quote", "", /needs its quote/, "no quote"]]) {
+          await typeLeave(K("cite-atlas-" + f), v); await sleep(400); await idle(o);
+          const why = await refusalOf();
+          c.ok(text(n.file) === t && await W(n) === w && re.test(why || ""), `A: ${label} is refused in words (${JSON.stringify((why || "").slice(0, 80))}), nothing is written`);
+        }
+        c.ok(await value(K("cite-atlas-quote")) === "Twice a day.", "A: and the field goes back to the note's quote");
+        await r.unwind("A");
+        c.ok(await value(K("cite-atlas-page")) === "p. 12" && await value(K("cite-atlas-verified")) === "2026-09-20", "A: after the Undos the fields show the original page and date");
+        await closeBox();
+      });
+      await scene("B. a note outside the source pattern, and a mark with no note", async () => {
+        const n = await start("citation", ["activity", "[!activity|a]"]), t0 = n.t;
+        await open(n, "Most harbours", "prose");
+        const PL = `${DV} .booklet-design-editbox [data-reading='citation-plain']`;
+        const sentence = await o.evaluate(sel => { const e = document.querySelector(sel + " [data-reading='citation-words']"); return e ? e.textContent.trim() : null; }, PL);
+        c.ok(sentence === "This note is not in the source pattern, so it is edited as words below." && sentence === say("citation.notPattern"), `B: a note outside the pattern shows the one sentence (${JSON.stringify(sentence)})`);
+        c.ok(await o.page.locator(PL + " input").count() === 0, "B: and has no fields");
+        const where = await o.evaluate(sel => document.querySelector(sel).textContent, PL);
+        c.ok(where.includes(say("citation.where.words").replace("{line}", String(lineOf(t0, "[^plain]:") + 1))), "B: and says where its words are");
+        c.ok(text(n.file) === t0 && await W(n) === 0 && text(n.file).includes("[^plain]: Just words, not in the pattern."), "B: its lines are untouched, nothing written");
+        const LOST = `${DV} .booklet-design-editbox [data-reading='citation-lost']`;
+        const lostWords = await o.evaluate(sel => document.querySelector(sel).textContent, LOST);
+        c.ok(lostWords.includes(say("citation.missing").replace("{id}", "lost")) && await o.page.locator(K("cite-lost-add")).count() === 1, "B: a mark with no note says so in words and offers to add one");
+        await press(K("cite-lost-add"));
+        const r1 = await settled(n, t0);
+        const reg = placed(t0, r1.text);
+        c.ok(r1.ok && await W(n) === 1 && reg.removed.trim() === "" && /\[\^lost\]: \*Title of the source\*, p\. 1: "The words, copied exactly from the source\."/.test(reg.added) && await o.page.locator(K("cite-lost-quote")).count() === 1, `B: pressing it writes one note, in the pattern, and takes nothing out (${JSON.stringify(reg.added.slice(0, 120))}); its fields are there now`);
+        k.lint(n, "B: the note added");
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, "B: ONE Undo gives the note back byte for byte");
+        k.lint(n, "B: after the Undo");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 94 ================= */
+  async function check94() {
+    const c = new Check(94, "focus and Undo on the new controls in the real app: a drop-down (a copy button's item, an activity's tab) and a text field (a notice's License) and a words box (a hint's words) each changed with real keys, then the app's own Undo pressed (the button with the mouse; Ctrl+Z once the focus has left the drop-down, while with the drop-down focused the key is the drop-down's): the control shows the restored value, Redo shows the changed value again, the page is on the same page with the same trail, header and scroll place, the box is still open on the same block, no page error and no console error; Ctrl+Z inside a text field being typed in is the field's own (nothing is written, the note is not undone)");
+    const table = tableOf();
+    await withApp("c94", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, pageBox, W, K, typeLeave, settled, diffs, undo, scene, closeBox, keyOn, value } = k;
+      const errs0 = consoleReport.length;
+      const where = async () => { const f = await frame3(o), s = await state(o); const sh = await o.evaluate(sel => { const s = document.querySelector(sel + " .booklet-design-scroll"); const b = document.querySelector(sel + " .booklet-design-editbox"); return [s ? s.scrollHeight : null, s ? s.clientHeight : null, b ? Math.round(b.getBoundingClientRect().height) : null, b ? Math.round(b.getBoundingClientRect().top) : null]; }, DV); return { sh: sh.join(","), scrollTop: f.scrollTop, pageAbs: f.pageAbs, trail: f.trail.join(" > "), top: JSON.stringify(f.top), page: s.page, selected: s.selected, editBox: s.editBox }; };
+      const active = () => o.evaluate(() => { const a = document.activeElement; return a ? (a.tagName.toLowerCase() + "[" + (a.getAttribute("data-key") || a.className || "") + "]") : null; });
+      const sameWhere = (a, b) => ["scrollTop", "pageAbs", "trail", "top", "page", "selected", "editBox"].filter(x => JSON.stringify(a[x]) !== JSON.stringify(b[x]));
+      const redoBtn1 = () => redoBtn(o).click();
+      /** One control: changed, Undone by the button, Redone, changed again, Undone by the key with the control still focused. */
+      const around = async (label, n, ctl, change, expectBefore, expectAfter) => {
+        const t0 = text(n.file), w0 = await W(n);
+        // the control is in view first (a real key on a control the page has not shown scrolls the page to it: that is the browser's, not the Undo's)
+        await o.page.locator(ctl).scrollIntoViewIfNeeded(); await sleep(250);
+        const b0 = await where();
+        await change();
+        const r1 = await settled(n, t0);
+        const t1 = r1.text;
+        c.ok(r1.ok && await W(n) === w0 + 1 && await value(ctl) !== expectBefore, `${label}: the control is changed with real keys (one write; it reads ${JSON.stringify(await value(ctl))})`);
+        await undo(); const u = await waitDisk(n.file, tx => tx === t0); await idle(o);
+        c.ok(u.ok, `${label}: a press on the app's Undo (the button) gives the note back byte for byte${diffs(t0, text(n.file))}`);
+        c.ok(await value(ctl) === expectBefore, `${label}: and the control shows the restored value (${JSON.stringify(await value(ctl))}, wanted ${JSON.stringify(expectBefore)})`);
+        const b1 = await where();
+        const moved = sameWhere(b0, b1);
+        c.info(`${label}: before ${JSON.stringify(b0)} after ${JSON.stringify(b1)}`);
+        c.ok(moved.length === 0, `${label}: the page has not lost its place: ${moved.length ? "DIFFERENT " + JSON.stringify(moved.map(x => [x, b0[x], b1[x]])) : "same page " + b1.page + ", same trail, header and scroll place (" + b1.scrollTop + "), the box open on " + b1.selected}`);
+        c.info(`${label}: the focus after the Undo button was pressed is on ${await active()}`);
+        await redoBtn1(); const rd = await waitDisk(n.file, tx => tx === t1); await idle(o);
+        c.ok(rd.ok && await value(ctl) === expectAfter, `${label}: Redo gives the changed note back and the control shows ${JSON.stringify(await value(ctl))} again`);
+        return { t0, t1 };
+      };
+      await scene("A. a drop-down: a copy button's item", async () => {
+        const n = await start("copy", ["activity", "[!activity|a]"]);
+        await open(n, "[!copy|go", "callout");
+        const P = K("c0-pick");
+        const { t0, t1 } = await around("A", n, P, () => keyOn(P, "End"), "why", "n");
+        // the key: the drop-down still has the focus when Ctrl+Z is pressed (Home puts it back to why: a second change)
+        await keyOn(P, "Home");
+        const r2 = await settled(n, t1);
+        c.ok(r2.ok && r2.text === t0 && await value(P) === "why", "A: Home on the drop-down puts it back (the original bytes)");
+        await keyOn(P, "End");
+        const r3 = await settled(n, t0);
+        c.ok(r3.ok && await value(P) === "n", "A: and End changes it again");
+        // a drop-down is a field to the view (the key is the field's, as in a text box): Ctrl+Z with it focused does nothing to the note, and says nothing wrong
+        await o.page.focus(P);
+        const f0 = await active();
+        await o.page.keyboard.press("Control+z"); await sleep(600); await idle(o);
+        c.ok(text(n.file) === r3.text && await value(P) === "n" && (await state(o)).modal === false, `A: Ctrl+Z with the drop-down focused (${f0}) is left to the drop-down: the note stays as it was, and the drop-down still shows n (by design: the view's rule is that a key in a field is the field's)`);
+        // one Escape (it applies and closes the box) and the key is the view's
+        await o.page.keyboard.press("Escape"); await sleep(400);
+        await o.page.keyboard.press("Control+z");
+        const u = await waitDisk(n.file, tx => tx === t0, 4000); await idle(o);
+        c.ok(u.ok, "A: after Escape has taken the focus out of the drop-down, Ctrl+Z is the app's Undo: the note is back byte for byte");
+        await o.page.keyboard.press("Control+Shift+z");
+        const rd = await waitDisk(n.file, tx => tx === r3.text, 4000); await idle(o);
+        c.ok(rd.ok, "A: and Ctrl+Shift+Z is Redo: the changed note is back byte for byte");
+        c.info(`A: after those keys the box is ${(await state(o)).editBox ? "open" : "closed"} and the view says ${JSON.stringify((await state(o)).status)}`);
+        await closeBox();
+      });
+      await scene("B. a drop-down: an activity's tab", async () => {
+        const n = await start("structure", ["activity", "[!activity|alpha"]);
+        await pageBox();
+        const T = K("tab");
+        await around("B", n, T, () => keyOn(T, "ArrowDown"), "learn", "this-month");
+        await closeBox();
+      });
+      await scene("C. a text field: a notice's License", async () => {
+        const n = await start("notice", ["module", "[!module|m]"]);
+        await open(n, "[!notice]", "notice");
+        const L = K("notice-license");
+        const { t0 } = await around("C", n, L, () => typeLeave(L, "Share alike."), "Free to copy and share.", "Share alike.");
+        // Ctrl+Z inside a field being typed in is the field's own
+        await undo(); await waitDisk(n.file, tx => tx === t0); await idle(o);
+        const w = await W(n);
+        await o.page.locator(L).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("zzz");
+        await o.page.keyboard.press("Control+z"); await sleep(300);
+        c.ok(text(n.file) === t0 && await W(n) === w, `C: Ctrl+Z while typing in the field reverts the field's own typing (it reads ${JSON.stringify(await value(L))}); nothing is written and the note is not undone`);
+        await o.page.keyboard.press("Tab"); await sleep(500); await idle(o);
+        c.ok(text(n.file) === t0 && await W(n) === w, "C: and leaving the field with the original words writes nothing");
+        await closeBox();
+      });
+      await scene("D. a words box: a hint's words", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]);
+        await open(n, "[!text|why long] Why again?");
+        const H = K("hint-words");
+        await around("D", n, H, async () => { await o.page.locator(H).click(); await o.page.keyboard.press("Control+a"); await o.page.keyboard.type("Look at the sea."); await o.page.keyboard.press("Tab"); }, "Look at the moon.", "Look at the sea.");
+        await closeBox();
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* ================= CHECK 95 ================= */
+  async function check95() {
+    const c = new Check(95, "the stage 4 controls on a phone (Obsidian's phone mode, 390 x 844), real Obsidian: for each box (a tip and a group with the Starts folded switch, a question with its Hint and Solution fields and its Add buttons, an activity's tab and entries, a page's parent, a copy button's list, a notice, a reference-style picture and a missing definition, three figures, a citation and a missing note) every button, switch, drop-down, text field, words box and summary that is shown is measured with getBoundingClientRect, and each must be at least 44 px high AND at least 44 px wide (a smaller one is a failure, listed by name); the page and the view have no sideways scroll, nothing is wider than the screen or cut off; screenshots light and dark");
+    const table = tableOf();
+    await withApp("c95", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, openGroup, pageBox, closeBox, scene } = k;
+      const errs0 = consoleReport.length;
+      /** Every control the open box shows, measured: how many, and the ones under 44 px either way. */
+      const measure = () => o.evaluate(sel => {
+        const root = document.querySelector(sel + " .booklet-design-editbox");
+        if (!root) return null;
+        const vis = e => { const r = e.getBoundingClientRect(), cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && !e.closest("[hidden]") && !e.closest("details:not([open]) > :not(summary)") && !e.closest(".is-measuring"); };
+        const name = e => e.tagName.toLowerCase() + (e.getAttribute("data-key") ? "[" + e.getAttribute("data-key") + "]" : e.getAttribute("aria-label") ? "[" + e.getAttribute("aria-label") + "]" : "(" + (e.textContent || "").trim().slice(0, 20) + ")");
+        const all = [...root.querySelectorAll("button, select, input:not([type=hidden]), textarea, summary, [role=switch]")].filter(vis);
+        const least = all.map(e => { const r = e.getBoundingClientRect(); return { n: name(e), w: Math.round(r.width), h: Math.round(r.height) }; }).sort((a, b) => Math.min(a.w, a.h) - Math.min(b.w, b.h))[0];
+        return { n: all.length, least, kinds: [...new Set(all.map(e => e.tagName.toLowerCase() + (e.getAttribute("role") === "switch" ? ":switch" : "")))].sort(), small: all.map(e => { const r = e.getBoundingClientRect(); return { n: name(e), w: Math.round(r.width * 10) / 10, h: Math.round(r.height * 10) / 10 }; }).filter(x => x.w < 43.5 || x.h < 43.5) };
+      }, DV);
+      const judge = async (label, shotName) => {
+        const m = await measure();
+        c.ok(!!m && m.n > 0, `${label}: the box shows ${m ? m.n : 0} controls (${m ? m.kinds.join(" ") : ""})`);
+        c.ok(m && m.small.length === 0, `${label}: every one is at least 44 x 44 px (the smallest is ${m && m.least ? m.least.n + " at " + m.least.w + " x " + m.least.h : "none"})${m && m.small.length ? "; SMALLER: " + JSON.stringify(m.small.slice(0, 12)) : ""}`);
+        const pf = await phoneFacts(o), fit = await fitOf(o);
+        c.ok(pf.bodyMobile && pf.docScroll <= pf.W + 1 && pf.vcScroll <= pf.vcClient + 1 && pf.wideCount === 0, `${label}: no sideways scroll, nothing wider than the screen (page ${pf.docScroll} of ${pf.W} px, view ${pf.vcScroll} of ${pf.vcClient})${pf.wideCount ? ": " + JSON.stringify(pf.wide) : ""}`);
+        c.ok(fit.clippedCount === 0 && fit.offCount === 0, `${label}: nothing is cut off or off the screen${fit.clippedCount || fit.offCount ? ": " + JSON.stringify({ clipped: fit.clipped, off: fit.off }) : ""}`);
+        if (shotName) await shotEl(o, `stage4-phone-${shotName}`, `${DV} .booklet-design-editbox`, "start");
+        return m;
+      };
+      await o.page.setViewportSize({ width: 390, height: 844 });
+      await mobile(o, true);
+      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+      await scene("A. a callout and a group: the Starts folded switch", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"], {}, false);
+        await open(n, "[!tip]- A folded tip", "callout"); await judge("tip", "tip"); await closeBox();
+        await openGroup(n, "[!group] Step one"); await judge("group"); await closeBox();
+      });
+      await scene("B. a question: Hint and Solution fields, Add buttons, a hint that holds a list", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"], {}, false);
+        await open(n, "[!text|why long] Why again?"); await judge("question with a hint and a solution", "question-helps"); await closeBox();
+        await open(n, "[!choice|bare] A bare question?"); await judge("question with neither (two Add buttons)"); await closeBox();
+        await open(n, "[!choice|lst]"); await judge("question whose hint is a list"); await closeBox();
+        await open(n, "[!choice|c1] Pick?"); await judge("question with a hint inside a group"); await closeBox();
+      });
+      await scene("C. an activity's tab and entries, a page's parent", async () => {
+        const n = await start("structure", ["activity", "[!activity|alpha"], {}, false);
+        await pageBox(); await judge("activity with a tab picker", "activity-tab"); await closeBox();
+        await goNav(o, "activity", lineOf(n.t, "[!activity|delta")); await pageBox(); await judge("repeat activity with the entries switch"); await closeBox();
+        await goNav(o, "page", lineOf(n.t, "[!page|p1")); await pageBox(); await judge("page with a parent picker", "page-parent"); await closeBox();
+      });
+      await scene("D. a copy button's list", async () => {
+        const n = await start("copy", ["activity", "[!activity|a]"], {}, false);
+        await open(n, "[!copy|go", "callout"); await judge("copy button", "copy"); await closeBox();
+      });
+      await scene("E. a notice", async () => {
+        const n = await start("notice", ["module", "[!module|m]"], {}, false);
+        await open(n, "[!notice]", "notice"); await judge("notice", "notice"); await closeBox();
+      });
+      await scene("F. pictures, figures, citations", async () => {
+        const p = await start("pictures", ["activity", "[!activity|a]"], {}, false);
+        await open(p, "![The harbour at low water][harbour]", "prose"); await judge("reference-style picture", "picture"); await closeBox();
+        await open(p, "![Gone][gone]", "prose"); await judge("picture with no definition line (Add the line)"); await closeBox();
+        const f = await start("figures", ["activity", "[!activity|a]"], {}, false);
+        await open(f, "Here is the cycle", "prose"); await judge("three figures", "figures"); await closeBox();
+        const q = await start("citation", ["activity", "[!activity|a]"], {}, false);
+        await open(q, "Most harbours", "prose"); await judge("citations (five fields, a note outside the pattern, a missing note)", "citation"); await closeBox();
+      });
+      await scene("G. dark", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"], {}, false);
+        await o.setScheme("dark"); await sleep(1500);
+        await open(n, "[!text|why long] Why again?"); await judge("dark: question with a hint and a solution", "question-helps-dark"); await closeBox();
+        await o.setScheme("light"); await sleep(1500);
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  /* END STAGE4 */
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95 };
 };
