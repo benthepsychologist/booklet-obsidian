@@ -25,7 +25,7 @@ import { parseLine } from "./editor-line";
 import { LP } from "./editor-patterns";
 import { parseBooklet, questionsOf } from "./reader";
 
-export type RowsKind = "choice" | "multi" | "menu" | "matrix";
+export type RowsKind = "choice" | "multi" | "menu" | "matrix" | "scale";
 
 /** One bullet under an option: the words of one line of its reply. */
 export interface ReplyRow {
@@ -101,7 +101,17 @@ export interface MatrixRows {
 	tail: string[];
 }
 
-export type Rows = ChoiceRows | MenuRows | MatrixRows;
+/** A scale: its anchors, the numbered list under its line. The number is the stored answer. */
+export interface ScaleRows {
+	kind: "scale";
+	head: string[];
+	/** The blank line between the head and the list, as written, or null (a list that starts at `0.` needs one, SPEC section 4). */
+	gap: string | null;
+	anchors: AnchorRow[];
+	tail: string[];
+}
+
+export type Rows = ChoiceRows | MenuRows | MatrixRows | ScaleRows;
 
 export interface RowsRefused {
 	refused: string;
@@ -111,7 +121,7 @@ export interface RowsRefused {
 /** Is this a choice's or a multi's rows? (The two kinds share one shape, so a plain test of `kind` does not narrow.) */
 export const isChoiceRows = (r: Rows): r is ChoiceRows => r.kind === "choice" || r.kind === "multi";
 
-export const ROWS_KINDS: readonly RowsKind[] = ["choice", "multi", "menu", "matrix"];
+export const ROWS_KINDS: readonly RowsKind[] = ["choice", "multi", "menu", "matrix", "scale"];
 
 const isRowsKind = (k: string): k is RowsKind => (ROWS_KINDS as readonly string[]).includes(k);
 
@@ -199,6 +209,10 @@ function read(lines: readonly string[], kind: RowsKind): Rows | RowsRefused {
 		if (r.next < rest.length) return unshown(rest[r.next] ?? "");
 		return { kind, head, gap, items: r.items, tail };
 	}
+	if (kind === "scale") {
+		const anchors = readAnchors(rest, 0);
+		return "refused" in anchors ? anchors : { kind, head, gap, anchors, tail };
+	}
 	const r = readItems(rest, 0, "matrix");
 	if ("refused" in r) return r;
 	let at = r.next;
@@ -208,8 +222,15 @@ function read(lines: readonly string[], kind: RowsKind): Rows | RowsRefused {
 		at++;
 		if (at < rest.length && blank(rest[at])) return refuse("There are two blank lines between the items and the anchors, so the format does not read the anchors as part of the matrix.");
 	}
+	const anchors = readAnchors(rest, at);
+	if ("refused" in anchors) return anchors;
+	return { kind, head, lead: gap, items: r.items, mid, anchors, tail };
+}
+
+/** The numbered lines of a list from `from` to its end (a scale's, a matrix's): every line must be an anchor, at one indent. */
+function readAnchors(rest: readonly string[], from: number): AnchorRow[] | RowsRefused {
 	const anchors: AnchorRow[] = [];
-	for (; at < rest.length; at++) {
+	for (let at = from; at < rest.length; at++) {
 		const l = rest[at] ?? "";
 		const m = ANCHOR.exec(l);
 		if (!m) return unshown(l);
@@ -217,7 +238,7 @@ function read(lines: readonly string[], kind: RowsKind): Rows | RowsRefused {
 		if (anchors.length && row.indent !== anchors[0]?.indent) return refuse("The anchors are not all written at the same indent, so they are edited in the Markdown.");
 		anchors.push(row);
 	}
-	return { kind, head, lead: gap, items: r.items, mid, anchors, tail };
+	return anchors;
 }
 
 function readOptions(list: readonly string[]): OptionRow[] | RowsRefused {
@@ -289,6 +310,12 @@ export function writeRows(rows: Rows): string[] {
 		for (const r of rows.items) out.push(itemLine(r));
 		return [...out, ...rows.tail];
 	}
+	if (rows.kind === "scale") {
+		const out = [...rows.head];
+		if (rows.gap !== null && rows.anchors.length) out.push(rows.gap);
+		for (const r of rows.anchors) out.push(`${r.indent}${r.number}${r.sep}${r.gap}${r.text}`);
+		return [...out, ...rows.tail];
+	}
 	const out = [...rows.head];
 	if (rows.lead !== null && (rows.items.length || rows.anchors.length)) out.push(rows.lead);
 	for (const r of rows.items) out.push(itemLine(r));
@@ -352,6 +379,7 @@ function swap<T>(list: T[], index: number, by: -1 | 1): boolean {
 function apply(rows: Rows, edit: RowsEdit): string | null {
 	if (isChoiceRows(rows)) return applyChoice(rows, edit);
 	if (rows.kind === "menu") return applyItems(rows, rows.items, edit);
+	if (rows.kind === "scale") return applyScale(rows, edit);
 	return applyMatrix(rows, edit);
 }
 
@@ -433,52 +461,60 @@ function applyItems(rows: MenuRows | MatrixRows, items: ItemRow[], e: RowsEdit):
 	}
 }
 
-function applyMatrix(rows: MatrixRows, e: RowsEdit): string | null {
-	const as = rows.anchors;
-	let structural = true;
-	let bad: string | null;
+/** What an edit of an anchor makes of the anchors (null when the edit is not one of an anchor's); `structural`: the list's shape or numbers change, not only a word. */
+function anchorEdit(as: AnchorRow[], e: RowsEdit): { bad: string | null; structural: boolean } | null {
 	switch (e.what) {
 		case "anchor-text": {
 			const r = as[e.index];
-			if (!r) return nothing;
+			if (!r) return { bad: nothing, structural: false };
 			r.text = oneLine(e.text);
-			structural = false;
-			bad = null;
-			break;
+			return { bad: null, structural: false };
 		}
 		case "anchor-number": {
 			const r = as[e.index];
-			if (!r) return nothing;
-			if (!/^[0-9]+$/.test(e.number)) return "An anchor's number is digits only: it is the answer that is kept.";
+			if (!r) return { bad: nothing, structural: true };
+			if (!/^[0-9]+$/.test(e.number)) return { bad: "An anchor's number is digits only: it is the answer that is kept.", structural: true };
 			r.number = e.number;
-			bad = null;
-			break;
+			return { bad: null, structural: true };
 		}
 		case "anchor-add": {
 			const last = as[as.length - 1];
 			const n = last && /^[0-9]+$/.test(last.number) ? String(Number(last.number) + 1) : "1";
 			as.push({ indent: last?.indent ?? "", number: n, sep: last?.sep ?? ".", gap: last?.gap ?? " ", text: "" });
-			bad = null;
-			break;
+			return { bad: null, structural: true };
 		}
 		case "anchor-move":
-			bad = swap(as, e.index, e.by) ? null : nothing;
-			break;
+			return { bad: swap(as, e.index, e.by) ? null : nothing, structural: true };
 		case "anchor-remove":
-			if (!as[e.index]) return nothing;
+			if (!as[e.index]) return { bad: nothing, structural: true };
 			as.splice(e.index, 1);
-			bad = null;
-			break;
+			return { bad: null, structural: true };
 		default:
-			structural = e.what !== "item-text";
-			bad = applyItems(rows, rows.items, e);
+			return null;
 	}
+}
+
+function applyMatrix(rows: MatrixRows, e: RowsEdit): string | null {
+	const as = rows.anchors;
+	const made = anchorEdit(as, e);
+	const structural = made ? made.structural : e.what !== "item-text";
+	const bad = made ? made.bad : applyItems(rows, rows.items, e);
 	if (bad) return bad;
 	if (!rows.items.length || !rows.anchors.length) rows.mid = null;
 	// a numbered list that starts at 0 (or at any number but 1) needs a blank line above it, or Markdown folds it into the item above
 	// (SPEC section 4): a blank line already there stays, and one is added only when a change to the lists leaves it needed
 	if (structural && rows.items.length && rows.anchors.length && rows.mid === null && rows.anchors[0]?.number !== "1") rows.mid = "";
 	if (!rows.items.length && !rows.anchors.length) rows.lead = null;
+	return null;
+}
+
+function applyScale(rows: ScaleRows, e: RowsEdit): string | null {
+	const made = anchorEdit(rows.anchors, e);
+	if (!made) return "That is not an edit of a scale.";
+	if (made.bad) return made.bad;
+	if (!rows.anchors.length) rows.gap = null;
+	// as for a matrix: a list that does not start at 1 needs the blank line above it, added only when a change leaves it needed
+	else if (made.structural && rows.gap === null && rows.anchors[0]?.number !== "1") rows.gap = "";
 	return null;
 }
 

@@ -20,14 +20,17 @@
  * and nothing is changed.
  */
 import { parseLine } from "./editor-line";
-import { LP } from "./editor-patterns";
+import { bodyEndOf, mediaIn } from "./design-media";
 import type { DesignKind } from "./design-tree";
 
 /** The kinds of block that have a title and a description (or a text) the view edits in place. */
 export const PARTS_KINDS: readonly DesignKind[] = ["question", "callout", "prose"];
 
-/** The kinds of question that have a description: the ones the view draws (design-canvas-draw.ts). */
-const DESCRIBED: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "text", "number", "scale", "date", "lines"]);
+/**
+ * The kinds of question that have a description: the ones the view draws (design-canvas-draw.ts), and a `listen` and a `widget`, whose
+ * words are the `>` lines under the line apart from the one line that holds the media or the data block's embed (core/design-media.ts).
+ */
+const DESCRIBED: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "text", "number", "scale", "date", "lines", "listen", "widget"]);
 
 export interface Parts {
 	kind: "question" | "callout" | "prose";
@@ -40,6 +43,8 @@ export interface Parts {
 	/** The index of the description's first line among the block's lines, and the index past its last. */
 	from: number;
 	to: number;
+	/** The index of the media line of a `listen` or a `widget` (the embed or link, the data block's embed), which is not part of the description; null when there is none. */
+	mediaAt: number | null;
 	/** The lines after the description, as written. */
 	rest: string[];
 }
@@ -53,32 +58,37 @@ const refuse = (refused: string): PartsRefused => ({ refused });
 /** One `>` line of a description: the words after the mark and one space. */
 const QUOTED = /^>( ?)([\s\S]*)$/;
 
-/** The index past the first line and the `>` lines of its body (a `> [!` line ends them), as the reader's `bodyEnd`. */
-function bodyEnd(lines: readonly string[]): number {
-	let k = 1;
-	while (k < lines.length && (lines[k] ?? "").startsWith(">") && !LP.CALLOUT_ANY.test(lines[k] ?? "")) k++;
-	return k;
-}
-
 /** The parts of a block's own lines, or why they cannot be edited where they are drawn. */
 export function readParts(lines: readonly string[], kind: DesignKind): Parts | PartsRefused {
 	if (kind !== "question" && kind !== "callout" && kind !== "prose") return refuse("This kind of block has no title and description to edit in place.");
 	if (!lines.length) return refuse("The block has no lines.");
 	for (const l of lines) if (l.includes("\r")) return refuse("A line holds a stray carriage return, which the fields would not keep as it is.");
-	if (kind === "prose") return { kind, title: null, described: true, description: lines.join("\n"), from: 0, to: lines.length, rest: [] };
+	if (kind === "prose") return { kind, title: null, described: true, description: lines.join("\n"), from: 0, to: lines.length, mediaAt: null, rest: [] };
 	const p = parseLine(lines[0] ?? "");
 	if (!p) return refuse("The first line is not a Booklet line.");
 	if (p.quotes) return refuse("The first line starts with extra > marks.");
 	if (p.flags.has("end")) return refuse("This is a closing line, which has no title or description.");
 	const described = kind === "callout" || DESCRIBED.has(p.kind);
-	if (!described) return { kind, title: p.title, described: false, description: "", from: 1, to: 1, rest: lines.slice(1) };
-	const to = bodyEnd(lines);
+	if (!described) return { kind, title: p.title, described: false, description: "", from: 1, to: 1, mediaAt: null, rest: lines.slice(1) };
+	let from = 1;
+	let to = bodyEndOf(lines);
+	// a listen's media line and a widget's embed are controls of their own, not words: the description is the lines on the one side of it
+	const media = kind === "question" ? mediaIn(lines) : null;
+	if (media) {
+		if (media.index === 1) from = 2;
+		else if (media.index === to - 1) to = media.index;
+		// in the middle of the words it would split them in two: the description is not offered, the media's controls still are
+		else return { kind, title: p.title, described: false, description: "", from: 1, to: 1, mediaAt: media.index, rest: lines.slice(1) };
+	}
 	const rest = lines.slice(to);
 	if (kind === "callout" && rest.length) return refuse(`There is a line under the callout's words that is not part of them: “${clip(rest[0] ?? "")}”.`);
 	const texts: string[] = [];
-	for (const l of lines.slice(1, to)) texts.push(QUOTED.exec(l)?.[2] ?? "");
-	return { kind, title: p.title, described: true, description: texts.join("\n"), from: 1, to, rest };
+	for (const l of lines.slice(from, to)) texts.push(QUOTED.exec(l)?.[2] ?? "");
+	return { kind, title: p.title, described: true, description: texts.join("\n"), from, to, mediaAt: media ? media.index : null, rest };
 }
+
+/** The lines after the description that no field shows, apart from the media line (which has controls of its own). */
+export const restOf = (p: Parts): string[] => p.rest.filter((_, i) => p.to + i !== p.mediaAt);
 
 const clip = (s: string): string => (s.trim().length > 40 ? `${s.trim().slice(0, 40)}…` : s.trim());
 
@@ -117,7 +127,7 @@ export function writeDescription(lines: readonly string[], kind: DesignKind, tex
 	// the lines read again: the text typed is the description, and nothing else of the block moved
 	const again = readParts(out, kind);
 	const wanted = newTexts.join("\n");
-	if ("refused" in again || again.description !== wanted || again.rest.join("\n") !== parts.rest.join("\n") || again.title !== parts.title)
+	if ("refused" in again || again.description !== wanted || restOf(again).join("\n") !== restOf(parts).join("\n") || again.title !== parts.title)
 		return { ok: false, reason: "A line of that text would be read as another part of the block (a line that begins with [! opens a callout), so it cannot be part of the description." };
 	return { ok: true, lines: out };
 }

@@ -81,7 +81,7 @@ function shownOf(rows: Rows): { text: Map<string, string>; on: Map<string, boole
 		});
 	} else if (rows.kind === "menu") rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
 	else {
-		rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
+		if (rows.kind === "matrix") rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
 		rows.anchors.forEach((a, i) => {
 			text.set(`a${i}-number`, a.number);
 			text.set(`a${i}-text`, a.text);
@@ -98,6 +98,7 @@ function shapeOf(lines: readonly string[]): string {
 	if ("refused" in rows) return `refused:${rows.refused}`;
 	if (isChoiceRows(rows)) return rows.menu ? `${rows.kind}:menu:${rows.menu}` : `${rows.kind}:${rows.options.map((o) => o.replies.length).join(",")}`;
 	if (rows.kind === "menu") return `menu:${rows.items.length}`;
+	if (rows.kind === "scale") return `scale:${rows.anchors.length}`;
 	return `matrix:${rows.items.length}:${rows.anchors.length}`;
 }
 
@@ -135,7 +136,7 @@ export class RowsPanel {
 		this.host.toggleClass("is-empty", true);
 		if (!kind || !holds) return "none";
 		this.host.toggleClass("is-empty", false);
-		const heading = kind === "menu" || kind === "matrix" ? "rows.items" : "rows.options";
+		const heading = kind === "menu" || kind === "matrix" ? "rows.items" : kind === "scale" ? "rows.anchors" : "rows.options";
 		new Setting(this.host).setName(ui(heading)).setHeading();
 		const rows = readRows(lines, kind);
 		if ("refused" in rows) {
@@ -145,6 +146,7 @@ export class RowsPanel {
 		this.rows = rows;
 		if (isChoiceRows(rows)) this.drawChoice(rows);
 		else if (rows.kind === "menu") this.drawMenu(rows);
+		else if (rows.kind === "scale") this.anchors(rows.anchors);
 		else this.drawMatrix(rows);
 		// a row that merely has a name is named without the tooltip an aria-label would raise, as the rest of the page is
 		quietNames(this.host);
@@ -363,10 +365,15 @@ export class RowsPanel {
 	private drawMatrix(rows: MatrixRows): void {
 		this.items(rows.items);
 		new Setting(this.host).setName(ui("rows.anchors")).setHeading();
+		this.anchors(rows.anchors);
+	}
+
+	/** The rows of a list of anchors (a scale's, a matrix's): the number that is kept, the words, move, remove, and the Add button under them. */
+	private anchors(anchors: { number: string; text: string }[]): void {
 		const list = this.host.createDiv({ cls: "booklet-design-rows-list" });
-		const count = rows.anchors.length;
+		const count = anchors.length;
 		if (!count) list.createDiv({ cls: "booklet-design-rows-none", text: ui("rows.none") });
-		rows.anchors.forEach((a, i) => {
+		anchors.forEach((a, i) => {
 			const n = i + 1;
 			const row = list.createDiv({ cls: "booklet-design-optrow", attr: { role: "group", "aria-label": ui("rows.anchor.group", { n }) } });
 			const main = row.createDiv({ cls: "booklet-design-rows-main" });

@@ -128,13 +128,13 @@ test("a reading callout: the body is the description; a prose block: all its lin
 	assert.deepEqual(p.rest, []);
 });
 
-test("kinds of question the view does not draw with words under them have a title and no description", () => {
-	const r = parts("> [!widget|w] A widget\n> setting: yes", "question");
+test("a line of a kind that has no words under it has a title and no description", () => {
+	const r = parts("> [!menu|m] A menu\n> setting: yes", "question");
 	assert.equal(r.described, false);
 	assert.equal(r.description, "");
-	assert.equal(r.title, "A widget");
+	assert.equal(r.title, "A menu");
 	assert.deepEqual(r.rest, ["> setting: yes"]);
-	assert.equal(writeDescription(L("> [!widget|w] A widget"), "question", "x").ok, false);
+	assert.equal(writeDescription(L("> [!menu|m] A menu"), "question", "x").ok, false);
 });
 
 // ---------------------------------------------------------------- shapes that are refused

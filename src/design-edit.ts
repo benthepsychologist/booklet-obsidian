@@ -35,10 +35,12 @@ import { Setting, type App } from "obsidian";
 import {
 	applyFormChange,
 	applyFrontMatterChange,
+	eachSourcesFor,
 	formIdClash,
 	formOfLine,
 	frontMatterFormOfLines,
 	readParts,
+	restOf,
 	writeDescription,
 	type DesignKind,
 	type DesignNode,
@@ -48,9 +50,11 @@ import {
 } from "./core";
 import { pickIcon } from "./editor-modals";
 import { drawIcon } from "./design-picture";
+import { MediaPanel, type MediaState } from "./design-media-panel";
 import { RowsPanel, type Made, type RowsState } from "./design-rows";
 import { ui } from "./design-text";
 import { kindName, quietNames } from "./design-words";
+import type { DesignKey } from "./core";
 
 /** The property that makes a note a booklet: a YAML key, shown as it is written. */
 const MARKER_KEY: string = "booklet";
@@ -112,7 +116,7 @@ export interface EditHost {
 /** One control of words: what it was last given to apply, what the note had for it, and how to apply it. */
 interface Field {
 	el: HTMLInputElement | HTMLTextAreaElement;
-	part: "form" | "rows" | "area" | "words";
+	part: "form" | "rows" | "media" | "area" | "words";
 	/** The value last handed over to be applied (or drawn from the note). The control has typing in it that is owed while its value is another. */
 	sent: string;
 	/** What the note had for the control when they last matched. */
@@ -152,6 +156,28 @@ const fit = (el: HTMLTextAreaElement | HTMLInputElement): void => {
 	if (el.tagName === "TEXTAREA") (el as HTMLTextAreaElement).rows = Math.min(30, Math.max(1, el.value.split("\n").length));
 };
 
+/** The settings of the kinds this stage gives controls to, by the word the line writes: their name in words (`long` is a big box). The rest of the strip names a setting by its own word. */
+const SETTING_WORDS: Readonly<Record<string, DesignKey>> = {
+	long: "setting.long",
+	min: "setting.min",
+	max: "setting.max",
+	step: "setting.step",
+	each: "setting.each",
+	earlier: "setting.earlier",
+	left: "setting.left",
+	readonly: "setting.readonly",
+	describe: "setting.describe",
+};
+
+/** A setting's name in words, with the word the line writes after it (`Smallest number (min)`): the Markdown stays recognisable. */
+const settingName = (name: string): string => {
+	const key = SETTING_WORDS[name];
+	return key ? `${ui(key)} (${name})` : name;
+};
+
+/** The settings whose value is a whole number of digits (a phone shows its number pad). */
+const WHOLE_SETTINGS: ReadonlySet<string> = new Set(["earlier", "left"]);
+
 /** A title is one line: a break pasted into it is a space. */
 const oneLine = (v: string): string => v.replace(/\s*[\r\n]+\s*/g, " ");
 
@@ -168,9 +194,11 @@ export class EditorBox {
 	private readonly wordsHost: HTMLElement;
 	private readonly formHost: HTMLElement;
 	private readonly rowsHost: HTMLElement;
+	private readonly mediaHost: HTMLElement;
 	private readonly restNote: HTMLElement;
 	private readonly md: HTMLDetailsElement;
 	private readonly rows: RowsPanel;
+	private readonly media: MediaPanel;
 	private node: DesignNode | null;
 	private fields: Field[] = [];
 	/** What each part was last drawn from: the shape of the words, of the settings strip and of the rows (words and marks are not in it). */
@@ -179,6 +207,7 @@ export class EditorBox {
 	private shown: string | null = null;
 	private shownKind: DesignKind | null = null;
 	private rowsState: RowsState = "none";
+	private mediaState: MediaState = "none";
 	/** Updates what is not words (a switch, a choice) in the form rows that are drawn, from the note's lines. */
 	private formSyncs: ((lines: string[]) => void)[] = [];
 	/** The control the focus goes to when the rows are drawn again for the change that is being made. */
@@ -207,6 +236,7 @@ export class EditorBox {
 		this.noticeHost.hidden = true;
 		this.wordsHost = this.box.createDiv({ cls: "booklet-design-edit-words" });
 		this.rowsHost = this.box.createDiv({ cls: "booklet-design-edit-section is-rows booklet-design-rows booklet-design-settings" });
+		this.mediaHost = this.box.createDiv({ cls: "booklet-design-edit-section is-media booklet-design-rows booklet-design-settings" });
 		this.restNote = this.box.createDiv({ cls: "booklet-design-edit-rest", text: ui("edit.rest") });
 		this.restNote.hidden = true;
 		this.rows = new RowsPanel(
@@ -223,6 +253,14 @@ export class EditorBox {
 			},
 			() => ed.kind,
 		);
+		this.media = new MediaPanel(this.mediaHost, {
+			note: () => host.text(),
+			start: () => this.node?.start ?? null,
+			lines: () => host.lines() ?? [],
+			field: (el, make, back) => void this.field("media", el, make, back),
+			act: (make, focus) => this.act(make, focus),
+			openMenu: (line) => host.openMenu(line),
+		});
 		this.formHost = this.box.createDiv({ cls: "booklet-design-edit-section is-form" });
 		this.refusal = this.box.createDiv({ cls: "booklet-design-edit-refusal", attr: { role: "status", "aria-live": "polite" } });
 		this.state = this.box.createDiv({ cls: "booklet-design-editor-state", attr: { role: "status", "aria-live": "polite", "aria-label": ui("editor.status") } });
@@ -397,6 +435,9 @@ export class EditorBox {
 			await this.applyFieldTries(f);
 		} finally {
 			f.applying = false;
+			// a drawing made for the write left a part undrawn because this control was being applied (typing an address into a listen with no
+			// media adds a line, and so changes the shape of the part the control is in): it is drawn now
+			if (this.shown === null && this.fields.includes(f)) this.render(this.host.lines() ?? [], false);
 		}
 	}
 
@@ -549,6 +590,7 @@ export class EditorBox {
 		}
 		this.formHost.hidden = cap.why !== null;
 		this.rowsHost.hidden = cap.why !== null;
+		this.mediaHost.hidden = cap.why !== null;
 		// the rows next: when they are offered they hold the shared menu, which the settings then leave out
 		if (this.rows.differs(lines) || this.shownKind !== this.ed.kind) {
 			if (this.anyTyping("rows")) complete = false;
@@ -559,6 +601,15 @@ export class EditorBox {
 				if (this.rowsState === "refused") this.md.open = true;
 			}
 		} else this.rows.sync(lines);
+		// a listen's media and a widget's data block next
+		if (this.media.differs(lines) || this.shownKind !== this.ed.kind) {
+			if (this.anyTyping("media")) complete = false;
+			else {
+				this.fields = this.fields.filter((f) => f.part !== "media");
+				this.mediaState = this.media.draw(lines, this.wanted);
+				if (this.mediaState === "unshown") this.md.open = true;
+			}
+		} else this.media.sync(lines);
 		const shape = this.shapeOfForm(lines);
 		if (shape !== this.formShape) {
 			if (this.anyTyping("form")) complete = false;
@@ -585,7 +636,7 @@ export class EditorBox {
 		// by the change that is being made, and only the drawing that has the control gives it: a drawing made for an EARLIER write (the one the
 		// typing before a press asked for, held until the pointer was up) comes while the new change is under way, finds no such control yet,
 		// and leaves the wish for the drawing of the change itself (found in the real app: the focus was lost about one press in three)
-		const want = this.wanted ? this.rowsHost.querySelector<HTMLElement>(`[data-key="${this.wanted}"]`) : null;
+		const want = this.wanted ? this.box.querySelector<HTMLElement>(`[data-key="${this.wanted}"]`) : null;
 		if (want) {
 			want.focus();
 			this.wanted = null;
@@ -609,7 +660,7 @@ export class EditorBox {
 		const kind = this.ed.kind;
 		if (kind !== "question") return false;
 		const p = readParts(lines, kind);
-		return !("refused" in p) && p.rest.some(filled);
+		return !("refused" in p) && restOf(p).some(filled);
 	}
 
 	/** The title and the description, drawn as fields in the block's own type; or, for a block they cannot show, the reason in words. */
@@ -743,7 +794,7 @@ export class EditorBox {
 			} else if (f.type === "flag") {
 				const name = f.name;
 				const el = strip.createDiv({ cls: "booklet-design-strip-item is-switch", attr: { "data-field": name } });
-				const sw = el.createEl("button", { text: name, cls: "booklet-design-strip-switch", attr: { type: "button", role: "switch", "aria-checked": String(f.on) } });
+				const sw = el.createEl("button", { text: settingName(name), cls: "booklet-design-strip-switch", attr: { type: "button", role: "switch", "aria-checked": String(f.on) } });
 				sw.addEventListener("click", () =>
 					this.act((lines) => {
 						const now = formOfLine(lines[0] ?? "")?.fields.find((x) => x.type === "flag" && x.name === name);
@@ -754,11 +805,14 @@ export class EditorBox {
 					const now = formOfLine(lines[0] ?? "")?.fields.find((x) => x.type === "flag" && x.name === name);
 					if (now && now.type === "flag") sw.setAttribute("aria-checked", String(now.on));
 				});
+			} else if (f.name === "each") {
+				this.drawEach(item("each", settingName("each")), f.value);
 			} else {
 				const name = f.name;
-				const el = item(name, f.icon ? ui("form.icon") : name);
-				const input = text(el, f.icon ? ui("form.icon") : name, f.value);
+				const el = item(name, f.icon ? ui("form.icon") : settingName(name));
+				const input = text(el, f.icon ? ui("form.icon") : settingName(name), f.value);
 				if (f.numeric) input.inputMode = "decimal";
+				else if (WHOLE_SETTINGS.has(name)) input.inputMode = "numeric";
 				this.field(
 					"form",
 					input,
@@ -804,6 +858,45 @@ export class EditorBox {
 		}
 		if (strip.childElementCount) quietNames(strip);
 		else strip.remove();
+	}
+
+	/**
+	 * The `each:` picker: the choice, multi or widget of the question's activity, or the data block in reach, that this question is asked
+	 * for each pick (or row) of; "nothing" takes the setting off. A source the line names that the note does not offer is listed too, so
+	 * the picker says what the line says (and the linter would report). It is applied the moment it is chosen, as the shared-menu picker is.
+	 */
+	private drawEach(el: HTMLElement, value: string): void {
+		const sel = el.createEl("select", { cls: "booklet-design-strip-input", attr: { "aria-label": settingName("each"), "data-key": "each" } });
+		const fill = (): void => {
+			const now = sel.value;
+			const node = this.node;
+			const sources = node ? eachSourcesFor(this.host.text(), node.start) : [];
+			const wanted = this.valueOf(this.host.lines() ?? [], { type: "value", name: "each" }) ?? value;
+			const options: [string, string][] = [["", ui("each.none")]];
+			for (const s of sources) options.push([s.id, s.kind === "data" ? ui("each.data", { id: s.id }) : ui("each.kind", { id: s.id, kind: s.kind })]);
+			if (wanted && !sources.some((s) => s.id === wanted)) options.push([wanted, ui("rows.menu.missing", { id: wanted })]);
+			// the list is made again only when it has changed: a list taken away under a press would swallow it
+			const sig = JSON.stringify(options);
+			if (sel.dataset["sig"] === sig) return;
+			sel.dataset["sig"] = sig;
+			sel.empty();
+			for (const [v, label] of options) sel.createEl("option", { value: v, text: label });
+			sel.value = now && options.some(([v]) => v === now) ? now : wanted;
+		};
+		fill();
+		sel.value = value;
+		// the list is looked at again when the person goes to it, so a question added since the box was drawn is in it
+		sel.addEventListener("focus", fill);
+		sel.addEventListener("mousedown", fill);
+		sel.addEventListener("change", () => {
+			const chosen = sel.value;
+			this.act((lines) => this.formChange(lines, { what: "value", name: "each", value: chosen }), "each");
+		});
+		this.formSyncs.push((lines) => {
+			const now = this.valueOf(lines, { type: "value", name: "each" }) ?? "";
+			fill();
+			if (sel.value !== now && sel.ownerDocument.activeElement !== sel) sel.value = now;
+		});
 	}
 
 	private frontValue(lines: string[], key: string): string | null {

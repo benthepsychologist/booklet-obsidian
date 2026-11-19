@@ -62,7 +62,7 @@ function corpus() {
 	return out;
 }
 
-test("every choice, multi, menu and matrix in the spec and the test booklets: the rows write back byte for byte, or are refused in words", () => {
+test("every choice, multi, menu, matrix and scale in the spec and the test booklets: the rows write back byte for byte, or are refused in words", () => {
 	let offered = 0;
 	const refused = [];
 	const kinds = new Set();
@@ -76,7 +76,7 @@ test("every choice, multi, menu and matrix in the spec and the test booklets: th
 		for (const n of walkDesign(root)) {
 			if (n.kind !== "question" && n.kind !== "menu") continue;
 			const kind = n.kind === "menu" ? "menu" : n.detail;
-			if (!["choice", "multi", "matrix", "menu"].includes(kind)) continue;
+			if (!["choice", "multi", "matrix", "menu", "scale"].includes(kind)) continue;
 			const lines = blockLines(text, n);
 			assert.equal(rowsKindOf(lines), kind, `${source}:${n.start + 1} is a ${kind}`);
 			const r = readRows(lines, kind);
@@ -89,18 +89,21 @@ test("every choice, multi, menu and matrix in the spec and the test booklets: th
 			kinds.add(kind);
 			assert.deepEqual(writeRows(r), lines, `${source}:${n.start + 1} writes back as it was read`);
 			// an edit that changes nothing changes nothing
-			if (r.kind === "matrix" ? r.items.length : r.kind === "menu" ? r.items.length : r.options.length) {
-				const same = editRows(r, r.kind === "matrix" || r.kind === "menu" ? { what: "item-text", index: 0, text: r.items[0].text } : { what: "option-text", index: 0, text: r.options[0].text });
+			if (r.kind === "scale" ? r.anchors.length : r.kind === "matrix" ? r.items.length : r.kind === "menu" ? r.items.length : r.options.length) {
+				const same = editRows(
+					r,
+					r.kind === "scale" ? { what: "anchor-text", index: 0, text: r.anchors[0].text } : r.kind === "matrix" || r.kind === "menu" ? { what: "item-text", index: 0, text: r.items[0].text } : { what: "option-text", index: 0, text: r.options[0].text },
+				);
 				assert.equal(same.ok, true);
 				assert.deepEqual(same.lines, lines, `${source}:${n.start + 1} an edit to the same words is no change`);
 			}
 		}
 	}
 	assert.ok(offered > 20, `${offered} blocks offered rows`);
-	assert.deepEqual([...kinds].sort(), ["choice", "matrix", "menu", "multi"], "all four kinds were met");
+	assert.deepEqual([...kinds].sort(), ["choice", "matrix", "menu", "multi", "scale"], "all five kinds were met");
 	// what is refused is rare, and every refusal is one of the shapes the rows cannot show without changing what is written
 	assert.ok(refused.length <= 6, `${refused.length} refused:\n${refused.join("\n")}`);
-	for (const why of refused) assert.match(why, /menu|checkbox|blank line|options of its own|Markdown/, why);
+	for (const why of refused) assert.match(why, /menu|checkbox|blank line|options of its own|Markdown|cannot show/, why);
 });
 
 // ---------------------------------------------------------------- the shapes that are not offered
@@ -541,4 +544,79 @@ test("the rows' writes keep the note's other bytes and the line endings", () => 
 	assert.ok(lines.every((l, i) => i === lines.length - 1 || l.endsWith("\r")), "every line still ends the way the note's do");
 	assert.equal(op.text.replace(/\r\n- \[ \] \r\n/, "\r\n"), note, "nothing else changed");
 	assert.equal(impactOf(note, op.text).length, 0);
+});
+
+// ---------------------------------------------------------------- a scale's anchors (stage 3)
+
+const SCALE = "> [!scale|clarity] How clear was the reading?\n> Think of the whole week.\n\n0. Not clear\n1. A little clear\n2. Fairly clear\n3. Clear";
+
+test("a scale's anchors are rows: the number is its own row, and each edit changes its own lines and nothing else", () => {
+	const r = rows(SCALE, "scale");
+	assert.equal(r.kind, "scale");
+	assert.deepEqual(r.head, ["> [!scale|clarity] How clear was the reading?", "> Think of the whole week."]);
+	assert.equal(r.gap, "");
+	assert.deepEqual(r.anchors.map((a) => [a.number, a.text]), [["0", "Not clear"], ["1", "A little clear"], ["2", "Fairly clear"], ["3", "Clear"]]);
+	assert.equal(rowsKindOf(L(SCALE)), "scale");
+	assert.deepEqual(writeRows(r), L(SCALE));
+	assert.equal(after(SCALE, "scale", { what: "anchor-text", index: 1, text: "Some" }), SCALE.replace("A little clear", "Some"));
+	assert.equal(after(SCALE, "scale", { what: "anchor-number", index: 3, number: "9" }), SCALE.replace("3. Clear", "9. Clear"));
+	assert.equal(after(SCALE, "scale", { what: "anchor-add" }), `${SCALE}\n4. `, "the next number is the last one and one");
+	assert.equal(after(SCALE, "scale", { what: "anchor-remove", index: 3 }), SCALE.replace("\n3. Clear", ""));
+	assert.equal(after(SCALE, "scale", { what: "anchor-move", index: 1, by: 1 }), SCALE.replace("1. A little clear\n2. Fairly clear", "2. Fairly clear\n1. A little clear"));
+	// an edit that is not an anchor's, and a number that is no digits, are refused with nothing changed
+	assert.equal(editRows(rows(SCALE, "scale"), { what: "item-add" }).ok, false);
+	assert.equal(editRows(rows(SCALE, "scale"), { what: "anchor-number", index: 0, number: "one" }).ok, false);
+	assert.equal(editRows(rows(SCALE, "scale"), { what: "anchor-text", index: 9, text: "x" }).ok, false);
+});
+
+test("a scale: the blank line a list that does not start at 1 needs is kept, added when a change leaves it needed, and a scale with no anchors writes none", () => {
+	const one = "> [!scale|s] S\n1. Low\n2. High";
+	assert.equal(after(one, "scale", { what: "anchor-add" }), `${one}\n3. `);
+	assert.equal(after(one, "scale", { what: "anchor-number", index: 0, number: "0" }), "> [!scale|s] S\n\n0. Low\n2. High");
+	assert.equal(after(one, "scale", { what: "anchor-remove", index: 0 }), "> [!scale|s] S\n\n2. High");
+	assert.equal(after("> [!scale|s] S\n1. One\n0. Zero", "scale", { what: "anchor-move", index: 1, by: -1 }), "> [!scale|s] S\n\n0. Zero\n1. One");
+	assert.equal(after("> [!scale|s] S\n1. Only", "scale", { what: "anchor-remove", index: 0 }), "> [!scale|s] S");
+	assert.equal(after("> [!scale|s] S", "scale", { what: "anchor-add" }), "> [!scale|s] S\n1. ");
+	// words alone never touch the spacing, even when the note breaks the rule already
+	const bare = "> [!scale|s] S\n0. Zero\n1. One";
+	assert.equal(after(bare, "scale", { what: "anchor-text", index: 0, text: "Nil" }), bare.replace("Zero", "Nil"));
+	// the reader reads the result as the rows say
+	const text = bookletAround(`> [!activity|a] A\n\n${after(one, "scale", { what: "anchor-number", index: 0, number: "0" })}\n`);
+	const q = core.parseBooklet(text).activities[0].segments.find((x) => x.type === "question");
+	assert.deepEqual(q.anchors.map((a) => [a.n, a.text]), [[0, "Low"], [2, "High"]]);
+});
+
+test("a scale keeps `)` numbers, other indents, a hint under it and its help lines, and refuses what the rows could only show by changing it", () => {
+	const text = ["> [!scale|s] S", "> Help.", "", "  1) Low", "  2) High", "", "> [!hint]- A hint", "> Think."].join("\n");
+	const r = rows(text, "scale");
+	assert.deepEqual(r.tail, ["", "> [!hint]- A hint", "> Think."]);
+	assert.equal(after(text, "scale", { what: "anchor-add" }).split("\n").slice(0, 6).join("|"), "> [!scale|s] S|> Help.||  1) Low|  2) High|  3) ");
+	assert.match(refusal("> [!scale|s] S\n0. A\n 1. B", "scale"), /indent/);
+	assert.match(refusal("> [!scale|s] S\n0. A\nfree words", "scale"), /cannot show/);
+	assert.match(refusal("> [!scale|s] S\n- A", "scale"), /cannot show/);
+	assert.match(refusal("> [!scale|s] S\n\n\n0. A", "scale"), /two blank lines/);
+	assert.match(refusal("> [!scale|s] S\n0.\tA", "scale"), /tab/);
+});
+
+test("a scale: removing, rewording or renumbering an anchor is asked about when an answer is kept; adding one at the end, a help line and moving a line that keeps its number are not", () => {
+	const note = (kept) =>
+		bookletAround(
+			["> [!module|m] M", "", "> [!activity|a] A", "", "> [!scale|clarity] How clear?", "", "0. Not clear", "1. A little", "2. Clear", "", "> [!module|m end]", ...(kept ? ["", "%%", "> [!records] App record — do not edit below this line", "", "> [!records|m] M", "", "```booklet answers", JSON.stringify(kept), "```", "%%", ""] : [""])].join("\n"),
+		);
+	const kept = note({ clarity: 1 });
+	const go = (n, edit) => change(n, "clarity", (r, e) => e(r, edit));
+	for (const edit of [
+		{ what: "anchor-remove", index: 1 },
+		{ what: "anchor-text", index: 1, text: "A bit" },
+		{ what: "anchor-number", index: 1, number: "7" },
+	]) {
+		const op = go(kept, edit);
+		assert.equal(op.ok, true, edit.what);
+		assert.ok(needsAsking(op), `${edit.what} is asked about`);
+		assert.equal(asks(op)[0][2], 1, `${edit.what}: the one answer kept`);
+		assert.equal(needsAsking(go(note(null), edit)), false, `${edit.what}: nothing kept, nothing asked`);
+	}
+	for (const edit of [{ what: "anchor-add" }, { what: "anchor-text", index: 0, text: "Not at all" }, { what: "anchor-remove", index: 2 }, { what: "anchor-move", index: 0, by: 1 }]) {
+		assert.equal(needsAsking(go(kept, edit)), false, `${edit.what} changes nothing a kept answer of 1 says`);
+	}
 });

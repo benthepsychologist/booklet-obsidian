@@ -1024,7 +1024,8 @@ export class DesignView extends LockedTextView {
 
 	/** The shared menu a question names, opened in its own editor (what is typed in the block that is open is applied first: openEditor says so). */
 	private openMenuBlock(line: number): void {
-		const menu = walkDesign(this.liveRoot()).find((x) => x.kind === "menu" && x.start === line);
+		// a shared menu, or a widget's data block (a fenced block of its own: it opens as Markdown)
+		const menu = walkDesign(this.liveRoot()).find((x) => (x.kind === "menu" || x.kind === "fence") && x.start === line);
 		if (menu) this.openEditor(menu);
 	}
 
