@@ -286,6 +286,8 @@ export class EditorBox {
 	private mediaState: MediaState = "none";
 	/** Updates what is not words (a switch, a choice) in the form rows that are drawn, from the note's lines. */
 	private formSyncs: ((lines: string[]) => void)[] = [];
+	/** True while the controls are put back to what the note has after a change that did not land (a picker with the focus goes back too). */
+	private reverting = false;
 	/** The control the focus goes to when the rows are drawn again for the change that is being made. */
 	private wanted: string | null = null;
 	/** The control that had the focus when the page was taken away, with its selection, to be put back by `attach`. */
@@ -625,7 +627,13 @@ export class EditorBox {
 
 	/** After a change that did not land: what the note has goes back into every control. */
 	private resync(): void {
-		this.render(this.host.lines() ?? [], true);
+		// a change that did not land: even a picker the person still has the focus on goes back to what the note has (it would else say what was declined)
+		this.reverting = true;
+		try {
+			this.render(this.host.lines() ?? [], true);
+		} finally {
+			this.reverting = false;
+		}
 	}
 
 	/** The Markdown section opens and has the focus (the bar's "Edit as Markdown"). */
@@ -1066,7 +1074,7 @@ export class EditorBox {
 		this.formSyncs.push((lines) => {
 			const now = this.valueOf(lines, { type: "value", name: "each" }) ?? "";
 			fill();
-			if (sel.value !== now && sel.ownerDocument.activeElement !== sel) sel.value = now;
+			if (sel.value !== now && (this.reverting || sel.ownerDocument.activeElement !== sel)) sel.value = now;
 		});
 	}
 

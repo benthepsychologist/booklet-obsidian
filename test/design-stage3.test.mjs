@@ -274,6 +274,25 @@ test("the each: picker lists the choices, multis and widgets of the activity and
 	odd.close();
 });
 
+test("the each: picker goes back to what the note has when the change it made is declined, even though it still has the focus (found in the real app, e2e check 80)", async () => {
+	const v = rig(NOTE({ where: [1] }));
+	v.go("The week");
+	v.open("[!multi|where");
+	const before = v.disk.text;
+	const sel = v.item("each");
+	sel.focus();
+	assert.equal(doc.activeElement, sel);
+	sel.value = "body";
+	sel.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await new Promise((r) => setTimeout(r, 20));
+	assert.ok(v.dialog(), "a kept answer exists, so changing how the question is asked asks first");
+	sel.focus(); // the focus is on the picker again when the dialog is answered, as the real app leaves it (e2e check 80)
+	await v.answer("Cancel");
+	assert.equal(v.disk.text, before, "declining writes nothing");
+	assert.equal(v.item("each").value, "tools", "and the picker reads what the note has again, not what was declined");
+	v.close();
+});
+
 /* ======================================================================== listen ======================================================================== */
 
 test("a listen's media is two controls, its address and its name, under its words; they write the media line and no other, one step each", async () => {
