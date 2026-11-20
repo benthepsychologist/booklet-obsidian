@@ -158,7 +158,7 @@ test("a scale opens with its anchors as rows: the number that is kept and the wo
 	assert.equal(v.disk.text, before.replace("1. A little clear", "1. Some").replace("2. Clear", "4. Clear"));
 	// add, move, remove
 	await v.press("Add an anchor");
-	assert.equal(v.md().at(-1), "5. ", "the next number is the last one and one");
+	assert.equal(v.md().at(-1), "5. New anchor", "the next number is the last one and one, with a word of its own");
 	assert.equal(doc.activeElement, v.input("Anchor 4: words"), "its words have the focus");
 	await v.press("Anchor 4: move up");
 	await v.press("Anchor 3: remove");

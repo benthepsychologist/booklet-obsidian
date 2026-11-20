@@ -110,6 +110,8 @@ export class RowsPanel {
 	private rows: Rows | null = null;
 	/** The shape the rows on the screen were drawn for. */
 	private shape = "";
+	/** The control the next drawing selects the words of (the new anchor's placeholder), or null. */
+	private selectNext: string | null = null;
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -132,6 +134,8 @@ export class RowsPanel {
 		const doc = this.host.ownerDocument;
 		const active = doc.activeElement;
 		const key = wanted ?? (active && this.host.contains(active) ? (active.closest("[data-key]")?.getAttribute("data-key") ?? null) : null);
+		const select = this.selectNext;
+		this.selectNext = null;
 		this.host.empty();
 		this.rows = null;
 		this.shape = this.shapeNow(lines);
@@ -154,7 +158,11 @@ export class RowsPanel {
 		else this.drawMatrix(rows);
 		// a row that merely has a name is named without the tooltip an aria-label would raise, as the rest of the page is
 		quietNames(this.host);
-		if (key) this.host.querySelector<HTMLElement>(`[data-key="${key}"]`)?.focus();
+		if (key) {
+			const at = this.host.querySelector<HTMLElement>(`[data-key="${key}"]`);
+			at?.focus();
+			if (at instanceof HTMLInputElement && key === select) at.select();
+		}
 		return "rows";
 	}
 
@@ -403,6 +411,11 @@ export class RowsPanel {
 				else this.edit(() => ({ what: "anchor-remove", index: i }), this.afterRemove("a", i, count, "a-add"));
 			});
 		});
-		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => this.edit(() => ({ what: "anchor-add" }), `a${count}-text`));
+		// a new anchor starts with a short word of its own (a line `3. ` with nothing after the number would be drawn as an unlabelled answer), and the
+		// words field the focus goes to has it selected, so what is typed replaces it
+		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => {
+			this.selectNext = `a${count}-text`;
+			this.edit(() => ({ what: "anchor-add", text: ui("rows.anchor.new") }), `a${count}-text`);
+		});
 	}
 }

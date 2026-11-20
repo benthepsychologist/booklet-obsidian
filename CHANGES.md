@@ -2,6 +2,22 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
+## 1.7.0-beta.2, fixes from the beta.1 walk
+
+**Stage 3 and stage 4 of the Design view are in 1.7.0-beta.1 and 1.7.0-beta.2 together.** This second pre-release, for trying in BRAT, fixes what a walk of beta.1 in Obsidian 1.14.5 found; the version Obsidian's directory shows is still 1.6.0.
+
+- **The sentence about a `+` no longer shows under every hint and solution.** "It is written with a +, so it can fold and starts open. Turning this on writes a - in its place." showed under every hint and solution written with a `-`. It shows only under one written with a `+`, and goes when the switch is turned on. The cause was a class that gave the sentence its own layout, which beat the browser's rule for a hidden element. One rule now makes every element the plugin hides stay hidden, whatever layout its class gives it; the same fault was found and fixed in a picture's box ("Left empty, the picture is decorative" showed when it should not).
+- **The "Change this question?" box reads naturally.** A name in it is between quotation marks and no longer between backticks, and the verb agrees: "The options of “sunny” touch 1 saved answer.", "The question id “sunny” touches 12 kept entries and 1 saved answer." The reasons in this box are still English only (see "Still English" below); no Spanish or French word changed for it.
+- **Add an anchor gives the new anchor a word.** A scale or matrix anchor added with *Add an anchor* was written as an empty line (`3. `), which the reader draws as an answer with no words (a blank button in a matrix). It now starts as "New anchor" (Spanish "Ancla nueva", French "Nouvelle ancre"), in the language Obsidian is in, with the words box in focus and the word selected, so typing replaces it. Undo takes it away in one step. (A new option of a choice is still written as an empty option; this release did not change that.)
+- **Opening a module's notice puts the focus on its first field, the License.** It went to an empty Title box, which a notice does not read.
+- **A correction to the beta.1 notes below.** A value a number setting refuses is explained by a red line inside the box ("Not changed. `max` takes a number, such as 0, 12 or 2.5."), not by the status strip, which keeps what it said.
+
+### Known in 1.7.0-beta.2, not changed
+
+- **A reference-style picture and a remote picture are drawn as their raw Markdown line** in the Design view's page (`![words][name]`, `![words](https://...)`). Only a local picture whose file is missing says it could not be found.
+- **The reference linter and the Design view disagree about an `author:` line in a module's notice.** The linter reports it as an error; the Design view keeps such a line, quietly, as "kept as written" and never touches it.
+- **Typing a value in "Add a question to copy..." with the arrow keys on the closed drop-down adds one item for each key press.** That is how a browser treats a closed drop-down; it is not the plugin's.
+
 ## 1.7.0-beta.1, stage 4 of the Design view
 
 **The Design view's box now has controls for the reading aids and the structure pieces.** This is a pre-release for trying in BRAT; the version Obsidian's directory shows is still 1.6.0.

@@ -270,7 +270,7 @@ test("a matrix's items and anchors are rows; an anchor's number is its own row",
 	assert.equal(after(MATRIX, "matrix", { what: "item-add" }), MATRIX.replace("- Tidal range\n", "- Tidal range\n- \n"));
 	assert.equal(after(MATRIX, "matrix", { what: "anchor-text", index: 1, text: "Close" }), MATRIX.replace("Getting there", "Close"));
 	assert.equal(after(MATRIX, "matrix", { what: "anchor-number", index: 2, number: "5" }), MATRIX.replace("2. Sure", "5. Sure"));
-	assert.equal(after(MATRIX, "matrix", { what: "anchor-add" }), `${MATRIX}\n3. `, "the next number is the last one and one");
+	assert.equal(after(MATRIX, "matrix", { what: "anchor-add", text: "New anchor" }), `${MATRIX}\n3. New anchor`, "the next number is the last one and one");
 	assert.equal(after(MATRIX, "matrix", { what: "anchor-remove", index: 1 }), MATRIX.replace("1. Getting there\n", ""));
 	assert.equal(after(MATRIX, "matrix", { what: "anchor-move", index: 0, by: 1 }), MATRIX.replace("0. Not yet\n1. Getting there", "1. Getting there\n0. Not yet"));
 	assert.equal(editRows(rows(MATRIX, "matrix"), { what: "anchor-number", index: 0, number: "x" }).ok, false);
@@ -285,7 +285,7 @@ test("the blank line a numbered list needs when it starts at 0 (SPEC section 4):
 	// a list that starts at 1 may follow directly, and does so after a change
 	const one = "> [!matrix|m] M\n- A\n- B\n1. Low\n2. High";
 	assert.equal(after(one, "matrix", { what: "item-add" }), "> [!matrix|m] M\n- A\n- B\n- \n1. Low\n2. High");
-	assert.equal(after(one, "matrix", { what: "anchor-add" }), `${one}\n3. `);
+	assert.equal(after(one, "matrix", { what: "anchor-add", text: "New anchor" }), `${one}\n3. New anchor`);
 	// added: the first anchor becomes 0 (renumbered, or the 1 is removed and the list starts at 2)
 	assert.equal(after(one, "matrix", { what: "anchor-number", index: 0, number: "0" }), "> [!matrix|m] M\n- A\n- B\n\n0. Low\n2. High");
 	assert.equal(after(one, "matrix", { what: "anchor-remove", index: 0 }), "> [!matrix|m] M\n- A\n- B\n\n2. High");
@@ -294,7 +294,7 @@ test("the blank line a numbered list needs when it starts at 0 (SPEC section 4):
 	// added: a list of anchors with no items yet that gets its first item, when it starts at 0
 	assert.equal(after("> [!matrix|m] M\n0. Zero\n1. One", "matrix", { what: "item-add" }), "> [!matrix|m] M\n- \n\n0. Zero\n1. One");
 	// a matrix with no anchors gets 1 first, so no blank line is needed
-	assert.equal(after("> [!matrix|m] M\n- A", "matrix", { what: "anchor-add" }), "> [!matrix|m] M\n- A\n1. ");
+	assert.equal(after("> [!matrix|m] M\n- A", "matrix", { what: "anchor-add", text: "New anchor" }), "> [!matrix|m] M\n- A\n1. New anchor");
 	// a change to words alone does not touch the lists' spacing, even when the note breaks the rule already
 	const bare = "> [!matrix|m] M\n- A\n0. Zero\n1. One";
 	assert.equal(after(bare, "matrix", { what: "item-text", index: 0, text: "B" }), bare.replace("- A", "- B"));
@@ -310,7 +310,7 @@ test("the blank line a numbered list needs when it starts at 0 (SPEC section 4):
 
 test("a matrix with `)` after its numbers, other bullets and a hint keeps every one of them", () => {
 	const text = ["> [!matrix|m] M", "* A", "* B", "", "1) Low", "2) High", "", "> [!solution]- S", "> Because."].join("\n");
-	assert.equal(after(text, "matrix", { what: "anchor-add" }).split("\n").slice(0, 8).join("|"), "> [!matrix|m] M|* A|* B||1) Low|2) High|3) |");
+	assert.equal(after(text, "matrix", { what: "anchor-add", text: "New anchor" }).split("\n").slice(0, 8).join("|"), "> [!matrix|m] M|* A|* B||1) Low|2) High|3) New anchor|");
 	assert.equal(after(text, "matrix", { what: "item-add" }).split("\n")[3], "* ");
 	assert.equal(after(text, "matrix", { what: "item-text", index: 0, text: "Z" }).split("\n").slice(-3).join("|"), "|> [!solution]- S|> Because.");
 });
@@ -513,7 +513,7 @@ test("a matrix: removing, moving or putting an item before another, and removing
 	}
 	for (const edit of [
 		{ what: "item-add" },
-		{ what: "anchor-add" },
+		{ what: "anchor-add", text: "New anchor" },
 		{ what: "anchor-text", index: 0, text: "Not at all" },
 		{ what: "anchor-remove", index: 0 },
 	]) {
@@ -560,7 +560,7 @@ test("a scale's anchors are rows: the number is its own row, and each edit chang
 	assert.deepEqual(writeRows(r), L(SCALE));
 	assert.equal(after(SCALE, "scale", { what: "anchor-text", index: 1, text: "Some" }), SCALE.replace("A little clear", "Some"));
 	assert.equal(after(SCALE, "scale", { what: "anchor-number", index: 3, number: "9" }), SCALE.replace("3. Clear", "9. Clear"));
-	assert.equal(after(SCALE, "scale", { what: "anchor-add" }), `${SCALE}\n4. `, "the next number is the last one and one");
+	assert.equal(after(SCALE, "scale", { what: "anchor-add", text: "New anchor" }), `${SCALE}\n4. New anchor`, "the next number is the last one and one");
 	assert.equal(after(SCALE, "scale", { what: "anchor-remove", index: 3 }), SCALE.replace("\n3. Clear", ""));
 	assert.equal(after(SCALE, "scale", { what: "anchor-move", index: 1, by: 1 }), SCALE.replace("1. A little clear\n2. Fairly clear", "2. Fairly clear\n1. A little clear"));
 	// an edit that is not an anchor's, and a number that is no digits, are refused with nothing changed
@@ -571,12 +571,12 @@ test("a scale's anchors are rows: the number is its own row, and each edit chang
 
 test("a scale: the blank line a list that does not start at 1 needs is kept, added when a change leaves it needed, and a scale with no anchors writes none", () => {
 	const one = "> [!scale|s] S\n1. Low\n2. High";
-	assert.equal(after(one, "scale", { what: "anchor-add" }), `${one}\n3. `);
+	assert.equal(after(one, "scale", { what: "anchor-add", text: "New anchor" }), `${one}\n3. New anchor`);
 	assert.equal(after(one, "scale", { what: "anchor-number", index: 0, number: "0" }), "> [!scale|s] S\n\n0. Low\n2. High");
 	assert.equal(after(one, "scale", { what: "anchor-remove", index: 0 }), "> [!scale|s] S\n\n2. High");
 	assert.equal(after("> [!scale|s] S\n1. One\n0. Zero", "scale", { what: "anchor-move", index: 1, by: -1 }), "> [!scale|s] S\n\n0. Zero\n1. One");
 	assert.equal(after("> [!scale|s] S\n1. Only", "scale", { what: "anchor-remove", index: 0 }), "> [!scale|s] S");
-	assert.equal(after("> [!scale|s] S", "scale", { what: "anchor-add" }), "> [!scale|s] S\n1. ");
+	assert.equal(after("> [!scale|s] S", "scale", { what: "anchor-add", text: "New anchor" }), "> [!scale|s] S\n1. New anchor");
 	// words alone never touch the spacing, even when the note breaks the rule already
 	const bare = "> [!scale|s] S\n0. Zero\n1. One";
 	assert.equal(after(bare, "scale", { what: "anchor-text", index: 0, text: "Nil" }), bare.replace("Zero", "Nil"));
@@ -590,7 +590,7 @@ test("a scale keeps `)` numbers, other indents, a hint under it and its help lin
 	const text = ["> [!scale|s] S", "> Help.", "", "  1) Low", "  2) High", "", "> [!hint]- A hint", "> Think."].join("\n");
 	const r = rows(text, "scale");
 	assert.deepEqual(r.tail, ["", "> [!hint]- A hint", "> Think."]);
-	assert.equal(after(text, "scale", { what: "anchor-add" }).split("\n").slice(0, 6).join("|"), "> [!scale|s] S|> Help.||  1) Low|  2) High|  3) ");
+	assert.equal(after(text, "scale", { what: "anchor-add", text: "New anchor" }).split("\n").slice(0, 6).join("|"), "> [!scale|s] S|> Help.||  1) Low|  2) High|  3) New anchor");
 	assert.match(refusal("> [!scale|s] S\n0. A\n 1. B", "scale"), /indent/);
 	assert.match(refusal("> [!scale|s] S\n0. A\nfree words", "scale"), /cannot show/);
 	assert.match(refusal("> [!scale|s] S\n- A", "scale"), /cannot show/);
@@ -616,7 +616,7 @@ test("a scale: removing, rewording or renumbering an anchor is asked about when 
 		assert.equal(asks(op)[0][2], 1, `${edit.what}: the one answer kept`);
 		assert.equal(needsAsking(go(note(null), edit)), false, `${edit.what}: nothing kept, nothing asked`);
 	}
-	for (const edit of [{ what: "anchor-add" }, { what: "anchor-text", index: 0, text: "Not at all" }, { what: "anchor-remove", index: 2 }, { what: "anchor-move", index: 0, by: 1 }]) {
+	for (const edit of [{ what: "anchor-add", text: "New anchor" }, { what: "anchor-text", index: 0, text: "Not at all" }, { what: "anchor-remove", index: 2 }, { what: "anchor-move", index: 0, by: 1 }]) {
 		assert.equal(needsAsking(go(kept, edit)), false, `${edit.what} changes nothing a kept answer of 1 says`);
 	}
 });

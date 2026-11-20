@@ -428,8 +428,10 @@ test("a matrix: items and anchors are rows, an anchor's number is its own field,
 	const heads = [...v.editor().querySelectorAll(".booklet-design-rows .setting-item-heading")].map(words);
 	assert.deepEqual(heads, ["Items", "Anchors (the number is the answer that is kept)"]);
 	await v.add("Add an anchor");
-	assert.equal(v.md().at(-1), "3. ");
+	assert.equal(v.md().at(-1), "3. New anchor", "the new anchor starts with a short word of its own, not an empty line");
 	assert.equal(doc.activeElement, v.input("Anchor 4: words"));
+	assert.equal(v.input("Anchor 4: words").selectionStart, 0, "the focus is in its words, with the placeholder selected: ...");
+	assert.equal(v.input("Anchor 4: words").selectionEnd, "New anchor".length, "... so what is typed replaces it");
 	await v.type("Anchor 4: words", "Very sure");
 	// a number is taken when its box is left
 	const num = v.input("Anchor 1: number");

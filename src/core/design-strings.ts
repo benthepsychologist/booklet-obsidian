@@ -317,6 +317,7 @@ export const DESIGN_STRINGS = {
 	"rows.anchor.down": tr("Anchor {n}: move down", "Ancla {n}: mover abajo", "Ancre {n} : descendre"),
 	"rows.anchor.remove": tr("Anchor {n}: remove", "Ancla {n}: quitar", "Ancre {n} : retirer"),
 	"rows.anchor.add": tr("Add an anchor", "Agregar un ancla", "Ajouter une ancre"),
+	"rows.anchor.new": tr("New anchor", "Ancla nueva", "Nouvelle ancre"),
 	"rows.anchor.group": tr("Anchor {n}", "Ancla {n}", "Ancre {n}"),
 	"rows.none": tr("Nothing here yet.", "Todavía no hay nada aquí.", "Rien ici pour l’instant."),
 

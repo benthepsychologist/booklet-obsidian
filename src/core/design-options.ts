@@ -341,7 +341,7 @@ export type RowsEdit =
 	| { what: "item-remove"; index: number }
 	| { what: "anchor-text"; index: number; text: string }
 	| { what: "anchor-number"; index: number; number: string }
-	| { what: "anchor-add" }
+	| { what: "anchor-add"; text: string }
 	| { what: "anchor-move"; index: number; by: -1 | 1 }
 	| { what: "anchor-remove"; index: number };
 
@@ -480,7 +480,7 @@ function anchorEdit(as: AnchorRow[], e: RowsEdit): { bad: string | null; structu
 		case "anchor-add": {
 			const last = as[as.length - 1];
 			const n = last && /^[0-9]+$/.test(last.number) ? String(Number(last.number) + 1) : "1";
-			as.push({ indent: last?.indent ?? "", number: n, sep: last?.sep ?? ".", gap: last?.gap ?? " ", text: "" });
+			as.push({ indent: last?.indent ?? "", number: n, sep: last?.sep ?? ".", gap: last?.gap ?? " ", text: oneLine(e.text) });
 			return { bad: null, structural: true };
 		}
 		case "anchor-move":
