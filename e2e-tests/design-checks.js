@@ -3118,7 +3118,13 @@ lang: en
     const asks = async (n, before, label, words) => {
       const w0 = await W(n);
       const shown = await waitModal(o, true);
-      const m = shown ? await modalInfo(o) : null;
+      let m = shown ? await modalInfo(o) : null;
+      if (m && m.focus !== "Cancel") {
+        // Obsidian puts the focus in a dialog a moment after drawing it: read it again for up to 1.5 s, and say what held it first.
+        const first = m.focus; const t0 = Date.now();
+        while (m.focus !== "Cancel" && Date.now() - t0 < 1500) { await new Promise(r => setTimeout(r, 40)); m = await modalInfo(o) || m; }
+        c.info(`${label}: the focus was on ${JSON.stringify(first)} when the dialog appeared and on ${JSON.stringify(m.focus)} ${Date.now() - t0} ms later`);
+      }
       c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: it opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 160))}) with the focus on Cancel`);
       if (shown) {
         await clickModal(o, "Cancel"); await idle(o);
@@ -3274,7 +3280,7 @@ lang: en
   /** The settings strip of the open box as a person reads it: [data-field, the words that name it]. */
   const stripNames = o => o.evaluate(sel => [...document.querySelectorAll(sel + " .booklet-design-editbox .booklet-design-strip-item")].map(e => [e.getAttribute("data-field"), ((e.querySelector(".booklet-design-strip-label, button[role=switch]") || {}).textContent || "").trim()]), DV);
   async function check79() {
-    const c = new Check(79, "the settings of a number, text, date and lines question in words with the line's own word after (Smallest number (min), Big box (long), Earlier words offered (earlier)), in the real app: min, max and step take a number (-2, 0.5 and 12.5 are written, \"many\" and \"1,5\" are refused with the reason in words, nothing is written and the field goes back), earlier takes digits only (a phone's number pad), empty takes a setting off, the Big box switch writes and takes off `long`; every change one write, one step of Undo, the whole note compared byte for byte, Undo back to the exact original");
+    const c = new Check(79, "the settings of a number, text, date and lines question in words with the line's own word after (Smallest number (min), Big box (long), How many earlier answers to suggest (earlier)), in the real app: min, max and step take a number (-2, 0.5 and 12.5 are written, \"many\" and \"1,5\" are refused with the reason in words, nothing is written and the field goes back), earlier takes digits only (a phone's number pad), empty takes a setting off, the Big box switch writes and takes off `long`; every change one write, one step of Undo, the whole note compared byte for byte, Undo back to the exact original");
     const table = tableOf();
     await withApp("c79", async (o, vault) => {
       const k = kit3(o, c, vault, table);
@@ -3974,7 +3980,10 @@ lang: en
         }
         c.ok(text(n.file) === n.t, "phone: nothing was written while the boxes were opened and shut");
       });
-      const errs = errorsSince(errs0);
+      // Obsidian's own half-written config message after a colour-scheme switch (see check 95) is set aside and counted; any other error still fails.
+      const own = x => /^failed to read JSON \.obsidian\/(appearance|app)\.json SyntaxError/.test(x.text);
+      const all = errorsSince(errs0), errs = all.filter(x => !own(x));
+      if (all.length !== errs.length) c.info(`Obsidian's own half-written config message set aside: ${all.length - errs.length}`);
       c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
     });
     return c;
