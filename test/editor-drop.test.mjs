@@ -162,7 +162,7 @@ test("[4] a drop goes through the guard that a click goes through: a drop that w
 	await sleep(20);
 	const ask = document.querySelector(".booklet-blocks-ask");
 	assert.ok(ask, "the question is asked");
-	assert.match(ask.textContent, /The question id `why` touches 12 kept entries/);
+	assert.match(ask.textContent, /The question id “why” touches 12 kept entries/);
 	assert.equal(ed.text, HELD, "nothing is written while the question is open");
 	[...ask.querySelectorAll("button")].find((b) => b.textContent === "Cancel").click();
 	assert.equal(await done, null);

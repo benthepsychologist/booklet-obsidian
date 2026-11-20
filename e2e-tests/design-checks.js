@@ -1718,6 +1718,7 @@ lang: en
         const shown = await waitModal(o, true);
         const m = shown ? await modalInfo(o) : null;
         c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: it opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 200))}), the focus is on Cancel`);
+        c.ok(!!m && !/`/.test(m.text) && !/\b(options|items and anchors) of [^.]*? touches\b/.test(m.text), `${label}: the dialog shows no backtick and no plural subject with a singular verb`);
         if (shown) {
           await clickModal(o, "Cancel"); await idle(o);
           const st = await state(o);
@@ -1791,7 +1792,7 @@ lang: en
         const before3 = (await inputs()).join("|");
         await press("o2-up");
         const swapped72 = sub(cur, "- [x] Wound up\n  - That is the activating family.\n- [x] Numb\n  - Numbness protects.\n", "- [x] Numb\n  - Numbness protects.\n- [x] Wound up\n  - That is the activating family.\n");
-        m = await asks(n, cur, "Move option 3 up (the kept answer is option 2)", [/where/, /saved answer/i], before3);
+        m = await asks(n, cur, "Move option 3 up (the kept answer is option 2)", [/The options of \u201cwhere\u201d touch 1 saved answer\./], before3);
         await rshot("rows-ask-light");
         await press("o2-up"); await waitModal(o, true);
         const beforeMove = cur;
@@ -3126,6 +3127,7 @@ lang: en
         c.info(`${label}: the focus was on ${JSON.stringify(first)} when the dialog appeared and on ${JSON.stringify(m.focus)} ${Date.now() - t0} ms later`);
       }
       c.ok(!!m && words.every(w => w.test(m.text)) && m.focus === "Cancel", `${label}: it opens the count-and-ask dialog (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 160))}) with the focus on Cancel`);
+      c.ok(!!m && !/`/.test(m.text) && !/\b(options|items and anchors) of [^.]*? touches\b/.test(m.text), `${label}: the dialog shows no backtick and no plural subject with a singular verb (${JSON.stringify(m && m.text.replace(/\s+/g, " ").slice(0, 200))})`);
       if (shown) {
         await clickModal(o, "Cancel"); await idle(o);
         const st = await state(o);

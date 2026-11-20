@@ -44,7 +44,7 @@ test("renaming an activity's id touches its kept entries and its draft", () => {
 	const after = swap(HELD, "> [!activity|log repeat] A mood log", setId(p, "diary").text);
 	const imp = impactOf(HELD, after);
 	assert.deepEqual(one(imp, "id").map((i) => [i.what, i.entries, i.answers, i.rows]), [["The activity id `log`", 12, 1, 0]]);
-	assert.equal(impactWords(imp[0]), "The activity id `log` touches 12 kept entries and 1 saved answer.");
+	assert.equal(impactWords(imp[0]), "The activity id “log” touches 12 kept entries and 1 saved answer.");
 });
 
 test("renaming a question's id touches the entries that answer it, and its draft; a once-given answer too", () => {
@@ -115,7 +115,7 @@ test("renaming a declared field touches the rows that carry it; so does removing
 	assert.deepEqual(impactOf(HELD, renamed).map((i) => [i.kind, i.what, i.rows, i.views]), [["field", "The field `kind` of `things`", 5, 1]], "the query that lists no fields shows it");
 	const removed = swap(HELD, ', "done": "Done" }', " }");
 	assert.deepEqual(impactOf(HELD, removed).map((i) => [i.kind, i.what, i.rows, i.views]), [["field", "The field `done` of `things`", 5, 1]]);
-	assert.equal(impactWords(impactOf(HELD, removed)[0]), "The field `done` of `things` touches 5 rows and 1 view that shows this field.");
+	assert.equal(impactWords(impactOf(HELD, removed)[0]), "The field “done” of “things” touches 5 rows and 1 view that shows this field.");
 });
 
 const QUERY = "```booklet query\nfrom: things\nas: table\n```";
@@ -134,7 +134,7 @@ test("a view that names a field counts when the field is renamed or removed, by 
 	assert.deepEqual(views(withQuery("from: log\nfields: kind"), "kind"), [0]);
 	// two views, counted together
 	const two = swap(HELD, QUERY, "```booklet query\nfrom: things\nfields: kind\n```\n\n```booklet query\nfrom: things\nas: list\n```");
-	assert.equal(impactWords(gone(two, "kind")[0]), "The field `kind` of `things` touches 5 rows and 2 views that show this field.");
+	assert.equal(impactWords(gone(two, "kind")[0]), "The field “kind” of “things” touches 5 rows and 2 views that show this field.");
 });
 
 test("a field no row carries touches nothing, unless a view names it", () => {

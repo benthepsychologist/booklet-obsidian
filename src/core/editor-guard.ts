@@ -93,8 +93,10 @@ export function holdingsLineOf(book: Booklet): string {
 
 export interface Impact {
 	kind: "id" | "option" | "field";
-	/** What changes, in words: "The id `mood`". */
+	/** What changes, in words: "The id `mood`". The backticks mark a name; the words shown (`impactWords`) put quotation marks there. */
 	what: string;
+	/** `what` is a plural subject ("The options of ..."), so the sentence says "touch", not "touches". */
+	plural?: boolean;
 	/** Kept entries it touches. */
 	entries: number;
 	/** Saved answers (once-answered, or in a draft) it touches. */
@@ -267,7 +269,7 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 			for (const e of held.entries) if (hit(e[l.question.id])) entries++;
 			if (held.hasAnswer && hit(held.answer)) answers++;
 			if (held.hasDraft && hit(held.draft)) answers++;
-			if (entries || answers) impacts.push({ kind: "option", what: `The options of \`${l.question.id}\``, entries, answers, rows: 0 });
+			if (entries || answers) impacts.push({ kind: "option", what: `The options of \`${l.question.id}\``, plural: true, entries, answers, rows: 0 });
 		}
 		// a matrix: an answer is a list with one anchor number for each item, by position. An item that is not the same item at its place any
 		// more (taken out, moved, put before, reworded), or an anchor number whose words are not the same (taken out, reworded), changes
@@ -284,13 +286,13 @@ export function impactOf(beforeText: string, afterText: string): Impact[] {
 			for (const e of held.entries) if (hit(e[l.question.id])) entries++;
 			if (held.hasAnswer && hit(held.answer)) answers++;
 			if (held.hasDraft && hit(held.draft)) answers++;
-			if (entries || answers) impacts.push({ kind: "option", what: `The items and anchors of \`${l.question.id}\``, entries, answers, rows: 0 });
+			if (entries || answers) impacts.push({ kind: "option", what: `The items and anchors of \`${l.question.id}\``, plural: true, entries, answers, rows: 0 });
 		}
 		if (l.question.open && !gone.question.open) {
 			const strings = (v: unknown): boolean => (Array.isArray(v) ? v : [v]).some((x) => typeof x === "string");
 			const entries = held.entries.filter((e) => strings(e[l.question.id])).length;
 			const answers = (held.hasAnswer && strings(held.answer) ? 1 : 0) + (held.hasDraft && strings(held.draft) ? 1 : 0);
-			if (entries || answers) impacts.push({ kind: "option", what: `The reader's own options of \`${l.question.id}\` (no longer \`open\`)`, entries, answers, rows: 0 });
+			if (entries || answers) impacts.push({ kind: "option", what: `The reader's own options of \`${l.question.id}\` (no longer \`open\`)`, plural: true, entries, answers, rows: 0 });
 		}
 		// the shape the answer is kept in: `each:` on or off, or changed
 		if (l.question.each !== gone.question.each) {
@@ -343,7 +345,11 @@ function actsOn(e: Record<string, unknown>, block: string): boolean {
 	return false;
 }
 
-/** The question for the dialog: what the change touches, in words. */
+/**
+ * The question for the dialog: what the change touches, in words. A name marked with backticks in `what` is shown between quotation
+ * marks (the dialog draws plain text, so a backtick would show as itself), and the verb agrees with the subject: "The options of
+ * “sunny” touch 1 saved answer.", "The question id “sunny” touches 2 kept entries and 1 saved answer."
+ */
 export function impactWords(i: Impact): string {
 	const parts: string[] = [];
 	if (i.entries) parts.push(plural(i.entries, "kept entry", "kept entries"));
@@ -351,7 +357,8 @@ export function impactWords(i: Impact): string {
 	if (i.rows) parts.push(plural(i.rows, "row", "rows"));
 	if (i.views) parts.push(plural(i.views, "view that shows this field", "views that show this field"));
 	const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : (parts[0] ?? "nothing");
-	return `${i.what} touches ${list}.`;
+	const what = i.what.replace(/`([^`]*)`/g, "\u201c$1\u201d");
+	return `${what} ${i.plural ? "touch" : "touches"} ${list}.`;
 }
 
 // ---------------------------------------------------------------- what no longer matches

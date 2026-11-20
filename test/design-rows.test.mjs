@@ -285,7 +285,7 @@ test("positions under a kept answer: the change is counted and asked about in th
 	await v.pressAsk("Option 2: move up");
 	assert.ok(v.dialog(), "a question is open");
 	const ask = words(v.dialog());
-	assert.match(ask, /The options of `where` touches 1 saved answer\./);
+	assert.match(ask, /The options of “where” touch 1 saved answer\./);
 	assert.match(ask, /stay in the note's records as they are/);
 	assert.equal(v.disk.writes, 4, "nothing is written while it is open");
 	await v.answer("Cancel");
@@ -393,8 +393,8 @@ test("a question that names a menu: its button opens the menu block, which lists
 	// a reorder counts the answers kept for BOTH questions
 	await v.pressAsk("Item 1: move down");
 	const ask = words(v.dialog());
-	assert.match(ask, /The options of `morning` touches 1 saved answer\./);
-	assert.match(ask, /The options of `evening` touches 1 saved answer\./);
+	assert.match(ask, /The options of “morning” touch 1 saved answer\./);
+	assert.match(ask, /The options of “evening” touch 1 saved answer\./);
 	await v.answer("Cancel");
 	assert.equal(v.disk.writes, 0);
 	v.close();
@@ -463,15 +463,15 @@ test("a matrix with answers kept: removing or moving an item, or removing an anc
 	assert.equal(v.dialog(), null);
 	assert.equal(v.disk.writes, 2);
 	await v.pressAsk("Item 1: move down");
-	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
+	assert.match(words(v.dialog()), /The items and anchors of “topics” touch 1 saved answer\./);
 	await v.answer("Cancel");
 	assert.equal(v.disk.writes, 2);
 	await v.pressAsk("Item 2: move up");
-	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
+	assert.match(words(v.dialog()), /The items and anchors of “topics” touch 1 saved answer\./);
 	await v.answer("Change");
 	assert.equal(v.disk.writes, 3);
 	await v.pressAsk("Anchor 3: remove");
-	assert.match(words(v.dialog()), /The items and anchors of `topics` touches 1 saved answer\./);
+	assert.match(words(v.dialog()), /The items and anchors of “topics” touch 1 saved answer\./);
 	await v.answer("Change");
 	assert.equal(v.disk.writes, 4);
 	v.close();
