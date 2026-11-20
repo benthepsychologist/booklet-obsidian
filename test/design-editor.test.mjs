@@ -402,7 +402,7 @@ test("an id change that would detach kept entries is asked about in the open, as
 	assert.equal(v.disk.writes, 0, "nothing is written while it is open");
 	const ask = words(v.dialog());
 	assert.match(ask, /12 kept entries/);
-	assert.match(ask, /activity id `log`/);
+	assert.match(ask, /The activity id “log” touches 12 kept entries and 1 saved answer\./);
 	assert.match(ask, /stay in the note's records as they are/);
 	assert.deepEqual([...v.dialog().querySelectorAll("button")].map(words), ["Change", "Cancel"]);
 	assert.match(words(doc.querySelector(".booklet-design-ask p")), /will be changed in the note\. Only its own lines are rewritten\./);
