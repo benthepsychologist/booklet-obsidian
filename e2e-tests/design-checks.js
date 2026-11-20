@@ -3298,9 +3298,10 @@ lang: en
         await shotOk(o, "number-strip");
         // refused: the reason in words, nothing written, the field goes back
         for (const bad of ["many", "1,5"]) {
-          const w = await W(n);
+          const w = await W(n), strip0 = (await state(o)).status;
           await typeLeave(SI("max"), bad); await sleep(400); await idle(o);
           const why = await refusalOf();
+          c.ok((await state(o)).status === strip0, `A: the reason is the red line inside the box; the status strip keeps what it said (${JSON.stringify(strip0)})`);
           c.ok(text(n.file) === t0 && await W(n) === w && /^Not changed\. .max. takes a number, such as 0, 12 or 2\.5\./.test(why || ""), `A: ${JSON.stringify(bad)} in max is refused in words (${JSON.stringify(why)}), nothing is written`);
           c.ok(await value(SI("max")) === "24", `A: and the field goes back to the note's 24 (${await value(SI("max"))})`);
         }
