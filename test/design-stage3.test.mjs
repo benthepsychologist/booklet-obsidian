@@ -202,12 +202,12 @@ test("the other kinds' settings are named in words, with the line's own word aft
 		const out = v.all(".booklet-design-editbox .booklet-design-strip-item").map((e) => [e.getAttribute("data-field"), words(e.querySelector(".booklet-design-strip-label, button[role=switch]"))]);
 		return out;
 	};
-	assert.deepEqual(names("[!number|sleep"), [["id", "Id"], ["min", "Smallest number (min)"], ["max", "Largest number (max)"], ["step", "Step between numbers (step)"], ["each", "Asked for each pick of (each)"]]);
-	assert.deepEqual(names("[!text|noticed]").map((x) => x[1]), ["Id", "Big box (long)", "Asked for each pick of (each)"]);
-	assert.deepEqual(names("[!date|when]").map((x) => x[1]), ["Id", "Asked for each pick of (each)"]);
-	assert.deepEqual(names("[!lines|wins").map((x) => x[1]), ["Id", "Asked for each pick of (each)", "Earlier words offered (earlier)"]);
-	assert.deepEqual(names("[!listen|ep1").map((x) => x[1]), ["Id", "Seconds left that count as done (left)"]);
-	assert.deepEqual(names("[!widget|body").map((x) => x[1]), ["Id", "Only shown, not answered (readonly)", "Show what each part says (describe)", "Asked for each pick of (each)", "Earlier words offered (earlier)"]);
+	assert.deepEqual(names("[!number|sleep"), [["id", "Id"], ["min", "Smallest number (min)"], ["max", "Largest number (max)"], ["step", "Step between numbers (step)"], ["each", "Ask once for each pick in (each)"]]);
+	assert.deepEqual(names("[!text|noticed]").map((x) => x[1]), ["Id", "Big box (long)", "Ask once for each pick in (each)"]);
+	assert.deepEqual(names("[!date|when]").map((x) => x[1]), ["Id", "Ask once for each pick in (each)"]);
+	assert.deepEqual(names("[!lines|wins").map((x) => x[1]), ["Id", "Ask once for each pick in (each)", "How many earlier answers to suggest (earlier)"]);
+	assert.deepEqual(names("[!listen|ep1").map((x) => x[1]), ["Id", "Finished when this many seconds are left (left)"]);
+	assert.deepEqual(names("[!widget|body").map((x) => x[1]), ["Id", "Only shown, not answered (readonly)", "Show what each part says (describe)", "Ask once for each pick in (each)", "How many earlier answers to suggest (earlier)"]);
 	v.close();
 });
 
