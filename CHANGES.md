@@ -2,9 +2,9 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
-## Unreleased (the stage 4 candidate, on top of the stage 3 candidate)
+## 1.7.0-beta.1, stage 4 of the Design view
 
-**The Design view's box now has controls for the reading aids and the structure pieces.** Nothing here is released; the version is still 1.6.0.
+**The Design view's box now has controls for the reading aids and the structure pieces.** This is a pre-release for trying in BRAT; the version Obsidian's directory shows is still 1.6.0.
 
 - **A *Starts folded* switch** on a callout and on a group writes or takes off the `-` after the bracket, and nothing else. A callout written with a `+` says so in words (it starts open and can fold) and the switch turns the `+` into a `-`.
 - **Hint and Solution fields under a question.** A question's box shows a title, a words box and a *Starts folded* switch for its hint and for its solution, with *Remove*, or *Add a hint* and *Add a solution* where there is none. They read and write the lines under the question and leave every other byte as it was, including a solution that stands right under the question's words with no blank line (adding a hint there and taking it out again gives the same lines) and a hint inside a group (the group's own `>` marks stay). A hint or solution that holds a list, a second callout or any other more than words keeps its title and switch, and its body stays in the Markdown with the reason in words. The reference linter warns about a hint or a solution written open, so turning the switch off draws that warning.
@@ -16,9 +16,9 @@ This file lists what changed in each release of the plugin. It did not exist bef
 - **As the rest of the box.** Each change is one write and one step of Undo, the kept-data guard asks where a change touches kept answers, and every control is at least 44 px on a phone. A drop-down is a field to the view, so Ctrl or Cmd with Z while a drop-down has the focus is left to the drop-down; after Esc it is the view's Undo.
 - **Tests.** Real-Obsidian checks 86 to 95 (the fold switch, the pickers, the copy list, hint and solution, the notice, a picture, a figure, a citation, focus and Undo, and the phone), each also running the reference linter on the result, and the unit tests in `test/design-stage4*.test.mjs`.
 
-## Unreleased (the stage 3 candidate)
+## 1.7.0-beta.1, stage 3 of the Design view
 
-**The Design view's box now has controls for the other kinds of question, and a small formatting bar for words.** Nothing here is released; the version is still 1.6.0.
+**The Design view's box now has controls for the other kinds of question, and a small formatting bar for words.** This is a pre-release for trying in BRAT; the version Obsidian's directory shows is still 1.6.0.
 
 - **A scale's anchors are rows.** Each anchor shows its number (the answer that is kept) and its words, with *Move up*, *Move down* and *Remove*, and an *Add an anchor* button. A word typed is applied when you leave it; each change is one write and one step of Undo. Rewording, renumbering or removing the anchor of an answer that is kept asks first; moving an anchor, or changing one nobody answered, asks nothing. A list that did not start at 1 keeps its blank line.
 - **Number, text, date and lines have named settings.** *Smallest number*, *Largest number*, *Step*, *Big box*, *Earlier* and the rest are named in words, with the line's own word after. A value the format would not read (letters in a number, a decimal in a count of days) is refused: the status strip says why, the field goes back to what the note has, and nothing is written. -2 and 0.5 are accepted.
