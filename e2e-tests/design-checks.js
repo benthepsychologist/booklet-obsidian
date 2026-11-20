@@ -1,4 +1,4 @@
-// Checks 64 to 95 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar; 86 to 95 are stage 4, the fold switch, the pickers, hint and solution, notice, picture, figure and citation): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 97 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar; 86 to 95 are stage 4, the fold switch, the pickers, hint and solution, notice, picture, figure and citation): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
@@ -47,6 +47,7 @@
 //   93 a citation's five fields, a note outside the source pattern, a mark with no note
 //   94 focus and Undo: a drop-down, a text field and a words box changed, then the app's Undo (button, and key) and Redo
 //   95 the stage 4 controls on a phone: every control 44 x 44 px or more, no sideways scroll
+//   96 an element hidden with the hidden attribute is not drawn (the sentence about a + under a hint; a sweep of every box)   97 a notice opens with the focus on its License
 //   (86 to 93 also run the reference linter on each result and require nothing new but what the check says is expected)
 //   77 the view stands still: with long titles, at a wide pane, at about 740 px and at 390 px, a press on a block and the block opening and closing change neither the header, the trail
 //      nor the page's place; the status line is a strip in the flow of one fixed height that never covers the page, so a message moves nothing
