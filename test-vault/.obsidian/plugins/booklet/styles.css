@@ -19,6 +19,14 @@
 	--booklet-block-edge: var(--size-2-3);
 }
 
+/* An element the plugin hides with the `hidden` attribute is hidden, whatever display its class gives it. The browser's own rule for
+   [hidden] is weaker than any class that sets display (a flex row, a grid), so a sentence meant to be shown only sometimes stayed
+   on screen (the note about a "+" under every hint). The attribute is written twice only to be stronger than the rules that scope a
+   display to a state of the view (.is-phone and the like); it is the only thing the doubling is for. */
+:is(.booklet-design, .booklet-view, .booklet-blocks, .booklet-settings, .booklet-sample) [hidden][hidden] {
+	display: none;
+}
+
 /* the probe callout drawn for a moment to read Obsidian's callout colour (see calloutColourIsTriplet in reading.ts) */
 .booklet-probe {
 	display: none;

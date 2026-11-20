@@ -4795,7 +4795,86 @@ lang: en
     return c;
   }
 
+  /* ================= CHECK 96 ================= */
+  async function check96() {
+    const c = new Check(96, "an element the plugin hides stays hidden, in the real app: the sentence about a + under a hint and a solution (\"It is written with a +, so it can fold and starts open...\") is not visible when the callout is written with a -, is visible when it is written with a +, and follows the Starts folded switch (visibility is computed from getBoundingClientRect and offsetParent, not from the attribute); and a sweep of every element that carries the hidden attribute in the Design view, with a box open of each kind (a tip, a note written with a +, a group, a question with hint and solution, a page's box with its pickers, an activity's, a notice, a copy button, a picture, a figure, a citation), finds none that is drawn (a class that gives an element a display, such as the flex row of that sentence, must not beat the attribute)");
+    const table = tableOf();
+    await withApp("c96", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, open, openGroup, pageBox, K, press, run, scene, closeBox, say } = k;
+      const errs0 = consoleReport.length;
+      const PLUS = kind => `${DV} .booklet-design-editbox [data-help='${kind}'] .booklet-design-help-plus`;
+      /** Drawn, as a person sees it: it has a layout parent and a box with a size (null: there is no such element). */
+      const drawn = sel => o.evaluate(s => { const e = document.querySelector(s); if (!e) return null; const r = e.getBoundingClientRect(); return !!e.offsetParent && r.width > 0 && r.height > 0; }, sel);
+      const attr = sel => o.evaluate(s => { const e = document.querySelector(s); return e ? e.hidden : null; }, sel);
+      let swept = 0, hiddenSeen = 0;
+      /** Every element of the Design view that has the hidden attribute: none may be drawn (display other than none, or a box with a size). */
+      const sweep = async label => {
+        const r = await o.evaluate(dv => {
+          const all = [...document.querySelectorAll(dv + " [hidden]")];
+          const bad = all.filter(e => { const b = e.getBoundingClientRect(); return getComputedStyle(e).display !== "none" || !!e.offsetParent || b.width > 0 || b.height > 0; });
+          return { n: all.length, bad: bad.map(e => `${e.tagName.toLowerCase()}.${String(e.className).replace(/\s+/g, ".")} display ${getComputedStyle(e).display}: ${(e.textContent || "").trim().slice(0, 40)}`) };
+        }, DV);
+        swept++; hiddenSeen += r.n;
+        c.ok(r.bad.length === 0, `${label}: of ${r.n} elements with the hidden attribute in the view none is drawn${r.bad.length ? " (DRAWN: " + JSON.stringify(r.bad) + ")" : ""}`);
+      };
+      await scene("A. the sentence about a +, under a hint and a solution", async () => {
+        const n = await start("helpfolds", ["activity", "[!activity|a]"]); const r = run(n), t0 = n.t;
+        await open(n, "[!text|folded long]");
+        for (const kind of ["hint", "solution"]) {
+          c.ok(await attr(PLUS(kind)) === true && await drawn(PLUS(kind)) === false, `A: written with a -, the ${kind}'s sentence about a + is in the box and not drawn (hidden attribute ${await attr(PLUS(kind))}, drawn ${await drawn(PLUS(kind))})`);
+        }
+        await sweep("A, a question with a folded hint and solution");
+        await closeBox();
+        await open(n, "[!text|plus long]");
+        for (const kind of ["hint", "solution"]) {
+          const txt = (await o.page.locator(PLUS(kind)).textContent() || "").trim();
+          c.ok(await attr(PLUS(kind)) === false && await drawn(PLUS(kind)) === true && txt === say("fold.plus"), `A: written with a +, the ${kind}'s sentence is drawn and says ${JSON.stringify(txt.slice(0, 50))}...`);
+        }
+        await sweep("A, a question with an open (+) hint and solution");
+        await r.step("A: the + hint's switch pressed: the + becomes a -", () => press(K("hint-fold")), sub(t0, "> [!hint]+ Hint", "> [!hint]- Hint"));
+        c.ok(await drawn(PLUS("hint")) === false && await drawn(PLUS("solution")) === true, `A: and the hint's sentence goes (drawn ${await drawn(PLUS("hint"))}) while the solution's stays (drawn ${await drawn(PLUS("solution"))})`);
+        await r.step("A: the + solution's switch pressed too", () => press(K("solution-fold")), sub(text(n.file), "> [!solution]+ Model answer", "> [!solution]- Model answer"));
+        c.ok(await drawn(PLUS("hint")) === false && await drawn(PLUS("solution")) === false, "A: and the solution's sentence goes too");
+        await r.unwind("A");
+        c.ok(await drawn(PLUS("hint")) === true && await drawn(PLUS("solution")) === true, `A: after the Undos both sentences are drawn again (hint ${await drawn(PLUS("hint"))}, solution ${await drawn(PLUS("solution"))})`);
+        await closeBox();
+        const m = await start("folds", ["activity", "[!activity|a]"]);
+        await open(m, "[!text|q long] Why?");
+        c.ok(await attr(PLUS("solution")) === true && await drawn(PLUS("solution")) === false, "A: a solution straight under its question's words, written with a -, does not draw the sentence either");
+        await closeBox();
+      });
+      await scene("B. the sweep, with a box open of each kind", async () => {
+        const n = await start("folds", ["activity", "[!activity|a]"]);
+        await sweep("B, nothing open");
+        await open(n, "[!tip]- A folded tip", "callout"); await sweep("B, a folded tip"); await closeBox();
+        await open(n, "[!note]+ An open note", "callout"); await sweep("B, a note written with a +"); await closeBox();
+        await open(n, "[!note] A plain note", "callout"); await sweep("B, a plain note"); await closeBox();
+        await openGroup(n, "[!group] Step one"); await sweep("B, a group"); await closeBox();
+        await open(n, "[!choice|bare] A bare question?"); await sweep("B, a question with no hint and no solution"); await closeBox();
+        await open(n, "[!choice|lst] A question whose hint is a list?"); await sweep("B, a question whose hint holds more than words"); await closeBox();
+        const s = await start("structure", ["activity", "[!activity|alpha"]);
+        await pageBox(); await sweep("B, an activity's box"); await closeBox();
+        await start("structure", ["page", "[!page|p1"]);
+        await pageBox(); await sweep("B, a page's box"); await closeBox();
+        const t = await start("notice", ["module", "[!module|m]"]);
+        await open(t, "[!notice]", "notice"); await sweep("B, a notice"); await closeBox();
+        const y = await start("copy", ["activity", "[!activity|a]"]);
+        await open(y, "[!copy|go", "callout"); await sweep("B, a copy button"); await closeBox();
+        await open(await start("pictures", ["activity", "[!activity|a]"]), "![The harbour at low water][harbour]", "prose"); await sweep("B, a reference-style picture"); await closeBox();
+        const f = await start("figures", ["activity", "[!activity|a]"]);
+        await open(f, "Here is the cycle", "prose"); await sweep("B, three figures"); await closeBox();
+        const q = await start("citation", ["activity", "[!activity|a]"]);
+        await open(q, "Most harbours", "prose"); await sweep("B, citations"); await closeBox();
+      });
+      c.ok(swept >= 14 && hiddenSeen > 0, `the sweep ran ${swept} times and met ${hiddenSeen} hidden elements in all (it looked at something)`);
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
   /* END STAGE4 */
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95 };
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95, 96: check96 };
 };

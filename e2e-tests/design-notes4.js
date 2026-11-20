@@ -131,4 +131,18 @@ const citation = name => [
   "> [!module|m end]", "",
 ].join("\n");
 
-module.exports = { folds, structure, copy, notice, pictures, figures, citation };
+/** 96: two questions, one whose hint and solution are written folded (-) and one whose are written open and foldable (+). */
+const helpfolds = name => [
+  ...front(name),
+  "> [!module|m] Week", "",
+  "> [!activity|a] The week", "",
+  "> [!text|folded long] Folded?", "> Say more.", "",
+  "> [!hint]- Hint", "> Look at the moon.", "",
+  "> [!solution]- Model answer", "> Because.", "",
+  "> [!text|plus long] Plus?", "> Say more.", "",
+  "> [!hint]+ Hint", "> Look at the sun.", "",
+  "> [!solution]+ Model answer", "> Because of the sun.", "",
+  "> [!module|m end]", "",
+].join("\n");
+
+module.exports = { helpfolds, folds, structure, copy, notice, pictures, figures, citation };
