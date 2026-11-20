@@ -4877,7 +4877,47 @@ lang: en
     return c;
   }
 
+  /* ================= CHECK 97 ================= */
+  async function check97() {
+    const c = new Check(97, "opening a module's notice in the real app (a press on the notice block): the focus goes to the first field the notice has, the License, and not to a Title that a notice does not take (the focus is on an input named by its data-key, that is drawn); a second module's notice does the same; a notice the fields cannot show (a key said twice) puts the focus on something that is drawn, never on an element that is not; opening and closing writes nothing");
+    const table = tableOf();
+    await withApp("c97", async (o, vault) => {
+      const k = kit4(o, c, vault, table);
+      const { start, W, scene, closeBox, say } = k;
+      const errs0 = consoleReport.length;
+      const where = () => o.evaluate(() => { const a = document.activeElement; if (!a) return null; const r = a.getBoundingClientRect(); return { key: a.getAttribute("data-key"), field: a.getAttribute("data-field"), label: a.getAttribute("aria-label"), tag: a.tagName.toLowerCase(), drawn: !!a.offsetParent && r.width > 0 && r.height > 0, value: a.value === undefined ? null : a.value }; });
+      const openAt = async (n, idx) => { await clickBlock(o, "notice", idx); await sleep(250); };
+      await scene("A. the first module's notice, then the second's", async () => {
+        const n = await start("notice", ["module", "[!module|m]"]);
+        const lines = n.t.split("\n"), first = lines.findIndex(l => l === "> [!notice]"), second = lines.findIndex((l, i) => i > first && l === "> [!notice]");
+        await openAt(n, first);
+        let w = await where();
+        c.ok(!!w && w.key === "notice-license" && w.label === say("notice.license") && w.drawn && w.value === "Free to copy and share.", `A: the focus is on the License input, drawn, with the note's words (${JSON.stringify(w)})`);
+        c.ok(!!w && w.field !== "title", "A: and it is not the Title field");
+        await closeBox();
+        await goNav(o, "module", lineOf(n.t, "[!module|n]"));
+        await openAt(n, second);
+        w = await where();
+        c.ok(!!w && w.key === "notice-license" && w.drawn && w.value === "Share alike.", `A: the second module's notice: the focus is on its License too (${JSON.stringify(w)})`);
+        await closeBox();
+        c.ok(text(n.file) === n.t && await W(n) === 0, "A: opening and closing them wrote nothing");
+      });
+      await scene("B. a notice the fields cannot show", async () => {
+        const n = await start("noticeTwice", ["module", "[!module|m]"]);
+        await openAt(n, n.t.split("\n").findIndex(l => l === "> [!notice]"));
+        const w = await where();
+        c.ok(!!w && w.drawn, `B: the focus is on something drawn (${JSON.stringify(w)})`);
+        c.ok(await o.page.locator(`${DV} .booklet-design-editbox [data-key^='notice-']`).count() === 0, "B: and the box has no notice field");
+        await closeBox();
+        c.ok(text(n.file) === n.t && await W(n) === 0, "B: opening and closing it wrote nothing");
+      });
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
   /* END STAGE4 */
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95, 96: check96 };
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95, 96: check96, 97: check97 };
 };

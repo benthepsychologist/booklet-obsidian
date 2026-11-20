@@ -145,4 +145,14 @@ const helpfolds = name => [
   "> [!module|m end]", "",
 ].join("\n");
 
-module.exports = { helpfolds, folds, structure, copy, notice, pictures, figures, citation };
+/** 97: a module's notice that says a key twice (the fields cannot show it faithfully, so it has none and its Markdown is how it is edited). */
+const noticeTwice = name => [
+  ...front(name),
+  "> [!module|m] Week", "",
+  "> [!notice]", "> license: Free to copy.", "> license: Or not.", "",
+  "> [!activity|a] The week", "",
+  "Words of the week.", "",
+  "> [!module|m end]", "",
+].join("\n");
+
+module.exports = { noticeTwice, helpfolds, folds, structure, copy, notice, pictures, figures, citation };

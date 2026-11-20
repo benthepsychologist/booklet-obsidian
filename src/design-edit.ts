@@ -701,8 +701,15 @@ export class EditorBox {
 		this.area.focus();
 	}
 
-	/** The focus goes to the block's first words (its title, else its description), or to the Markdown when nothing else of it can be edited in place. */
+	/**
+	 * The focus goes to the block's first words (its title, else its description), or to the Markdown when nothing else of it can be edited in place.
+	 * A module's notice takes no words of its own (the Title every Booklet line has is not one it reads): the focus goes to its first field.
+	 */
 	focus(): void {
+		if (this.ed.kind === "notice") {
+			const field = this.noticeFieldsHost.querySelector<HTMLElement>("input");
+			if (field) return field.focus();
+		}
 		const first = this.fields.find((f) => f.part === "words");
 		if (first) return first.el.focus();
 		this.md.open = true;
