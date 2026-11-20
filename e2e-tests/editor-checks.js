@@ -366,14 +366,14 @@ async function guards(o, vault) {
   const fkey = the(o, ".booklet-blocks-fields input[data-key='fkey-kind']");
   await fkey.fill("group"); await fkey.press("Enter");
   t = await modalText();
-  ok(/5 rows/.test(t) && /field `kind`/.test(t), "renaming a field 5 rows use asks first: " + t);
+  ok(/5 rows/.test(t) && /field “kind”/.test(t), "renaming a field 5 rows use asks first: " + t);
   await shot(o, "guard-field");
   await answer("Cancel");
   eq(await doc(o), HELD, "Cancel leaves the declaration as it was");
   await waitPanel(o, () => !!document.querySelector(".booklet-blocks-fields button[data-key='frm-done']"));
   await the(o, ".booklet-blocks-fields button[data-key='frm-done']").click();
   t = await modalText();
-  ok(/5 rows/.test(t) && /field `done`/.test(t), "removing a field 5 rows hold asks first: " + t);
+  ok(/5 rows/.test(t) && /field “done”/.test(t), "removing a field 5 rows hold asks first: " + t);
   await answer("Change");
   const afterField = await doc(o);
   ok(!/"done": "Done"/.test(afterField) && /"kind": "Kind"/.test(afterField), "Change takes the field out of the declaration");
