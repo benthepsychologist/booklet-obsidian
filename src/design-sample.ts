@@ -11,6 +11,10 @@
  *   3. The host it draws with is a stand-in for the Booklet view: it keeps no answer, writes nothing, and lists every call that would have
  *      changed something in `writes`. This is the guard that holds when the other two do not (a test calls it directly).
  *
+ * A `listen` is drawn by the reader's own `drawListen` over a `Listens` (listen-view.ts) built on an io that holds nothing and writes nothing,
+ * and its media is said as plain words, its name and its address (`mediaWords`): no player, no Play slot, nothing loaded or read from the vault.
+ * A question asked for each pick is drawn once, as one copy of it (see `drawInertQuestion`).
+ *
  * A query's rows (`drawInertQuery`) are drawn by the reader's own `drawQueryPlan`, with a host that has no row actions (so rows are plain
  * values), no sort or filter control (that is `mountQuery`, which is not used), and a link that opens nothing. The same wrapper holds it.
  *
@@ -20,8 +24,9 @@
  * words, `hasRemoteMedia`). A matrix's resize observer is disconnected with the drawing.
  */
 import { MarkdownRenderer, type App, type Component } from "obsidian";
-import { hasRemoteMedia, parseBooklet, planQuery, type Activity, type Booklet, type Question, type QuerySegment, type RecordsRead } from "./core";
+import { askedOfRows, hasRemoteMedia, mediaWords, parseBooklet, planQuery, type Activity, type Booklet, type Question, type QuerySegment, type RecordsRead } from "./core";
 import { drawQueryPlan, type QueryHost } from "./query-view";
+import { Listens, type ListenIO } from "./listen-view";
 import { drawQuestion, type QuestionHost, type Target } from "./questions";
 
 /** A call the drawing made that, in a real view, would have changed an answer or held typed words. */
@@ -90,9 +95,23 @@ function inertWrapper(into: HTMLElement, triplet: boolean | undefined, controls:
 /** The stand-in host: it answers from `shown`, keeps nothing, and lists what it was asked to write. */
 function standIn(o: InertOptions, writes: AttemptedWrite[]): QuestionHost {
 	const render = (md: string, el: HTMLElement): void => renderWords(o.app, o.owner, md, el, o.sourcePath);
+	// the reader's follower of a `listen`, over an io that holds no answer, has no note, writes nothing and never asks for a drawing; no media
+	// event reaches it (the canvas draws no player), so it makes no timer and no observer, and what it noted is let go of with the drawing
+	const io: ListenIO = {
+		app: () => o.app,
+		path: () => null,
+		held: () => undefined,
+		wrong: () => false,
+		write: (_t, q, value) => void writes.push({ method: "answer", id: q.id, value }),
+		idle: () => {},
+	};
+	const listens = new Listens(io);
+	o.owner.register(() => listens.reset());
 	return {
 		md: render,
 		mdBlock: render,
+		// a listen's media is its name, and its address when it has one, as plain words: never a player, never loaded, never read from the vault
+		media: (markdown, el) => el.setText(mediaWords(markdown)),
 		answerOf: () => o.shown,
 		answer: (_t, q, value) => void writes.push({ method: "answer", id: q.id, value }),
 		typed: (_t, q, value) => void writes.push({ method: "typed", id: q.id, value }),
@@ -108,27 +127,28 @@ function standIn(o: InertOptions, writes: AttemptedWrite[]): QuestionHost {
 		uid: () => `booklet-sample-${++uids}`,
 		wrongOf: () => null,
 		redrawSoon: () => {},
-		// only a `listen` question touches this, and a listen is never drawn here (a labelled card in this beta)
-		listens: null as never,
+		listens,
 		own: (dispose) => o.owner.register(dispose),
 	};
 }
 
-/** The question kinds this module will not draw even if asked: they need more of a host than a stand-in has. */
-const refused = (q: Question): boolean => q.kind === "listen" || q.each !== null;
-
 /**
  * Draws one question, as a reader sees it with nothing answered, with nothing live. Gives null (and draws nothing) when the question is
- * one of the two this beta leaves as a card (`listen`, and a question asked for each pick), or when the drawing code draws nothing for it.
- * A `widget` is drawn by the reader's engines (engines.ts), locked, with the stand-in host.
+ * asked for each row of a data block (`askedOfRows`: the reader draws it in the rows of a view of the block, with acts a stand-in does not
+ * have, and nothing where it is written), or when the drawing code draws nothing for it. A `widget` is drawn by the reader's engines
+ * (engines.ts), a `listen` by the reader's `drawListen` with its media as words, each locked, with the stand-in host.
+ *
+ * A question asked for each pick of another is drawn ONCE, as the reader draws a copy of it without the pick's heading: the reader draws
+ * nothing at all until something is picked (its box is hidden, each-question.ts), and the canvas has no pick, so a hidden block would be
+ * an empty place on the page. What is drawn is the question's own words and controls, off, with nothing in them.
  */
 export function drawInertQuestion(o: InertOptions, activity: Activity, question: Question): InertDrawing | null {
-	if (refused(question)) return null;
+	if (askedOfRows(activity, question)) return null;
 	const writes: AttemptedWrite[] = [];
 	const host = standIn(o, writes);
 	const card = inertWrapper(o.into, o.triplet, CONTROLS, "booklet-sample-question");
 	const target: Target = { scope: activity.scope, activity };
-	drawQuestion(host, card, target, question, true);
+	drawQuestion(host, card, target, question.each === null ? question : { ...question, each: null }, true);
 	if (!card.childElementCount) {
 		card.remove();
 		return null;

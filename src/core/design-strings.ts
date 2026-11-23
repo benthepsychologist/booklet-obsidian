@@ -227,7 +227,7 @@ export const DESIGN_STRINGS = {
 	"card.pages.other": { en: "{n} pages", es: "{n} páginas", fr: "{n} pages" },
 	"card.questions.one": { en: "{n} question", es: "{n} pregunta", fr: "{n} question" },
 	"card.questions.other": { en: "{n} questions", es: "{n} preguntas", fr: "{n} questions" },
-	"draw.later.card": { en: "This is drawn in a later beta.", es: "Esto se mostrará en una versión beta posterior.", fr: "Ceci sera affiché dans une version bêta ultérieure." },
+	"draw.rows.card": { en: "This question is asked in the rows of a view of its data block, so it is not drawn here.", es: "Esta pregunta se hace en las filas de una vista de su bloque de datos, así que no se muestra aquí.", fr: "Cette question est posée dans les lignes d’une vue de son bloc de données ; elle n’est donc pas affichée ici." },
 	"draw.remote.card": { en: "This points at media on another site, so it is not drawn here and nothing is fetched.", es: "Esto apunta a contenido multimedia de otro sitio, así que no se muestra aquí y no se descarga nada.", fr: "Ceci renvoie à un média d’un autre site ; il n’est donc pas affiché ici et rien n’est récupéré." },
 	"slot.add": { en: "Add here", es: "Agregar aquí", fr: "Ajouter ici" },
 	"slot.child.module": { en: "Add a module", es: "Agregar un módulo", fr: "Ajouter un module" },

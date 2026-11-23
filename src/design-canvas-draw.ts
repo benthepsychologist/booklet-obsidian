@@ -2,7 +2,8 @@
  * The Design view's canvas: ONE PAGE of the booklet drawn as the reader sees it, with a thin "+" between its blocks. Plain functions over
  * a context the view hands in; nothing here owns state or writes the note (every press goes back to the view through `PageCtx`).
  *
- *   drawBlockBody  one block drawn as a reader sees it: words by Obsidian's renderer, a question (a widget among them), the rows of a query
+ *   drawBlockBody  one block drawn as a reader sees it: words by Obsidian's renderer, a question (a widget, a listen and a question asked for
+ *                  each pick among them), the rows of a query
  *                  or a reading callout inert (design-sample.ts), and every block the view does not draw yet as a friendly CARD (its picture,
  *                  its kind in words, one line of detail), never as Markdown code. The two exceptions are text the reader cannot read, which is shown exactly as it is in the note, and the
  *                  records, which are named and left alone.
@@ -14,9 +15,9 @@
  */
 import type { App, Component } from "obsidian";
 import {
+	askedOfRows,
 	DRAWN_QUESTIONS,
 	hasRemoteMedia,
-	isLaterKind,
 	levelOf,
 	moveTargets,
 	nameOf,
@@ -99,10 +100,10 @@ const viewOf = (lines: readonly string[]): string => lines.map((l) => /^\s*as:\s
 const joined = (...parts: readonly (string | null | undefined)[]): string => parts.filter((p): p is string => !!p && p.trim() !== "").join(" · ");
 
 /** The card of a block the view does not draw as a reader sees it. */
-function cardOf(f: BlockFacts, why: "plain" | "later" | "remote"): CardSpec {
+function cardOf(f: BlockFacts, why: "plain" | "rows" | "remote"): CardSpec {
 	const first = clip(plainOf(f.lines[0] ?? ""), 60);
 	const named = joined(f.label.trim() || undefined, f.id ?? undefined);
-	const note = why === "later" ? ui("draw.later.card") : why === "remote" ? ui("draw.remote.card") : "";
+	const note = why === "rows" ? ui("draw.rows.card") : why === "remote" ? ui("draw.remote.card") : "";
 	switch (f.kind) {
 		case "question":
 			return { art: artOf({ file: QUESTION_PIECE[f.detail.toLowerCase()] ?? "", group: "questions" }), icons: [], kind: ui("kind.question"), detail: joined(f.detail, named), note };
@@ -176,8 +177,8 @@ export function drawBlockBody(d: Drawer, owner: Component, into: HTMLElement, f:
 				if (drawInertQuestion(inertOf(d, owner, host), q.activity, q.question)) return;
 				host.remove();
 			}
-			const later = isLaterKind(f.detail) || (q?.question.each ?? null) !== null;
-			drawCardBody(into, cardOf(f, later ? "later" : "plain"));
+			// the only question left a card is one asked for each row of a data block: a view of the block draws it, in its rows
+			drawCardBody(into, cardOf(f, q && askedOfRows(q.activity, q.question) ? "rows" : "plain"));
 			return;
 		}
 		case "callout": {

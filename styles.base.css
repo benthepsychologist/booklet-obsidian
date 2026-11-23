@@ -3092,6 +3092,11 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	width: 100%;
 }
 
+/* a listen drawn in the Design view says its media as words (its name, its address): a long address breaks rather than runs off a narrow pane */
+.booklet-sample .booklet-listen-media {
+	overflow-wrap: anywhere;
+}
+
 /* the "Done" box and where the reader left off, on one line that wraps at a large zoom */
 .booklet-listen-row {
 	display: flex;

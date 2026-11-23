@@ -141,17 +141,21 @@ test("a regions widget is drawn without a figure, as the reader draws it: its wo
 	v.close();
 });
 
-test("a widget whose block the note does not carry draws the reader's own line, and a widget asked for each pick stays the card it was", () => {
+test("a widget whose block the note does not carry draws the reader's own line", () => {
 	const v = open();
 	const lost = questionBlock(v, "lost");
 	assert.match(words(lost), /This widget needs a widget block the note does not carry \(\^nothing-here\)\./);
 	assert.equal(lost.querySelector(".booklet-design-friendly"), null);
 	v.close();
+});
+
+test("a widget asked for each pick is drawn once, as the reader draws a copy of it, and no longer a card that says a later beta draws it (stage 5, second half)", () => {
 	const each = openDesign(bookletAround(["> [!activity|a] A", "", "> [!choice|src] Pick", "- [ ] One", "", GRID.replace("[!widget|w-id]", "[!widget|w-id each:src]"), ""].join("\n")));
 	each.go("A");
-	const box = each.all('.booklet-design-block[data-kind="question"]').find((b) => /w-id/.test(b.textContent));
-	assert.equal(box.querySelector(".booklet-sample"), null, "not drawn");
-	assert.match(words(box.querySelector(".booklet-design-friendly-note")), /later beta/, "a card that says so (the follow-up kind is drawn in a later stage)");
+	const box = questionBlock(each, "w-id");
+	assert.ok(box?.querySelector(".booklet-sample[inert] button.booklet-item"), "drawn, with its items");
+	assert.equal(box.querySelector(".booklet-design-friendly"), null, "not a card");
+	assert.doesNotMatch(words(box), /later beta/);
 	each.close();
 });
 

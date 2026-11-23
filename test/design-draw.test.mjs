@@ -113,21 +113,18 @@ test("every question kind the drawing code has is drawn on its page as a reader 
 	v.close();
 });
 
-test("listen and a question asked for each pick stay friendly cards that say a later beta draws them, and show no Markdown", () => {
+test("a listen and a question asked for each pick are drawn, as a reader sees them, and say nothing of a later beta (stage 5; test/design-stage5-listen.test.mjs holds the rest)", () => {
 	const v = openDesign(KINDS);
 	v.go("Every kind");
-	for (const [id, line] of [["lst", "[!listen|lst]"], ["eachq", "[!text|eachq"]]) {
-		const box = v.block("question", line);
-		assert.equal(box.querySelector(".booklet-sample"), null, `${id}: nothing drawn`);
-		assert.equal(box.querySelector(".booklet-question, input, textarea, button.booklet-choice"), null, `${id}: no question drawn, no field, no option`);
-		const card = box.querySelector(".booklet-design-friendly");
-		assert.ok(card, `${id}: a card`);
-		assert.equal(words(card.querySelector(".booklet-design-friendly-kind")), "Question");
-		assert.match(words(card.querySelector(".booklet-design-friendly-detail")), new RegExp(id));
-		assert.match(words(card.querySelector(".booklet-design-friendly-note")), /drawn in a later beta/);
-		assert.ok(card.querySelector(".booklet-design-friendly-art svg"), `${id}: a picture`);
-		assert.equal(box.querySelector("pre"), null, `${id}: never Markdown`);
+	for (const id of ["lst", "eachq"]) {
+		const box = inertOf(v, id);
+		assert.ok(box?.querySelector(":scope > .booklet-design-drawn > .booklet-sample[inert]"), `${id}: drawn inside the inert wrapper`);
+		assert.equal(box.querySelector(".booklet-design-friendly, pre"), null, `${id}: no card, never Markdown`);
+		assert.doesNotMatch(words(box), /later beta/);
+		assert.ok(controls(box).every((c) => c.disabled), `${id}: every control is off`);
 	}
+	assert.equal(words(inertOf(v, "lst").querySelector(".booklet-listen-media")), "The recording (https://media.example.org/r.m4a)", "the media is its words and address, never a player");
+	assert.equal(inertOf(v, "lst").querySelector("audio, video, iframe, img, a"), null);
 	v.close();
 });
 

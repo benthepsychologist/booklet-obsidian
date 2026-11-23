@@ -70,21 +70,20 @@ test("a listing carries each piece's hotkey letters from the key tree, and where
 test("what a sample is: a question drawn inert, a reading callout rendered, everything else a labelled card", () => {
 	const by = (file) => sampleOf(piece(file));
 	for (const f of ["Q - choice.md", "Q - date.md", "Q - lines.md", "Q - matrix.md", "Q - multi.md", "Q - multi (own options).md", "Q - multi (from a menu).md", "Q - number.md", "Q - scale.md", "Q - text.md", "Q - text (long).md"]) assert.equal(by(f), "question", f);
-	// a listen, a widget and a lone menu stay cards in the Add tab (Ben: a later beta draws a listen; a widget of the note is drawn on the canvas, its sample here is its picture)
+	// a listen, a widget and a lone menu stay cards in the Add tab (the canvas draws a listen and a widget of the note; their samples here are their pictures)
 	for (const f of ["Q - listen.md", "Q - widget (grid).md", "Q - menu (shared list).md"]) assert.equal(by(f), "card", f);
 	for (const f of ["Reading - note.md", "Reading - tip.md", "Reading - warning.md", "Reading - example.md", "Reading - hint.md", "Reading - solution.md", "Reading - question.md", "Reading - quote.md", "Reading - law.md", "Reading - diff.md", "Reading - opinion.md", "Reading - citation.md"]) assert.equal(by(f), "reading", f);
 	// media, groups and a copy button are cards: a sample fetches nothing
 	for (const f of ["Reading - image.md", "Reading - figure (embed).md", "Reading - group (folded).md", "Reading - group (steps).md", "Reading - copy button.md"]) assert.equal(by(f), "card", f);
 	for (const p of PIECES.filter((x) => ["structure", "data", "views"].includes(x.group))) assert.equal(sampleOf(p), "card", p.file);
 	assert.equal(sampleOf({ ...WORDS_PIECE, kinds: [] }), "reading");
-	// every sample's text holds no remote media: fixed local content only (a listen's address is on another site, and it is a card)
+	// every sample's text holds no remote media: fixed local content only (a listen's address is on another site, and its sample is a card)
 	for (const p of PIECES) if (sampleOf(p) !== "card") assert.equal(hasRemoteMedia(p.text), false, p.file);
 });
 
-test("how a block of the tree is drawn: the question kinds the drawing code has (a widget among them), reading callouts, a view of data; the rest are cards", () => {
+test("how a block of the tree is drawn: the question kinds the drawing code has (a widget and a listen among them), reading callouts, a view of data; the rest are cards", () => {
 	const draw = (kind, detail) => blockDrawing({ kind, detail });
-	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget"]) assert.equal(draw("question", k), "question", k);
-	assert.equal(draw("question", "listen"), "card");
+	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget", "listen"]) assert.equal(draw("question", k), "question", k);
 	assert.equal(draw("query", "booklet query"), "view");
 	for (const k of ["tip", "note", "hint", "warning", "diff"]) assert.equal(draw("callout", k), "reading", k);
 	assert.equal(draw("callout", "copy"), "card");
