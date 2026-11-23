@@ -2,6 +2,22 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
+## Unreleased, stage 5 of the Design view
+
+**The Design view now draws a widget, the six kinds of view, a listen and a question asked for each pick as the Booklet view draws them, where it showed a card before.** Nothing in such a drawing can be pressed, typed in or played, and nothing a reader kept is shown in it.
+
+- **A widget is drawn.** A grid of words (`grid-select`) shows its heading, its four axes, its cells and its items, and a body map (`svg-regions`) shows its places, as buttons that are switched off. The body map has no figure, as in the Booklet view.
+- **The six views are drawn from their data block's rows.** A `table`, `list`, `cards`, `tiles`, `bars` and `line` over a data block show its rows, as the Booklet view shows them. There is no sort or filter control and no row buttons (*Add*, *Remove*), even when the query asks for them. A view of an activity's own entries says "Nothing kept here yet.", never a reader's kept entry. A view of a data block that names a file says the file is not shown, because no file is read there. A view whose source the note does not have is still a card, and it no longer says a later beta draws it.
+- **A listen is drawn, and its media is said in words.** The prompt, the help and the media show as words: the file's name for a local file (`tone.wav`), and the words and the address for a remote embed or a link (`Second episode (https://...)`). Nothing is played, loaded or fetched, no timer starts, and a long address breaks over several lines in a narrow pane. A kept position or "Done" mark is not shown.
+- **A question asked for each pick of another is drawn once,** as one copy of it without a pick's heading (the Booklet view draws nothing until a pick is made, and the canvas has no pick). Its controls are switched off and nothing is typed in them.
+- **One kind of question is still a card:** a question asked for each row of a data block (`each:` naming a data block). A view of that block draws it in its rows, with buttons the canvas does not have. Its card now says so: "This question is asked in the rows of a view of its data block, so it is not drawn here." The Spanish and French lines for it are written but not yet checked by `/localize`.
+- **A data block and a widget block** stay the small *Data block* card.
+- **Looking writes nothing.** Opening a note in the Design view, drawing every page and pressing on every drawn piece leaves the file byte for byte as it was.
+- **A line chart's width observer** is handed to whoever owns the drawing, so a page drawn again does not leave one observer for each earlier drawing. The Booklet view passes none, so nothing changes there.
+- **Not changed:** the *Add* tab still shows a listen and a widget as a small labelled sample.
+- **Tests.** Real-Obsidian checks 98 to 102 (a widget, the six views, a listen with its network requests and timers recorded, each-questions, and the whole canvas at 390 px and in the dark); check 65 updated for what is now drawn; and the unit tests in `test/design-stage5.test.mjs`, `test/design-stage5-listen.test.mjs` and `test/listen-media-words.test.mjs`.
+- **Found while measuring, not changed:** in the light Paper look the line on a records card ("This is the booklet's kept data. This view never writes it.") is 4.09 to 1 against the page, under 4.5. That card is older than stage 5.
+
 ## 1.7.0-beta.2, fixes from the beta.1 walk
 
 **Stage 3 and stage 4 of the Design view are in 1.7.0-beta.1 and 1.7.0-beta.2 together.** This second pre-release, for trying in BRAT, fixes what a walk of beta.1 in Obsidian 1.14.5 found; the version Obsidian's directory shows is still 1.6.0.
