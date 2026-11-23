@@ -286,7 +286,11 @@ export function drawListen(host: QuestionHost, card: HTMLElement, t: Target, q: 
 	box.setAttr("data-booklet-name", plainText(q.title || q.id));
 	const promptId = host.uid();
 	host.md(q.title || q.id, box.createDiv({ cls: "booklet-prompt markdown-rendered", attr: { id: promptId } }));
-	if (q.media) host.mdBlock(q.media, box.createDiv({ cls: "booklet-listen-media markdown-rendered" }));
+	if (q.media) {
+		const part = box.createDiv({ cls: "booklet-listen-media markdown-rendered" });
+		if (host.media) host.media(q.media, part);
+		else host.mdBlock(q.media, part);
+	}
 	let helpId: string | null = null;
 	if (q.help) {
 		helpId = host.uid();
