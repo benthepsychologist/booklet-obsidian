@@ -1,11 +1,11 @@
-// Checks 64 to 97 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar; 86 to 95 are stage 4, the fold switch, the pickers, hint and solution, notice, picture, figure and citation): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
+// Checks 64 to 102 of plugin-check.js (plugin 1.6.0; 78 to 85 are stage 3, the other kinds' controls and the rich-text bar; 86 to 97 are stage 4, the fold switch, the pickers, hint and solution, notice, picture, figure and citation; 98 to 102 are stage 5, the canvas drawing a widget, the six views, a listen and a question asked for each pick): the Design view, in the real Obsidian (not jsdom). Every note is a made-up one of test/fixtures.mjs
 // (written into the check's source vault) or is made up here and written into the check's own copy of the vault; nothing is written into --vault.
 //   64 the three modes: a booklet note opens in the Booklet view; the header buttons go between Markdown, Booklet and Design (all six
 //      moves); the setting "Open booklets in"; an ordinary note stays Markdown; a restart brings the Design view pane back (a pane that
 //      Obsidian has not loaded is a placeholder: loadIfDeferred) and the header icons; no member of the view hidden by the base class
 //   65 the navigator and ONE page at a time, on four notes (Every kind, Check-in, Reading and steps, Cards): the entries with their icons,
-//      levels, indent and colours; every entry draws exactly its page and the crumb follows; the inert drawings; the friendly cards for what
-//      is not drawn; the reading callouts; nothing live: real mouse and keyboard on a drawn question change nothing on disk
+//      levels, indent and colours; every entry draws exactly its page and the crumb follows; the inert drawings (the widgets and the question asked for each pick among them); the friendly cards for what
+//      is still not drawn; the reading callouts; nothing live: real mouse and keyboard on a drawn question change nothing on disk
 //   66 the Add tab (a Common row, four foldable groups, 57 tiles lit and greyed with a reason, a sample on hover only), a "+" first then a tile,
 //      a tile first then a lit "+", a tile dragged to a "+", and the hotkeys with the real keyboard (letters, status line, Enter, Esc, silent
 //      in a field, Obsidian's own keys, a user's own hotkey, the palette commands); the tiles' icon names on this Obsidian
@@ -48,12 +48,18 @@
 //   94 focus and Undo: a drop-down, a text field and a words box changed, then the app's Undo (button, and key) and Redo
 //   95 the stage 4 controls on a phone: every control 44 x 44 px or more, no sideways scroll
 //   96 an element hidden with the hidden attribute is not drawn (the sentence about a + under a hint; a sweep of every box)   97 a notice opens with the focus on its License
+//   98 a widget drawn as the reader draws it (the same words as the reader's page), inert; presses write nothing
+//   99 the six views drawn from a data block's rows: no sort or filter control, no row buttons, the empty line, the quiet line; presses open and write nothing
+//   100 a listen with its media said as words: no media element, no request, no timer, nothing kept shown; presses write nothing
+//   101 a question asked for each pick drawn once; one asked for each row of a data block stays a card with the new line
+//   102 the whole canvas at 390 px and in the dark: nothing sticks out sideways, drawn text keeps its contrast, a long address wraps
 //   (86 to 93 also run the reference linter on each result and require nothing new but what the check says is expected)
 //   77 the view stands still: with long titles, at a wide pane, at about 740 px and at 390 px, a press on a block and the block opening and closing change neither the header, the trail
 //      nor the page's place; the status line is a strip in the flow of one fixed height that never covers the page, so a message moves nothing
 // plugin-check.js hands this file what it shares (the Obsidian launcher, the report, the paths); it returns the check functions.
 const fs = require("fs"), path = require("path"), crypto = require("crypto"), cp = require("child_process");
 const { frames, mobile } = require("./waits");
+const FV = require("./fixture-vault");
 
 module.exports = function designChecks(env) {
   const { withApp, Check, SHOTS, sleep, waitActiveType, launch, opt, SRC_VAULT, consoleReport } = env;
@@ -448,7 +454,7 @@ Words of the activity.
       const callouts = reading ? [...reading.querySelectorAll(".callout")] : [];
       const cardEl = n.querySelector(":scope > .booklet-design-friendly");
       const asw = n.querySelector(":scope > .booklet-design-aswritten");
-      return { kind: n.getAttribute("data-kind"), start: n.getAttribute("data-start"), drawn: !!n.querySelector(":scope > .booklet-design-drawn"), sample: !!s, inert: !!s && s.hasAttribute("inert"), controls: controls.length, live: controls.filter(x => !x.disabled && !x.closest("[inert]")).length, pre: !!n.querySelector(":scope pre"), callouts: callouts.map(c => c.getAttribute("data-callout")), calloutIcons: callouts.filter(c => c.querySelector(".callout-icon svg")).length, rendered: !!(reading && reading.classList.contains("markdown-rendered")), card: cardEl ? { kind: (cardEl.querySelector(".booklet-design-friendly-kind") || {}).textContent, detail: (cardEl.querySelector(".booklet-design-friendly-detail") || {}).textContent || "", note: (cardEl.querySelector(".booklet-design-friendly-note") || {}).textContent || "", art: !!cardEl.querySelector(".booklet-design-friendly-art svg") } : null, written: asw ? { what: (asw.querySelector(".booklet-design-what") || {}).textContent, pre: (asw.querySelector("pre") || {}).textContent } : null };
+      return { kind: n.getAttribute("data-kind"), start: n.getAttribute("data-start"), text: (n.querySelector(":scope > .booklet-design-drawn, :scope > .booklet-design-friendly") || n).textContent.replace(/\s+/g, " ").trim(), drawn: !!n.querySelector(":scope > .booklet-design-drawn"), sample: !!s, inert: !!s && s.hasAttribute("inert"), controls: controls.length, live: controls.filter(x => !x.disabled && !x.closest("[inert]")).length, pre: !!n.querySelector(":scope pre"), callouts: callouts.map(c => c.getAttribute("data-callout")), calloutIcons: callouts.filter(c => c.querySelector(".callout-icon svg")).length, rendered: !!(reading && reading.classList.contains("markdown-rendered")), card: cardEl ? { kind: (cardEl.querySelector(".booklet-design-friendly-kind") || {}).textContent, detail: (cardEl.querySelector(".booklet-design-friendly-detail") || {}).textContent || "", note: (cardEl.querySelector(".booklet-design-friendly-note") || {}).textContent || "", art: !!cardEl.querySelector(".booklet-design-friendly-art svg") } : null, written: asw ? { what: (asw.querySelector(".booklet-design-what") || {}).textContent, pre: (asw.querySelector("pre") || {}).textContent } : null };
     });
   });
   /** Every page of the open note, one navigator press each: `fn` is given the entry and what the page shows; the results come back in order. */
@@ -466,7 +472,7 @@ Words of the activity.
     return out;
   }
   async function check65() {
-    const c = new Check(65, "the navigator and one page at a time, on four notes (Every kind, Check-in, Reading and steps, Cards): entries with icons, levels, indent and colours; every entry draws exactly its page and the crumb follows; the inert drawings; the friendly cards for what is not drawn; reading callouts as callouts; as-written text; nothing live: real mouse and keyboard on a drawn question write nothing; screenshots in light and dark");
+    const c = new Check(65, "the navigator and one page at a time, on four notes (Every kind, Check-in, Reading and steps, Cards): entries with icons, levels, indent and colours; every entry draws exactly its page and the crumb follows; the inert drawings (a widget and a question asked for each pick among them); the friendly cards for what is still not drawn; reading callouts as callouts; as-written text; nothing live: real mouse and keyboard on a drawn question write nothing; screenshots in light and dark");
     await withApp("c65", async (o, vault) => {
       put(vault, CARDS, CARDS_TEXT);
       for (const [rel, tag] of [[EVERY, "every"], [CHECKIN, "checkin"], [READING, "reading"]]) {
@@ -566,8 +572,9 @@ Words of the activity.
         const ci = (await crawl(o, async r => ({ r, blocks: await blocksOf(o) }))).flatMap(x => x.blocks);
         const t = text(path.join(vault, CHECKIN)), lineText = b => t.split("\n")[+b.start];
         const widgets = ci.filter(b => b.kind === "question" && /^> \[!widget/.test(lineText(b))), each = ci.filter(b => b.kind === "question" && /each:/.test(lineText(b)));
-        c.ok(widgets.length === 2 && widgets.every(b => !b.sample && !b.drawn && b.card && /later beta/.test(b.card.note) && !b.pre && b.card.art), `Check-in: the two widgets are friendly cards with a picture, their kind in words and the line "drawn in a later beta", not drawings and not Markdown code: ${JSON.stringify(widgets.map(b => b.card))}`);
-        c.ok(each.length >= 1 && each.every(b => !b.sample && b.card && /later beta/.test(b.card.note) && !b.pre), `Check-in: a question asked for each feeling picked is a friendly card too (${each.length}): ${JSON.stringify(each.map(b => b.card))}`);
+        c.ok(widgets.length === 2 && widgets.every(b => b.sample && b.inert && b.live === 0 && !b.card && !b.pre && b.controls > 0), `Check-in: the two widgets (a body map and a grid of feelings) are drawn as the reader draws them, in an inert drawing with their controls drawn and none live, not as a card and not as Markdown code: ${JSON.stringify(widgets.map(b => ({ controls: b.controls, live: b.live, card: b.card })))}`);
+        c.ok(widgets.every(b => !/later beta/.test(b.text)), `Check-in: nothing in a widget's block says a later beta draws it`);
+        c.ok(each.length >= 1 && each.every(b => b.sample && b.inert && b.live === 0 && !b.card && !b.pre && !/later beta/.test(b.text)), `Check-in: a question asked for each feeling picked is drawn once, as the reader draws one copy of it (an inert drawing, no card, no line about a later beta; ${each.length} such question): ${JSON.stringify(each.map(b => ({ controls: b.controls, card: b.card })))}`);
         await openDesign(o, READING);
         const rs = (await crawl(o, async r => ({ r, blocks: await blocksOf(o) }))).flatMap(x => x.blocks);
         const kinds = rs.flatMap(b => b.callouts), icons = rs.reduce((n, b) => n + b.calloutIcons, 0);
@@ -577,7 +584,8 @@ Words of the activity.
         const as = cd.filter(b => b.written), lt = cd.filter(b => b.kind === "question" && /^> \[!listen/.test(text(path.join(vault, CARDS)).split("\n")[+b.start]));
         c.ok(as.length >= 1 && as.some(b => /> \[!bad/.test(b.written.pre)), `Cards: text the plugin cannot read is shown exactly as written, with a line saying so: ${JSON.stringify(as.map(b => b.written))}`);
         const media = await o.evaluate(() => app.workspace.getLeavesOfType("booklet-design")[0].view.contentEl.querySelectorAll("audio, video, iframe, source").length);
-        c.ok(lt.length === 1 && lt[0].card && /later beta/.test(lt[0].card.note) && !lt[0].pre && media === 0, `Cards: a listen question is a friendly card ("${lt[0] && lt[0].card && lt[0].card.kind}", "${lt[0] && lt[0].card && lt[0].card.note}") with no player: no media element is in the view (${media}) and no Markdown code`);
+        // this note ends with a module end that no module opened, so the reader refuses it whole (parseBooklet is not ok): the view then draws none of its questions, and each stays the plain card it always was
+        c.ok(lt.length === 1 && !lt[0].sample && !lt[0].pre && lt[0].card && lt[0].card.kind === "Question" && lt[0].card.note === "" && !/later beta/.test(lt[0].text) && media === 0, `Cards: in a note the reader refuses (a module end with no module) a listen question is a plain card ("${lt[0] && lt[0].card && lt[0].card.kind}", detail "${lt[0] && lt[0].card && lt[0].card.detail}") that says nothing of a later beta (note line "${lt[0] && lt[0].card && lt[0].card.note}"), with no Markdown code and no player: no audio, video, iframe or source element is in the view (${media}); a listen in a note that can be read is drawn, in check 100`);
         await goNav(o, "activity", lineOf(text(path.join(vault, CARDS)), "[!activity|a"));
         await shot(o, "cards-light");
       }
@@ -4922,5 +4930,418 @@ lang: en
 
   /* END STAGE4 */
 
-  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95, 96: check96, 97: check97 };
+  /* ================= CHECKS 98 TO 102 (stage 5: the canvas draws a widget, the six views, a listen and a question asked for each pick) ================= */
+  // What stage 5 claims, measured in the real app: every drawing is the reader's own, inert, from nothing kept, and a note opened, drawn and pressed on is the
+  // same bytes on disk. The made-up notes are written into each check's own copy of the vault (nothing into --vault); the audio file is the small tone the
+  // other checks use. A "press" is a real mouse press at the middle of a drawn control: pointer events are off in a drawing, so it lands on the block under it.
+  const NOTE5_HEAD = (id, title) => ["---", 'booklet: "0.20"', `id: booklet-test/${id}`, `title: ${title}`, "lang: en", "---", ""].join("\n");
+  const JOBS5 = Array.from({ length: 12 }, (_, i) => ({ job: `Job ${i + 1}`, hrs: i + 1, go: i === 0 ? "Dig plan.md" : "" }));
+  const fence5 = (...lines) => ["```booklet query", ...lines, "```", ""].join("\n");
+  const GRID5 = ["> [!widget|w-id] A grid of words", "> ![[#^w-widget]]", "", "```booklet widget", JSON.stringify({
+    engine: "grid-select", axes: { top: "more of one thing", bottom: "less of it", left: "less of another", right: "more of it" },
+    cells: [{ id: "cell-a", label: "First cell", note: "What the first cell means.", color: "green" }, { id: "cell-b", label: "Second cell", note: "What the second cell means.", color: "teal" }],
+    items: [{ id: "item-a", cell: "cell-a", label: "First item" }, { id: "item-b", cell: "cell-b", label: "Second item" }], copy: { h: "Heading words", p: "Select what fits." } }), "```", "^w-widget", ""].join("\n");
+  const DATA5 = ["> [!data] Data", "", "```booklet data", JSON.stringify({ fields: { job: "Job", hrs: "Hours", go: "Where" }, rows: JOBS5 }), "```", "^jobs", "", "```booklet data rows.json", "```", "^filed", ""].join("\n");
+  const RECORDS5 = ["%%", "> [!records]", "", "```booklet entries a", '{"items": [{ "ts": "2026-11-01T09:00:00Z", "t": "kept words" }]}', "```", "", "```booklet answers", JSON.stringify({ ep1: { pos: 754, done: true }, src: 2, why: [{ pick: 2, a: "kept words" }] }), "```", "%%", ""].join("\n");
+  /** The activity that holds the data block's views: the six kinds with row actions asked for, a view of the activity's own entries, one whose source is not there and one over a file. */
+  const VIEWS5 = ["> [!activity|a repeat] Jobs", "", "Words before the views.", "", "> [!text|t] Words", "",
+    fence5("from: jobs", "as: table", "add", "delete"), fence5("from: jobs", "as: list", "label: job", "value: hrs", "link: go", "add", "delete"), fence5("from: jobs", "as: cards", "add", "delete"),
+    fence5("from: jobs", "as: tiles"), fence5("from: jobs", "as: bars", "value: hrs"), fence5("from: jobs", "as: line", "value: hrs"),
+    fence5("from: a", "as: list"), fence5("from: gone", "as: list"), fence5("from: filed", "as: table")].join("\n");
+  const LONG5 = "https://media.tea-course.invalid/u01/" + "a-very-long-path-segment-".repeat(9) + "episode.mp3";
+  /** The activity that holds the listens: a local file twice (a wiki link, a path), a remote embed, a link and a bare address; with `long` one with a very long address. */
+  const LISTENS5 = long => ["> [!activity|l] Listening", "", "> [!listen|ep1] Episode 1: Foundations", "> ![[tone.wav]]", "> Listen with headphones.", "",
+    "> [!listen|ep2 left:60] Episode 2", "> ![Second episode](https://media.tea-course.invalid/u01/e2.m4a)", "",
+    "> [!listen|ep3] The lecture", "> [Watch the lecture](https://video.tea-course.invalid/watch/overview)", "",
+    "> [!listen|ep4] A bare address", "> https://media.tea-course.invalid/u01/bare.mp3", "",
+    "> [!listen|ep5] A local file written as a path", "> ![The tone](media/tone.wav)", "",
+    ...(long ? ["> [!listen|ep6] An episode with a long address", `> ![A long one](${LONG5})`, ""] : [])].join("\n");
+  /** The activity that holds the questions asked for each pick of another, and one asked for each row of a data block. */
+  const EACH5 = ["> [!activity|e] Asked for each", "", "> [!choice|src] Pick one", "- [ ] One", "- [ ] Two", "", "> [!text|why each:src] Why that one?", "> Say it in a few words.", "",
+    "> [!scale|how each:src] How much?", "", "1. A little", "2. Some", "3. A lot", "", GRID5.replace("[!widget|w-id]", "[!widget|w-id each:src]"), "", "> [!text|rowq each:jobs] Say more about the row", ""].join("\n");
+  const TONE5 = () => fs.readFileSync(FV.asset("Screen reader walk", "media", "tone.wav"));
+  const NAME99 = "Views drawn.booklet.md", NAME100 = "Listen drawn.booklet.md", NAME101 = "Asked for each.booklet.md", NAME102 = "Everything drawn.booklet.md";
+  /** Writes the notes a check needs into its copy of the vault (the files its media and links name too); gives each note's path and bytes. */
+  function write5(vault, which) {
+    put(vault, "tone.wav", TONE5()); put(vault, "media/tone.wav", TONE5()); put(vault, "Dig plan.md", "A made-up note a row of the jobs links to.\n");
+    const notes = {
+      [NAME99]: NOTE5_HEAD("views-drawn", "Views drawn") + "\n" + VIEWS5 + "\n" + DATA5 + "\n" + RECORDS5,
+      [NAME100]: NOTE5_HEAD("listen-drawn", "Listen drawn") + "\n" + LISTENS5(false) + "\n" + RECORDS5,
+      [NAME101]: NOTE5_HEAD("asked-for-each", "Asked for each") + "\n" + EACH5 + "\n" + DATA5 + "\n" + RECORDS5,
+      [NAME102]: NOTE5_HEAD("everything-drawn", "Everything drawn") + "\n" + VIEWS5 + "\n" + LISTENS5(true) + "\n" + EACH5 + "\n" + DATA5 + "\n" + RECORDS5,
+    };
+    const out = {};
+    for (const name of which) { const f = put(vault, name, notes[name]); out[name] = { file: f, bytes: fs.readFileSync(f), text: text(f) }; }
+    return out;
+  }
+  const same5 = (file, bytes) => Buffer.compare(fs.readFileSync(file), bytes) === 0;
+  /** A real press at the middle of each of the first `limit` controls `ctl` of the block at `sel`: it lands on the block (not the drawing), selects it, and Escape shuts what it opened. */
+  async function press5(o, sel, ctl, limit = 40) {
+    const q = (s, k) => k.split(",").map(x => s + " " + x.trim()).join(", ");   // a list of selectors, each one inside the block
+    const n = Math.min(limit, await o.evaluate(([s, k]) => document.querySelectorAll(s).length, [q(sel, ctl)]));
+    const r = { n, pressed: 0, hidden: 0, onDrawing: 0, notSelected: 0 };
+    for (let i = 0; i < n; i++) {
+      const p = await o.evaluate(([k, i]) => {
+        const e = document.querySelectorAll(k)[i]; if (!e) return null;
+        e.scrollIntoView({ block: "center" }); const b = e.getBoundingClientRect(); if (b.width < 1 || b.height < 1) return { hidden: true };
+        const x = b.x + b.width / 2, y = b.y + b.height / 2, hit = document.elementFromPoint(x, y);
+        return { x, y, onDrawing: !!(hit && hit.closest(".booklet-sample")) };
+      }, [q(sel, ctl), i]);
+      if (!p || p.hidden) { r.hidden++; continue; }
+      if (p.onDrawing) r.onDrawing++;
+      await sleep(60); await o.page.mouse.click(p.x, p.y); await sleep(160);
+      const st = await state(o);
+      if (!st.selected || !st.editBox) r.notSelected++;   // a press on a block selects it and opens it in place
+      r.pressed++;
+      await o.page.keyboard.press("Escape"); await sleep(160);
+    }
+    return r;
+  }
+  /** Every request the page makes from now on (the recorder is checked against a request it makes itself). */
+  function record5(o) {
+    const urls = []; const on = r => urls.push(r.url());
+    o.page.on("request", on);
+    return { urls, stop: () => o.page.off("request", on), hits: re => urls.filter(u => re.test(u)) };
+  }
+  /** Timers the plugin's own code starts: a setInterval or a setTimeout called from the code loaded as plugin:booklet (its stack says so; a call made here as that source proves the net catches). */
+  const patchTimers5 = o => o.evaluate(() => {
+    if (window.__t5) return; window.__t5 = { interval: [], timeout: 0, raf: 0, live: new Set() };
+    const si = window.setInterval, st = window.setTimeout, raf = window.requestAnimationFrame, ci = window.clearInterval;
+    window.setInterval = function (...a) { const id = si.apply(this, a); if (/plugin:booklet/.test(new Error().stack || "")) { window.__t5.interval.push((new Error().stack || "").split("\n").slice(2, 4).join(" | ")); window.__t5.live.add(id); } return id; };
+    window.clearInterval = function (id) { window.__t5.live.delete(id); return ci.call(this, id); };
+    window.setTimeout = function (...a) { if (/plugin:booklet/.test(new Error().stack || "")) window.__t5.timeout++; return st.apply(this, a); };
+    window.requestAnimationFrame = function (f) { if (/plugin:booklet/.test(new Error().stack || "")) window.__t5.raf++; return raf.call(this, f); };
+  });
+  const timers5 = o => o.evaluate(() => ({ interval: window.__t5.interval.length, live: window.__t5.live.size, timeout: window.__t5.timeout, raf: window.__t5.raf, where: window.__t5.interval.slice(0, 3) }));
+  /** A text's contrast over what is behind it, for every drawn text under `scope`, inert or not (edit74 leaves what is inert out: here the inert drawing is the thing measured). */
+  const contrast5 = (o, scope) => o.evaluate(scope => {
+    const root = document.querySelector(scope); if (!root) return null;
+    const cx = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    const px = css => { cx.clearRect(0, 0, 1, 1); cx.fillStyle = "#000"; cx.fillStyle = css; cx.fillRect(0, 0, 1, 1); const d = cx.getImageData(0, 0, 1, 1).data; return { r: d[0], g: d[1], b: d[2], a: d[3] / 255 }; };
+    const over = (t, u) => ({ r: t.r * t.a + u.r * (1 - t.a), g: t.g * t.a + u.g * (1 - t.a), b: t.b * t.a + u.b * (1 - t.a), a: 1 });
+    const lin = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+    const lum = c => 0.2126 * lin(c.r) + 0.7152 * lin(c.g) + 0.0722 * lin(c.b);
+    const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    const hex = c => "#" + [c.r, c.g, c.b].map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+    const behind = e => { const chain = []; for (let p = e; p; p = p.parentElement) chain.push(p); let col = { r: 255, g: 255, b: 255, a: 1 }; for (let i = chain.length - 1; i >= 0; i--) { const b = px(getComputedStyle(chain[i]).backgroundColor); if (b.a > 0) col = over(b, col); } return col; };
+    const opacityOf = e => { let o = 1; for (let p = e; p; p = p.parentElement) o *= parseFloat(getComputedStyle(p).opacity); return o; };
+    const name = e => e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).slice(0, 2).join(".") : (e.getAttribute && e.getAttribute("class") ? "." + e.getAttribute("class").split(/\s+/)[0] : "")) + "(" + (e.textContent || "").trim().slice(0, 16) + ")";
+    const out = [];
+    for (const e of root.querySelectorAll("*")) {
+      const r = e.getBoundingClientRect(), cs = getComputedStyle(e);
+      if (r.width < 1 || r.height < 1 || cs.visibility === "hidden" || cs.display === "none" || e.closest("[hidden]") || e.closest("details:not([open]) > :not(summary)")) continue;
+      const own = [...e.childNodes].filter(n => n.nodeType === 3 && n.textContent.trim()).map(n => n.textContent.trim()).join(" ");
+      if (!own) continue;
+      const svg = e instanceof SVGElement, under = behind(e), op = opacityOf(e), fg0 = px(svg ? cs.fill : cs.color);
+      const fg = over({ ...fg0, a: fg0.a * op }, under), size = parseFloat(cs.fontSize), bold = parseInt(cs.fontWeight) >= 700, large = size >= 24 || (size >= 18.66 && bold);
+      out.push({ n: name(e), fg: hex(fg), bg: hex(under), ratio: Math.round(ratio(fg, under) * 100) / 100, need: large ? 3 : 4.5, disabled: !!(e.closest("button:disabled, input:disabled, textarea:disabled, select:disabled")), drawing: !!e.closest(".booklet-sample"), opacity: Math.round(op * 100) / 100 });
+    }
+    return out;
+  }, scope);
+  /** What sticks out of the canvas sideways: the page's boxes (inert drawings included) beyond the scroll area's edges, the scroll area's own scroll width, and the document's. */
+  const fit5 = o => o.evaluate(() => {
+    const dv = document.querySelector(".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']"), sc = dv.querySelector(".booklet-design-scroll"), pg = dv.querySelector(".booklet-design-page");
+    const s = sc.getBoundingClientRect(), W = window.innerWidth;
+    const name = e => e.tagName.toLowerCase() + (typeof e.className === "string" && e.className.trim() ? "." + e.className.trim().split(/\s+/).slice(0, 2).join(".") : (e.getAttribute("class") ? "." + e.getAttribute("class").split(/\s+/)[0] : "")) + "(" + (e.textContent || "").trim().slice(0, 14) + ")";
+    const out = [...pg.querySelectorAll("*")].filter(e => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden" && (r.right > s.right + 1 || r.left < s.left - 1); })
+      .filter(e => { for (let p = e.parentElement; p && p !== sc; p = p.parentElement) { const ox = getComputedStyle(p).overflowX; if (ox === "auto" || ox === "scroll" || ox === "hidden" || ox === "clip") return false; } return true; });
+    return { W, scrollW: sc.scrollWidth, clientW: sc.clientWidth, docScroll: document.documentElement.scrollWidth, beyond: out.length, which: out.slice(0, 5).map(name) };
+  });
+  /** Every page of the open note, one navigator press each, with the blocks on it: [{ r (the entry), blocks }]. */
+  /** The canvas scrolled to the block, then a screenshot of the window. */
+  const shotBlock5 = async (o, name, kind, start, where = "start") => { await shotEl(o, name, `${DV} .booklet-design-block[data-kind='${kind}'][data-start='${start}']`, where); };
+  const pages5 = o => crawl(o, async r => ({ r, blocks: await blocksOf(o) }));
+  /** The note's activity page as the reader draws it, in the same pane (the mode is changed by the plugin's own command, which writes nothing); the pane is put back in the Design view by `backToDesign`. */
+  async function readerAt(o, screen) {
+    await o.evaluate(async () => { await app.plugins.plugins.booklet.setMode(app.workspace.activeLeaf, "booklet"); });
+    if (!(await waitActiveType(o, "booklet", 15000))) throw new Error("the pane did not become the reader");
+    await o.evaluate(async screen => { const l = app.workspace.getLeavesOfType("booklet")[0]; await l.setViewState({ type: "booklet", state: { ...l.getViewState().state, version: 2, screen, part: 0 }, active: true }); }, screen);
+    await o.page.waitForSelector(`${BV} .booklet-page[data-booklet-screen='${screen}']`, { timeout: 10000 });
+    await sleep(900);
+  }
+  async function backToDesign(o) {
+    await o.evaluate(async () => { await app.plugins.plugins.booklet.setMode(app.workspace.activeLeaf, "design"); });
+    if (!(await waitActiveType(o, "booklet-design", 15000))) throw new Error("the pane did not go back to the Design view");
+    await o.page.waitForSelector(DV + " .booklet-design-page", { timeout: 10000 }); await idle(o);
+  }
+  /** A question block's drawing as words and counts, the same reading in the reader (BV) and on the canvas (DV): `root` is the view's own selector. */
+  const widgetFacts5 = (o, root, id) => o.evaluate(([root, id]) => {
+    const q = document.querySelector(`${root} [data-booklet-q="${id}"]`); if (!q) return null;
+    const w = e => e.textContent.replace(/\s+/g, " ").trim(), all = k => [...q.querySelectorAll(k)];
+    return { prompt: w(q.querySelector(".booklet-prompt") || q), axes: all(".booklet-axis").map(w), cells: all(".booklet-cell-name").map(w), items: all("button.booklet-item").map(w), places: all("button.booklet-place").map(w), head: all("h3, .booklet-head, .booklet-widget-head").map(w), help: all(".booklet-help").map(w) };
+  }, [root, id]);
+
+  async function check98() {
+    const c = new Check(98, "a widget drawn in the canvas as the reader draws it (stage 5): on Check-in, a body map (svg-regions, with no figure) and a grid of feelings (grid-select) in the Design view show the same words, axes, cells, items and places as the reader's own page, in an inert drawing with every control off, no card, no Markdown code and no line about a later beta; a real press on every drawn control lands on the block, selects it and writes nothing; opening, selecting and Tab leave the note byte for byte as it was; light and dark screenshots");
+    await withApp("c98", async (o, vault) => {
+      const rel = CHECKIN, f = path.join(vault, rel), B0 = fs.readFileSync(f), T0 = B0.toString("utf8");
+      const errs0 = consoleReport.length;
+      await openDesign(o, rel);
+      await armWrites(o, rel);
+      await goNav(o, "activity", lineOf(T0, "[!activity|today"));
+      const drawn = id => o.evaluate(id => {
+        const b = [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-block[data-kind='question']")].find(x => x.querySelector(`[data-booklet-q="${id}"]`));
+        if (!b) return null; const s = b.querySelector(":scope > .booklet-design-drawn > .booklet-sample"), ctl = [...b.querySelectorAll("button, input")];
+        return { start: b.getAttribute("data-start"), sample: !!s, inert: !!s && s.hasAttribute("inert"), card: !!b.querySelector(".booklet-design-friendly"), pre: !!b.querySelector("pre"), later: /later beta/i.test(b.textContent), controls: ctl.length, off: ctl.filter(x => x.disabled).length, pressed: b.querySelectorAll("[aria-pressed='true']").length, svg: b.querySelectorAll("svg").length };
+      }, id);
+      const regions = await drawn("places"), grid = await drawn("feelings");
+      c.ok(!!regions && regions.sample && regions.inert && !regions.card && !regions.pre && !regions.later && regions.controls === 11 && regions.off === 11 && regions.pressed === 0, `the body map (svg-regions) is drawn: an inert drawing with its 11 places as buttons that are all off, nothing shown picked, no card, no Markdown code and no later beta: ${JSON.stringify(regions)}`);
+      c.ok(!!grid && grid.sample && grid.inert && !grid.card && !grid.pre && !grid.later && grid.controls === 16 && grid.off === 16 && grid.pressed === 0, `the grid of feelings (grid-select) is drawn: an inert drawing with 8 items, 4 fields for words of one's own and their 4 Add buttons, all off, nothing shown picked, no card, no Markdown code and no later beta: ${JSON.stringify(grid)}`);
+      const onCanvas = { places: await widgetFacts5(o, DV, "places"), feelings: await widgetFacts5(o, DV, "feelings") };
+      c.ok(onCanvas.places.places.join() === "Head,Jaw,Neck,Shoulders,Chest,Arms,Hands,Stomach,Back,Legs,Feet" && onCanvas.feelings.cells.join() === "Agitating,Invigorating,Draining,Soothing" && onCanvas.feelings.items.join() === "Rushed,Tense,Lively,Cheerful,Flat,Tired,Settled,Content" && onCanvas.feelings.axes.join() === "more energy,less pleasant,more pleasant,less energy", `the words are the note's: places ${onCanvas.places.places.join("/")}; cells ${onCanvas.feelings.cells.join("/")}; items ${onCanvas.feelings.items.join("/")}; axes ${onCanvas.feelings.axes.join("/")}`);
+      await shotBlock5(o, "stage5-widgets-map-light", "question", regions.start); await shotBlock5(o, "stage5-widgets-grid-light", "question", grid.start);
+      await o.setScheme("dark"); await sleep(500); await shotBlock5(o, "stage5-widgets-map-dark", "question", regions.start); await shotBlock5(o, "stage5-widgets-grid-dark", "question", grid.start); await o.setScheme("light"); await sleep(400);
+      // the reader's own page for the same activity: the same words
+      await readerAt(o, "activity:day-check/today");
+      const inReader = { places: await widgetFacts5(o, BV, "places"), feelings: await widgetFacts5(o, BV, "feelings") };
+      c.ok(!!inReader.places && !!inReader.feelings && JSON.stringify(inReader) === JSON.stringify(onCanvas), `the reader's page and the canvas say the same: ${JSON.stringify(inReader) === JSON.stringify(onCanvas) ? "equal" : "reader " + JSON.stringify(inReader) + " canvas " + JSON.stringify(onCanvas)}`);
+      c.ok(same5(f, B0), "going to the reader and back wrote nothing");
+      await backToDesign(o);
+      await goNav(o, "activity", lineOf(T0, "[!activity|today"));
+      // presses
+      const at = id => `${DV} .booklet-design-block[data-kind='question'][data-start='${id}']`;
+      let total = 0, notOnBlock = 0, notSelected = 0, hidden = 0;
+      for (const w of [regions, grid]) {
+        const r = await press5(o, at(w.start), ".booklet-sample button, .booklet-sample input");
+        total += r.pressed; notOnBlock += r.onDrawing; notSelected += r.notSelected; hidden += r.hidden;
+      }
+      c.ok(total === 27 && notOnBlock === 0 && notSelected === 0, `a real press on each of the ${total} drawn controls (11 places, 8 items, 4 fields, 4 Add buttons) landed on the block under the drawing (${notOnBlock} landed on the drawing) and selected it (${notSelected} did not); ${hidden} not drawn at the time`);
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `all of those presses wrote nothing: the note's bytes are as they were and the vault saw ${await writesOf(o, rel)} writes to it`);
+      // the keyboard walks the page and never stops in a drawing
+      await closeAll(o); await blurFocus(o);
+      const stops = [];
+      for (let i = 0; i < 60; i++) { await o.page.keyboard.press("Tab"); if (await o.evaluate(() => { const a = document.activeElement; return !!(a && a.closest(".booklet-sample")); })) stops.push(i); }
+      await closeAll(o); await blurFocus(o);   // keys with the focus on the page, not in a box the walk may have opened
+      for (const k of ["Space", "ArrowRight", "ArrowDown", "1", "a", "Enter", "Escape"]) { await o.page.keyboard.press(k); await sleep(60); }
+      c.ok(stops.length === 0, `60 presses of Tab never stop on a control of a drawing (${stops.length} stops)`);
+      await idle(o);
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, "the keys wrote nothing: the note is byte for byte as it was");
+      // every page of the note opened and every block selected: still the same bytes
+      const all = await pages5(o);
+      for (const p of all) for (const b of p.blocks) if (b.kind === "question") { await goNav(o, p.r.kind, p.r.start === "" ? undefined : p.r.start); await selectBlock(o, "question", b.start).catch(() => {}); }
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `all ${all.length} pages opened and each question selected: still byte for byte the note as it was`);
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  async function check99() {
+    const c = new Check(99, "the six kinds of view drawn in the canvas from a data block's rows (stage 5): a table, a list, cards, tiles, bars and a line over a data block of twelve rows are drawn as the reader draws them (the same rows and headings as the reader's page), with no sort or filter control and no row action button though the query asks for Add and Delete and a reader's table of twelve rows has them, a view over the activity's own entries shows the reader's empty line and not the kept entry, a data block that names a file shows the reader's quiet line, a view whose source the note does not have stays a card with no later beta; a real press on a heading, row, link, card, tile, bar and the chart's picture selects the block, opens no note and writes nothing; opening and selecting leave the note byte for byte as it was; light and dark screenshots");
+    await withApp("c99", async (o, vault) => {
+      const n = write5(vault, [NAME99])[NAME99], f = n.file, B0 = n.bytes, T0 = n.text, rel = NAME99;
+      const errs0 = consoleReport.length;
+      await openDesign(o, rel);
+      await armWrites(o, rel);
+      await goNav(o, "activity", lineOf(T0, "[!activity|a repeat]"));
+      const views = () => o.evaluate(() => [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-block[data-kind='query']")].map(b => {
+        const q = b.querySelector(".booklet-query"), s = b.querySelector(":scope > .booklet-design-drawn > .booklet-sample.booklet-sample-query"), w = e => e.textContent.replace(/\s+/g, " ").trim();
+        return { start: b.getAttribute("data-start"), view: q && q.getAttribute("data-booklet-view"), from: q && q.getAttribute("data-booklet-query"), sample: !!s, inert: !!s && s.hasAttribute("inert"), card: !!b.querySelector(".booklet-design-friendly"), cardKind: (b.querySelector(".booklet-design-friendly-kind") || {}).textContent, cardNote: (b.querySelector(".booklet-design-friendly-note") || {}).textContent || "", pre: !!b.querySelector("pre"),
+          later: /later beta/i.test(b.textContent), sortOrFilter: b.querySelectorAll(".booklet-qc-slot, .booklet-qc, input, select, textarea, th[aria-sort]").length, buttons: b.querySelectorAll("button").length,
+          heads: [...b.querySelectorAll("thead th")].map(w), trs: b.querySelectorAll("tbody tr").length, rows: b.querySelectorAll(".booklet-q-row").length, cards: b.querySelectorAll(".booklet-q-card").length, tiles: b.querySelectorAll(".booklet-q-tile").length, bars: b.querySelectorAll(".booklet-ch-row").length, line: !!b.querySelector(".booklet-ch-line svg.booklet-ch-svg"),
+          first: (b.querySelector("tbody td, .booklet-q-label, .booklet-q-card, .booklet-q-tile, .booklet-ch-label") || { textContent: "" }).textContent.replace(/\s+/g, " ").trim().slice(0, 40), empty: (b.querySelector(".booklet-q-empty") || {}).textContent || null, quiet: !!b.querySelector(".booklet-q-quiet"), words: w(b).slice(0, 300) };
+      }));
+      const vs = await views();
+      c.ok(vs.length === 9, `the activity's page holds 9 views: ${vs.map(v => v.view || v.cardKind).join(", ")}`);
+      const six = vs.slice(0, 6);
+      c.ok(six.map(v => v.view).join() === "table,list,cards,tiles,bars,line" && six.every(v => v.sample && v.inert && !v.card && !v.pre && !v.later), `the six kinds are drawn, table, list, cards, tiles, bars, line, each in an inert drawing with no card, no Markdown code and no later beta`);
+      c.ok(six[0].trs === 12 && six[0].heads.join() === "Job,Hours,Where" && six[0].first === "Job 1", `the table has its 12 rows and the headings Job, Hours, Where (first cell "${six[0].first}")`);
+      c.ok(six[1].rows === 12 && six[1].first === "Job 1" && six[2].cards === 12 && six[3].tiles >= 1 && six[4].bars === 12 && six[5].line, `the list has 12 rows (${six[1].rows}), the cards 12 (${six[2].cards}), the tiles ${six[3].tiles}, the bars 12 (${six[4].bars}) and the line has its picture (${six[5].line})`);
+      c.ok(six.every(v => v.sortOrFilter === 0 && v.buttons === 0), `no view has a sort or filter control or any button (the query asks for Add and Delete on the table, the list and the cards): ${JSON.stringify(six.map(v => [v.view, v.sortOrFilter, v.buttons]))}`);
+      const [own, gone, filed] = vs.slice(6);
+      c.ok(own.sample && own.empty === "Nothing kept here yet." && !own.words.includes("kept words") && !(await o.evaluate(() => document.querySelector(".workspace-leaf.mod-active .booklet-design-scroll").textContent.includes("kept words"))), `a view over the activity's own entries shows the reader's empty line "${own.empty}", though the note keeps an entry with the words "kept words": those words are nowhere on the canvas`);
+      c.ok(filed.sample && filed.quiet && /rows\.json/.test(filed.empty || ""), `a data block that names a file shows the reader's quiet line: "${filed.empty}"`);
+      c.ok(gone.card && gone.cardKind === "View of data" && gone.cardNote === "" && !gone.later && !gone.sample, `a view whose source the note does not have stays a card ("${gone.cardKind}") with no line about a later beta`);
+      const shotViews = async tag => { for (const v of six) await shotBlock5(o, `stage5-views-${v.view}-${tag}`, "query", v.start); await shotBlock5(o, `stage5-views-own-file-gone-${tag}`, "query", own.start); };
+      await shotViews("light");
+      await o.setScheme("dark"); await sleep(500); await shotViews("dark"); await o.setScheme("light"); await sleep(400);
+      // the reader's own page for the same activity: the same rows and headings, and what it has that the canvas leaves out
+      await readerAt(o, "activity:/a");
+      const rd = await o.evaluate(() => {
+        const bs = [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-query")], w = e => e.textContent.replace(/\s+/g, " ").trim(), by = v => bs.find(b => b.getAttribute("data-booklet-view") === v);
+        const t = by("table"), l = by("list"), cd = by("cards");
+        return { views: bs.map(b => b.getAttribute("data-booklet-view")), heads: t ? [...t.querySelectorAll("thead th")].map(w) : null, trs: t ? t.querySelectorAll("tbody tr").length : null, first: t ? w(t.querySelector("tbody td")) : null, listRows: l ? l.querySelectorAll(".booklet-q-row").length : null, cards: cd ? cd.querySelectorAll(".booklet-q-card").length : null,
+          controlsOf: Object.fromEntries(bs.map(b => [b.getAttribute("data-booklet-view"), b.closest(".booklet-card, .booklet-page")?.querySelectorAll(".booklet-qc-slot, .booklet-qc, th[aria-sort]").length])), pageControls: document.querySelectorAll(".workspace-leaf.mod-active .booklet-qc-slot, .workspace-leaf.mod-active .booklet-qc, .workspace-leaf.mod-active th[aria-sort]").length, pageButtons: document.querySelectorAll(".workspace-leaf.mod-active .booklet-query button").length, kept: document.querySelector(".workspace-leaf.mod-active .view-content").textContent.includes("kept words") };
+      });
+      c.ok(!!rd.heads && rd.heads.slice(0, 3).join() === "Job,Hours,Where" && rd.heads.slice(3).join() === "Remove" && rd.trs === 12 && rd.first === "Job 1" && rd.listRows === 12 && rd.cards === 12, `the reader's page draws the same rows and headings (${rd.trs} table rows, ${rd.listRows} list rows, ${rd.cards} cards, first cell "${rd.first}"), and its table has one heading more, "${rd.heads && rd.heads.slice(3)}", the column of the row buttons that the canvas leaves out; headings ${rd.heads}`);
+      c.ok(rd.pageControls > 0 || rd.pageButtons > 0, `what the canvas leaves out is there to leave out: the reader's page of the same views has ${rd.pageControls} sort or filter controls and ${rd.pageButtons} buttons in its views, the canvas has none`);
+      c.ok(rd.kept, "and the reader's own page does show the kept entry, so it is the canvas that leaves a reader's kept words out");
+      c.ok(same5(f, B0), "going to the reader and back wrote nothing");
+      await backToDesign(o);
+      await goNav(o, "activity", lineOf(T0, "[!activity|a repeat]"));
+      // presses on what is drawn
+      const leaves0 = await o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push((l.view.file && l.view.file.path) || l.view.getViewType()); }); return r; });
+      const at = v => `${DV} .booklet-design-block[data-kind='query'][data-start='${v.start}']`;
+      let total = 0, onDrawing = 0, notSel = 0;
+      const CTL = { table: "th, tbody td", list: "a, .booklet-q-row", cards: ".booklet-q-card", tiles: ".booklet-q-tile", bars: ".booklet-ch-row, .booklet-ch-bar", line: "svg" };
+      for (const v of six) { const r = await press5(o, at(v), ".booklet-sample " + CTL[v.view].split(", ").join(", .booklet-sample "), 6); total += r.pressed; onDrawing += r.onDrawing; notSel += r.notSelected; }
+      const leaves1 = await o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push((l.view.file && l.view.file.path) || l.view.getViewType()); }); return r; });
+      c.ok(total >= 18 && onDrawing === 0 && notSel === 0, `${total} real presses on a heading, cell, row, link, card, tile, bar and the chart's picture all landed on the block under the drawing (${onDrawing} on the drawing) and selected it (${notSel} did not)`);
+      c.ok(JSON.stringify(leaves0) === JSON.stringify(leaves1), `no note was opened by them (the link in the first row names Dig plan): panes before ${JSON.stringify(leaves0)}, after ${JSON.stringify(leaves1)}`);
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `and they wrote nothing: the bytes are as they were and the vault saw ${await writesOf(o, rel)} writes to the note (Dig plan: ${text(path.join(vault, "Dig plan.md")) === "A made-up note a row of the jobs links to.\n" ? "unchanged" : "CHANGED"})`);
+      // every page opened, every block selected
+      const all = await pages5(o);
+      for (const p of all) for (const b of p.blocks) if (b.kind === "query") { await goNav(o, p.r.kind, p.r.start === "" ? undefined : p.r.start); await selectBlock(o, "query", b.start).catch(() => {}); }
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `all ${all.length} pages opened and each view selected: still byte for byte the note as it was`);
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  async function check100() {
+    const c = new Check(100, "a listen drawn in the canvas with its media said as words (stage 5): five listens (a local file as a wiki link and as a path, a remote embed, a link, a bare address) are drawn as the reader draws them, each with its media as plain words (the name, and the address when it has one), and no audio, video, iframe, source, img, object or embed element anywhere on the canvas; no network request goes to the remote hosts or for the local file while the note is opened, drawn, selected and pressed on (the request recorder is checked against a request of its own); no timer is started by the plugin's code and nothing says playing or where it left off, though the note keeps a position and a done mark for the first; a real press on every drawn piece writes nothing and opens no note; the note is byte for byte as it was; light and dark screenshots");
+    await withApp("c100", async (o, vault) => {
+      const n = write5(vault, [NAME100])[NAME100], f = n.file, B0 = n.bytes, T0 = n.text, rel = NAME100;
+      const reqs = record5(o);
+      await patchTimers5(o);
+      // the net catches: a request of the page's own, and a timer made by code that says it is the plugin's
+      await o.evaluate(async () => { try { await fetch("https://control.tea-course.invalid/proof", { mode: "no-cors" }); } catch (e) { /* refused is fine: it was asked for */ } const i = (0, eval)("window.setInterval(() => {}, 999999) //# sourceURL=plugin:booklet"); window.clearInterval(i); });
+      await sleep(300);
+      const control = { request: reqs.hits(/control\.tea-course\.invalid/).length, timer: (await timers5(o)).interval };
+      c.ok(control.request >= 1 && control.timer === 1, `the recorders work: the page's own request to the control address was seen (${control.request}) and a timer started by code of the plugin's name was seen (${control.timer})`);
+      reqs.urls.length = 0; await o.evaluate(() => { window.__t5.interval.length = 0; });
+      const errs0 = consoleReport.length;   // the control's own refused request is a console error of its own and is left out
+      await openDesign(o, rel);
+      await armWrites(o, rel);
+      await goNav(o, "activity", lineOf(T0, "[!activity|l]"));
+      const ls = await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-block[data-kind='question']")].map(b => {
+        const s = b.querySelector(":scope > .booklet-design-drawn > .booklet-sample"), m = b.querySelector(".booklet-listen-media"), w = e => e.textContent.replace(/\s+/g, " ").trim(), tick = b.querySelector("button.booklet-listen-tick");
+        return { start: b.getAttribute("data-start"), id: (b.querySelector("[data-booklet-q]") || { getAttribute: () => null }).getAttribute("data-booklet-q"), sample: !!s, inert: !!s && s.hasAttribute("inert"), card: !!b.querySelector(".booklet-design-friendly"), pre: !!b.querySelector("pre"), prompt: (b.querySelector(".booklet-prompt") || { textContent: "" }).textContent.trim(), media: m ? w(m) : null, help: (b.querySelector(".booklet-help") || { textContent: null }).textContent, tickOff: !!tick && tick.disabled, tickPressed: tick ? tick.getAttribute("aria-pressed") : null, where: (b.querySelector(".booklet-listen-where") || { textContent: "" }).textContent, later: /later beta/i.test(b.textContent), anchors: b.querySelectorAll("a").length, children: m ? m.children.length : 0 };
+      }));
+      const want = { ep1: "tone.wav", ep2: "Second episode (https://media.tea-course.invalid/u01/e2.m4a)", ep3: "Watch the lecture (https://video.tea-course.invalid/watch/overview)", ep4: "https://media.tea-course.invalid/u01/bare.mp3", ep5: "The tone (media/tone.wav)" };
+      c.ok(ls.length === 5 && ls.every(l => l.sample && l.inert && !l.card && !l.pre && !l.later), `five listens are drawn, each in an inert drawing with no card, no Markdown code and no later beta: ${ls.map(l => l.id).join(", ")}`);
+      for (const l of ls) c.ok(l.media === want[l.id], `${l.id} ("${l.prompt}"): its media is said as the words "${l.media}" (wanted "${want[l.id]}"), with no link or element made of it (${l.anchors} links, ${l.children} child elements)`);
+      c.ok(ls.every(l => l.tickOff && l.tickPressed !== "true" && l.where === ""), `the note keeps a position (12:34) and a done mark for ep1, and none is shown: every Done button is off and not pressed, and no "Left off at" line is drawn (${JSON.stringify(ls.map(l => [l.id, l.tickPressed, l.where]))})`);
+      const media = await o.evaluate(() => { const v = app.workspace.getLeavesOfType("booklet-design")[0].view.contentEl; return { n: v.querySelectorAll("audio, video, iframe, source, img, object, embed, track, link[rel=preload]").length, hiddenMedia: [...v.querySelectorAll("*")].filter(e => e.tagName === "AUDIO" || e.tagName === "VIDEO").length, srcs: [...v.querySelectorAll("[src], [data-src]")].map(e => e.tagName.toLowerCase()).filter(t => t !== "svg").slice(0, 5) }; });
+      c.ok(media.n === 0 && media.srcs.length === 0, `no audio, video, iframe, source, img, object or embed element and nothing with a src is anywhere in the Design view (${media.n} found; with a src: ${JSON.stringify(media.srcs)})`);
+      await shotBlock5(o, "stage5-listen-light", "question", ls[0].start);
+      await o.setScheme("dark"); await sleep(500); await shotBlock5(o, "stage5-listen-dark", "question", ls[0].start); await o.setScheme("light"); await sleep(400);
+      // presses on every drawn piece of every listen
+      const leaves0 = await o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push((l.view.file && l.view.file.path) || l.view.getViewType()); }); return r; });
+      let total = 0, onDrawing = 0, notSel = 0;
+      for (const l of ls) { const r = await press5(o, `${DV} .booklet-design-block[data-kind='question'][data-start='${l.start}']`, ".booklet-sample button, .booklet-sample .booklet-prompt, .booklet-sample .booklet-listen-media, .booklet-sample .booklet-help, .booklet-sample .booklet-listen-where", 8); total += r.pressed; onDrawing += r.onDrawing; notSel += r.notSelected; }
+      c.ok(total >= 15 && onDrawing === 0 && notSel === 0, `${total} real presses on the Done buttons, the prompts, the media words and the help lines landed on the block under the drawing (${onDrawing} on it) and selected it (${notSel} did not)`);
+      await closeAll(o); await blurFocus(o);
+      const stops = [];
+      for (let i = 0; i < 60; i++) { await o.page.keyboard.press("Tab"); if (await o.evaluate(() => { const a = document.activeElement; return !!(a && a.closest(".booklet-sample")); })) stops.push(i); }
+      await closeAll(o); await blurFocus(o);   // keys with the focus on the page, not in a box the walk may have opened
+      for (const k of ["Space", "k", "ArrowRight", "j", "Enter", "Escape"]) { await o.page.keyboard.press(k); await sleep(60); }
+      c.ok(stops.length === 0, `60 presses of Tab never stop on a control of a drawing (${stops.length} stops); Space, k, j, the arrow keys and Enter then do nothing to it either (Enter opens the selected block, Escape shuts it again)`);
+      await sleep(2500); await idle(o);
+      const leaves1 = await o.evaluate(() => { const r = []; app.workspace.iterateRootLeaves(l => { r.push((l.view.file && l.view.file.path) || l.view.getViewType()); }); return r; });
+      c.ok(JSON.stringify(leaves0) === JSON.stringify(leaves1), `no note or file was opened by them: panes ${JSON.stringify(leaves1)}`);
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `nothing was written: the note's bytes are as they were (${same5(f, B0)}${same5(f, B0) ? "" : ": " + JSON.stringify(region(T0, text(f)))}) and the vault saw ${await writesOf(o, rel)} writes to it`);
+      const after = await o.evaluate(() => ({ playing: !!document.querySelector(".workspace-leaf.mod-active .booklet-nowplaying, .workspace-leaf.mod-active .is-playing"), said: [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-scroll .booklet-listen-where")].map(e => e.textContent).join("") }));
+      const tm = await timers5(o);
+      c.ok(tm.interval === 0 && tm.live === 0 && !after.playing && after.said === "", `no timer: the plugin's code started ${tm.interval} intervals (${tm.live} running) while the note was drawn, pressed and walked with keys, and nothing says playing or where it left off (timeouts ${tm.timeout} and animation frames ${tm.raf} are the view's own drawing, not counted); ${tm.where.join(" || ")}`);
+      const remote = reqs.hits(/tea-course\.invalid/), local = reqs.hits(/tone\.wav/);
+      c.ok(remote.length === 0 && local.length === 0, `no request went to the remote hosts or for the local sound file in all of that (${reqs.urls.length} requests in all; to the remote hosts ${remote.length}${remote.length ? ": " + JSON.stringify(remote.slice(0, 3)) : ""}; for tone.wav ${local.length}${local.length ? ": " + JSON.stringify(local.slice(0, 3)) : ""})`);
+      const resources = await o.evaluate(() => performance.getEntriesByType("resource").map(e => e.name).filter(n => /tea-course\.invalid|tone\.wav/.test(n) && !/control\./.test(n)));
+      c.ok(resources.length === 0, `and the page's own resource list agrees: ${resources.length} entries for the remote hosts or the sound file`);
+      reqs.stop();
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  async function check101() {
+    const c = new Check(101, "a question asked for each pick drawn once, and one asked for each row kept as a card (stage 5): a text question, a scale and a widget that are asked for each pick of a choice are each drawn once, as the reader draws one copy without a pick's heading (shown, with their controls off and nothing typed or picked, the note's kept answer, pick and words not shown), no card and no later beta; a question asked for each row of a data block stays a card with the new line \"This question is asked in the rows of a view of its data block, so it is not drawn here.\"; a real press on every drawn piece writes nothing; the note is byte for byte as it was; light and dark screenshots");
+    await withApp("c101", async (o, vault) => {
+      const n = write5(vault, [NAME101])[NAME101], f = n.file, B0 = n.bytes, T0 = n.text, rel = NAME101;
+      const errs0 = consoleReport.length;
+      await openDesign(o, rel);
+      await armWrites(o, rel);
+      await goNav(o, "activity", lineOf(T0, "[!activity|e]"));
+      const facts = o.evaluate(() => {
+        const bs = [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-design-block[data-kind='question']")], w = e => e.textContent.replace(/\s+/g, " ").trim();
+        const seen = id => document.querySelectorAll(`.workspace-leaf.mod-active .booklet-design-scroll [data-booklet-q="${id}"]`).length;
+        return bs.map(b => {
+          const q = b.querySelector("[data-booklet-q]"), id = q && q.getAttribute("data-booklet-q"), s = b.querySelector(":scope > .booklet-design-drawn > .booklet-sample"), ctl = [...b.querySelectorAll("button, input, textarea, select")], r = q && q.getBoundingClientRect();
+          return { start: b.getAttribute("data-start"), id, times: id ? seen(id) : 0, sample: !!s, inert: !!s && s.hasAttribute("inert"), shown: !!q && r.width > 0 && r.height > 0 && !q.closest("[hidden]"), hidden: !!q && q.closest("[hidden]") !== null, card: !!b.querySelector(".booklet-design-friendly"), cardKind: (b.querySelector(".booklet-design-friendly-kind") || {}).textContent, cardDetail: (b.querySelector(".booklet-design-friendly-detail") || {}).textContent, cardNote: (b.querySelector(".booklet-design-friendly-note") || {}).textContent || "", pre: !!b.querySelector("pre"), later: /later beta/i.test(b.textContent),
+            controls: ctl.length, off: ctl.filter(x => x.disabled).length, typed: ctl.filter(x => (x.tagName === "TEXTAREA" || x.tagName === "INPUT") && x.value).length, picked: b.querySelectorAll("[aria-pressed='true'], input:checked, .is-picked, .is-selected").length, words: w(b).slice(0, 160) };
+        });
+      });
+      const fs5 = await facts, by = id => fs5.find(x => x.id === id);
+      for (const id of ["why", "how", "w-id"]) { const x = by(id); c.ok(!!x && x.times === 1 && x.sample && x.inert && x.shown && !x.card && !x.pre && !x.later, `${id} (asked for each pick of "src") is drawn once: an inert drawing, shown (not hidden), no card, no Markdown code and no later beta: ${JSON.stringify(x && { times: x.times, shown: x.shown, controls: x.controls })}`); }
+      c.ok(["why", "how", "w-id"].every(id => by(id).controls > 0 && by(id).off === by(id).controls && by(id).typed === 0), `all their controls are off and nothing is typed in them (${["why", "how", "w-id"].map(id => id + " " + by(id).off + "/" + by(id).controls).join(", ")}), though the note keeps the pick 2 and the words "kept words" for "why"`);
+      c.ok(!(await o.evaluate(() => document.querySelector(".workspace-leaf.mod-active .booklet-design-scroll").textContent.includes("kept words"))) && by("src").picked === 0, `the kept words are nowhere on the canvas and the choice "src" shows nothing picked (${by("src").picked} shown picked), though the note keeps the answer 2`);
+      const rows = fs5.find(x => x.cardKind === "Question" && /rowq/.test(x.cardDetail || ""));
+      c.ok(!!rows && rows.card && !rows.sample && !rows.pre && rows.cardNote === "This question is asked in the rows of a view of its data block, so it is not drawn here." && !rows.later, `the question asked for each row of the data block stays a card ("${rows && rows.cardDetail}") that says in the new words why: "${rows && rows.cardNote}"`);
+      c.ok(fs5.filter(x => x.card).length === 1, `it is the only card on the page (${fs5.filter(x => x.card).length} cards among ${fs5.length} questions)`);
+      await shotBlock5(o, "stage5-each-light", "question", by("why").start); await shotBlock5(o, "stage5-each-rows-card-light", "question", rows.start);
+      await o.setScheme("dark"); await sleep(500); await shotBlock5(o, "stage5-each-dark", "question", by("why").start); await shotBlock5(o, "stage5-each-rows-card-dark", "question", rows.start); await o.setScheme("light"); await sleep(400);
+      let total = 0, onDrawing = 0, notSel = 0;
+      for (const x of fs5.filter(x => x.sample)) { const r = await press5(o, `${DV} .booklet-design-block[data-kind='question'][data-start='${x.start}']`, ".booklet-sample button, .booklet-sample input, .booklet-sample textarea", 12); total += r.pressed; onDrawing += r.onDrawing; notSel += r.notSelected; }
+      c.ok(total >= 12 && onDrawing === 0 && notSel === 0, `${total} real presses on the drawn buttons and fields landed on the block under the drawing (${onDrawing} on it) and selected it (${notSel} did not)`);
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `nothing was written: the note's bytes are as they were and the vault saw ${await writesOf(o, rel)} writes to it`);
+      const all = await pages5(o);
+      for (const p of all) for (const b of p.blocks) if (b.kind === "question") { await goNav(o, p.r.kind, p.r.start === "" ? undefined : p.r.start); await selectBlock(o, "question", b.start).catch(() => {}); }
+      c.ok(same5(f, B0) && await writesOf(o, rel) === 0, `all ${all.length} pages opened and each question selected: still byte for byte the note as it was`);
+      const errs = errorsSince(errs0);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+    });
+    return c;
+  }
+
+  async function check102() {
+    const c = new Check(102, "the whole canvas at a phone's width and in the dark (stage 5): every page of Check-in (two widgets and a question asked for each pick) and of a note that holds the six views, five listens (one with a very long remote address) and the each-questions is drawn at 390 x 844 in Obsidian's phone mode, light and dark, and in dark at a desktop's width: nothing sticks out sideways (the canvas, the document and every box of the page, the drawings included), every drawn text reaches its contrast against what is behind it (4.5 to 1, 3 to 1 for large text; a text on a button that is off is listed apart), the long address breaks over several lines inside the pane; nothing is written; screenshots");
+    await withApp("c102", async (o, vault) => {
+      const notes = write5(vault, [NAME102]), big = notes[NAME102], ci = path.join(vault, CHECKIN), CI0 = fs.readFileSync(ci);
+      const errs0 = consoleReport.length;
+      const measure = async (label, rel) => {
+        const pages = await crawl(o, async r => ({ r, fit: await fit5(o), ink: (await contrast5(o, `${DV} .booklet-design-page`)) || [], listen: await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-sample .booklet-listen-media")].map(m => { const r = m.getBoundingClientRect(), lh = parseFloat(getComputedStyle(m).lineHeight) || 20, sc = document.querySelector(".workspace-leaf.mod-active .booklet-design-scroll").getBoundingClientRect(); return { words: m.textContent.slice(0, 40), h: Math.round(r.height), lines: Math.round(r.height / lh), right: Math.round(r.right), scrollRight: Math.round(sc.right), scrollW: m.scrollWidth, clientW: m.clientWidth, wrap: getComputedStyle(m).overflowWrap }; })) }));
+        const stick = pages.filter(p => p.fit.beyond > 0 || p.fit.scrollW > p.fit.clientW + 1 || p.fit.docScroll > p.fit.W + 1);
+        c.ok(pages.length >= 3 && stick.length === 0, `${label}: nothing sticks out sideways on any of the ${pages.length} pages of ${rel} (canvas ${pages[0].fit.scrollW} of ${pages[0].fit.clientW} px, document ${pages[0].fit.docScroll} of ${pages[0].fit.W})${stick.length ? "; beyond: " + JSON.stringify(stick.map(p => [p.r.kind, p.fit.beyond, p.fit.which])) : ""}`);
+        // the drawings are what stage 5 adds: their texts must reach 4.5 to 1; the canvas's own cards and words around them are measured too and any that fall short are listed apart
+        const ink = pages.flatMap(p => p.ink), drawn = ink.filter(t => t.drawing), around = ink.filter(t => !t.drawing), low = drawn.filter(t => !t.disabled && t.ratio < t.need), lowOff = drawn.filter(t => t.disabled && t.ratio < 3), lowAround = around.filter(t => t.ratio < t.need);
+        c.ok(drawn.length > 20 && low.length === 0, `${label}: the ${drawn.filter(t => !t.disabled).length} texts of ${rel} inside the inert drawings (widgets, views, listens, each-questions), the ones not on a button that is off, all reach their contrast${low.length ? "; below: " + JSON.stringify(low.slice(0, 6)) : ""}; the least ${Math.min(...drawn.filter(t => !t.disabled).map(t => t.ratio))} to 1`);
+        c.info(`${label}: ${drawn.filter(t => t.disabled).length} drawn texts on a button that is off, the least ${Math.min(...drawn.filter(t => t.disabled).map(t => t.ratio))} to 1${lowOff.length ? "; below 3 to 1: " + JSON.stringify(lowOff.slice(0, 4)) : ""}; ${around.length} texts of the canvas around the drawings (cards, labels), ${lowAround.length} below 4.5 to 1${lowAround.length ? ": " + JSON.stringify(lowAround.slice(0, 3)) : ""}`);
+        return pages;
+      };
+      // desktop, dark
+      await openDesign(o, CHECKIN); await armWrites(o, CHECKIN);
+      await o.setScheme("dark"); await sleep(500);
+      await measure("desktop, dark", CHECKIN);
+      await goNav(o, "activity", lineOf(CI0.toString("utf8"), "[!activity|today")); await shot(o, "stage5-checkin-desktop-dark");
+      await openDesign(o, NAME102); await armWrites(o, NAME102);
+      const dpages = await measure("desktop, dark", NAME102);
+      await goNav(o, "activity", lineOf(big.text, "[!activity|a repeat]")); await shot(o, "stage5-everything-views-desktop-dark");
+      await o.setScheme("light"); await sleep(500);
+      // the phone
+      const narrowed = await o.page.setViewportSize({ width: 390, height: 844 }).then(() => true, e => String(e).slice(0, 120));
+      c.ok(narrowed === true, "the window is 390 x 844: " + narrowed);
+      await mobile(o, true);
+      await o.evaluate(async () => { for (const l of app.workspace.getLeavesOfType("booklet-design")) if (l.isDeferred) await l.loadIfDeferred(); });
+      for (const scheme of ["light", "dark"]) {
+        await o.setScheme(scheme); await sleep(500);
+        for (const [rel, acts] of [[CHECKIN, ["[!activity|today"]], [NAME102, ["[!activity|a repeat]", "[!activity|l]", "[!activity|e]"]]]) {
+          await openDesign(o, rel, "tab", true, false);
+          await o.page.waitForSelector(DV + " .booklet-design-page", { timeout: 15000 }); await idle(o); await warm(o);
+          const pages = await measure(`phone, ${scheme}`, rel);
+          const t = text(path.join(vault, rel));
+          for (const a of acts) { await goNav(o, "activity", lineOf(t, a)); await shot(o, `stage5-${rel === CHECKIN ? "checkin" : "everything"}-${a.replace(/[^a-z]/g, "")}-phone-${scheme}`); }
+          if (rel === NAME102) {
+            await goNav(o, "activity", lineOf(t, "[!activity|l]"));
+            const ls = (await o.evaluate(() => [...document.querySelectorAll(".workspace-leaf.mod-active .booklet-sample .booklet-listen-media")].map(m => { const r = m.getBoundingClientRect(), lh = parseFloat(getComputedStyle(m).lineHeight) || 20, sc = document.querySelector(".workspace-leaf.mod-active .booklet-design-scroll").getBoundingClientRect(); return { words: m.textContent, lines: Math.round(r.height / lh), right: Math.round(r.right), scrollRight: Math.round(sc.right), scrollW: m.scrollWidth, clientW: m.clientWidth, wrap: getComputedStyle(m).overflowWrap }; }))).find(m => m.words.includes("a-very-long-path-segment"));
+            c.ok(!!ls && ls.lines >= 3 && ls.right <= ls.scrollRight + 1 && ls.scrollW <= ls.clientW + 1 && ls.wrap === "anywhere", `phone, ${scheme}: the long remote address (${ls && ls.words.length} characters, no spaces) breaks over ${ls && ls.lines} lines inside the pane (its right edge ${ls && ls.right} of ${ls && ls.scrollRight} px, no scroll inside it) and the rule that does it is overflow-wrap ${ls && ls.wrap}`);
+            await shotBlock5(o, `stage5-listen-long-phone-${scheme}`, "question", lineOf(t, "[!listen|ep6]"), "center");
+          }
+        }
+      }
+      c.ok(same5(ci, CI0) && same5(big.file, big.bytes), "all of this wrote nothing: Check-in and the other note are byte for byte as they were");
+      // Obsidian 1.11 says it could not read its own app.json while it reloads into phone mode (it is writing the file as it reads it); that is Obsidian's, not the plugin's, and is told apart
+      const all = errorsSince(errs0), own = all.filter(x => /failed to read JSON \.obsidian\/app\.json/.test(x.text)), errs = all.filter(x => !own.includes(x));
+      if (own.length) c.info(`Obsidian's own "failed to read JSON .obsidian/app.json" while it reloaded into phone mode: ${own.length} (not counted)`);
+      c.ok(errs.length === 0, `no page or console error in the whole check (${errs.length})${errs.length ? ": " + JSON.stringify(errs.map(x => x.text.slice(0, 120))) : ""}`);
+      void dpages;
+    });
+    return c;
+  }
+
+
+  /* END STAGE5 */
+
+  return { 64: check64, 65: check65, 66: check66, 67: check67, 68: check68, 69: check69, 70: check70, 71: check71, 72: check72, 73: check73, 74: check74, 75: check75, 76: check76, 77: check77, 78: check78, 79: check79, 80: check80, 81: check81, 82: check82, 83: check83, 84: check84, 85: check85, 86: check86, 87: check87, 88: check88, 89: check89, 90: check90, 91: check91, 92: check92, 93: check93, 94: check94, 95: check95, 96: check96, 97: check97, 98: check98, 99: check99, 100: check100, 101: check101, 102: check102 };
 };

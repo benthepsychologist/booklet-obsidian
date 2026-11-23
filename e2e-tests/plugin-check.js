@@ -4,7 +4,7 @@
 // test/fixtures.mjs into a source vault under <out>/work-<time>/, and every check works on its own fresh copy of that and its own
 // scratch config folder, both under <out>/work-<time>/. Prints one PASS/FAIL line per check (with the evidence under it) and exits 1 on any FAIL.
 // Checks 1 to 15 are in this file; 16 to 23, 27 and 28 in nav-checks.js; 24 in study-checks.js; 25 in reading-checks.js; 26 in
-// leftovers-checks.js; 29 to 32, 61 (0.19, rows that open and data files), 62 (0.19, acts on rows) and 63 (0.20, adding and removing rows) in dashboard-checks.js; 64 to 97 (1.6.0 and the stage 3 and 4 candidates, the Design view) in design-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
+// leftovers-checks.js; 29 to 32, 61 (0.19, rows that open and data files), 62 (0.19, acts on rows) and 63 (0.20, adding and removing rows) in dashboard-checks.js; 64 to 102 (1.6.0 and the stage 3, 4 and 5 candidates, the Design view) in design-checks.js; 33 in pictures-checks.js; 34 in note-link-checks.js; 35 to 41 in
 // safety-checks.js; 42 to 45 in access-checks.js; 46 and 47 in notice-checks.js; 48 to 54 and 56 to 59 (0.12.0, audio and video) in media-checks.js; 60 (0.19, the copy callout) in copy-checks.js. README.md in
 // this folder says what each one checks.
 // Check 10 (no error or warning from the plugin in Obsidian's console, over every check that ran) runs last, whatever order --only gives.
@@ -28,8 +28,8 @@ if (!opt.only) only.splice(only.length - 1, 0, 48, 49, 50, 51, 52, 53, 54, 55, 5
 if (!opt.only) only.splice(only.length - 1, 0, 60);
 // checks 61 (rows that open and data files), 62 (acts on rows) and 63 (adding and removing rows), in dashboard-checks.js, join it too
 if (!opt.only) only.splice(only.length - 1, 0, 61, 62, 63);
-// checks 64 to 97 (plugin 1.6.0 and the stage 3 and 4 candidates, the Design view, in design-checks.js) join it as well
-if (!opt.only) only.splice(only.length - 1, 0, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97);
+// checks 64 to 102 (plugin 1.6.0 and the stage 3, 4 and 5 candidates, the Design view, in design-checks.js) join it as well
+if (!opt.only) only.splice(only.length - 1, 0, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102);
 let SRC_VAULT = path.resolve(opt.vault);   // replaced at the start of the run by the source vault the fixtures are written into
 const WORK = path.join(path.resolve(opt.out), "work-" + new Date().toISOString().replace(/[:.]/g, "-"));
 const SHOTS = path.join(path.resolve(opt.out), "shots");
