@@ -15,6 +15,8 @@ export interface QueryHost {
 	md(markdown: string, el: HTMLElement): void;
 	/** Opens a note a row's link leads to, from this note. */
 	openNote(path: string): void;
+	/** Where a drawing registers what it must let go of when it is taken away (a line chart's observer of its width); a view that is never taken away leaves it out. */
+	own?: (dispose: () => void) => void;
 	/** The acts a reader can make on a data view's rows (row-ask.ts); left out, the rows are drawn as their values. */
 	rows?: RowsUi;
 }
@@ -710,7 +712,7 @@ export function drawQueryPlan(host: QueryHost, into: HTMLElement, p: QueryPlan, 
 		return null;
 	}
 	let hooks: NestHooks | null = null;
-	if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)));
+	if (p.chart) drawChart(into, buildChart(p, p.groups.flatMap((g) => g.rows)), host.own);
 	else if (p.view === "table") hooks = table(host, into, p, ui);
 	else if (p.view === "list") hooks = listView(host, into, p, ui);
 	else if (p.view === "tiles") tiles(host, into, p);

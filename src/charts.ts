@@ -40,6 +40,9 @@ function numbers(into: HTMLElement, c: Chart): void {
 	}
 }
 
+/** Where a drawing that is taken away registers what it lets go of then (a Component's `register`); a drawing that stays leaves it out and the observer lets go when its plot is gone. */
+type Own = (dispose: () => void) => void;
+
 /* ---- bars ---- */
 
 function bars(into: HTMLElement, c: Chart): void {
@@ -84,7 +87,7 @@ function marker(parent: SVGElement, i: number, x: number, y: number, r: number, 
 /** A label cut to 14 characters, as the reference cuts the along-the-bottom labels. */
 const clip = (s: string, n = 14): string => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
-function line(into: HTMLElement, c: Chart): void {
+function line(into: HTMLElement, c: Chart, own?: Own): void {
 	const root = into.createDiv({ cls: "booklet-ch booklet-ch-line" });
 	const n = c.labels.length;
 	if (c.series.length > 1) {
@@ -183,14 +186,15 @@ function line(into: HTMLElement, c: Chart): void {
 			if (w > 0 && Math.abs(w - drawnW) >= 4) draw(w);
 		});
 		watch.observe(plot);
+		own?.(() => watch.disconnect());
 	}
 	if (c.note) root.createEl("p", { cls: "booklet-muted booklet-ch-note", text: c.note });
 }
 
 /** Draws a chart into `into`: bars or a line, its note under it, and the numbers behind it; or, when it cannot be drawn, why, in its place. */
-export function drawChart(into: HTMLElement, c: Chart): void {
+export function drawChart(into: HTMLElement, c: Chart, own?: Own): void {
 	if (c.cannot) into.createEl("p", { cls: "booklet-muted booklet-ch-cannot", text: c.cannot });
 	else if (c.kind === "bars") bars(into, c);
-	else line(into, c);
+	else line(into, c, own);
 	numbers(into, c);
 }
