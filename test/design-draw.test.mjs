@@ -11,7 +11,7 @@ import { bookletAround, ROOT } from "./helpers.mjs";
 import { FULL } from "./design-fixtures.mjs";
 import { openDesign, observerCount, doc } from "./design-harness.mjs";
 
-const { drawInertQuestion, drawInertReading, questionOfPiece, questionsByLine } = await import("./.build/view.mjs");
+const { drawInertQuestion, drawInertReading, questionOfPiece, drawnByLine } = await import("./.build/view.mjs");
 const { PIECES, parseDesign, walkDesign } = (await import("./helpers.mjs")).core;
 
 /** Every kind the drawing code draws, a menu, and the three kept as cards, in one activity. */
@@ -113,7 +113,7 @@ test("every question kind the drawing code has is drawn on its page as a reader 
 	v.close();
 });
 
-test("listen, widget and each stay friendly cards that say a later beta draws them, and show no Markdown", () => {
+test("listen and a question asked for each pick stay friendly cards that say a later beta draws them, and show no Markdown", () => {
 	const v = openDesign(KINDS);
 	v.go("Every kind");
 	for (const [id, line] of [["lst", "[!listen|lst]"], ["eachq", "[!text|eachq"]]) {
@@ -129,20 +129,9 @@ test("listen, widget and each stay friendly cards that say a later beta draws th
 		assert.equal(box.querySelector("pre"), null, `${id}: never Markdown`);
 	}
 	v.close();
-	// and a widget, from the piece's own text
-	const widget = PIECES.find((p) => p.file === "Q - widget (grid).md");
-	const note = bookletAround("> [!activity|a] A\n\n" + widget.text.replace(/new-/g, "w-"));
-	const w2 = openDesign(note);
-	w2.go("A");
-	const box = w2.all('.booklet-design-block[data-kind="question"]')[0];
-	assert.equal(box.querySelector(".booklet-sample"), null);
-	assert.match(words(box.querySelector(".booklet-design-friendly-note")), /later beta/);
-	assert.match(words(box.querySelector(".booklet-design-friendly-detail")), /w-id/);
-	assert.equal(box.querySelector("pre"), null);
-	w2.close();
 });
 
-test("reading callouts are rendered as callouts; a copy button, a menu and a view of data stay friendly cards", () => {
+test("reading callouts are rendered as callouts; a copy button, a menu and a data block stay friendly cards", () => {
 	const seen = [];
 	globalThis.__bookletStubRender = (markdown, el) => {
 		seen.push(markdown);
@@ -248,12 +237,12 @@ test("a reader's kept answers are never shown in a drawing: a note that holds an
 });
 
 test("the drawing code is found by the line each question is on, as the tree counts lines", () => {
-	const byLine = questionsByLine(KINDS);
+	const byLine = drawnByLine(KINDS).questions;
 	const tree = walkDesign(parseDesign(KINDS)).filter((n) => n.kind === "question");
 	assert.ok(tree.length >= 14);
 	for (const n of tree) assert.equal(byLine.get(n.start)?.question.id, n.id, `${n.id} at ${n.start}`);
 	// a note that is no booklet draws no question
-	assert.equal(questionsByLine("Some words.\n").size, 0);
+	assert.equal(drawnByLine("Some words.\n").questions.size, 0);
 });
 
 test("an observer made for a matrix is let go of with the drawing: made and live counts over many redraws of the tree", () => {

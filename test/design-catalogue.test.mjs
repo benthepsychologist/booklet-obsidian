@@ -70,7 +70,7 @@ test("a listing carries each piece's hotkey letters from the key tree, and where
 test("what a sample is: a question drawn inert, a reading callout rendered, everything else a labelled card", () => {
 	const by = (file) => sampleOf(piece(file));
 	for (const f of ["Q - choice.md", "Q - date.md", "Q - lines.md", "Q - matrix.md", "Q - multi.md", "Q - multi (own options).md", "Q - multi (from a menu).md", "Q - number.md", "Q - scale.md", "Q - text.md", "Q - text (long).md"]) assert.equal(by(f), "question", f);
-	// a listen, a widget and a lone menu stay cards (Ben: a later beta draws them)
+	// a listen, a widget and a lone menu stay cards in the Add tab (Ben: a later beta draws a listen; a widget of the note is drawn on the canvas, its sample here is its picture)
 	for (const f of ["Q - listen.md", "Q - widget (grid).md", "Q - menu (shared list).md"]) assert.equal(by(f), "card", f);
 	for (const f of ["Reading - note.md", "Reading - tip.md", "Reading - warning.md", "Reading - example.md", "Reading - hint.md", "Reading - solution.md", "Reading - question.md", "Reading - quote.md", "Reading - law.md", "Reading - diff.md", "Reading - opinion.md", "Reading - citation.md"]) assert.equal(by(f), "reading", f);
 	// media, groups and a copy button are cards: a sample fetches nothing
@@ -81,14 +81,14 @@ test("what a sample is: a question drawn inert, a reading callout rendered, ever
 	for (const p of PIECES) if (sampleOf(p) !== "card") assert.equal(hasRemoteMedia(p.text), false, p.file);
 });
 
-test("how a block of the tree is drawn: the question kinds the drawing code has, reading callouts; the rest are cards", () => {
+test("how a block of the tree is drawn: the question kinds the drawing code has (a widget among them), reading callouts, a view of data; the rest are cards", () => {
 	const draw = (kind, detail) => blockDrawing({ kind, detail });
-	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date"]) assert.equal(draw("question", k), "question", k);
+	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget"]) assert.equal(draw("question", k), "question", k);
 	assert.equal(draw("question", "listen"), "card");
-	assert.equal(draw("question", "widget"), "card");
+	assert.equal(draw("query", "booklet query"), "view");
 	for (const k of ["tip", "note", "hint", "warning", "diff"]) assert.equal(draw("callout", k), "reading", k);
 	assert.equal(draw("callout", "copy"), "card");
-	for (const k of ["query", "fence", "menu", "notice", "prose", "page-break", "records", "front-matter"]) assert.equal(draw(k, ""), "card", k);
+	for (const k of ["fence", "menu", "notice", "prose", "page-break", "records", "front-matter"]) assert.equal(draw(k, ""), "card", k);
 });
 
 test("media on another site is never drawn: an image or a media tag with an address is shown as its words; a plain link is not media", () => {

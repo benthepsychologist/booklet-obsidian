@@ -36,10 +36,13 @@ export const CATALOGUE_GROUPS: readonly CatalogueGroup[] = [
 /** The catalogue group a pieces-table group is listed under. */
 export const catalogueOf = (group: PieceGroup): CatalogueId => CATALOGUE_GROUPS.find((g) => g.holds.includes(group))?.id ?? "structure";
 
-/** The question kinds the plugin's drawing code draws without help from the view (questions.ts `drawBody`, matrix.ts). */
-export const DRAWN_QUESTIONS: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "lines", "text", "number", "scale", "date"]);
+/** The question kinds the canvas draws as a reader sees them, with nothing answered (questions.ts `drawBody`, matrix.ts, and a widget's engines in engines.ts). */
+export const DRAWN_QUESTIONS: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget"]);
 
-/** The question kinds that stay a labelled card in this beta (Ben, 2026-11-13): a later beta draws them. `each` is a setting of a line, not a kind: the view finds it in the parsed question. */
+/** The question kinds that stay a labelled card on the canvas in this beta (Ben, 2026-11-13): a later beta draws them. `each` is a setting of a line, not a kind: the view finds it in the parsed question. */
+export const LATER_QUESTIONS: ReadonlySet<string> = new Set(["listen"]);
+
+/** The question pieces whose sample in the Add tab stays a labelled card: a listen, and a widget, whose grid is too big for a sample (the canvas draws a widget of the note). */
 export const CARD_QUESTIONS: ReadonlySet<string> = new Set(["listen", "widget"]);
 
 /** The reading callouts that are drawn as callouts (Obsidian draws them, and the styles give the format's own three their look). */
@@ -63,18 +66,19 @@ export function sampleOf(p: Pick<Piece, "group" | "text"> & { kinds?: readonly s
 	return "card";
 }
 
-export type BlockDrawing = "question" | "reading" | "card";
+export type BlockDrawing = "question" | "reading" | "view" | "card";
 
-/** How a block already in the note is drawn in the tree: a question of a kind the drawing code draws, inert; a reading callout, rendered; the rest a labelled card. */
+/** How a block already in the note is drawn in the tree: a question of a kind the drawing code draws, inert; a reading callout, rendered; a query, its rows; the rest a labelled card. */
 export function blockDrawing(n: Pick<DesignNode, "kind" | "detail">): BlockDrawing {
 	const detail = n.detail.toLowerCase();
 	if (n.kind === "question") return DRAWN_QUESTIONS.has(detail) ? "question" : "card";
+	if (n.kind === "query") return "view";
 	if (n.kind === "callout") return detail === "copy" ? "card" : "reading";
 	return "card";
 }
 
 /** Is this one of the kinds that is a card on purpose in this beta, with the words saying a later beta draws it? */
-export const isLaterKind = (detail: string): boolean => CARD_QUESTIONS.has(detail.toLowerCase());
+export const isLaterKind = (detail: string): boolean => LATER_QUESTIONS.has(detail.toLowerCase());
 
 const MEDIA = /!\[|<\s*(?:img|iframe|video|audio|source|embed|object)\b/i;
 const URL_ISH = /(?:[a-z][a-z0-9+.-]*:)?\/\/[^\s)\]"'>]+/i;

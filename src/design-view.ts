@@ -78,7 +78,7 @@ import { EditorBox, type BarState, type Editing, type Outcome } from "./design-e
 import { drawNav, drawTroubles, foldKeys, type NavCtx } from "./design-nav";
 import { drawPalette, groupOfKey, paintPieceButton, paintWhere, pieceByFile, pieceName, type PaletteHandle, type PalettePiece } from "./design-palette";
 import { drawIcon } from "./design-picture";
-import { questionsByLine } from "./design-sample";
+import { drawnByLine, type FoundQuery } from "./design-sample";
 import { MODE_ICONS, iconName, ui, uin } from "./design-text";
 import { capital, kindName, quietNames, titledOf } from "./design-words";
 import { markdownViewOf } from "./markdown-view";
@@ -173,6 +173,8 @@ export class DesignView extends LockedTextView {
 	private closingWindow: Window | null = null;
 	/** The questions of the note by their line, with their activities, found once for each drawing. */
 	private questions = new Map<number, { activity: Activity; question: Question }>();
+	/** The queries of the note by their line, with the note they are read in. */
+	private queries = new Map<number, FoundQuery>();
 	/** Obsidian gives a callout's colour as a triplet (see reading.ts): said to every inert drawing. */
 	private triplet = false;
 	private bookletTitle = "";
@@ -643,7 +645,9 @@ export class DesignView extends LockedTextView {
 			this.drawnLines = this.text.split("\n").length;
 			this.selected = this.find(root);
 			if (!this.selected) this.sel = null;
-			this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
+			const found = isBookletText(this.text) ? drawnByLine(this.text) : null;
+			this.questions = found?.questions ?? new Map<number, { activity: Activity; question: Question }>();
+			this.queries = found?.queries ?? new Map<number, FoundQuery>();
 			this.triplet = calloutColourIsTriplet(el);
 			this.bookletTitle = bookletTitleOf(this.text);
 			const canvas = canvasOf(root, this.selected, { firstPage: this.sel?.firstPage === true, title: this.bookletTitle });
@@ -934,6 +938,7 @@ export class DesignView extends LockedTextView {
 			bookletTitle: this.bookletTitle,
 			noteName: this.file?.basename ?? "",
 			questionAt: (line) => this.questions.get(line),
+			queryAt: (line) => this.queries.get(line),
 			isOpen: (n) => this.editsNode(n),
 			pressBlock: (n) => this.openEditor(n),
 			openCard: (n) => this.navigate(n),

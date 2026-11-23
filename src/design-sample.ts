@@ -1,8 +1,8 @@
 /*
  * Inert drawings for the Design view: a question drawn as a reader sees it, a reading callout drawn as Obsidian draws it, and neither able to
  * change anything. The same code draws the samples in the catalogue (from a piece's own template text, fixed local content) and the blocks
- * of the note in the tree (from what the note says). It draws no control of its own: `drawQuestion` (questions.ts) and the matrix (matrix.ts)
- * draw, and what is inert about them is three things at once.
+ * of the note in the tree (from what the note says). It draws no control of its own: `drawQuestion` (questions.ts), the widget engines
+ * (engines.ts) and the matrix (matrix.ts) draw, and what is inert about them is three things at once.
  *
  *   1. `locked` = true to `drawQuestion`, which switches off every button and field the kind draws. That stops a person, not a script.
  *   2. The drawing's wrapper has the class `booklet-sample` (its stylesheet rule turns pointer events off) and the `inert` attribute, where
@@ -11,13 +11,17 @@
  *   3. The host it draws with is a stand-in for the Booklet view: it keeps no answer, writes nothing, and lists every call that would have
  *      changed something in `writes`. This is the guard that holds when the other two do not (a test calls it directly).
  *
+ * A query's rows (`drawInertQuery`) are drawn by the reader's own `drawQueryPlan`, with a host that has no row actions (so rows are plain
+ * values), no sort or filter control (that is `mountQuery`, which is not used), and a link that opens nothing. The same wrapper holds it.
+ *
  * Never a reader's kept answers: the stand-in's `answerOf` gives the answer the caller hands it, and the Design view hands none, so a
- * drawing shows the empty state. Words go through plain `MarkdownRenderer.render`, with the Component of the drawing, unloaded when the
+ * drawing shows the empty state. A query is planned over the note with its records taken out, so an activity's rows are the empty line. Words go through plain `MarkdownRenderer.render`, with the Component of the drawing, unloaded when the
  * drawing is: no footnote marks, no reference links, and no media of any kind (Markdown that would fetch from another site is shown as its
  * words, `hasRemoteMedia`). A matrix's resize observer is disconnected with the drawing.
  */
 import { MarkdownRenderer, type App, type Component } from "obsidian";
-import { hasRemoteMedia, parseBooklet, type Activity, type Question } from "./core";
+import { hasRemoteMedia, parseBooklet, planQuery, type Activity, type Booklet, type Question, type QuerySegment, type RecordsRead } from "./core";
+import { drawQueryPlan, type QueryHost } from "./query-view";
 import { drawQuestion, type QuestionHost, type Target } from "./questions";
 
 /** A call the drawing made that, in a real view, would have changed an answer or held typed words. */
@@ -59,18 +63,21 @@ export function renderWords(app: App, owner: Component, markdown: string, el: HT
 }
 
 /** Every event a script could aim at a control: dropped on the way down, so no handler of the drawing runs. */
-const SWALLOWED = ["click", "dblclick", "mousedown", "mouseup", "pointerdown", "pointerup", "input", "change", "keydown", "keyup", "keypress", "focusin", "focusout", "blur", "focus", "submit", "paste", "cut", "drop", "beforeinput"] as const;
+const SWALLOWED = ["pointerenter", "pointerover", "mouseover", "mouseenter", "click", "dblclick", "mousedown", "mouseup", "pointerdown", "pointerup", "input", "change", "keydown", "keyup", "keypress", "focusin", "focusout", "blur", "focus", "submit", "paste", "cut", "drop", "beforeinput"] as const;
 
 const CONTROLS = "button, input, textarea, select, summary, a";
 
-function inertWrapper(into: HTMLElement, triplet: boolean | undefined, ...cls: string[]): HTMLElement {
+/** What a drawn view answers to besides a control: a line chart's picture takes the pointer and the keys (a readout) and is a stop of the keyboard. */
+const VIEW_CONTROLS = `${CONTROLS}, svg, [tabindex]`;
+
+function inertWrapper(into: HTMLElement, triplet: boolean | undefined, controls: string, ...cls: string[]): HTMLElement {
 	const card = into.createDiv({ cls: ["booklet-sample", ...(triplet ? ["booklet-callout-triplet"] : []), ...cls], attr: { inert: "" } });
 	for (const type of SWALLOWED)
 		card.addEventListener(
 			type,
 			(evt) => {
 				const target = evt.target as Element | null;
-				if (target && typeof target.closest === "function" && target.closest(CONTROLS)) {
+				if (target && typeof target.closest === "function" && target.closest(controls)) {
 					evt.stopPropagation();
 					evt.preventDefault();
 				}
@@ -101,25 +108,25 @@ function standIn(o: InertOptions, writes: AttemptedWrite[]): QuestionHost {
 		uid: () => `booklet-sample-${++uids}`,
 		wrongOf: () => null,
 		redrawSoon: () => {},
-		// only a `listen` question touches this, and a listen is never drawn here (a labelled card, in this beta)
+		// only a `listen` question touches this, and a listen is never drawn here (a labelled card in this beta)
 		listens: null as never,
 		own: (dispose) => o.owner.register(dispose),
 	};
 }
 
 /** The question kinds this module will not draw even if asked: they need more of a host than a stand-in has. */
-const refused = (q: Question): boolean => q.kind === "listen" || q.kind === "widget" || q.each !== null;
+const refused = (q: Question): boolean => q.kind === "listen" || q.each !== null;
 
 /**
  * Draws one question, as a reader sees it with nothing answered, with nothing live. Gives null (and draws nothing) when the question is
- * one of the three this beta leaves as a card (`listen`, `widget`, and a question asked for each pick), or when the drawing code draws
- * nothing for it.
+ * one of the two this beta leaves as a card (`listen`, and a question asked for each pick), or when the drawing code draws nothing for it.
+ * A `widget` is drawn by the reader's engines (engines.ts), locked, with the stand-in host.
  */
 export function drawInertQuestion(o: InertOptions, activity: Activity, question: Question): InertDrawing | null {
 	if (refused(question)) return null;
 	const writes: AttemptedWrite[] = [];
 	const host = standIn(o, writes);
-	const card = inertWrapper(o.into, o.triplet, "booklet-sample-question");
+	const card = inertWrapper(o.into, o.triplet, CONTROLS, "booklet-sample-question");
 	const target: Target = { scope: activity.scope, activity };
 	drawQuestion(host, card, target, question, true);
 	if (!card.childElementCount) {
@@ -134,9 +141,46 @@ export function drawInertQuestion(o: InertOptions, activity: Activity, question:
 
 /** A reading callout, citation or words, rendered as Obsidian renders them, inside an inert wrapper. */
 export function drawInertReading(o: InertOptions, markdown: string): HTMLElement {
-	const card = inertWrapper(o.into, o.triplet, "booklet-sample-reading", "markdown-rendered");
+	const card = inertWrapper(o.into, o.triplet, CONTROLS, "booklet-sample-reading", "markdown-rendered");
 	renderWords(o.app, o.owner, markdown, card, o.sourcePath);
 	return card;
+}
+
+/** A query the canvas can draw: the note read whole (the source of `from:` is found in it), the query's segment and the activity that holds it. */
+export interface FoundQuery {
+	book: Booklet;
+	segment: QuerySegment;
+	activity: Activity;
+}
+
+/** What drawing a query did: its wrapper, and every note a press asked to open (the drawing opens none). */
+export interface InertQueryDrawing {
+	card: HTMLElement;
+	/** The paths a row's link would have opened in a reader's view; the stand-in opens nothing and lists them here. */
+	opened: string[];
+}
+
+/** The records of a note that holds none: the drawing of a query is over the design, never over a reader's kept answers. */
+const NO_RECORDS = (): RecordsRead => ({ regions: [], recordsLines: [], blocks: [], answers: {}, drafts: {}, entries: {}, problems: [] });
+
+/**
+ * A query's rows, as the reader draws them with nothing kept and no control: the reader's `planQuery` over the note with its records taken
+ * out, drawn by the reader's `drawQueryPlan` (so a table is a table, an activity with no entries says what the reader's empty line says,
+ * and a data block that names a file gives the reader's quiet line, as no file is read here). No sort or filter control is drawn (that is
+ * `mountQuery`'s) and no row has an act (the host has no `rows`). A line chart's observer is let go of with the drawing's owner.
+ */
+export function drawInertQuery(o: InertOptions, found: FoundQuery, drawn: Date = new Date()): InertQueryDrawing {
+	const opened: string[] = [];
+	const host: QueryHost = {
+		md: (markdown, el) => renderWords(o.app, o.owner, markdown, el, o.sourcePath),
+		openNote: (path) => void opened.push(path),
+		own: (dispose) => o.owner.register(dispose),
+	};
+	const card = inertWrapper(o.into, o.triplet, VIEW_CONTROLS, "booklet-sample-query");
+	const box = card.createDiv({ cls: "booklet-query" });
+	box.setAttr("data-booklet-query", found.segment.query.from);
+	drawQueryPlan(host, box, planQuery(found.book, found.segment, { drawn, activity: found.activity }));
+	return { card, opened };
 }
 
 const WRAP = (block: string): string => `---\nbooklet: "0.20"\n---\n\n> [!activity|sample] Sample\n\n${block}\n`;
@@ -149,11 +193,26 @@ export function questionOfPiece(text: string): { activity: Activity; question: Q
 	return activity && question ? { activity, question } : null;
 }
 
-/** The questions of a booklet by the line each is on (0-based, as the tree counts; the reader's own `line` counts from 1), with their activities: how the tree finds what to draw. */
-export function questionsByLine(text: string): Map<number, { activity: Activity; question: Question }> {
-	const out = new Map<number, { activity: Activity; question: Question }>();
-	const book = parseBooklet(text);
-	if (!book.ok) return out;
-	for (const activity of book.activities) for (const s of activity.segments) if (s.type === "question") out.set(s.line - 1, { activity, question: s });
+/** What the canvas finds in a note by the line each piece is on (0-based, as the tree counts; the reader's own `line` counts from 1). */
+export interface NoteDrawn {
+	questions: Map<number, { activity: Activity; question: Question }>;
+	queries: Map<number, FoundQuery>;
+}
+
+/**
+ * The questions and the queries of a booklet by the line each is on, with their activities: how the tree finds what to draw. The note is
+ * read once; a query is found with the whole note (its `from:` is resolved there) but with its records taken out, so a drawing is of the
+ * design and never of a reader's kept answers.
+ */
+export function drawnByLine(text: string): NoteDrawn {
+	const out: NoteDrawn = { questions: new Map(), queries: new Map() };
+	const read = parseBooklet(text);
+	if (!read.ok) return out;
+	const book: Booklet = { ...read, records: NO_RECORDS() };
+	for (const activity of read.activities)
+		for (const s of activity.segments) {
+			if (s.type === "question") out.questions.set(s.line - 1, { activity, question: s });
+			else if (s.type === "query" && s.source) out.queries.set(s.line - 1, { book, segment: s, activity });
+		}
 	return out;
 }

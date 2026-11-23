@@ -2,15 +2,15 @@
  * The Design view's canvas: ONE PAGE of the booklet drawn as the reader sees it, with a thin "+" between its blocks. Plain functions over
  * a context the view hands in; nothing here owns state or writes the note (every press goes back to the view through `PageCtx`).
  *
- *   drawBlockBody  one block drawn as a reader sees it: words by Obsidian's renderer, a question or a reading callout inert (design-sample.ts),
- *                  and every block the view does not draw yet as a friendly CARD (its picture, its kind in words, one line of detail), never as
- *                  Markdown code. The two exceptions are text the reader cannot read, which is shown exactly as it is in the note, and the
+ *   drawBlockBody  one block drawn as a reader sees it: words by Obsidian's renderer, a question (a widget among them), the rows of a query
+ *                  or a reading callout inert (design-sample.ts), and every block the view does not draw yet as a friendly CARD (its picture,
+ *                  its kind in words, one line of detail), never as Markdown code. The two exceptions are text the reader cannot read, which is shown exactly as it is in the note, and the
  *                  records, which are named and left alone.
  *   drawPage       the page of a canvas (core/design-canvas.ts): its title, its blocks with a slot between each, its cards, and the blocks
  *                  after the cards, read-only. A selected block gets a small floating bar; a block open for editing gets the editor box.
  *   drawSlot, paintSlot   one "+" and how it looks: idle, lit (a picked piece may go here) or the target (the "+" a person clicked)
  *
- * Everything drawn of a question or a callout is inert: no handler, no live control (design-sample.ts says how). Nothing here fetches.
+ * Everything drawn of a question, a query or a callout is inert: no handler, no live control (design-sample.ts says how). Nothing here fetches.
  */
 import type { App, Component } from "obsidian";
 import {
@@ -32,7 +32,7 @@ import {
 	type Slot,
 } from "./core";
 import { drawArt, drawIcon, artOf, type Art } from "./design-picture";
-import { drawInertQuestion, drawInertReading, renderWords, type InertOptions } from "./design-sample";
+import { drawInertQuery, drawInertQuestion, drawInertReading, renderWords, type FoundQuery, type InertOptions } from "./design-sample";
 import { uin, ui } from "./design-text";
 import { EMPTY_KEY, clip, firstWords, kindName, plainOf, titledOf } from "./design-words";
 
@@ -62,6 +62,8 @@ export interface BlockFacts {
 	written?: readonly string[];
 	/** The parsed question, for a question. */
 	found?: Found | null;
+	/** The parsed query with the note it is read in, for a query the reader would draw. */
+	foundQuery?: FoundQuery | null;
 }
 
 const inertOf = (d: Drawer, owner: Component, into: HTMLElement): InertOptions => ({ app: d.app, owner, sourcePath: d.sourcePath, into, triplet: d.triplet });
@@ -106,7 +108,7 @@ function cardOf(f: BlockFacts, why: "plain" | "later" | "remote"): CardSpec {
 			return { art: artOf({ file: QUESTION_PIECE[f.detail.toLowerCase()] ?? "", group: "questions" }), icons: [], kind: ui("kind.question"), detail: joined(f.detail, named), note };
 		case "query": {
 			const as = viewOf(f.lines);
-			return { art: artOf({ file: "", group: "views", views: [as] }), icons: [], kind: ui("kind.query"), detail: joined(as, f.id ?? undefined), note: note || ui("draw.later.card") };
+			return { art: artOf({ file: "", group: "views", views: [as] }), icons: [], kind: ui("kind.query"), detail: joined(as, f.id ?? undefined), note };
 		}
 		case "fence":
 			return { art: null, icons: ["code-xml", "code", "square"], kind: ui("kind.fence"), detail: joined(f.detail, f.id ?? undefined), note };
@@ -191,9 +193,17 @@ export function drawBlockBody(d: Drawer, owner: Component, into: HTMLElement, f:
 			drawCardBody(into, cardOf(f, "plain"));
 			return;
 		}
-		case "query":
-			drawCardBody(into, cardOf(f, "later"));
+		case "query": {
+			// a query the reader draws is drawn as the reader draws it; one the reader reports and leaves out (its source is not in the note) is a card
+			const q = f.foundQuery;
+			if (q) {
+				const host = into.createDiv({ cls: "booklet-design-drawn", attr: { role: "group", "aria-label": ui("draw.label") } });
+				drawInertQuery(inertOf(d, owner, host), q);
+				return;
+			}
+			drawCardBody(into, cardOf(f, "plain"));
 			return;
+		}
 		default:
 			drawCardBody(into, cardOf(f, "plain"));
 	}
@@ -270,6 +280,7 @@ export interface PageCtx extends Drawer {
 	/** The note's own name, for the booklet when it has no title. */
 	noteName: string;
 	questionAt(line: number): Found | undefined;
+	queryAt(line: number): FoundQuery | undefined;
 	/** The editor is open on this node. */
 	isOpen(n: DesignNode): boolean;
 	pressBlock(n: DesignNode): void;
@@ -375,6 +386,7 @@ function drawBlock(parent: HTMLElement, n: DesignNode, ctx: PageCtx, canvas: Can
 		lines: ctx.linesOf(n),
 		written: n.kind === "as-written" ? ctx.writtenOf(n) : undefined,
 		found: n.kind === "question" ? (ctx.questionAt(n.start) ?? null) : null,
+		foundQuery: n.kind === "query" ? (ctx.queryAt(n.start) ?? null) : null,
 	});
 	return box;
 }
