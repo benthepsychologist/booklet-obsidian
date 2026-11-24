@@ -2,7 +2,7 @@
 
 This file lists what changed in each release of the plugin. It did not exist before; it starts with an Unreleased section, and a release moves what is under it to a heading with its version (the version itself is set as `docs/release-flow.md` says).
 
-## Unreleased, stage 5 of the Design view
+## 1.7.0-beta.3, stage 5 of the Design view
 
 **The Design view now draws a widget, the six kinds of view, a listen and a question asked for each pick as the Booklet view draws them, where it showed a card before.** Nothing in such a drawing can be pressed, typed in or played, and nothing a reader kept is shown in it.
 
@@ -14,8 +14,9 @@ This file lists what changed in each release of the plugin. It did not exist bef
 - **A data block and a widget block** stay the small *Data block* card.
 - **Looking writes nothing.** Opening a note in the Design view, drawing every page and pressing on every drawn piece leaves the file byte for byte as it was.
 - **A line chart's width observer** is handed to whoever owns the drawing, so a page drawn again does not leave one observer for each earlier drawing. The Booklet view passes none, so nothing changes there.
-- **Not changed:** the *Add* tab still shows a listen and a widget as a small labelled sample.
-- **Tests.** Real-Obsidian checks 98 to 102 (a widget, the six views, a listen with its network requests and timers recorded, each-questions, and the whole canvas at 390 px and in the dark); check 65 updated for what is now drawn; and the unit tests in `test/design-stage5.test.mjs`, `test/design-stage5-listen.test.mjs` and `test/listen-media-words.test.mjs`.
+- **The *Add* tab's hover sample is drawn the same way.** Pausing on the *Widget (grid)* tile shows the grid itself (its heading, axes, cells and items), on *Listen* a listen with its media said in words (`Words describing the recording (https://media.example.org/recording.m4a)`, never a player), and on each of the eight tiles of the *Views and data* group that holds a view (*Bars*, *Cards*, *Kept entries*, *Line*, *List*, *Table*, *Table (the reader adds and removes rows)* and *Tiles*) the view over the piece's own example rows. The two views of a list the reader keeps say their empty line ("Nothing kept yet.", "Nothing here yet. Add the first one."), as the canvas does for a note with nothing kept. These were a picture, larger, before. A sample is drawn by the same code as the canvas, switched off, and loads, plays and writes nothing. A sample taller than the room it has (the grid is, in a short window) is drawn smaller until it fits, so no part of it is cut off.
+- **Still a picture in the *Add* tab:** the 23 pieces the canvas draws as a card or does not draw: Structure (module, activity in its three forms, page, tab, row, theme, notice, front matter, page break, piece marker, two data sections), the data blocks (rows, rows the reader can edit, a diagram), a lone shared menu, an image, a figure, the two groups and the copy button. A sample fetches nothing, so an image or a figure shows the tile's own picture.
+- **Tests.** Real-Obsidian checks 98 to 102 (a widget, the six views, a listen with its network requests and timers recorded, each-questions, and the whole canvas at 390 px and in the dark); check 65 updated for what is now drawn, and check 66 for the *Add* tab's samples (every tile hovered with the real mouse, nothing loaded, no timer, the note byte for byte as it was, light, dark and a short window); and the unit tests in `test/design-stage5.test.mjs`, `test/design-stage5-listen.test.mjs`, `test/design-stage5-add.test.mjs` and `test/listen-media-words.test.mjs`.
 - **Found while measuring, not changed:** in the light Paper look the line on a records card ("This is the booklet's kept data. This view never writes it.") is 4.09 to 1 against the page, under 4.5. That card is older than stage 5.
 
 ## 1.7.0-beta.2, fixes from the beta.1 walk
