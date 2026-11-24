@@ -646,7 +646,7 @@ lang: en
   }
   const PALETTE_ORDER = "questions,reading,structure,views-data";
   async function check66() {
-    const c = new Check(66, "the Add tab (a Common row of six, four foldable groups, 57 tiles each lit or greyed with its reason, a sample only on hover), a \"+\" first then a tile, a tile first then a lit \"+\", a tile dragged to a \"+\", only legal pieces, the hotkeys with the real keyboard (letters, status line, Enter, Esc, silent in a field, Obsidian's own keys, a user's own hotkey, the palette commands) and the tiles' icon names on this Obsidian");
+    const c = new Check(66, "the Add tab (a Common row of six, four foldable groups, 57 tiles each lit or greyed with its reason, a sample only on hover, drawn the way the canvas draws the piece: the widget, the listen and the eight views among them, inert, whole in a short window, loading, running and writing nothing), a \"+\" first then a tile, a tile first then a lit \"+\", a tile dragged to a \"+\", only legal pieces, the hotkeys with the real keyboard (letters, status line, Enter, Esc, silent in a field, Obsidian's own keys, a user's own hotkey, the palette commands) and the tiles' icon names on this Obsidian");
     await withApp("c66", async (o, vault) => {
       put(vault, EMPTYM, EMPTYM_TEXT);
       const file = path.join(vault, EVERY), t0 = text(file);
@@ -692,6 +692,100 @@ lang: en
       c.ok(pop2.art && !pop2.md && pop2.name === "Module", `a piece with no drawing (Module) shows its picture larger, never its Markdown: ${JSON.stringify(pop2)}`);
       await o.page.mouse.move(700, 20); await sleep(300);
       c.ok(text(file) === t0, "hovering wrote nothing");
+      // ---- stage 5: the samples of a widget, a listen and the eight views of data are drawn the way the canvas draws them (the reader's own drawing, inert), and load, run and write nothing
+      const reqs = record5(o); await patchTimers5(o);
+      await o.evaluate(async () => { try { await fetch("https://control.tea-course.invalid/proof", { mode: "no-cors" }); } catch (e) { /* refused is fine: it was asked for */ } const i = (0, eval)("window.setInterval(() => {}, 999999) //# sourceURL=plugin:booklet"); window.clearInterval(i); });
+      await sleep(300);
+      const control = { request: reqs.hits(/control\.tea-course\.invalid/).length, timer: (await timers5(o)).interval };
+      c.ok(control.request >= 1 && control.timer === 1, `the recorders work: the page's own request to the control address was seen (${control.request}) and a timer started by code of the plugin's name was seen (${control.timer})`);
+      reqs.urls.length = 0; await o.evaluate(() => { window.__t5.interval.length = 0; });
+      const errs66 = consoleReport.length;   // the control's own refused request is a console error of its own and is left out
+      await armWrites(o, EVERY);
+      const away = async () => { await o.page.mouse.move(700, 20); await o.page.waitForFunction(() => !document.querySelector(".workspace-leaf.mod-active .booklet-design-samplepop"), null, { timeout: 3000 }).catch(() => {}); };
+      /** A real hover on a tile (or a chip), the sample waited for, and what it holds as facts; it is left showing. */
+      const sampleOf66 = async sel => {
+        await away();
+        await o.page.locator(sel).scrollIntoViewIfNeeded(); await o.page.locator(sel).hover();
+        await o.page.waitForSelector(DV + " .booklet-design-samplepop", { timeout: 4000 }); await sleep(250);
+        return o.evaluate(() => {
+          const e = document.querySelector(".workspace-leaf.mod-active .booklet-design-samplepop"), s = e.querySelector(".booklet-sample"), r = e.getBoundingClientRect(), w = x => x.textContent.replace(/\s+/g, " ").trim(), all = (k, from = e) => [...from.querySelectorAll(k)];
+          const q = e.querySelector(".booklet-query");
+          return {
+            name: w(e.querySelector(".booklet-design-samplepop-name")), kind: s ? (s.classList.contains("booklet-sample-query") ? "query" : s.classList.contains("booklet-sample-question") ? "question" : s.classList.contains("booklet-sample-reading") ? "reading" : "other") : null,
+            inert: !!s && s.hasAttribute("inert"), live: s ? all("button, input, textarea, select", s).filter(x => !x.disabled && !x.closest("[inert]")).length : -1,
+            art: !!e.querySelector(".booklet-design-samplepop-art svg"), pre: !!e.querySelector("pre, code, .booklet-design-friendly"),
+            media: all("audio, video, iframe, source, img, object, embed, track, picture").length, withAddress: all("[src], [srcset], [poster], [data-src], a[href]").length, loads: all("[src], [srcset], [poster], [data-src]").length,
+            view: q ? q.getAttribute("data-booklet-view") : null, queryWords: q ? w(q) : null, svg: !!e.querySelector(".booklet-ch-line svg.booklet-ch-svg"),
+            prompt: s && e.querySelector(".booklet-prompt") ? w(e.querySelector(".booklet-prompt")) : null, help: e.querySelector(".booklet-help") ? w(e.querySelector(".booklet-help")) : null,
+            axes: all(".booklet-axis").map(w), cells: all(".booklet-cell-name").map(w), items: all("button.booklet-item").map(w), pressed: all("button.booklet-item[aria-pressed='true']").length, listenMedia: e.querySelector(".booklet-listen-media") ? w(e.querySelector(".booklet-listen-media")) : null,
+            box: { l: Math.round(r.left), r: Math.round(r.right), t: Math.round(r.top), b: Math.round(r.bottom), w: Math.round(r.width), h: Math.round(r.height) }, win: { w: innerWidth, h: innerHeight },
+            cut: e.scrollHeight - e.clientHeight, cutX: e.scrollWidth - e.clientWidth, shrunk: (e.querySelector(".booklet-design-samplepop-body") || { className: "" }).className.replace("booklet-design-samplepop-body", "").trim() || "as drawn",
+          };
+        });
+      };
+      const wid = await sampleOf66(tile("Q - widget (grid).md"));
+      c.ok(wid.kind === "question" && wid.inert && wid.live === 0 && !wid.art && !wid.pre && wid.name === "Widget (grid)", `the sample of the Widget tile is the reader's grid drawn inert (a drawing of a question, nothing live, no picture of it, no Markdown): ${JSON.stringify({ name: wid.name, kind: wid.kind, inert: wid.inert, live: wid.live, art: wid.art })}`);
+      c.ok(wid.prompt === "Your question here" && wid.help === "Select what fits." && wid.axes.join("|") === "more of one thing|less of another|more of it|less of it" && wid.cells.join("|") === "First cell|Second cell|Third cell|Fourth cell" && wid.items.join("|") === "First item|Second item|Third item|Fourth item" && wid.pressed === 0, `and it holds the piece's own words: the heading, the help, the four axes, the four cells, the four items, none shown picked (${JSON.stringify([wid.prompt, wid.help, wid.axes, wid.cells, wid.items])})`);
+      await shot(o, "add-sample-widget-light");
+      const lis = await sampleOf66(tile("Q - listen.md"));
+      c.ok(lis.kind === "question" && lis.inert && lis.live === 0 && !lis.art && !lis.pre && lis.prompt === "Title of the recording", `the sample of the Listen tile is the reader's listen drawn inert (nothing live, no picture of it): ${JSON.stringify({ kind: lis.kind, inert: lis.inert, live: lis.live, prompt: lis.prompt })}`);
+      c.ok(lis.listenMedia === "Words describing the recording (https://media.example.org/recording.m4a)" && lis.media === 0 && lis.withAddress === 0, `its media is words, not a player: ${JSON.stringify(lis.listenMedia)}; ${lis.media} audio, video, iframe, source, img, object or embed elements and ${lis.withAddress} links or addresses in an attribute`);
+      await shot(o, "add-sample-listen-light");
+      const VIEWS66 = [["View - table.md", "Table", "table", /First row.*3.*A few words.*Second row/], ["View - list.md", "List", "list", /First row/], ["View - cards.md", "Cards", "cards", /First row/], ["View - tiles.md", "Tiles", "tiles", /First row/], ["View - bars.md", "Bars", "bars", /First row.*Second row.*Third row/], ["View - line.md", "Line", "line", null], ["View - kept entries (a log and its list).md", null, null, /^Nothing kept yet\.$/], ["View - table (the reader adds and removes rows).md", null, "table", /Nothing here yet\. Add the first one\./]];
+      const vf = {};
+      for (const [file, , view, words] of VIEWS66) {
+        const f = vf[file] = await sampleOf66(tile(file));
+        c.ok(f.kind === "query" && f.inert && f.live === 0 && !f.art && !f.pre && f.media === 0 && (view === null || f.view === view || (f.view && view === "table" && f.view === "table")) && (words === null ? f.svg : words.test(f.queryWords || "")), `${file.replace(/^View - /, "").replace(/\.md$/, "")}: its sample is the reader's own drawing of the view over the piece's data, inert, with no sort, filter or row button (${JSON.stringify({ view: f.view, live: f.live, media: f.media })}; ${JSON.stringify((f.queryWords || (f.svg ? "a line chart's picture" : "")).slice(0, 70))})`);
+        if (file === "View - table.md" || file === "View - line.md" || file === "View - bars.md" || file === "View - cards.md" || file === "View - tiles.md" || file === "View - list.md") await shot(o, "add-sample-" + file.replace(/^View - /, "").replace(/\.md$/, "") + "-light");
+      }
+      await shot(o, "add-sample-view-last-light");
+      // dark, and a window just wide enough to have the popover (a pane narrower than 700 px is a phone's: no popover, see check 66's phone part)
+      await o.setScheme("dark"); await sleep(500);
+      for (const [file, nm] of [["Q - widget (grid).md", "widget"], ["Q - listen.md", "listen"], ["View - table.md", "table"], ["View - line.md", "line"]]) { await sampleOf66(tile(file)); await shot(o, "add-sample-" + nm + "-dark"); }
+      await o.setScheme("light"); await sleep(500);
+      const vp66 = await o.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+      const narrow66 = {};
+      await o.page.setViewportSize({ width: 800, height: 800 }); await sleep(900);
+      const stN = await state(o);
+      c.info(`at 800 px: phone ${stN.phone}, left column hidden ${stN.leftHidden}, window ${JSON.stringify(await o.evaluate(() => ({ w: innerWidth, pane: document.querySelector(".workspace-leaf.mod-active .workspace-leaf-content[data-type='booklet-design']").getBoundingClientRect().width })))}`);
+      for (const [file, nm] of [["Q - widget (grid).md", "widget"], ["Q - listen.md", "listen"], ["View - table.md", "table"], ["View - line.md", "line"]]) { narrow66[nm] = await sampleOf66(tile(file)); await shot(o, "add-sample-" + nm + "-800"); }
+      await away();
+      // a short window: a sample taller than the room it has is drawn smaller, a step at a time, and is not cut off (the popover takes no pointer, so it could never be scrolled)
+      const shortW = {};
+      for (const h of [640, 520]) {
+        await o.page.setViewportSize({ width: vp66.w, height: h }); await sleep(900);
+        for (const [file, nm] of [["Q - widget (grid).md", "widget"], ["View - cards.md", "cards"]]) { shortW[nm + "@" + h] = await sampleOf66(tile(file)); if (nm === "widget") await shot(o, "add-sample-widget-h" + h); }
+      }
+      await away();
+      c.ok(Object.values(shortW).every(f => f.cut <= 1 && f.box.t >= 0 && f.box.b <= f.win.h) && shortW["widget@640"].shrunk !== "as drawn" && shortW["widget@520"].shrunk !== "as drawn", `in a window 640 and 520 px high the Widget sample is still shown whole (the popover's excess height ${JSON.stringify(Object.fromEntries(Object.entries(shortW).map(([k, f]) => [k, [f.cut, f.shrunk, f.box.b, "of", f.win.h]])))}); at the full height it was drawn at ${wid.shrunk}`);
+      await o.page.setViewportSize({ width: vp66.w, height: vp66.h }); await sleep(700);
+      c.ok(!stN.phone && Object.values(narrow66).every(f => f.box.l >= 0 && f.box.r <= f.win.w && f.box.t >= 0 && f.box.b <= f.win.h), `in a window 800 px wide (a pane under 700 px is a phone's and has no popover; this one is not) every sample is inside the window: ${JSON.stringify(Object.fromEntries(Object.entries(narrow66).map(([k, f]) => [k, [f.box.l, f.box.r, f.box.t, f.box.b, "of", f.win.w, f.win.h]])))}`);
+      const all66 = [wid, lis, ...Object.values(vf), ...Object.values(narrow66)];
+      c.ok(all66.every(f => f.box.l >= 0 && f.box.r <= f.win.w && f.box.t >= 0 && f.box.b <= f.win.h), `every one of the ten drawn samples (and the four at 800 px) lies inside the window: ${JSON.stringify(all66.map(f => [f.name, f.box.r, f.box.b]))}`);
+      c.ok(all66.every(f => f.cut <= 1 && f.cutX <= 1), `and none is cut off: the popover cannot be scrolled (it takes no pointer), so what is longer than its box would be lost; the excess of height over box, per sample: ${JSON.stringify(all66.map(f => [f.name, f.cut, f.cutX]))}`);
+      // every tile and every chip, really hovered: what each sample is made of, and that nothing that could be loaded is in any
+      const tiles66 = (await paletteFacts(o)).tiles.map(t => t.piece), chips66 = (await paletteFacts(o)).chips.map(x => x.piece);
+      const kinds66 = {}, bad66 = [];
+      for (const [sel, id] of [...tiles66.map(f => [tile(f), f]), ...chips66.map(f => [chip(f), "chip " + f])]) {
+        const f = await sampleOf66(sel); const k = f.kind || (f.art ? "picture" : "nothing");
+        (kinds66[k] = kinds66[k] || []).push(id.replace(/\.md$/, ""));
+        if (f.media || f.loads || f.pre || f.live > 0 || (f.kind && !f.inert) || k === "nothing" || k === "other") bad66.push([id, f.media, f.loads, f.pre, f.live, f.inert, k]);
+      }
+      await away();
+      c.ok(tiles66.length === 57 && bad66.length === 0, `all ${tiles66.length} tiles and ${chips66.length} chips were hovered with the real mouse: each sample is a drawing (inert, nothing live) or a picture, none holds an audio, video, iframe, img, source, object or embed element, a link or an address in an attribute, or Markdown code (${JSON.stringify(bad66)})`);
+      const own66 = k => (kinds66[k] || []).filter(f => !f.startsWith("chip "));
+      c.ok(own66("question").length === 13 && own66("question").includes("Q - widget (grid)") && own66("question").includes("Q - listen") && own66("query").length === 8 && own66("picture").length === 23 && own66("picture").every(f => !/^(Q - widget|Q - listen|View - )/.test(f)), `of the 57 tiles ${own66("question").length} are drawn questions (the Widget and the Listen among them), ${own66("query").length} drawn views (all eight of the Views group), ${own66("reading").length} reading callouts and ${own66("picture").length} are still their picture (a lone menu, structure, data blocks, an image, a figure, groups and the copy button): ${JSON.stringify(own66("picture"))}`);
+      await sleep(400);
+      const r66 = reqs.hits(/media\.example\.org|recording\.m4a|tea-course\.invalid|\.(?:mp3|m4a|wav|png|jpe?g)(?:\?|$)/);
+      c.ok(r66.length === 0, `no request went to the listen's address or for any media in all of that (${reqs.urls.length} requests in all, ${r66.length} to media: ${JSON.stringify(r66.slice(0, 3))})`);
+      const res66 = await o.evaluate(() => performance.getEntriesByType("resource").map(e => e.name).filter(n => /media\.example\.org|recording\.m4a/.test(n)));
+      c.ok(res66.length === 0, `and the page's own resource list agrees (${res66.length} entries for the listen's address)`);
+      const tm66 = await timers5(o);
+      c.ok(tm66.interval === 0 && tm66.live === 0, `no timer: the plugin's code started ${tm66.interval} intervals (${tm66.live} running) over all of those hovers (timeouts ${tm66.timeout} are the 400 ms wait before a sample, one for each hover, and animation frames ${tm66.raf} the view's own drawing)`);
+      c.ok(text(file) === t0 && await writesOf(o, EVERY) === 0, `nothing was written: after every hover the note is byte for byte as it was and the vault saw ${await writesOf(o, EVERY)} writes to it`);
+      reqs.stop();
+      const e66 = errorsSince(errs66);
+      c.ok(e66.length === 0, `no page or console error from the samples (${e66.length})${e66.length ? ": " + JSON.stringify(e66.map(x => x.text.slice(0, 120))) : ""}`);
       // ---- a "+" first: the Add tab opens with that spot chosen, tiles lit for it, one tap places at once
       const between = (a, b) => `${DV} .booklet-design-slot[data-slot$='|between|${a}|${b}']`;
       await leftTab(o, "outline");
