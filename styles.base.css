@@ -3846,7 +3846,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	top: var(--size-4-12);
 	left: calc(var(--bd-left) + var(--size-4-2));
 	width: min(22em, 50%);
-	max-height: 70%;
+	/* all the room under its top edge: a sample taller than that is drawn smaller (design-palette.ts `shrinkToFit`), never cut off */
+	max-height: calc(100% - var(--size-4-12) - var(--size-4-2));
 	overflow: auto;
 	padding: var(--size-4-3);
 	border: var(--border-width) solid var(--background-modifier-border);
@@ -3854,6 +3855,18 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	background: var(--background-primary);
 	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
 	pointer-events: none;
+}
+
+.booklet-design-samplepop-body.is-shrunk-1 {
+	zoom: 0.8;
+}
+
+.booklet-design-samplepop-body.is-shrunk-2 {
+	zoom: 0.65;
+}
+
+.booklet-design-samplepop-body.is-shrunk-3 {
+	zoom: 0.5;
 }
 
 .booklet-design-samplepop-art svg {

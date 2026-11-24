@@ -5,7 +5,7 @@
  *   CATALOGUE_GROUPS   the four groups the catalogue folds: Structure, Questions, Reading aids, Views and data (Views and Data merged)
  *   catalogueListing   a container's legal pieces (design-model `addChoices`) laid out in those groups, each with its hotkey letters and
  *                      what its sample is (`sampleOf`)
- *   sampleOf           how a piece is shown in the catalogue: a question drawn inert, a reading callout rendered, or a labelled card
+ *   sampleOf           how a piece is shown in the catalogue: a question drawn inert, a reading callout rendered, a view drawn as its rows, or its picture
  *   blockDrawing       how a block already in the note is shown in the tree, by the same three
  *   hasRemoteMedia     Markdown that would make the renderer fetch something from another site (a drawing never does)
  *   placeFor           where a piece goes for the keys: the selected block's legal place, else the end of the booklet's
@@ -39,22 +39,21 @@ export const catalogueOf = (group: PieceGroup): CatalogueId => CATALOGUE_GROUPS.
 /** The question kinds the canvas draws as a reader sees them, with nothing answered (questions.ts `drawBody`, matrix.ts, a widget's engines in engines.ts and listen-view.ts `drawListen`). The one question left a card is one asked for each row of a data block (`askedOfRows`), which is a setting of a line, not a kind: the view finds it in the parsed question. */
 export const DRAWN_QUESTIONS: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget", "listen"]);
 
-/** The question pieces whose sample in the Add tab stays a labelled card: a listen, and a widget, whose grid is too big for a sample (the canvas draws both of the note). */
-export const CARD_QUESTIONS: ReadonlySet<string> = new Set(["listen", "widget"]);
-
 /** The reading callouts that are drawn as callouts (Obsidian draws them, and the styles give the format's own three their look). */
 export const READING_KINDS: ReadonlySet<string> = new Set(["note", "tip", "example", "hint", "solution", "warning", "law", "diff", "opinion", "question", "quote"]);
 
-export type SampleKind = "question" | "reading" | "card";
+export type SampleKind = "question" | "reading" | "view" | "card";
 
 /**
- * How a piece is shown in the catalogue. A question of a kind the drawing code draws is drawn inert; a reading callout, a citation and plain
- * words are rendered; everything else (structure, data, views, a listen or widget, a group, an image) is a labelled card of its own
- * Markdown. A piece that holds an image or a fenced block is a card: a sample is fixed local content and draws no media.
+ * How a piece is shown in the catalogue, drawn the way the canvas draws the same piece of a note. A question of a kind the drawing code draws
+ * (a widget and a listen among them) is drawn inert; a reading callout, a citation and plain words are rendered; a view of data is drawn as
+ * its rows. Everything else (structure, a data block, a lone menu, a group, an image or a figure) is its picture, larger. A piece that holds an
+ * image or a fenced block is a picture: a sample is fixed local content and draws no media.
  */
 export function sampleOf(p: Pick<Piece, "group" | "text"> & { kinds?: readonly string[] }): SampleKind {
 	const kinds = p.kinds ?? [];
-	if (p.group === "questions") return !kinds.some((k) => CARD_QUESTIONS.has(k)) && kinds.some((k) => DRAWN_QUESTIONS.has(k)) ? "question" : "card";
+	if (p.group === "questions") return kinds.some((k) => DRAWN_QUESTIONS.has(k)) ? "question" : "card";
+	if (p.group === "views") return "view";
 	if (p.group === "reading") {
 		if (/!\[|```/.test(p.text)) return "card";
 		if (kinds.length === 0) return "reading";

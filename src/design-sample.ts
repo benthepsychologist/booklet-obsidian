@@ -213,6 +213,15 @@ export function questionOfPiece(text: string): { activity: Activity; question: Q
 	return activity && question ? { activity, question } : null;
 }
 
+/**
+ * The first query a piece's own text holds, found as the canvas finds a query of a note (`drawnByLine`): the piece read whole, so its data
+ * block is the source, with no record in it. A view of a piece that keeps its entries has none kept, and draws the reader's empty line.
+ */
+export function queryOfPiece(text: string): FoundQuery | null {
+	const [first] = [...drawnByLine(WRAP(text)).queries].sort(([a], [b]) => a - b);
+	return first ? first[1] : null;
+}
+
 /** What the canvas finds in a note by the line each piece is on (0-based, as the tree counts; the reader's own `line` counts from 1). */
 export interface NoteDrawn {
 	questions: Map<number, { activity: Activity; question: Question }>;

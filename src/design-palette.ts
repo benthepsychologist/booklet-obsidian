@@ -25,7 +25,7 @@ import {
 	type Piece,
 } from "./core";
 import { drawArt, artOf } from "./design-picture";
-import { drawInertQuestion, drawInertReading, questionOfPiece } from "./design-sample";
+import { drawInertQuery, drawInertQuestion, drawInertReading, questionOfPiece, queryOfPiece } from "./design-sample";
 import type { Drawer } from "./design-canvas-draw";
 import { ui } from "./design-text";
 import { capital, quietNames } from "./design-words";
@@ -120,6 +120,26 @@ export function paintWhere(card: HTMLElement, where: string | null): void {
 	card.createEl("i", { text: where });
 }
 
+/** How far a drawn sample is made smaller when it is taller than the room it has: one class each, whose rule (styles.base.css) sets the size. */
+export const SHRINK_CLASSES: readonly string[] = ["is-shrunk-1", "is-shrunk-2", "is-shrunk-3"];
+
+/**
+ * A drawn sample shows whole or it is a bad sample: the popover takes no pointer, so what runs past its box can never be scrolled to. A
+ * sample taller than the popover's room (a widget's grid with its four cells is) is drawn one step smaller, again and again, until it fits
+ * or the smallest step is reached. Gives how many steps it took (0 when it fitted as drawn). Sizes are read from the real layout, so
+ * where there is none (a test's document) nothing is ever too tall and nothing is shrunk.
+ */
+export function shrinkToFit(pop: HTMLElement, body: HTMLElement): number {
+	let steps = 0;
+	for (const cls of SHRINK_CLASSES) {
+		if (pop.scrollHeight <= pop.clientHeight + 1) break;
+		body.addClass(cls);
+		steps++;
+		if (steps > 1) body.removeClass(SHRINK_CLASSES[steps - 2] ?? cls);
+	}
+	return steps;
+}
+
 export function drawPalette(host: HTMLElement, ctx: PaletteCtx): PaletteHandle {
 	let hover: number | null = null;
 	let pop: { el: HTMLElement; owner: Component | null } | null = null;
@@ -150,6 +170,12 @@ export function drawPalette(host: HTMLElement, ctx: PaletteCtx): PaletteHandle {
 		if (owner && kind === "question") {
 			const q = questionOfPiece(piece.text);
 			if (q) drawn = !!drawInertQuestion({ app: ctx.app, owner, sourcePath: "", into, triplet: ctx.triplet }, q.activity, q.question);
+		} else if (owner && kind === "view") {
+			const found = queryOfPiece(piece.text);
+			if (found) {
+				drawInertQuery({ app: ctx.app, owner, sourcePath: "", into, triplet: ctx.triplet }, found);
+				drawn = true;
+			}
 		} else if (owner && kind === "reading") {
 			drawInertReading({ app: ctx.app, owner, sourcePath: "", into, triplet: ctx.triplet }, piece.text.trimEnd());
 			drawn = true;
@@ -161,6 +187,7 @@ export function drawPalette(host: HTMLElement, ctx: PaletteCtx): PaletteHandle {
 		}
 		el.createDiv({ cls: "booklet-design-samplepop-name", text: name });
 		quietNames(el);
+		if (drawn) shrinkToFit(el, into);
 	};
 
 	const watch = (el: HTMLElement, piece: PalettePiece, why: HTMLElement): void => {
