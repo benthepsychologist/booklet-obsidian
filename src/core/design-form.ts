@@ -66,6 +66,25 @@ export function formOfLine(line: string): Form | null {
 	return { kind: m.kind, known: m.known, fields, stray: m.stray };
 }
 
+/** `min:`, `max:` and `step:` take a number as the linter reads one; `earlier:` and `left:` a whole number in digits (SPEC section 4). */
+const NUMBER_VALUE = /^-?[0-9]+(\.[0-9]+)?$/;
+const WHOLE_VALUE = /^[0-9]+$/;
+
+/**
+ * Why a value cannot be the value of this setting, or null: the settings whose value the format fixes (a number, a whole number) are
+ * checked as the linter checks them, so the box never writes a value the reader would ignore and the linter report. A value of "" takes
+ * the setting off and is always fine. The other settings' values are the format's free text and are not judged here.
+ */
+export function settingProblem(name: string, value: string): string | null {
+	if (value === "") return null;
+	const key = name.toLowerCase();
+	if (NUMERIC.has(key) && !NUMBER_VALUE.test(value)) return `\`${key}\` takes a number, such as 0, 12 or 2.5.`;
+	if ((key === "earlier" || key === "left") && !WHOLE_VALUE.test(value))
+		return key === "left" ? "`left` takes a whole number of seconds written in digits, such as 60." : "`earlier` takes a whole number written in digits, such as 12.";
+	if (key === "each" && !/^[A-Za-z0-9-]+$/.test(value)) return "`each` takes the id of another question or of a data block: letters, digits and dashes.";
+	return null;
+}
+
 export type FormChange =
 	| { what: "id"; value: string }
 	| { what: "title"; value: string }
@@ -95,9 +114,13 @@ export function applyFormChange(lines: readonly string[], change: FormChange): {
 		case "flag":
 			edit = setFlag(p, change.name, change.on);
 			break;
-		case "value":
+		case "value": {
 			edit = setValue(p, change.name, change.value);
+			// the format's own settings with a fixed value: what `setValue` takes as text, `settingProblem` takes as the number it must be
+			const bad = "error" in edit ? null : settingProblem(change.name, change.value);
+			if (bad) return { ok: false, reason: bad };
 			break;
+		}
 		case "stray":
 			edit = removeWord(p, change.index);
 			break;

@@ -40,8 +40,12 @@ const WORDS: Record<"option" | "item" | "anchor", { up: DesignKey; down: DesignK
 	anchor: { up: "rows.anchor.up", down: "rows.anchor.down", remove: "rows.anchor.remove" },
 };
 
-/** What a change comes to: the block's new lines (with what to do once they are written), or why it is not made. `keep`: it was typed text, which stays where it is. */
-export type Made = { ok: true; lines: string[]; landed?: () => void } | { ok: false; reason: string; keep?: boolean };
+/**
+ * What a change comes to: the block's new lines (with what to do once they are written), or why it is not made. `keep`: it was typed text,
+ * which stays where it is. `note`: the change touches another place of the note as well (a picture's definition, a citation's note), so it
+ * is the note's whole new text, written as one change; `lines` is then the block's own lines in it.
+ */
+export type Made = { ok: true; lines: string[]; landed?: () => void; note?: string } | { ok: false; reason: string; keep?: boolean };
 
 /** What the rows ask of the box that holds them. */
 export interface RowsIO {
@@ -81,7 +85,7 @@ function shownOf(rows: Rows): { text: Map<string, string>; on: Map<string, boole
 		});
 	} else if (rows.kind === "menu") rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
 	else {
-		rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
+		if (rows.kind === "matrix") rows.items.forEach((it, i) => text.set(`i${i}-text`, it.text));
 		rows.anchors.forEach((a, i) => {
 			text.set(`a${i}-number`, a.number);
 			text.set(`a${i}-text`, a.text);
@@ -98,6 +102,7 @@ function shapeOf(lines: readonly string[]): string {
 	if ("refused" in rows) return `refused:${rows.refused}`;
 	if (isChoiceRows(rows)) return rows.menu ? `${rows.kind}:menu:${rows.menu}` : `${rows.kind}:${rows.options.map((o) => o.replies.length).join(",")}`;
 	if (rows.kind === "menu") return `menu:${rows.items.length}`;
+	if (rows.kind === "scale") return `scale:${rows.anchors.length}`;
 	return `matrix:${rows.items.length}:${rows.anchors.length}`;
 }
 
@@ -105,6 +110,8 @@ export class RowsPanel {
 	private rows: Rows | null = null;
 	/** The shape the rows on the screen were drawn for. */
 	private shape = "";
+	/** The control the next drawing selects the words of (the new anchor's placeholder), or null. */
+	private selectNext: string | null = null;
 
 	constructor(
 		private readonly host: HTMLElement,
@@ -127,6 +134,8 @@ export class RowsPanel {
 		const doc = this.host.ownerDocument;
 		const active = doc.activeElement;
 		const key = wanted ?? (active && this.host.contains(active) ? (active.closest("[data-key]")?.getAttribute("data-key") ?? null) : null);
+		const select = this.selectNext;
+		this.selectNext = null;
 		this.host.empty();
 		this.rows = null;
 		this.shape = this.shapeNow(lines);
@@ -135,7 +144,7 @@ export class RowsPanel {
 		this.host.toggleClass("is-empty", true);
 		if (!kind || !holds) return "none";
 		this.host.toggleClass("is-empty", false);
-		const heading = kind === "menu" || kind === "matrix" ? "rows.items" : "rows.options";
+		const heading = kind === "menu" || kind === "matrix" ? "rows.items" : kind === "scale" ? "rows.anchors" : "rows.options";
 		new Setting(this.host).setName(ui(heading)).setHeading();
 		const rows = readRows(lines, kind);
 		if ("refused" in rows) {
@@ -145,10 +154,15 @@ export class RowsPanel {
 		this.rows = rows;
 		if (isChoiceRows(rows)) this.drawChoice(rows);
 		else if (rows.kind === "menu") this.drawMenu(rows);
+		else if (rows.kind === "scale") this.anchors(rows.anchors);
 		else this.drawMatrix(rows);
 		// a row that merely has a name is named without the tooltip an aria-label would raise, as the rest of the page is
 		quietNames(this.host);
-		if (key) this.host.querySelector<HTMLElement>(`[data-key="${key}"]`)?.focus();
+		if (key) {
+			const at = this.host.querySelector<HTMLElement>(`[data-key="${key}"]`);
+			at?.focus();
+			if (at instanceof HTMLInputElement && key === select) at.select();
+		}
 		return "rows";
 	}
 
@@ -363,10 +377,15 @@ export class RowsPanel {
 	private drawMatrix(rows: MatrixRows): void {
 		this.items(rows.items);
 		new Setting(this.host).setName(ui("rows.anchors")).setHeading();
+		this.anchors(rows.anchors);
+	}
+
+	/** The rows of a list of anchors (a scale's, a matrix's): the number that is kept, the words, move, remove, and the Add button under them. */
+	private anchors(anchors: { number: string; text: string }[]): void {
 		const list = this.host.createDiv({ cls: "booklet-design-rows-list" });
-		const count = rows.anchors.length;
+		const count = anchors.length;
 		if (!count) list.createDiv({ cls: "booklet-design-rows-none", text: ui("rows.none") });
-		rows.anchors.forEach((a, i) => {
+		anchors.forEach((a, i) => {
 			const n = i + 1;
 			const row = list.createDiv({ cls: "booklet-design-optrow", attr: { role: "group", "aria-label": ui("rows.anchor.group", { n }) } });
 			const main = row.createDiv({ cls: "booklet-design-rows-main" });
@@ -392,6 +411,11 @@ export class RowsPanel {
 				else this.edit(() => ({ what: "anchor-remove", index: i }), this.afterRemove("a", i, count, "a-add"));
 			});
 		});
-		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => this.edit(() => ({ what: "anchor-add" }), `a${count}-text`));
+		// a new anchor starts with a short word of its own (a line `3. ` with nothing after the number would be drawn as an unlabelled answer), and the
+		// words field the focus goes to has it selected, so what is typed replaces it
+		this.button(this.host, "a-add", ui("rows.anchor.add"), ui("rows.anchor.add"), () => {
+			this.selectNext = `a${count}-text`;
+			this.edit(() => ({ what: "anchor-add", text: ui("rows.anchor.new") }), `a${count}-text`);
+		});
 	}
 }

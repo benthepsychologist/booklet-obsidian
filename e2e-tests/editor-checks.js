@@ -320,7 +320,7 @@ async function guards(o, vault) {
   const idBox = () => the(o, ".booklet-blocks-line input[data-key^='id-']");
   await idBox().fill("diary"); await idBox().press("Enter");
   let t = await modalText();
-  ok(/12 kept entries/.test(t) && /1 saved answer/.test(t) && /activity id `log`/.test(t), "renaming an activity id that 12 kept entries use asks first, and says how many it touches: " + t);
+  ok(/12 kept entries/.test(t) && /1 saved answer/.test(t) && /activity id “log”/.test(t), "renaming an activity id that 12 kept entries use asks first, and says how many it touches: " + t);
   eq(await o.evaluate(() => document.activeElement && document.activeElement.textContent), "Cancel", "the question opens with Cancel focused");
   await shot(o, "guard-id");
   await answer("Cancel");
@@ -338,7 +338,7 @@ async function guards(o, vault) {
   await setDoc(o, HELD, at("[!text|why]")); await waitLine(o, "text");
   await idBox().fill("reason"); await idBox().press("Enter");
   t = await modalText();
-  ok(/12 kept entries/.test(t) && /question id `why`/.test(t), "renaming a question id that 12 kept entries answer asks first: " + t);
+  ok(/12 kept entries/.test(t) && /question id “why”/.test(t), "renaming a question id that 12 kept entries answer asks first: " + t);
   await o.page.keyboard.press("Escape"); await o.page.waitForFunction(() => !document.querySelector(".booklet-blocks-ask"), null, { timeout: 4000 }); await sleep(150);
   eq(await doc(o), HELD, "Escape is Cancel: the note is as it was");
 
@@ -348,7 +348,7 @@ async function guards(o, vault) {
   eq(await opt2.inputValue(), "Tense", "the options of the choice are listed, in order");
   await opt2.fill("Worried"); await opt2.press("Enter");
   t = await modalText();
-  ok(/4 kept entries/.test(t) && /options of `feeling`/.test(t), "renaming an option 4 of the kept entries chose asks first: " + t);
+  ok(/4 kept entries/.test(t) && /options of “feeling” touch/.test(t), "renaming an option 4 of the kept entries chose asks first: " + t);
   await answer("Cancel");
   eq(await doc(o), HELD, "Cancel leaves the option as it was");
   await o.page.waitForSelector(".booklet-blocks-options input[data-key^='orm-'], .booklet-blocks-options button[data-key^='orm-']", { timeout: 5000 });
@@ -366,14 +366,14 @@ async function guards(o, vault) {
   const fkey = the(o, ".booklet-blocks-fields input[data-key='fkey-kind']");
   await fkey.fill("group"); await fkey.press("Enter");
   t = await modalText();
-  ok(/5 rows/.test(t) && /field `kind`/.test(t), "renaming a field 5 rows use asks first: " + t);
+  ok(/5 rows/.test(t) && /field “kind”/.test(t), "renaming a field 5 rows use asks first: " + t);
   await shot(o, "guard-field");
   await answer("Cancel");
   eq(await doc(o), HELD, "Cancel leaves the declaration as it was");
   await waitPanel(o, () => !!document.querySelector(".booklet-blocks-fields button[data-key='frm-done']"));
   await the(o, ".booklet-blocks-fields button[data-key='frm-done']").click();
   t = await modalText();
-  ok(/5 rows/.test(t) && /field `done`/.test(t), "removing a field 5 rows hold asks first: " + t);
+  ok(/5 rows/.test(t) && /field “done”/.test(t), "removing a field 5 rows hold asks first: " + t);
   await answer("Change");
   const afterField = await doc(o);
   ok(!/"done": "Done"/.test(afterField) && /"kind": "Kind"/.test(afterField), "Change takes the field out of the declaration");

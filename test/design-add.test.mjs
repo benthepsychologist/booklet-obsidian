@@ -241,11 +241,18 @@ test("a tile's hover sample is a sample of the real piece, drawn inert, in a pop
 		assert.ok(v.el.querySelector(".booklet-design-samplepop .booklet-sample-reading[inert]"));
 		send(tileOf(v, "Reading - tip.md"), "mouseleave");
 		// a piece with no drawing is its picture, larger: never its Markdown
-		send(tileOf(v, "Q - listen.md"), "focus");
+		send(tileOf(v, "Data - rows.md"), "focus");
 		const pop2 = v.el.querySelector(".booklet-design-samplepop");
 		assert.ok(pop2.querySelector(".booklet-design-samplepop-art svg"));
 		assert.equal(pop2.querySelector("pre"), null);
-		send(tileOf(v, "Q - listen.md"), "blur");
+		send(tileOf(v, "Data - rows.md"), "blur");
+		// a listen and a widget are drawn, as the canvas draws them (test/design-stage5-add.test.mjs holds what they are made of)
+		for (const f of ["Q - listen.md", "Q - widget (grid).md"]) {
+			send(tileOf(v, f), "focus");
+			assert.ok(v.el.querySelector(".booklet-design-samplepop .booklet-sample-question[inert]"), f);
+			assert.equal(v.el.querySelector(".booklet-design-samplepop-art"), null, f);
+			send(tileOf(v, f), "blur");
+		}
 		// a matrix sample's observer goes with the popover, however often it is shown
 		const before = obs.live;
 		for (let i = 0; i < 10; i++) {

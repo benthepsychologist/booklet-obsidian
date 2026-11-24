@@ -72,6 +72,27 @@ export function listenBody(body: readonly string[]): ListenBody {
 	return { media: text.slice(start, end), embeds, help: lines.join("\n").trim() };
 }
 
+/**
+ * A `listen`'s media in plain words, for a drawing that must not load it (the Design view's canvas): the name of a local file as written
+ * (`![[ep1.mp3]]` is `ep1.mp3`; a size or an alias after `|` is not part of the name), and for an embed or a link that has an address
+ * the words in its brackets and the address, `Words (address)`, or the address alone when it has no words. A reference form (`![alt][id]`)
+ * gives its words: its definition is elsewhere in the note and is not looked up. Nothing here is Markdown, so nothing is fetched.
+ */
+export function mediaWords(media: string): string {
+	const text = media.trim();
+	const file = /^!\[\[([^\]\n#][^\]\n]*)\]\]$/.exec(text);
+	if (file) return (file[1] ?? "").split("|")[0]?.trim() ?? "";
+	const inline = /^!?\[([^\]\n]*)\]\(\s*<?([^\s)>]*)>?(?:\s+(?:"[^"\n]*"|'[^'\n]*'))?\s*\)$/.exec(text);
+	if (inline) {
+		const words = (inline[1] ?? "").trim();
+		const address = inline[2] ?? "";
+		return words && address ? `${words} (${address})` : words || address;
+	}
+	const reference = /^!?\[([^\]\n]*)\](?:\[([^\]\n]*)\])?$/.exec(text);
+	if (reference) return (reference[1] ?? "").trim() || (reference[2] ?? "").trim();
+	return text.replace(/^<(.*)>$/, "$1");
+}
+
 /* ---- the answer ---- */
 
 /** Is it a JSON object (not null, not an array)? */

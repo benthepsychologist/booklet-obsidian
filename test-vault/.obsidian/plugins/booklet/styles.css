@@ -19,6 +19,14 @@
 	--booklet-block-edge: var(--size-2-3);
 }
 
+/* An element the plugin hides with the `hidden` attribute is hidden, whatever display its class gives it. The browser's own rule for
+   [hidden] is weaker than any class that sets display (a flex row, a grid), so a sentence meant to be shown only sometimes stayed
+   on screen (the note about a "+" under every hint). The attribute is written twice only to be stronger than the rules that scope a
+   display to a state of the view (.is-phone and the like); it is the only thing the doubling is for. */
+:is(.booklet-design, .booklet-view, .booklet-blocks, .booklet-settings, .booklet-sample) [hidden][hidden] {
+	display: none;
+}
+
 /* the probe callout drawn for a moment to read Obsidian's callout colour (see calloutColourIsTriplet in reading.ts) */
 .booklet-probe {
 	display: none;
@@ -3084,6 +3092,11 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	width: 100%;
 }
 
+/* a listen drawn in the Design view says its media as words (its name, its address): a long address breaks rather than runs off a narrow pane */
+.booklet-sample .booklet-listen-media {
+	overflow-wrap: anywhere;
+}
+
 /* the "Done" box and where the reader left off, on one line that wraps at a large zoom */
 .booklet-listen-row {
 	display: flex;
@@ -3833,7 +3846,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	top: var(--size-4-12);
 	left: calc(var(--bd-left) + var(--size-4-2));
 	width: min(22em, 50%);
-	max-height: 70%;
+	/* all the room under its top edge: a sample taller than that is drawn smaller (design-palette.ts `shrinkToFit`), never cut off */
+	max-height: calc(100% - var(--size-4-12) - var(--size-4-2));
 	overflow: auto;
 	padding: var(--size-4-3);
 	border: var(--border-width) solid var(--background-modifier-border);
@@ -3841,6 +3855,18 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	background: var(--background-primary);
 	box-shadow: 0 0 0 var(--border-width) var(--background-modifier-border);
 	pointer-events: none;
+}
+
+.booklet-design-samplepop-body.is-shrunk-1 {
+	zoom: 0.8;
+}
+
+.booklet-design-samplepop-body.is-shrunk-2 {
+	zoom: 0.65;
+}
+
+.booklet-design-samplepop-body.is-shrunk-3 {
+	zoom: 0.5;
 }
 
 .booklet-design-samplepop-art svg {
@@ -4447,6 +4473,56 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	display: none;
 }
 
+/* the formatting bar over the words: Markdown markers only. It is there for as long as the block has words, at the same height whether or not a field has the focus (its buttons only go quiet), so nothing moves under a press */
+.booklet-design-richbar {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	gap: var(--size-2-3);
+	min-height: var(--size-4-8);
+}
+
+.booklet-design-richbar[hidden] {
+	display: none;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: 0 0 auto;
+	min-width: var(--size-4-8);
+	height: var(--size-4-8);
+	padding: 0 var(--size-2-3);
+	font-size: var(--font-ui-small);
+	line-height: 1;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button[aria-disabled="true"] {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.booklet-design .booklet-design-editbox .booklet-design-rich-button svg {
+	width: var(--icon-s);
+	height: var(--icon-s);
+}
+
+/* on a phone each of the bar's buttons is 44 px wide as well as high, in every look */
+.is-mobile .booklet-design .booklet-design-editbox .booklet-design-rich-button,
+.booklet-design.is-phone .booklet-design-editbox .booklet-design-rich-button {
+	min-width: 44px;
+	min-height: 44px;
+}
+
+.booklet-design-rich-glyph.is-bold {
+	font-weight: var(--font-bold);
+}
+
+.booklet-design-rich-glyph.is-italic {
+	font-style: italic;
+}
+
 .booklet-design-field {
 	display: block;
 	box-sizing: border-box;
@@ -4522,6 +4598,21 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 .booklet-design-strip-input {
 	width: 9em;
 	max-width: 100%;
+}
+
+/* a picker (the question an each: is asked for) is as wide as its longest choice, never wider than the line */
+select.booklet-design-strip-input {
+	width: auto;
+	min-width: 9em;
+}
+
+/* a switch is named in words now (Smallest number, Big box): a longer name wraps inside the button instead of running out of the line */
+.booklet-design-strip-switch {
+	max-width: 100%;
+	height: auto;
+	min-height: var(--input-height);
+	white-space: normal;
+	text-align: start;
 }
 
 .booklet-design-strip-switch[aria-checked="true"] {
@@ -4659,8 +4750,40 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	width: 100%;
 }
 
+/* a listen's address and a widget's data block take the whole line under their name: an address is long */
+.booklet-design-edit-section.is-media .setting-item:not(.setting-item-heading) {
+	flex-direction: column;
+	align-items: stretch;
+	gap: var(--size-2-3);
+}
+
+/* in a column the 14em basis of a setting's parts would be a height of 14em */
+.booklet-design-edit-section.is-media .setting-item-info,
+.booklet-design-edit-section.is-media .setting-item-control {
+	flex: 0 0 auto;
+}
+
+.booklet-design-edit-section.is-media .setting-item-control {
+	justify-content: stretch;
+}
+
+.booklet-design-edit-section.is-media .setting-item-description:empty {
+	display: none;
+}
+
+.booklet-design-edit-section.is-media .booklet-design-rows-usesmenu,
+.booklet-design-edit-section.is-media .booklet-design-rows-usedby {
+	font-size: var(--font-ui-small);
+	color: var(--text-muted);
+}
+
+.booklet-design-edit-section.is-media .setting-item-control :is(input[type="text"], select) {
+	width: 100%;
+}
+
 /* ---- the rows of a choice, a menu and a matrix, in the editor in place ---- */
-.booklet-design-rows.is-empty {
+.booklet-design-rows.is-empty,
+.booklet-design-helps.is-empty {
 	display: none;
 }
 
@@ -4672,7 +4795,8 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* a row is a line of the list, not a card: its words, its buttons beside them when there is room, its replies under it */
-.booklet-design-optrow {
+.booklet-design-optrow,
+.booklet-design-help-bar {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: center;
@@ -4735,13 +4859,15 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* the lists' headings sit close to their rows */
-.booklet-design-rows .setting-item-heading {
+.booklet-design-rows .setting-item-heading,
+.booklet-design-helps .setting-item-heading {
 	padding-block: var(--size-4-1) 0;
 	border: 0;
 }
 
 /* the shared menu's picker is a line of the list, not a card */
-.booklet-design-rows .setting-item {
+.booklet-design-rows .setting-item,
+.booklet-design-helps .setting-item {
 	padding-inline: 0;
 	border: 0;
 	background: transparent;
@@ -4791,13 +4917,35 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 }
 
 /* a menu's name can be long ("None: the question has its own options"): the picker never makes the box wider than the pane */
-.booklet-design-rows .setting-item-control {
+.booklet-design-rows .setting-item-control,
+.booklet-design-helps .setting-item-control {
 	min-width: 0;
 	max-width: 100%;
 }
 
-.booklet-design-rows select {
+.booklet-design-rows select,
+.booklet-design-helps select {
 	max-width: 100%;
+}
+
+/* a question's hint and solution: a title and its switch on a line, its words under them, and a gap between the two */
+.booklet-design-help {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-2-3);
+	margin-block-end: var(--size-4-3);
+}
+
+.booklet-design-help .booklet-design-rows-usedby,
+.booklet-design-helps .is-adds {
+	margin-block: 0;
+}
+
+/* a copy button's picker of what a row copies fills the row, as the words of an option do */
+.booklet-design-rows-main select.booklet-design-strip-input {
+	flex: 1 1 auto;
+	min-width: 0;
+	width: auto;
 }
 
 .booklet-design-rows > .booklet-design-rows-button {
@@ -4948,14 +5096,18 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 
 /* a row's buttons keep an edge on a phone, where the theme draws them without one on the row's own grey */
 .is-mobile .booklet-design .booklet-design-rows button:not([aria-checked="true"]),
-.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]) {
+.is-mobile .booklet-design .booklet-design-helps button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-rows button:not([aria-checked="true"]),
+.booklet-design.is-phone .booklet-design-helps button:not([aria-checked="true"]) {
 	border: var(--border-width) solid var(--background-modifier-border-hover);
 }
 
 .is-mobile .booklet-design .booklet-design-rows input[type="text"],
 .is-mobile .booklet-design .booklet-design-rows select,
+.is-mobile .booklet-design .booklet-design-helps input[type="text"],
 .booklet-design.is-phone .booklet-design-rows input[type="text"],
-.booklet-design.is-phone .booklet-design-rows select {
+.booklet-design.is-phone .booklet-design-rows select,
+.booklet-design.is-phone .booklet-design-helps input[type="text"] {
 	min-height: 44px;
 	box-sizing: border-box;
 }
@@ -7176,6 +7328,15 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	background: var(--bk-brand-wash);
 }
 
+/* a callout's box is tinted, and a control's edge (--bk-edge, 3 to 1 on the card) falls to 2.9 and 2.4 to 1 on that tint: inside it the edge is a step stronger, so the bar's buttons, the field rules and the move and delete buttons still reach 3 to 1 */
+.booklet-view[data-booklet-look="paper-light"] .booklet-design-editbox.is-kind-callout {
+	--bk-edge: #7A8082;
+}
+
+.booklet-view[data-booklet-look="paper-dark"] .booklet-design-editbox.is-kind-callout {
+	--bk-edge: #8696A0;
+}
+
 .booklet-view[data-booklet-look^="paper"] .booklet-design-field.is-title {
 	font-family: var(--bk-font-head);
 }
@@ -7245,6 +7406,11 @@ button.booklet-edit-open:not(.clickable-icon):hover {
 	min-height: var(--size-4-8);
 	padding: 0 var(--size-4-4);
 	font-size: var(--font-ui-small);
+}
+
+/* the formatting bar's buttons are small squares, not pills with a margin of their own */
+.booklet-view[data-booklet-look^="paper"] .booklet-design-editbox .booklet-design-rich-button {
+	padding: 0 var(--size-2-3);
 }
 
 .booklet-view[data-booklet-look^="paper"] .booklet-design-strip-actions button {

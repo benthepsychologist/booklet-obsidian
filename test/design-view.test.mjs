@@ -498,7 +498,7 @@ test("a note that is no booklet yet says so, and an empty one is drawn", () => {
 	v.close();
 });
 
-test("a view of data, a listen question and the reading aids with remote media are friendly cards that say a later beta draws them, and show no Markdown", () => {
+test("a data block is a friendly card on the data section's page, and a view of data is on the page of its activity, not the module's", () => {
 	const v = open(FULL);
 	v.go("Money");
 	const queryBlock = v.all('.booklet-design-block[data-kind="query"]')[0];

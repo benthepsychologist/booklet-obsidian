@@ -328,11 +328,26 @@ export function changeLines(text: string, node: DesignNode, newLines: readonly s
 		if (l.endsWith("\r")) lines[lines.length - 1] = l.slice(0, -1);
 	}
 	const after = lines.join("\n");
-	const out = done(text, after, { impact: impactOf(text, after), blind: readerRefuses(text), lines: { start: r.start, end: r.start + body.length } });
+	return settled(text, after, { start: r.start, end: r.start + body.length });
+}
+
+/** A change's result for text that is already made: what it would leave not matching, and whether the reader can still open the note. */
+function settled(text: string, after: string, lines: { start: number; end: number }): OpDone {
+	const out = done(text, after, { impact: impactOf(text, after), blind: readerRefuses(text), lines });
 	if (out.change && !out.blind && !out.readable) {
 		const reason = parseBooklet(after).refusal;
 		out.breaks = reason ?? "The reader cannot open the booklet as it would be.";
 		out.notes = [...out.notes, `After this change the reader cannot open the booklet: ${out.breaks}`];
 	}
 	return out;
+}
+
+/**
+ * A change that is made on the note as a whole, because it touches two places of it (an image's line and the line that says where the
+ * picture is, a citation's mark and its note): `after` is the note's new text, made by the caller from lines it has read, and `start` the
+ * line the open block starts on in it (a change of this kind adds or takes away no line above the block). Reported like `changeLines`: the
+ * smallest replacement, what it would leave not matching, and whether the reader can still open the note.
+ */
+export function changeText(text: string, after: string, start: number): OpDone {
+	return settled(text, after, { start, end: start + 1 });
 }

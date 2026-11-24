@@ -67,28 +67,31 @@ test("a listing carries each piece's hotkey letters from the key tree, and where
 	assert.equal(reading.entries.at(-1).keys, null, "words are no piece of the key tree");
 });
 
-test("what a sample is: a question drawn inert, a reading callout rendered, everything else a labelled card", () => {
+test("what a sample is: a question drawn inert (a widget and a listen among them), a reading callout rendered, a view of data drawn as its rows, everything else its picture", () => {
 	const by = (file) => sampleOf(piece(file));
-	for (const f of ["Q - choice.md", "Q - date.md", "Q - lines.md", "Q - matrix.md", "Q - multi.md", "Q - multi (own options).md", "Q - multi (from a menu).md", "Q - number.md", "Q - scale.md", "Q - text.md", "Q - text (long).md"]) assert.equal(by(f), "question", f);
-	// a listen, a widget and a lone menu stay cards (Ben: a later beta draws them)
-	for (const f of ["Q - listen.md", "Q - widget (grid).md", "Q - menu (shared list).md"]) assert.equal(by(f), "card", f);
+	for (const f of ["Q - choice.md", "Q - date.md", "Q - lines.md", "Q - listen.md", "Q - matrix.md", "Q - multi.md", "Q - multi (own options).md", "Q - multi (from a menu).md", "Q - number.md", "Q - scale.md", "Q - text.md", "Q - text (long).md", "Q - widget (grid).md"]) assert.equal(by(f), "question", f);
+	// a lone menu is no question: the canvas draws it as a card, and so does the Add tab
+	assert.equal(by("Q - menu (shared list).md"), "card");
+	// the eight views of data are drawn as their rows, as the canvas draws a query of a note
+	for (const p of PIECES.filter((x) => x.group === "views")) assert.equal(sampleOf(p), "view", p.file);
 	for (const f of ["Reading - note.md", "Reading - tip.md", "Reading - warning.md", "Reading - example.md", "Reading - hint.md", "Reading - solution.md", "Reading - question.md", "Reading - quote.md", "Reading - law.md", "Reading - diff.md", "Reading - opinion.md", "Reading - citation.md"]) assert.equal(by(f), "reading", f);
 	// media, groups and a copy button are cards: a sample fetches nothing
 	for (const f of ["Reading - image.md", "Reading - figure (embed).md", "Reading - group (folded).md", "Reading - group (steps).md", "Reading - copy button.md"]) assert.equal(by(f), "card", f);
-	for (const p of PIECES.filter((x) => ["structure", "data", "views"].includes(x.group))) assert.equal(sampleOf(p), "card", p.file);
+	for (const p of PIECES.filter((x) => ["structure", "data"].includes(x.group))) assert.equal(sampleOf(p), "card", p.file);
 	assert.equal(sampleOf({ ...WORDS_PIECE, kinds: [] }), "reading");
-	// every sample's text holds no remote media: fixed local content only (a listen's address is on another site, and it is a card)
-	for (const p of PIECES) if (sampleOf(p) !== "card") assert.equal(hasRemoteMedia(p.text), false, p.file);
+	// every sample's text holds no remote media: fixed local content only. The one exception is a listen, whose text names an address on another
+	// site: its sample is drawn with its media said as words, never given to the renderer (test/design-stage5-add.test.mjs holds that)
+	for (const p of PIECES) if (sampleOf(p) !== "card" && !p.kinds.includes("listen")) assert.equal(hasRemoteMedia(p.text), false, p.file);
+	assert.equal(hasRemoteMedia(piece("Q - listen.md").text), true, "the listen piece is the one whose text names a remote address");
 });
 
-test("how a block of the tree is drawn: the question kinds the drawing code has, reading callouts; the rest are cards", () => {
+test("how a block of the tree is drawn: the question kinds the drawing code has (a widget and a listen among them), reading callouts, a view of data; the rest are cards", () => {
 	const draw = (kind, detail) => blockDrawing({ kind, detail });
-	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date"]) assert.equal(draw("question", k), "question", k);
-	assert.equal(draw("question", "listen"), "card");
-	assert.equal(draw("question", "widget"), "card");
+	for (const k of ["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget", "listen"]) assert.equal(draw("question", k), "question", k);
+	assert.equal(draw("query", "booklet query"), "view");
 	for (const k of ["tip", "note", "hint", "warning", "diff"]) assert.equal(draw("callout", k), "reading", k);
 	assert.equal(draw("callout", "copy"), "card");
-	for (const k of ["query", "fence", "menu", "notice", "prose", "page-break", "records", "front-matter"]) assert.equal(draw(k, ""), "card", k);
+	for (const k of ["fence", "menu", "notice", "prose", "page-break", "records", "front-matter"]) assert.equal(draw(k, ""), "card", k);
 });
 
 test("media on another site is never drawn: an image or a media tag with an address is shown as its words; a plain link is not media", () => {

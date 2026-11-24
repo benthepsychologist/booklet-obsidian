@@ -46,7 +46,7 @@ function rig(text) {
 			if (name === "Title") return box.querySelector(".booklet-design-field.is-title");
 			if (name === "Description") return box.querySelector(".booklet-design-field.is-desc");
 			const key = name === "Id" ? "id" : name === "Icon" ? "icon" : name;
-			return box.querySelector(`.booklet-design-strip-item[data-field="${key}"] input`);
+			return box.querySelector(`.booklet-design-strip-item[data-field="${key}"] :is(input, select)`);
 		},
 		/** The switch of the strip with this name. */
 		sw: (name) => o.el.querySelector(`.booklet-design-editbox .booklet-design-strip-item[data-field="${name}"] button[role="switch"]`),
@@ -402,7 +402,7 @@ test("an id change that would detach kept entries is asked about in the open, as
 	assert.equal(v.disk.writes, 0, "nothing is written while it is open");
 	const ask = words(v.dialog());
 	assert.match(ask, /12 kept entries/);
-	assert.match(ask, /activity id `log`/);
+	assert.match(ask, /The activity id “log” touches 12 kept entries and 1 saved answer\./);
 	assert.match(ask, /stay in the note's records as they are/);
 	assert.deepEqual([...v.dialog().querySelectorAll("button")].map(words), ["Change", "Cancel"]);
 	assert.match(words(doc.querySelector(".booklet-design-ask p")), /will be changed in the note\. Only its own lines are rewritten\./);
@@ -1232,4 +1232,291 @@ test("the in-place box has a look in the base sheet and in the paper themes, and
 	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-field,[\s\S]*?min-height: 44px/);
 	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-strip-input[\s\S]*?min-height: 44px/);
 	assert.match(base, /\.booklet-design\.is-phone \.booklet-design-strip-item \{[^}]*flex: 1 1 100%/);
+});
+
+/* ============================================ the formatting bar: Markdown markers over a field's words ============================================ */
+
+/** The bar of the open box, and a button of it by the word it is for. */
+const bar = (v) => v.editor().querySelector(".booklet-design-richbar");
+const rich = (v, what) => bar(v).querySelector(`[data-rich="${what}"]`);
+const isOn = (b) => b.getAttribute("aria-disabled") === "false";
+/** The field has the focus and this selection. */
+const select = (el, a, b = a) => {
+	el.focus();
+	el.setSelectionRange(a, b);
+};
+/** A key as a person makes it in a field; gives the event. */
+const chord = (el, key, mods = { ctrlKey: true }) => {
+	const evt = new w.KeyboardEvent("keydown", { key, bubbles: true, cancelable: true, ...mods });
+	el.dispatchEvent(evt);
+	return evt;
+};
+/** Presses a button of the bar as a mouse does: the press that would move the focus is cancelled, then the click. */
+const pressBar = (b) => {
+	const down = new w.MouseEvent("mousedown", { bubbles: true, cancelable: true });
+	b.dispatchEvent(down);
+	const pointer = new w.Event("pointerdown", { bubbles: true, cancelable: true });
+	b.dispatchEvent(pointer);
+	click(b);
+	return { down, pointer };
+};
+
+test("the bar is over the words of a question, a reading callout and a prose block, and not over the Markdown or a one-line settings field", () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	assert.ok(bar(v), "a question has the bar");
+	assert.equal(bar(v).hidden, false);
+	assert.equal(bar(v).getAttribute("role"), "toolbar");
+	assert.deepEqual([...bar(v).querySelectorAll("button")].map((b) => b.getAttribute("data-rich")), ["bold", "italic", "link", "bullets"]);
+	for (const b of bar(v).querySelectorAll("button")) {
+		assert.ok(b.getAttribute("aria-label"), "every button is named");
+		assert.match(b.getAttribute("title"), /\(Ctrl\+/, "and says its key");
+		assert.equal(b.getAttribute("tabindex"), "-1", "out of the Tab order: the keys are the keyboard's way in");
+	}
+	// the fields that take the keys are the title and the description, and (stage 4) the title and the words of the question's hint; nothing else of the box does
+	assert.deepEqual([...v.editor().querySelectorAll("[data-rich]:not(button)")].map((e) => `${e.getAttribute("data-field")}:${e.getAttribute("data-rich")}`), ["title:title", "description:help", "hint-title:title", "hint-words:help"]);
+	assert.equal(v.area().hasAttribute("data-rich"), false, "the Markdown textarea has no bar and no keys");
+	assert.equal(v.editor().querySelector(".booklet-design-strip-item input").hasAttribute("data-rich"), false, "nor has an id field");
+	// the Markdown textarea is not under a bar of its own
+	assert.equal(v.editor().querySelectorAll(".booklet-design-richbar").length, 1);
+	press(v.control("Title"), "Escape");
+	v.go("Money");
+	v.open("prose", "Words in the module's opening.");
+	assert.equal(bar(v).hidden, false);
+	assert.deepEqual([...v.editor().querySelectorAll("[data-rich]:not(button)")].map((e) => e.getAttribute("data-rich")), ["prose"]);
+	press(v.control("Description"), "Escape");
+	v.go("A made-up booklet");
+	v.open("callout", "[!tip] Start here");
+	assert.deepEqual([...v.editor().querySelectorAll("[data-rich]:not(button)")].map((e) => `${e.getAttribute("data-field")}:${e.getAttribute("data-rich")}`), ["title:title", "description:prose"]);
+	v.close();
+});
+
+test("the buttons are on only while a field of words has the focus, bullets only in prose, and the bar is the same size either way", () => {
+	const v = rich_open();
+	function rich_open() {
+		const x = rig(FULL);
+		x.go("A made-up booklet");
+		x.open("callout", "[!tip] Start here");
+		return x;
+	}
+	doc.activeElement.blur();
+	for (const what of ["bold", "italic", "link", "bullets"]) assert.equal(isOn(rich(v, what)), false, `${what} is quiet with nothing focused`);
+	const title = v.control("Title");
+	const desc = v.control("Description");
+	title.focus();
+	assert.deepEqual(["bold", "italic", "link", "bullets"].map((x) => isOn(rich(v, x))), [true, true, true, false], "in a title: no bullets");
+	desc.focus();
+	assert.deepEqual(["bold", "italic", "link", "bullets"].map((x) => isOn(rich(v, x))), [true, true, true, true], "in the words of a callout: all four");
+	v.area().focus?.();
+	const id = v.editor().querySelector("input");
+	if (id) {
+		id.focus();
+		assert.deepEqual(["bold", "italic", "link", "bullets"].map((x) => isOn(rich(v, x))), [false, false, false, false], "an input of the strip: none");
+	}
+	// the bar is in the box's flow in one place whatever is focused: the same element, and its buttons are never added or taken away
+	const buttons = [...bar(v).children];
+	title.focus();
+	assert.deepEqual([...bar(v).children], buttons);
+	assert.equal(bar(v).hidden, false);
+	v.close();
+});
+
+test("a press on a button wraps the selection in the field and keeps the focus and the selection; applied when the field is left, one write, one step of Undo, and only the markers differ", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const before = v.disk.text;
+	const q = lineOf(FULL, "[!text|spent]");
+	const title = v.control("Title");
+	select(title, 13, 18); // "spend"
+	const { down, pointer } = pressBar(rich(v, "bold"));
+	assert.equal(down.defaultPrevented, true, "the press does not take the focus from the field");
+	assert.equal(pointer.defaultPrevented, true);
+	assert.equal(title.value, "What did you **spend**?");
+	assert.equal(doc.activeElement, title, "the field keeps the focus");
+	assert.deepEqual([title.selectionStart, title.selectionEnd], [15, 20], "and the words stay selected");
+	assert.equal(v.disk.writes, 0, "nothing is written until the field is left");
+	pressBar(rich(v, "bold"));
+	assert.equal(title.value, "What did you spend?", "a second press takes it off");
+	pressBar(rich(v, "italic"));
+	assert.equal(title.value, "What did you *spend*?");
+	title.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	assert.equal(v.disk.text.split("\n")[q], "> [!text|spent] What did you *spend*?");
+	onlyLines(before, v.disk.text, q);
+	assert.equal(v.disk.text.replace(/\*/g, ""), before.replace(/\*/g, ""), "only the markers changed");
+	assert.equal(v.control("Title"), title, "the field was not drawn again");
+	assert.equal(doc.activeElement, title);
+	await v.press(v.undo());
+	assert.equal(v.disk.text, before, "one step of Undo");
+	v.close();
+});
+
+test("a format that changes nothing writes nothing; a link makes the address the selection, and the bytes differ by the brackets only", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const before = v.disk.text;
+	const desc = v.control("Description");
+	typeInto(desc, "half an hour");
+	select(desc, 0, 4);
+	pressBar(rich(v, "link"));
+	assert.equal(desc.value, "[half](https://) an hour");
+	assert.equal(desc.value.slice(desc.selectionStart, desc.selectionEnd), "https://", "the address is selected for typing");
+	typeInto(desc, "[half](https://example.org/a) an hour");
+	desc.setSelectionRange(8, 8);
+	pressBar(rich(v, "link"));
+	assert.equal(desc.value.slice(desc.selectionStart, desc.selectionEnd), "https://example.org/a", "a real address is not thrown away: it is selected");
+	desc.dispatchEvent(new w.Event("change", { bubbles: true }));
+	await v.settle();
+	assert.equal(v.disk.writes, 1);
+	assert.match(v.disk.text, /\n> \[half\]\(https:\/\/example\.org\/a\) an hour\n/);
+	assert.equal(v.disk.text.split("\n").length, before.split("\n").length + 1, "the description's line is the only line added");
+	v.close();
+});
+
+test("a format that is refused says why in the status line and changes nothing; bullets are refused in a title and in a question's help", () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const title = v.control("Title");
+	select(title, 0, 0);
+	title.value = "";
+	select(title, 0, 0);
+	pressBar(rich(v, "bullets"));
+	assert.equal(title.value, "", "a title takes no bullets");
+	// a bar button that is quiet does nothing
+	const desc = v.control("Description");
+	select(desc, 0, 0);
+	desc.value = "one\ntwo";
+	select(desc, 0, 7);
+	pressBar(rich(v, "link"));
+	assert.match(v.status(), /single line/);
+	assert.equal(desc.value, "one\ntwo");
+	assert.equal(chord(desc, "8", { ctrlKey: true, shiftKey: true, code: "Digit8" }).defaultPrevented, false, "no bullet key in a question's help");
+	assert.equal(desc.value, "one\ntwo");
+	v.close();
+});
+
+test("the keys: Ctrl+B, I and K in a field of words, Ctrl+Shift+8 in prose; no other field, and not the Markdown, hears them", async () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const title = v.control("Title");
+	select(title, 0, 4);
+	let heard = 0;
+	doc.body.addEventListener("keydown", () => heard++);
+	const b = chord(title, "b");
+	assert.equal(b.defaultPrevented, true, "the key is the field's");
+	assert.equal(heard, 0, "and goes no further");
+	assert.equal(title.value, "**What** did you spend?");
+	assert.equal(chord(title, "B").defaultPrevented, true);
+	assert.equal(title.value, "What did you spend?", "upper case is the same key: it comes off");
+	chord(title, "i");
+	assert.equal(title.value, "*What* did you spend?");
+	chord(title, "i");
+	select(title, 0, 4);
+	chord(title, "k");
+	assert.equal(title.value, "[What](https://) did you spend?");
+	assert.equal(chord(title, "8", { ctrlKey: true, shiftKey: true, code: "Digit8" }).defaultPrevented, false, "no bullets in a title");
+	// keys with another modifier, or none, are not ours
+	for (const mods of [{}, { metaKey: true }, { altKey: true, ctrlKey: true }, { ctrlKey: true, shiftKey: true }]) assert.equal(chord(title, "b", mods).defaultPrevented, false, JSON.stringify(mods));
+	// the strip's fields and the Markdown do not hear them
+	const idInput = v.editor().querySelector(".booklet-design-strip-item input");
+	idInput.focus();
+	const before = idInput.value;
+	assert.equal(chord(idInput, "b").defaultPrevented, false);
+	assert.equal(idInput.value, before);
+	const area = v.area();
+	area.focus();
+	area.setSelectionRange(0, 3);
+	const a = area.value;
+	assert.equal(chord(area, "b").defaultPrevented, false, "the Markdown textarea has no keys");
+	assert.equal(chord(area, "k").defaultPrevented, false);
+	assert.equal(area.value, a);
+	// prose takes the bullet key
+	press(title, "Escape");
+	await v.settle();
+	v.go("Money");
+	v.open("prose", "Words in the module's opening.");
+	const words_ = v.control("Description");
+	select(words_, 3, 3);
+	assert.equal(chord(words_, "8", { ctrlKey: true, shiftKey: true, code: "Digit8" }).defaultPrevented, true);
+	assert.equal(words_.value, "- Words in the module's opening.");
+	v.close();
+});
+
+test("a format is applied to the note as typing is: leaving the field writes it once, a prose block's bullets add `- ` and nothing else", async () => {
+	const v = rig(FULL);
+	v.go("Money");
+	v.open("prose", "Words in the module's opening.");
+	const before = v.disk.text;
+	const at = lineOf(FULL, "Words in the module's opening.");
+	const field = v.control("Description");
+	select(field, 0, field.value.length);
+	pressBar(rich(v, "bullets"));
+	assert.equal(field.value, "- Words in the module's opening.");
+	assert.equal(v.disk.writes, 0);
+	field.blur();
+	await v.settle();
+	assert.equal(v.disk.writes, 1, "left: one write (the blur is enough, as the bar's change raises no `change` event)");
+	assert.equal(v.disk.text.split("\n")[at], "- Words in the module's opening.");
+	onlyLines(before, v.disk.text, at);
+	await v.press(v.undo());
+	assert.equal(v.disk.text, before);
+	v.close();
+});
+
+test("the field is changed by the editing command when the browser has one, over only the stretch that differs (the browser's own Undo then steps back one format); with none, by setRangeText and an input event", () => {
+	const v = rig(FULL);
+	v.go("Spending");
+	v.open("question", "[!text|spent]");
+	const title = v.control("Title");
+	const calls = [];
+	const seen = [];
+	title.addEventListener("input", () => seen.push(title.value));
+	const had = w.document.execCommand;
+	w.document.execCommand = (cmd, _ui, text) => {
+		calls.push([cmd, text, title.selectionStart, title.selectionEnd]);
+		if (cmd === "insertText") title.setRangeText(text, title.selectionStart, title.selectionEnd, "end");
+		else if (cmd === "delete") title.setRangeText("", title.selectionStart, title.selectionEnd, "end");
+		title.dispatchEvent(new w.Event("input", { bubbles: true }));
+		return true;
+	};
+	try {
+		select(title, 13, 18);
+		pressBar(rich(v, "bold"));
+		assert.equal(title.value, "What did you **spend**?");
+		// the stretch that differs is from the first mark to the last: "spend" became "**spend**"
+		assert.deepEqual(calls[0], ["insertText", "**spend**", 13, 18]);
+		pressBar(rich(v, "bold"));
+		assert.deepEqual(calls[1], ["insertText", "spend", 13, 22]);
+		assert.equal(title.value, "What did you spend?");
+		title.value = "a  b";
+		title.setSelectionRange(2, 2);
+		pressBar(rich(v, "link"));
+		assert.equal(title.value, "a [](https://) b");
+		pressBar(rich(v, "link"));
+		assert.equal(title.value, "a  b");
+		assert.equal(calls[calls.length - 1][0], "delete", "taking a mark away with nothing in its place is the delete command");
+	} finally {
+		w.document.execCommand = had;
+	}
+	assert.ok(seen.length >= 4, "typing's input event is raised for each");
+	// no command (jsdom has none): the same result
+	title.value = "What did you spend?";
+	select(title, 13, 18);
+	pressBar(rich(v, "italic"));
+	assert.equal(title.value, "What did you *spend*?");
+	v.close();
+});
+
+test("the formatting bar and its refusals exist in Spanish and French", () => {
+	for (const k of Object.keys(DESIGN_STRINGS).filter((x) => x.startsWith("rich."))) {
+		assert.ok(DESIGN_STRINGS[k].es && DESIGN_STRINGS[k].fr, k);
+		assert.notEqual(DESIGN_STRINGS[k].es, DESIGN_STRINGS[k].en, `${k} is not the English`);
+	}
+	assert.ok(Object.keys(DESIGN_STRINGS).filter((x) => x.startsWith("rich.")).length >= 14);
 });

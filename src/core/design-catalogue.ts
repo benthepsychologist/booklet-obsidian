@@ -5,7 +5,7 @@
  *   CATALOGUE_GROUPS   the four groups the catalogue folds: Structure, Questions, Reading aids, Views and data (Views and Data merged)
  *   catalogueListing   a container's legal pieces (design-model `addChoices`) laid out in those groups, each with its hotkey letters and
  *                      what its sample is (`sampleOf`)
- *   sampleOf           how a piece is shown in the catalogue: a question drawn inert, a reading callout rendered, or a labelled card
+ *   sampleOf           how a piece is shown in the catalogue: a question drawn inert, a reading callout rendered, a view drawn as its rows, or its picture
  *   blockDrawing       how a block already in the note is shown in the tree, by the same three
  *   hasRemoteMedia     Markdown that would make the renderer fetch something from another site (a drawing never does)
  *   placeFor           where a piece goes for the keys: the selected block's legal place, else the end of the booklet's
@@ -36,25 +36,24 @@ export const CATALOGUE_GROUPS: readonly CatalogueGroup[] = [
 /** The catalogue group a pieces-table group is listed under. */
 export const catalogueOf = (group: PieceGroup): CatalogueId => CATALOGUE_GROUPS.find((g) => g.holds.includes(group))?.id ?? "structure";
 
-/** The question kinds the plugin's drawing code draws without help from the view (questions.ts `drawBody`, matrix.ts). */
-export const DRAWN_QUESTIONS: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "lines", "text", "number", "scale", "date"]);
-
-/** The question kinds that stay a labelled card in this beta (Ben, 2026-11-13): a later beta draws them. `each` is a setting of a line, not a kind: the view finds it in the parsed question. */
-export const CARD_QUESTIONS: ReadonlySet<string> = new Set(["listen", "widget"]);
+/** The question kinds the canvas draws as a reader sees them, with nothing answered (questions.ts `drawBody`, matrix.ts, a widget's engines in engines.ts and listen-view.ts `drawListen`). The one question left a card is one asked for each row of a data block (`askedOfRows`), which is a setting of a line, not a kind: the view finds it in the parsed question. */
+export const DRAWN_QUESTIONS: ReadonlySet<string> = new Set(["choice", "multi", "matrix", "lines", "text", "number", "scale", "date", "widget", "listen"]);
 
 /** The reading callouts that are drawn as callouts (Obsidian draws them, and the styles give the format's own three their look). */
 export const READING_KINDS: ReadonlySet<string> = new Set(["note", "tip", "example", "hint", "solution", "warning", "law", "diff", "opinion", "question", "quote"]);
 
-export type SampleKind = "question" | "reading" | "card";
+export type SampleKind = "question" | "reading" | "view" | "card";
 
 /**
- * How a piece is shown in the catalogue. A question of a kind the drawing code draws is drawn inert; a reading callout, a citation and plain
- * words are rendered; everything else (structure, data, views, a listen or widget, a group, an image) is a labelled card of its own
- * Markdown. A piece that holds an image or a fenced block is a card: a sample is fixed local content and draws no media.
+ * How a piece is shown in the catalogue, drawn the way the canvas draws the same piece of a note. A question of a kind the drawing code draws
+ * (a widget and a listen among them) is drawn inert; a reading callout, a citation and plain words are rendered; a view of data is drawn as
+ * its rows. Everything else (structure, a data block, a lone menu, a group, an image or a figure) is its picture, larger. A piece that holds an
+ * image or a fenced block is a picture: a sample is fixed local content and draws no media.
  */
 export function sampleOf(p: Pick<Piece, "group" | "text"> & { kinds?: readonly string[] }): SampleKind {
 	const kinds = p.kinds ?? [];
-	if (p.group === "questions") return !kinds.some((k) => CARD_QUESTIONS.has(k)) && kinds.some((k) => DRAWN_QUESTIONS.has(k)) ? "question" : "card";
+	if (p.group === "questions") return kinds.some((k) => DRAWN_QUESTIONS.has(k)) ? "question" : "card";
+	if (p.group === "views") return "view";
 	if (p.group === "reading") {
 		if (/!\[|```/.test(p.text)) return "card";
 		if (kinds.length === 0) return "reading";
@@ -63,18 +62,16 @@ export function sampleOf(p: Pick<Piece, "group" | "text"> & { kinds?: readonly s
 	return "card";
 }
 
-export type BlockDrawing = "question" | "reading" | "card";
+export type BlockDrawing = "question" | "reading" | "view" | "card";
 
-/** How a block already in the note is drawn in the tree: a question of a kind the drawing code draws, inert; a reading callout, rendered; the rest a labelled card. */
+/** How a block already in the note is drawn in the tree: a question of a kind the drawing code draws, inert; a reading callout, rendered; a query, its rows; the rest a labelled card. */
 export function blockDrawing(n: Pick<DesignNode, "kind" | "detail">): BlockDrawing {
 	const detail = n.detail.toLowerCase();
 	if (n.kind === "question") return DRAWN_QUESTIONS.has(detail) ? "question" : "card";
+	if (n.kind === "query") return "view";
 	if (n.kind === "callout") return detail === "copy" ? "card" : "reading";
 	return "card";
 }
-
-/** Is this one of the kinds that is a card on purpose in this beta, with the words saying a later beta draws it? */
-export const isLaterKind = (detail: string): boolean => CARD_QUESTIONS.has(detail.toLowerCase());
 
 const MEDIA = /!\[|<\s*(?:img|iframe|video|audio|source|embed|object)\b/i;
 const URL_ISH = /(?:[a-z][a-z0-9+.-]*:)?\/\/[^\s)\]"'>]+/i;

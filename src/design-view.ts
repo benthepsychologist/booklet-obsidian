@@ -32,6 +32,7 @@ import {
 	bookletTitleOf,
 	canvasOf,
 	changeLines,
+	changeText,
 	crumbOf,
 	deleteBlock,
 	insertPiece,
@@ -77,7 +78,7 @@ import { EditorBox, type BarState, type Editing, type Outcome } from "./design-e
 import { drawNav, drawTroubles, foldKeys, type NavCtx } from "./design-nav";
 import { drawPalette, groupOfKey, paintPieceButton, paintWhere, pieceByFile, pieceName, type PaletteHandle, type PalettePiece } from "./design-palette";
 import { drawIcon } from "./design-picture";
-import { questionsByLine } from "./design-sample";
+import { drawnByLine, type FoundQuery } from "./design-sample";
 import { MODE_ICONS, iconName, ui, uin } from "./design-text";
 import { capital, kindName, quietNames, titledOf } from "./design-words";
 import { markdownViewOf } from "./markdown-view";
@@ -172,6 +173,8 @@ export class DesignView extends LockedTextView {
 	private closingWindow: Window | null = null;
 	/** The questions of the note by their line, with their activities, found once for each drawing. */
 	private questions = new Map<number, { activity: Activity; question: Question }>();
+	/** The queries of the note by their line, with the note they are read in. */
+	private queries = new Map<number, FoundQuery>();
 	/** Obsidian gives a callout's colour as a triplet (see reading.ts): said to every inert drawing. */
 	private triplet = false;
 	private bookletTitle = "";
@@ -642,7 +645,9 @@ export class DesignView extends LockedTextView {
 			this.drawnLines = this.text.split("\n").length;
 			this.selected = this.find(root);
 			if (!this.selected) this.sel = null;
-			this.questions = isBookletText(this.text) ? questionsByLine(this.text) : new Map<number, { activity: Activity; question: Question }>();
+			const found = isBookletText(this.text) ? drawnByLine(this.text) : null;
+			this.questions = found?.questions ?? new Map<number, { activity: Activity; question: Question }>();
+			this.queries = found?.queries ?? new Map<number, FoundQuery>();
 			this.triplet = calloutColourIsTriplet(el);
 			this.bookletTitle = bookletTitleOf(this.text);
 			const canvas = canvasOf(root, this.selected, { firstPage: this.sel?.firstPage === true, title: this.bookletTitle });
@@ -933,6 +938,7 @@ export class DesignView extends LockedTextView {
 			bookletTitle: this.bookletTitle,
 			noteName: this.file?.basename ?? "",
 			questionAt: (line) => this.questions.get(line),
+			queryAt: (line) => this.queries.get(line),
 			isOpen: (n) => this.editsNode(n),
 			pressBlock: (n) => this.openEditor(n),
 			openCard: (n) => this.navigate(n),
@@ -964,6 +970,7 @@ export class DesignView extends LockedTextView {
 					return n ? blockLines(this.text, n) : null;
 				},
 				change: (lines) => this.changeBlock(lines),
+				changeNote: (text) => this.changeNoteText(text),
 				queue: (work) => this.enqueue(work, false),
 				confirm: () => void this.closeEditor(),
 				hold: () => this.holdSaveKey(),
@@ -1024,7 +1031,8 @@ export class DesignView extends LockedTextView {
 
 	/** The shared menu a question names, opened in its own editor (what is typed in the block that is open is applied first: openEditor says so). */
 	private openMenuBlock(line: number): void {
-		const menu = walkDesign(this.liveRoot()).find((x) => x.kind === "menu" && x.start === line);
+		// a shared menu, or a widget's data block (a fenced block of its own: it opens as Markdown)
+		const menu = walkDesign(this.liveRoot()).find((x) => (x.kind === "menu" || x.kind === "fence") && x.start === line);
 		if (menu) this.openEditor(menu);
 	}
 
@@ -1478,6 +1486,11 @@ export class DesignView extends LockedTextView {
 				void this.closeEditor();
 				return false;
 			});
+			// the formatting keys of a field of words (Bold, Italic, Link, Bullets) are held the same way, for the same reason: the app's key
+			// map runs its own hotkeys for these chords (Obsidian's own Bold, Italic and Insert link) before the field hears them, and stops the
+			// event. A chord pressed in a field that takes no formatting (an id, the Markdown) is not taken, and goes on as it did
+			for (const [mods, key] of [[["Mod"], "b"], [["Mod"], "i"], [["Mod"], "k"], [["Mod", "Shift"], "8"], [["Mod", "Shift"], "*"]] as const)
+				scope.register([...mods], key, (evt) => (this.editor?.formatKey(evt) ? false : undefined));
 			this.saveScope = scope;
 		}
 		this.app.keymap.pushScope(this.saveScope);
@@ -1495,6 +1508,20 @@ export class DesignView extends LockedTextView {
 			return "refused";
 		}
 		const op = changeLines(this.text, node, lines);
+		return this.runChange(op, { how: "change", name: this.titled(node), node, select: "lines", inBox: true });
+	}
+
+	/**
+	 * The note is now this text: one change from the open block that touches another place of the note as well (a picture's definition, a
+	 * citation's note), asked about and written like any other; the box stays open on the block, which starts on the same line. Runs in the lane.
+	 */
+	private async changeNoteText(text: string): Promise<Outcome> {
+		const node = this.openNode();
+		if (!node) {
+			this.say(ui("editor.moved"));
+			return "refused";
+		}
+		const op = changeText(this.text, text, node.start);
 		return this.runChange(op, { how: "change", name: this.titled(node), node, select: "lines", inBox: true });
 	}
 

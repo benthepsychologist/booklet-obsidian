@@ -32,6 +32,8 @@ export interface QuestionHost {
 	md(markdown: string, el: HTMLElement): void;
 	/** Block Markdown from the file (a question's help): media in it is drawn as a slot with a Play button, where `md` leaves only its alt text. */
 	mdBlock(markdown: string, el: HTMLElement): void;
+	/** A `listen`'s media line, when a host draws it some other way than `mdBlock` (the Design view's canvas says its name and loads nothing). The reader's view leaves it out. */
+	media?(markdown: string, el: HTMLElement): void;
 	/** The answer the question shows now. */
 	answerOf(t: Target, q: Question): unknown;
 	/**
